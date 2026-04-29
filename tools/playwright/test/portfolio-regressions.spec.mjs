@@ -1192,6 +1192,34 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toContainText("Allocation");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-panel']"))
     .toContainText("Efficient Frontier");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-x-axis-label']"))
+    .toHaveText("Volatility (Annualized)");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-y-axis-label']"))
+    .toHaveText("Expected Return (Annualized)");
+  await expect.poll(async () => page.locator("[data-role^='portfolio-optimizer-frontier-x-tick-']").count())
+    .toBeGreaterThanOrEqual(5);
+  await expect.poll(async () => page.locator("[data-role^='portfolio-optimizer-frontier-y-tick-']").count())
+    .toBeGreaterThanOrEqual(5);
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-x-axis-ticks']"))
+    .toContainText("0%");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-y-axis-ticks']"))
+    .toContainText("0%");
+  expect(await page.locator("[data-role='portfolio-optimizer-frontier-svg']").evaluate((svg) => {
+    const xAxis = svg.querySelector("[data-role='portfolio-optimizer-frontier-x-axis-label']");
+    const yAxis = svg.querySelector("[data-role='portfolio-optimizer-frontier-y-axis-label']");
+    const svgRect = svg.getBoundingClientRect();
+    const xAxisRect = xAxis.getBoundingClientRect();
+    const yAxisRect = yAxis.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+    const scaleX = svgRect.width / viewBox.width;
+    const scaleY = svgRect.height / viewBox.height;
+    const xCenter = svgRect.left + Number(xAxis.getAttribute("x")) * scaleX;
+    const yCenter = svgRect.top + Number(yAxis.getAttribute("y")) * scaleY;
+    return xAxis.getAttribute("text-anchor") === "middle"
+      && yAxis.getAttribute("text-anchor") === "middle"
+      && Math.abs((xAxisRect.left + xAxisRect.width / 2) - xCenter) <= 2
+      && Math.abs((yAxisRect.top + yAxisRect.height / 2) - yCenter) <= 3;
+  })).toBe(true);
   const frontierPath = page.locator("[data-role='portfolio-optimizer-frontier-path']");
   await expect(frontierPath).toBeVisible();
   await expect.poll(async () => await frontierPath.getAttribute("d"))

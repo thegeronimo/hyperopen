@@ -196,6 +196,14 @@
                                           "portfolio-optimizer-frontier-callout-contribution-perp:BTC")
         contribution-symbol (node-by-role contribution-view-node
                                           "portfolio-optimizer-frontier-overlay-symbol-contribution-perp:BTC")
+        x-axis-label (node-by-role view-node
+                                   "portfolio-optimizer-frontier-x-axis-label")
+        y-axis-label (node-by-role view-node
+                                   "portfolio-optimizer-frontier-y-axis-label")
+        x-axis-ticks (node-by-role view-node
+                                   "portfolio-optimizer-frontier-x-axis-ticks")
+        y-axis-ticks (node-by-role view-node
+                                   "portfolio-optimizer-frontier-y-axis-ticks")
         frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
                                 [:actions/set-portfolio-optimizer-objective-parameter
                                  :target-volatility
@@ -214,6 +222,18 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-panel")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-svg")))
     (is (some? (node-by-role view-node "portfolio-optimizer-frontier-path")))
+    (is (= "Volatility (Annualized)" (first (collect-strings x-axis-label))))
+    (is (= "Expected Return (Annualized)" (first (collect-strings y-axis-label))))
+    (is (= "middle" (node-attr x-axis-label :text-anchor)))
+    (is (= "middle" (node-attr y-axis-label :text-anchor)))
+    (is (= "middle" (node-attr x-axis-label :dominant-baseline)))
+    (is (= "middle" (node-attr y-axis-label :dominant-baseline)))
+    (is (nil? (node-attr x-axis-label :textAnchor)))
+    (is (nil? (node-attr y-axis-label :textAnchor)))
+    (is (<= 5 (count (collect-nodes x-axis-ticks #(= :text (first %))))))
+    (is (<= 5 (count (collect-nodes y-axis-ticks #(= :text (first %))))))
+    (is (contains? (set (collect-strings x-axis-ticks)) "0%"))
+    (is (contains? (set (collect-strings y-axis-ticks)) "0%"))
     (is (= (node-attr standalone-path :d)
            (node-attr contribution-path :d))
         "Overlay mode should not move the efficient frontier.")

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.frontier-chart
   (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.frontier-chart-axes :as chart-axes]
             [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers :as frontier-overlays]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
@@ -25,13 +26,27 @@
 
 (def ^:private chart-width 680)
 (def ^:private chart-height 380)
-(def ^:private chart-pad 42)
+(def ^:private chart-plot-left 64)
+(def ^:private chart-plot-right 42)
+(def ^:private chart-plot-top 34)
+(def ^:private chart-plot-bottom 58)
+(def ^:private chart-tick-count 6)
 (def ^:private chart-grid-stroke "#1d2025")
 (def ^:private chart-axis-stroke "#292d33")
 (def ^:private current-halo-stroke "rgba(107, 141, 181, 0.45)")
 (def ^:private target-halo-stroke "rgba(212, 181, 88, 0.45)")
 (def ^:private chart-bounds {:width chart-width
                              :height chart-height})
+(def ^:private plot-right (- chart-width chart-plot-right))
+(def ^:private plot-bottom (- chart-height chart-plot-bottom))
+(def ^:private plot-width (- plot-right chart-plot-left))
+(def ^:private plot-height (- plot-bottom chart-plot-top))
+(def ^:private plot-center-x (+ chart-plot-left (/ plot-width 2)))
+(def ^:private plot-center-y (+ chart-plot-top (/ plot-height 2)))
+(def ^:private plot-geometry {:left chart-plot-left
+                              :right plot-right
+                              :top chart-plot-top
+                              :bottom plot-bottom})
 
 (defn- numeric-values
   [points key]
@@ -41,15 +56,23 @@
         points))
 
 (defn- domain
-  [values fallback-min fallback-max]
-  (let [values* (seq values)
-        min* (if values* (apply min values*) fallback-min)
-        max* (if values* (apply max values*) fallback-max)]
-    (if (= min* max*)
-      [(- min* 0.01) (+ max* 0.01)]
-      (let [span (- max* min*)]
-        [(- min* (* span 0.08))
-         (+ max* (* span 0.08))]))))
+  ([values fallback-min fallback-max]
+   (domain values fallback-min fallback-max nil))
+  ([values fallback-min fallback-max {:keys [floor-zero? include-zero?]}]
+   (let [values* (seq values)
+         min* (if values* (apply min values*) fallback-min)
+         max* (if values* (apply max values*) fallback-max)]
+     (if (= min* max*)
+       [(if floor-zero? 0 (- min* 0.01)) (+ max* 0.01)]
+       (let [span (- max* min*)
+             lower (- min* (* span 0.08))
+             upper (+ max* (* span 0.08))
+             lower* (cond
+                      floor-zero? 0
+                      (and include-zero? (pos? lower)) 0
+                      :else lower)
+             upper* (if (and include-zero? (neg? upper)) 0 upper)]
+         [lower* upper*])))))
 
 (defn- scale-value
   [domain-min domain-max range-min range-max value]
@@ -65,13 +88,13 @@
   [x-domain y-domain point]
   {:x (scale-value (first x-domain)
                    (second x-domain)
-                   chart-pad
-                   (- chart-width chart-pad)
+                   chart-plot-left
+                   plot-right
                    (:volatility point))
    :y (scale-value (first y-domain)
                    (second y-domain)
-                   (- chart-height chart-pad)
-                   chart-pad
+                   plot-bottom
+                   chart-plot-top
                    (:expected-return point))})
 
 (defn- path-data
@@ -88,23 +111,21 @@
                positions))))
 
 (defn- grid-line
-  [orientation idx ratio]
-  (let [x (+ chart-pad (* ratio (- chart-width (* 2 chart-pad))))
-        y (+ chart-pad (* ratio (- chart-height (* 2 chart-pad))))]
-    (case orientation
-      :vertical
-      [:line {:key (str "v-" idx)
-              :x1 x
-              :x2 x
-              :y1 chart-pad
-              :y2 (- chart-height chart-pad)
-              :stroke chart-grid-stroke}]
-      [:line {:key (str "h-" idx)
-              :x1 chart-pad
-              :x2 (- chart-width chart-pad)
-              :y1 y
-              :y2 y
-              :stroke chart-grid-stroke}])))
+  [orientation idx position]
+  (case orientation
+    :vertical
+    [:line {:key (str "v-" idx)
+            :x1 position
+            :x2 position
+            :y1 chart-plot-top
+            :y2 plot-bottom
+            :stroke chart-grid-stroke}]
+    [:line {:key (str "h-" idx)
+            :x1 chart-plot-left
+            :x2 plot-right
+            :y1 position
+            :y2 position
+            :stroke chart-grid-stroke}]))
 
 (defn- frontier-point
   [draft idx point x-domain y-domain]
@@ -298,7 +319,8 @@
                                  (when (opt-format/finite-number? (:current-volatility result))
                                    [(:current-volatility result)]))
                          0
-                         1)
+                         1
+                         {:floor-zero? true})
         y-domain (domain (concat (numeric-values points :expected-return)
                                  (numeric-values domain-overlay-points :expected-return)
                                  (when (opt-format/finite-number? (:expected-return result))
@@ -306,8 +328,13 @@
                                  (when (opt-format/finite-number? (:current-expected-return result))
                                    [(:current-expected-return result)]))
                          0
-                         1)
-        positions (map #(point-position x-domain y-domain %) points)
+                         1
+                         {:include-zero? true})
+        x-ticks (chart-axes/axis-ticks x-domain chart-tick-count)
+        y-ticks (chart-axes/axis-ticks y-domain chart-tick-count)
+        x-domain* (chart-axes/tick-domain x-ticks x-domain)
+        y-domain* (chart-axes/tick-domain y-ticks y-domain)
+        positions (map #(point-position x-domain* y-domain* %) points)
         target (objective-target draft (first points))]
      (when (seq points)
        [:section {:class ["min-w-0" "overflow-hidden" "bg-transparent" "leading-4"]
@@ -348,20 +375,62 @@
              legend-label])]
          [:svg {:viewBox (str "0 0 " chart-width " " chart-height)
                 :class ["h-[23.75rem]" "w-full" "overflow-visible" "text-trading-text"]
-                :data-role "portfolio-optimizer-frontier-svg"}
+                :data-role "portfolio-optimizer-frontier-svg"
+                :aria-label "Efficient frontier chart. X axis is annualized volatility. Y axis is annualized expected return."}
           [:g {:data-role "portfolio-optimizer-frontier-grid"}
-           (map-indexed (partial grid-line :vertical) [0 0.25 0.5 0.75 1])
-           (map-indexed (partial grid-line :horizontal) [0 0.25 0.5 0.75 1])]
-          [:line {:x1 chart-pad
-                  :x2 (- chart-width chart-pad)
-                  :y1 (- chart-height chart-pad)
-                  :y2 (- chart-height chart-pad)
+           (map-indexed (fn [idx value]
+                          (grid-line :vertical idx (chart-axes/x-tick-position plot-geometry x-domain* value)))
+                        x-ticks)
+           (map-indexed (fn [idx value]
+                          (grid-line :horizontal idx (chart-axes/y-tick-position plot-geometry y-domain* value)))
+                        y-ticks)]
+          [:line {:x1 chart-plot-left
+                  :x2 plot-right
+                  :y1 plot-bottom
+                  :y2 plot-bottom
                   :stroke chart-axis-stroke}]
-          [:line {:x1 chart-pad
-                  :x2 chart-pad
-                  :y1 chart-pad
-                  :y2 (- chart-height chart-pad)
+          [:line {:x1 chart-plot-left
+                  :x2 chart-plot-left
+                  :y1 chart-plot-top
+                  :y2 plot-bottom
                   :stroke chart-axis-stroke}]
+          [:g {:data-role "portfolio-optimizer-frontier-x-axis-ticks"}
+           (map-indexed (fn [idx value]
+                          (chart-axes/tick-label
+                           plot-geometry
+                           :x
+                           idx
+                           (chart-axes/x-tick-position plot-geometry x-domain* value)
+                           value))
+                        x-ticks)]
+          [:g {:data-role "portfolio-optimizer-frontier-y-axis-ticks"}
+           (map-indexed (fn [idx value]
+                          (chart-axes/tick-label
+                           plot-geometry
+                           :y
+                           idx
+                           (chart-axes/y-tick-position plot-geometry y-domain* value)
+                           value))
+                        y-ticks)]
+          [:text {:x plot-center-x
+                  :y (- chart-height 10)
+                  :fill "currentColor"
+                  :fontSize 11
+                  :opacity 0.78
+                  :text-anchor "middle"
+                  :dominant-baseline "middle"
+                  :data-role "portfolio-optimizer-frontier-x-axis-label"}
+           "Volatility (Annualized)"]
+          [:text {:x 14
+                  :y plot-center-y
+                  :fill "currentColor"
+                  :fontSize 11
+                  :opacity 0.78
+                  :text-anchor "middle"
+                  :dominant-baseline "middle"
+                  :transform (str "rotate(-90 14 " plot-center-y ")")
+                  :data-role "portfolio-optimizer-frontier-y-axis-label"}
+           "Expected Return (Annualized)"]
           [:path {:d (path-data positions)
                   :fill "none"
                   :stroke "currentColor"
@@ -371,43 +440,25 @@
                   :class ["text-primary"]
                   :data-role "portfolio-optimizer-frontier-path"}]
           (map-indexed (fn [idx point]
-                         (frontier-point draft idx point x-domain y-domain))
+                         (frontier-point draft idx point x-domain* y-domain*))
                        points)
-          (current-marker result x-domain y-domain)
-          (target-marker result x-domain y-domain)
+          (current-marker result x-domain* y-domain*)
+          (target-marker result x-domain* y-domain*)
           (map #(frontier-overlays/marker
                  {:bounds chart-bounds
                   :overlay-mode overlay-mode*
                   :point-position point-position
-                  :x-domain x-domain
-                  :y-domain y-domain
+                  :x-domain x-domain*
+                  :y-domain y-domain*
                   :point %})
                overlay-points)
-          [:text {:x chart-pad
-                  :y (- chart-height 8)
+          [:text {:x plot-right
+                  :y (- chart-plot-top 12)
                   :fill "currentColor"
-                  :fontSize 11
-                  :opacity 0.65}
-           (str x-axis-prefix " " (opt-format/format-pct (first x-domain)))]
-          [:text {:x (- chart-width chart-pad)
-                  :y (- chart-height 8)
-                  :fill "currentColor"
-                  :fontSize 11
-                  :opacity 0.65
-                  :textAnchor "end"}
-           (str x-axis-prefix " " (opt-format/format-pct (second x-domain)))]
-          [:text {:x 10
-                  :y chart-pad
-                  :fill "currentColor"
-                  :fontSize 11
-                  :opacity 0.65}
-           (str y-axis-prefix " " (opt-format/format-pct (second y-domain)))]
-          [:text {:x 10
-                  :y (- chart-height chart-pad)
-                  :fill "currentColor"
-                  :fontSize 11
-                  :opacity 0.65}
-           (str y-axis-prefix " " (opt-format/format-pct (first y-domain)))]]]
+                  :fontSize 10
+                  :opacity 0.58
+                  :text-anchor "end"}
+           (str x-axis-prefix " / " y-axis-prefix)]]]
         [:div {:class ["mt-4" "flex" "gap-3" "text-[0.7rem]" "text-trading-muted"]}
          [:span {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
           "Reading this"]
