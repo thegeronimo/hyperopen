@@ -190,8 +190,12 @@
                                       "portfolio-optimizer-frontier-callout-frontier-1")
         standalone-callout (node-by-role view-node
                                         "portfolio-optimizer-frontier-callout-standalone-perp:BTC")
+        standalone-symbol (node-by-role view-node
+                                        "portfolio-optimizer-frontier-overlay-symbol-standalone-perp:BTC")
         contribution-callout (node-by-role contribution-view-node
                                           "portfolio-optimizer-frontier-callout-contribution-perp:BTC")
+        contribution-symbol (node-by-role contribution-view-node
+                                          "portfolio-optimizer-frontier-overlay-symbol-contribution-perp:BTC")
         frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
                                 [:actions/set-portfolio-optimizer-objective-parameter
                                  :target-volatility
@@ -222,6 +226,25 @@
     (is (some? frontier-callout))
     (is (some? standalone-callout))
     (is (some? contribution-callout))
+    (is (= "portfolio-frontier-asset-icon-marker"
+           (node-attr standalone-symbol :class)))
+    (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
+           (node-attr (first (collect-nodes standalone-symbol #(= :image (first %)))) :href)))
+    (is (= "portfolio-frontier-asset-icon-marker"
+           (node-attr contribution-symbol :class)))
+    (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
+           (node-attr (first (collect-nodes contribution-symbol #(= :image (first %)))) :href)))
+    (is (nil? (first (collect-nodes
+                      (node-by-role view-node
+                                    "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")
+                      #(and (= :rect (first %))
+                            (some? (node-attr % :transform))))))
+        "Standalone asset markers should use symbol text instead of diamond rects.")
+    (is (nil? (first (collect-nodes
+                      (node-by-role contribution-view-node
+                                    "portfolio-optimizer-frontier-overlay-contribution-perp:BTC")
+                      #(= :path (first %)))))
+        "Contribution asset markers should use symbol text instead of triangle paths.")
     (is (empty? (collect-nodes view-node #(= :title (first %))))
         "SVG native title nodes should not create a second browser tooltip.")
     (is (= "none" (node-attr (first (collect-nodes standalone-callout #(= :rect (first %)))) :stroke)))

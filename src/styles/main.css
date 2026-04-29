@@ -366,6 +366,18 @@
     outline-offset: 3px;
   }
 
+  .portfolio-optimizer-v4 .portfolio-frontier-symbol-marker {
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: var(--optimizer-surface);
+    stroke-width: 3px;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-asset-icon-marker {
+    filter: drop-shadow(0 0 4px rgb(0 0 0 / 0.55));
+    pointer-events: none;
+  }
+
   .portfolio-optimizer-v4 .portfolio-frontier-focus-ring {
     display: none;
     fill: none;

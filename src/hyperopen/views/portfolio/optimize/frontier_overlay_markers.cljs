@@ -1,5 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.frontier-overlay-markers
-  (:require [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
+  (:require [clojure.string :as str]
+            [hyperopen.views.asset-icon :as asset-icon]
+            [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def modes [:standalone :contribution :none])
@@ -58,6 +60,44 @@
   [point]
   (or (:label point) (:instrument-id point)))
 
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- base-symbol
+  [value]
+  (some-> value
+          non-blank-text
+          (str/replace #"^.*:" "")
+          (str/split #"/|-" 2)
+          first
+          non-blank-text))
+
+(defn- point-market
+  [point]
+  (let [instrument-id (non-blank-text (:instrument-id point))
+        label (non-blank-text (:label point))
+        [kind raw-coin] (when instrument-id
+                          (str/split instrument-id #":" 2))
+        coin (or (non-blank-text raw-coin)
+                 label)
+        base (or (base-symbol coin)
+                 (base-symbol label))
+        market-type (case kind
+                      "spot" :spot
+                      "perp" :perp
+                      nil)]
+    {:key instrument-id
+     :coin coin
+     :symbol (or (when (= :spot market-type) coin)
+                 (when (and base (not= coin base))
+                   (str base "-USDC"))
+                 base)
+     :base base
+     :market-type market-type}))
+
 (defn- marker-shell-attrs
   ([data-role label rows]
    (marker-shell-attrs data-role label rows nil))
@@ -70,6 +110,41 @@
    :class ["portfolio-frontier-marker" "outline-none"]
    :aria-label (frontier-callout/aria-label label rows)
    :style (when color {:color color})}))
+
+(defn- symbol-marker
+  [data-role x y label color]
+  [:text {:x x
+          :y (+ y 3)
+          :fill color
+          :fontSize 9
+          :fontWeight 700
+          :text-anchor "middle"
+          :class "portfolio-frontier-symbol-marker"
+          :data-role data-role}
+   label])
+
+(defn- asset-marker
+  [data-role x y point color]
+  (let [label (overlay-label point)
+        icon-url (asset-icon/market-icon-url (point-market point))]
+    (if (seq icon-url)
+      [:g {:data-role data-role
+           :class "portfolio-frontier-asset-icon-marker"}
+       [:circle {:cx x
+                 :cy y
+                 :r 9
+                 :fill "var(--optimizer-surface)"
+                 :stroke color
+                 :strokeWidth 1
+                 :opacity 0.9}]
+       [:image {:x (- x 7)
+                :y (- y 7)
+                :width 14
+                :height 14
+                :href icon-url
+                :preserveAspectRatio "xMidYMid meet"
+                :aria-hidden true}]]
+      (symbol-marker data-role x y label color))))
 
 (defn- standalone-marker
   [{:keys [bounds point-position x-domain y-domain point]}]
@@ -85,21 +160,14 @@
          label
          rows
          standalone-color)
-     [:rect {:x (- x 5)
-             :y (- y 5)
-             :width 10
-             :height 10
-             :transform (str "rotate(45 " x " " y ")")
-             :fill "none"
-             :stroke standalone-color
-             :strokeWidth 2}]
+     (asset-marker
+      (str "portfolio-optimizer-frontier-overlay-symbol-standalone-"
+           (:instrument-id point))
+      x
+      y
+      point
+      standalone-color)
      (frontier-callout/focus-ring x y 15)
-     [:text {:x (+ x 9)
-             :y (- y 8)
-             :fill standalone-color
-             :fontSize 9
-             :fontWeight 700}
-      label]
      (frontier-callout/hitbox
       (str "portfolio-optimizer-frontier-overlay-standalone-"
            (:instrument-id point)
@@ -114,13 +182,6 @@
        :label label
        :point position
        :rows rows})]))
-
-(defn- triangle-path
-  [x y]
-  (str "M " x " " (- y 6)
-       " L " (+ x 6) " " (+ y 6)
-       " L " (- x 6) " " (+ y 6)
-       " Z"))
 
 (defn- contribution-marker
   [{:keys [bounds point-position x-domain y-domain point]}]
@@ -138,17 +199,14 @@
          label
          rows
          contribution-color)
-     [:path {:d (triangle-path x y)
-             :fill "none"
-             :stroke contribution-color
-             :strokeWidth 2}]
+     (asset-marker
+      (str "portfolio-optimizer-frontier-overlay-symbol-contribution-"
+           (:instrument-id point))
+      x
+      y
+      point
+      contribution-color)
      (frontier-callout/focus-ring x y 15)
-     [:text {:x (+ x 9)
-             :y (+ y 14)
-             :fill contribution-color
-             :fontSize 9
-             :fontWeight 700}
-      label]
      (frontier-callout/hitbox
       (str "portfolio-optimizer-frontier-overlay-contribution-"
            (:instrument-id point)

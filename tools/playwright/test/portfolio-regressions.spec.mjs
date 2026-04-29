@@ -1210,10 +1210,16 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(targetCallout).toContainText("Gross Exposure");
 
   const standaloneMarkerGroup = page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC']");
+  const standaloneMarkerSymbol = page.locator("[data-role='portfolio-optimizer-frontier-overlay-symbol-standalone-perp:BTC']");
   const standaloneMarker = page.locator("[data-role='portfolio-optimizer-frontier-overlay-standalone-perp:BTC-hitbox']");
   const standaloneCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-standalone-perp:BTC']");
   await expect(standaloneMarker)
     .toBeVisible();
+  await expect(standaloneMarkerSymbol.locator("image")).toHaveAttribute(
+    "href",
+    "https://app.hyperliquid.xyz/coins/BTC.svg"
+  );
+  await expect(standaloneMarkerGroup.locator("rect[transform*='rotate']")).toHaveCount(0);
   await standaloneMarker.hover();
   await expect(standaloneCallout).toHaveCSS("opacity", "1");
   await expect(standaloneCallout).toContainText("BTC");
@@ -1239,9 +1245,15 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toHaveAttribute("aria-pressed", "true");
   await expect(frontierPath).toHaveAttribute("d", standaloneFrontierPath);
   const contributionMarker = page.locator("[data-role='portfolio-optimizer-frontier-overlay-contribution-perp:BTC']");
+  const contributionMarkerSymbol = page.locator("[data-role='portfolio-optimizer-frontier-overlay-symbol-contribution-perp:BTC']");
   const contributionCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-contribution-perp:BTC']");
   await expect(contributionMarker)
     .toBeVisible();
+  await expect(contributionMarkerSymbol.locator("image")).toHaveAttribute(
+    "href",
+    "https://app.hyperliquid.xyz/coins/BTC.svg"
+  );
+  await expect(contributionMarker.locator("path")).toHaveCount(0);
   await contributionMarker.focus();
   await expect(contributionCallout).toHaveCSS("opacity", "1");
   await expect(contributionCallout).toContainText("Return Contribution");
