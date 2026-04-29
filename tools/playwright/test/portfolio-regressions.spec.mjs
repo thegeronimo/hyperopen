@@ -1345,6 +1345,14 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
     .not.toContainText("Where you are now");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
+    .toContainText("Target");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
+    .not.toContainText("Recommended target");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
+    .toContainText("Efficient frontier");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-legend']"))
+    .toContainText("Standalone assets");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-x-axis-label']"))
     .toHaveText("Volatility (Annualized)");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-y-axis-label']"))
@@ -1432,10 +1440,28 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
     .toHaveAttribute("aria-pressed", "true");
   const targetMarker = page.locator("[data-role='portfolio-optimizer-frontier-target-marker-hitbox']");
+  const targetCore = page.locator("[data-role='portfolio-optimizer-frontier-target-core']");
+  const targetHalo = page.locator("[data-role='portfolio-optimizer-frontier-target-halo']");
+  const targetRing = page.locator("[data-role='portfolio-optimizer-frontier-target-ring']");
+  const targetLabel = page.locator("[data-role='portfolio-optimizer-frontier-target-label']");
+  const targetLeaderLine = page.locator("[data-role='portfolio-optimizer-frontier-target-leader-line']");
   const targetCallout = page.locator("[data-role='portfolio-optimizer-frontier-callout-target']");
+  await expect(targetCore).toHaveAttribute("fill", "url(#portfolioOptimizerTargetOrbGradient)");
+  await expect(targetCore).toHaveAttribute("stroke", "rgba(246, 235, 255, 0.58)");
+  await expect(targetCore).toHaveAttribute("r", "8");
+  await expect(targetHalo).toHaveAttribute("fill", "url(#portfolioOptimizerTargetHaloGradient)");
+  await expect(targetHalo).toHaveAttribute("r", "17");
+  await expect(targetHalo).toHaveAttribute("opacity", "0.52");
+  await expect(targetRing).toHaveAttribute("stroke", "url(#portfolioOptimizerTargetRingGradient)");
+  await expect(targetRing).toHaveAttribute("strokeWidth", "1.15");
+  await expect(targetRing).toHaveAttribute("opacity", "0.74");
+  await expect(targetLabel).toBeVisible();
+  await expect(targetLeaderLine).toHaveAttribute("stroke-dasharray", "3 3");
   await targetMarker.hover();
   await expect(targetCallout).toHaveCSS("opacity", "1");
-  await expect(targetCallout).toContainText("Target Portfolio");
+  await expect(page.locator("[data-role='portfolio-optimizer-frontier-callout-target-border']"))
+    .toHaveAttribute("fill", "url(#portfolioOptimizerTargetTooltipBorderGradient)");
+  await expect(targetCallout).toContainText("Target");
   await expect(targetCallout).toContainText("Expected Return");
   await expect(targetCallout).toContainText("Volatility");
   await expect(targetCallout).toContainText("Sharpe");

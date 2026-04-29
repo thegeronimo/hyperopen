@@ -3,6 +3,7 @@
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def ^:private callout-width 188)
+(def ^:private target-callout-width 244)
 (def ^:private row-height 16)
 (def ^:private header-height 39)
 (def ^:private callout-margin 8)
@@ -140,32 +141,36 @@
         (min max*))))
 
 (defn- callout-height
-  [rows allocations]
-  (if-let [allocation-rows (seq (:rows allocations))]
-    (+ designer-metric-start
-       (* row-height (count rows))
-       designer-section-gap
-       designer-section-row-gap
-       (* row-height (count allocation-rows))
-       designer-footer-gap
-       designer-footer-height)
-    (+ header-height (* row-height (count rows)) 10)))
+  ([rows allocations]
+   (callout-height rows allocations header-height))
+  ([rows allocations header-height*]
+   (if-let [allocation-rows (seq (:rows allocations))]
+     (+ designer-metric-start
+        (* row-height (count rows))
+        designer-section-gap
+        designer-section-row-gap
+        (* row-height (count allocation-rows))
+        designer-footer-gap
+        designer-footer-height)
+     (+ header-height* (* row-height (count rows)) 10))))
 
 (defn- origin
-  [{:keys [width height]} {:keys [x y]} rows allocations]
-  (let [callout-height* (callout-height rows allocations)
-        right-x (+ x 14)
-        left-x (- x callout-width 14)
-        raw-x (if (> (+ right-x callout-width) (- width callout-margin))
-                left-x
-                right-x)
-        raw-y (- y 18)]
-    {:x (clamp callout-margin
-               (- width callout-width callout-margin)
-               raw-x)
-     :y (clamp callout-margin
-               (- height callout-height* callout-margin)
-               raw-y)}))
+  ([bounds point rows allocations]
+   (origin bounds point rows allocations callout-width header-height))
+  ([{:keys [width height]} {:keys [x y]} rows allocations width* header-height*]
+   (let [callout-height* (callout-height rows allocations header-height*)
+         right-x (+ x 14)
+         left-x (- x width* 14)
+         raw-x (if (> (+ right-x width*) (- width callout-margin))
+                 left-x
+                 right-x)
+         raw-y (- y 18)]
+     {:x (clamp callout-margin
+                (- width width* callout-margin)
+                raw-x)
+      :y (clamp callout-margin
+                (- height callout-height* callout-margin)
+                raw-y)})))
 
 (defn- metric-row
   [idx {:keys [label value]}]
@@ -257,51 +262,120 @@
               :fill "var(--optimizer-text-2)"
               :fontSize 10}
        "Sum"]
-      [:text {:x (- callout-width 10)
-              :y sum-y
-              :fill "var(--optimizer-text)"
-              :fontSize 10
-              :text-anchor "end"}
-       (:sum allocations)]])))
+	      [:text {:x (- callout-width 10)
+	              :y sum-y
+	              :fill "var(--optimizer-text)"
+	              :fontSize 10
+	              :text-anchor "end"}
+	       (:sum allocations)]])))
 
-(defn callout
-  [{:keys [bounds data-role label point rows allocations data-frontier-callout-id]}]
+(defn- row-nodes
+  [rows width* header-height*]
+  (map-indexed
+   (fn [idx {:keys [label value]}]
+     (let [row-y (+ header-height* (* row-height idx))]
+       [:g {:key (str "row-" idx)}
+        [:text {:x 10
+                :y row-y
+                :fill "var(--optimizer-text-2)"
+                :fontSize 10}
+         label]
+        [:text {:x (- width* 10)
+                :y row-y
+                :fill "var(--optimizer-text)"
+                :fontSize 10
+	                :fontWeight 700
+	                :text-anchor "end"}
+	         value]]))
+	   rows))
+
+(defn- target-callout
+  [{:keys [bounds data-role label point rows]}]
   (let [rows* (vec rows)
-        height* (callout-height rows* allocations)
-        designer? (seq (:rows allocations))
-        {:keys [x y]} (origin bounds point rows* allocations)]
+        width* target-callout-width
+        header-height* 43
+        height* (callout-height rows* nil header-height*)
+        {:keys [x y]} (origin bounds point rows* nil width* header-height*)]
     (into
-     [:g (cond-> {:class "portfolio-frontier-callout"
-                  :data-role data-role
-                  :aria-hidden "true"
-                  :transform (str "translate(" x " " y ")")}
-           data-frontier-callout-id
-           (assoc :data-frontier-callout-id data-frontier-callout-id))
+     [:g {:class "portfolio-frontier-callout"
+          :data-role data-role
+          :aria-hidden "true"
+          :pointer-events "none"
+          :transform (str "translate(" x " " y ")")}
       [:rect {:x 0
               :y 0
-              :width callout-width
+              :width width*
               :height height*
-              :rx (if designer? 0 2)
-              :fill (if designer?
-                      "rgba(10, 15, 19, 0.98)"
-                      "var(--optimizer-surface-2)")
-              :stroke (if designer? "var(--optimizer-accent)" "none")
-              :strokeWidth (if designer? 1 0)}]
-      (when-not designer?
-        [:text {:x 10
-                :y 18
-                :fill "var(--optimizer-accent)"
-                :fontSize 11
-                :fontWeight 700}
-         label])
-      (when-not designer?
-        [:line {:x1 10
-                :x2 (- callout-width 10)
-                :y1 27
-                :y2 27
-                :stroke "var(--optimizer-border)"
-                :strokeWidth 1
-                :opacity 0.8}])]
-     (if designer?
-       (designer-callout-content label rows* allocations)
-       (map-indexed metric-row rows*)))))
+              :rx 4
+              :fill "url(#portfolioOptimizerTargetTooltipBorderGradient)"
+              :data-role "portfolio-optimizer-frontier-callout-target-border"}]
+      [:rect {:x 1
+              :y 1
+              :width (- width* 2)
+              :height (- height* 2)
+              :rx 3
+              :fill "rgba(13, 17, 24, 0.96)"}]
+      [:circle {:cx 13
+                :cy 17
+                :r 4
+                :fill "url(#portfolioOptimizerTargetOrbGradient)"
+                :filter "url(#portfolioOptimizerTargetSoftGlow)"
+                :data-role "portfolio-optimizer-frontier-callout-target-dot"}]
+      [:text {:x 25
+              :y 18
+              :fill "#f5efff"
+              :fontSize 13
+              :fontWeight 650}
+       label]
+      [:line {:x1 10
+              :x2 (- width* 10)
+              :y1 30
+	              :y2 30
+	              :stroke "rgba(255, 255, 255, 0.08)"
+	              :strokeWidth 1}]]
+	     (row-nodes rows* width* header-height*))))
+
+(defn callout
+  [{:keys [bounds data-role label point rows allocations data-frontier-callout-id variant] :as opts}]
+  (let [rows* (vec rows)]
+    (if (= :target variant)
+      (target-callout opts)
+      (let [height* (callout-height rows* allocations)
+            designer? (seq (:rows allocations))
+            {:keys [x y]} (origin bounds point rows* allocations)]
+        (into
+         [:g (cond-> {:class "portfolio-frontier-callout"
+                      :data-role data-role
+                      :aria-hidden "true"
+                      :pointer-events "none"
+                      :transform (str "translate(" x " " y ")")}
+               data-frontier-callout-id
+               (assoc :data-frontier-callout-id data-frontier-callout-id))
+          [:rect {:x 0
+                  :y 0
+                  :width callout-width
+                  :height height*
+                  :rx (if designer? 0 2)
+                  :fill (if designer?
+                          "rgba(10, 15, 19, 0.98)"
+                          "var(--optimizer-surface-2)")
+                  :stroke (if designer? "var(--optimizer-accent)" "none")
+                  :strokeWidth (if designer? 1 0)}]
+          (when-not designer?
+            [:text {:x 10
+                    :y 18
+                    :fill "var(--optimizer-accent)"
+                    :fontSize 11
+                    :fontWeight 700}
+             label])
+          (when-not designer?
+            [:line {:x1 10
+                    :x2 (- callout-width 10)
+                    :y1 27
+                    :y2 27
+                    :stroke "var(--optimizer-border)"
+                    :strokeWidth 1
+                    :opacity 0.8}])]
+         (if designer?
+           (designer-callout-content label rows* allocations)
+           (map-indexed metric-row rows*)))))))

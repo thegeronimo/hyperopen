@@ -3,6 +3,7 @@
             [hyperopen.views.portfolio.optimize.frontier-chart-axes :as chart-axes]
             [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers :as frontier-overlays]
+            [hyperopen.views.portfolio.optimize.frontier-target :as frontier-target]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- objective-target
@@ -33,7 +34,7 @@
 (def ^:private chart-tick-count 6)
 (def ^:private chart-grid-stroke "#1d2025")
 (def ^:private chart-axis-stroke "#292d33")
-(def ^:private target-halo-stroke "rgba(212, 181, 88, 0.45)")
+(def ^:private frontier-color "#e2b84f")
 (def ^:private chart-bounds {:width chart-width
                              :height chart-height})
 (def ^:private plot-right (- chart-width chart-plot-right))
@@ -161,7 +162,8 @@
          :tabIndex 0
          :tabindex 0
          :focusable "true"
-         :class ["portfolio-frontier-marker" "cursor-pointer" "text-primary" "outline-none"]
+         :class ["portfolio-frontier-marker" "cursor-pointer" "outline-none"]
+         :style {:color frontier-color}
          :data-role (str "portfolio-optimizer-frontier-point-" idx)
          :data-frontier-drag-target "true"
          :data-return (opt-format/format-pct (:expected-return point))
@@ -176,7 +178,7 @@
      [:circle {:cx x
                :cy y
                :r 4
-               :fill "currentColor"}]
+               :fill frontier-color}]
      [:circle {:cx x
                :cy y
                :r 11
@@ -254,54 +256,6 @@
                            :event.target/checked]]}}]
    [:span "Constrain Frontier"]])
 
-(defn- target-marker
-  [result x-domain y-domain]
-  (let [point {:expected-return (:expected-return result)
-               :volatility (:volatility result)
-               :sharpe (get-in result [:performance :in-sample-sharpe])}
-        position (point-position x-domain y-domain point)
-        {:keys [x y]} position
-        label "Target Portfolio"
-        rows (frontier-callout/point-rows
-              point
-              {:exposure (frontier-callout/exposure-summary result :target)})]
-    [:g {:class ["portfolio-frontier-marker" "text-primary" "outline-none"]
-         :data-role "portfolio-optimizer-frontier-target-marker"
-         :role "img"
-         :tabIndex 0
-         :tabindex 0
-         :focusable "true"
-         :aria-label (frontier-callout/aria-label label rows)}
-     [:circle {:cx x
-               :cy y
-               :r 6
-               :fill "currentColor"
-               :stroke "currentColor"
-               :strokeWidth 2}]
-     [:circle {:cx x
-               :cy y
-               :r 12
-               :fill "transparent"
-               :stroke target-halo-stroke}]
-     (frontier-callout/focus-ring x y 16)
-     [:text {:x (+ x 10)
-             :y (- y 10)
-             :fill "currentColor"
-             :fontSize 10
-             :fontWeight 700}
-      "Target"]
-     (frontier-callout/hitbox
-      "portfolio-optimizer-frontier-target-marker-hitbox"
-      x
-      y
-      18)
-     (frontier-callout/callout
-      {:bounds chart-bounds
-       :data-role "portfolio-optimizer-frontier-callout-target"
-       :label label
-       :point position
-       :rows rows})]))
-
 (defn frontier-chart
   ([draft result]
    (frontier-chart draft result :standalone))
@@ -372,21 +326,28 @@
          [:div {:class ["absolute" "right-6" "top-6" "z-10" "border" "border-base-300" "bg-base-200/80" "px-3" "py-2" "text-[0.65rem]"]
                 :data-role "portfolio-optimizer-frontier-legend"}
           [:div {:class ["flex" "items-center" "gap-2" "text-trading-text"]}
-           [:span {:class ["h-2" "w-2" "rounded-full" "bg-primary"]}]
-           "Recommended target"]
+           (frontier-target/legend-dot)
+           "Target"]
+          [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-muted"]}
+           [:span {:class ["h-px" "w-5"]
+                   :style {:background-color frontier-color}}]
+           "Efficient frontier"]
           (when legend-label
             [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-muted"]}
-             [:span {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]"]}
-              (case overlay-mode*
-                :contribution "tri"
-                :standalone "dia"
-                "")]
+             [:span {:class ["flex" "items-center" "gap-0.5"]}
+              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
+                      :style {:border-color "#8f96a3"}}]
+              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
+                      :style {:border-color "#6f4aa5"}}]
+              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
+                      :style {:border-color "#59a5c8"}}]]
              legend-label])]
          [:svg {:viewBox (str "0 0 " chart-width " " chart-height)
                 :class ["h-[23.75rem]" "w-full" "overflow-visible" "text-trading-text"]
                 :data-role "portfolio-optimizer-frontier-svg"
                 :aria-label "Efficient frontier chart. X axis is annualized volatility. Y axis is annualized expected return."}
           (frontier-callout-style points)
+          (frontier-target/gradient-defs)
           [:g {:data-role "portfolio-optimizer-frontier-grid"}
            (map-indexed (fn [idx value]
                           (grid-line :vertical idx (chart-axes/x-tick-position plot-geometry x-domain* value)))
@@ -443,16 +404,20 @@
            "Expected Return (Annualized)"]
           [:path {:d (path-data positions)
                   :fill "none"
-                  :stroke "currentColor"
-                  :strokeWidth 2
+                  :stroke frontier-color
+                  :strokeWidth 2.5
                   :strokeLinecap "round"
                   :strokeLinejoin "round"
-                  :class ["text-primary"]
                   :data-role "portfolio-optimizer-frontier-path"}]
-          (target-marker result x-domain* y-domain*)
           (map-indexed (fn [idx point]
                          (frontier-point draft idx point x-domain* y-domain*))
                        points)
+          (frontier-target/marker
+           {:bounds chart-bounds
+            :point-position point-position
+            :x-domain x-domain*
+            :y-domain y-domain*
+            :result result})
           (map #(frontier-overlays/marker
                  {:bounds chart-bounds
                   :overlay-mode overlay-mode*

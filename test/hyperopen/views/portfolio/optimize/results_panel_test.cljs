@@ -197,6 +197,29 @@
                                      "portfolio-optimizer-frontier-current-marker")
         target-callout (node-by-role view-node
                                      "portfolio-optimizer-frontier-callout-target")
+        target-core (node-by-role view-node
+                                  "portfolio-optimizer-frontier-target-core")
+        target-halo (node-by-role view-node
+                                  "portfolio-optimizer-frontier-target-halo")
+        target-ring (node-by-role view-node
+                                  "portfolio-optimizer-frontier-target-ring")
+        target-highlight (node-by-role view-node
+                                       "portfolio-optimizer-frontier-target-highlight")
+        target-label (node-by-role view-node
+                                   "portfolio-optimizer-frontier-target-label")
+        target-leader-line (node-by-role view-node
+                                          "portfolio-optimizer-frontier-target-leader-line")
+        target-defs (node-by-role view-node
+                                  "portfolio-optimizer-frontier-target-defs")
+        target-orb-gradient (first (collect-nodes
+                                    target-defs
+                                    #(= "portfolioOptimizerTargetOrbGradient"
+                                        (node-attr % :id))))
+        target-orb-stops (vec (collect-nodes target-orb-gradient #(= :stop (first %))))
+        legend (node-by-role view-node
+                             "portfolio-optimizer-frontier-legend")
+        legend-target-dot (node-by-role view-node
+                                        "portfolio-optimizer-frontier-legend-target-dot")
         frontier-callout (node-by-role view-node
                                       "portfolio-optimizer-frontier-callout-frontier-1")
         standalone-callout (node-by-role view-node
@@ -266,8 +289,40 @@
         "Frontier point callouts must paint above overlay markers.")
     (is (= "frontier-1" (node-attr frontier-point :data-frontier-callout-trigger)))
     (is (= "frontier-1" (node-attr frontier-callout :data-frontier-callout-id)))
+    (is (some? target-defs))
+    (is (some? target-core))
+    (is (= "url(#portfolioOptimizerTargetOrbGradient)"
+           (node-attr target-core :fill)))
+    (is (= "rgba(246, 235, 255, 0.58)"
+           (node-attr target-core :stroke)))
+    (is (= 6 (count target-orb-stops)))
+    (is (= ["#ffffff" "#7cecff" "#5d7cff" "#8b5cff" "#b54cff" "#ff4fd8"]
+           (mapv #(node-attr % :stop-color) target-orb-stops)))
+    (is (empty? (filter #{"#fff4c6" "#ffb86b"}
+                        (map #(node-attr % :stop-color) target-orb-stops))))
+    (is (some? target-halo))
+    (is (= "url(#portfolioOptimizerTargetHaloGradient)"
+           (node-attr target-halo :fill)))
+    (is (= 17 (node-attr target-halo :r)))
+    (is (= 0.52 (node-attr target-halo :opacity)))
+    (is (some? target-ring))
+    (is (= "url(#portfolioOptimizerTargetRingGradient)"
+           (node-attr target-ring :stroke)))
+    (is (= 11.5 (node-attr target-ring :r)))
+    (is (= 1.15 (node-attr target-ring :strokeWidth)))
+    (is (= 0.74 (node-attr target-ring :opacity)))
+    (is (some? target-highlight))
+    (is (some? target-label))
+    (is (some? target-leader-line))
+    (is (= "3 3" (node-attr target-leader-line :stroke-dasharray)))
     (is (nil? current-marker))
     (is (some? target-callout))
+    (is (= "url(#portfolioOptimizerTargetTooltipBorderGradient)"
+           (node-attr (first (collect-nodes target-callout
+                                            #(and (= :rect (first %))
+                                                  (= "portfolio-optimizer-frontier-callout-target-border"
+                                                     (node-attr % :data-role)))))
+                      :fill)))
     (is (some? frontier-callout))
     (is (some? standalone-callout))
     (is (some? contribution-callout))
@@ -297,9 +352,11 @@
     (is (= "none" (node-attr (first (collect-nodes standalone-callout #(= :rect (first %)))) :stroke)))
     (is (some? (first (collect-nodes standalone-callout #(= :line (first %)))))
         "Callouts should visually separate the title from metric rows.")
+    (is (= "none" (node-attr standalone-callout :pointer-events))
+        "Callouts should not intercept marker hover targets.")
     (is (= "end" (node-attr (text-node standalone-callout "40.00%") :text-anchor)))
     (is (nil? (node-attr (text-node standalone-callout "40.00%") :textAnchor)))
-    (is (= #{"Target Portfolio"
+    (is (= #{"Target"
              "Expected Return"
              "Volatility"
              "Sharpe"
@@ -347,7 +404,13 @@
              "0.3"
              "35.00%"}
            (set (collect-strings contribution-callout))))
-    (is (some? (node-by-role view-node "portfolio-optimizer-frontier-legend")))
+    (is (some? legend))
+    (is (= "radial-gradient(circle at 35% 30%, #ffffff 0%, #7cecff 14%, #5d7cff 38%, #8b5cff 66%, #ff4fd8 100%)"
+           (get-in legend-target-dot [1 :style :background])))
+    (is (= #{"Target"
+             "Efficient frontier"
+             "Standalone assets"}
+           (set (collect-strings legend))))
     (is (some? standalone-toggle))
     (is (= "true" (get-in standalone-toggle [1 :aria-pressed])))
     (is (= [[:actions/set-portfolio-optimizer-frontier-overlay-mode :contribution]]
@@ -387,7 +450,8 @@
     (is (contains? strings "How much to trust this"))
     (is (contains? strings "Weight Stability"))
     (is (contains? strings "Effective N · 2 of 2"))
-    (is (contains? strings "Recommended target"))
+    (is (contains? strings "Target"))
+    (is (not (contains? strings "Recommended target")))
     (is (contains? strings "Standalone"))
     (is (contains? strings "Contribution"))
     (is (contains? strings "watch"))
