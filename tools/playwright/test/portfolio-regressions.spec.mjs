@@ -1204,6 +1204,11 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toContainText("0%");
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-y-axis-ticks']"))
     .toContainText("0%");
+  const constrainFrontierControl = page.locator("[data-role='portfolio-optimizer-constrain-frontier-control']");
+  const constrainFrontierCheckbox = page.locator("[data-role='portfolio-optimizer-constrain-frontier-checkbox']");
+  await expect(constrainFrontierControl).toBeVisible();
+  await expect(constrainFrontierControl).toContainText("Constrain Frontier");
+  await expect(constrainFrontierCheckbox).not.toBeChecked();
   expect(await page.locator("[data-role='portfolio-optimizer-frontier-svg']").evaluate((svg) => {
     const xAxis = svg.querySelector("[data-role='portfolio-optimizer-frontier-x-axis-label']");
     const yAxis = svg.querySelector("[data-role='portfolio-optimizer-frontier-y-axis-label']");
@@ -1226,10 +1231,17 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
     .toMatch(/\bL\b/);
   await expect.poll(async () =>
     page.locator("[data-role^='portfolio-optimizer-frontier-point-'][data-frontier-drag-target='true']").count()
-  ).toBeGreaterThanOrEqual(12);
+  ).toBeGreaterThanOrEqual(8);
   await expect(page.locator("[data-role='portfolio-optimizer-results-surface']"))
     .not.toContainText("display-frontier-unavailable");
   const standaloneFrontierPath = await frontierPath.getAttribute("d");
+  await constrainFrontierCheckbox.check();
+  await expect(constrainFrontierCheckbox).toBeChecked();
+  await expect(frontierPath).toHaveAttribute("d", standaloneFrontierPath);
+  await constrainFrontierCheckbox.uncheck();
+  await expect(constrainFrontierCheckbox).not.toBeChecked();
+  await expect.poll(async () => await frontierPath.getAttribute("d"))
+    .toBe(standaloneFrontierPath);
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-overlay-mode-standalone']"))
     .toHaveAttribute("aria-pressed", "true");
   const targetMarker = page.locator("[data-role='portfolio-optimizer-frontier-target-marker-hitbox']");

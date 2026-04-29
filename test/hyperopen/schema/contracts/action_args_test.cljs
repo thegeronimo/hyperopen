@@ -212,6 +212,11 @@
           :actions/set-portfolio-optimizer-frontier-overlay-mode
           ["none"]
           {:phase :test})))
+  (is (= [true]
+         (contracts/assert-action-args!
+          :actions/set-portfolio-optimizer-constrain-frontier
+          [true]
+          {:phase :test})))
   (is (= []
          (contracts/assert-action-args!
           :actions/set-portfolio-optimizer-universe-from-current

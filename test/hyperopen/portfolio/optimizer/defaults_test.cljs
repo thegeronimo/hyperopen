@@ -78,5 +78,6 @@
           :workspace-panel :setup
           :results-tab :recommendation
           :diagnostics-tab :conditioning
-          :frontier-overlay-mode :standalone}
+          :frontier-overlay-mode :standalone
+          :constrain-frontier? false}
          (defaults/default-optimizer-ui-state))))

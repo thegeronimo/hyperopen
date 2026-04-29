@@ -58,6 +58,8 @@
                          action-adapters/handle-portfolio-optimizer-universe-search-keydown-action
                          :set-portfolio-optimizer-frontier-overlay-mode
                          action-adapters/set-portfolio-optimizer-frontier-overlay-mode-action
+                         :set-portfolio-optimizer-constrain-frontier
+                         action-adapters/set-portfolio-optimizer-constrain-frontier-action
                          :set-portfolio-optimizer-results-tab
                          action-adapters/set-portfolio-optimizer-results-tab-action
                          :add-portfolio-optimizer-universe-instrument

@@ -31,3 +31,9 @@
   [[:effects/save
     [:portfolio-ui :optimizer :frontier-overlay-mode]
     (normalize-frontier-overlay-mode mode)]])
+
+(defn set-portfolio-optimizer-constrain-frontier
+  [_state constrained?]
+  [[:effects/save
+    [:portfolio-ui :optimizer :constrain-frontier?]
+    (true? constrained?)]])

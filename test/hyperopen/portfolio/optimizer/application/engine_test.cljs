@@ -154,25 +154,61 @@
                 {:solve-problem (fn [problem]
                                   (let [idx (count @calls)]
                                     (swap! calls conj problem)
-                                    {:status :solved
-                                     :solver :fixture-solver
-                                     :weights (case idx
+                                     {:status :solved
+                                      :solver :fixture-solver
+                                      :weights (case idx
                                                 0 [0.5 0.5]
                                                 1 [0.8 0.2]
-                                                2 [0.5 0.5])}))})]
+                                                2 [0.5 0.5]
+                                                3 [0.8 0.2]
+                                                4 [0.5 0.5]
+                                                [0.5 0.5])}))})]
     (is (= :solved (:status result)))
     (is (= :single-qp (get-in result [:solver :strategy])))
     (is (= [0.5 0.5] (:target-weights result))
         "Minimum variance target weights must come from the target solve, not the display sweep.")
-    (is (= 3 (count @calls)))
+    (is (= 5 (count @calls)))
     (is (= :minimum-variance (:objective-kind (first @calls))))
-    (is (= [:return-tilted :return-tilted]
+    (is (= [:return-tilted :return-tilted :return-tilted :return-tilted]
            (mapv :objective-kind (rest @calls))))
     (is (= :display-sweep (get-in result [:frontier-summary :source])))
     (is (= 2 (get-in result [:frontier-summary :point-count])))
     (is (= 2 (count (:frontier result))))
     (is (seq (get-in result [:frontier-overlays :standalone])))
     (is (seq (get-in result [:frontier-overlays :contribution])))))
+
+(deftest minimum-variance-emits-unconstrained-and-constrained-display-frontiers-test
+  (let [calls (atom [])
+        result (engine/run-optimization
+                (assoc base-request
+                       :objective {:kind :minimum-variance
+                                   :frontier-points 3}
+                       :constraints {:long-only? true
+                                     :max-asset-weight 0.5})
+                {:solve-problem (fn [problem]
+                                  (swap! calls conj problem)
+                                  {:status :solved
+                                   :solver :fixture-solver
+                                   :weights (cond
+                                              (= :minimum-variance
+                                                 (:objective-kind problem))
+                                              [0.5 0.5]
+
+                                              (= [1 1] (:upper-bounds problem))
+                                              [0 1]
+
+                                              :else
+                                              [0.5 0.5])})})]
+    (is (= :solved (:status result)))
+    (is (= :unconstrained (get-in result [:frontier-summary :constraint-mode])))
+    (is (= (:frontier result) (get-in result [:frontiers :unconstrained])))
+    (is (seq (get-in result [:frontiers :constrained])))
+    (is (= :constrained
+           (get-in result [:frontier-summaries :constrained :constraint-mode])))
+    (is (some #(= [1 1] (:upper-bounds %)) @calls)
+        "The default display frontier should remove per-asset caps.")
+    (is (some #(= [0.5 0.5] (:upper-bounds %)) @calls)
+        "The constrained display frontier should retain scenario caps.")))
 
 (deftest minimum-variance-keeps-target-result-when-display-frontier-fails-test
   (let [calls (atom [])
@@ -190,7 +226,7 @@
                                      :reason :fixture-display-frontier-failure}))})]
     (is (= :solved (:status result)))
     (is (= [0.5 0.5] (:target-weights result)))
-    (is (= 3 (count @calls)))
+    (is (= 5 (count @calls)))
     (is (= :target-solve (get-in result [:frontier-summary :source])))
     (is (= 1 (get-in result [:frontier-summary :point-count])))
     (is (= 1 (count (:frontier result))))

@@ -197,6 +197,28 @@
        :contribution "Contribution"
        :none "None")]))
 
+(defn- frontier-points
+  [result constrain-frontier?]
+  (or (get-in result [:frontiers (if (true? constrain-frontier?)
+                                   :constrained
+                                   :unconstrained)])
+      (:frontier result)))
+
+(defn- constrain-frontier-control
+  [constrain-frontier?]
+  [:label {:class ["flex" "items-center" "gap-2" "border" "border-base-300"
+                   "bg-base-100/90" "px-2.5" "py-1.5" "text-[0.68rem]"
+                   "font-medium" "text-trading-muted" "transition-colors"
+                   "hover:text-trading-text"]
+           :data-role "portfolio-optimizer-constrain-frontier-control"}
+   [:input {:type "checkbox"
+            :class ["h-3.5" "w-3.5" "accent-warning" "outline-none"]
+            :data-role "portfolio-optimizer-constrain-frontier-checkbox"
+            :checked (true? constrain-frontier?)
+            :on {:change [[:actions/set-portfolio-optimizer-constrain-frontier
+                           :event.target/checked]]}}]
+   [:span "Constrain Frontier"]])
+
 (defn- target-marker
   [result x-domain y-domain]
   (let [point {:expected-return (:expected-return result)
@@ -299,6 +321,8 @@
   ([draft result]
    (frontier-chart draft result :standalone))
   ([draft result overlay-mode]
+   (frontier-chart draft result overlay-mode false))
+  ([draft result overlay-mode constrain-frontier?]
    (let [overlay-mode* (frontier-overlays/normalize-mode overlay-mode)
          overlay-points (frontier-overlays/visible-points result overlay-mode*)
          domain-overlay-points (frontier-overlays/all-points result)
@@ -307,7 +331,7 @@
                  y-axis-prefix
                  reading-text
                  legend-label]} (frontier-overlays/copy overlay-mode*)
-         points (->> (:frontier result)
+         points (->> (frontier-points result constrain-frontier?)
                      (filter #(and (opt-format/finite-number? (:volatility %))
                                    (opt-format/finite-number? (:expected-return %))))
                      (sort-by :volatility)
@@ -350,6 +374,7 @@
           [:p {:class ["mt-1" "text-xs" "text-trading-muted"]}
            subtitle]]
          [:div {:class ["flex" "items-start" "gap-3"]}
+          (constrain-frontier-control constrain-frontier?)
           [:div {:class ["overflow-hidden" "border" "border-base-300" "bg-base-100/90"]}
            (into [:div {:class ["flex" "items-stretch"]}]
                  (map #(overlay-mode-button overlay-mode* %) frontier-overlays/modes))]

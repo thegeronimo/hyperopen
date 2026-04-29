@@ -205,7 +205,8 @@
           (.then (fn [runs]
                    (doseq [{:keys [size elapsed-ms result]} runs]
                      (is (= :solved (:status result))
-                         (str "expected solved optimizer result for " size " instruments"))
+                         (str "expected solved optimizer result for " size " instruments: "
+                              (pr-str (select-keys result [:status :reason :details :solver]))))
                      (is (= size (count (:target-weights result)))
                          (str "expected target weights for every instrument in " size " universe"))
                      (is (< elapsed-ms (get budgets-by-size size))

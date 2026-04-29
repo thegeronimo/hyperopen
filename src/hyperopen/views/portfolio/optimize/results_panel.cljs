@@ -384,7 +384,8 @@
    (results-panel last-successful-run nil))
   ([last-successful-run draft]
    (results-panel last-successful-run draft nil))
-  ([last-successful-run draft {:keys [stale? include-rebalance? frontier-overlay-mode]
+  ([last-successful-run draft {:keys [stale? include-rebalance? frontier-overlay-mode
+                                      constrain-frontier?]
                                :or {include-rebalance? true
                                     frontier-overlay-mode :standalone}}]
    (let [result (:result last-successful-run)]
@@ -396,10 +397,14 @@
                :data-role "portfolio-optimizer-results-grid"}
          [:div {:class ["min-h-0" "space-y-0"]
                 :data-role "portfolio-optimizer-results-left-panel"}
-          (target-exposure-table/target-exposure-table result)]
+         (target-exposure-table/target-exposure-table result)]
          [:div {:class ["min-h-0" "bg-base-100" "p-6"]
                 :data-role "portfolio-optimizer-results-center-panel"}
-          (frontier-chart/frontier-chart draft result frontier-overlay-mode)]
+          (frontier-chart/frontier-chart
+           draft
+           result
+           frontier-overlay-mode
+           constrain-frontier?)]
          [:div {:class ["min-h-0"]
                 :data-role "portfolio-optimizer-results-right-panel"}
           (trust-diagnostics-rail result)]]

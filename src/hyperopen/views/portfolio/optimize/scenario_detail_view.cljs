@@ -368,6 +368,7 @@
       (get-in state [:portfolio :optimizer :draft])
       {:stale? (scenario-stale? state)
        :frontier-overlay-mode (get-in state [:portfolio-ui :optimizer :frontier-overlay-mode])
+       :constrain-frontier? (get-in state [:portfolio-ui :optimizer :constrain-frontier?])
        :include-rebalance? false})
      (empty-tab "portfolio-optimizer-recommendation-empty"
                 "Recommendation"

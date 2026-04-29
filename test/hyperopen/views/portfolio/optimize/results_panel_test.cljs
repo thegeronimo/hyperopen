@@ -372,3 +372,53 @@
     (is (contains? strings "partially-blocked"))
     (is (contains? strings "spot-submit-unsupported"))
     (is (contains? strings "perp:BTC"))))
+
+(deftest results-panel-renders-constrain-frontier-checkbox-above-chart-test
+  (let [draft {:objective {:kind :minimum-variance}}
+        result (assoc solved-result
+                      :frontiers
+                      {:unconstrained [{:id 0
+                                        :expected-return 0.08
+                                        :volatility 0.16
+                                        :sharpe 0.5}
+                                       {:id 1
+                                        :expected-return 0.18
+                                        :volatility 0.42
+                                        :sharpe 0.43}
+                                       {:id 2
+                                        :expected-return 0.3
+                                        :volatility 0.8
+                                        :sharpe 0.375}]
+                       :constrained (:frontier solved-result)}
+                      :frontier-summaries
+                      {:unconstrained {:source :display-sweep
+                                       :constraint-mode :unconstrained
+                                       :point-count 3}
+                       :constrained {:source :display-sweep
+                                     :constraint-mode :constrained
+                                     :point-count 2}})
+        default-view (results-panel/results-panel
+                      {:result result
+                       :computed-at-ms 2600}
+                      draft
+                      {:frontier-overlay-mode :standalone})
+        constrained-view (results-panel/results-panel
+                          {:result result
+                           :computed-at-ms 2600}
+                          draft
+                          {:frontier-overlay-mode :standalone
+                           :constrain-frontier? true})
+        checkbox (node-by-role default-view
+                               "portfolio-optimizer-constrain-frontier-checkbox")
+        constrained-checkbox (node-by-role
+                              constrained-view
+                              "portfolio-optimizer-constrain-frontier-checkbox")]
+    (is (some? checkbox))
+    (is (= false (node-attr checkbox :checked)))
+    (is (= true (node-attr constrained-checkbox :checked)))
+    (is (= [[:actions/set-portfolio-optimizer-constrain-frontier
+             :event.target/checked]]
+           (get-in checkbox [1 :on :change])))
+    (is (some #{"Constrain Frontier"} (collect-strings default-view)))
+    (is (some #{"3 points"} (collect-strings default-view)))
+    (is (some #{"2 points"} (collect-strings constrained-view)))))

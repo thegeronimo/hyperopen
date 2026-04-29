@@ -68,6 +68,7 @@
   (is (fn? action-adapters/set-portfolio-optimizer-universe-search-query-action))
   (is (fn? action-adapters/handle-portfolio-optimizer-universe-search-keydown-action))
   (is (fn? action-adapters/set-portfolio-optimizer-frontier-overlay-mode-action))
+  (is (fn? action-adapters/set-portfolio-optimizer-constrain-frontier-action))
   (is (fn? action-adapters/add-portfolio-optimizer-universe-instrument-action))
   (is (fn? action-adapters/remove-portfolio-optimizer-universe-instrument-action))
   (is (fn? action-adapters/set-portfolio-optimizer-universe-from-current-action))

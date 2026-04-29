@@ -48,6 +48,7 @@
     (is (nil? (get-in state [:portfolio-ui :volume-history-anchor])))
     (is (= :active (get-in state [:portfolio-ui :optimizer :list-filter])))
     (is (= :setup (get-in state [:portfolio-ui :optimizer :workspace-panel])))
+    (is (= false (get-in state [:portfolio-ui :optimizer :constrain-frontier?])))
     (is (= :idle (get-in state [:portfolio :optimizer :run-state :status])))
     (is (= :draft (get-in state [:portfolio :optimizer :draft :status])))
     (is (= :historical-mean

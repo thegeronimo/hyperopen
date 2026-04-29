@@ -193,6 +193,9 @@
 (def set-portfolio-optimizer-frontier-overlay-mode-action
   portfolio-optimizer-frontier-actions/set-portfolio-optimizer-frontier-overlay-mode)
 
+(def set-portfolio-optimizer-constrain-frontier-action
+  portfolio-optimizer-frontier-actions/set-portfolio-optimizer-constrain-frontier)
+
 (def add-portfolio-optimizer-universe-instrument-action
   portfolio-optimizer-actions/add-portfolio-optimizer-universe-instrument)
 

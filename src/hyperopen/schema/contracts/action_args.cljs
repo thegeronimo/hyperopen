@@ -227,6 +227,7 @@
    :actions/handle-portfolio-optimizer-universe-search-keydown
    ::portfolio-optimizer-universe-search-keydown-args
    :actions/set-portfolio-optimizer-frontier-overlay-mode ::common/keyword-or-string-args
+   :actions/set-portfolio-optimizer-constrain-frontier ::common/boolean-args
    :actions/set-portfolio-optimizer-results-tab ::common/tab-args
    :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
    :actions/remove-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
