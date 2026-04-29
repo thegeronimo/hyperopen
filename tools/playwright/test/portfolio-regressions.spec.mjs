@@ -1222,6 +1222,7 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(standaloneMarkerGroup.locator("rect[transform*='rotate']")).toHaveCount(0);
   await standaloneMarker.hover();
   await expect(standaloneCallout).toHaveCSS("opacity", "1");
+  await expect(standaloneMarkerGroup).toHaveCSS("outline-style", "none");
   await expect(standaloneCallout).toContainText("BTC");
   await expect(standaloneCallout).toContainText("Expected Return");
   await expect(standaloneCallout).toContainText("Target Weight");

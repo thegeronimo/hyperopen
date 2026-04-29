@@ -361,11 +361,6 @@
     outline: none;
   }
 
-  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus {
-    outline: 2px solid var(--optimizer-accent);
-    outline-offset: 3px;
-  }
-
   .portfolio-optimizer-v4 .portfolio-frontier-symbol-marker {
     paint-order: stroke;
     pointer-events: none;
