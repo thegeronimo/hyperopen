@@ -62,6 +62,17 @@
   [node attr]
   (get-in node [1 attr]))
 
+(defn- data-role-order
+  [node]
+  (keep #(get-in % [1 :data-role])
+        (collect-nodes node #(some? (get-in % [1 :data-role])))))
+
+(defn- index-of
+  [coll value]
+  (first (keep-indexed (fn [idx item]
+                         (when (= value item) idx))
+                       coll)))
+
 (defn- drag-start-actions
   [node]
   (get-in node [1 :on :drag-start]))
@@ -88,11 +99,13 @@
     :frontier [{:id 0
                 :expected-return 0.12
                 :volatility 0.24
-                :sharpe 0.5}
+                :sharpe 0.5
+                :weights [0.5 0.5]}
                {:id 1
                 :expected-return 0.18
                 :volatility 0.42
-                :sharpe 0.43}]
+                :sharpe 0.43
+                :weights [0.5 0.5]}]
     :frontier-summary {:source :display-sweep
                        :point-count 2}
     :frontier-overlays
@@ -202,6 +215,9 @@
                                    "portfolio-optimizer-frontier-x-axis-ticks")
         y-axis-ticks (node-by-role view-node
                                    "portfolio-optimizer-frontier-y-axis-ticks")
+        svg-role-order (vec (data-role-order
+                             (node-by-role view-node
+                                           "portfolio-optimizer-frontier-svg")))
         frontier-point-actions [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]
                                 [:actions/set-portfolio-optimizer-objective-parameter
                                  :target-volatility
@@ -237,6 +253,19 @@
         "Overlay mode should not move the efficient frontier.")
     (is (some? target-marker))
     (is (= 0 (node-attr target-marker :tabIndex)))
+    (is (nil? (node-attr target-marker :opacity)))
+    (is (nil? (node-by-role target-marker "portfolio-optimizer-frontier-target-visual")))
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-point-1")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-frontier-1"))
+        "Frontier point callouts must paint above frontier points.")
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-target-marker")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-frontier-1"))
+        "Frontier point callouts must paint above the target marker.")
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-frontier-1"))
+        "Frontier point callouts must paint above overlay markers.")
+    (is (= "frontier-1" (node-attr frontier-point :data-frontier-callout-trigger)))
+    (is (= "frontier-1" (node-attr frontier-callout :data-frontier-callout-id)))
     (is (nil? current-marker))
     (is (some? target-callout))
     (is (some? frontier-callout))
@@ -263,6 +292,8 @@
         "Contribution asset markers should use symbol text instead of triangle paths.")
     (is (empty? (collect-nodes view-node #(= :title (first %))))
         "SVG native title nodes should not create a second browser tooltip.")
+    (is (= "var(--optimizer-accent)"
+           (node-attr (first (collect-nodes frontier-callout #(= :rect (first %)))) :stroke)))
     (is (= "none" (node-attr (first (collect-nodes standalone-callout #(= :rect (first %)))) :stroke)))
     (is (some? (first (collect-nodes standalone-callout #(= :line (first %)))))
         "Callouts should visually separate the title from metric rows.")
@@ -286,9 +317,15 @@
              "Expected Return"
              "Volatility"
              "Sharpe"
+             "ALLOCATIONS"
+             "BTC"
+             "PURR"
+             "Sum"
              "18.00%"
              "42.00%"
-             "0.43"}
+             "0.43"
+             "50.0%"
+             "100.0%"}
            (set (collect-strings frontier-callout))))
     (is (= #{"BTC"
              "Expected Return"

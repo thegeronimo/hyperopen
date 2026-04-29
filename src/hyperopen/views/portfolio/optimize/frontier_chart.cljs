@@ -126,13 +126,37 @@
             :y2 position
             :stroke chart-grid-stroke}]))
 
+(defn- frontier-callout-id
+  [idx]
+  (str "frontier-" idx))
+
+(defn- frontier-callout-visibility-rule
+  [idx]
+  (let [callout-id (frontier-callout-id idx)
+        trigger-selector (str "[data-frontier-callout-trigger=\"" callout-id "\"]")
+        callout-selector (str "[data-frontier-callout-id=\"" callout-id "\"]")
+        svg-selector "[data-role=\"portfolio-optimizer-frontier-svg\"]"]
+    (str svg-selector ":has(" trigger-selector ":hover) " callout-selector ",\n"
+         svg-selector ":has(" trigger-selector ":focus) " callout-selector ",\n"
+         svg-selector ":has(" trigger-selector ":focus-within) " callout-selector
+         " { display: inline; opacity: 1; }")))
+
+(defn- frontier-callout-style
+  [points]
+  (when (seq points)
+    [:style {:type "text/css"}
+     (str/join "\n" (map-indexed (fn [idx _]
+                                    (frontier-callout-visibility-rule idx))
+                                  points))]))
+
 (defn- frontier-point
   [draft idx point x-domain y-domain]
   (let [target (objective-target draft point)
         position (point-position x-domain y-domain point)
         {:keys [x y]} position
         label (str "Frontier Point " (inc idx))
-        rows (frontier-callout/point-rows point)]
+        rows (frontier-callout/point-rows point)
+        callout-id (frontier-callout-id idx)]
     [:g {:role "button"
          :tabIndex 0
          :tabindex 0
@@ -143,6 +167,7 @@
          :data-return (opt-format/format-pct (:expected-return point))
          :data-volatility (opt-format/format-pct (:volatility point))
          :data-sharpe (opt-format/format-decimal (:sharpe point))
+         :data-frontier-callout-trigger callout-id
          :aria-label (frontier-callout/aria-label label rows)
          :draggable true
          :on {:click (point-actions target)
@@ -162,13 +187,24 @@
       (str "portfolio-optimizer-frontier-point-" idx "-hitbox")
       x
       y
-      14)
-     (frontier-callout/callout
-      {:bounds chart-bounds
-       :data-role (str "portfolio-optimizer-frontier-callout-frontier-" idx)
-       :label label
-       :point position
-       :rows rows})]))
+      14)]))
+
+(defn- frontier-point-callout
+  [result idx point x-domain y-domain]
+  (let [position (point-position x-domain y-domain point)
+        label (str "Frontier Point " (inc idx))
+        rows (frontier-callout/point-rows point)
+        allocations (frontier-callout/allocation-summary
+                     (:instrument-ids result)
+                     (:weights point))]
+    (frontier-callout/callout
+     {:bounds chart-bounds
+      :data-role (str "portfolio-optimizer-frontier-callout-frontier-" idx)
+      :data-frontier-callout-id (frontier-callout-id idx)
+      :label label
+      :point position
+      :rows rows
+      :allocations allocations})))
 
 (defn- overlay-mode-button
   [current-mode mode]
@@ -350,6 +386,7 @@
                 :class ["h-[23.75rem]" "w-full" "overflow-visible" "text-trading-text"]
                 :data-role "portfolio-optimizer-frontier-svg"
                 :aria-label "Efficient frontier chart. X axis is annualized volatility. Y axis is annualized expected return."}
+          (frontier-callout-style points)
           [:g {:data-role "portfolio-optimizer-frontier-grid"}
            (map-indexed (fn [idx value]
                           (grid-line :vertical idx (chart-axes/x-tick-position plot-geometry x-domain* value)))
@@ -412,10 +449,10 @@
                   :strokeLinejoin "round"
                   :class ["text-primary"]
                   :data-role "portfolio-optimizer-frontier-path"}]
+          (target-marker result x-domain* y-domain*)
           (map-indexed (fn [idx point]
                          (frontier-point draft idx point x-domain* y-domain*))
                        points)
-          (target-marker result x-domain* y-domain*)
           (map #(frontier-overlays/marker
                  {:bounds chart-bounds
                   :overlay-mode overlay-mode*
@@ -430,7 +467,11 @@
                   :fontSize 10
                   :opacity 0.58
                   :text-anchor "end"}
-           (str x-axis-prefix " / " y-axis-prefix)]]]
+           (str x-axis-prefix " / " y-axis-prefix)]
+          [:g {:data-role "portfolio-optimizer-frontier-callout-layer"}
+           (map-indexed (fn [idx point]
+                          (frontier-point-callout result idx point x-domain* y-domain*))
+                        points)]]]
         [:div {:class ["mt-4" "flex" "gap-3" "text-[0.7rem]" "text-trading-muted"]}
          [:span {:class ["font-mono" "text-[0.62rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"]}
           "Reading this"]
