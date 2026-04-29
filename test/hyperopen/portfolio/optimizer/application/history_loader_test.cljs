@@ -8,6 +8,13 @@
   ([expected actual tolerance]
    (< (js/Math.abs (- expected actual)) tolerance)))
 
+(def day-ms
+  (* 24 60 60 1000))
+
+(defn- day-start-ms
+  [day]
+  (.getTime (js/Date. (str day "T00:00:00.000Z"))))
+
 (deftest build-history-request-plan-fetches-candles-for-all-assets-and-funding-for-perps-test
   (let [plan (history-loader/build-history-request-plan
               [{:instrument-id "perp:BTC"
@@ -168,6 +175,80 @@
     (is (= :not-applicable
            (get-in aligned [:funding-by-instrument vault-instrument-id :source])))
     (is (= [] (:excluded-instruments aligned)))
+    (is (= [] (:warnings aligned)))))
+
+(deftest align-history-inputs-aligns-vault-and-market-history-by-utc-day-test
+  (let [d0 (day-start-ms "2026-04-27")
+        d1 (+ d0 day-ms)
+        d2 (+ d1 day-ms)
+        vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id "perp:BTC"
+                              :market-type :perp
+                              :coin "BTC"}
+                             {:instrument-id vault-instrument-id
+                              :market-type :vault
+                              :coin vault-instrument-id
+                              :vault-address vault-address}]
+                  :candle-history-by-coin {"BTC" [{:time d0 :close "100"}
+                                                  {:time d1 :close "110"}
+                                                  {:time d2 :close "121"}]}
+                  :vault-details-by-address {vault-address
+                                             {:portfolio
+                                              {:all-time
+                                               {:accountValueHistory [[(+ d0 (* 23 60 60 1000)) 100]
+                                                                      [(+ d1 (* 23 60 60 1000)) 110]
+                                                                      [(+ d2 (* 23 60 60 1000)) 121]]
+                                                :pnlHistory [[(+ d0 (* 23 60 60 1000)) 0]
+                                                             [(+ d1 (* 23 60 60 1000)) 10]
+                                                             [(+ d2 (* 23 60 60 1000)) 21]]}}}}
+                  :as-of-ms (+ d2 day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [d0 d1 d2] (:calendar aligned)))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 0])))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
+    (is (= [] (:warnings aligned)))))
+
+(deftest align-history-inputs-prefers-dense-vault-summary-over-sparse-all-time-test
+  (let [d0 (day-start-ms "2026-04-27")
+        d1 (+ d0 day-ms)
+        d2 (+ d1 day-ms)
+        vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        intraday-offset (* 22 60 60 1000)
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id "perp:BTC"
+                              :market-type :perp
+                              :coin "BTC"}
+                             {:instrument-id vault-instrument-id
+                              :market-type :vault
+                              :coin vault-instrument-id
+                              :vault-address vault-address}]
+                  :candle-history-by-coin {"BTC" [{:time d0 :close "100"}
+                                                  {:time d1 :close "105"}
+                                                  {:time d2 :close "110"}]}
+                  :vault-details-by-address {vault-address
+                                             {:portfolio
+                                              {:all-time
+                                               {:accountValueHistory [[(- d0 (* 30 day-ms)) 100]
+                                                                      [(+ d2 intraday-offset) 130]]
+                                                :pnlHistory [[(- d0 (* 30 day-ms)) 0]
+                                                             [(+ d2 intraday-offset) 30]]}
+                                               :month
+                                               {:accountValueHistory [[(+ d0 intraday-offset) 100]
+                                                                      [(+ d1 intraday-offset) 105]
+                                                                      [(+ d2 intraday-offset) 110]]
+                                                :pnlHistory [[(+ d0 intraday-offset) 0]
+                                                             [(+ d1 intraday-offset) 5]
+                                                             [(+ d2 intraday-offset) 10]]}}}}
+                  :as-of-ms (+ d2 day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [d0 d1 d2] (:calendar aligned)))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
     (is (= [] (:warnings aligned)))))
 
 (deftest align-history-inputs-reports-missing-and-insufficient-history-without-silent-drops-test

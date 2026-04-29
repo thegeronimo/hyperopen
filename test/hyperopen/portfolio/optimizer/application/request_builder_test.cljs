@@ -89,6 +89,46 @@
     (is (= ["perp:BTC" "spot:MISSING"]
            (mapv :instrument-id (get-in request [:history :excluded-instruments]))))))
 
+(deftest build-engine-request-uses-vault-details-for-vault-history-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        request (request-builder/build-engine-request
+                 {:draft {:universe [{:instrument-id "perp:BTC"
+                                      :market-type :perp
+                                      :coin "BTC"}
+                                     {:instrument-id vault-instrument-id
+                                      :market-type :vault
+                                      :coin vault-instrument-id
+                                      :vault-address vault-address}]
+                          :objective {:kind :minimum-variance}
+                          :return-model {:kind :historical-mean}
+                          :risk-model {:kind :diagonal-shrink}
+                          :constraints {}}
+                  :current-portfolio {:by-instrument {"perp:BTC" {:weight 1}}}
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time 1000 :close "100"}
+                                         {:time 2000 :close "110"}
+                                         {:time 3000 :close "121"}]}
+                                 :funding-history-by-coin {}
+                                 :vault-details-by-address
+                                 {vault-address
+                                  {:portfolio
+                                   {:all-time
+                                    {:accountValueHistory [[1000 100]
+                                                           [2000 110]
+                                                           [3000 121]]
+                                     :pnlHistory [[1000 0]
+                                                  [2000 10]
+                                                  [3000 21]]}}}}}
+                  :market-cap-by-coin {}
+                  :as-of-ms 4000})]
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (:universe request))))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (get-in request [:history :eligible-instruments]))))
+    (is (near? 0.1 (get-in request [:history :return-series-by-instrument vault-instrument-id 0])))
+    (is (= [] (:warnings request)))))
+
 (deftest build-engine-request-normalizes-setup-constraint-keys-test
   (let [draft (assoc (defaults/default-draft)
                      :id "draft-constraints"

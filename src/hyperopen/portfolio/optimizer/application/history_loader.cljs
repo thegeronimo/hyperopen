@@ -22,7 +22,7 @@
   "vault:")
 
 (def ^:private vault-summary-preference
-  [:all-time :one-year :six-month :three-month :month :week :day])
+  [:one-year :six-month :three-month :month :week :day :all-time])
 
 (defn- finite-number?
   [value]
@@ -315,6 +315,49 @@
            vec)
       [])))
 
+(defn- day-start-ms
+  [time-ms]
+  (when (number? time-ms)
+    (some-> time-ms
+            metrics-history/day-string-from-ms
+            metrics-history/parse-day-ms)))
+
+(defn- daily-price-history
+  [history]
+  (->> (or history [])
+       (sort-by :time-ms)
+       (keep (fn [{:keys [time-ms] :as row}]
+               (when-let [day-ms (day-start-ms time-ms)]
+                 (assoc row :time-ms day-ms))))
+       (reduce (fn [acc row]
+                 (assoc acc (:time-ms row) row))
+               {})
+       vals
+       (sort-by :time-ms)
+       vec))
+
+(defn- day-aligned-eligible
+  [eligible]
+  (mapv #(update % :history daily-price-history) eligible))
+
+(defn- effective-history-alignment
+  [eligible min-observations]
+  (let [exact-calendar (common-calendar (map :history eligible))]
+    (if (>= (count exact-calendar) min-observations)
+      {:calendar exact-calendar
+       :eligible eligible
+       :observations (count exact-calendar)}
+      (let [daily-eligible (day-aligned-eligible eligible)
+            daily-calendar (common-calendar (map :history daily-eligible))
+            daily-observations (count daily-calendar)]
+        (if (>= daily-observations min-observations)
+          {:calendar daily-calendar
+           :eligible daily-eligible
+           :observations daily-observations}
+          {:calendar []
+           :eligible eligible
+           :observations (max (count exact-calendar) daily-observations)})))))
+
 (defn- prices-for-calendar
   [history calendar]
   (let [by-time (row-by-time history)]
@@ -455,17 +498,16 @@
                                (not vault?) (assoc :coin coin)))))
                        (or universe []))
         eligible (filterv (complement :excluded?) prepared)
-        calendar (common-calendar (map :history eligible))
-        effective-calendar (if (>= (count calendar) min-observations*)
-                             calendar
-                             [])
+        alignment (effective-history-alignment eligible min-observations*)
+        effective-calendar (:calendar alignment)
+        effective-eligible (:eligible alignment)
         history-warning (when (and (seq eligible)
                                    (empty? effective-calendar))
                           {:code :insufficient-common-history
-                           :observations (count calendar)
+                           :observations (:observations alignment)
                            :required min-observations*})
         eligible-instruments (if (seq effective-calendar)
-                               (mapv :instrument eligible)
+                               (mapv :instrument effective-eligible)
                                [])
         excluded-instruments (vec (concat (map :instrument (filter :excluded? prepared))
                                           (when (empty? effective-calendar)
@@ -476,7 +518,7 @@
                                          (map (fn [{:keys [instrument-id history]}]
                                                 [instrument-id
                                                  (prices-for-calendar history effective-calendar)]))
-                                         eligible)
+                                         effective-eligible)
         return-series-by-instrument (into {}
                                           (map (fn [[instrument-id prices]]
                                                  [instrument-id (return-series prices)]))

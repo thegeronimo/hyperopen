@@ -171,6 +171,7 @@
                  {:universe requested-universe
                   :candle-history-by-coin (:candle-history-by-coin history-data)
                   :funding-history-by-coin (:funding-history-by-coin history-data)
+                  :vault-details-by-address (:vault-details-by-address history-data)
                   :as-of-ms as-of-ms
                   :stale-after-ms stale-after-ms
                   :funding-periods-per-year funding-periods-per-year})
