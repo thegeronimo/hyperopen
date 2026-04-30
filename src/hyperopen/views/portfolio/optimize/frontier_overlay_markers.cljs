@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.frontier-overlay-markers
-  (:require [clojure.string :as str]
+  (:require ["lucide/dist/esm/icons/layers-2.js" :default lucide-layers-2-node]
+            [clojure.string :as str]
             [hyperopen.views.asset-icon :as asset-icon]
             [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
@@ -18,6 +19,31 @@
 (def ^:private vault-gap 5)
 (def ^:private vault-label-padding-x 8)
 (def ^:private vault-label-min-width 44)
+
+(defn- lucide-node->hiccup
+  [node]
+  (let [tag-name (aget node 0)
+        attrs (js->clj (aget node 1) :keywordize-keys true)]
+    [(keyword tag-name) attrs]))
+
+(defn- vault-layers-icon
+  []
+  (into [:svg {:x -12
+               :y -12
+               :width 24
+               :height 24
+               :viewBox "0 0 24 24"
+               :fill "none"
+               :stroke "currentColor"
+               :stroke-width 1.75
+               :stroke-linecap "round"
+               :stroke-linejoin "round"
+               :aria-hidden true
+               :style {:color vault-text
+                       :filter (str "drop-shadow(0 0 2px rgba(143, 252, 241, 0.78)) "
+                                    "drop-shadow(0 0 8px rgba(53, 215, 199, 0.36))")}}]
+        (map lucide-node->hiccup
+             (array-seq lucide-layers-2-node))))
 
 (defn normalize-mode
   [overlay-mode]
@@ -253,36 +279,7 @@
                   :stroke vault-border
                   :strokeWidth 1
                   :style {:filter "drop-shadow(0 0 7px rgba(53, 215, 199, 0.26))"}}]
-          [:path {:d (str "M-6 -4"
-                          "L0 -8"
-                          "L6 -4"
-                          "L0 0"
-                          "Z")
-                  :fill "none"
-                  :stroke vault-text
-                  :strokeWidth 1.4
-                  :strokeLinejoin "round"
-                  :strokeLinecap "round"}]
-          [:path {:d (str "M-7 1"
-                          "L-1 -3"
-                          "L5 1"
-                          "L-1 5"
-                          "Z")
-                  :fill "none"
-                  :stroke vault-text
-                  :strokeWidth 1.4
-                  :strokeLinejoin "round"
-                  :strokeLinecap "round"}]
-          [:path {:d (str "M-3 6"
-                          "L3 2"
-                          "L9 6"
-                          "L3 10"
-                          "Z")
-                  :fill "none"
-                  :stroke vault-text
-                  :strokeWidth 1.4
-                  :strokeLinejoin "round"
-                  :strokeLinecap "round"}]]
+          (vault-layers-icon)]
          [:rect {:x label-x
                  :y (- label-half)
                  :width label-width
