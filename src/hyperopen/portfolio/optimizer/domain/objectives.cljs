@@ -347,6 +347,14 @@
     (or (target-return-frontier-plan opts)
         (frontier-plan opts))
 
+    :max-sharpe
+    (or (target-return-frontier-plan opts)
+        (frontier-plan opts))
+
+    :target-volatility
+    (or (target-return-frontier-plan opts)
+        (frontier-plan opts))
+
     nil))
 
 (defn build-solver-plan

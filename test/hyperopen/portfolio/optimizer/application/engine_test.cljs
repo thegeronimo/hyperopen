@@ -210,6 +210,37 @@
     (is (= 2 (count (:solver-results result))))
     (is (= 2 (count (:frontier result))))))
 
+(deftest max-sharpe-emits-display-frontier-without-changing-target-solver-test
+  (let [calls (atom [])
+        result (engine/run-optimization
+                (assoc base-request
+                       :objective {:kind :max-sharpe
+                                   :frontier-points 3})
+                {:solve-problem (fn [problem]
+                                  (swap! calls conj problem)
+                                  {:status :solved
+                                   :solver :fixture-solver
+                                   :weights (case (:objective-kind problem)
+                                              :target-return
+                                              (let [floor (get-in problem [:inequalities 0 :lower] 0)]
+                                                (if (> floor 0.05)
+                                                  [0.2 0.8]
+                                                  [0.5 0.5]))
+
+                                              :return-tilted
+                                              (if (= [1 1] (:upper-bounds problem))
+                                                [0 1]
+                                                [0.8 0.2])
+
+                                              [0.5 0.5])})})]
+    (is (= :solved (:status result)))
+    (is (= :frontier-sweep (get-in result [:solver :strategy]))
+        "The target solver for Max Sharpe should remain the frontier-selection sweep.")
+    (is (= :display-sweep (get-in result [:frontier-summary :source]))
+        "The chart frontier should come from a dedicated display sweep, not the target-selection sweep.")
+    (is (some #(= :target-return (:objective-kind %)) @calls)
+        "Max-Sharpe display frontier should solve target-return floor points for chart coverage.")))
+
 (deftest minimum-variance-emits-display-frontier-without-changing-selected-target-test
   (let [calls (atom [])
         result (engine/run-optimization

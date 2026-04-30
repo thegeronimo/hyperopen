@@ -140,6 +140,38 @@
     (is (every? zero? (map :return-tilt problems))
         "Target-return frontier points should minimize variance at each return floor, not add return tilts.")))
 
+(deftest max-sharpe-display-frontier-uses-target-return-sweep-when-range-is-known-test
+  (let [encoded (constraints/encode-constraints
+                 {:universe [{:instrument-id "BTC"}
+                             {:instrument-id "ETH"}
+                             {:instrument-id "HYPE"}
+                             {:instrument-id "SOL"}]
+                  :constraints {:long-only? true
+                                :max-asset-weight 0.5}})
+        plan (objectives/build-display-frontier-plan
+              {:objective {:kind :max-sharpe
+                           :frontier-points 12}
+               :instrument-ids ["BTC" "ETH" "HYPE" "SOL"]
+               :expected-returns [-0.0933 0.5266 1.2449 -0.2713]
+               :covariance [[0.18 0 0 0]
+                            [0 0.52 0 0]
+                            [0 0 0.93 0]
+                            [0 0 0 0.54]]
+               :encoded-constraints encoded})
+        problems (:problems plan)
+        target-floors (keep #(get-in % [:inequalities 0 :lower]) problems)]
+    (is (= :frontier-sweep (:strategy plan)))
+    (is (= 12 (count problems)))
+    (is (= :return-tilted (get-in problems [0 :objective-kind]))
+        "The display sweep keeps a minimum-variance anchor before return floors.")
+    (is (= :target-return (get-in problems [1 :objective-kind])))
+    (is (= 11 (count target-floors)))
+    (is (apply < target-floors))
+    (is (near? 0 (first target-floors)))
+    (is (near? 0.88575 (last target-floors)))
+    (is (every? zero? (map :return-tilt problems))
+        "Max-Sharpe display frontier points should sample return floors instead of reusing return tilts.")))
+
 (deftest solver-plan-propagates-constraint-presolve-infeasibility-test
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
