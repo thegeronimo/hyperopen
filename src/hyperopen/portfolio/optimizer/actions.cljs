@@ -5,6 +5,7 @@
             [hyperopen.portfolio.optimizer.application.execution :as execution]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.portfolio.optimizer.black-litterman-actions :as black-litterman-actions]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.portfolio.optimizer.query-state :as optimizer-query-state]
             [hyperopen.portfolio.optimizer.universe-keyboard :as universe-keyboard]
@@ -397,6 +398,31 @@
         [[:portfolio-ui :optimizer :universe-search-active-index] 0]])
       [])))
 
+(defn- black-litterman-universe-path-values
+  [state universe*]
+  (let [ids (set (keep :instrument-id universe*))
+        return-model (get-in state [:portfolio :optimizer :draft :return-model])
+        views (vec (:views return-model))
+        views* (vec (filter (fn [view]
+                              (every? ids
+                                      (black-litterman-actions/view-instrument-ids view)))
+                            views))
+        draft-path (fn [kind field]
+                     [:portfolio-ui :optimizer :black-litterman-editor :drafts kind field])
+        clear-if-missing (fn [kind field]
+                           (let [value (get-in state (draft-path kind field))]
+                             (when (and value (not (contains? ids value)))
+                               [(draft-path kind field) nil])))]
+    (cond-> []
+      (= :black-litterman (:kind return-model))
+      (conj [[:portfolio :optimizer :draft :return-model :views] views*])
+
+      :always
+      (into (keep identity
+                  [(clear-if-missing :absolute :instrument-id)
+                   (clear-if-missing :relative :instrument-id)
+                   (clear-if-missing :relative :comparator-instrument-id)])))))
+
 (defn remove-portfolio-optimizer-universe-instrument
   [state instrument-id]
   (let [instrument-id* (non-blank-text instrument-id)
@@ -406,17 +432,18 @@
     (if (and instrument-id*
              (not= universe universe*))
       (save-draft-path-values
-       [[[:portfolio :optimizer :draft :universe] universe*]
-        [[:portfolio :optimizer :draft :constraints :allowlist]
-         (set-membership (vec (:allowlist constraints)) instrument-id* false)]
-        [[:portfolio :optimizer :draft :constraints :blocklist]
-         (set-membership (vec (:blocklist constraints)) instrument-id* false)]
-        [[:portfolio :optimizer :draft :constraints :held-locks]
-         (set-membership (vec (:held-locks constraints)) instrument-id* false)]
-        [[:portfolio :optimizer :draft :constraints :asset-overrides]
-         (dissoc (or (:asset-overrides constraints) {}) instrument-id*)]
-        [[:portfolio :optimizer :draft :constraints :perp-leverage]
-         (dissoc (or (:perp-leverage constraints) {}) instrument-id*)]])
+       (into [[[:portfolio :optimizer :draft :universe] universe*]
+              [[:portfolio :optimizer :draft :constraints :allowlist]
+               (set-membership (vec (:allowlist constraints)) instrument-id* false)]
+              [[:portfolio :optimizer :draft :constraints :blocklist]
+               (set-membership (vec (:blocklist constraints)) instrument-id* false)]
+              [[:portfolio :optimizer :draft :constraints :held-locks]
+               (set-membership (vec (:held-locks constraints)) instrument-id* false)]
+              [[:portfolio :optimizer :draft :constraints :asset-overrides]
+               (dissoc (or (:asset-overrides constraints) {}) instrument-id*)]
+              [[:portfolio :optimizer :draft :constraints :perp-leverage]
+               (dissoc (or (:perp-leverage constraints) {}) instrument-id*)]]
+             (black-litterman-universe-path-values state universe*)))
       [])))
 
 (defn set-portfolio-optimizer-universe-from-current
@@ -427,7 +454,8 @@
                       dedupe-instruments)]
     (if (seq universe)
       (save-draft-path-values
-       [[[:portfolio :optimizer :draft :universe] universe]])
+       (into [[[:portfolio :optimizer :draft :universe] universe]]
+             (black-litterman-universe-path-values state universe)))
       [])))
 
 (defn load-portfolio-optimizer-history-from-draft

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.inputs-tab
-  (:require [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
+  (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
             [hyperopen.views.portfolio.optimize.format :as opt-format]
             [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
@@ -31,6 +32,49 @@
                  (universe-instrument-label instrument)])
               (:universe draft)))))
 
+(defn- instrument-label
+  [draft instrument-id]
+  (or (some (fn [instrument]
+              (when (= instrument-id (:instrument-id instrument))
+                (or (when (instrument-display/vault-instrument? instrument)
+                      (instrument-display/primary-label instrument))
+                    (:coin instrument)
+                    (:symbol instrument))))
+            (:universe draft))
+      (some-> instrument-id
+              (str/split #":")
+              last)
+      instrument-id))
+
+(defn- view-primary-id
+  [view]
+  (or (:instrument-id view)
+      (:long-instrument-id view)))
+
+(defn- view-comparator-id
+  [view]
+  (or (:comparator-instrument-id view)
+      (:short-instrument-id view)))
+
+(defn- view-summary
+  [draft view]
+  (case (:kind view)
+    :relative
+    (str (instrument-label draft (view-primary-id view))
+         " "
+         (if (= :underperform (:direction view)) "<" ">")
+         " "
+         (instrument-label draft (view-comparator-id view))
+         " by "
+         (opt-format/format-pct (:return view)
+                                {:minimum-fraction-digits 0
+                                 :maximum-fraction-digits 2}))
+    (str (instrument-label draft (:instrument-id view))
+         " expected return "
+         (opt-format/format-pct (:return view)
+                                {:minimum-fraction-digits 0
+                                 :maximum-fraction-digits 2}))))
+
 (defn- models-audit
   [draft views]
   (audit-card
@@ -40,8 +84,17 @@
     [:div [:span {:class ["text-xs" "text-trading-muted"]} "Objective"] [:p (opt-format/keyword-label (get-in draft [:objective :kind]))]]
     [:div [:span {:class ["text-xs" "text-trading-muted"]} "Return Model"] [:p (opt-format/keyword-label (get-in draft [:return-model :kind]))]]
     [:div [:span {:class ["text-xs" "text-trading-muted"]} "Risk Model"] [:p (opt-format/keyword-label (get-in draft [:risk-model :kind]))]]]
-   [:p {:class ["mt-3" "text-xs" "text-trading-muted"]}
-    (str "Black-Litterman views: " (count views))]))
+   [:div {:class ["mt-3" "space-y-1" "text-xs" "text-trading-muted"]}
+    [:p (str "Black-Litterman views: " (count views))]
+    (if (seq views)
+      (into [:div {:class ["space-y-1"]
+                   :data-role "portfolio-optimizer-inputs-black-litterman-views"}]
+            (map (fn [view]
+                   [:p {:class ["rounded-md" "border" "border-base-300" "bg-base-100/70"
+                                "px-2" "py-1"]}
+                    (view-summary draft view)])
+                 views))
+      [:p "Views adjust expected returns only; covariance/risk inputs are unchanged."])]))
 
 (defn- constraints-audit
   [constraints]

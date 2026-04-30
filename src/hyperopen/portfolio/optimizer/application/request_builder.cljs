@@ -106,40 +106,90 @@
                         (min 1.0))]
     (max 0.000001 (- 1.0 confidence*))))
 
+(defn- confidence-variance*
+  [view*]
+  (let [confidence (:confidence view*)]
+    (cond
+      (finite-number? (:confidence-variance view*))
+      (:confidence-variance view*)
+
+      (finite-number? confidence)
+      (confidence-variance confidence)
+
+      :else
+      nil)))
+
+(defn- invalid-black-litterman-view-warning
+  [view]
+  (cond-> {:code :invalid-black-litterman-view}
+    (:id view) (assoc :view-id (:id view))))
+
+(defn- normalize-direction
+  [direction]
+  (case direction
+    :underperform :underperform
+    :outperform :outperform
+    :outperform))
+
 (defn- normalize-black-litterman-view
   [view]
   (let [view* (or view {})
         confidence (:confidence view*)
         instrument-id (non-blank-text (:instrument-id view*))
+        comparator-id (non-blank-text (:comparator-instrument-id view*))
         long-id (non-blank-text (:long-instrument-id view*))
         short-id (non-blank-text (:short-instrument-id view*))
-        weights (cond
-                  (map? (:weights view*))
-                  (:weights view*)
+        direction (normalize-direction (:direction view*))
+        confidence-variance* (confidence-variance* view*)]
+    (cond
+      (and (= :absolute (:kind view*))
+           instrument-id
+           (finite-number? (:return view*)))
+      {:view (cond-> (assoc view* :weights (or (:weights view*)
+                                               {instrument-id 1}))
+               confidence-variance*
+               (assoc :confidence-variance confidence-variance*))}
 
-                  (and (= :absolute (:kind view*))
-                       instrument-id)
-                  {instrument-id 1}
+      (and (= :relative (:kind view*))
+           instrument-id
+           comparator-id
+           (not= instrument-id comparator-id)
+           (finite-number? (:return view*)))
+      {:view (cond-> (assoc view*
+                            :direction direction
+                            :weights (case direction
+                                       :underperform {instrument-id -1
+                                                      comparator-id 1}
+                                       {instrument-id 1
+                                        comparator-id -1}))
+               confidence-variance*
+               (assoc :confidence-variance confidence-variance*))}
 
-                  (and (= :relative (:kind view*))
-                       long-id
-                       short-id
-                       (not= long-id short-id))
-                  {long-id 1
-                   short-id -1}
+      (and (= :relative (:kind view*))
+           long-id
+           short-id
+           (not= long-id short-id)
+           (finite-number? (:return view*)))
+      {:view (cond-> (assoc view* :weights (or (:weights view*)
+                                               {long-id 1
+                                                short-id -1}))
+               confidence-variance*
+               (assoc :confidence-variance confidence-variance*))}
 
-                  :else nil)]
-    (cond-> (assoc view* :weights weights)
-      (and (not (finite-number? (:confidence-variance view*)))
-           (finite-number? confidence))
-      (assoc :confidence-variance (confidence-variance confidence)))))
+      :else
+      {:warning (invalid-black-litterman-view-warning view*)})))
 
 (defn- normalize-return-model
   [return-model]
   (let [return-model* (or return-model default-return-model)]
     (if (= :black-litterman (:kind return-model*))
-      (update return-model* :views #(vec (map normalize-black-litterman-view (or % []))))
-      return-model*)))
+      (let [normalized (map normalize-black-litterman-view
+                            (or (:views return-model*) []))]
+        {:return-model (assoc return-model*
+                              :views (vec (keep :view normalized)))
+         :warnings (vec (keep :warning normalized))})
+      {:return-model return-model*
+       :warnings []})))
 
 (defn- black-litterman-return-model?
   [return-model]
@@ -163,7 +213,8 @@
            funding-periods-per-year]}]
   (let [draft* (or draft {})
         requested-universe (draft-universe draft*)
-        return-model (normalize-return-model (:return-model draft*))
+        normalized-return-model (normalize-return-model (:return-model draft*))
+        return-model (:return-model normalized-return-model)
         risk-model (or (:risk-model draft*) default-risk-model)
         objective (or (:objective draft*) default-objective)
         constraints (normalize-constraints (:constraints draft*))
@@ -180,7 +231,8 @@
                         current-portfolio
                         market-cap-by-coin
                         return-model)
-        warnings (vec (concat (:warnings history)
+        warnings (vec (concat (:warnings normalized-return-model)
+                              (:warnings history)
                               (:warnings prior)))]
     (cond-> {:scenario-id (:id draft*)
              :universe eligible-universe

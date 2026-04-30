@@ -175,6 +175,30 @@
 (def remove-portfolio-optimizer-black-litterman-view-action
   portfolio-optimizer-bl-actions/remove-portfolio-optimizer-black-litterman-view)
 
+(def set-portfolio-optimizer-black-litterman-editor-type-action
+  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-editor-type)
+
+(def set-portfolio-optimizer-black-litterman-editor-field-action
+  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-editor-field)
+
+(def save-portfolio-optimizer-black-litterman-editor-view-action
+  portfolio-optimizer-bl-actions/save-portfolio-optimizer-black-litterman-editor-view)
+
+(def edit-portfolio-optimizer-black-litterman-view-action
+  portfolio-optimizer-bl-actions/edit-portfolio-optimizer-black-litterman-view)
+
+(def cancel-portfolio-optimizer-black-litterman-edit-action
+  portfolio-optimizer-bl-actions/cancel-portfolio-optimizer-black-litterman-edit)
+
+(def request-clear-portfolio-optimizer-black-litterman-views-action
+  portfolio-optimizer-bl-actions/request-clear-portfolio-optimizer-black-litterman-views)
+
+(def cancel-clear-portfolio-optimizer-black-litterman-views-action
+  portfolio-optimizer-bl-actions/cancel-clear-portfolio-optimizer-black-litterman-views)
+
+(def confirm-clear-portfolio-optimizer-black-litterman-views-action
+  portfolio-optimizer-bl-actions/confirm-clear-portfolio-optimizer-black-litterman-views)
+
 (def set-portfolio-optimizer-instrument-filter-action
   portfolio-optimizer-actions/set-portfolio-optimizer-instrument-filter)
 

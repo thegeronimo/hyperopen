@@ -2,139 +2,155 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [clojure.string :as str]
             [hyperopen.views.portfolio.optimize.black-litterman-views-panel :as bl-panel]
+            [hyperopen.test-support.hiccup :as hiccup]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
-(defn- node-children
-  [node]
-  (if (map? (second node))
-    (drop 2 node)
-    (drop 1 node)))
-
-(defn- find-first-node
-  [node pred]
-  (cond
-    (vector? node)
-    (let [children (node-children node)]
-      (or (when (pred node) node)
-          (some #(find-first-node % pred) children)))
-
-    (seq? node)
-    (some #(find-first-node % pred) node)
-
-    :else nil))
-
-(defn- collect-strings
-  [node]
-  (cond
-    (string? node) [node]
-    (vector? node) (mapcat collect-strings (node-children node))
-    (seq? node) (mapcat collect-strings node)
-    :else []))
-
-(defn- node-by-role
-  [node role]
-  (find-first-node node #(= role (get-in % [1 :data-role]))))
+(defn- deep-merge
+  [& maps]
+  (apply merge-with
+         (fn [left right]
+           (if (and (map? left)
+                    (map? right))
+             (deep-merge left right)
+             right))
+         maps))
 
 (defn- click-actions
   [node]
   (get-in node [1 :on :click]))
 
-(defn- input-actions
-  [node]
-  (get-in node [1 :on :input]))
+(defn- optimizer-view
+  [& overrides]
+  (portfolio-view/portfolio-view
+   (apply deep-merge
+          {:router {:path "/portfolio/optimize/new"}
+           :portfolio
+           {:optimizer
+            {:draft
+             {:universe [{:instrument-id "perp:BTC"
+                          :market-type :perp
+                          :coin "BTC"
+                          :symbol "BTC-USDC"}
+                         {:instrument-id "perp:ETH"
+                          :market-type :perp
+                          :coin "ETH"
+                          :symbol "ETH-USDC"}
+                         {:instrument-id "perp:SOL"
+                          :market-type :perp
+                          :coin "SOL"
+                          :symbol "SOL-USDC"}
+                         {:instrument-id "perp:HYPE"
+                          :market-type :perp
+                          :coin "HYPE"
+                          :symbol "HYPE-USDC"}]
+              :objective {:kind :max-sharpe}
+              :return-model {:kind :black-litterman
+                             :views [{:id "view-1"
+                                      :kind :absolute
+                                      :instrument-id "perp:HYPE"
+                                      :return 0.45
+                                      :confidence 0.75
+                                      :horizon :1y
+                                      :notes "Momentum conviction"}
+                                     {:id "view-2"
+                                      :kind :relative
+                                      :instrument-id "perp:ETH"
+                                      :comparator-instrument-id "perp:SOL"
+                                      :direction :outperform
+                                      :return 0.05
+                                      :confidence 0.5
+                                      :horizon :6m
+                                      :notes "Pair view"}]}
+              :risk-model {:kind :diagonal-shrink}}}}
+           :portfolio-ui
+           {:optimizer
+            {:black-litterman-editor
+             {:selected-kind :absolute
+              :drafts {:absolute {:instrument-id "perp:HYPE"
+                                  :return-text "45"
+                                  :confidence :high
+                                  :horizon :1y
+                                  :notes "Momentum conviction"}
+                       :relative {:instrument-id "perp:ETH"
+                                  :comparator-instrument-id "perp:SOL"
+                                  :direction :outperform
+                                  :return-text "5"
+                                  :confidence :medium
+                                  :horizon :6m
+                                  :notes "Pair view"}}
+              :editing-view-id nil
+              :clear-confirmation-open? false}}}}
+          overrides)))
 
-(defn- change-actions
-  [node]
-  (get-in node [1 :on :change]))
+(deftest portfolio-optimizer-workspace-renders-edit-views-panel-copy-preview-and-add-action-test
+  (let [view-node (optimizer-view)
+        panel (hiccup/find-by-data-role view-node "portfolio-optimizer-black-litterman-panel")
+        save-button (hiccup/find-by-data-role view-node
+                                              "portfolio-optimizer-black-litterman-save-view")
+        panel-text (hiccup/node-text panel)
+        strings (set (hiccup/collect-strings panel))]
+    (is (some? panel))
+    (is (contains? strings "EDIT VIEWS"))
+    (is (contains? strings "Tell the model what you believe"))
+    (is (contains? strings "ACTIVE VIEWS (2/10)"))
+    (is (str/includes? panel-text "HYPE expected return +45% annualized"))
+    (is (= [[:actions/save-portfolio-optimizer-black-litterman-editor-view]]
+           (click-actions save-button)))
+    (is (contains? strings "+ Add view"))
+    (is (str/includes? (str/lower-case panel-text)
+                       "views adjust expected returns only"))
+    (is (= 0 (hiccup/count-nodes panel #(= :select (first %)))))))
 
-(defn- node-text
-  [node]
-  (apply str (collect-strings node)))
+(deftest portfolio-optimizer-workspace-renders-save-mode-and-cancel-edit-action-test
+  (let [view-node (optimizer-view
+                   {:portfolio-ui
+                    {:optimizer
+                     {:black-litterman-editor
+                      {:editing-view-id "view-2"
+                       :selected-kind :relative}}}})
+        panel (hiccup/find-by-data-role view-node "portfolio-optimizer-black-litterman-panel")
+        save-button (hiccup/find-by-data-role view-node
+                                              "portfolio-optimizer-black-litterman-save-view")
+        cancel-button (hiccup/find-by-data-role view-node
+                                                "portfolio-optimizer-black-litterman-cancel-edit")
+        strings (set (hiccup/collect-strings panel))]
+    (is (contains? strings "Save changes"))
+    (is (= [[:actions/save-portfolio-optimizer-black-litterman-editor-view]]
+           (click-actions save-button)))
+    (is (= [[:actions/cancel-portfolio-optimizer-black-litterman-edit]]
+           (click-actions cancel-button)))))
 
-(deftest portfolio-optimizer-workspace-renders-black-litterman-editor-only-for-bl-test
-  (let [view-node (portfolio-view/portfolio-view
-                   {:router {:path "/portfolio/optimize/new"}
-                    :portfolio {:optimizer
-                                {:draft {:universe [{:instrument-id "perp:BTC"
-                                                     :market-type :perp
-                                                     :coin "BTC"
-                                                     :symbol "BTC-USDC"}
-                                                    {:instrument-id "perp:ETH"
-                                                     :market-type :perp
-                                                     :coin "ETH"
-                                                     :symbol "ETH-USDC"}]
-                                         :objective {:kind :minimum-variance}
-                                         :return-model {:kind :black-litterman
-                                                        :views [{:id "view-1"
-                                                                 :kind :relative
-                                                                 :long-instrument-id "perp:BTC"
-                                                                 :short-instrument-id "perp:ETH"
-                                                                 :return 0.04
-                                                                 :confidence 0.8
-                                                                 :confidence-variance 0.2
-                                                                 :weights {"perp:BTC" 1
-                                                                           "perp:ETH" -1}}]}
-                                         :risk-model {:kind :diagonal-shrink}}
-                                 :history-data {:candle-history-by-coin
-                                                {"BTC" [{:time 1000 :close "100"}
-                                                        {:time 2000 :close "110"}]
-                                                 "ETH" [{:time 1000 :close "50"}
-                                                        {:time 2000 :close "55"}]}
-                                                :funding-history-by-coin {}}
-                                 :market-cap-by-coin {"BTC" 900
-                                                      "ETH" 100}
-                                 :runtime {:as-of-ms 2500}}}})
-        strings (set (collect-strings view-node))]
-    (is (some? (node-by-role view-node "portfolio-optimizer-black-litterman-panel")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-black-litterman-prior-panel")))
-    (is (some? (node-by-role view-node "portfolio-optimizer-black-litterman-view-row-0")))
-    (is (= [[:actions/add-portfolio-optimizer-black-litterman-view :absolute]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-add-absolute-view"))))
-    (is (= [[:actions/add-portfolio-optimizer-black-litterman-view :relative]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-add-relative-view"))))
-    (is (= false
-           (get-in (node-by-role
-                    view-node
-                    "portfolio-optimizer-black-litterman-add-relative-view")
-                   [1 :disabled])))
-    (is (= [[:actions/set-portfolio-optimizer-black-litterman-view-parameter
-             "view-1"
-             :return
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-view-0-return-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-black-litterman-view-parameter
-             "view-1"
-             :confidence
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-view-0-confidence-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-black-litterman-view-parameter
-             "view-1"
-             :short-instrument-id
-             [:event.target/value]]]
-           (change-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-view-0-short-instrument-input"))))
+(deftest portfolio-optimizer-workspace-wires-active-view-cards-and-clear-confirmation-test
+  (let [view-node (optimizer-view
+                   {:portfolio-ui
+                    {:optimizer
+                     {:black-litterman-editor
+                      {:clear-confirmation-open? true}}}})
+        panel (hiccup/find-by-data-role view-node "portfolio-optimizer-black-litterman-panel")
+        active-card (hiccup/find-by-data-role panel
+                                              "portfolio-optimizer-black-litterman-active-view-view-1")
+        remove-button (hiccup/find-by-data-role panel
+                                                "portfolio-optimizer-black-litterman-active-view-view-1-remove")
+        clear-button (hiccup/find-by-data-role panel
+                                               "portfolio-optimizer-black-litterman-clear-all")
+        confirm-button (hiccup/find-by-data-role panel
+                                                 "portfolio-optimizer-black-litterman-clear-confirm")
+        cancel-button (hiccup/find-by-data-role panel
+                                                "portfolio-optimizer-black-litterman-clear-cancel")
+        panel-text (hiccup/node-text panel)]
+    (is (str/includes? panel-text "ETH > SOL by 5% annualized"))
+    (is (= [[:actions/edit-portfolio-optimizer-black-litterman-view "view-1"]]
+           (click-actions active-card)))
     (is (= [[:actions/remove-portfolio-optimizer-black-litterman-view "view-1"]]
-           (click-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-black-litterman-view-0-remove"))))
-    (is (contains? strings "Black-Litterman Views"))
-    (is (contains? strings "Prior Source"))
-    (is (contains? strings "market-cap"))
-    (is (contains? strings "Implied Prior Weights"))
-    (is (contains? strings "Relative View"))
-    (is (contains? strings "Spread Return"))
-    (is (contains? strings "Confidence"))))
+           (click-actions remove-button)))
+    (is (= [[:actions/request-clear-portfolio-optimizer-black-litterman-views]]
+           (click-actions clear-button)))
+    (is (= [[:actions/confirm-clear-portfolio-optimizer-black-litterman-views]]
+           (click-actions confirm-button)))
+    (is (= [[:actions/cancel-clear-portfolio-optimizer-black-litterman-views]]
+           (click-actions cancel-button)))))
 
-(deftest black-litterman-panel-renders-vault-names-in-options-and-prior-test
+(deftest black-litterman-panel-renders-vault-names-in-editor-and-active-views-test
   (let [vault-address "0x3333333333333333333333333333333333333333"
         vault-id (str "vault:" vault-address)
         draft {:universe [{:instrument-id "perp:BTC"
@@ -151,17 +167,15 @@
                                        :kind :absolute
                                        :instrument-id vault-id
                                        :return 0.04
-                                       :confidence 0.8}]}}
-        prior {:source :equal-weight
-               :weights-by-instrument {"perp:BTC" 0.5
-                                       vault-id 0.5}}
-        panel (bl-panel/black-litterman-views-panel draft prior)
-        prior-panel (node-by-role panel "portfolio-optimizer-black-litterman-prior-panel")
-        instrument-select (node-by-role panel
-                                        "portfolio-optimizer-black-litterman-view-0-instrument-input")
-        prior-text (node-text prior-panel)
-        select-text (node-text instrument-select)]
-    (is (str/includes? prior-text "Alpha Yield"))
-    (is (not (str/includes? prior-text vault-id)))
-    (is (str/includes? select-text "Alpha Yield"))
-    (is (not (str/includes? select-text vault-id)))))
+                                       :confidence 0.8
+                                       :horizon :3m}]}}
+        editor-state {:selected-kind :absolute
+                      :drafts {:absolute {:instrument-id vault-id
+                                          :return-text "4"
+                                          :confidence :high
+                                          :horizon :3m
+                                          :notes ""}}}
+        panel (bl-panel/black-litterman-views-panel draft nil editor-state)
+        panel-text (hiccup/node-text panel)]
+    (is (str/includes? panel-text "Alpha Yield"))
+    (is (not (str/includes? panel-text vault-id)))))

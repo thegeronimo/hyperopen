@@ -48,6 +48,22 @@
                          action-adapters/set-portfolio-optimizer-black-litterman-view-parameter-action
                          :remove-portfolio-optimizer-black-litterman-view
                          action-adapters/remove-portfolio-optimizer-black-litterman-view-action
+                         :set-portfolio-optimizer-black-litterman-editor-type
+                         action-adapters/set-portfolio-optimizer-black-litterman-editor-type-action
+                         :set-portfolio-optimizer-black-litterman-editor-field
+                         action-adapters/set-portfolio-optimizer-black-litterman-editor-field-action
+                         :save-portfolio-optimizer-black-litterman-editor-view
+                         action-adapters/save-portfolio-optimizer-black-litterman-editor-view-action
+                         :edit-portfolio-optimizer-black-litterman-view
+                         action-adapters/edit-portfolio-optimizer-black-litterman-view-action
+                         :cancel-portfolio-optimizer-black-litterman-edit
+                         action-adapters/cancel-portfolio-optimizer-black-litterman-edit-action
+                         :request-clear-portfolio-optimizer-black-litterman-views
+                         action-adapters/request-clear-portfolio-optimizer-black-litterman-views-action
+                         :cancel-clear-portfolio-optimizer-black-litterman-views
+                         action-adapters/cancel-clear-portfolio-optimizer-black-litterman-views-action
+                         :confirm-clear-portfolio-optimizer-black-litterman-views
+                         action-adapters/confirm-clear-portfolio-optimizer-black-litterman-views-action
                          :set-portfolio-optimizer-instrument-filter
                          action-adapters/set-portfolio-optimizer-instrument-filter-action
                          :set-portfolio-optimizer-asset-override

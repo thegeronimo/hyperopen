@@ -215,3 +215,125 @@
     (is (= 25 (:fallback-slippage-bps assumptions)))
     (is (= :taker (:fee-mode assumptions)))
     (is (not (contains? assumptions :slippage-fallback-bps)))))
+
+(defn- black-litterman-request
+  [views]
+  (request-builder/build-engine-request
+   {:draft {:id "draft-bl-views"
+            :universe [{:instrument-id "perp:ETH"
+                        :market-type :perp
+                        :coin "ETH"}
+                       {:instrument-id "perp:SOL"
+                        :market-type :perp
+                        :coin "SOL"}
+                       {:instrument-id "perp:HYPE"
+                        :market-type :perp
+                        :coin "HYPE"}]
+            :objective {:kind :max-sharpe}
+            :return-model {:kind :black-litterman
+                           :views views}
+            :risk-model {:kind :sample-covariance}
+            :constraints {}}
+    :current-portfolio {:by-instrument {"perp:ETH" {:weight 0.5}
+                                        "perp:SOL" {:weight 0.3}
+                                        "perp:HYPE" {:weight 0.2}}}
+    :history-data {:candle-history-by-coin
+                   {"ETH" [{:time 1000 :close "100"}
+                           {:time 2000 :close "105"}
+                           {:time 3000 :close "110"}]
+                    "SOL" [{:time 1000 :close "50"}
+                           {:time 2000 :close "52"}
+                           {:time 3000 :close "55"}]
+                    "HYPE" [{:time 1000 :close "10"}
+                            {:time 2000 :close "12"}
+                            {:time 3000 :close "14"}]}
+                   :funding-history-by-coin {}}
+    :market-cap-by-coin {"ETH" 600
+                         "SOL" 300
+                         "HYPE" 100}
+    :as-of-ms 4000}))
+
+(deftest build-engine-request-normalizes-new-black-litterman-view-shapes-test
+  (let [request (black-litterman-request
+                 [{:id "view-abs"
+                   :kind :absolute
+                   :instrument-id "perp:HYPE"
+                   :return 0.45
+                   :confidence 0.75
+                   :horizon :1y
+                   :notes "Momentum conviction"}
+                  {:id "view-rel-out"
+                   :kind :relative
+                   :instrument-id "perp:ETH"
+                   :comparator-instrument-id "perp:SOL"
+                   :direction :outperform
+                   :return 0.05
+                   :confidence 0.5
+                   :horizon :6m}
+                  {:id "view-rel-under"
+                   :kind :relative
+                   :instrument-id "perp:ETH"
+                   :comparator-instrument-id "perp:SOL"
+                   :direction :underperform
+                   :return 0.03
+                   :confidence 0.25
+                   :horizon :3m}])
+        [absolute-view outperform-view underperform-view]
+        (get-in request [:return-model :views])]
+    (is (= {:id "view-abs"
+            :kind :absolute
+            :instrument-id "perp:HYPE"
+            :return 0.45
+            :confidence 0.75
+            :weights {"perp:HYPE" 1}}
+           (select-keys absolute-view
+                        [:id :kind :instrument-id :return :confidence :weights])))
+    (is (near? 0.25 (:confidence-variance absolute-view)))
+    (is (= {:id "view-rel-out"
+            :kind :relative
+            :instrument-id "perp:ETH"
+            :comparator-instrument-id "perp:SOL"
+            :direction :outperform
+            :return 0.05
+            :confidence 0.5
+            :weights {"perp:ETH" 1
+                      "perp:SOL" -1}}
+           (select-keys outperform-view
+                        [:id :kind :instrument-id :comparator-instrument-id :direction
+                         :return :confidence :weights])))
+    (is (near? 0.5 (:confidence-variance outperform-view)))
+    (is (= {:id "view-rel-under"
+            :kind :relative
+            :instrument-id "perp:ETH"
+            :comparator-instrument-id "perp:SOL"
+            :direction :underperform
+            :return 0.03
+            :confidence 0.25
+            :weights {"perp:ETH" -1
+                      "perp:SOL" 1}}
+           (select-keys underperform-view
+                        [:id :kind :instrument-id :comparator-instrument-id :direction
+                         :return :confidence :weights])))
+    (is (near? 0.75 (:confidence-variance underperform-view)))
+    (is (= [] (:warnings request)))))
+
+(deftest build-engine-request-drops-malformed-legacy-black-litterman-views-with-warning-test
+  (let [request (black-litterman-request
+                 [{:id "view-good"
+                   :kind :absolute
+                   :instrument-id "perp:HYPE"
+                   :return 0.2
+                   :confidence 0.75}
+                  {:id "legacy-bad"
+                   :kind :relative
+                   :long-instrument-id "perp:ETH"
+                   :short-instrument-id "perp:ETH"
+                   :return 0.04
+                   :confidence 0.8}])
+        warnings (filterv #(= :invalid-black-litterman-view (:code %))
+                          (:warnings request))]
+    (is (= ["view-good"]
+           (mapv :id (get-in request [:return-model :views]))))
+    (is (= [{:code :invalid-black-litterman-view
+             :view-id "legacy-bad"}]
+           (mapv #(select-keys % [:code :view-id]) warnings)))))

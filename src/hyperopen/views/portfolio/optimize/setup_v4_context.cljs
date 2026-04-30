@@ -9,7 +9,7 @@
   ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
 (defn context-rail
-  [{:keys [draft readiness snapshot preview-snapshot run-state optimization-progress
+  [{:keys [draft editor-state readiness snapshot preview-snapshot run-state optimization-progress
            history-load-state last-successful-run result-path]}]
   (let [bl? (= :black-litterman (get-in draft [:return-model :kind]))
         progress-visible? (contains? #{:running :succeeded :failed}
@@ -38,7 +38,8 @@
         [:div {:class ["mt-3"]}
          (black-litterman-views-panel/black-litterman-views-panel
           draft
-          (get-in readiness [:request :black-litterman-prior]))]
+          (get-in readiness [:request :black-litterman-prior])
+          editor-state)]
         [:div {:class ["mt-3" "space-y-3" "text-[0.6875rem]" "leading-[1.55]" "text-trading-muted"]}
          [:p "Stabilized inputs reduce dependence on a single historical window."]
          [:p "Minimum variance does not rely on return forecasts."]

@@ -59,6 +59,22 @@
     :set-portfolio-optimizer-black-litterman-view-parameter]
    [:actions/remove-portfolio-optimizer-black-litterman-view
     :remove-portfolio-optimizer-black-litterman-view]
+   [:actions/set-portfolio-optimizer-black-litterman-editor-type
+    :set-portfolio-optimizer-black-litterman-editor-type]
+   [:actions/set-portfolio-optimizer-black-litterman-editor-field
+    :set-portfolio-optimizer-black-litterman-editor-field]
+   [:actions/save-portfolio-optimizer-black-litterman-editor-view
+    :save-portfolio-optimizer-black-litterman-editor-view]
+   [:actions/edit-portfolio-optimizer-black-litterman-view
+    :edit-portfolio-optimizer-black-litterman-view]
+   [:actions/cancel-portfolio-optimizer-black-litterman-edit
+    :cancel-portfolio-optimizer-black-litterman-edit]
+   [:actions/request-clear-portfolio-optimizer-black-litterman-views
+    :request-clear-portfolio-optimizer-black-litterman-views]
+   [:actions/cancel-clear-portfolio-optimizer-black-litterman-views
+    :cancel-clear-portfolio-optimizer-black-litterman-views]
+   [:actions/confirm-clear-portfolio-optimizer-black-litterman-views
+    :confirm-clear-portfolio-optimizer-black-litterman-views]
    [:actions/set-portfolio-optimizer-instrument-filter :set-portfolio-optimizer-instrument-filter]
    [:actions/set-portfolio-optimizer-asset-override :set-portfolio-optimizer-asset-override]
    [:actions/set-portfolio-optimizer-universe-search-query

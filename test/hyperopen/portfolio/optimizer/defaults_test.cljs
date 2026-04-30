@@ -75,6 +75,22 @@
           :list-sort :updated-desc
           :universe-search-query ""
           :universe-search-active-index 0
+          :black-litterman-editor {:selected-kind :absolute
+                                   :drafts {:absolute {:instrument-id nil
+                                                       :return-text ""
+                                                       :confidence :medium
+                                                       :horizon :3m
+                                                       :notes ""}
+                                            :relative {:instrument-id nil
+                                                       :comparator-instrument-id nil
+                                                       :direction :outperform
+                                                       :return-text ""
+                                                       :confidence :medium
+                                                       :horizon :3m
+                                                       :notes ""}}
+                                   :editing-view-id nil
+                                   :errors {}
+                                   :clear-confirmation-open? false}
           :workspace-panel :setup
           :results-tab :recommendation
           :diagnostics-tab :conditioning

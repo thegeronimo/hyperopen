@@ -221,6 +221,14 @@
    :actions/add-portfolio-optimizer-black-litterman-view ::portfolio-optimizer-model-kind-args
    :actions/set-portfolio-optimizer-black-litterman-view-parameter ::portfolio-optimizer-view-key-value-args
    :actions/remove-portfolio-optimizer-black-litterman-view ::portfolio-optimizer-scenario-id-args
+   :actions/set-portfolio-optimizer-black-litterman-editor-type ::portfolio-optimizer-model-kind-args
+   :actions/set-portfolio-optimizer-black-litterman-editor-field ::portfolio-optimizer-key-value-args
+   :actions/save-portfolio-optimizer-black-litterman-editor-view ::common/no-args
+   :actions/edit-portfolio-optimizer-black-litterman-view ::portfolio-optimizer-scenario-id-args
+   :actions/cancel-portfolio-optimizer-black-litterman-edit ::common/no-args
+   :actions/request-clear-portfolio-optimizer-black-litterman-views ::common/no-args
+   :actions/cancel-clear-portfolio-optimizer-black-litterman-views ::common/no-args
+   :actions/confirm-clear-portfolio-optimizer-black-litterman-views ::common/no-args
    :actions/set-portfolio-optimizer-instrument-filter ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-asset-override ::portfolio-optimizer-instrument-key-value-args
    :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args

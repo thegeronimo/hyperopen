@@ -68,12 +68,17 @@
                               :draft draft
                               :highlighted-controls highlighted-controls})
       (setup-v4/summary-pane {:draft draft
+                              :readiness readiness
                               :running? running?
                               :run-triggerable? run-triggerable?
                               :saving-scenario? saving-scenario?
                               :solved-run? solved-run?
                               :result-path result-path})
       (setup-v4-context/context-rail {:draft draft
+                                      :editor-state (get-in state
+                                                            [:portfolio-ui
+                                                             :optimizer
+                                                             :black-litterman-editor])
                                       :readiness readiness
                                       :snapshot snapshot
                                       :preview-snapshot preview-snapshot

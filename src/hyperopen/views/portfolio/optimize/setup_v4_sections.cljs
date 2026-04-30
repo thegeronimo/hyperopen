@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-sections
   (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.black-litterman-preview-chart :as black-litterman-preview-chart]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.setup-v4-summary :as setup-v4-summary]
             [hyperopen.views.portfolio.optimize.setup-v4-universe :as setup-v4-universe]))
@@ -425,7 +426,7 @@
      (str "Solving " objective-copy " · " model-copy)]]]))
 
 (defn summary-pane
-  [{:keys [draft running? run-triggerable? saving-scenario? solved-run? result-path]}]
+  [{:keys [draft readiness running? run-triggerable? saving-scenario? solved-run? result-path]}]
   (let [preset (active-preset draft)
         objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])
@@ -473,6 +474,8 @@
          [:div [:p {:class eyebrow-class} "3 - Combined output"]
           [:p {:class ["mt-2" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]}
            "The posterior return estimate feeds the selected optimizer objective."]]]])
+     (when bl?
+       (black-litterman-preview-chart/black-litterman-preview-panel readiness))
      [:div {:class ["space-y-2"]
             :data-role "portfolio-optimizer-model-assumptions-stack"}
       [:section {:class ["border" "border-base-300" "bg-base-100/90"]
