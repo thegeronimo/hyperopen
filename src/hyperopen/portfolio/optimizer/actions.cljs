@@ -21,7 +21,7 @@
 (def ^:private return-models
   {:historical-mean {:kind :historical-mean}
    :ew-mean {:kind :ew-mean
-             :alpha 0.25}
+             :alpha 0.015159678336035098}
    :black-litterman {:kind :black-litterman
                      :views []}})
 

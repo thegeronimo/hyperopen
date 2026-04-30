@@ -204,6 +204,14 @@
          (actions/set-portfolio-optimizer-return-model-kind
           {}
           :black-litterman)))
+  (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :return-model]
+                                {:kind :ew-mean
+                                 :alpha 0.015159678336035098}]
+                               [[:portfolio :optimizer :draft :metadata :dirty?]
+                                true]]]]
+         (actions/set-portfolio-optimizer-return-model-kind
+          {}
+          :ew-mean)))
   (is (= [[:effects/save-many [[[:portfolio :optimizer :draft :risk-model]
                                 {:kind :sample-covariance}]
                                [[:portfolio :optimizer :draft :metadata :dirty?]

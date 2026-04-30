@@ -34,6 +34,17 @@
     (is (= :ew-mean (:model result)))
     (is (near? (/ 2 3) (get-in result [:expected-returns-by-instrument "perp:BTC"])))))
 
+(deftest ew-mean-default-alpha-emphasizes-latest-ninety-daily-returns-test
+  (let [series (vec (concat (repeat 274 0)
+                            (repeat 90 1)))
+        result (returns/estimate-expected-returns
+                {:return-model {:kind :ew-mean}
+                 :periods-per-year 1
+                 :history {:return-series-by-instrument {"perp:BTC" series}
+                           :funding-by-instrument {"perp:BTC" {:annualized-carry 0}}}})]
+    (is (near? 0.75
+               (get-in result [:expected-returns-by-instrument "perp:BTC"])))))
+
 (deftest expected-returns-report-missing-series-as-warning-test
   (let [result (returns/estimate-expected-returns
                 {:return-model {:kind :historical-mean}

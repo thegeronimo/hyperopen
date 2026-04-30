@@ -5,7 +5,7 @@
   365)
 
 (def default-ew-alpha
-  0.25)
+  0.015159678336035098)
 
 (def default-min-observations
   30)
