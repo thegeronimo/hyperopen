@@ -8,7 +8,16 @@
 
 (def ^:private standalone-color "#8f96a3")
 (def ^:private contribution-color "#59a5c8")
-(def ^:private vault-color "#59a5c8")
+(def ^:private vault-accent "#35d7c7")
+(def ^:private vault-border "rgba(53, 215, 199, 0.72)")
+(def ^:private vault-text "#8ffcf1")
+(def ^:private vault-icon-bg "rgba(6, 18, 20, 0.92)")
+(def ^:private vault-label-bg "rgba(9, 22, 24, 0.92)")
+(def ^:private vault-icon-size 30)
+(def ^:private vault-label-height 24)
+(def ^:private vault-gap 5)
+(def ^:private vault-label-padding-x 8)
+(def ^:private vault-label-min-width 44)
 
 (defn normalize-mode
   [overlay-mode]
@@ -178,8 +187,24 @@
 (defn- marker-color
   [point default-color]
   (if (vault-point? point)
-    vault-color
+    vault-accent
     default-color))
+
+(defn- vault-marker-layout
+  [point]
+  (let [code (vault-short-code point)
+        label-width (max vault-label-min-width
+                         (+ (* 8 (count code))
+                            (* 2 vault-label-padding-x)))
+        icon-half (/ vault-icon-size 2)
+        label-half (/ vault-label-height 2)
+        label-x (+ icon-half vault-gap)]
+    {:code code
+     :icon-half icon-half
+     :label-half label-half
+     :label-x label-x
+     :label-width label-width
+     :full-width (+ vault-icon-size vault-gap label-width)}))
 
 (defn- marker-shell-attrs
   ([data-role label rows]
@@ -210,67 +235,70 @@
   [data-role x y point color]
   (let [label (overlay-label point)]
     (if (vault-point? point)
-      (let [code (vault-short-code point)
-            pill-width (max 18 (+ 10 (* 5 (count code))))
-            pill-x (+ x 8)
-            pill-y (- y 7)]
+      (let [{:keys [code icon-half label-half label-x label-width]}
+            (vault-marker-layout point)]
         [:g {:data-role data-role
-             :class "portfolio-frontier-asset-icon-marker"}
+             :class ["portfolio-frontier-asset-icon-marker"
+                     "portfolio-frontier-vault-marker"]
+             :transform (str "translate(" x " " y ")")}
          [:g {:data-role (str/replace data-role
                                       "portfolio-optimizer-frontier-overlay-symbol"
                                       "portfolio-optimizer-frontier-vault-icon")}
-          [:rect {:x (- x 10)
-                  :y (- y 10)
-                  :width 20
-                  :height 20
+          [:rect {:x (- icon-half)
+                  :y (- icon-half)
+                  :width vault-icon-size
+                  :height vault-icon-size
                   :rx 6
-                  :fill "rgba(10, 19, 29, 0.92)"
-                  :stroke color
-                  :strokeWidth 1.2}]
-          [:path {:d (str "M" (- x 4) " " (- y 3)
-                          "L" x " " (- y 6)
-                          "L" (+ x 4) " " (- y 3)
-                          "L" x " " y
+                  :fill vault-icon-bg
+                  :stroke vault-border
+                  :strokeWidth 1
+                  :style {:filter "drop-shadow(0 0 7px rgba(53, 215, 199, 0.26))"}}]
+          [:path {:d (str "M-6 -4"
+                          "L0 -8"
+                          "L6 -4"
+                          "L0 0"
                           "Z")
                   :fill "none"
-                  :stroke color
-                  :strokeWidth 1.1
+                  :stroke vault-text
+                  :strokeWidth 1.4
                   :strokeLinejoin "round"
                   :strokeLinecap "round"}]
-          [:path {:d (str "M" (- x 5) " " y
-                          "L" (- x 1) " " (- y 3)
-                          "L" (+ x 3) " " y
-                          "L" (- x 1) " " (+ y 3)
+          [:path {:d (str "M-7 1"
+                          "L-1 -3"
+                          "L5 1"
+                          "L-1 5"
                           "Z")
                   :fill "none"
-                  :stroke color
-                  :strokeWidth 1.1
+                  :stroke vault-text
+                  :strokeWidth 1.4
                   :strokeLinejoin "round"
                   :strokeLinecap "round"}]
-          [:path {:d (str "M" (- x 2) " " (+ y 3)
-                          "L" (+ x 2) " " y
-                          "L" (+ x 6) " " (+ y 3)
-                          "L" (+ x 2) " " (+ y 6)
+          [:path {:d (str "M-3 6"
+                          "L3 2"
+                          "L9 6"
+                          "L3 10"
                           "Z")
                   :fill "none"
-                  :stroke color
-                  :strokeWidth 1.1
+                  :stroke vault-text
+                  :strokeWidth 1.4
                   :strokeLinejoin "round"
                   :strokeLinecap "round"}]]
-         [:rect {:x pill-x
-                 :y pill-y
-                 :width pill-width
-                 :height 14
-                 :rx 7
-                 :fill "rgba(10, 19, 29, 0.92)"
-                 :stroke color
+         [:rect {:x label-x
+                 :y (- label-half)
+                 :width label-width
+                 :height vault-label-height
+                 :rx 5
+                 :fill vault-label-bg
+                 :stroke vault-border
                  :strokeWidth 1
-                 :opacity 0.96}]
-         [:text {:x (+ pill-x (/ pill-width 2))
-                 :y (+ y 3)
-                 :fill color
-                 :fontSize 8
-                 :fontWeight 700
+                 :style {:filter "drop-shadow(0 0 5px rgba(53, 215, 199, 0.16))"}}]
+         [:text {:x (+ label-x (/ label-width 2))
+                 :y 0
+                 :fill vault-text
+                 :fontSize 13
+                 :fontWeight 600
+                 :letterSpacing "0.035em"
+                 :dominantBaseline "middle"
                  :text-anchor "middle"
                  :data-role (str/replace data-role
                                          "portfolio-optimizer-frontier-overlay-symbol"
@@ -296,6 +324,21 @@
                     :aria-hidden true}]]
           (symbol-marker data-role x y label color))))))
 
+(defn- overlay-hitbox
+  [data-role x y point]
+  (if (vault-point? point)
+    (let [{:keys [icon-half full-width]} (vault-marker-layout point)]
+      [:rect {:x (- x icon-half)
+              :y (- y icon-half)
+              :width full-width
+              :height vault-icon-size
+              :rx 6
+              :fill "transparent"
+              :stroke "transparent"
+              :pointerEvents "all"
+              :data-role data-role}])
+    (frontier-callout/hitbox data-role x y 16)))
+
 (defn- standalone-marker
   [{:keys [bounds point-position x-domain y-domain point]}]
   (let [position (point-position x-domain y-domain point)
@@ -318,13 +361,13 @@
       point
       (marker-color point standalone-color))
      (frontier-callout/focus-ring x y 15)
-     (frontier-callout/hitbox
+     (overlay-hitbox
       (str "portfolio-optimizer-frontier-overlay-standalone-"
            (:instrument-id point)
            "-hitbox")
       x
       y
-      16)
+      point)
      (frontier-callout/callout
       {:bounds bounds
        :data-role (str "portfolio-optimizer-frontier-callout-standalone-"
@@ -357,13 +400,13 @@
       point
       (marker-color point contribution-color))
      (frontier-callout/focus-ring x y 15)
-     (frontier-callout/hitbox
+     (overlay-hitbox
       (str "portfolio-optimizer-frontier-overlay-contribution-"
            (:instrument-id point)
            "-hitbox")
       x
       y
-      16)
+      point)
      (frontier-callout/callout
       {:bounds bounds
        :data-role (str "portfolio-optimizer-frontier-callout-contribution-"

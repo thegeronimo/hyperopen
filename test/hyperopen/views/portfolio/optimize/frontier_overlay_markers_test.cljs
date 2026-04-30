@@ -48,6 +48,10 @@
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
 
+(defn- nodes-by-tag
+  [node tag]
+  (collect-nodes node #(= tag (first %))))
+
 (defn- node-attr
   [node attr]
   (get-in node [1 attr]))
@@ -113,12 +117,29 @@
         contribution-code (node-by-role
                            contribution-symbol
                            (str "portfolio-optimizer-frontier-vault-code-contribution-"
-                                vault-id))]
+                                vault-id))
+        standalone-icon-bg (first (nodes-by-tag standalone-icon :rect))
+        standalone-label-bg (first (filter #(= 24 (node-attr % :height))
+                                           (nodes-by-tag standalone-symbol :rect)))]
     (is (some? standalone-group))
     (is (some? standalone-icon))
     (is (some? contribution-icon))
     (is (= "BCV" (first (collect-strings standalone-code))))
     (is (= "BCV" (first (collect-strings contribution-code))))
+    (is (str/starts-with? (node-attr standalone-symbol :transform) "translate("))
+    (is (= -15 (node-attr standalone-icon-bg :x)))
+    (is (= -15 (node-attr standalone-icon-bg :y)))
+    (is (= 30 (node-attr standalone-icon-bg :width)))
+    (is (= 30 (node-attr standalone-icon-bg :height)))
+    (is (= 6 (node-attr standalone-icon-bg :rx)))
+    (is (= 20 (node-attr standalone-label-bg :x)))
+    (is (= -12 (node-attr standalone-label-bg :y)))
+    (is (= 44 (node-attr standalone-label-bg :width)))
+    (is (= 24 (node-attr standalone-label-bg :height)))
+    (is (= 5 (node-attr standalone-label-bg :rx)))
+    (is (= 13 (node-attr standalone-code :fontSize)))
+    (is (= 0 (node-attr standalone-code :y)))
+    (is (= "middle" (node-attr standalone-code :dominantBaseline)))
     (is (empty? (collect-nodes standalone-symbol #(= :image (first %))))
         "Vault markers should never request a remote coin SVG from the vault address.")
     (is (empty? (collect-nodes contribution-symbol #(= :image (first %))))
