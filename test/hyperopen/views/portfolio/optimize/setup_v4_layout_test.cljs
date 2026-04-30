@@ -120,6 +120,28 @@
     (is (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-return-risk-panel"))
                        "03Return / Risk Model"))))
 
+(deftest setup-v4-universe-skips-candidate-search-while-query-empty-test
+  (let [calls (atom 0)
+        view-node (with-redefs [universe-candidates/candidate-markets
+                                (fn
+                                  ([_state _universe _query]
+                                   (swap! calls inc)
+                                   [{:key "perp:BTC"
+                                     :market-type :perp
+                                     :coin "BTC"
+                                     :symbol "BTC-USDC"}])
+                                  ([_state _universe _query _opts]
+                                   (swap! calls inc)
+                                   [{:key "perp:BTC"
+                                     :market-type :perp
+                                     :coin "BTC"
+                                     :symbol "BTC-USDC"}]))]
+                    (setup-v4-universe/universe-section
+                     {:portfolio-ui {:optimizer {:universe-search-query ""}}}
+                     {:universe []}))]
+    (is (= 0 @calls))
+    (is (nil? (node-by-role view-node "portfolio-optimizer-universe-search-results")))))
+
 (deftest setup-v4-return-risk-and-constraints-panels-are-collapsed-disclosures-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

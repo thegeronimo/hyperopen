@@ -1,6 +1,6 @@
 # Add vaults to the Portfolio Optimizer universe
 
-This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
+This ExecPlan is a completed execution record. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` capture the implementation story that closed the work.
 
 This document follows `/hyperopen/.agents/PLANS.md`. It is self-contained so a future contributor can continue from this file without relying on conversation history.
 
@@ -35,7 +35,9 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
 - [x] (2026-04-30 15:40Z) Added RED coverage for the remaining execution-modal vault label seam; it failed on visible `vault:<address>` text in both plan rows and latest-attempt recovery rows, then passed after routing those rows through the result label map.
 - [x] (2026-04-30 15:44Z) Required repository gates passed after the final vault-label migration: `npm run check`, `npm test` ran 3645 tests and 20081 assertions with 0 failures, and `npm run test:websocket` ran 461 tests and 2798 assertions with 0 failures.
 - [x] (2026-04-30 15:45Z) Existing deterministic Playwright execution-modal regression passed for the additional row path: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 PLAYWRIGHT_WEB_SERVER_COMMAND="PLAYWRIGHT_WEB_PORT=4174 node tools/playwright/static_server.mjs" npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs --grep "portfolio optimizer execution modal"` passed 1 test.
-- [ ] Follow up on the governed browser-inspection design review failures: investigate repeated optimizer setup-route long tasks and intermittent `Runtime.evaluate` capture timeouts across review widths.
+- [x] (2026-04-30 16:06Z) Followed up on governed browser-inspection failures. The repeated long tasks were a real optimizer setup-route performance bug: the empty universe search path was ranking and sorting 9,448 vault rows on every render/tick even though search results were hidden. After guarding candidate search behind a non-empty query, `npm run qa:design-ui -- --targets portfolio-optimizer-route --manage-local-app` passed across `review-375`, `review-768`, `review-1280`, and `review-1440` in run `design-review-2026-04-30T15-53-14-090Z-64603eb8`.
+- [x] (2026-04-30 16:10Z) Required repository gates passed after the governed browser-QA fix: `npm run check`, `npm test` ran 3646 tests and 20083 assertions with 0 failures, and `npm run test:websocket` ran 461 tests and 2798 assertions with 0 failures.
+- [x] (2026-04-30 16:12Z) Moved this ExecPlan to `/hyperopen/docs/exec-plans/completed/` after acceptance checks and governed browser QA passed.
 
 ## Surprises & Discoveries
 
@@ -69,6 +71,12 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
 - Observation: The follow-up governed browser-inspection run still did not pass, but its failures were not vault-label regressions.
   Evidence: Run `design-review-2026-04-30T15-17-43-737Z-46b84c0a` captured `review-375`, `review-1280`, and `review-1440` visual/native-control/style/interaction/layout evidence, then failed only jank/perf with 248ms, 250ms, and 260ms long tasks. `review-768` failed capture with `Timed out waiting for Runtime.evaluate`. Artifacts are under `tmp/browser-inspection/design-review-2026-04-30T15-17-43-737Z-46b84c0a/`.
 
+- Observation: The governed browser-inspection failures were caused by real optimizer setup-route jank, not by an outdated QA expectation.
+  Evidence: An idle PerformanceObserver probe on `/portfolio/optimize/new` showed repeated roughly 300ms long tasks, while `/portfolio` and `/trade` had none. A CPU profile on the optimizer setup route was dominated by `hyperopen$portfolio$optimizer$application$universe_candidates$vault_row_rank` because `setup_v4_universe.cljs` called `candidate-markets` for an empty search query, sorting 9,448 vault rows even though no result list was visible.
+
+- Observation: Removing empty-search candidate work cleared both the jank failure and the intermittent capture timeout.
+  Evidence: After guarding `candidate-markets` behind a non-empty normalized query, the idle long-task probe reported zero long tasks on `/portfolio/optimize/new`, and governed browser-inspection run `design-review-2026-04-30T15-53-14-090Z-64603eb8` passed all six review passes across `review-375`, `review-768`, `review-1280`, and `review-1440`.
+
 ## Decision Log
 
 - Decision: Represent optimizer vault instruments with `:instrument-id` and `:coin` set to `vault:<normalized-address>`, `:market-type :vault`, and `:vault-address <normalized-address>`.
@@ -91,6 +99,10 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
   Rationale: Existing optimizer tests and some review surfaces intentionally expose non-vault ids such as `perp:BTC`. Narrowing label substitution to `vault:` ids fixes the reported readability bug without changing established perp/spot labels.
   Date/Author: 2026-04-30 / Codex
 
+- Decision: Do not build optimizer universe search candidates while the search query is empty.
+  Rationale: The result list is hidden until the user types. Building candidates for an empty query was pure wasted work on the setup route and ranked thousands of vault rows on repeated renders, causing the governed jank failures and CDP capture timeouts.
+  Date/Author: 2026-04-30 / Codex
+
 ## Outcomes & Retrospective
 
 Implemented vaults as first-class optimizer universe instruments while preserving the existing spot/perp contracts. The main behavioral changes are:
@@ -102,7 +114,9 @@ Implemented vaults as first-class optimizer universe instruments while preservin
 
 Remaining gap: the governed browser-inspection design review reported `FAIL` for the optimizer setup route due a mobile long task and CDP capture timeouts at the wider review widths. Focused deterministic Playwright coverage passed, and browser-inspection sessions were cleaned up.
 
-The 2026-04-30 vault-label follow-up migrated remaining visible optimizer vault ids to human-readable names in setup summary, Black-Litterman prior/select controls, scenario input audit rows, target diagnostics, rebalance previews/tabs, tracking drift displays, and execution modal review rows. The implementation keeps `vault:<address>` as the stable identity in form values, payloads, and test hooks while using existing optimizer label maps for user-facing text. Focused view tests, the targeted Playwright regressions, and all required repository gates passed. Governed browser QA remains failed for pre-existing setup-route jank/capture issues, not for vault-label assertions.
+The 2026-04-30 vault-label follow-up migrated remaining visible optimizer vault ids to human-readable names in setup summary, Black-Litterman prior/select controls, scenario input audit rows, target diagnostics, rebalance previews/tabs, tracking drift displays, and execution modal review rows. The implementation keeps `vault:<address>` as the stable identity in form values, payloads, and test hooks while using existing optimizer label maps for user-facing text. Focused view tests, the targeted Playwright regressions, and all required repository gates passed.
+
+The governed browser-QA follow-up found and fixed a real setup-route performance regression rather than an outdated QA test. The optimizer universe panel now skips candidate generation while the search query is empty, eliminating repeated ranking/sorting of thousands of vault rows when the search results are hidden. Governed browser-inspection design review now passes for the optimizer route across all required review widths.
 
 ## Context and Orientation
 
