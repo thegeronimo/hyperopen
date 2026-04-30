@@ -1,8 +1,15 @@
-(ns hyperopen.views.portfolio.optimize.setup-readiness-panel)
+(ns hyperopen.views.portfolio.optimize.setup-readiness-panel
+  (:require [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]))
 
 (defn- warning-code-label
   [warning]
   (some-> (:code warning) name))
+
+(defn- warning-message
+  [readiness warning]
+  (or (:message warning)
+      (setup-readiness/warning-display-message (:request readiness) warning)
+      (warning-code-label warning)))
 
 (defn- readiness-copy
   [readiness]
@@ -23,7 +30,8 @@
 
 (defn readiness-panel
   [readiness history-load-state]
-  (let [warnings (vec (:warnings readiness))]
+  (let [warnings (vec (or (seq (:blocking-warnings readiness))
+                          (:warnings readiness)))]
     [:div {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
            :data-role "portfolio-optimizer-readiness-panel"}
      [:p {:class ["text-[0.65rem]"
@@ -49,15 +57,23 @@
        (into
         [:div {:class ["mt-3" "space-y-2"]}]
         (map (fn [warning]
-               [:p {:class ["rounded-md"
-                            "border"
-                            "border-warning/40"
-                            "bg-warning/10"
-                            "px-2"
-                            "py-1.5"
-                            "text-xs"
-                            "font-semibold"
-                            "text-warning"]
-                    :data-role "portfolio-optimizer-readiness-warning"}
-                (warning-code-label warning)])
+               [:div {:class ["rounded-md"
+                              "border"
+                              "border-warning/40"
+                              "bg-warning/10"
+                              "px-2"
+                              "py-1.5"
+                              "text-xs"
+                              "text-warning"]
+                      :data-role "portfolio-optimizer-readiness-warning"}
+                [:p {:class ["font-semibold"]}
+                 (warning-message readiness warning)]
+                (when-let [code (warning-code-label warning)]
+                  [:p {:class ["mt-1"
+                               "font-mono"
+                               "text-[0.65rem]"
+                               "uppercase"
+                               "tracking-[0.08em]"
+                               "text-warning/80"]}
+                   code])])
              warnings)))]))

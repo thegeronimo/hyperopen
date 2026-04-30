@@ -79,14 +79,10 @@
 
 (defn- pipeline-ready-request
   [store]
-  (let [{:keys [request runnable? reason]} (setup-readiness/build-readiness @store)]
+  (let [{:keys [request runnable?] :as readiness}
+        (setup-readiness/build-readiness @store)]
     (when-not runnable?
-      (throw (js/Error. (case reason
-                          :missing-universe "Select a universe before running."
-                          :history-loading "Optimizer history is already loading."
-                          :no-eligible-history "No eligible history was available for this universe."
-                          :incomplete-history "History is incomplete for this universe."
-                          "Optimizer inputs are not ready to run."))))
+      (throw (js/Error. (setup-readiness/readiness-error-message readiness))))
     request))
 
 (defn run-portfolio-optimizer-pipeline-effect

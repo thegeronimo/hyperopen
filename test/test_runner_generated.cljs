@@ -401,6 +401,7 @@
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
             [hyperopen.views.portfolio.optimize.results-panel-test]
+            [hyperopen.views.portfolio.optimize.setup-readiness-panel-test]
             [hyperopen.views.portfolio.optimize.setup-v4-layout-test]
             [hyperopen.views.portfolio.optimize.tracking-panel-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
@@ -979,6 +980,7 @@
              'hyperopen.views.portfolio.optimize.frontier-overlay-markers-test
              'hyperopen.views.portfolio.optimize.index-view-test
              'hyperopen.views.portfolio.optimize.results-panel-test
+             'hyperopen.views.portfolio.optimize.setup-readiness-panel-test
              'hyperopen.views.portfolio.optimize.setup-v4-layout-test
              'hyperopen.views.portfolio.optimize.tracking-panel-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
