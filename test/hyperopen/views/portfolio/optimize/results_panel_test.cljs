@@ -238,8 +238,6 @@
         target-orb-stops (vec (collect-nodes target-orb-gradient #(= :stop (first %))))
         legend (node-by-role view-node
                              "portfolio-optimizer-frontier-legend")
-        legend-target-dot (node-by-role view-node
-                                        "portfolio-optimizer-frontier-legend-target-dot")
         frontier-callout (node-by-role view-node
                                       "portfolio-optimizer-frontier-callout-frontier-1")
         standalone-callout (node-by-role view-node
@@ -435,13 +433,7 @@
              "0.3"
              "35.00%"}
            (set (collect-strings contribution-callout))))
-    (is (some? legend))
-    (is (= "radial-gradient(circle at 35% 30%, #ffffff 0%, #7cecff 14%, #5d7cff 38%, #8b5cff 66%, #ff4fd8 100%)"
-           (get-in legend-target-dot [1 :style :background])))
-    (is (= #{"Target"
-             "Efficient frontier"
-             "Standalone assets"}
-           (set (collect-strings legend))))
+    (is (nil? legend))
     (is (some? standalone-toggle))
     (is (= "true" (get-in standalone-toggle [1 :aria-pressed])))
     (is (= [[:actions/set-portfolio-optimizer-frontier-overlay-mode :contribution]]

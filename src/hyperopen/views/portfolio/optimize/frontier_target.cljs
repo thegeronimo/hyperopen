@@ -12,9 +12,6 @@
 (def target-ring-gradient "url(#portfolioOptimizerTargetRingGradient)")
 (def target-label-border-gradient "url(#portfolioOptimizerTargetLabelBorderGradient)")
 
-(def legend-gradient
-  "radial-gradient(circle at 35% 30%, #ffffff 0%, #7cecff 14%, #5d7cff 38%, #8b5cff 66%, #ff4fd8 100%)")
-
 (defn gradient-defs
   []
   [:defs {:data-role "portfolio-optimizer-frontier-target-defs"}
@@ -74,14 +71,6 @@
     [:feMerge
      [:feMergeNode {:in "softGlow"}]
      [:feMergeNode {:in "SourceGraphic"}]]]])
-
-(defn legend-dot
-  []
-  [:span {:class ["h-2.5" "w-2.5" "rounded-full"]
-          :style {:background legend-gradient
-                  :border "1px solid rgba(235, 226, 255, 0.72)"
-                  :box-shadow "0 0 5px rgba(139, 92, 255, 0.46), 0 0 9px rgba(72, 212, 255, 0.14)"}
-          :data-role "portfolio-optimizer-frontier-legend-target-dot"}])
 
 (defn- target-model
   [{:keys [point-position x-domain y-domain result]}]

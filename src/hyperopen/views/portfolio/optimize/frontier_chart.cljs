@@ -306,8 +306,7 @@
          {:keys [subtitle
                  x-axis-prefix
                  y-axis-prefix
-                 reading-text
-                 legend-label]} (frontier-overlays/copy overlay-mode*)
+                 reading-text]} (frontier-overlays/copy overlay-mode*)
          points (->> (frontier-points result constrain-frontier?)
                      (filter #(and (opt-format/finite-number? (:volatility %))
                                    (opt-format/finite-number? (:expected-return %))))
@@ -361,25 +360,6 @@
            (str (count points) " points")]]]
         [:div {:class ["relative" "mt-4" "overflow-hidden" "border" "border-base-300" "bg-base-100" "p-4"]
                :data-role "portfolio-optimizer-frontier-chart-box"}
-         [:div {:class ["absolute" "right-6" "top-6" "z-10" "border" "border-base-300" "bg-base-200/80" "px-3" "py-2" "text-[0.65rem]"]
-                :data-role "portfolio-optimizer-frontier-legend"}
-          [:div {:class ["flex" "items-center" "gap-2" "text-trading-text"]}
-           (frontier-target/legend-dot)
-           "Target"]
-          [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-muted"]}
-           [:span {:class ["h-px" "w-5"]
-                   :style {:background-color frontier-color}}]
-           "Efficient frontier"]
-          (when legend-label
-            [:div {:class ["mt-1" "flex" "items-center" "gap-2" "text-trading-muted"]}
-             [:span {:class ["flex" "items-center" "gap-0.5"]}
-              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
-                      :style {:border-color "#8f96a3"}}]
-              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
-                      :style {:border-color "#6f4aa5"}}]
-              [:span {:class ["h-1.5" "w-1.5" "rounded-full" "border"]
-                      :style {:border-color "#59a5c8"}}]]
-             legend-label])]
          [:svg {:viewBox (str "0 0 " chart-width " " chart-height)
                 :class ["h-[23.75rem]" "w-full" "overflow-visible" "text-trading-text"]
                 :data-role "portfolio-optimizer-frontier-svg"
