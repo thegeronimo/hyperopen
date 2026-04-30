@@ -146,6 +146,10 @@
 (def ^:private generic-vault-words
   #{"VAULT" "POOL" "FUND" "STRATEGY"})
 
+(def ^:private known-vault-short-codes
+  {"hyperliquidity provider" "HLP"
+   "hyperliquidity provider (hlp)" "HLP"})
+
 (def ^:private vowels
   #{\A \E \I \O \U})
 
@@ -155,6 +159,24 @@
     (when (and text
                (re-matches #"[A-Za-z0-9]{2,6}" text))
       (str/upper-case text))))
+
+(defn- first-abbreviation-match
+  [pattern text]
+  (some->> (re-seq pattern text)
+           (map second)
+           (filter seq)
+           first
+           str/upper-case))
+
+(defn- explicit-three-letter-abbreviation
+  [value]
+  (when-let [text (non-blank-text value)]
+    (first-abbreviation-match #"\(([A-Za-z]{3})\)" text)))
+
+(defn- known-vault-short-code
+  [value]
+  (when-let [text (non-blank-text value)]
+    (get known-vault-short-codes (str/lower-case text))))
 
 (defn- padded-code
   [code]
@@ -182,6 +204,8 @@
                 (:symbol point)]
                (keep short-code-value)
                first)
+      (explicit-three-letter-abbreviation (overlay-label point))
+      (known-vault-short-code (overlay-label point))
       (let [tokens (->> (or (overlay-label point) "")
                         (re-seq #"[A-Za-z0-9]+")
                         (map str/upper-case)

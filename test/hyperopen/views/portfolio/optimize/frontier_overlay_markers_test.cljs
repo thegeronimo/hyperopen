@@ -150,3 +150,46 @@
     (is (not (contains? (set (collect-strings contribution-callout)) vault-id)))
     (is (not (str/includes? (node-attr standalone-group :aria-label) vault-id)))
     (is (str/includes? (node-attr standalone-group :aria-label) vault-label))))
+
+(deftest vault-frontier-marker-prefers-explicit-parenthesized-abbreviation-test
+  (let [vault-address "0x2222222222222222222222222222222222222222"
+        vault-id (str "vault:" vault-address)
+        vault-label "Hyperliquidity Provider (HLP)"
+        result (assoc (fixtures/sample-solved-result)
+                      :frontier-overlays
+                      {:standalone [{:instrument-id vault-id
+                                     :label vault-label
+                                     :target-weight 0.5
+                                     :expected-return -0.0596
+                                     :volatility 0.0105}]})
+        node (results-panel/results-panel
+              {:result result
+               :computed-at-ms 2600}
+              {:objective {:kind :minimum-variance}}
+              {:frontier-overlay-mode :standalone})
+        code-node (node-by-role
+                   node
+                   (str "portfolio-optimizer-frontier-vault-code-standalone-"
+                        vault-id))]
+    (is (= "HLP" (first (collect-strings code-node))))))
+
+(deftest vault-frontier-marker-uses-known-hlp-abbreviation-without-parentheses-test
+  (let [vault-address "0x3333333333333333333333333333333333333333"
+        vault-id (str "vault:" vault-address)
+        result (assoc (fixtures/sample-solved-result)
+                      :frontier-overlays
+                      {:standalone [{:instrument-id vault-id
+                                     :label "Hyperliquidity Provider"
+                                     :target-weight 0.5
+                                     :expected-return -0.0596
+                                     :volatility 0.0105}]})
+        node (results-panel/results-panel
+              {:result result
+               :computed-at-ms 2600}
+              {:objective {:kind :minimum-variance}}
+              {:frontier-overlay-mode :standalone})
+        code-node (node-by-role
+                   node
+                   (str "portfolio-optimizer-frontier-vault-code-standalone-"
+                        vault-id))]
+    (is (= "HLP" (first (collect-strings code-node))))))
