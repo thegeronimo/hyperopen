@@ -865,12 +865,22 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(maxAssetWeight).toBeVisible();
 
   const maxSharpe = page.locator("[data-role='portfolio-optimizer-objective-max-sharpe']");
+  const targetVolatilityObjective = page.locator("[data-role='portfolio-optimizer-objective-target-volatility']");
+  const targetReturnObjective = page.locator("[data-role='portfolio-optimizer-objective-target-return']");
   const blackLitterman = page.locator("[data-role='portfolio-optimizer-return-model-black-litterman']");
   const sampleCovariance = page.locator("[data-role='portfolio-optimizer-risk-model-sample-covariance']");
+  const targetReturn = page.locator(
+    "[data-role='portfolio-optimizer-objective-target-return-input']"
+  );
+  const targetVolatility = page.locator(
+    "[data-role='portfolio-optimizer-objective-target-volatility-input']"
+  );
 
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "false");
   await maxSharpe.click();
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "true");
+  await expect(targetReturn).toHaveCount(0);
+  await expect(targetVolatility).toHaveCount(0);
 
   await expect(blackLitterman).toHaveAttribute("aria-pressed", "false");
   await blackLitterman.click();
@@ -891,10 +901,15 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(maxAssetWeight).toHaveValue("0.3");
 
-  const targetReturn = page.locator(
-    "[data-role='portfolio-optimizer-objective-target-return-input']"
-  );
+  await targetVolatilityObjective.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(targetVolatility).toHaveValue("0.2");
+  await expect(targetReturn).toHaveCount(0);
+
+  await targetReturnObjective.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(targetReturn).toHaveValue("0.15");
+  await expect(targetVolatility).toHaveCount(0);
   await targetReturn.fill("0.18");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(targetReturn).toHaveValue("0.18");

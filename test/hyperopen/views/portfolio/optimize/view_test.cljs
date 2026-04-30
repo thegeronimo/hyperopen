@@ -46,6 +46,8 @@
   [node]
   (get-in node [1 :on :change]))
 
+(defn- portfolio-optimizer-setup-view [objective] (portfolio-view/portfolio-view {:router {:path "/portfolio/optimize/new"} :portfolio {:optimizer {:draft {:objective objective}}}}))
+
 (deftest portfolio-view-delegates-optimizer-index-route-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize"}})]
@@ -164,18 +166,8 @@
            (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-sample-covariance"))))
     (is (= [[:actions/set-portfolio-optimizer-risk-model-kind :diagonal-shrink]]
            (click-actions (node-by-role view-node "portfolio-optimizer-risk-model-diagonal-shrink"))))
-    (is (= [[:actions/set-portfolio-optimizer-objective-parameter
-             :target-return
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-objective-target-return-input"))))
-    (is (= [[:actions/set-portfolio-optimizer-objective-parameter
-             :target-volatility
-             [:event.target/value]]]
-           (input-actions
-            (node-by-role view-node
-                          "portfolio-optimizer-objective-target-volatility-input"))))
+    (doseq [role ["portfolio-optimizer-objective-target-return-input" "portfolio-optimizer-objective-target-volatility-input"]]
+      (is (nil? (node-by-role view-node role))))
     (is (some? (node-by-role view-node "portfolio-optimizer-advanced-overrides-shell")))
     (is (some? (node-by-role view-node "portfolio-optimizer-instrument-overrides-panel")))
     (let [strings (set (collect-strings view-node))]
@@ -192,6 +184,16 @@
       (is (not (contains? strings "Manual Capital Base")))
       (is (not (contains? strings "Default Order: Market")))
       (is (not (contains? strings "Fee Mode: Taker"))))))
+
+(deftest portfolio-optimizer-objective-parameter-inputs-follow-selected-objective-test
+  (let [return-role "portfolio-optimizer-objective-target-return-input"
+        volatility-role "portfolio-optimizer-objective-target-volatility-input"
+        view-for #(portfolio-optimizer-setup-view {:kind % :target-return 0.18 :target-volatility 0.25})
+        action-for #(input-actions (node-by-role (view-for %1) %2))]
+    (is (= [[:actions/set-portfolio-optimizer-objective-parameter :target-return [:event.target/value]]] (action-for :target-return return-role)))
+    (is (= [[:actions/set-portfolio-optimizer-objective-parameter :target-volatility [:event.target/value]]] (action-for :target-volatility volatility-role)))
+    (doseq [[kind role] [[:target-return volatility-role] [:target-volatility return-role] [:max-sharpe return-role] [:max-sharpe volatility-role]]]
+      (is (nil? (node-by-role (view-for kind) role))))))
 
 (deftest portfolio-optimizer-setup-route-shows-use-my-views-context-for-black-litterman-test
   (let [view-node (portfolio-view/portfolio-view

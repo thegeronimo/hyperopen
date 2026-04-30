@@ -203,21 +203,19 @@
                       (= :target-return objective-kind)
                       "portfolio-optimizer-objective-target-return"
                       [:actions/set-portfolio-optimizer-objective-kind :target-return])]
-     [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
-      (number-input "Target Return"
-                    (or (get-in draft [:objective :target-return]) 0.15)
-                    "portfolio-optimizer-objective-target-return-input"
-                    [:actions/set-portfolio-optimizer-objective-parameter
-                     :target-return
-                     [:event.target/value]]
-                    (contains? highlighted-controls :target-return))
-      (number-input "Target Volatility"
-                    (or (get-in draft [:objective :target-volatility]) 0.2)
-                    "portfolio-optimizer-objective-target-volatility-input"
-                    [:actions/set-portfolio-optimizer-objective-parameter
-                     :target-volatility
-                     [:event.target/value]]
-                    false)])))
+     (when (#{:target-volatility :target-return} objective-kind)
+       [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
+        (case objective-kind
+          :target-volatility
+          (number-input "Target Volatility"
+                        (or (get-in draft [:objective :target-volatility]) 0.2) "portfolio-optimizer-objective-target-volatility-input"
+                        [:actions/set-portfolio-optimizer-objective-parameter :target-volatility [:event.target/value]]
+                        false)
+          :target-return
+          (number-input "Target Return"
+                        (or (get-in draft [:objective :target-return]) 0.15) "portfolio-optimizer-objective-target-return-input"
+                        [:actions/set-portfolio-optimizer-objective-parameter :target-return [:event.target/value]]
+                        (contains? highlighted-controls :target-return)))]))))
 
 (defn- objective-card
   [title subtitle selected? role action]
