@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.application.engine
   (:require [hyperopen.portfolio.optimizer.application.display-frontier :as display-frontier]
+            [hyperopen.portfolio.optimizer.application.instrument-labels :as instrument-labels]
             [hyperopen.portfolio.optimizer.domain.black-litterman :as black-litterman]
             [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
             [hyperopen.portfolio.optimizer.domain.diagnostics :as diagnostics]
@@ -294,13 +295,7 @@
 
 (defn- labels-by-instrument
   [request instrument-ids]
-  (let [by-id (universe-by-id (:universe request))]
-    (into {}
-          (map (fn [instrument-id]
-                 [instrument-id
-                  (or (get-in by-id [instrument-id :coin])
-                      instrument-id)]))
-          instrument-ids)))
+  (instrument-labels/labels-by-instrument (:universe request) instrument-ids))
 
 (defn- sharpe-summary
   [expected-return volatility]

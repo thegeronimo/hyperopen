@@ -87,6 +87,71 @@
            (:history-summary result)))
     (is (seq (:frontier result)))))
 
+(deftest run-optimization-labels-vault-frontier-overlays-by-human-name-test
+  (let [vault-address "0x1111111111111111111111111111111111111111"
+        vault-id (str "vault:" vault-address)
+        request (fixtures/sample-engine-request
+                 {:draft (fixtures/sample-draft
+                          {:id "vault-frontier-labels"
+                           :universe [{:instrument-id "perp:BTC"
+                                       :market-type :perp
+                                       :coin "BTC"
+                                       :shortable? true}
+                                      {:instrument-id vault-id
+                                       :market-type :vault
+                                       :coin vault-id
+                                       :vault-address vault-address
+                                       :name "BTC Basis Carry Vault"
+                                       :symbol "BTC Basis Carry Vault"
+                                       :shortable? false}]
+                           :objective {:kind :minimum-variance}
+                           :return-model {:kind :historical-mean}
+                           :risk-model {:kind :diagonal-shrink}
+                           :constraints {:long-only? true
+                                         :max-asset-weight 0.8
+                                         :rebalance-tolerance 0.001}})
+                  :current-portfolio (fixtures/sample-current-portfolio
+                                      {:by-instrument {"perp:BTC" {:weight 0.45
+                                                                  :market-type :perp
+                                                                  :coin "BTC"}}})
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time-ms 1000 :close "100"}
+                                         {:time-ms 2000 :close "110"}
+                                         {:time-ms 3000 :close "121"}
+                                         {:time-ms 4000 :close "133.1"}]}
+                                 :funding-history-by-coin
+                                 {"BTC" [{:time-ms 1000
+                                          :funding-rate-raw 0.0001}]}
+                                 :vault-details-by-address
+                                 {vault-address
+                                  {:portfolio
+                                   {:month
+                                    {:accountValueHistory [[1000 100]
+                                                           [2000 106]
+                                                           [3000 114]
+                                                           [4000 125]]
+                                     :pnlHistory [[1000 0]
+                                                  [2000 6]
+                                                  [3000 14]
+                                                  [4000 25]]}}}}}
+                  :market-cap-by-coin {"BTC" 600}
+                  :as-of-ms 5000})
+        result (engine/run-optimization
+                request
+                {:solve-problem (fn [_problem]
+                                  {:status :solved
+                                   :solver :fixture-solver
+                                   :weights [0.5 0.5]})})
+        vault-standalone (first (filter #(= vault-id (:instrument-id %))
+                                        (get-in result [:frontier-overlays :standalone])))
+        vault-contribution (first (filter #(= vault-id (:instrument-id %))
+                                          (get-in result [:frontier-overlays :contribution])))]
+    (is (= :solved (:status result)))
+    (is (= "BTC Basis Carry Vault" (:label vault-standalone)))
+    (is (= "BTC Basis Carry Vault" (:label vault-contribution)))
+    (is (not= vault-id (:label vault-standalone)))
+    (is (not= vault-id (:label vault-contribution)))))
+
 (deftest run-optimization-uses-latest-history-price-for-rebalance-preview-test
   (let [result (engine/run-optimization
                 (-> base-request
