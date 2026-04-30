@@ -362,14 +362,34 @@
               :data-role data-role}])
     (frontier-callout/hitbox data-role x y 16)))
 
-(defn- standalone-marker
-  [{:keys [bounds point-position x-domain y-domain point]}]
+(defn- standalone-point-model
+  [{:keys [point-position x-domain y-domain point]}]
   (let [position (point-position x-domain y-domain point)
         {:keys [x y]} position
         label (overlay-label point)
         rows (frontier-callout/point-rows
               point
               {:target-weight (:target-weight point)})]
+    {:position position
+     :x x
+     :y y
+     :label label
+     :rows rows}))
+
+(defn- standalone-callout
+  [{:keys [bounds point] :as opts}]
+  (let [{:keys [position label rows]} (standalone-point-model opts)]
+    (frontier-callout/callout
+     {:bounds bounds
+      :data-role (str "portfolio-optimizer-frontier-callout-standalone-"
+                      (:instrument-id point))
+      :label label
+      :point position
+      :rows rows})))
+
+(defn- standalone-marker
+  [{:keys [point render-callout?] :as opts}]
+  (let [{:keys [x y label rows]} (standalone-point-model opts)]
     [:g (marker-shell-attrs
          (str "portfolio-optimizer-frontier-overlay-standalone-"
               (:instrument-id point))
@@ -392,16 +412,11 @@
       x
       y
       point)
-     (frontier-callout/callout
-      {:bounds bounds
-       :data-role (str "portfolio-optimizer-frontier-callout-standalone-"
-                       (:instrument-id point))
-       :label label
-       :point position
-       :rows rows})]))
+     (when-not (false? render-callout?)
+       (standalone-callout opts))]))
 
-(defn- contribution-marker
-  [{:keys [bounds point-position x-domain y-domain point]}]
+(defn- contribution-point-model
+  [{:keys [point-position x-domain y-domain point]}]
   (let [position (point-position x-domain y-domain point)
         {:keys [x y]} position
         label (overlay-label point)
@@ -410,6 +425,26 @@
               {:return-label "Return Contribution"
                :volatility-label "Volatility Contribution"
                :target-weight (:target-weight point)})]
+    {:position position
+     :x x
+     :y y
+     :label label
+     :rows rows}))
+
+(defn- contribution-callout
+  [{:keys [bounds point] :as opts}]
+  (let [{:keys [position label rows]} (contribution-point-model opts)]
+    (frontier-callout/callout
+     {:bounds bounds
+      :data-role (str "portfolio-optimizer-frontier-callout-contribution-"
+                      (:instrument-id point))
+      :label label
+      :point position
+      :rows rows})))
+
+(defn- contribution-marker
+  [{:keys [point render-callout?] :as opts}]
+  (let [{:keys [x y label rows]} (contribution-point-model opts)]
     [:g (marker-shell-attrs
          (str "portfolio-optimizer-frontier-overlay-contribution-"
               (:instrument-id point))
@@ -432,17 +467,19 @@
       x
       y
       point)
-     (frontier-callout/callout
-      {:bounds bounds
-       :data-role (str "portfolio-optimizer-frontier-callout-contribution-"
-                       (:instrument-id point))
-       :label label
-       :point position
-       :rows rows})]))
+     (when-not (false? render-callout?)
+       (contribution-callout opts))]))
 
 (defn marker
   [{:keys [overlay-mode] :as opts}]
   (case (normalize-mode overlay-mode)
     :contribution (contribution-marker opts)
     :standalone (standalone-marker opts)
+    nil))
+
+(defn callout
+  [{:keys [overlay-mode] :as opts}]
+  (case (normalize-mode overlay-mode)
+    :contribution (contribution-callout opts)
+    :standalone (standalone-callout opts)
     nil))

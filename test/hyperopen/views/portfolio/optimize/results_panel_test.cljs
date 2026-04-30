@@ -226,6 +226,8 @@
                                         "portfolio-optimizer-frontier-callout-standalone-perp:BTC")
         standalone-symbol (node-by-role view-node
                                         "portfolio-optimizer-frontier-overlay-symbol-standalone-perp:BTC")
+        standalone-purr-marker (node-by-role view-node
+                                             "portfolio-optimizer-frontier-overlay-standalone-spot:PURR")
         contribution-callout (node-by-role contribution-view-node
                                           "portfolio-optimizer-frontier-callout-contribution-perp:BTC")
         contribution-symbol (node-by-role contribution-view-node
@@ -287,6 +289,15 @@
     (is (< (index-of svg-role-order "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")
            (index-of svg-role-order "portfolio-optimizer-frontier-callout-frontier-1"))
         "Frontier point callouts must paint above overlay markers.")
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-overlay-standalone-spot:PURR")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-target"))
+        "Target callouts must paint above overlay markers.")
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-standalone-perp:BTC"))
+        "Overlay callouts must paint above their own marker.")
+    (is (< (index-of svg-role-order "portfolio-optimizer-frontier-overlay-standalone-spot:PURR")
+           (index-of svg-role-order "portfolio-optimizer-frontier-callout-standalone-perp:BTC"))
+        "Overlay callouts must paint above later overlay markers.")
     (is (= "frontier-1" (node-attr frontier-point :data-frontier-callout-trigger)))
     (is (= "frontier-1" (node-attr frontier-callout :data-frontier-callout-id)))
     (is (some? target-defs))
@@ -417,6 +428,7 @@
            (click-actions contribution-toggle)))
     (is (some? (node-by-role view-node
                              "portfolio-optimizer-frontier-overlay-standalone-perp:BTC")))
+    (is (some? standalone-purr-marker))
     (is (nil? (node-by-role view-node
                             "portfolio-optimizer-frontier-overlay-contribution-perp:BTC")))
     (is (some? (node-by-role contribution-view-node

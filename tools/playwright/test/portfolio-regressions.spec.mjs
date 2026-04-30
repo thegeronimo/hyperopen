@@ -1488,6 +1488,14 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(targetLeaderLine).toHaveAttribute("stroke-dasharray", "3 3");
   await targetMarker.hover();
   await expect(targetCallout).toHaveCSS("opacity", "1");
+  expect(await targetCallout.evaluate((callout) => {
+    for (let node = callout.parentElement; node; node = node.parentElement) {
+      if (node.getAttribute("data-role") === "portfolio-optimizer-frontier-callout-layer") {
+        return true;
+      }
+    }
+    return false;
+  })).toBe(true);
   await expect(page.locator("[data-role='portfolio-optimizer-frontier-callout-target-border']"))
     .toHaveAttribute("fill", "url(#portfolioOptimizerTargetTooltipBorderGradient)");
   await expect(targetCallout).toContainText("Target");
@@ -1509,6 +1517,14 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(standaloneMarkerGroup.locator("rect[transform*='rotate']")).toHaveCount(0);
   await standaloneMarker.hover();
   await expect(standaloneCallout).toHaveCSS("opacity", "1");
+  expect(await standaloneCallout.evaluate((callout) => {
+    for (let node = callout.parentElement; node; node = node.parentElement) {
+      if (node.getAttribute("data-role") === "portfolio-optimizer-frontier-callout-layer") {
+        return true;
+      }
+    }
+    return false;
+  })).toBe(true);
   await expect(standaloneMarkerGroup).toHaveCSS("outline-style", "none");
   await expect(standaloneCallout).toContainText("BTC");
   await expect(standaloneCallout).toContainText("Expected Return");

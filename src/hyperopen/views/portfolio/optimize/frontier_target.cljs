@@ -83,8 +83,8 @@
                   :box-shadow "0 0 5px rgba(139, 92, 255, 0.46), 0 0 9px rgba(72, 212, 255, 0.14)"}
           :data-role "portfolio-optimizer-frontier-legend-target-dot"}])
 
-(defn marker
-  [{:keys [bounds point-position x-domain y-domain result]}]
+(defn- target-model
+  [{:keys [point-position x-domain y-domain result]}]
   (let [point {:expected-return (:expected-return result)
                :volatility (:volatility result)
                :sharpe (get-in result [:performance :in-sample-sharpe])}
@@ -96,9 +96,32 @@
         rows (frontier-callout/point-rows
               point
               {:exposure (frontier-callout/exposure-summary result :target)})]
+    {:position position
+     :x x
+     :y y
+     :label-x label-x
+     :label-y label-y
+     :label label
+     :rows rows}))
+
+(defn callout
+  [{:keys [bounds] :as opts}]
+  (let [{:keys [position label rows]} (target-model opts)]
+    (frontier-callout/callout
+     {:bounds bounds
+      :data-role "portfolio-optimizer-frontier-callout-target"
+      :variant :target
+      :label label
+      :point position
+      :rows rows})))
+
+(defn marker
+  [{:keys [render-callout?] :as opts}]
+  (let [{:keys [x y label-x label-y label rows]} (target-model opts)]
     [:g {:class ["portfolio-frontier-marker" "outline-none"]
          :style {:color target-purple}
          :data-role "portfolio-optimizer-frontier-target-marker"
+         :data-frontier-callout-trigger "target"
          :role "img"
          :tabIndex 0
          :tabindex 0
@@ -168,10 +191,5 @@
       x
       y
       18)
-     (frontier-callout/callout
-      {:bounds bounds
-       :data-role "portfolio-optimizer-frontier-callout-target"
-       :variant :target
-       :label label
-       :point position
-       :rows rows})]))
+     (when-not (false? render-callout?)
+       (callout opts))]))
