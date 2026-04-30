@@ -47,8 +47,9 @@
     :else "flat"))
 
 (defn- instrument-group-key
-  [instrument-id]
-  (let [value (str instrument-id)
+  [labels-by-instrument instrument-id]
+  (let [value (or (get labels-by-instrument instrument-id)
+                  (str instrument-id))
         unprefixed (last (str/split value #":"))
         base (first (str/split unprefixed #"[/-]"))]
     (if (seq base) base value)))
@@ -133,11 +134,13 @@
         ids (:instrument-ids result)
         current (:current-weights result)
         target (:target-weights result)
+        labels-by-instrument (or (:labels-by-instrument result) {})
         binding-instrument-ids (set (keep :instrument-id
                                           (get-in result [:diagnostics :binding-constraints])))
         rows (map-indexed (fn [idx [instrument-id current-weight target-weight]]
                             {:idx idx
-                             :asset (instrument-group-key instrument-id)
+                             :asset (instrument-group-key labels-by-instrument
+                                                          instrument-id)
                              :instrument-id instrument-id
                              :current-weight (or current-weight 0)
                              :target-weight (or target-weight 0)})

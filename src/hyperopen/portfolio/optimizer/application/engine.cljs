@@ -376,18 +376,20 @@
                                                           (:covariance risk-result)))
         expected-return (math/portfolio-return target-weights expected-returns)
         volatility (sqrt (math/portfolio-variance target-weights (:covariance risk-result)))
+        labels-by-instrument* (labels-by-instrument request instrument-ids)
         overlay-payload (frontier-overlays/overlay-series
                          {:instrument-ids instrument-ids
                           :target-weights target-weights
                           :expected-returns expected-returns
                           :covariance (:covariance risk-result)
-                          :labels-by-instrument (labels-by-instrument request instrument-ids)})]
+                          :labels-by-instrument labels-by-instrument*})]
     {:status :solved
      :scenario-id (:scenario-id request)
      :as-of-ms (:as-of-ms request)
      :instrument-ids instrument-ids
      :target-weights target-weights
      :current-weights current-weights*
+     :labels-by-instrument labels-by-instrument*
      :target-weights-by-instrument (zipmap instrument-ids target-weights)
      :current-weights-by-instrument (zipmap instrument-ids current-weights*)
      :dropped-weights dropped

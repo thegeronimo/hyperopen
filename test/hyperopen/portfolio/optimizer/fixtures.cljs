@@ -265,6 +265,9 @@
        :instrument-ids instrument-ids
        :target-weights target-weights
        :current-weights current-weights
+       :labels-by-instrument {"perp:BTC" "BTC"
+                              "perp:ETH" "ETH"
+                              "spot:PURR" "PURR"}
        :target-weights-by-instrument target-by-id
        :current-weights-by-instrument (current-weights-by-instrument)
        :dropped-weights []

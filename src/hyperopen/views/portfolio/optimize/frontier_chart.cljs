@@ -198,7 +198,8 @@
         rows (frontier-callout/point-rows point)
         allocations (frontier-callout/allocation-summary
                      (:instrument-ids result)
-                     (:weights point))]
+                     (:weights point)
+                     (:labels-by-instrument result))]
     (frontier-callout/callout
      {:bounds chart-bounds
       :data-role (str "portfolio-optimizer-frontier-callout-frontier-" idx)

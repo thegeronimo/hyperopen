@@ -54,32 +54,37 @@
       nil)))
 
 (defn- allocation-label
-  [instrument-id]
-  (let [value (str instrument-id)
+  [labels-by-instrument instrument-id]
+  (let [value (or (get labels-by-instrument instrument-id)
+                  (str instrument-id))
         unprefixed (last (str/split value #":"))
         base (first (str/split unprefixed #"[/-]"))]
     (if (seq base) base value)))
 
 (defn allocation-summary
-  [instrument-ids weights]
-  (let [rows (->> (map vector instrument-ids weights)
-                  (keep (fn [[instrument-id weight]]
-                          (when (and (some? instrument-id)
-                                     (opt-format/finite-number? weight)
-                                     (not (zero? weight)))
-                            {:label (allocation-label instrument-id)
-                             :weight weight
-                             :value (opt-format/format-pct
-                                     weight
-                                     {:minimum-fraction-digits 1
-                                      :maximum-fraction-digits 1})})))
-                  vec)
-        sum* (reduce + 0 (map :weight rows))]
-    (when (seq rows)
-      {:rows rows
-       :sum (opt-format/format-pct sum*
-                                   {:minimum-fraction-digits 1
-                                    :maximum-fraction-digits 1})})))
+  ([instrument-ids weights]
+   (allocation-summary instrument-ids weights nil))
+  ([instrument-ids weights labels-by-instrument]
+   (let [labels-by-instrument* (or labels-by-instrument {})
+         rows (->> (map vector instrument-ids weights)
+                   (keep (fn [[instrument-id weight]]
+                           (when (and (some? instrument-id)
+                                      (opt-format/finite-number? weight)
+                                      (not (zero? weight)))
+                             {:label (allocation-label labels-by-instrument*
+                                                       instrument-id)
+                              :weight weight
+                              :value (opt-format/format-pct
+                                      weight
+                                      {:minimum-fraction-digits 1
+                                       :maximum-fraction-digits 1})})))
+                   vec)
+         sum* (reduce + 0 (map :weight rows))]
+     (when (seq rows)
+       {:rows rows
+        :sum (opt-format/format-pct sum*
+                                    {:minimum-fraction-digits 1
+                                     :maximum-fraction-digits 1})}))))
 
 (defn hitbox
   [data-role x y radius]
