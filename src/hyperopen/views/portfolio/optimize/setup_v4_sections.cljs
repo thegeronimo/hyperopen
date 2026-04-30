@@ -204,7 +204,7 @@
                       "portfolio-optimizer-objective-target-return"
                       [:actions/set-portfolio-optimizer-objective-kind :target-return])]
      (when (#{:target-volatility :target-return} objective-kind)
-       [:div {:class ["mt-2" "grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
+       [:div {:class ["mt-2"]}
         (case objective-kind
           :target-volatility
           (number-input "Target Volatility"

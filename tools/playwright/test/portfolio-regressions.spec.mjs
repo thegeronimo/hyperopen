@@ -875,6 +875,14 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   const targetVolatility = page.locator(
     "[data-role='portfolio-optimizer-objective-target-volatility-input']"
   );
+  const targetShellFillsPanel = async (input) => {
+    return input.evaluate((element) => {
+      const panel = document.querySelector("[data-role='portfolio-optimizer-objective-panel']");
+      const shell = element.closest("label");
+      if (!panel || !shell) return false;
+      return shell.getBoundingClientRect().width >= panel.getBoundingClientRect().width * 0.8;
+    });
+  };
 
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "false");
   await maxSharpe.click();
@@ -904,11 +912,13 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await targetVolatilityObjective.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(targetVolatility).toHaveValue("0.2");
+  await expect.poll(() => targetShellFillsPanel(targetVolatility)).toBe(true);
   await expect(targetReturn).toHaveCount(0);
 
   await targetReturnObjective.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(targetReturn).toHaveValue("0.15");
+  await expect.poll(() => targetShellFillsPanel(targetReturn)).toBe(true);
   await expect(targetVolatility).toHaveCount(0);
   await targetReturn.fill("0.18");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
