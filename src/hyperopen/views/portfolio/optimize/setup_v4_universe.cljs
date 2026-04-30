@@ -187,10 +187,14 @@
   [state draft]
   (let [universe (vec (or (:universe draft) []))
         search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
-        markets (universe-candidates/candidate-markets state universe search-query)
+        searching? (seq (normalized-text search-query))
+        markets (if searching?
+                  (universe-candidates/candidate-markets state universe search-query)
+                  [])
         active-index (universe-candidates/active-index state markets)
-        market-keys (mapv :key markets)
-        searching? (seq (normalized-text search-query))]
+        market-keys (if searching?
+                      (mapv :key markets)
+                      [])]
     [:section {:class ["border" "border-base-300" "bg-base-100/90" "p-3" "leading-4"]
                :data-role "portfolio-optimizer-universe-panel"}
      [:div {:class ["flex" "items-center" "justify-between" "gap-3" "border-b"

@@ -8,6 +8,9 @@
 (def vault-instrument-prefix
   "vault:")
 
+(defonce vault-candidates-cache
+  (atom nil))
+
 (defn- normalized-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -158,6 +161,13 @@
    (str/lower-case (or (vault-name row) ""))
    (str/lower-case (or (normalize-vault-address (:vault-address row)) ""))])
 
+(defn- vault-row-signature
+  [row]
+  [(normalize-vault-address (:vault-address row))
+   (vault-name row)
+   (vault-tvl row)
+   (get-in row [:relationship :type])])
+
 (defn vault-row->candidate
   [row]
   (when (vault-row? row)
@@ -190,12 +200,54 @@
     (or (not (seq query*))
         (str/includes? (vault-search-text candidate) query*))))
 
-(defn- candidate-vaults
-  [state selected-ids query]
-  (->> (get-in state [:vaults :merged-index-rows])
+(defn- vault-rows-signature
+  [rows]
+  (let [rows* (or rows [])]
+    [(count rows*)
+     (mapv (fn [row]
+             (when (map? row)
+               (vault-row-signature row)))
+           rows*)]))
+
+(defn- build-vault-candidates
+  [rows]
+  (->> rows
        (filter vault-row?)
        (sort-by vault-row-rank)
        (keep vault-row->candidate)
+       vec))
+
+(defn- memoized-vault-candidates
+  [rows]
+  (let [cache @vault-candidates-cache]
+    (cond
+      (and (map? cache)
+           (identical? rows (:rows cache)))
+      (:candidates cache)
+
+      :else
+      (let [rows-signature (vault-rows-signature rows)]
+        (if (and (map? cache)
+                 (= rows-signature (:rows-signature cache)))
+          (do
+            (reset! vault-candidates-cache (assoc cache
+                                                  :rows rows
+                                                  :rows-signature rows-signature))
+            (:candidates cache))
+          (let [candidates (build-vault-candidates rows)]
+            (reset! vault-candidates-cache {:rows rows
+                                            :rows-signature rows-signature
+                                            :candidates candidates})
+            candidates))))))
+
+(defn reset-universe-candidates-cache!
+  []
+  (reset! vault-candidates-cache nil))
+
+(defn- candidate-vaults
+  [state selected-ids query]
+  (->> (memoized-vault-candidates
+        (get-in state [:vaults :merged-index-rows]))
        (remove #(contains? selected-ids (:key %)))
        (filter #(vault-matches-query? query %))
        vec))

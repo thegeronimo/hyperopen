@@ -1,6 +1,8 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-layout-test
   (:require [cljs.test :refer-macros [deftest is]]
             [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.views.portfolio.optimize.setup-v4-universe :as setup-v4-universe]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -51,6 +53,10 @@
 (defn- input-actions
   [node]
   (get-in node [1 :on :input]))
+
+(defn- keydown-actions
+  [node]
+  (get-in node [1 :on :keydown]))
 
 (defn- class-token-set
   [node]
@@ -275,6 +281,60 @@
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument
              (str "vault:" vault-address)]]
            (click-actions add-button)))))
+
+(deftest setup-v4-universe-search-skips-blank-lookups-but-renders-nonblank-candidates-test
+  (let [vault-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        candidate-key (str "vault:" vault-address)
+        calls (atom [])
+        stub-candidates [{:key candidate-key
+                          :market-type :vault
+                          :coin candidate-key
+                          :vault-address vault-address
+                          :name "Latency Probe"
+                          :symbol "Latency Probe"
+                          :tvl 42}]
+        candidate-markets-stub (fn
+                                 ([_state _universe query]
+                                  (swap! calls conj query)
+                                  stub-candidates)
+                                 ([_state _universe query _opts]
+                                  (swap! calls conj query)
+                                  stub-candidates))
+        blank-view (with-redefs [universe-candidates/candidate-markets
+                                 candidate-markets-stub]
+                    (setup-v4-universe/universe-section
+                     {:portfolio-ui {:optimizer {:universe-search-query "   "}}}
+                     {:universe []}))
+        blank-input (node-by-role blank-view "portfolio-optimizer-universe-search-input")
+        nonblank-view (with-redefs [universe-candidates/candidate-markets
+                                    candidate-markets-stub]
+                       (setup-v4-universe/universe-section
+                        {:portfolio-ui {:optimizer {:universe-search-query "vault"}}}
+                        {:universe []}))
+        nonblank-input (node-by-role nonblank-view "portfolio-optimizer-universe-search-input")]
+    (is (= ["vault"] @calls))
+    (is (nil? (node-by-role blank-view "portfolio-optimizer-universe-search-results")))
+    (is (nil? (node-by-role blank-view "portfolio-optimizer-universe-search-results-empty")))
+    (is (nil? (node-by-role blank-view
+                            (str "portfolio-optimizer-universe-candidate-row-"
+                                 candidate-key))))
+    (is (nil? (get-in blank-input [1 :aria-activedescendant])))
+    (is (= [[:actions/handle-portfolio-optimizer-universe-search-keydown
+             [:event/key]
+             []]]
+           (keydown-actions blank-input)))
+    (is (some? (node-by-role nonblank-view "portfolio-optimizer-universe-search-results")))
+    (is (some? (node-by-role nonblank-view
+                             (str "portfolio-optimizer-universe-candidate-row-"
+                                  candidate-key))))
+    (is (= [[:actions/handle-portfolio-optimizer-universe-search-keydown
+             [:event/key]
+             [candidate-key]]]
+           (keydown-actions nonblank-input)))
+    (is (= [[:actions/add-portfolio-optimizer-universe-instrument candidate-key]]
+           (click-actions
+            (node-by-role nonblank-view
+                          (str "portfolio-optimizer-universe-add-" candidate-key)))))))
 
 (deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
   (let [view-node (portfolio-view/portfolio-view
