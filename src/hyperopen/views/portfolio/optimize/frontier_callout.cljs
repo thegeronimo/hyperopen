@@ -6,6 +6,10 @@
 (def ^:private target-callout-width 244)
 (def ^:private row-height 16)
 (def ^:private header-height 39)
+(def ^:private title-line-height 13)
+(def ^:private title-max-lines 2)
+(def ^:private callout-title-max-chars 26)
+(def ^:private target-title-max-chars 30)
 (def ^:private callout-margin 8)
 (def ^:private designer-metric-start 38)
 (def ^:private designer-section-gap 19)
@@ -145,12 +149,92 @@
         (max min*)
         (min max*))))
 
+(defn- title-wrap-limit
+  [width*]
+  (if (>= width* target-callout-width)
+    target-title-max-chars
+    callout-title-max-chars))
+
+(defn- merge-overflow-line
+  [line overflow]
+  (str/trim (str line " " overflow)))
+
+(defn- line-ellipsis
+  [limit line]
+  (let [line* (str/trim line)]
+    (if (<= (count line*) limit)
+      line*
+      (str (subs line* 0 (max 0 (- limit 3))) "..."))))
+
+(defn- word-pieces
+  [limit word]
+  (let [word* (str word)]
+    (if (<= (count word*) limit)
+      [word*]
+      (map #(apply str %)
+           (partition-all limit word*)))))
+
+(defn- title-lines
+  ([label]
+   (title-lines label callout-width))
+  ([label width*]
+   (let [limit (title-wrap-limit width*)
+         words (mapcat #(word-pieces limit %)
+                       (str/split (str/trim (str label)) #"\s+"))]
+     (if (<= (count (str/trim (str label))) limit)
+       [(str/trim (str label))]
+       (let [{:keys [lines current]}
+             (reduce
+              (fn [{:keys [lines current] :as acc} word]
+                (let [candidate (str/trim (str current " " word))]
+                  (cond
+                    (empty? current)
+                    (assoc acc :current word)
+
+                    (<= (count candidate) limit)
+                    (assoc acc :current candidate)
+
+                    :else
+                    {:lines (conj lines current)
+                     :current word})))
+              {:lines [] :current ""}
+              words)
+             wrapped (cond-> lines (seq current) (conj current))]
+         (if (<= (count wrapped) title-max-lines)
+           wrapped
+           (conj (vec (take (dec title-max-lines) wrapped))
+                 (line-ellipsis
+                  limit
+                  (merge-overflow-line (nth wrapped (dec title-max-lines))
+                                       (str/join " " (drop title-max-lines wrapped)))))))))))
+
+(defn- extra-title-height
+  [lines]
+  (* title-line-height (dec (count lines))))
+
+(defn- title-text-node
+  [{:keys [lines x y fill font-size font-weight data-role]}]
+  (into
+   [:text (cond-> {:x x
+                   :y y
+                   :fill fill
+                   :fontSize font-size
+                   :fontWeight font-weight}
+            data-role (assoc :data-role data-role))]
+   (map-indexed
+    (fn [idx line]
+      [:tspan {:x x
+               :dy (if (zero? idx) 0 title-line-height)}
+       line])
+    lines)))
+
 (defn- callout-height
   ([rows allocations]
    (callout-height rows allocations header-height))
   ([rows allocations header-height*]
    (if-let [allocation-rows (seq (:rows allocations))]
      (+ designer-metric-start
+        (max 0 (- header-height* header-height))
         (* row-height (count rows))
         designer-section-gap
         designer-section-row-gap
@@ -177,26 +261,9 @@
                 (- height callout-height* callout-margin)
                 raw-y)})))
 
-(defn- metric-row
-  [idx {:keys [label value]}]
-  (let [row-y (+ header-height (* row-height idx))]
-    [:g {:key (str "row-" idx)}
-     [:text {:x 10
-             :y row-y
-             :fill "var(--optimizer-text-2)"
-             :fontSize 10}
-      label]
-     [:text {:x (- callout-width 10)
-             :y row-y
-             :fill "var(--optimizer-text)"
-             :fontSize 10
-             :fontWeight 700
-             :text-anchor "end"}
-      value]]))
-
 (defn- designer-metric-row
-  [idx {:keys [label value]}]
-  (let [row-y (+ designer-metric-start (* row-height idx))]
+  [start-y idx {:keys [label value]}]
+  (let [row-y (+ start-y (* row-height idx))]
     [:g {:key (str "metric-row-" idx)}
      [:text {:x 10
              :y row-y
@@ -230,9 +297,10 @@
       value]]))
 
 (defn- designer-callout-content
-  [label rows allocations]
+  [label rows allocations metric-start-y]
   (let [allocation-rows (vec (:rows allocations))
-        section-y (+ designer-metric-start
+        title-lines* (title-lines label)
+        section-y (+ metric-start-y
                      (* row-height (count rows))
                      designer-section-gap)
         allocation-start-y (+ section-y designer-section-row-gap)
@@ -241,13 +309,14 @@
                     designer-footer-gap)
         sum-y (+ footer-y 18)]
     (concat
-     [[:text {:x 10
-              :y 18
-              :fill "var(--optimizer-accent)"
-              :fontSize 11
-              :fontWeight 700}
-       label]]
-     (map-indexed designer-metric-row rows)
+     [(title-text-node
+       {:lines title-lines*
+        :x 10
+        :y 18
+        :fill "var(--optimizer-accent)"
+        :font-size 11
+        :font-weight 700})]
+     (map-indexed #(designer-metric-row metric-start-y %1 %2) rows)
      [[:text {:x 10
               :y section-y
               :fill "var(--optimizer-text-2)"
@@ -289,16 +358,17 @@
                 :y row-y
                 :fill "var(--optimizer-text)"
                 :fontSize 10
-	                :fontWeight 700
-	                :text-anchor "end"}
-	         value]]))
-	   rows))
+                :fontWeight 700
+                :text-anchor "end"}
+         value]]))
+   rows))
 
 (defn- target-callout
   [{:keys [bounds data-role label point rows]}]
   (let [rows* (vec rows)
         width* target-callout-width
-        header-height* 43
+        title-lines* (title-lines label width*)
+        header-height* (+ 43 (extra-title-height title-lines*))
         height* (callout-height rows* nil header-height*)
         {:keys [x y]} (origin bounds point rows* nil width* header-height*)]
     (into
@@ -326,28 +396,39 @@
                 :fill "url(#portfolioOptimizerTargetOrbGradient)"
                 :filter "url(#portfolioOptimizerTargetSoftGlow)"
                 :data-role "portfolio-optimizer-frontier-callout-target-dot"}]
-      [:text {:x 25
-              :y 18
-              :fill "#f5efff"
-              :fontSize 13
-              :fontWeight 650}
-       label]
+      (title-text-node
+       {:lines title-lines*
+        :x 25
+        :y 18
+        :fill "#f5efff"
+        :font-size 13
+        :font-weight 650})
       [:line {:x1 10
               :x2 (- width* 10)
-              :y1 30
-	              :y2 30
-	              :stroke "rgba(255, 255, 255, 0.08)"
-	              :strokeWidth 1}]]
-	     (row-nodes rows* width* header-height*))))
+              :y1 (- header-height* 13)
+              :y2 (- header-height* 13)
+              :stroke "rgba(255, 255, 255, 0.08)"
+              :strokeWidth 1}]]
+     (row-nodes rows* width* header-height*))))
 
 (defn callout
   [{:keys [bounds data-role label point rows allocations data-frontier-callout-id variant] :as opts}]
   (let [rows* (vec rows)]
     (if (= :target variant)
       (target-callout opts)
-      (let [height* (callout-height rows* allocations)
-            designer? (seq (:rows allocations))
-            {:keys [x y]} (origin bounds point rows* allocations)]
+      (let [designer? (seq (:rows allocations))
+            title-lines* (title-lines label)
+            header-height* (+ header-height (extra-title-height title-lines*))
+            metric-start-y (+ designer-metric-start (extra-title-height title-lines*))
+            height* (callout-height rows*
+                                    allocations
+                                    header-height*)
+            {:keys [x y]} (origin bounds
+                                   point
+                                   rows*
+                                   allocations
+                                   callout-width
+                                   header-height*)]
         (into
          [:g (cond-> {:class "portfolio-frontier-callout"
                       :data-role data-role
@@ -367,20 +448,21 @@
                   :stroke (if designer? "var(--optimizer-accent)" "none")
                   :strokeWidth (if designer? 1 0)}]
           (when-not designer?
-            [:text {:x 10
-                    :y 18
-                    :fill "var(--optimizer-accent)"
-                    :fontSize 11
-                    :fontWeight 700}
-             label])
+            (title-text-node
+             {:lines title-lines*
+              :x 10
+              :y 18
+              :fill "var(--optimizer-accent)"
+              :font-size 11
+              :font-weight 700}))
           (when-not designer?
             [:line {:x1 10
                     :x2 (- callout-width 10)
-                    :y1 27
-                    :y2 27
+                    :y1 (- header-height* 12)
+                    :y2 (- header-height* 12)
                     :stroke "var(--optimizer-border)"
                     :strokeWidth 1
                     :opacity 0.8}])]
          (if designer?
-           (designer-callout-content label rows* allocations)
-           (map-indexed metric-row rows*)))))))
+           (designer-callout-content label rows* allocations metric-start-y)
+           (row-nodes rows* callout-width header-height*)))))))
