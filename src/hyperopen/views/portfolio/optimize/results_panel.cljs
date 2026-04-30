@@ -37,6 +37,13 @@
   (when-not (raw-vault-label? instrument-id label)
     (non-blank-text label)))
 
+(defn- instrument-label
+  [labels-by-instrument instrument-id]
+  (if (vault-address-from-instrument-id instrument-id)
+    (or (display-label instrument-id (get labels-by-instrument instrument-id))
+        (str instrument-id))
+    (str instrument-id)))
+
 (defn- enrich-result-labels
   [result draft]
   (if (map? result)
@@ -86,16 +93,17 @@
          children)])
 
 (defn- binding-constraint-row
-  [binding]
+  [labels-by-instrument binding]
   [:div {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
-   [:span {:class ["font-semibold"]} (:instrument-id binding)]
+   [:span {:class ["font-semibold"]}
+    (instrument-label labels-by-instrument (:instrument-id binding))]
    [:span {:class ["ml-2"]} (opt-format/keyword-label (:constraint binding))]])
 
 (defn- sensitivity-row
-  [[instrument-id row]]
+  [labels-by-instrument [instrument-id row]]
   [:div {:class ["rounded-md" "border" "border-base-300" "bg-base-200/40" "p-2" "text-xs"]
          :data-role (str "portfolio-optimizer-sensitivity-row-" instrument-id)}
-   [:span {:class ["font-semibold"]} instrument-id]
+   [:span {:class ["font-semibold"]} (instrument-label labels-by-instrument instrument-id)]
    [:span {:class ["ml-2" "text-trading-muted"]}
     (str "Base " (opt-format/format-pct (:base-expected-return row))
          " / Down " (opt-format/format-pct (:down-expected-return row))
@@ -121,6 +129,7 @@
 (defn- diagnostics-panel
   [result]
   (let [diagnostics (:diagnostics result)
+        labels-by-instrument (or (:labels-by-instrument result) {})
         bindings (:binding-constraints diagnostics)
         conditioning (:covariance-conditioning diagnostics)
         sensitivity (:weight-sensitivity-by-instrument diagnostics)]
@@ -144,7 +153,7 @@
        "Binding Constraints"]
       (if (seq bindings)
         (into [:div {:class ["mt-2" "space-y-2"]}]
-              (map binding-constraint-row bindings))
+              (map (partial binding-constraint-row labels-by-instrument) bindings))
         [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
          "No binding constraints reported."])]
      [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
@@ -153,7 +162,7 @@
        "Weight Sensitivity"]
       (if (seq sensitivity)
         (into [:div {:class ["mt-2" "space-y-2"]}]
-              (map sensitivity-row sensitivity))
+              (map (partial sensitivity-row labels-by-instrument) sensitivity))
         [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
          "No sensitivity diagnostics reported."])])))
 
@@ -224,11 +233,12 @@
                   :status weight-stability-status
                   :value (if sensitivity-top "Moderate" "Stable")
                   :subtext (if sensitivity-top
-                             (str (:instrument-id sensitivity-top)
-                                  " is most sensitive (±"
-                                  (opt-format/format-pct (/ (:span sensitivity-top) 2))
-                                  ").")
-                             "No material sensitivity flags reported.")})
+                            (str (instrument-label (:labels-by-instrument result)
+                                                   (:instrument-id sensitivity-top))
+                                 " is most sensitive (±"
+                                 (opt-format/format-pct (/ (:span sensitivity-top) 2))
+                                 ").")
+                            "No material sensitivity flags reported.")})
       (when (seq (:warnings result))
         [:div {:class ["border-b" "border-base-300" "px-4" "py-3"]
                :data-role "portfolio-optimizer-result-warnings"}
@@ -359,7 +369,7 @@
      (summary-card "Shrunk Sharpe" (opt-format/format-decimal (:shrunk-sharpe performance)))]))
 
 (defn- rebalance-row
-  [row]
+  [labels-by-instrument row]
   [:div {:class ["grid"
                  "grid-cols-[minmax(8rem,1.1fr)_repeat(8,minmax(5rem,0.75fr))]"
                  "gap-3"
@@ -371,7 +381,8 @@
                  "text-xs"
                  "tabular-nums"]
          :data-role (str "portfolio-optimizer-rebalance-row-" (:instrument-id row))}
-   [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
+   [:span {:class ["font-semibold" "text-trading-text"]}
+    (instrument-label labels-by-instrument (:instrument-id row))]
    [:span (opt-format/keyword-label (:status row))]
    [:span (opt-format/keyword-label (:side row))]
    [:span (opt-format/format-decimal (:quantity row))]
@@ -384,6 +395,7 @@
 (defn- rebalance-preview
   [result]
   (let [preview (:rebalance-preview result)
+        labels-by-instrument (or (:labels-by-instrument result) {})
         summary (:summary preview)]
     (panel-shell
      "portfolio-optimizer-rebalance-preview"
@@ -432,7 +444,7 @@
       [:span "Slippage"]
       [:span "Delta"]
       [:span "Reason"]]
-     (map rebalance-row (:rows preview)))))
+     (map (partial rebalance-row labels-by-instrument) (:rows preview)))))
 
 (defn results-panel
   ([last-successful-run]

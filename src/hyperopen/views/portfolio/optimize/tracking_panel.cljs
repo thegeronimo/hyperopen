@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.tracking-panel
-  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def trackable-statuses #{:executed :partially-executed :tracking})
 (def manual-tracking-source-statuses #{:saved :computed})
@@ -16,8 +17,21 @@
    [:p {:class ["mt-2" "text-lg" "font-semibold" "tabular-nums"]}
     value]])
 
+(defn- labels-by-instrument
+  [state]
+  (or (get-in state [:portfolio :optimizer :last-successful-run :result :labels-by-instrument])
+      {}))
+
+(defn- instrument-label
+  [labels-by-instrument instrument-id]
+  (let [value (str instrument-id)]
+    (if (str/starts-with? value "vault:")
+      (or (get labels-by-instrument instrument-id)
+          value)
+      value)))
+
 (defn- tracking-row
-  [idx row]
+  [labels-by-instrument idx row]
   [:div {:class ["grid"
                  "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
                  "gap-3"
@@ -29,7 +43,8 @@
                  "text-xs"
                  "tabular-nums"]
          :data-role (str "portfolio-optimizer-tracking-row-" idx)}
-   [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
+   [:span {:class ["font-semibold" "text-trading-text"]}
+    (instrument-label labels-by-instrument (:instrument-id row))]
    [:span (opt-format/format-pct (:current-weight row))]
    [:span (opt-format/format-pct (:target-weight row))]
    [:span (opt-format/format-pct (:weight-drift row))]
@@ -54,7 +69,7 @@
    [:span {:class ["font-semibold" "text-trading-muted"]} "Notional"]])
 
 (defn- drift-chart
-  [rows]
+  [rows labels-by-instrument]
   [:section {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/30" "p-3"]
              :data-role "portfolio-optimizer-drift-chart"}
    [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
@@ -67,7 +82,8 @@
                          (min 100 (* 1000 (js/Math.abs drift)))
                          0)]
              [:div {:class ["grid" "grid-cols-[8rem_minmax(0,1fr)_4rem]" "items-center" "gap-2" "text-xs"]}
-              [:span {:class ["truncate" "font-semibold"]} (:instrument-id row)]
+              [:span {:class ["truncate" "font-semibold"]}
+               (instrument-label labels-by-instrument (:instrument-id row))]
               [:div {:class ["h-2" "overflow-hidden" "rounded-full" "bg-base-300"]}
                [:div {:class ["h-full" "rounded-full" "bg-primary/70"]
                       :style {:width (str width "%")}}]]
@@ -124,6 +140,7 @@
   [state]
   (let [scenario-status (get-in state [:portfolio :optimizer :active-scenario :status])
         tracking-record (get-in state [:portfolio :optimizer :tracking])
+        labels-by-instrument* (labels-by-instrument state)
         latest (latest-snapshot tracking-record)]
     (cond
       (contains? manual-tracking-source-statuses scenario-status)
@@ -180,7 +197,8 @@
           [:p {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3" "text-sm" "text-trading-muted"]}
            "No tracking snapshots yet. Refresh tracking after execution to measure weight drift."])]
        (when latest
-         (concat [(drift-chart (:rows latest))
+         (concat [(drift-chart (:rows latest) labels-by-instrument*)
                   (tracking-path (:snapshots tracking-record))
                   (tracking-header-row)]
-                 (map-indexed tracking-row (:rows latest))))))))
+                 (map-indexed (partial tracking-row labels-by-instrument*)
+                              (:rows latest))))))))

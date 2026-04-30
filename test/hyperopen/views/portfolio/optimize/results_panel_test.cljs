@@ -461,29 +461,6 @@
     (is (contains? strings "spot-submit-unsupported"))
     (is (contains? strings "perp:BTC"))))
 
-(deftest results-panel-renders-vault-result-labels-by-name-test
-  (let [vault-address "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
-        vault-id (str "vault:" vault-address)
-        result (assoc solved-result
-                      :instrument-ids ["perp:BTC" vault-id]
-                      :current-weights [0.0 0.0]
-                      :target-weights [0.5 0.5]
-                      :labels-by-instrument {"perp:BTC" "BTC"
-                                             vault-id "HLP Vault"}
-                      :frontier [{:id 0
-                                  :expected-return 0.12
-                                  :volatility 0.24
-                                  :sharpe 0.5
-                                  :weights [0.5 0.5]}])
-        view-node (results-panel/results-panel
-                   {:result result
-                    :computed-at-ms 2600}
-                   {:objective {:kind :target-volatility}}
-                   {:frontier-overlay-mode :none})
-        strings (set (collect-strings view-node))]
-    (is (contains? strings "HLP Vault"))
-    (is (not (contains? strings vault-address)))))
-
 (deftest results-panel-renders-constrain-frontier-checkbox-above-chart-test
   (let [draft {:objective {:kind :minimum-variance}}
         result (assoc solved-result

@@ -1069,6 +1069,10 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
   await expect(vaultSelected).toBeVisible();
   await expect(vaultSelected).toContainText("Alpha Yield");
   await expect(vaultSelected).toContainText("vault");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-summary-panel']"))
+    .toContainText("Alpha Yield");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-summary-panel']"))
+    .not.toContainText(vaultKey);
   await expect(vaultRemove).toBeVisible();
   await expect(searchInput).toHaveValue("");
   await expect(page.locator("[data-role='portfolio-optimizer-universe-search-results']"))

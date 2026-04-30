@@ -54,8 +54,13 @@
         base (first (str/split unprefixed #"[/-]"))]
     (if (seq base) base value)))
 
+(defn- instrument-label
+  [labels-by-instrument instrument-id]
+  (or (get labels-by-instrument instrument-id)
+      (str instrument-id)))
+
 (defn- leg-label
-  [instrument-id current-weight target-weight]
+  [labels-by-instrument instrument-id current-weight target-weight]
   (let [value (str instrument-id)
         market-type (first (str/split value #":"))]
     (case market-type
@@ -65,6 +70,7 @@
                (pos? (or target-weight 0)) "perp long"
                (neg? (or current-weight 0)) "perp short"
                :else "perp long")
+      "vault" (instrument-label labels-by-instrument instrument-id)
       value)))
 
 (defn- data-role-token
@@ -74,7 +80,7 @@
       (str/replace #"(^-+|-+$)" "")))
 
 (defn- exposure-row
-  [idx binding-instrument-ids hidden? instrument-id capital-usd current-weight target-weight]
+  [idx labels-by-instrument binding-instrument-ids hidden? instrument-id capital-usd current-weight target-weight]
   (let [current-notional (* (or capital-usd 0) (or current-weight 0))
         target-notional (* (or capital-usd 0) (or target-weight 0))
         delta (- (or target-weight 0) (or current-weight 0))
@@ -87,7 +93,8 @@
           :data-current-sign (signed-label current-weight)
           :data-target-sign (signed-label target-weight)}
      [:td {:class ["text-trading-muted"]} ""]
-     [:td {:class ["pl-8" "text-trading-muted"]} (leg-label instrument-id current-weight target-weight)]
+     [:td {:class ["pl-8" "text-trading-muted"]}
+      (leg-label labels-by-instrument instrument-id current-weight target-weight)]
      [:td {:class ["font-mono" "text-right" "tabular-nums"]} (opt-format/format-pct current-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
      [:td {:class ["font-mono" "text-right" "tabular-nums"]} (opt-format/format-pct target-weight {:minimum-fraction-digits 1 :maximum-fraction-digits 1})]
      [:td {:class [(if (neg? delta) "text-trading-red" "text-trading-green")
@@ -179,6 +186,7 @@
             [(exposure-group-row asset capital-usd binding-instrument-ids asset-rows)]
             (map (fn [{:keys [idx instrument-id current-weight target-weight]}]
                    (exposure-row idx
+                                 labels-by-instrument
                                  binding-instrument-ids
                                  (= 1 (count asset-rows))
                                  instrument-id

@@ -336,6 +336,31 @@
             (node-by-role nonblank-view
                           (str "portfolio-optimizer-universe-add-" candidate-key)))))))
 
+(deftest setup-v4-summary-renders-vault-names-instead-of-addresses-test
+  (let [vault-address "0x2222222222222222222222222222222222222222"
+        vault-id (str "vault:" vault-address)
+        view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id "perp:BTC"
+                                                     :market-type :perp
+                                                     :coin "BTC"}
+                                                    {:instrument-id vault-id
+                                                     :market-type :vault
+                                                     :coin vault-id
+                                                     :vault-address vault-address
+                                                     :name "Alpha Yield"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :black-litterman}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true
+                                                       :max-asset-weight 0.25
+                                                       :gross-max 1}}}}})
+        summary-panel (node-by-role view-node "portfolio-optimizer-setup-summary-panel")
+        summary-text (node-text summary-panel)]
+    (is (str/includes? summary-text "2 assets - BTC, Alpha Yield"))
+    (is (not (str/includes? summary-text vault-id)))))
+
 (deftest setup-v4-run-action-renders-under-center-assumptions-panel-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}

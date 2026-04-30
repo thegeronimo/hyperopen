@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.black-litterman-views-panel
-  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
+  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]
+            [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private field-label-class
   ["block" "font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
@@ -12,7 +13,9 @@
   [universe]
   (map (fn [instrument]
          [:option {:value (:instrument-id instrument)}
-          (or (:symbol instrument)
+          (or (when (instrument-display/vault-instrument? instrument)
+                (instrument-display/primary-label instrument))
+              (:symbol instrument)
               (:instrument-id instrument))])
        universe))
 
@@ -122,10 +125,13 @@
 (defn- prior-row
   [prior instrument]
   (let [instrument-id (:instrument-id instrument)
+        instrument-label (if (instrument-display/vault-instrument? instrument)
+                           (instrument-display/primary-label instrument)
+                           instrument-id)
         weight (get-in prior [:weights-by-instrument instrument-id])]
     [:div {:class ["grid" "grid-cols-[minmax(8rem,1fr)_7rem]" "gap-3" "rounded-lg"
                    "border" "border-base-300" "bg-base-200/40" "p-2" "text-xs"]}
-     [:span {:class ["font-semibold"]} instrument-id]
+     [:span {:class ["font-semibold"]} instrument-label]
      [:span {:class ["tabular-nums" "text-trading-muted"]} (opt-format/format-pct weight)]]))
 
 (defn- prior-panel

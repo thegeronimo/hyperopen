@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.execution-modal
-  (:require [hyperopen.views.portfolio.optimize.format :as opt-format]))
+  (:require [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- summary-card
   [label value]
@@ -10,8 +11,21 @@
    [:p {:class ["mt-2" "text-lg" "font-semibold" "tabular-nums"]}
     value]])
 
+(defn- labels-by-instrument
+  [state]
+  (or (get-in state [:portfolio :optimizer :last-successful-run :result :labels-by-instrument])
+      {}))
+
+(defn- instrument-label
+  [labels-by-instrument instrument-id]
+  (let [value (str instrument-id)]
+    (if (str/starts-with? value "vault:")
+      (or (get labels-by-instrument instrument-id)
+          value)
+      value)))
+
 (defn- row
-  [execution-row]
+  [labels-by-instrument execution-row]
   [:div {:class ["grid"
                  "grid-cols-[minmax(8rem,1.1fr)_repeat(9,minmax(5rem,0.75fr))]"
                  "gap-3"
@@ -23,7 +37,7 @@
                  "text-xs"
                  "tabular-nums"]}
    [:span {:class ["font-semibold" "text-trading-text"]}
-    (:instrument-id execution-row)]
+    (instrument-label labels-by-instrument (:instrument-id execution-row))]
    [:span (opt-format/keyword-label (:status execution-row))]
    [:span (opt-format/keyword-label (:side execution-row))]
    [:span (opt-format/format-usdc (:delta-notional-usd execution-row))]
@@ -64,7 +78,7 @@
       (:reason execution-row)))
 
 (defn- latest-attempt-row
-  [execution-row]
+  [labels-by-instrument execution-row]
   [:div {:class ["grid"
                  "grid-cols-[minmax(8rem,1.1fr)_repeat(4,minmax(5rem,0.8fr))]"
                  "gap-3"
@@ -76,14 +90,14 @@
                  "text-xs"
                  "tabular-nums"]}
    [:span {:class ["font-semibold" "text-trading-text"]}
-    (:instrument-id execution-row)]
+    (instrument-label labels-by-instrument (:instrument-id execution-row))]
    [:span (opt-format/keyword-label (:status execution-row))]
    [:span (opt-format/keyword-label (:side execution-row))]
    [:span (opt-format/format-usdc (:delta-notional-usd execution-row))]
    [:span (opt-format/keyword-label (row-error-message execution-row))]])
 
 (defn- latest-attempt-panel
-  [latest-attempt]
+  [labels-by-instrument latest-attempt]
   (when (seq (:rows latest-attempt))
     [:section {:class ["mt-4"
                        "rounded-xl"
@@ -131,13 +145,15 @@
         [:span "Side"]
         [:span "Delta"]
         [:span "Recovery Detail"]]
-       (map latest-attempt-row (:rows latest-attempt))))]))
+       (map (partial latest-attempt-row labels-by-instrument)
+            (:rows latest-attempt))))]))
 
 (defn execution-modal
   [state]
   (let [modal (get-in state [:portfolio :optimizer :execution-modal])
         plan (:plan modal)
         summary (:summary plan)
+        labels-by-instrument* (labels-by-instrument state)
         latest-attempt (last (vec (get-in state [:portfolio :optimizer :execution :history])))
         submitting? (boolean (:submitting? modal))
         ready? (pos? (or (:ready-count summary) 0))
@@ -190,8 +206,8 @@
         (into
          [:div {:class ["mt-4" "space-y-2"]}]
          (cons (execution-row-header)
-               (map row (:rows plan))))
-        (latest-attempt-panel latest-attempt)
+               (map (partial row labels-by-instrument*) (:rows plan))))
+        (latest-attempt-panel labels-by-instrument* latest-attempt)
         [:div {:class ["mt-5" "flex" "items-center" "justify-end" "gap-3"]}
          [:button {:type "button"
                    :class ["rounded-lg" "border" "border-base-300" "px-4" "py-2" "text-sm"

@@ -3,11 +3,20 @@
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (defn- instrument-group-key
-  [instrument-id]
-  (let [value (str instrument-id)
+  [labels-by-instrument instrument-id]
+  (let [value (or (get labels-by-instrument instrument-id)
+                  (str instrument-id))
         unprefixed (last (str/split value #":"))
         base (first (str/split unprefixed #"[/-]"))]
     (if (seq base) base value)))
+
+(defn- instrument-label
+  [labels-by-instrument instrument-id]
+  (let [value (str instrument-id)]
+    (if (str/starts-with? value "vault:")
+      (or (get labels-by-instrument instrument-id)
+          value)
+      value)))
 
 (defn- data-role-token
   [value]
@@ -95,11 +104,12 @@
      [:span ""])) )
 
 (defn- trade-row
-  [row]
+  [labels-by-instrument row]
   (row-shell
    {:data-role (str "portfolio-optimizer-rebalance-row-"
                     (data-role-token (:instrument-id row)))}
-   [:span {:class ["font-semibold" "text-trading-text"]} (:instrument-id row)]
+   [:span {:class ["font-semibold" "text-trading-text"]}
+    (instrument-label labels-by-instrument (:instrument-id row))]
    [:span (opt-format/keyword-label (:status row))]
    [:span (opt-format/keyword-label (:side row))]
    [:span (opt-format/format-decimal (:quantity row) {:maximum-fraction-digits 4})]
@@ -110,9 +120,11 @@
    [:span (opt-format/keyword-label (:reason row))]))
 
 (defn- trade-table
-  [preview]
+  [preview labels-by-instrument]
   (let [rows (vec (:rows preview))
-        groups (group-by (comp instrument-group-key :instrument-id) rows)]
+        groups (group-by #(instrument-group-key labels-by-instrument
+                                                (:instrument-id %))
+                         rows)]
     [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
                :data-role "portfolio-optimizer-rebalance-preview"}
      [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
@@ -150,7 +162,7 @@
                          :open true}
                [:summary {:class ["cursor-pointer" "list-none"]}
                 (group-row asset asset-rows)]
-               (map trade-row asset-rows)])
+               (map (partial trade-row labels-by-instrument) asset-rows)])
             groups)
        [:p {:class ["mt-4" "rounded-md" "border" "border-base-300" "bg-base-200/40" "p-3" "text-sm" "text-trading-muted"]}
         "No rebalance rows are available for this run."])]))
@@ -159,6 +171,7 @@
   [last-successful-run]
   (let [result (:result last-successful-run)
         preview (:rebalance-preview result)
+        labels-by-instrument (or (:labels-by-instrument result) {})
         summary (:summary preview)]
     (if (and (= :solved (:status result)) (map? preview))
       [:section {:class ["space-y-4"]
@@ -189,7 +202,7 @@
         (kpi-card "Fees" (opt-format/format-usdc (:estimated-fees-usd summary)))
         (kpi-card "Slippage" (opt-format/format-usdc (:estimated-slippage-usd summary)))]
        [:section {:class ["grid" "grid-cols-1" "gap-4" "xl:grid-cols-[minmax(0,1fr)_18rem]"]}
-        (trade-table preview)
+        (trade-table preview labels-by-instrument)
         [:aside {:class ["space-y-4"]}
          (review-caution preview)
          [:section {:class ["rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]

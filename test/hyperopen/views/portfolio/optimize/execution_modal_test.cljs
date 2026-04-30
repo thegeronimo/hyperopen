@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.execution-modal-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
@@ -37,6 +38,10 @@
 (defn- click-actions
   [node]
   (get-in node [1 :on :click]))
+
+(defn- node-text
+  [node]
+  (apply str (collect-strings node)))
 
 (def solved-result
   (fixtures/sample-solved-result
@@ -178,3 +183,36 @@
             (get-in (node-by-role view-node
                                   "portfolio-optimizer-execution-modal-confirm")
                     [1 :disabled]))))))
+
+(deftest execution-modal-renders-vault-labels-by-name-test
+  (let [vault-address "0x6666666666666666666666666666666666666666"
+        vault-id (str "vault:" vault-address)
+        view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:last-successful-run
+                                 {:result {:labels-by-instrument {vault-id "Alpha Yield"}}}
+                                 :execution
+                                 {:status :failed
+                                  :history [{:attempt-id "exec_vault"
+                                             :status :failed
+                                             :rows [{:instrument-id vault-id
+                                                     :status :failed
+                                                     :side :sell
+                                                     :delta-notional-usd -400
+                                                     :error {:message "Vault execution blocked"}}]}]}
+                                 :execution-modal
+                                 {:open? true
+                                  :plan {:status :partially-blocked
+                                         :summary {:ready-count 0
+                                                   :blocked-count 1}
+                                         :rows [{:instrument-id vault-id
+                                                 :status :blocked
+                                                 :side :sell
+                                                 :reason :vault-submit-unsupported
+                                                 :delta-notional-usd -400}]}}}}})
+        modal (node-by-role view-node "portfolio-optimizer-execution-modal")
+        text (node-text modal)]
+    (is (str/includes? text "Alpha Yield"))
+    (is (not (str/includes? text vault-id)))
+    (is (not (str/includes? text vault-address)))))

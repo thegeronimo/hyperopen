@@ -400,6 +400,8 @@
             [hyperopen.views.portfolio.optimize.format-test]
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
+            [hyperopen.views.portfolio.optimize.inputs-tab-test]
+            [hyperopen.views.portfolio.optimize.result-vault-labels-test]
             [hyperopen.views.portfolio.optimize.results-panel-test]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel-test]
             [hyperopen.views.portfolio.optimize.setup-v4-layout-test]
@@ -979,6 +981,8 @@
              'hyperopen.views.portfolio.optimize.format-test
              'hyperopen.views.portfolio.optimize.frontier-overlay-markers-test
              'hyperopen.views.portfolio.optimize.index-view-test
+             'hyperopen.views.portfolio.optimize.inputs-tab-test
+             'hyperopen.views.portfolio.optimize.result-vault-labels-test
              'hyperopen.views.portfolio.optimize.results-panel-test
              'hyperopen.views.portfolio.optimize.setup-readiness-panel-test
              'hyperopen.views.portfolio.optimize.setup-v4-layout-test

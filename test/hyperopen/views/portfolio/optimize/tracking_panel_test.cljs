@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.tracking-panel-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -36,6 +37,10 @@
 (defn- click-actions
   [node]
   (get-in node [1 :on :click]))
+
+(defn- node-text
+  [node]
+  (apply str (collect-strings node)))
 
 (deftest executed-scenario-renders-tracking-panel-test
   (let [view-node
@@ -81,6 +86,41 @@
     (is (contains? strings "Realized vs Predicted"))
     (is (contains? strings "Re-optimize From Current"))
     (is (contains? strings "perp:BTC"))))
+
+(deftest tracking-panel-renders-vault-result-labels-by-name-test
+  (let [vault-address "0x2e23a36d1a9946f2adcb72da229395c66c9018ddd"
+        vault-id (str "vault:" vault-address)
+        view-node
+        (portfolio-view/portfolio-view
+         {:router {:path "/portfolio/optimize/scn_track"}
+          :portfolio-ui {:optimizer {:results-tab :tracking}}
+          :portfolio {:optimizer
+                      {:active-scenario {:loaded-id "scn_track"
+                                         :status :executed}
+                       :last-successful-run {:result {:labels-by-instrument
+                                                      {vault-id "HLP Vault"}}}
+                       :tracking {:scenario-id "scn_track"
+                                  :updated-at-ms 2000
+                                  :snapshots
+                                  [{:scenario-id "scn_track"
+                                    :as-of-ms 2000
+                                    :status :tracked
+                                    :nav-usdc 1000
+                                    :weight-drift-rms 0.1
+                                    :max-abs-weight-drift 0.12
+                                    :predicted-return 0.18
+                                    :predicted-volatility 0.32
+                                    :realized-return 0.03
+                                    :rows [{:instrument-id vault-id
+                                            :current-weight 0.5
+                                            :target-weight 0.6
+                                            :weight-drift -0.1
+                                            :signed-notional-usdc 500}]}]}}}})
+        panel (node-by-role view-node "portfolio-optimizer-tracking-panel")
+        text (node-text panel)]
+    (is (str/includes? text "HLP Vault"))
+    (is (not (str/includes? text vault-id)))
+    (is (not (str/includes? text vault-address)))))
 
 (deftest saved-scenario-renders-manual-tracking-enable-panel-test
   (let [view-node

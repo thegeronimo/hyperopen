@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.inputs-tab
   (:require [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
-            [hyperopen.views.portfolio.optimize.format :as opt-format]))
+            [hyperopen.views.portfolio.optimize.format :as opt-format]
+            [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (defn- audit-card
   [data-role title & children]
@@ -11,6 +12,12 @@
    (into [:div {:class ["mt-3"]}]
          children)])
 
+(defn- universe-instrument-label
+  [instrument]
+  (if (instrument-display/vault-instrument? instrument)
+    (instrument-display/primary-label instrument)
+    (:instrument-id instrument)))
+
 (defn- universe-audit
   [draft]
   (audit-card
@@ -18,10 +25,10 @@
    "Universe"
    [:p {:class ["font-semibold" "tabular-nums"]} (str (count (:universe draft)) " instruments")]
    (into [:div {:class ["mt-3" "space-y-1"]}]
-         (map (fn [instrument]
+        (map (fn [instrument]
                 [:p {:class ["rounded-md" "border" "border-base-300" "bg-base-100/70" "px-2" "py-1"
                              "text-xs" "font-semibold" "tabular-nums"]}
-                 (:instrument-id instrument)])
+                 (universe-instrument-label instrument)])
               (:universe draft)))))
 
 (defn- models-audit

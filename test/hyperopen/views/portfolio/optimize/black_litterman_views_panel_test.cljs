@@ -1,5 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.black-litterman-views-panel-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
+            [hyperopen.views.portfolio.optimize.black-litterman-views-panel :as bl-panel]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -44,6 +46,10 @@
 (defn- change-actions
   [node]
   (get-in node [1 :on :change]))
+
+(defn- node-text
+  [node]
+  (apply str (collect-strings node)))
 
 (deftest portfolio-optimizer-workspace-renders-black-litterman-editor-only-for-bl-test
   (let [view-node (portfolio-view/portfolio-view
@@ -127,3 +133,35 @@
     (is (contains? strings "Relative View"))
     (is (contains? strings "Spread Return"))
     (is (contains? strings "Confidence"))))
+
+(deftest black-litterman-panel-renders-vault-names-in-options-and-prior-test
+  (let [vault-address "0x3333333333333333333333333333333333333333"
+        vault-id (str "vault:" vault-address)
+        draft {:universe [{:instrument-id "perp:BTC"
+                           :market-type :perp
+                           :coin "BTC"
+                           :symbol "BTC-USDC"}
+                          {:instrument-id vault-id
+                           :market-type :vault
+                           :coin vault-id
+                           :vault-address vault-address
+                           :name "Alpha Yield"}]
+               :return-model {:kind :black-litterman
+                              :views [{:id "view-1"
+                                       :kind :absolute
+                                       :instrument-id vault-id
+                                       :return 0.04
+                                       :confidence 0.8}]}}
+        prior {:source :equal-weight
+               :weights-by-instrument {"perp:BTC" 0.5
+                                       vault-id 0.5}}
+        panel (bl-panel/black-litterman-views-panel draft prior)
+        prior-panel (node-by-role panel "portfolio-optimizer-black-litterman-prior-panel")
+        instrument-select (node-by-role panel
+                                        "portfolio-optimizer-black-litterman-view-0-instrument-input")
+        prior-text (node-text prior-panel)
+        select-text (node-text instrument-select)]
+    (is (str/includes? prior-text "Alpha Yield"))
+    (is (not (str/includes? prior-text vault-id)))
+    (is (str/includes? select-text "Alpha Yield"))
+    (is (not (str/includes? select-text vault-id)))))

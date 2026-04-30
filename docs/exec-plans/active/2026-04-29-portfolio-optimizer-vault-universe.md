@@ -26,7 +26,16 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
 - [x] (2026-04-29 22:07Z) Required repository gates passed: `npm run check`, `npm test`, and `npm run test:websocket`.
 - [x] (2026-04-29 22:09Z) Added and ran deterministic Playwright coverage for manual universe vault add/remove. `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 PLAYWRIGHT_WEB_SERVER_COMMAND="PLAYWRIGHT_WEB_PORT=4174 node tools/playwright/static_server.mjs" npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs --grep "portfolio optimizer manual universe"` passed 3 tests.
 - [x] (2026-04-29 22:13Z) Accounted for governed browser QA. `design-review` target `portfolio-optimizer-route` across `review-375`, `review-768`, `review-1280`, and `review-1440` returned `FAIL`; see Surprises & Discoveries for details. Browser-inspection cleanup succeeded with `npm run browser:cleanup`.
-- [ ] Follow up on the governed browser-inspection design review failure: investigate the `review-375` 297ms long task and the `Runtime.evaluate` capture timeouts at `review-768`, `review-1280`, and `review-1440`.
+- [x] (2026-04-30 14:57Z) Planned a focused vault-label migration follow-up for optimizer setup: find remaining setup surfaces that render `vault:<address>` strings, add RED view tests, migrate display copy to existing human-readable instrument labels, and rerun focused optimizer tests before broader gates.
+- [x] (2026-04-30 15:09Z) Added RED tests for setup summary and Black-Litterman prior/select labels, then broadened coverage to result diagnostics, rebalance preview/tab, tracking, and inputs audit surfaces so vault names are visible while `vault:<address>` strings are not.
+- [x] (2026-04-30 15:16Z) Implemented the display-layer migration by routing vault labels through existing optimizer display names and result `:labels-by-instrument`, while preserving `vault:<address>` values in form values, action payloads, and data-role hooks.
+- [x] (2026-04-30 15:19Z) Focused optimizer view tests passed: `npm run test:runner:generate && npx shadow-cljs --force-spawn compile test && node out/test.js --test=hyperopen.views.portfolio.optimize.setup-v4-layout-test --test=hyperopen.views.portfolio.optimize.black-litterman-views-panel-test --test=hyperopen.views.portfolio.optimize.results-panel-test --test=hyperopen.views.portfolio.optimize.tracking-panel-test --test=hyperopen.views.portfolio.optimize.inputs-tab-test` ran 21 tests and 275 assertions with 0 failures.
+- [x] (2026-04-30 15:27Z) Smallest relevant Playwright optimizer regression passed for the changed setup route: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 PLAYWRIGHT_WEB_SERVER_COMMAND="PLAYWRIGHT_WEB_PORT=4174 node tools/playwright/static_server.mjs" npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs --grep "portfolio optimizer manual universe builder adds and removes vaults"` passed 1 test.
+- [x] (2026-04-30 15:18Z) Accounted for governed browser QA. `design-review-2026-04-30T15-17-43-737Z-46b84c0a` returned `FAIL`: `review-375`, `review-1280`, and `review-1440` captured visual, native-control, styling-consistency, interaction, and layout-regression evidence but failed jank/perf long-task thresholds; `review-768` failed capture waiting for `Runtime.evaluate`. Browser-inspection cleanup succeeded with `npm run browser:cleanup`.
+- [x] (2026-04-30 15:40Z) Added RED coverage for the remaining execution-modal vault label seam; it failed on visible `vault:<address>` text in both plan rows and latest-attempt recovery rows, then passed after routing those rows through the result label map.
+- [x] (2026-04-30 15:44Z) Required repository gates passed after the final vault-label migration: `npm run check`, `npm test` ran 3645 tests and 20081 assertions with 0 failures, and `npm run test:websocket` ran 461 tests and 2798 assertions with 0 failures.
+- [x] (2026-04-30 15:45Z) Existing deterministic Playwright execution-modal regression passed for the additional row path: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4174 PLAYWRIGHT_WEB_SERVER_COMMAND="PLAYWRIGHT_WEB_PORT=4174 node tools/playwright/static_server.mjs" npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs --grep "portfolio optimizer execution modal"` passed 1 test.
+- [ ] Follow up on the governed browser-inspection design review failures: investigate repeated optimizer setup-route long tasks and intermittent `Runtime.evaluate` capture timeouts across review widths.
 
 ## Surprises & Discoveries
 
@@ -48,6 +57,18 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
 - Observation: Governed browser-inspection design review did not pass for the optimizer setup route.
   Evidence: Run `design-review-2026-04-29T22-12-06-174Z-060642e3` captured `review-375` but recorded a 297ms long task and then failed to capture `review-768`, `review-1280`, and `review-1440` with `Timed out waiting for Runtime.evaluate`. Artifacts are under `tmp/browser-inspection/design-review-2026-04-29T22-12-06-174Z-060642e3/`.
 
+- Observation: The vault-name migration was incomplete in setup summary and Black-Litterman surfaces.
+  Evidence: `src/hyperopen/views/portfolio/optimize/setup_v4_sections.cljs` builds the summary universe copy from `(keep :coin)`, so vault instruments render as `vault:<address>`. `src/hyperopen/views/portfolio/optimize/black_litterman_views_panel.cljs` renders select option text from `:symbol` or `:instrument-id` and prior rows from `:instrument-id`, so vaults without a symbol still show their `vault:<address>` key even when `:name` is present.
+
+- Observation: Result-phase optimizer views also had visible raw vault ids after a scenario is solved or reviewed.
+  Evidence: The RED tests in `results_panel_test.cljs`, `tracking_panel_test.cljs`, and `inputs_tab_test.cljs` caught raw `vault:<address>` strings in diagnostics, target leg labels, rebalance preview rows, the dedicated rebalance tab, tracking drift rows, and scenario input audit rows.
+
+- Observation: Execution review still had visible raw vault ids in modal rows after the first result-phase migration.
+  Evidence: The RED test in `execution_modal_test.cljs` caught `vault:<address>` text in the execution preview plan rows and failed latest-attempt recovery rows. Both rows now use the solved result `:labels-by-instrument` map for vault ids.
+
+- Observation: The follow-up governed browser-inspection run still did not pass, but its failures were not vault-label regressions.
+  Evidence: Run `design-review-2026-04-30T15-17-43-737Z-46b84c0a` captured `review-375`, `review-1280`, and `review-1440` visual/native-control/style/interaction/layout evidence, then failed only jank/perf with 248ms, 250ms, and 260ms long tasks. `review-768` failed capture with `Timed out waiting for Runtime.evaluate`. Artifacts are under `tmp/browser-inspection/design-review-2026-04-30T15-17-43-737Z-46b84c0a/`.
+
 ## Decision Log
 
 - Decision: Represent optimizer vault instruments with `:instrument-id` and `:coin` set to `vault:<normalized-address>`, `:market-type :vault`, and `:vault-address <normalized-address>`.
@@ -62,6 +83,14 @@ After this change, navigate to `/portfolio/optimize/new`, type a known vault nam
   Rationale: Vaults are not tradeable ticker markets. The vault detail and benchmark code already receives portfolio summaries from vault details. Converting those summaries into price-like return series lets the existing optimizer engine consume the same return-series contract without making invalid candle API requests.
   Date/Author: 2026-04-29 / Codex
 
+- Decision: Keep vault identity values in form values, action payloads, and data-role hooks, but use human-readable labels for visible setup copy.
+  Rationale: The optimizer still needs stable `vault:<address>` ids to update draft state and Black-Litterman views. The bug is presentation-only: visible strings should use the existing display-name helpers while hidden values and actions remain stable.
+  Date/Author: 2026-04-30 / Codex
+
+- Decision: Apply result `:labels-by-instrument` only to vault ids on legacy raw-id rows, rather than changing non-vault instrument copy.
+  Rationale: Existing optimizer tests and some review surfaces intentionally expose non-vault ids such as `perp:BTC`. Narrowing label substitution to `vault:` ids fixes the reported readability bug without changing established perp/spot labels.
+  Date/Author: 2026-04-30 / Codex
+
 ## Outcomes & Retrospective
 
 Implemented vaults as first-class optimizer universe instruments while preserving the existing spot/perp contracts. The main behavioral changes are:
@@ -72,6 +101,8 @@ Implemented vaults as first-class optimizer universe instruments while preservin
 - Playwright now has deterministic regression coverage for adding/removing vaults from the manual universe builder, and the Playwright config can opt into a supplied base URL, server command, or existing server without changing the default local behavior.
 
 Remaining gap: the governed browser-inspection design review reported `FAIL` for the optimizer setup route due a mobile long task and CDP capture timeouts at the wider review widths. Focused deterministic Playwright coverage passed, and browser-inspection sessions were cleaned up.
+
+The 2026-04-30 vault-label follow-up migrated remaining visible optimizer vault ids to human-readable names in setup summary, Black-Litterman prior/select controls, scenario input audit rows, target diagnostics, rebalance previews/tabs, tracking drift displays, and execution modal review rows. The implementation keeps `vault:<address>` as the stable identity in form values, payloads, and test hooks while using existing optimizer label maps for user-facing text. Focused view tests, the targeted Playwright regressions, and all required repository gates passed. Governed browser QA remains failed for pre-existing setup-route jank/capture issues, not for vault-label assertions.
 
 ## Context and Orientation
 

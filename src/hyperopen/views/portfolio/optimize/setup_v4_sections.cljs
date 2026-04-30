@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-sections
   (:require [clojure.string :as str]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
+            [hyperopen.views.portfolio.optimize.setup-v4-summary :as setup-v4-summary]
             [hyperopen.views.portfolio.optimize.setup-v4-universe :as setup-v4-universe]))
 (def ^:private eyebrow-class
   ["font-mono" "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
@@ -353,13 +354,6 @@
     [:p {:class ["text-[0.6875rem]" "font-medium" "text-trading-text"]} title]
     [:p {:class ["mt-1" "text-[0.6875rem]" "leading-[1.45]" "text-trading-muted"]} copy]]])
 
-(defn- universe-summary
-  [draft]
-  (let [universe (vec (:universe draft))
-        coins (->> universe (keep :coin) (take 5) (str/join ", "))]
-    (str (count universe) " assets"
-         (when (seq coins) (str " - " coins)))))
-
 (defn- action-objective-label
   [objective-kind]
   (case objective-kind
@@ -451,7 +445,7 @@
                 :data-role "portfolio-optimizer-setup-summary-panel"}
       (summary-row "Preset" (labelize preset)
                    "You can deviate from the preset below without changing the universe.")
-      (summary-row "Universe" (universe-summary draft)
+      (summary-row "Universe" (setup-v4-summary/universe-summary draft)
                    "Selected instruments are optimized as one cross-margin book.")
       (summary-row "Expected Returns" (labelize return-kind)
                    (if bl?
