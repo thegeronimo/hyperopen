@@ -321,7 +321,8 @@
                  :fontSize 13
                  :fontWeight 600
                  :letterSpacing "0.035em"
-                 :dominantBaseline "middle"
+                 :dominant-baseline "middle"
+                 :alignment-baseline "middle"
                  :text-anchor "middle"
                  :data-role (str/replace data-role
                                          "portfolio-optimizer-frontier-overlay-symbol"
