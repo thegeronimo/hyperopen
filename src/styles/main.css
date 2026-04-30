@@ -404,6 +404,20 @@
     filter: drop-shadow(0 0 5px currentColor);
   }
 
+  .portfolio-optimizer-v4 .portfolio-frontier-vault-box {
+    transition: stroke 120ms ease, stroke-width 120ms ease, filter 120ms ease;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-vault-box,
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-vault-box,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-vault-box {
+    stroke: currentColor;
+    stroke-width: 1.5px;
+    filter: drop-shadow(0 0 7px currentColor);
+  }
+
   .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-focus-ring,
   .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-focus-ring,
   .portfolio-optimizer-v4

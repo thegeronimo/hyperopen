@@ -299,6 +299,7 @@
                   :width vault-icon-size
                   :height vault-icon-size
                   :rx 6
+                  :class "portfolio-frontier-vault-box"
                   :fill vault-icon-bg
                   :stroke vault-border
                   :strokeWidth 1
@@ -309,6 +310,7 @@
                  :width label-width
                  :height vault-label-height
                  :rx 5
+                 :class "portfolio-frontier-vault-box"
                  :fill vault-label-bg
                  :stroke vault-border
                  :strokeWidth 1
@@ -381,7 +383,8 @@
       y
       point
       (marker-color point standalone-color))
-     (frontier-callout/focus-ring x y 15)
+     (when-not (vault-point? point)
+       (frontier-callout/focus-ring x y 15))
      (overlay-hitbox
       (str "portfolio-optimizer-frontier-overlay-standalone-"
            (:instrument-id point)
@@ -420,7 +423,8 @@
       y
       point
       (marker-color point contribution-color))
-     (frontier-callout/focus-ring x y 15)
+     (when-not (vault-point? point)
+       (frontier-callout/focus-ring x y 15))
      (overlay-hitbox
       (str "portfolio-optimizer-frontier-overlay-contribution-"
            (:instrument-id point)

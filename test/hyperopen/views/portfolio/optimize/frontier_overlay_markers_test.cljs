@@ -56,6 +56,14 @@
   [node attr]
   (get-in node [1 attr]))
 
+(defn- class-name?
+  [node class-name]
+  (let [classes (node-attr node :class)]
+    (cond
+      (string? classes) (some #{class-name} (str/split classes #"\s+"))
+      (sequential? classes) (some #{class-name} classes)
+      :else false)))
+
 (deftest results-panel-renders-vault-frontier-overlays-with-inline-marker-and-name-test
   (let [vault-address "0x1111111111111111111111111111111111111111"
         vault-id (str "vault:" vault-address)
@@ -120,7 +128,11 @@
                                 vault-id))
         standalone-icon-bg (first (nodes-by-tag standalone-icon :rect))
         standalone-label-bg (first (filter #(= 24 (node-attr % :height))
-                                           (nodes-by-tag standalone-symbol :rect)))]
+                                           (nodes-by-tag standalone-symbol :rect)))
+        standalone-vault-boxes (collect-nodes standalone-symbol
+                                              #(class-name? % "portfolio-frontier-vault-box"))
+        standalone-focus-rings (collect-nodes standalone-group
+                                             #(class-name? % "portfolio-frontier-focus-ring"))]
     (is (some? standalone-group))
     (is (some? standalone-icon))
     (is (some? contribution-icon))
@@ -140,6 +152,10 @@
     (is (= 13 (node-attr standalone-code :fontSize)))
     (is (= 0 (node-attr standalone-code :y)))
     (is (= "middle" (node-attr standalone-code :dominantBaseline)))
+    (is (= 2 (count standalone-vault-boxes))
+        "Vault hover affordance should highlight the existing boxes.")
+    (is (empty? standalone-focus-rings)
+        "Vault overlays should not render the shared circular focus ring inside the marker.")
     (is (empty? (collect-nodes standalone-symbol #(= :image (first %))))
         "Vault markers should never request a remote coin SVG from the vault address.")
     (is (empty? (collect-nodes contribution-symbol #(= :image (first %))))
