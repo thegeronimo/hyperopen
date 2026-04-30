@@ -25,6 +25,14 @@
   [node role]
   (find-first-node node #(= role (get-in % [1 :data-role]))))
 
+(defn- collect-strings
+  [node]
+  (cond
+    (string? node) [node]
+    (vector? node) (mapcat collect-strings (node-children node))
+    (seq? node) (mapcat collect-strings node)
+    :else []))
+
 (def solved-run
   (fixtures/sample-last-successful-run
    {:computed-at-ms 1714137600000
@@ -85,3 +93,57 @@
                              "portfolio-optimizer-target-exposure-table")))
     (is (some? (node-by-role view-node
                              "portfolio-optimizer-target-exposure-row-0")))))
+
+(deftest unsaved-draft-results-route-uses-draft-vault-name-when-result-label-is-missing-or-raw-test
+  (let [vault-address "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
+        vault-id (str "vault:" vault-address)
+        vault-name "Alpha Yield"]
+    (doseq [[case-label labels-by-instrument] [["missing label" nil]
+                                               ["raw address label" {vault-id vault-address}]]]
+      (let [view-node (portfolio-view/portfolio-view
+                       {:router {:path "/portfolio/optimize/draft"}
+                        :portfolio {:optimizer
+                                    {:active-scenario {:loaded-id nil
+                                                       :status :computed}
+                                     :draft {:name "New Scenario"
+                                             :universe [{:instrument-id vault-id
+                                                         :market-type :vault
+                                                         :coin vault-id
+                                                         :vault-address vault-address
+                                                         :name vault-name
+                                                         :symbol vault-name}]
+                                             :objective {:kind :minimum-variance}
+                                             :return-model {:kind :historical-mean}
+                                             :risk-model {:kind :diagonal-shrink}
+                                             :constraints {:max-asset-weight 0.5
+                                                           :gross-max 1.5}}
+                                     :last-successful-run
+                                     (fixtures/sample-last-successful-run
+                                      {:computed-at-ms 1714137600000
+                                       :request-signature {:seed 2}
+                                       :result {:as-of-ms 1714137600000
+                                                :instrument-ids [vault-id]
+                                                :current-weights [0.0]
+                                                :target-weights [0.5]
+                                                :labels-by-instrument labels-by-instrument
+                                                :target-weights-by-instrument {vault-id 0.5}
+                                                :current-weights-by-instrument {vault-id 0.0}
+                                                :expected-return 0.14
+                                                :volatility 0.32
+                                                :performance {:shrunk-sharpe 0.44}
+                                                :history-summary {:return-observations 12}
+                                                :return-model :historical-mean
+                                                :risk-model :diagonal-shrink
+                                                :frontier []
+                                                :return-decomposition-by-instrument {}
+                                                :diagnostics {:gross-exposure 0.5
+                                                              :net-exposure 0.5
+                                                              :effective-n 1
+                                                              :turnover 0.5}
+                                                :rebalance-preview {:status :ready
+                                                                    :capital-usd 100000
+                                                                    :summary {:ready-count 1}
+                                                                    :rows []}}})}}})
+            strings (set (collect-strings view-node))]
+        (is (contains? strings vault-name) case-label)
+        (is (not (contains? strings vault-address)) case-label)))))

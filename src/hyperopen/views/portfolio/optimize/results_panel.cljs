@@ -1,8 +1,63 @@
 (ns hyperopen.views.portfolio.optimize.results-panel
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.instrument-labels :as instrument-labels]
             [hyperopen.views.portfolio.optimize.format :as opt-format]
             [hyperopen.views.portfolio.optimize.frontier-chart :as frontier-chart]
             [hyperopen.views.portfolio.optimize.target-exposure-table :as target-exposure-table]))
+
+(def ^:private vault-instrument-prefix
+  "vault:")
+
+(defn- non-blank-text
+  [value]
+  (let [text (some-> value str str/trim)]
+    (when (seq text)
+      text)))
+
+(defn- vault-address-from-instrument-id
+  [instrument-id]
+  (let [text (non-blank-text instrument-id)
+        lower (some-> text str/lower-case)]
+    (when (and lower
+               (str/starts-with? lower vault-instrument-prefix))
+      (subs lower (count vault-instrument-prefix)))))
+
+(defn- raw-vault-label?
+  [instrument-id label]
+  (let [address (vault-address-from-instrument-id instrument-id)
+        label* (some-> (non-blank-text label) str/lower-case)]
+    (boolean
+     (and address
+          (or (nil? label*)
+              (= label* address)
+              (= label* (str vault-instrument-prefix address)))))))
+
+(defn- display-label
+  [instrument-id label]
+  (when-not (raw-vault-label? instrument-id label)
+    (non-blank-text label)))
+
+(defn- enrich-result-labels
+  [result draft]
+  (if (map? result)
+    (let [instrument-ids (vec (:instrument-ids result))
+          result-labels (or (:labels-by-instrument result) {})
+          draft-labels (when (seq (:universe draft))
+                         (instrument-labels/labels-by-instrument (:universe draft)
+                                                                 instrument-ids))
+          merged-labels (into result-labels
+                              (keep (fn [instrument-id]
+                                      (let [existing-label (get result-labels instrument-id)
+                                            draft-label (display-label
+                                                         instrument-id
+                                                         (get draft-labels instrument-id))]
+                                        (when (and draft-label
+                                                   (or (nil? (non-blank-text existing-label))
+                                                       (raw-vault-label? instrument-id existing-label)))
+                                          [instrument-id draft-label]))))
+                              instrument-ids)]
+      (assoc result :labels-by-instrument merged-labels))
+    result))
 
 (defn- summary-card
   [label value]
@@ -388,7 +443,7 @@
                                       constrain-frontier?]
                                :or {include-rebalance? true
                                     frontier-overlay-mode :standalone}}]
-   (let [result (:result last-successful-run)]
+   (let [result (enrich-result-labels (:result last-successful-run) draft)]
      (when (= :solved (:status result))
        [:section {:class ["space-y-0" "leading-4"]
                   :data-role "portfolio-optimizer-results-surface"}
