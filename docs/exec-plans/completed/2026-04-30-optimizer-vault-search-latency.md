@@ -1,6 +1,6 @@
 # Fix optimizer vault search latency
 
-This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
+This ExecPlan is a completed execution record. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` capture the implementation story that closed the work.
 
 This document follows `/hyperopen/.agents/PLANS.md`. It is self-contained so a future contributor can continue from this file without relying on conversation history.
 
@@ -31,6 +31,7 @@ This ticket does not change vault history loading, optimizer route loading, benc
 - [x] (2026-04-30 15:34Z) Implemented the cached vault candidate pool in `src/hyperopen/portfolio/optimizer/application/universe_candidates.cljs` with an `identical?` fast path, normalized row-signature fallback, and live per-call selected/query filtering.
 - [x] (2026-04-30 15:34Z) Implemented the v4 blank-search short-circuit in `src/hyperopen/views/portfolio/optimize/setup_v4_universe.cljs` so blank normalized queries bind empty candidates and do not call `candidate-markets`.
 - [x] (2026-04-30 15:40Z) Re-ran the focused ClojureScript tests, required gates, and narrow Playwright optimizer-search regression on the final patch.
+- [x] (2026-04-30 16:18Z) Moved this ExecPlan to `/hyperopen/docs/exec-plans/completed/` after the tracked issue was closed and the active-plan docs gate reported no remaining unchecked progress.
 
 ## Surprises & Discoveries
 
