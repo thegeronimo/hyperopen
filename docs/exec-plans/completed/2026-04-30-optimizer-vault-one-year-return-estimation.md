@@ -1,6 +1,6 @@
 ---
 owner: portfolio
-status: active
+status: completed
 created: 2026-04-30
 source_of_truth: false
 tracked_issue: hyperopen-0amu
@@ -35,14 +35,15 @@ After this change, optimizer vault return estimation should follow the same boun
 - [x] (2026-04-30 18:49Z) Re-ran `npm run check` after refreshing the active ExecPlan; docs lint passed and the command now fails only on the known pre-existing namespace-size issues in `src/hyperopen/views/portfolio/optimize/frontier_chart.cljs` and `test/hyperopen/views/portfolio/optimize/results_panel_test.cljs`, both outside this ticket’s write scope.
 - [x] (2026-04-30 18:49Z) Re-ran `npm test` and `npm run test:websocket`; both passed after the follow-up patch.
 - [x] (2026-04-30 18:53Z) Parent thread independently re-ran the focused optimizer command; it passed with 16 tests, 92 assertions, 0 failures, and 0 errors.
-- [x] (2026-04-30 18:53Z) Parent thread independently re-ran `npm test`, `npm run test:websocket`, `npm run lint:namespace-boundaries`, and `npm run lint:namespace-sizes`. `npm test`, websocket tests, and namespace boundaries passed. `lint:namespace-sizes` still fails only on unrelated namespace-size guardrails outside this ticket.
+- [x] (2026-04-30 18:53Z) Parent thread independently re-ran `npm test`, `npm run test:websocket`, `npm run lint:namespace-boundaries`, and `npm run lint:namespace-sizes`. `npm test`, websocket tests, and namespace boundaries passed. At that time, `lint:namespace-sizes` still failed only on unrelated namespace-size guardrails outside this ticket.
 - [x] (2026-04-30 18:53Z) Created follow-up `bd` issue `hyperopen-qgmq` for the unrelated namespace-size gate failures that keep `npm run check` from completing.
 - [x] (2026-04-30 19:00Z) Added a second RED layer for sparse-calendar annualization. The focused command now fails because `align-history-inputs` does not yet emit `:return-intervals`, and `estimate-expected-returns` still annualizes two half-year `+10%` vault observations to `36.5` instead of about `0.21`.
 - [x] (2026-04-30 19:13Z) Implemented `:return-intervals` on aligned optimizer history and elapsed-time-aware geometric annualization for sparse valid intervals. Added a guard regression proving one-day candle histories keep the established arithmetic daily estimator.
 - [x] (2026-04-30 19:13Z) Re-ran focused optimizer coverage with `history-loader-test`, `request-builder-test`, `domain.returns-test`, and `engine-test`; it passed with 36 tests, 186 assertions, 0 failures, and 0 errors.
-- [x] (2026-04-30 19:13Z) Re-ran the required gates after the final sparse-interval patch. `npm test`, `npm run test:websocket`, and `npm run lint:namespace-boundaries` passed. `npm run check` and direct `npm run lint:namespace-sizes` still fail only on the known unrelated namespace-size blocker tracked by `hyperopen-qgmq`.
-- [ ] Close `hyperopen-0amu` only after the unrelated namespace-size gate blocker is resolved or explicitly accepted as a blocker for this ticket.
-- [ ] Move this ExecPlan out of `active/` after ticket close-out so docs lint no longer treats it as stale completed work.
+- [x] (2026-04-30 19:13Z) Re-ran the required gates after the final sparse-interval patch. `npm test`, `npm run test:websocket`, and `npm run lint:namespace-boundaries` passed. At that time, `npm run check` and direct `npm run lint:namespace-sizes` still failed only on the known unrelated namespace-size blocker tracked by `hyperopen-qgmq`.
+- [x] (2026-05-01 17:59Z) Reconciled the unrelated namespace-size blocker: `src/hyperopen/views/portfolio/optimize/frontier_chart.cljs` is now `482` lines, `test/hyperopen/views/portfolio/optimize/results_panel_test.cljs` is now `87` lines, and `npm run lint:namespace-sizes` passes.
+- [x] (2026-05-01 18:00Z) Closed `hyperopen-0amu` after the stale blocker was reconciled.
+- [x] (2026-05-01 18:00Z) Moved this ExecPlan out of `active/` after ticket close-out so docs lint no longer treats it as stale completed work.
 
 ## Surprises & Discoveries
 
@@ -67,8 +68,8 @@ After this change, optimizer vault return estimation should follow the same boun
 - Observation: the stronger follow-up regression exposed that the first fix still encoded the wrong tie-breaker, not the wrong derivation.
   Evidence: before the follow-up patch, `preferred-vault-summary` required the derived one-year summary to have at least as many observations as the shorter direct fallback. The strengthened focused command failed with the direct month calendar `[1772236800000 1773446400000 1774656000000 1776124800000 1777507200000]` and about `-2%` vault returns instead of the expected derived one-year rows.
 
-- Observation: the remaining `npm run check` blocker is unrelated namespace-size governance, not source correctness for this fix.
-  Evidence: parent-thread verification reached `npm run lint:namespace-sizes` and reported `[missing-size-exception] src/hyperopen/views/portfolio/optimize/frontier_chart.cljs - namespace has 502 lines` and `[size-exception-exceeded] test/hyperopen/views/portfolio/optimize/results_panel_test.cljs - namespace has 544 lines; exception allows at most 540`. Follow-up `bd` issue `hyperopen-qgmq` tracks that blocker.
+- Observation: the former `npm run check` blocker was unrelated namespace-size governance, not source correctness for this fix, and it has since been reconciled.
+  Evidence: parent-thread verification on 2026-04-30 reached `npm run lint:namespace-sizes` and reported `[missing-size-exception] src/hyperopen/views/portfolio/optimize/frontier_chart.cljs - namespace has 502 lines` and `[size-exception-exceeded] test/hyperopen/views/portfolio/optimize/results_panel_test.cljs - namespace has 544 lines; exception allows at most 540`. The 2026-05-01 reconciliation confirmed `frontier_chart.cljs` is now `482` lines, `results_panel_test.cljs` is now `87` lines, and `npm run lint:namespace-sizes` passes.
 
 - Observation: choosing the correct one-year vault window is necessary but insufficient when that window is sparse.
   Evidence: with a derived one-year vault calendar of `[2025-04-30, 2025-10-30, 2026-04-30]`, the optimizer return series contains two half-year returns. `src/hyperopen/portfolio/optimizer/domain/returns.cljs` still multiplies their mean by `365`, which treats each half-year observation like one daily return and can inflate expected returns by roughly two orders of magnitude.
@@ -106,7 +107,7 @@ After this change, optimizer vault return estimation should follow the same boun
 
 Implemented the selection layer as planned with a small boundary-safe extraction, then tightened by follow-up regressions. The optimizer now derives a bounded one-year vault summary from all-time account/PnL history when there is no direct `:one-year`, the cutoff has a real anchor, and the derived window meets the minimum useful observation threshold. Direct `:one-year` still wins, but shorter direct fallback summaries no longer override a complete derived one-year window merely because they have more rows. The optimizer history contract now also carries common-calendar `:return-intervals`, and expected-return estimation uses elapsed-time geometric annualization for sparse valid intervals so two half-year `+10%` vault observations estimate about `+21%` annualized rather than `+3650%`.
 
-The focused regressions pass after the final sparse-interval patch, including the daily-estimator guard. Parent-thread verification also passed `npm test`, `npm run test:websocket`, and `npm run lint:namespace-boundaries`. `npm run check` is blocked by unrelated namespace-size failures in `src/hyperopen/views/portfolio/optimize/frontier_chart.cljs` and `test/hyperopen/views/portfolio/optimize/results_panel_test.cljs`; follow-up `hyperopen-qgmq` tracks that existing gate issue. The implementation itself no longer adds a validation blocker of its own.
+The focused regressions pass after the final sparse-interval patch, including the daily-estimator guard. Parent-thread verification also passed `npm test`, `npm run test:websocket`, and `npm run lint:namespace-boundaries`. The unrelated namespace-size blocker that originally kept `hyperopen-0amu` open was later retired by the optimizer namespace debt cleanup and reconciled in `hyperopen-oy7v`; `hyperopen-qgmq` is no longer an active gate blocker. The implementation itself no longer adds a validation blocker of its own.
 
 ## Context and Orientation
 
