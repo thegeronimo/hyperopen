@@ -21,9 +21,6 @@
 (def ^:private vault-instrument-prefix
   "vault:")
 
-(def ^:private vault-summary-preference
-  [:one-year :six-month :three-month :month :week :day :all-time])
-
 (defn- finite-number?
   [value]
   (and (number? value)
@@ -236,15 +233,8 @@
 
 (defn- selected-vault-summary
   [details]
-  (let [portfolio (or (:portfolio details) {})]
-    (or (some (fn [summary-key]
-                (when-let [summary (get portfolio summary-key)]
-                  summary))
-              vault-summary-preference)
-        (some (fn [[_key summary]]
-                (when (map? summary)
-                  summary))
-              portfolio))))
+  (metrics-history/preferred-vault-summary
+   (or (:portfolio details) {})))
 
 (defn- cumulative-percent-row->price-row
   [row]
@@ -372,6 +362,17 @@
                (- (/ (:close current)
                      (:close previous))
                   1)))))
+
+(defn- return-intervals
+  [calendar]
+  (mapv (fn [[start-ms end-ms]]
+          (let [dt-ms (- end-ms start-ms)
+                dt-days (/ dt-ms metrics-history/day-ms)]
+            {:start-ms start-ms
+             :end-ms end-ms
+             :dt-days dt-days
+             :dt-years (/ dt-days 365.2425)}))
+        (partition 2 1 calendar)))
 
 (defn- funding-summary
   [instrument funding-history-by-coin funding-periods-per-year]
@@ -536,6 +537,7 @@
      :excluded-instruments excluded-instruments
      :price-series-by-instrument price-series-by-instrument
      :return-series-by-instrument return-series-by-instrument
+     :return-intervals (return-intervals effective-calendar)
      :funding-by-instrument funding-by-instrument
      :warnings warnings
      :freshness (freshness effective-calendar as-of-ms stale-after-ms)}))

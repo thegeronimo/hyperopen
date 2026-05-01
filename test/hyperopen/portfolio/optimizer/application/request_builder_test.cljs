@@ -7,6 +7,22 @@
   [expected actual]
   (< (js/Math.abs (- expected actual)) 0.0000001))
 
+(def day-ms
+  (* 24 60 60 1000))
+
+(defn- day-start-ms
+  [day]
+  (.getTime (js/Date. (str day "T00:00:00.000Z"))))
+
+(defn- summary-from-points
+  [points]
+  {:accountValueHistory (mapv (fn [[time-ms account-value _pnl-value]]
+                                [time-ms account-value])
+                              points)
+   :pnlHistory (mapv (fn [[time-ms _account-value pnl-value]]
+                       [time-ms pnl-value])
+                     points)})
+
 (deftest build-engine-request-keeps-model-layers-separate-and-attaches-bl-prior-test
   (let [request (request-builder/build-engine-request
                  {:draft {:id "draft-1"
@@ -127,6 +143,59 @@
     (is (= ["perp:BTC" vault-instrument-id]
            (mapv :instrument-id (get-in request [:history :eligible-instruments]))))
     (is (near? 0.1 (get-in request [:history :return-series-by-instrument vault-instrument-id 0])))
+    (is (= [] (:warnings request)))))
+
+(deftest build-engine-request-carries-derived-one-year-vault-history-test
+  (let [prior-all-time-start (day-start-ms "2024-04-30")
+        derived-start (day-start-ms "2025-04-30")
+        derived-mid (day-start-ms "2025-10-30")
+        direct-month-start (day-start-ms "2026-02-28")
+        direct-month-mid (day-start-ms "2026-03-31")
+        end (day-start-ms "2026-04-30")
+        vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        request (request-builder/build-engine-request
+                 {:draft {:universe [{:instrument-id "perp:BTC"
+                                      :market-type :perp
+                                      :coin "BTC"}
+                                     {:instrument-id vault-instrument-id
+                                      :market-type :vault
+                                      :coin vault-instrument-id
+                                      :vault-address vault-address}]
+                          :objective {:kind :minimum-variance}
+                          :return-model {:kind :historical-mean}
+                          :risk-model {:kind :diagonal-shrink}
+                          :constraints {}}
+                  :current-portfolio {:by-instrument {"perp:BTC" {:weight 1}}}
+                  :history-data {:candle-history-by-coin
+                                 {"BTC" [{:time derived-start :close "200"}
+                                         {:time derived-mid :close "220"}
+                                         {:time direct-month-start :close "230"}
+                                         {:time direct-month-mid :close "225"}
+                                         {:time end :close "242"}]}
+                                 :funding-history-by-coin {}
+                                 :vault-details-by-address
+                                 {vault-address
+                                  {:portfolio
+                                   {:all-time (summary-from-points
+                                               [[prior-all-time-start 80 -20]
+                                                [derived-start 100 0]
+                                                [derived-mid 110 10]
+                                                [end 121 21]])
+                                    :month (summary-from-points
+                                            [[direct-month-start 100 0]
+                                             [direct-month-mid 95 -5]
+                                             [end 90 -10]])}}}}
+                  :market-cap-by-coin {}
+                  :as-of-ms (+ end day-ms)})]
+    (is (= [derived-start derived-mid end]
+           (get-in request [:history :calendar])))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (get-in request [:history :eligible-instruments]))))
+    (is (near? 0.1 (get-in request [:history :return-series-by-instrument vault-instrument-id 0])))
+    (is (near? 0.1 (get-in request [:history :return-series-by-instrument vault-instrument-id 1])))
+    (is (= :not-applicable
+           (get-in request [:history :funding-by-instrument vault-instrument-id :source])))
     (is (= [] (:warnings request)))))
 
 (deftest build-engine-request-normalizes-setup-constraint-keys-test

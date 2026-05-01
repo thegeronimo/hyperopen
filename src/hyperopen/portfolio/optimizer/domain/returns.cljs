@@ -49,16 +49,60 @@
                       weights))
          total-weight))))
 
+(defn- interval-observations
+  [history series]
+  (let [intervals (vec (:return-intervals history))]
+    (when (= (count intervals) (count series))
+      (let [observations (mapv (fn [simple-return {:keys [dt-days dt-years]}]
+                                 (when (and (math/finite-number? simple-return)
+                                            (> simple-return -1)
+                                            (or (nil? dt-days)
+                                                (and (math/finite-number? dt-days)
+                                                     (<= 1 dt-days)))
+                                            (math/finite-number? dt-years)
+                                            (pos? dt-years))
+                                   {:dt-years dt-years
+                                    :log-return (js/Math.log (+ 1 simple-return))
+                                    :annualized-return (- (js/Math.exp (/ (js/Math.log (+ 1 simple-return))
+                                                                          dt-years))
+                                                          1)}))
+                               series
+                               intervals)]
+        (when (and (every? some? observations)
+                   (some (fn [{:keys [dt-days]}]
+                           (or (nil? dt-days)
+                               (> dt-days 1)))
+                         intervals))
+          observations)))))
+
+(defn- geometric-annualized-return
+  [observations]
+  (let [total-years (reduce + 0 (map :dt-years observations))]
+    (when (pos? total-years)
+      (- (js/Math.exp (/ (reduce + 0 (map :log-return observations))
+                         total-years))
+         1))))
+
 (defn- return-component
-  [return-model periods-per-year series]
-  (let [kind (:kind return-model)]
-    (* periods-per-year
-       (case kind
-         :ew-mean (or (ew-mean series (or (:alpha return-model) default-ew-alpha))
-                      0)
-         :historical-mean (or (math/mean series) 0)
-         :black-litterman (or (math/mean series) 0)
-         (or (math/mean series) 0)))))
+  [return-model periods-per-year history series]
+  (let [kind (:kind return-model)
+        observations (interval-observations history series)]
+    (or (case kind
+          :ew-mean (when observations
+                     (ew-mean (mapv :annualized-return observations)
+                              (or (:alpha return-model) default-ew-alpha)))
+          :historical-mean (when observations
+                             (geometric-annualized-return observations))
+          :black-litterman (when observations
+                             (geometric-annualized-return observations))
+          nil)
+        (* periods-per-year
+           (case kind
+             :ew-mean (or (ew-mean series (or (:alpha return-model) default-ew-alpha))
+                          0)
+             :historical-mean (or (math/mean series) 0)
+             :black-litterman (or (math/mean series) 0)
+             (or (math/mean series) 0))))))
 
 (defn- sample-size-warning
   [instrument-id series]
@@ -78,6 +122,7 @@
                 (if (seq series)
                   (let [return-part (return-component return-model*
                                                       periods-per-year*
+                                                      history
                                                       series)
                         funding-part (funding-carry history instrument-id)
                         total (+ return-part funding-part)

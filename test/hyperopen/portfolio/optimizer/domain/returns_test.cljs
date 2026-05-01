@@ -45,6 +45,40 @@
     (is (near? 0.75
                (get-in result [:expected-returns-by-instrument "perp:BTC"])))))
 
+(deftest historical-mean-uses-return-intervals-for-sparse-one-year-window-test
+  (let [result (returns/estimate-expected-returns
+                {:return-model {:kind :historical-mean}
+                 :history {:return-series-by-instrument {"vault:HLP" [0.1 0.1]}
+                           :return-intervals [{:dt-years 0.5}
+                                              {:dt-years 0.5}]
+                           :funding-by-instrument {"vault:HLP" {:annualized-carry 0
+                                                                :source :not-applicable}}}})]
+    (is (near? 0.21
+               (get-in result [:expected-returns-by-instrument "vault:HLP"])))
+    (is (near? 0.21
+               (get-in result
+                       [:decomposition-by-instrument "vault:HLP" :return-component])))
+    (is (= 0
+           (get-in result
+                   [:decomposition-by-instrument "vault:HLP" :funding-component])))
+    (is (= :not-applicable
+           (get-in result
+                   [:decomposition-by-instrument "vault:HLP" :funding-source])))))
+
+(deftest historical-mean-preserves-daily-arithmetic-estimator-test
+  (let [result (returns/estimate-expected-returns
+                {:return-model {:kind :historical-mean}
+                 :periods-per-year 10
+                 :history {:return-series-by-instrument {"perp:BTC" [0.01 0.03]}
+                           :return-intervals [{:dt-days 1
+                                               :dt-years (/ 1 365.2425)}
+                                              {:dt-days 1
+                                               :dt-years (/ 1 365.2425)}]
+                           :funding-by-instrument {"perp:BTC" {:annualized-carry 0
+                                                               :source :market-funding-history}}}})]
+    (is (near? 0.2
+               (get-in result [:expected-returns-by-instrument "perp:BTC"])))))
+
 (deftest expected-returns-report-missing-series-as-warning-test
   (let [result (returns/estimate-expected-returns
                 {:return-model {:kind :historical-mean}

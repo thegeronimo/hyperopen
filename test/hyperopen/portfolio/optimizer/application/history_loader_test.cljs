@@ -15,6 +15,42 @@
   [day]
   (.getTime (js/Date. (str day "T00:00:00.000Z"))))
 
+(defn- summary-from-points
+  [points]
+  {:accountValueHistory (mapv (fn [[time-ms account-value _pnl-value]]
+                                [time-ms account-value])
+                              points)
+   :pnlHistory (mapv (fn [[time-ms _account-value pnl-value]]
+                       [time-ms pnl-value])
+                     points)})
+
+(defn- candle-rows
+  [time-and-close-pairs]
+  (mapv (fn [[time-ms close]]
+          {:time time-ms
+           :close (str close)})
+        time-and-close-pairs))
+
+(defn- vault-instrument-id
+  [vault-address]
+  (str "vault:" vault-address))
+
+(defn- align-market-and-vault-history
+  [vault-address portfolio candle-history]
+  (history-loader/align-history-inputs
+   {:universe [{:instrument-id "perp:BTC"
+                :market-type :perp
+                :coin "BTC"}
+               {:instrument-id (vault-instrument-id vault-address)
+                :market-type :vault
+                :coin (vault-instrument-id vault-address)
+                :vault-address vault-address}]
+    :candle-history-by-coin {"BTC" (candle-rows candle-history)}
+    :vault-details-by-address {vault-address
+                               {:portfolio portfolio}}
+    :as-of-ms (+ (apply max (map first candle-history)) day-ms)
+    :stale-after-ms (* 2 day-ms)}))
+
 (deftest build-history-request-plan-fetches-candles-for-all-assets-and-funding-for-perps-test
   (let [plan (history-loader/build-history-request-plan
               [{:instrument-id "perp:BTC"
@@ -212,43 +248,100 @@
     (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
     (is (= [] (:warnings aligned)))))
 
-(deftest align-history-inputs-prefers-dense-vault-summary-over-sparse-all-time-test
-  (let [d0 (day-start-ms "2026-04-27")
-        d1 (+ d0 day-ms)
-        d2 (+ d1 day-ms)
+(deftest align-history-inputs-prefers-derived-one-year-vault-history-over-direct-month-test
+  (let [prior-all-time-start (day-start-ms "2024-04-30")
+        derived-start (day-start-ms "2025-04-30")
+        derived-mid (day-start-ms "2025-10-30")
+        direct-month-start (day-start-ms "2026-02-28")
+        direct-month-second (day-start-ms "2026-03-14")
+        direct-month-third (day-start-ms "2026-03-28")
+        direct-month-fourth (day-start-ms "2026-04-14")
+        end (day-start-ms "2026-04-30")
         vault-address "0x1111111111111111111111111111111111111111"
         vault-instrument-id (str "vault:" vault-address)
-        intraday-offset (* 22 60 60 1000)
-        aligned (history-loader/align-history-inputs
-                 {:universe [{:instrument-id "perp:BTC"
-                              :market-type :perp
-                              :coin "BTC"}
-                             {:instrument-id vault-instrument-id
-                              :market-type :vault
-                              :coin vault-instrument-id
-                              :vault-address vault-address}]
-                  :candle-history-by-coin {"BTC" [{:time d0 :close "100"}
-                                                  {:time d1 :close "105"}
-                                                  {:time d2 :close "110"}]}
-                  :vault-details-by-address {vault-address
-                                             {:portfolio
-                                              {:all-time
-                                               {:accountValueHistory [[(- d0 (* 30 day-ms)) 100]
-                                                                      [(+ d2 intraday-offset) 130]]
-                                                :pnlHistory [[(- d0 (* 30 day-ms)) 0]
-                                                             [(+ d2 intraday-offset) 30]]}
-                                               :month
-                                               {:accountValueHistory [[(+ d0 intraday-offset) 100]
-                                                                      [(+ d1 intraday-offset) 105]
-                                                                      [(+ d2 intraday-offset) 110]]
-                                                :pnlHistory [[(+ d0 intraday-offset) 0]
-                                                             [(+ d1 intraday-offset) 5]
-                                                             [(+ d2 intraday-offset) 10]]}}}}
-                  :as-of-ms (+ d2 day-ms)
-                  :stale-after-ms (* 2 day-ms)})]
-    (is (= [d0 d1 d2] (:calendar aligned)))
+        aligned (align-market-and-vault-history
+                 vault-address
+                 {:all-time (summary-from-points [[prior-all-time-start 80 -20]
+                                                  [derived-start 100 0]
+                                                  [derived-mid 110 10]
+                                                  [end 121 21]])
+                  :month (summary-from-points [[direct-month-start 100 0]
+                                               [direct-month-second 98 -2]
+                                               [direct-month-third 96 -4]
+                                               [direct-month-fourth 94 -6]
+                                               [end 92 -8]])}
+                 [[derived-start 200]
+                  [derived-mid 220]
+                  [direct-month-start 230]
+                  [direct-month-second 228]
+                  [direct-month-third 226]
+                  [direct-month-fourth 224]
+                  [end 242]])]
+    (is (= [derived-start derived-mid end] (:calendar aligned)))
     (is (= ["perp:BTC" vault-instrument-id]
            (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 0])))
+    (is (near? 0.1 (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
+    (is (= [{:start-ms derived-start
+             :end-ms derived-mid
+             :dt-days 183
+             :dt-years (/ 183 365.2425)}
+            {:start-ms derived-mid
+             :end-ms end
+             :dt-days 182
+             :dt-years (/ 182 365.2425)}]
+           (:return-intervals aligned)))
+    (is (= [] (:warnings aligned)))))
+
+(deftest align-history-inputs-prefers-direct-one-year-vault-summary-over-derived-all-time-test
+  (let [prior-all-time-start (day-start-ms "2024-04-30")
+        direct-start (day-start-ms "2025-04-30")
+        direct-mid (day-start-ms "2025-10-30")
+        end (day-start-ms "2026-04-30")
+        vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        aligned (align-market-and-vault-history
+                 vault-address
+                 {:all-time (summary-from-points [[prior-all-time-start 80 -20]
+                                                  [direct-start 100 0]
+                                                  [direct-mid 110 10]
+                                                  [end 121 21]])
+                  :one-year (summary-from-points [[direct-start 100 0]
+                                                  [direct-mid 120 20]
+                                                  [end 144 44]])
+                  :month (summary-from-points [[(day-start-ms "2026-02-28") 100 0]
+                                               [(day-start-ms "2026-03-31") 95 -5]
+                                               [end 90 -10]])}
+                 [[direct-start 200]
+                  [direct-mid 220]
+                  [(day-start-ms "2026-02-28") 230]
+                  [(day-start-ms "2026-03-31") 225]
+                  [end 242]])]
+    (is (= [direct-start direct-mid end] (:calendar aligned)))
+    (is (near? 0.2 (get-in aligned [:return-series-by-instrument vault-instrument-id 0])))
+    (is (near? 0.2 (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
+    (is (= [] (:warnings aligned)))))
+
+(deftest align-history-inputs-falls-back-to-direct-month-vault-summary-when-one-year-cannot-be-derived-test
+  (let [month-start (day-start-ms "2026-02-28")
+        month-mid (day-start-ms "2026-03-31")
+        end (day-start-ms "2026-04-30")
+        vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument-id (str "vault:" vault-address)
+        aligned (align-market-and-vault-history
+                 vault-address
+                 {:all-time (summary-from-points [[end 130 30]])
+                  :month (summary-from-points [[month-start 100 0]
+                                               [month-mid 105 5]
+                                               [end 110 10]])}
+                 [[month-start 200]
+                  [month-mid 210]
+                  [end 220]])]
+    (is (= [month-start month-mid end] (:calendar aligned)))
+    (is (= ["perp:BTC" vault-instrument-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (near? 0.05 (get-in aligned [:return-series-by-instrument vault-instrument-id 0])))
+    (is (near? (/ 5 105) (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
     (is (= [] (:warnings aligned)))))
 
 (deftest align-history-inputs-reports-missing-and-insufficient-history-without-silent-drops-test

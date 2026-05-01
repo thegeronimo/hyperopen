@@ -5,6 +5,12 @@
 (def ms-per-year (* 365.2425 24 60 60 1000))
 (def epsilon 1e-12)
 
+(def ^:private direct-vault-summary-preference
+  [:one-year :six-month :three-month :month :week :day])
+
+(def ^:private derived-one-year-vault-min-observations
+  3)
+
 (defn optional-number [value] (normalization/optional-number value))
 (defn finite-number? [value] (normalization/finite-number? value))
 (defn history-point-value [row] (normalization/history-point-value row))
@@ -26,6 +32,33 @@
 (defn- anchored-account-pnl-points
   [summary]
   (normalization/anchored-account-pnl-points summary))
+
+(defn- with-utc-months-offset
+  [time-ms months]
+  (let [date (js/Date. time-ms)]
+    (.setUTCMonth date (+ (.getUTCMonth date) months))
+    (.getTime date)))
+
+(defn- with-utc-years-offset
+  [time-ms years]
+  (let [date (js/Date. time-ms)]
+    (.setUTCFullYear date (+ (.getUTCFullYear date) years))
+    (.getTime date)))
+
+(defn summary-window-cutoff-ms
+  [time-range last-ms]
+  (when (and (number? last-ms)
+             (finite-number? last-ms))
+    (case time-range
+      :day (- last-ms day-ms)
+      :week (- last-ms (* 7 day-ms))
+      :month (- last-ms (* 30 day-ms))
+      :three-month (with-utc-months-offset last-ms -3)
+      :six-month (with-utc-months-offset last-ms -6)
+      :one-year (with-utc-years-offset last-ms -1)
+      :two-year (with-utc-years-offset last-ms -2)
+      :all-time nil
+      nil)))
 
 (defn- implied-cash-flow
   [previous current]
@@ -123,6 +156,103 @@
 (defn returns-history-rows
   ([_state summary _summary-scope]
    (returns-history-rows-from-summary summary)))
+
+(defn- bounded-summary-window
+  [points cutoff-ms]
+  (let [points* (vec (or points []))]
+    (if (number? cutoff-ms)
+      (let [anchor-point (last (filter (fn [{:keys [time-ms]}]
+                                         (and (number? time-ms)
+                                              (<= time-ms cutoff-ms)))
+                                       points*))
+            points-in-window (vec (filter (fn [{:keys [time-ms]}]
+                                            (and (number? time-ms)
+                                                 (> time-ms cutoff-ms)))
+                                          points*))
+            window-points (if anchor-point
+                            (into [{:time-ms cutoff-ms
+                                    :account-value (:account-value anchor-point)
+                                    :pnl-value (:pnl-value anchor-point)}]
+                                  points-in-window)
+                            points-in-window)]
+        {:points window-points
+         :cutoff-ms cutoff-ms
+         :complete-window? (some? anchor-point)})
+      {:points points*
+       :cutoff-ms nil
+       :complete-window? (seq points*)})))
+
+(defn- points->summary
+  [points]
+  (when-let [base-pnl (some-> points first :pnl-value)]
+    {:accountValueHistory (mapv (fn [{:keys [time-ms account-value]}]
+                                  [time-ms account-value])
+                                points)
+     :pnlHistory (mapv (fn [{:keys [time-ms pnl-value]}]
+                         [time-ms (- pnl-value base-pnl)])
+                       points)}))
+
+(defn bounded-summary-context
+  [summary time-range]
+  (let [points (anchored-account-pnl-points summary)
+        last-time-ms (some-> points last :time-ms)
+        cutoff-ms (when (and (number? last-time-ms)
+                             (not= time-range :all-time))
+                    (summary-window-cutoff-ms time-range last-time-ms))
+        {:keys [points complete-window?] :as window-context}
+        (bounded-summary-window points cutoff-ms)]
+    {:summary (points->summary points)
+     :points points
+     :cutoff-ms (:cutoff-ms window-context)
+     :first-time-ms (some-> points first :time-ms)
+     :last-time-ms (some-> points last :time-ms)
+     :point-count (count points)
+     :complete-window? (boolean (and (seq points)
+                                     complete-window?))
+     :has-data? (boolean (seq points))}))
+
+(defn- summary-entry
+  [portfolio summary-key]
+  (let [summary (get portfolio summary-key)]
+    (when (map? summary)
+      summary)))
+
+(defn- first-summary
+  [portfolio summary-keys]
+  (some (fn [summary-key]
+          (summary-entry portfolio summary-key))
+        summary-keys))
+
+(defn- first-any-summary
+  [portfolio]
+  (some (fn [[_summary-key summary]]
+          (when (map? summary)
+            summary))
+        portfolio))
+
+(defn- summary-observation-count
+  [summary]
+  (count (returns-history-rows-from-summary (or summary {}))))
+
+(defn preferred-vault-summary
+  [portfolio]
+  (let [direct-one-year-summary (summary-entry portfolio :one-year)]
+    (if direct-one-year-summary
+      direct-one-year-summary
+      (let [all-time-summary (summary-entry portfolio :all-time)
+            direct-fallback-summary (first-summary portfolio
+                                                   (rest direct-vault-summary-preference))
+            derived-one-year-context (when all-time-summary
+                                       (bounded-summary-context all-time-summary
+                                                                :one-year))
+            derived-summary (:summary derived-one-year-context)
+            derived-observations (summary-observation-count derived-summary)]
+        (if (and (:complete-window? derived-one-year-context)
+                 (>= derived-observations derived-one-year-vault-min-observations))
+          derived-summary
+          (or direct-fallback-summary
+              all-time-summary
+              (first-any-summary portfolio)))))))
 
 (defn cumulative-percent-rows->interval-returns
   [cumulative-percent-rows]
