@@ -196,6 +196,7 @@
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-test]
             [hyperopen.portfolio.optimizer.domain.weight-cleaning-test]
+            [hyperopen.portfolio.optimizer.draft-actions-test]
             [hyperopen.portfolio.optimizer.execution-actions-test]
             [hyperopen.portfolio.optimizer.fixtures-test]
             [hyperopen.portfolio.optimizer.frontier-actions-test]
@@ -207,6 +208,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.wire-test]
             [hyperopen.portfolio.optimizer.query-state-test]
             [hyperopen.portfolio.optimizer.tracking-actions-test]
+            [hyperopen.portfolio.optimizer.universe-actions-test]
             [hyperopen.portfolio.optimizer.universe-keyboard-test]
             [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
@@ -399,17 +401,22 @@
             [hyperopen.views.portfolio.optimize.black-litterman-views-panel-test]
             [hyperopen.views.portfolio.optimize.execution-modal-test]
             [hyperopen.views.portfolio.optimize.format-test]
+            [hyperopen.views.portfolio.optimize.frontier-callout-test]
+            [hyperopen.views.portfolio.optimize.frontier-chart-contract-test]
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers-test]
             [hyperopen.views.portfolio.optimize.index-view-test]
             [hyperopen.views.portfolio.optimize.inputs-tab-test]
             [hyperopen.views.portfolio.optimize.result-vault-labels-test]
             [hyperopen.views.portfolio.optimize.results-panel-test]
+            [hyperopen.views.portfolio.optimize.scenario-detail-view-test]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel-test]
             [hyperopen.views.portfolio.optimize.setup-v4-layout-test]
+            [hyperopen.views.portfolio.optimize.setup-view-test]
             [hyperopen.views.portfolio.optimize.tracking-panel-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
             [hyperopen.views.portfolio.optimize.unsaved-draft-route-test]
             [hyperopen.views.portfolio.optimize.view-test]
+            [hyperopen.views.portfolio.optimize.workspace-view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
             [hyperopen.views.portfolio.vm-test]
@@ -778,6 +785,7 @@
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-test
              'hyperopen.portfolio.optimizer.domain.weight-cleaning-test
+             'hyperopen.portfolio.optimizer.draft-actions-test
              'hyperopen.portfolio.optimizer.execution-actions-test
              'hyperopen.portfolio.optimizer.fixtures-test
              'hyperopen.portfolio.optimizer.frontier-actions-test
@@ -789,6 +797,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.wire-test
              'hyperopen.portfolio.optimizer.query-state-test
              'hyperopen.portfolio.optimizer.tracking-actions-test
+             'hyperopen.portfolio.optimizer.universe-actions-test
              'hyperopen.portfolio.optimizer.universe-keyboard-test
              'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
@@ -981,17 +990,22 @@
              'hyperopen.views.portfolio.optimize.black-litterman-views-panel-test
              'hyperopen.views.portfolio.optimize.execution-modal-test
              'hyperopen.views.portfolio.optimize.format-test
+             'hyperopen.views.portfolio.optimize.frontier-callout-test
+             'hyperopen.views.portfolio.optimize.frontier-chart-contract-test
              'hyperopen.views.portfolio.optimize.frontier-overlay-markers-test
              'hyperopen.views.portfolio.optimize.index-view-test
              'hyperopen.views.portfolio.optimize.inputs-tab-test
              'hyperopen.views.portfolio.optimize.result-vault-labels-test
              'hyperopen.views.portfolio.optimize.results-panel-test
+             'hyperopen.views.portfolio.optimize.scenario-detail-view-test
              'hyperopen.views.portfolio.optimize.setup-readiness-panel-test
              'hyperopen.views.portfolio.optimize.setup-v4-layout-test
+             'hyperopen.views.portfolio.optimize.setup-view-test
              'hyperopen.views.portfolio.optimize.tracking-panel-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
              'hyperopen.views.portfolio.optimize.unsaved-draft-route-test
              'hyperopen.views.portfolio.optimize.view-test
+             'hyperopen.views.portfolio.optimize.workspace-view-test
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test
              'hyperopen.views.portfolio.vm-test
