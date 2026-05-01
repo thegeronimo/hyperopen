@@ -101,3 +101,32 @@
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
                     (done)))))))
+
+(deftest ensure-perp-dexs-single-flight-test
+  (async done
+    (let [store (atom {:perp-dexs []})
+          calls (atom 0)
+          original-post-info hyperopen.api.default/post-info!]
+      (set! hyperopen.api.default/post-info!
+            (fn post-info-mock
+              ([body]
+               (post-info-mock body {}))
+              ([body _opts]
+               (swap! calls inc)
+               (js/Promise.resolve [{:name "dex-a"}]))
+              ([body opts _attempt]
+               (post-info-mock body opts))))
+      (let [p1 (api/ensure-perp-dexs! store)
+            p2 (api/ensure-perp-dexs! store)]
+        (-> (js/Promise.all #js [p1 p2])
+            (.then (fn [results]
+                     (is (= [["dex-a"] ["dex-a"]]
+                            (js->clj results)))
+                     (is (= 1 @calls))
+                     (done)))
+            (.catch (fn [err]
+                      (is false (str "Unexpected error: " err))
+                      (done)))
+            (.finally
+              (fn []
+                (set! hyperopen.api.default/post-info! original-post-info))))))))

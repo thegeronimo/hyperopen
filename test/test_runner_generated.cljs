@@ -14,15 +14,22 @@
             [hyperopen.account.spectate-mode-links-test]
             [hyperopen.account.surface-policy-test]
             [hyperopen.account.surface-service-test]
-            [hyperopen.api-test]
             [hyperopen.api-wallets.actions-test]
             [hyperopen.api-wallets.application.form-policy-test]
             [hyperopen.api-wallets.application.ui-state-test]
             [hyperopen.api-wallets.domain.policy-test]
             [hyperopen.api-wallets.effects-test]
             [hyperopen.api.compat-test]
+            [hyperopen.api.default-account-history-test]
+            [hyperopen.api.default-orders-test]
             [hyperopen.api.default-test]
-            [hyperopen.api.endpoints.account-test]
+            [hyperopen.api.default-user-abstraction-test]
+            [hyperopen.api.endpoints.account-accounting-test]
+            [hyperopen.api.endpoints.account-clearinghouse-test]
+            [hyperopen.api.endpoints.account-funding-history-test]
+            [hyperopen.api.endpoints.account-identity-test]
+            [hyperopen.api.endpoints.account-portfolio-test]
+            [hyperopen.api.endpoints.account-staking-test]
             [hyperopen.api.endpoints.funding-hyperunit-test]
             [hyperopen.api.endpoints.leaderboard-test]
             [hyperopen.api.endpoints.market-test]
@@ -31,13 +38,20 @@
             [hyperopen.api.endpoints.vaults-test]
             [hyperopen.api.errors-test]
             [hyperopen.api.facade-runtime-test]
-            [hyperopen.api.fetch-compat-test]
+            [hyperopen.api.fetch-compat-account-test]
+            [hyperopen.api.fetch-compat-asset-selector-test]
+            [hyperopen.api.fetch-compat-candles-test]
+            [hyperopen.api.fetch-compat-market-metadata-test]
+            [hyperopen.api.fetch-compat-orders-test]
             [hyperopen.api.gateway.account-test]
             [hyperopen.api.gateway.funding-hyperunit-test]
             [hyperopen.api.gateway.market-test]
             [hyperopen.api.gateway.orders-test]
             [hyperopen.api.gateway.orders.commands-test]
             [hyperopen.api.gateway.vaults-test]
+            [hyperopen.api.info-client-cache-test]
+            [hyperopen.api.info-client-scheduling-test]
+            [hyperopen.api.info-client-stats-test]
             [hyperopen.api.info-client-test]
             [hyperopen.api.instance-test]
             [hyperopen.api.market-loader-test]
@@ -607,15 +621,22 @@
              'hyperopen.account.spectate-mode-links-test
              'hyperopen.account.surface-policy-test
              'hyperopen.account.surface-service-test
-             'hyperopen.api-test
              'hyperopen.api-wallets.actions-test
              'hyperopen.api-wallets.application.form-policy-test
              'hyperopen.api-wallets.application.ui-state-test
              'hyperopen.api-wallets.domain.policy-test
              'hyperopen.api-wallets.effects-test
              'hyperopen.api.compat-test
+             'hyperopen.api.default-account-history-test
+             'hyperopen.api.default-orders-test
              'hyperopen.api.default-test
-             'hyperopen.api.endpoints.account-test
+             'hyperopen.api.default-user-abstraction-test
+             'hyperopen.api.endpoints.account-accounting-test
+             'hyperopen.api.endpoints.account-clearinghouse-test
+             'hyperopen.api.endpoints.account-funding-history-test
+             'hyperopen.api.endpoints.account-identity-test
+             'hyperopen.api.endpoints.account-portfolio-test
+             'hyperopen.api.endpoints.account-staking-test
              'hyperopen.api.endpoints.funding-hyperunit-test
              'hyperopen.api.endpoints.leaderboard-test
              'hyperopen.api.endpoints.market-test
@@ -624,13 +645,20 @@
              'hyperopen.api.endpoints.vaults-test
              'hyperopen.api.errors-test
              'hyperopen.api.facade-runtime-test
-             'hyperopen.api.fetch-compat-test
+             'hyperopen.api.fetch-compat-account-test
+             'hyperopen.api.fetch-compat-asset-selector-test
+             'hyperopen.api.fetch-compat-candles-test
+             'hyperopen.api.fetch-compat-market-metadata-test
+             'hyperopen.api.fetch-compat-orders-test
              'hyperopen.api.gateway.account-test
              'hyperopen.api.gateway.funding-hyperunit-test
              'hyperopen.api.gateway.market-test
              'hyperopen.api.gateway.orders-test
              'hyperopen.api.gateway.orders.commands-test
              'hyperopen.api.gateway.vaults-test
+             'hyperopen.api.info-client-cache-test
+             'hyperopen.api.info-client-scheduling-test
+             'hyperopen.api.info-client-stats-test
              'hyperopen.api.info-client-test
              'hyperopen.api.instance-test
              'hyperopen.api.market-loader-test

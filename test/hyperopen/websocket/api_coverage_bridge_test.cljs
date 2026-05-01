@@ -1,10 +1,27 @@
 (ns hyperopen.websocket.api-coverage-bridge-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.api-test]
             [hyperopen.api.compat-test]
+            [hyperopen.api.default-account-history-test]
+            [hyperopen.api.default-orders-test]
             [hyperopen.api.default-test]
+            [hyperopen.api.default-user-abstraction-test]
+            [hyperopen.api.endpoints.account-accounting-test]
+            [hyperopen.api.endpoints.account-clearinghouse-test]
+            [hyperopen.api.endpoints.account-funding-history-test]
+            [hyperopen.api.endpoints.account-identity-test]
+            [hyperopen.api.endpoints.account-portfolio-test]
+            [hyperopen.api.endpoints.account-staking-test]
             [hyperopen.api.errors-test]
-            [hyperopen.api.fetch-compat-test]
+            [hyperopen.api.facade-runtime-test]
+            [hyperopen.api.fetch-compat-account-test]
+            [hyperopen.api.fetch-compat-asset-selector-test]
+            [hyperopen.api.fetch-compat-candles-test]
+            [hyperopen.api.fetch-compat-market-metadata-test]
+            [hyperopen.api.fetch-compat-orders-test]
+            [hyperopen.api.info-client-cache-test]
+            [hyperopen.api.info-client-scheduling-test]
+            [hyperopen.api.info-client-stats-test]
+            [hyperopen.api.info-client-test]
             [hyperopen.api.instance-test]
             [hyperopen.api.market-loader-test]
             [hyperopen.api.projections.api-wallets-test]
@@ -22,7 +39,8 @@
             [hyperopen.api.promise-effects-test]
             [hyperopen.api.runtime-test]
             [hyperopen.api.service-test]
-            [hyperopen.api.trading.debug-exchange-simulator-test]))
+            [hyperopen.api.trading.debug-exchange-simulator-test]
+            [hyperopen.domain.funding-history-test]))
 
 (deftest api-coverage-bridge-loads-targeted-api-suites-test
   (is true))

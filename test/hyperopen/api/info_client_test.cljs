@@ -1,13 +1,7 @@
 (ns hyperopen.api.info-client-test
   (:require [cljs.test :refer-macros [async deftest is]]
-            [hyperopen.api.info-client :as info-client]))
-
-(defn- fake-http-response
-  [status payload]
-  (doto (js-obj)
-    (aset "status" status)
-    (aset "ok" (= status 200))
-    (aset "json" (fn [] (js/Promise.resolve (clj->js payload))))))
+            [hyperopen.api.info-client :as info-client]
+            [hyperopen.test-support.info-client :as info-support]))
 
 (deftest request-info-shares-single-flight-for-identical-dedupe-keys-test
   (async done
@@ -59,7 +53,7 @@
                                   (fn [resolve _reject]
                                     (swap! resolvers conj
                                            (fn []
-                                             (resolve (fake-http-response 200 {:call call-number}))))))))
+                                             (resolve (info-support/fake-http-response 200 {:call call-number}))))))))
                    :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
                    :log-fn (fn [& _] nil)})
           request-info! (:request-info! client)
@@ -98,7 +92,7 @@
                   {:fetch-fn (fn [_ _]
                                (swap! fetch-calls inc)
                                (js/Promise.resolve
-                                (fake-http-response 200 {:ok @fetch-calls})))
+                                (info-support/fake-http-response 200 {:ok @fetch-calls})))
                    :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
                    :log-fn (fn [& _] nil)})
           request-info! (:request-info! client)
@@ -122,7 +116,7 @@
     (let [client (info-client/make-info-client
                   {:fetch-fn (fn [_ _]
                                (js/Promise.resolve
-                                (fake-http-response 200 {:ok true})))
+                                (info-support/fake-http-response 200 {:ok true})))
                    :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
                    :log-fn (fn [& _] nil)})]
       (-> ((:request-info! client) {"type" "meta"} {:priority :low} 2)
@@ -140,7 +134,7 @@
                   {:fetch-fn (fn [_ _]
                                (swap! fetch-calls inc)
                                (js/Promise.resolve
-                                (fake-http-response 200 {:ok true})))
+                                (info-support/fake-http-response 200 {:ok true})))
                    :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
                    :log-fn (fn [& _] nil)})
           request-info! (:request-info! client)]
@@ -165,7 +159,7 @@
                   {:fetch-fn (fn [_ _]
                                (swap! fetch-calls inc)
                                (js/Promise.resolve
-                                (fake-http-response 429 {:error "rate-limited"})))
+                                (info-support/fake-http-response 429 {:error "rate-limited"})))
                    :sleep-ms-fn (fn [delay-ms]
                                   (swap! sleep-calls conj delay-ms)
                                   (reset! active? false)
