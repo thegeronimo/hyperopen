@@ -69,7 +69,22 @@ const STATIC_ROUTE_HTML_FILES = [
 ];
 const SAMPLE_MAIN_RELEASE_BUNDLE = [
   "function boot() { return true; }",
+  "$APP.d=Tca.prototype;$APP.d.ak=!1;$APP.d.pk=!1;$APP.d.tk=!1;",
   "var loaderManager=new Tca;loaderManager.pk=!0;",
+  "boot();",
+  "",
+].join("\n");
+const SAMPLE_CURRENT_MINIFIED_MAIN_RELEASE_BUNDLE = [
+  "function boot() { return true; }",
+  "$APP.d=Wca.prototype;$APP.d.ak=!1;$APP.d.yk=!1;$APP.d.Ck=!1;",
+  "var loaderManager=new Wca;loaderManager.yk=!0;",
+  "boot();",
+  "",
+].join("\n");
+const SAMPLE_SCRIPT_TAG_MAIN_RELEASE_BUNDLE = [
+  "function boot() { return true; }",
+  "$APP.d=Wca.prototype;$APP.d.ak=!1;$APP.d.yk=!1;$APP.d.Ck=!1;",
+  "var loaderManager=new Wca;loaderManager.Ck=!0;",
   "boot();",
   "",
 ].join("\n");
@@ -145,7 +160,10 @@ async function writeFixtureFile(root, relativePath, content, missingRelativePath
   await fs.writeFile(absolutePath, content);
 }
 
-async function writeReleaseFixture(sourceRoot, { missingRelativePaths = [] } = {}) {
+async function writeReleaseFixture(
+  sourceRoot,
+  { mainReleaseBundle = SAMPLE_MAIN_RELEASE_BUNDLE, missingRelativePaths = [] } = {}
+) {
   const missing = new Set(missingRelativePaths);
 
   await fs.mkdir(sourceRoot, { recursive: true });
@@ -179,7 +197,7 @@ async function writeReleaseFixture(sourceRoot, { missingRelativePaths = [] } = {
   await writeFixtureFile(
     sourceRoot,
     path.join("js", "main.HASH.js"),
-    SAMPLE_MAIN_RELEASE_BUNDLE,
+    mainReleaseBundle,
     missing
   );
   await writeFixtureFile(
@@ -192,6 +210,12 @@ async function writeReleaseFixture(sourceRoot, { missingRelativePaths = [] } = {
     sourceRoot,
     path.join("js", "portfolio_worker.js"),
     "worker();\n",
+    missing
+  );
+  await writeFixtureFile(
+    sourceRoot,
+    path.join("js", "portfolio_optimizer_worker.js"),
+    "optimizerWorker();\n",
     missing
   );
   await writeFixtureFile(
@@ -310,6 +334,7 @@ test("collectReleaseJavaScriptFiles keeps only explicit release assets", () => {
   assert.deepEqual(files, [
     "main.HASH.js",
     "module-loader.json",
+    "portfolio_optimizer_worker.js",
     "portfolio_worker.js",
     "trade_chart.HASH.js",
     "vault_detail_worker.js",
@@ -325,11 +350,27 @@ test("rewriteMainModuleLoaderRuntime switches shadow-cljs release loading to scr
 
 test("rewriteMainModuleLoaderRuntime tolerates constructor minification changes", () => {
   const rewritten = rewriteMainModuleLoaderRuntime(
-    "var loaderManager=new Uca;loaderManager.pk=!0;\n"
+    "$APP.d=Uca.prototype;$APP.d.ak=!1;$APP.d.pk=!1;$APP.d.tk=!1;\n" +
+      "var loaderManager=new Uca;loaderManager.pk=!0;\n"
   );
 
   assert.match(rewritten, /var loaderManager=new Uca;loaderManager\.tk=!0;/);
   assert.doesNotMatch(rewritten, /loaderManager\.pk=!0/);
+});
+
+test("rewriteMainModuleLoaderRuntime derives shifted closure-minified loader flags", () => {
+  const rewritten = rewriteMainModuleLoaderRuntime(
+    SAMPLE_CURRENT_MINIFIED_MAIN_RELEASE_BUNDLE
+  );
+
+  assert.match(rewritten, /var loaderManager=new Wca;loaderManager\.Ck=!0;/);
+  assert.doesNotMatch(rewritten, /loaderManager\.yk=!0/);
+});
+
+test("rewriteMainModuleLoaderRuntime preserves already rewritten inferred script-tag runtime", () => {
+  const rewritten = rewriteMainModuleLoaderRuntime(SAMPLE_SCRIPT_TAG_MAIN_RELEASE_BUNDLE);
+
+  assert.equal(rewritten, SAMPLE_SCRIPT_TAG_MAIN_RELEASE_BUNDLE);
 });
 
 test("normalizeModuleUriToRelativeJsPath preserves nested js paths and strips query strings", () => {
@@ -538,6 +579,10 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   );
   const generatedHeaders = await fs.readFile(path.join(outputRoot, "_headers"), "utf8");
   const copiedMain = await fs.readFile(path.join(outputRoot, "js", "main.HASH.js"), "utf8");
+  const copiedOptimizerWorker = await fs.readFile(
+    path.join(outputRoot, "js", "portfolio_optimizer_worker.js"),
+    "utf8"
+  );
   const routeMetadataScript = await fs.readFile(
     path.join(outputRoot, RELEASE_ROUTE_METADATA_SCRIPT_PATH),
     "utf8"
@@ -643,6 +688,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   assert.equal(generatedCss, "body { color: white; }\n");
   assert.match(copiedMain, /var loaderManager=new Tca;loaderManager\.tk=!0;/);
   assert.doesNotMatch(copiedMain, /loaderManager\.pk=!0/);
+  assert.equal(copiedOptimizerWorker, "optimizerWorker();\n");
   assert.equal(copiedFont, "font");
   assert.match(routeMetadataScript, /const metadata = \{/);
   assert.match(routeMetadataScript, /globalThis\.HYPEROPEN_BUILD_ID = buildId;/);
@@ -675,6 +721,14 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     `/css/${result.cssFileName}`,
     "/js/main.HASH.js",
     "/js/trade_chart.CHUNK.js",
+  ]);
+  assert.deepEqual(result.releaseJavaScriptFiles, [
+    "main.HASH.js",
+    "module-loader.json",
+    "portfolio_optimizer_worker.js",
+    "portfolio_worker.js",
+    "trade_chart.CHUNK.js",
+    "vault_detail_worker.js",
   ]);
   assert.equal(result.releaseMetadataScriptHref, `/${RELEASE_ROUTE_METADATA_SCRIPT_PATH}`);
   assert.equal(result.securityHeadersPath, path.join(outputRoot, "_headers"));
@@ -744,6 +798,33 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   await assert.rejects(fs.access(path.join(outputRoot, "ui-workbench.html")));
 });
 
+test("generateReleaseArtifacts handles current minified loader flags and ships optimizer worker", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-release-assets-current-"));
+  const sourceRoot = path.join(tempRoot, "source");
+  const outputRoot = path.join(tempRoot, "output");
+
+  await writeReleaseFixture(sourceRoot, {
+    mainReleaseBundle: SAMPLE_CURRENT_MINIFIED_MAIN_RELEASE_BUNDLE,
+  });
+
+  const result = await generateReleaseArtifacts({
+    sourceRoot,
+    outputRoot,
+    canonicalOrigin: SAMPLE_CANONICAL_ORIGIN,
+  });
+
+  const copiedMain = await fs.readFile(path.join(outputRoot, "js", "main.HASH.js"), "utf8");
+  const copiedOptimizerWorker = await fs.readFile(
+    path.join(outputRoot, "js", "portfolio_optimizer_worker.js"),
+    "utf8"
+  );
+
+  assert.ok(result.releaseJavaScriptFiles.includes("portfolio_optimizer_worker.js"));
+  assert.match(copiedMain, /var loaderManager=new Wca;loaderManager\.Ck=!0;/);
+  assert.doesNotMatch(copiedMain, /loaderManager\.yk=!0/);
+  assert.equal(copiedOptimizerWorker, "optimizerWorker();\n");
+});
+
 test("generateReleaseArtifacts fails closed when a required release asset is missing", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "hyperopen-release-assets-missing-"));
   const sourceRoot = path.join(tempRoot, "source");
@@ -756,6 +837,23 @@ test("generateReleaseArtifacts fails closed when a required release asset is mis
   await assert.rejects(
     generateReleaseArtifacts({ sourceRoot, outputRoot }),
     /Expected release asset to exist: js\/portfolio_worker\.js/
+  );
+});
+
+test("generateReleaseArtifacts fails closed when the optimizer worker is missing", async () => {
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "hyperopen-release-assets-missing-optimizer-worker-")
+  );
+  const sourceRoot = path.join(tempRoot, "source");
+  const outputRoot = path.join(tempRoot, "output");
+
+  await writeReleaseFixture(sourceRoot, {
+    missingRelativePaths: [path.join("js", "portfolio_optimizer_worker.js")],
+  });
+
+  await assert.rejects(
+    generateReleaseArtifacts({ sourceRoot, outputRoot }),
+    /Expected release asset to exist: js\/portfolio_optimizer_worker\.js/
   );
 });
 

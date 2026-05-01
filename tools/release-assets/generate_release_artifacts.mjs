@@ -34,7 +34,11 @@ export const APP_CSS_HREF = "/css/main.css";
 const JS_DIR = "js";
 const FONTS_DIR = "fonts";
 const REQUIRED_JS_METADATA_FILES = ["module-loader.json"];
-const REQUIRED_WORKER_FILES = ["portfolio_worker.js", "vault_detail_worker.js"];
+const REQUIRED_WORKER_FILES = [
+  "portfolio_optimizer_worker.js",
+  "portfolio_worker.js",
+  "vault_detail_worker.js",
+];
 
 export function hashContent(content) {
   return crypto
@@ -236,32 +240,72 @@ function isFingerprintedReleaseJavaScriptFile(fileName) {
   return path.posix.basename(fileName).split(".").length >= 3;
 }
 
-const SHADOW_LOADER_EVAL_RUNTIME_PATTERN =
-  /var\s+([A-Za-z_$][A-Za-z0-9_$]*)=new\s+([A-Za-z_$][A-Za-z0-9_$]*);\1\.pk=!0;/;
-const SHADOW_LOADER_SCRIPT_TAG_RUNTIME_PATTERN =
-  /var\s+([A-Za-z_$][A-Za-z0-9_$]*)=new\s+([A-Za-z_$][A-Za-z0-9_$]*);\1\.tk=!0;/;
+const JS_IDENTIFIER_SOURCE = String.raw`[$A-Za-z_][$A-Za-z0-9_]*`;
+const JS_PROPERTY_ACCESS_SOURCE = String.raw`${JS_IDENTIFIER_SOURCE}(?:\.${JS_IDENTIFIER_SOURCE})?`;
+const SHADOW_LOADER_RUNTIME_ASSIGNMENT_PATTERN = new RegExp(
+  String.raw`var\s+(${JS_IDENTIFIER_SOURCE})=new\s+(${JS_IDENTIFIER_SOURCE});\1\.(${JS_IDENTIFIER_SOURCE})=!0;`,
+  "g"
+);
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function shadowLoaderPrototypeDefaultsPattern(loaderCtor) {
+  return new RegExp(
+    String.raw`(${JS_PROPERTY_ACCESS_SOURCE})=${escapeRegExp(loaderCtor)}\.prototype;\s*\1\.(${JS_IDENTIFIER_SOURCE})=!1;\s*\1\.(${JS_IDENTIFIER_SOURCE})=!1;\s*\1\.(${JS_IDENTIFIER_SOURCE})=!1;`
+  );
+}
+
+function findShadowLoaderRuntime(mainModuleSource) {
+  for (const match of mainModuleSource.matchAll(SHADOW_LOADER_RUNTIME_ASSIGNMENT_PATTERN)) {
+    const [assignmentSource, loaderVar, loaderCtor, enabledFlag] = match;
+    const prototypeMatch = mainModuleSource.match(
+      shadowLoaderPrototypeDefaultsPattern(loaderCtor)
+    );
+
+    if (!prototypeMatch) {
+      continue;
+    }
+
+    const [_prototypeSource, _prototypeAlias, _debugFlag, sourceUrlInjectionFlag, scriptTagFlag] =
+      prototypeMatch;
+
+    if (enabledFlag === sourceUrlInjectionFlag || enabledFlag === scriptTagFlag) {
+      return {
+        assignmentSource,
+        loaderCtor,
+        loaderVar,
+        enabledFlag,
+        scriptTagFlag,
+      };
+    }
+  }
+
+  return null;
+}
 
 export function rewriteMainModuleLoaderRuntime(mainModuleSource) {
   if (typeof mainModuleSource !== "string") {
     throw new Error("Expected the main module source to be a string.");
   }
 
-  if (SHADOW_LOADER_SCRIPT_TAG_RUNTIME_PATTERN.test(mainModuleSource)) {
-    return mainModuleSource;
-  }
+  const runtime = findShadowLoaderRuntime(mainModuleSource);
 
-  const rewrittenSource = mainModuleSource.replace(
-    SHADOW_LOADER_EVAL_RUNTIME_PATTERN,
-    (_match, loaderVar, loaderCtor) => `var ${loaderVar}=new ${loaderCtor};${loaderVar}.tk=!0;`
-  );
-
-  if (rewrittenSource === mainModuleSource) {
+  if (!runtime) {
     throw new Error(
       "Expected the main module to contain the shadow-cljs eval-based loader runtime."
     );
   }
 
-  return rewrittenSource;
+  if (runtime.enabledFlag === runtime.scriptTagFlag) {
+    return mainModuleSource;
+  }
+
+  return mainModuleSource.replace(
+    runtime.assignmentSource,
+    `var ${runtime.loaderVar}=new ${runtime.loaderCtor};${runtime.loaderVar}.${runtime.scriptTagFlag}=!0;`
+  );
 }
 
 function nonEmptyEnv(name) {
