@@ -1,15 +1,12 @@
 (ns hyperopen.api.trading
-  (:require [clojure.string :as str]
+  (:require [hyperopen.api.trading.agent-actions :as agent-actions]
+            [hyperopen.api.trading.cancel-request :as cancel-request]
             [hyperopen.api.trading.debug-exchange-simulator :as debug-exchange-simulator]
-            [hyperopen.asset-selector.markets :as markets]
-            [hyperopen.platform :as platform]
-            [hyperopen.runtime.state :as runtime-state]
-            [hyperopen.schema.contracts :as contracts]
-            [hyperopen.trading-crypto-modules :as trading-crypto-modules]
-            [hyperopen.wallet.agent-lockbox :as agent-lockbox]
-            [hyperopen.wallet.agent-session :as agent-session]))
-(def exchange-url "https://api.hyperliquid.xyz/exchange")
-(def info-url "https://api.hyperliquid.xyz/info")
+            [hyperopen.api.trading.http :as http]
+            [hyperopen.api.trading.user-actions :as user-actions]))
+
+(def exchange-url http/exchange-url)
+(def info-url http/info-url)
 
 (defn set-debug-exchange-simulator!
   [simulator]
@@ -23,678 +20,108 @@
   []
   (debug-exchange-simulator/snapshot))
 
-(defn- json-post! [url body]
-  (js/fetch url
-            (clj->js {:method "POST"
-                      :headers {"Content-Type" "application/json"}
-                      :body (js/JSON.stringify (clj->js body))})))
-
-(defn- parse-text-body
-  [raw status]
-  (let [raw* (some-> raw str str/trim)]
-    (if (str/blank? raw*)
-      {:status "err"
-       :error (str "HTTP " status)}
-      (try
-        (js->clj (js/JSON.parse raw*) :keywordize-keys true)
-        (catch :default _
-          {:status "err"
-           :error raw*})))))
-
-(defn- parse-json! [resp]
-  (let [parse-response-promise
-        (if (fn? (.-text resp))
-          (-> (.text resp)
-              (.then (fn [raw]
-                       (parse-text-body raw (.-status resp)))))
-          (-> (.json resp)
-              (.then (fn [payload]
-                       (js->clj payload :keywordize-keys true)))))]
-    (-> parse-response-promise
-        (.then (fn [parsed]
-                 (when (contracts/validation-enabled?)
-                   (contracts/assert-exchange-response!
-                    parsed
-                    {:boundary :api-trading/parse-json}))
-                 parsed)))))
-
-(defn- nonce-error-response? [resp]
-  (let [text (-> (or (:error resp)
-                     (:response resp)
-                     (:message resp)
-                     "")
-                 str
-                 str/lower-case)]
-    ;; This predicate is intentionally data-only: we only care whether the
-    ;; returned error text indicates a nonce mismatch, regardless of whether
-    ;; upstream set :status.
-    (str/includes? text "nonce")))
-
-(defn- response-error-text
-  [resp]
-  (-> (or (:error resp)
-          (:response resp)
-          (:message resp)
-          "")
-      str))
-
-(defn- missing-api-wallet-response?
-  [resp]
-  (let [text (-> (response-error-text resp)
-                 str/lower-case)]
-    (and (str/includes? text "user or api wallet")
-         (str/includes? text "does not exist"))))
-
-(def ^:private missing-api-wallet-error-message
-  "Agent wallet not recognized by Hyperliquid. Enable Trading again.")
-
-(def ^:private missing-api-wallet-preserved-message
-  "Agent wallet lookup was inconclusive. Preserved local trading key.")
-
-(defn enable-trading-recovery-error?
-  [value]
-  (let [text (cond
-               (map? value) (response-error-text value)
-               :else (some-> value str))]
-    (= missing-api-wallet-error-message
-       (some-> text str str/trim))))
-
-(defn- normalize-address
-  [address]
-  (let [text (some-> address str str/trim)]
-    (when (seq text)
-      (str/lower-case text))))
-
-(defn- parse-int-value
-  [value]
-  (let [num (cond
-              (number? value) value
-              (string? value) (js/parseInt value 10)
-              :else js/NaN)]
-    (when (and (number? num)
-               (not (js/isNaN num)))
-      (js/Math.floor num))))
-
-(defn- normalize-display-text
-  [value]
-  (let [text (some-> value str str/trim)]
-    (when (seq text)
-      text)))
-
-(defn- named-dex-market?
-  [market]
-  (seq (normalize-display-text (:dex market))))
-
-(defn- market-asset-id
-  [market]
-  (let [market* (or market {})
-        explicit-asset-id (some parse-int-value
-                                [(:asset-id market*)
-                                 (:assetId market*)])
-        idx (some parse-int-value [(:idx market*)])
-        named-dex? (named-dex-market? market*)]
-    (or explicit-asset-id
-        (when (and (some? idx)
-                   (not named-dex?))
-          idx))))
-
-(defn- normalize-cancel-order-coin
-  [order]
-  (let [coin (some-> (or (:coin order)
-                         (get-in order [:order :coin]))
-                     str
-                     str/trim)]
-    (when (seq coin) coin)))
-
-(defn resolve-cancel-order-oid
-  [order]
-  (some parse-int-value
-       [(:oid order)
-        (:o order)
-        (get-in order [:order :oid])
-        (get-in order [:order :o])]))
-
-(defn- normalize-cancel-order-dex
-  [order]
-  (normalize-display-text
-   (or (:dex order)
-       (get-in order [:order :dex]))))
-
-(defn- namespaced-coin?
-  [coin]
-  (let [coin* (normalize-display-text coin)]
-    (boolean
-     (and coin*
-          (str/includes? coin* ":")))))
-
-(defn- namespaced-cancel-order-coin
-  [coin dex]
-  (let [coin* (normalize-display-text coin)
-        dex* (normalize-display-text dex)]
-    (when (and coin*
-               dex*
-               (not (namespaced-coin? coin*)))
-      (str dex* ":" coin*))))
-
-(defn- namespace-prefix
-  [coin]
-  (let [coin* (normalize-display-text coin)]
-    (when (and coin*
-               (str/includes? coin* ":"))
-      (normalize-display-text (first (str/split coin* #":" 2))))))
-
-(defn- normalize-lookup-token
-  [value]
-  (some-> value normalize-display-text str/lower-case))
-
-(defn- market-dex-token
-  [market]
-  (or (normalize-lookup-token (:dex market))
-      (normalize-lookup-token (namespace-prefix (:coin market)))))
-
-(defn- resolve-cancel-order-market-by-dex
-  [market-by-key coin dex]
-  (let [dex-token (normalize-lookup-token dex)]
-    (when (and (map? market-by-key)
-               dex-token)
-      (some (fn [market]
-              (when (and (= dex-token (market-dex-token market))
-                         (markets/market-matches-coin? market coin))
-                market))
-            (vals market-by-key)))))
-
-(defn- resolve-cancel-order-market
-  [market-by-key coin dex]
-  (let [direct-market (markets/resolve-market-by-coin market-by-key coin)]
-    (if (and (seq (normalize-display-text dex))
-             (not (namespaced-coin? coin)))
-      (or (some->> (namespaced-cancel-order-coin coin dex)
-                   (markets/resolve-market-by-coin market-by-key))
-          (resolve-cancel-order-market-by-dex market-by-key coin dex))
-      direct-market)))
-
-(defn- resolve-cancel-order-asset-idx
-  [state order coin]
-  (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
-        market (resolve-cancel-order-market market-by-key
-                                            coin
-                                            (normalize-cancel-order-dex order))
-        resolved-market-asset-id (market-asset-id market)
-        named-dex-cancel? (or (seq (normalize-cancel-order-dex order))
-                              (named-dex-market? market))
-        context-asset-idx (when (and coin (not named-dex-cancel?))
-                            (some parse-int-value
-                                  [(get-in state [:asset-contexts (keyword coin) :idx])
-                                   (get-in state [:asset-contexts coin :idx])]))]
-    (some parse-int-value
-          [(:asset-id order)
-           (:assetId order)
-           (:asset-idx order)
-           (:assetIdx order)
-           (:asset order)
-           (:a order)
-           (get-in order [:order :asset-id])
-           (get-in order [:order :assetId])
-           (get-in order [:order :asset-idx])
-           (get-in order [:order :assetIdx])
-           (get-in order [:order :asset])
-           (get-in order [:order :a])
-           resolved-market-asset-id
-           context-asset-idx])))
-
-(defn build-cancel-order-request
-  "Normalize heterogeneous order row payloads into exchange cancel action shape.
-   Returns nil when required fields are missing."
-  [state order]
-  (let [coin (normalize-cancel-order-coin order)
-        oid (resolve-cancel-order-oid order)
-        asset-idx (resolve-cancel-order-asset-idx state order coin)]
-    (when (and (some? asset-idx) (some? oid))
-      {:action {:type "cancel"
-                :cancels [{:a asset-idx :o oid}]}})))
-
-(defn build-cancel-orders-request
-  "Normalize a sequence of heterogeneous order row payloads into one batched
-   exchange cancel action. Returns nil when any order is missing required
-   fields, because visible-scope cancel-all must not silently skip rows."
-  [state orders]
-  (let [requests (mapv #(build-cancel-order-request state %) (or orders []))]
-    (when (and (seq requests)
-               (every? map? requests))
-      (let [cancels (->> requests
-                         (mapcat #(get-in % [:action :cancels]))
-                         distinct
-                         vec)]
-        (when (seq cancels)
-          {:action {:type "cancel"
-                    :cancels cancels}})))))
-
-(defn build-cancel-twap-request
-  "Normalize a TWAP row payload into exchange twapCancel action shape.
-   Returns nil when the required twap id or asset index is missing."
-  [state twap]
-  (let [coin (normalize-cancel-order-coin twap)
-        twap-id (some parse-int-value
-                      [(:twap-id twap)
-                       (:twapId twap)
-                       (:t twap)
-                       (get-in twap [:state :twapId])])
-        asset-idx (resolve-cancel-order-asset-idx state twap coin)]
-    (when (and (some? twap-id)
-               (some? asset-idx))
-      {:action {:type "twapCancel"
-                :a asset-idx
-                :t twap-id}})))
-
 (defn- safe-private-key->agent-address
   ([private-key]
-   (when-let [crypto (trading-crypto-modules/resolved-trading-crypto)]
-     (safe-private-key->agent-address crypto private-key)))
+   (agent-actions/safe-private-key->agent-address private-key))
   ([crypto private-key]
-    (try
-      (some-> private-key
-              ((:private-key->agent-address crypto))
-              normalize-address)
-      (catch :default _
-        nil))))
+   (agent-actions/safe-private-key->agent-address crypto private-key)))
 
-(defn- next-nonce [cursor]
-  (let [now (platform/now-ms)
-        cursor* (when (number? cursor)
-                  (js/Math.floor cursor))
-        monotonic-candidate (if (number? cursor*)
-                              (inc cursor*)
-                              now)]
-    (max now monotonic-candidate)))
+(defn- next-nonce
+  [cursor]
+  (http/next-nonce cursor))
+
+(defn- parse-json!
+  [resp]
+  (http/parse-json! resp))
+
+(defn- nonce-error-response?
+  [resp]
+  (http/nonce-error-response? resp))
 
 (defn- parse-chain-id-int
   [value]
-  (let [raw (some-> value str str/trim)]
-    (when (seq raw)
-      (let [hex? (str/starts-with? raw "0x")
-            source (if hex? (subs raw 2) raw)
-            base (if hex? 16 10)
-            parsed (js/parseInt source base)]
-        (when (and (number? parsed)
-                   (not (js/isNaN parsed)))
-          (js/Math.floor parsed))))))
-
-(defn- normalize-signature-chain-id
-  [value]
-  (cond
-    (string? value)
-    (let [text (str/trim value)]
-      (when (seq text)
-        text))
-
-    (number? value)
-    (str "0x" (.toString (js/Math.floor value) 16))
-
-    :else nil))
-
-(defn- testnet-signature-chain-id-int
-  []
-  (parse-chain-id-int
-   (agent-session/default-signature-chain-id-for-environment false)))
+  (user-actions/parse-chain-id-int value))
 
 (defn- resolve-user-signing-context
   [store]
-  (let [wallet-chain-id (get-in @store [:wallet :chain-id])
-        signature-chain-id (or (normalize-signature-chain-id wallet-chain-id)
-                               (agent-session/default-signature-chain-id-for-environment true))
-        chain-id-int (parse-chain-id-int signature-chain-id)]
-    {:signature-chain-id signature-chain-id
-     :hyperliquid-chain (if (= chain-id-int (testnet-signature-chain-id-int))
-                          "Testnet"
-                          "Mainnet")}))
+  (user-actions/resolve-user-signing-context store))
 
-(defn- next-user-signed-nonce!
-  [store]
-  (let [cursor (get-in @store [:wallet :user-signed-nonce-cursor])
-        nonce (next-nonce cursor)]
-    (swap! store assoc-in [:wallet :user-signed-nonce-cursor] nonce)
-    nonce))
-
-(defn- maybe-assert-signed-exchange-payload! [payload action]
-  (when (contracts/validation-enabled?)
-    (contracts/assert-signed-exchange-payload!
-     payload {:boundary :api-trading/post-signed-action
-              :action-type (:type action)})))
 (defn- post-signed-action!
   ([action nonce signature]
-   (post-signed-action! action nonce signature {}))
+   (http/post-signed-action! action nonce signature))
   ([action nonce signature options]
-   (let [{:keys [vault-address expires-after]} options
-         payload (cond-> {:action action
-                          :nonce nonce
-                          :signature signature}
-                   vault-address (assoc :vaultAddress vault-address)
-                   expires-after (assoc :expiresAfter expires-after))]
-     (maybe-assert-signed-exchange-payload! payload action)
-     (or (debug-exchange-simulator/simulated-fetch-response
-          [[:signedActions (:type action)]
-           [:signedActions :default]])
-         (json-post! exchange-url payload)))))
-
-(defn- post-info!
-  [body]
-  (or (debug-exchange-simulator/simulated-fetch-response
-       [[:info (keyword (str (:type body)))]
-        [:info :default]])
-      (json-post! info-url body)))
-
-(defn- fetch-user-role!
-  [address]
-  (-> (post-info! {:type "userRole"
-                   :user address})
-      (.then parse-json!)))
-
-(defn- user-role-agent-for-owner?
-  [owner-address role-response]
-  (let [owner* (normalize-address owner-address)
-        role (some-> (:role role-response)
-                     str
-                     str/lower-case)
-        linked-user* (normalize-address (or (get-in role-response [:data :user])
-                                            (:user role-response)))]
-    (and (= role "agent")
-         (seq owner*)
-         (= owner* linked-user*))))
+   (http/post-signed-action! action nonce signature options)))
 
 (defn- should-invalidate-missing-api-wallet-session!
   [owner-address session]
-  (let [agent-address* (normalize-address (:agent-address session))]
-    (if-not (seq agent-address*)
-      (js/Promise.resolve true)
-      (-> (fetch-user-role! agent-address*)
-          (.then (fn [role-response]
-                   (not (user-role-agent-for-owner? owner-address role-response))))
-          ;; Preserve local key if lookup itself fails (network/rate-limit),
-          ;; because we could not prove the session is invalid.
-          (.catch (fn [_]
-                    (js/Promise.resolve false)))))))
+  (agent-actions/should-invalidate-missing-api-wallet-session! owner-address session))
 
-(defn- reconcile-session-agent-address!
-  [store owner-address storage-mode local-protection-mode session crypto]
-  (let [stored-address* (normalize-address (:agent-address session))
-        derived-address* (safe-private-key->agent-address crypto (:private-key session))
-        needs-update? (and (seq derived-address*)
-                           (not= stored-address* derived-address*))
-        local-protection-mode* (agent-session/normalize-local-protection-mode
-                                local-protection-mode)
-        session* (cond-> (assoc session
-                                :storage-mode storage-mode
-                                :local-protection-mode local-protection-mode*)
-                   (seq derived-address*) (assoc :agent-address derived-address*))]
-    (when (and needs-update?
-               (seq owner-address))
-      (when-not (and (= :local storage-mode)
-                     (= :passkey local-protection-mode*))
-        (agent-session/persist-agent-session-by-mode! owner-address storage-mode session*))
-      (swap! store update-in [:wallet :agent] merge {:agent-address derived-address*}))
-    session*))
-
-(defn- current-local-protection-mode
-  [agent-state]
-  (agent-session/normalize-local-protection-mode
-   (:local-protection-mode agent-state)))
-
-(defn- resolve-agent-session
-  ([store owner-address]
-   (resolve-agent-session store owner-address nil))
-  ([store owner-address crypto]
-   (let [agent-state (get-in @store [:wallet :agent] {})
-         storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
-         local-protection-mode (current-local-protection-mode agent-state)]
-     (cond
-       (and (= :local storage-mode)
-            (= :passkey local-protection-mode))
-       (when-let [metadata (agent-session/load-passkey-session-metadata owner-address)]
-         (when-let [session (agent-lockbox/load-unlocked-session owner-address)]
-           (merge metadata
-                  session
-                  {:storage-mode storage-mode
-                   :local-protection-mode local-protection-mode})))
-
-       :else
-       (let [session (agent-session/load-agent-session-by-mode owner-address storage-mode)]
-         (when (map? session)
-           (let [session* (if crypto
-                            (reconcile-session-agent-address! store
-                                                              owner-address
-                                                              storage-mode
-                                                              local-protection-mode
-                                                              session
-                                                              crypto)
-                            session)]
-             (agent-lockbox/cache-unlocked-session! owner-address session*)
-             (assoc session*
-                    :storage-mode storage-mode
-                     :local-protection-mode local-protection-mode))))))))
-
-(defn- persist-agent-nonce-cursor!
-  [store owner-address session nonce]
-  (let [storage-mode (:storage-mode session)
-        local-protection-mode (agent-session/normalize-local-protection-mode
-                               (:local-protection-mode session))
-        updated-session (assoc session :nonce-cursor nonce)]
-    (if (and (= :local storage-mode)
-             (= :passkey local-protection-mode))
-      (when-let [metadata (agent-session/load-passkey-session-metadata owner-address)]
-        (agent-session/persist-passkey-session-metadata!
-         owner-address
-         (assoc metadata
-                :agent-address (:agent-address session)
-                :last-approved-at (:last-approved-at session)
-                :nonce-cursor nonce
-                :saved-at-ms (platform/now-ms))))
-      (agent-session/persist-agent-session-by-mode! owner-address storage-mode updated-session))
-    (agent-lockbox/cache-unlocked-session! owner-address updated-session)
-    (swap! store update-in [:wallet :agent] merge {:status :ready
-                                                   :agent-address (:agent-address session)
-                                                   :storage-mode storage-mode
-                                                   :local-protection-mode local-protection-mode
-                                                   :nonce-cursor nonce})))
-
-(defn- invalidate-agent-session!
-  [store owner-address session message]
-  (let [storage-mode (:storage-mode session)
-        local-protection-mode (agent-session/normalize-local-protection-mode
-                               (:local-protection-mode session))
-        passkey-supported? (true? (get-in @store [:wallet :agent :passkey-supported?]))]
-    (agent-session/clear-persisted-agent-session! owner-address storage-mode local-protection-mode)
-    (when (and (= :local storage-mode)
-               (= :passkey local-protection-mode))
-      (agent-lockbox/delete-locked-session! owner-address))
-    (agent-lockbox/clear-unlocked-session! owner-address)
-    (swap! store assoc-in [:wallet :agent]
-           (assoc (agent-session/default-agent-state :storage-mode storage-mode
-                                                     :local-protection-mode local-protection-mode
-                                                     :passkey-supported? passkey-supported?)
-                  :status :error
-                  :error message))))
-
-(defn- normalize-agent-action-options
-  [options]
-  (let [{:keys [vault-address expires-after is-mainnet max-nonce-retries]} (or options {})]
-  {:vault-address (some-> vault-address str str/lower-case)
-   :expires-after (if (contains? (or options {}) :expires-after)
-                    expires-after
-                    (+ (platform/now-ms)
-                       runtime-state/agent-expires-after-ms))
-   :is-mainnet (if (nil? is-mainnet) true is-mainnet)
-   :max-nonce-retries (if (nil? max-nonce-retries) 1 max-nonce-retries)}))
-
-(defn- agent-session-available?
-  [session]
-  (and (map? session)
-       (seq (:private-key session))))
-
-(defn- persist-agent-action-response!
-  [store owner-address session nonce resp]
-  (persist-agent-nonce-cursor! store owner-address session nonce)
-  resp)
-
-(defn- missing-api-wallet-result
-  [resp invalidate?]
-  (if invalidate?
-    {:status "err"
-     :error missing-api-wallet-error-message}
-    {:status "err"
-     :error missing-api-wallet-preserved-message
-     :response (response-error-text resp)}))
-
-(defn- resolve-missing-api-wallet-response!
-  [store owner-address session resp invalidate?]
-  (when invalidate?
-    (invalidate-agent-session! store
-                               owner-address
-                               session
-                               missing-api-wallet-error-message))
-  (missing-api-wallet-result resp invalidate?))
-
-(defn- handle-agent-action-response!
-  [store owner-address session nonce resp retries-left retry-fn]
-  (cond
-    (and (pos? retries-left)
-         (nonce-error-response? resp))
-    (retry-fn)
-
-    (missing-api-wallet-response? resp)
-    (-> (should-invalidate-missing-api-wallet-session! owner-address session)
-        (.then (fn [invalidate?]
-                 (resolve-missing-api-wallet-response!
-                  store
-                  owner-address
-                  session
-                  resp
-                  invalidate?))))
-
-    :else
-    (persist-agent-action-response! store owner-address session nonce resp)))
-
-(defn- sign-agent-action!
-  [crypto session action nonce {:keys [vault-address expires-after is-mainnet]}]
-  ((:sign-l1-action-with-private-key! crypto)
-   (:private-key session)
-   action
-   nonce
-   {:vault-address vault-address
-    :expires-after expires-after
-    :is-mainnet is-mainnet}))
-
-(defn- post-signed-agent-action!
-  [action nonce sig {:keys [vault-address expires-after]}]
-  (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)]
-    (-> (post-signed-action! action nonce {:r r :s s :v v}
-                             {:vault-address vault-address
-                              :expires-after expires-after})
-        (.then parse-json!))))
-
-(defn- missing-agent-session-rejection
-  [store session]
-  (when-not (agent-session-available? session)
-    (let [agent-state (get-in @store [:wallet :agent] {})
-          storage-mode (agent-session/normalize-storage-mode (:storage-mode agent-state))
-          local-protection-mode (current-local-protection-mode agent-state)
-          message (if (and (= :local storage-mode)
-                           (= :passkey local-protection-mode))
-                    "Trading is locked. Unlock Trading first."
-                    "Agent session unavailable. Enable trading first.")]
-      (js/Promise.reject (js/Error. message)))))
-
-(defn- next-retry-callback [attempt! nonce retries-left]
-  #(attempt! nonce (dec retries-left)))
 (defn- sign-and-post-agent-action!
   ([store owner-address action]
-   (sign-and-post-agent-action! store owner-address action {}))
+   (agent-actions/sign-and-post-agent-action! store owner-address action))
   ([store owner-address action raw-options]
-   (let [options (normalize-agent-action-options raw-options)]
-     (-> (trading-crypto-modules/load-trading-crypto-module!)
-         (.then
-          (fn [crypto]
-            (let [session (resolve-agent-session store owner-address crypto)]
-              (if-let [rejection (missing-agent-session-rejection store session)]
-                rejection
-                (letfn [(attempt! [cursor retries-left]
-                          (let [nonce (next-nonce cursor)]
-                            (-> (sign-agent-action! crypto session action nonce options)
-                                (.then (fn [sig]
-                                         (post-signed-agent-action! action nonce sig options)))
-                                (.then (fn [resp]
-                                         (handle-agent-action-response!
-                                          store
-                                          owner-address
-                                          session
-                                          nonce
-                                          resp
-                                          retries-left
-                                          (next-retry-callback attempt! nonce retries-left)))))))]
-                  (attempt! (or (:nonce-cursor session)
-                                (get-in @store [:wallet :agent :nonce-cursor]))
-                            (:max-nonce-retries options)))))))))))
+   (agent-actions/sign-and-post-agent-action! store owner-address action raw-options)))
 
-(defn submit-order! [store address action] (sign-and-post-agent-action! store address action))
-(defn cancel-order! [store address action] (sign-and-post-agent-action! store address action))
-(defn submit-vault-transfer! [store address action] (sign-and-post-agent-action! store address action))
+(defn enable-trading-recovery-error?
+  [value]
+  (http/enable-trading-recovery-error? value))
+
+(defn resolve-cancel-order-oid
+  [order]
+  (cancel-request/resolve-cancel-order-oid order))
+
+(defn build-cancel-order-request
+  [state order]
+  (cancel-request/build-cancel-order-request state order))
+
+(defn build-cancel-orders-request
+  [state orders]
+  (cancel-request/build-cancel-orders-request state orders))
+
+(defn build-cancel-twap-request
+  [state twap]
+  (cancel-request/build-cancel-twap-request state twap))
+
+(defn submit-order!
+  [store address action]
+  (agent-actions/submit-order! store address action))
+
+(defn cancel-order!
+  [store address action]
+  (agent-actions/cancel-order! store address action))
+
+(defn submit-vault-transfer!
+  [store address action]
+  (agent-actions/submit-vault-transfer! store address action))
+
 (defn schedule-cancel!
-  [store address cancel-at-ms]
-  (sign-and-post-agent-action! store
-                               address
-                               {:type "scheduleCancel"
-                                :time cancel-at-ms}))
+  ([store address cancel-at-ms]
+   (agent-actions/schedule-cancel! store address cancel-at-ms)))
 
 (defn approve-agent!
   [store address action]
-  (-> (trading-crypto-modules/load-trading-crypto-module!)
-      (.then (fn [crypto]
-               ((:sign-approve-agent-action! crypto) address action)))
-      (.then (fn [sig]
-               (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)
-                     payload {:action action
-                              :nonce (:nonce action)
-                              :signature {:r r
-                                          :s s
-                                          :v v}}]
-                 (or (debug-exchange-simulator/simulated-fetch-response [[:approveAgent]])
-                     (json-post! exchange-url payload)))))))
+  (user-actions/approve-agent! store address action))
 
-(defn- sign-and-post-user-action!
-  [store address action nonce-field sign-action-key]
-  (let [{:keys [signature-chain-id hyperliquid-chain]} (resolve-user-signing-context store)
-        nonce (next-user-signed-nonce! store)
-        action* (-> action
-                    (assoc :signatureChainId signature-chain-id
-                           :hyperliquidChain hyperliquid-chain)
-                    (assoc nonce-field nonce))]
-    (-> (trading-crypto-modules/load-trading-crypto-module!)
-        (.then (fn [crypto]
-                 (when-not (contains? crypto sign-action-key)
-                   (throw (js/Error.
-                           (str "Missing trading crypto signer: " sign-action-key))))
-                 ((get crypto sign-action-key) address action*)))
-        (.then (fn [sig]
-                 (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)
-                       signature {:r r
-                                  :s s
-                                  :v v}]
-                   (-> (post-signed-action! action* nonce signature)
-                       (.then parse-json!))))))))
+(defn submit-usd-class-transfer!
+  [store address action]
+  (user-actions/submit-usd-class-transfer! store address action))
 
-(defn submit-usd-class-transfer! [store address action]
-  (sign-and-post-user-action! store address action :nonce :sign-usd-class-transfer-action!))
+(defn submit-send-asset!
+  [store address action]
+  (user-actions/submit-send-asset! store address action))
 
-(defn submit-send-asset! [store address action]
-  (sign-and-post-user-action! store address action :nonce :sign-send-asset-action!))
+(defn submit-c-deposit!
+  [store address action]
+  (user-actions/submit-c-deposit! store address action))
 
-(defn submit-c-deposit! [store address action]
-  (sign-and-post-user-action! store address action :nonce :sign-c-deposit-action!))
+(defn submit-c-withdraw!
+  [store address action]
+  (user-actions/submit-c-withdraw! store address action))
 
-(defn submit-c-withdraw! [store address action]
-  (sign-and-post-user-action! store address action :nonce :sign-c-withdraw-action!))
+(defn submit-token-delegate!
+  [store address action]
+  (user-actions/submit-token-delegate! store address action))
 
-(defn submit-token-delegate! [store address action]
-  (sign-and-post-user-action! store address action :nonce :sign-token-delegate-action!))
-
-(defn submit-withdraw3! [store address action]
-  (sign-and-post-user-action! store address action :time :sign-withdraw3-action!))
+(defn submit-withdraw3!
+  [store address action]
+  (user-actions/submit-withdraw3! store address action))
