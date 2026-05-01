@@ -147,3 +147,67 @@
     (is (= :benchmark-coverage-gate-failed (get-in metrics* [:metric-reason :r2])))
     (is (approx= (:mtd metrics*) 0.05288342670115531 1e-12))
     (is (approx= (:ytd metrics*) 0.05288342670115531 1e-12))))
+
+(deftest compute-performance-metrics-preserves-row-shape-and-benchmark-status-contract-test
+  (let [quality-gates {:core-min-intervals 1
+                       :core-min-span-days 0
+                       :core-high-min-intervals 1
+                       :core-high-min-span-days 0
+                       :core-high-max-cv-gap 999
+                       :core-high-max-gap-days 999
+                       :sortino-min-intervals 1
+                       :sortino-min-downside 1
+                       :daily-min-points 1
+                       :daily-min-coverage 0
+                       :daily-max-missing-streak 999
+                       :psr-min-points 1
+                       :drawdown-max-gap-days 999
+                       :drawdown-min-daily-points 1
+                       :benchmark-min-points 1
+                       :rolling-min-fraction 0
+                       :structural-gap-days 999}
+        metrics* (metrics/compute-performance-metrics
+                  {:strategy-daily-rows (fixture-daily-rows quantstats-returns)
+                   :benchmark-daily-rows (fixture-daily-rows quantstats-benchmark)
+                   :rf 0
+                   :periods-per-year 252
+                   :quality-gates quality-gates})
+        groups (metrics/metric-rows metrics*)
+        rows-by-key (into {}
+                          (map (juxt :key identity))
+                          (mapcat :rows groups))
+        r2-row (get rows-by-key :r2)
+        information-ratio-row (get rows-by-key :information-ratio)
+        daily-var-row (get rows-by-key :daily-var)]
+    (is (= [:overview
+            :risk-adjusted
+            :drawdown-and-risk
+            :expectation-and-var
+            :streaks-and-pain
+            :trade-shape
+            :period-returns]
+           (mapv :id groups)))
+    (is (= [:time-in-market :cumulative-return :cagr]
+           (mapv :key (:rows (first groups)))))
+    (is (= [:max-drawdown
+            :max-dd-date
+            :max-dd-period-start
+            :max-dd-period-end
+            :longest-dd-days
+            :volatility-ann
+            :r2
+            :information-ratio
+            :calmar
+            :skew
+            :kurtosis]
+           (mapv :key (:rows (first (filter #(= :drawdown-and-risk (:id %))
+                                            groups))))))
+    (is (number? (:value r2-row)))
+    (is (= :ok (:status r2-row)))
+    (is (nil? (:reason r2-row)))
+    (is (number? (:value information-ratio-row)))
+    (is (= :ok (:status information-ratio-row)))
+    (is (nil? (:reason information-ratio-row)))
+    (is (number? (:value daily-var-row)))
+    (is (= :ok (:status daily-var-row)))
+    (is (nil? (:reason daily-var-row)))))

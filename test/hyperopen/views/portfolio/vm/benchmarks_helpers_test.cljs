@@ -242,6 +242,43 @@
         (is (= ["ETH"] (mapv :value (:candidates closed-model))))
         (is (= ["ETH"] (mapv :value (:candidates open-model))))))))
 
+(deftest returns-benchmark-selector-model-honors-root-facade-builder-redefs-test
+  (let [market-builds (atom [])
+        vault-builds (atom [])
+        market-rows [{:coin "IGNORED"
+                      :symbol "IGNORED"
+                      :market-type :perp}]
+        vault-rows [{:name "Ignored Vault"
+                     :vault-address "0xignored"
+                     :relationship {:type :normal}
+                     :tvl 1}]
+        state {:asset-selector {:markets market-rows}
+               :vaults {:merged-index-rows vault-rows}
+               :portfolio-ui {:returns-benchmark-coins ["SYN"]
+                              :returns-benchmark-search "vault"
+                              :returns-benchmark-suggestions-open? true}}]
+    (with-redefs [vm-benchmarks/*build-benchmark-selector-options*
+                  (fn [markets]
+                    (swap! market-builds conj markets)
+                    [{:value "SYN"
+                      :label "Synthetic Market"
+                      :open-interest 7}])
+                  vm-benchmarks/*build-vault-benchmark-selector-options*
+                  (fn [rows]
+                    (swap! vault-builds conj rows)
+                    [{:value "vault:0xsyn"
+                      :label "Synthetic Vault (VAULT)"
+                      :tvl 42}])]
+      (let [model (vm-benchmarks/returns-benchmark-selector-model state)]
+        (is (= [market-rows] @market-builds))
+        (is (= [vault-rows] @vault-builds))
+        (is (= ["SYN"] (:selected-coins model)))
+        (is (= ["Synthetic Market"] (mapv :label (:selected-options model))))
+        (is (= ["vault:0xsyn"] (mapv :value (:candidates model))))
+        (is (= {"SYN" "Synthetic Market"
+                "vault:0xsyn" "Synthetic Vault (VAULT)"}
+               (:label-by-coin model)))))))
+
 (deftest benchmark-computation-context-builds_strategy_and_benchmark_rows-test
   (let [t0 1704067200000
         t1 (+ t0 (* 24 60 60 1000))
