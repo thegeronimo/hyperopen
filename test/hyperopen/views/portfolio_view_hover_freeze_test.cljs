@@ -2,7 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.views.chart.d3.hover-state :as chart-hover-state]
             [hyperopen.views.portfolio-view :as portfolio-view]
-            [hyperopen.views.portfolio-view-test :refer [sample-state]]))
+            [hyperopen.views.portfolio.test-support :refer [sample-state]]))
 
 (defn- node-children [node]
   (if (map? (second node))

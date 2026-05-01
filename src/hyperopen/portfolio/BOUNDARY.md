@@ -45,6 +45,9 @@
   `hyperopen.portfolio.metrics.quantstats-parity-test`
 - Caller-side view tests remain important for route and render integration:
   `hyperopen.views.portfolio-view-test`,
+  `hyperopen.views.portfolio-view-chart-test`,
+  `hyperopen.views.portfolio-view-performance-metrics-test`,
+  `hyperopen.views.portfolio-view-status-test`,
   `hyperopen.views.portfolio.vm.metrics-bridge-test`
 - Final repo gates:
   `npm run check`, `npm test`, `npm run test:websocket`

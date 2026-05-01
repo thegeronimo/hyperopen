@@ -392,8 +392,11 @@
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.notifications-view-trade-confirmation-test]
+            [hyperopen.views.portfolio-view-chart-test]
             [hyperopen.views.portfolio-view-fee-schedule-test]
             [hyperopen.views.portfolio-view-hover-freeze-test]
+            [hyperopen.views.portfolio-view-performance-metrics-test]
+            [hyperopen.views.portfolio-view-status-test]
             [hyperopen.views.portfolio-view-test]
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
@@ -981,8 +984,11 @@
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.notifications-view-trade-confirmation-test
+             'hyperopen.views.portfolio-view-chart-test
              'hyperopen.views.portfolio-view-fee-schedule-test
              'hyperopen.views.portfolio-view-hover-freeze-test
+             'hyperopen.views.portfolio-view-performance-metrics-test
+             'hyperopen.views.portfolio-view-status-test
              'hyperopen.views.portfolio-view-test
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
