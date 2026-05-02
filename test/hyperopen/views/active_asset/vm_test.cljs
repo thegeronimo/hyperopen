@@ -162,6 +162,8 @@
                 :symbol "BTC above 78213 on May 3 at 2:00 AM?"
                 :title "BTC above 78213 on May 3 at 2:00 AM?"
                 :market-type :outcome
+                :underlying "BTC"
+                :target-price 78213
                 :mark 0.57841
                 :markRaw "0.57841"
                 :change24h 0.0268
@@ -193,7 +195,15 @@
     (is (= "Two sided-open interest: the sum of Yes and No shares on this contract"
            (get-in panel-vm [:row-vm :open-interest-tooltip])))
     (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
-           (get-in panel-vm [:row-vm :outcome-details])))))
+           (get-in panel-vm [:row-vm :outcome-details])))
+    (is (= {:title "Outcome Details"
+            :summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
+            :settlement-label "BTC mark price is above 78,213"
+            :settlement-time-label "at May 03, 2026 06:00 AM UTC"
+            :yes-payout-label "$1.00"
+            :no-payout-label "$0.00"
+            :footer-label "All payouts are in USDC."}
+           (get-in panel-vm [:row-vm :outcome-tooltip])))))
 
 (deftest active-asset-row-vm-falls-back-to-outcome-side-supply-open-interest-test
   (let [market {:key "outcome:0"

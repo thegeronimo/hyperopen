@@ -29,6 +29,8 @@
 (def ^:private minute-ms (* 60 second-ms))
 (def ^:private hour-ms (* 60 minute-ms))
 (def ^:private day-ms (* 24 hour-ms))
+(def ^:private utc-month-names
+  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
 
 (defn- format-outcome-countdown
   [expiry-ms now-ms]
@@ -68,6 +70,57 @@
 (defn- merge-present
   [base overlay]
   (merge base (present-entries overlay)))
+
+(declare non-blank-text)
+
+(defn- format-outcome-settlement-time
+  [expiry-ms]
+  (when (number? expiry-ms)
+    (let [date (js/Date. expiry-ms)
+          hour (.getUTCHours date)
+          hour12 (let [remainder (mod hour 12)]
+                   (if (zero? remainder) 12 remainder))]
+      (str "at "
+           (get utc-month-names (.getUTCMonth date))
+           " "
+           (fmt/pad2 (.getUTCDate date))
+           ", "
+           (.getUTCFullYear date)
+           " "
+           (fmt/pad2 hour12)
+           ":"
+           (fmt/pad2 (.getUTCMinutes date))
+           " "
+           (if (< hour 12) "AM" "PM")
+           " UTC"))))
+
+(defn- outcome-tooltip-model
+  [market]
+  (when (= :outcome (:market-type market))
+    (let [underlying (non-blank-text (or (:underlying market)
+                                         (:base market)))
+          target-price-label (or (fmt/format-integer (:target-price market))
+                                 (non-blank-text (:target-price market)))
+          structured-settlement-label (when (and (seq underlying)
+                                                 (seq target-price-label))
+                                        (str underlying " mark price is above " target-price-label))
+          settlement-label (or structured-settlement-label
+                               (non-blank-text (:outcome-details market)))
+          settlement-time-label (or (format-outcome-settlement-time (:expiry-ms market))
+                                    "at settlement time")
+          default-summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
+          summary (if (and (seq structured-settlement-label)
+                           (seq settlement-time-label))
+                    default-summary
+                    (or (non-blank-text (:outcome-details market))
+                        default-summary))]
+      {:title "Outcome Details"
+       :summary summary
+       :settlement-label settlement-label
+       :settlement-time-label settlement-time-label
+       :yes-payout-label "$1.00"
+       :no-payout-label "$0.00"
+       :footer-label "All payouts are in USDC."})))
 
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown
@@ -338,6 +391,7 @@
                               "Two sided-open interest: the sum of Yes and No shares on this contract")
      :outcome-title (or (:title market) (:symbol market))
      :outcome-details (:outcome-details market)
+     :outcome-tooltip (outcome-tooltip-model market)
      :outcome-chance-label outcome-chance-label
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))

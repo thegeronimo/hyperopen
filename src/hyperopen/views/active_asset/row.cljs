@@ -2,6 +2,7 @@
   (:require [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.active-asset.funding-tooltip :as funding-tooltip]
             [hyperopen.views.active-asset.icon-button :as icon-button]
+            [hyperopen.views.active-asset.outcome-tooltip :as outcome-tooltip]
             [hyperopen.views.active-asset.vm :as active-asset-vm]))
 
 (def ^:private desktop-breakpoint-px
@@ -338,22 +339,6 @@
    [:div {:class ["flex" "justify-center"]}
     (desktop-funding-cell row-vm)]])
 
-(defn- outcome-details-panel
-  [{:keys [outcome-details]}]
-  (when (seq outcome-details)
-    [:div {:class ["absolute" "left-4" "top-full" "z-[240]" "mt-1"
-                   "w-[min(28rem,calc(100vw-2rem))]" "rounded-md" "border"
-                   "border-base-300" "bg-base-100" "p-3" "text-xs" "leading-5"
-                   "text-trading-text-secondary" "shadow-xl" "opacity-0"
-                   "pointer-events-none" "transition-opacity" "duration-150"
-                   "group-hover/outcome-name:opacity-100"
-                   "group-hover/outcome-name:pointer-events-auto"
-                   "group-focus-within/outcome-name:opacity-100"
-                   "group-focus-within/outcome-name:pointer-events-auto"]
-           :role "dialog"
-           :data-role "outcome-details-popover"}
-     outcome-details]))
-
 (defn- outcome-open-interest-column
   [{:keys [open-interest-usd open-interest-tooltip]}]
   [:div {:class ["relative" "group/outcome-open-interest" "flex" "justify-center"]}
@@ -402,7 +387,7 @@
                               dropdown-visible?
                               missing-icons
                               loaded-icons)
-    (outcome-details-panel row-vm)]
+    (outcome-tooltip/outcome-tooltip-panel (:outcome-tooltip row-vm))]
    [:div {:class ["flex" "justify-center"]}
     (data-column "Countdown" (or countdown-text "—") {:numeric? true})]
    [:div {:class ["flex" "justify-center"]}

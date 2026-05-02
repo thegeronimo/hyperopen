@@ -17,7 +17,8 @@
         market {:market-type :perp}
         view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
         strings (set (support/collect-strings view-node))]
-    (is (contains? strings "SOL"))))
+    (is (contains? strings "SOL"))
+    (is (nil? (support/find-node-by-role view-node "outcome-market-tooltip")))))
 
 (deftest active-asset-row-uses-app-shell-left-gutter-test
   (let [ctx-data {:coin "SOL"
@@ -101,6 +102,8 @@
                     :symbol "BTC above 78213 on May 3 at 2:00 AM?"
                     :title "BTC above 78213 on May 3 at 2:00 AM?"
                     :market-type :outcome
+                    :underlying "BTC"
+                    :target-price 78213
                     :mark 0.57841
                     :markRaw "0.57841"
                     :change24h 0.0268
@@ -120,7 +123,20 @@
         (is (contains? strings "$537,233"))
         (is (contains? strings "Two sided-open interest: the sum of Yes and No shares on this contract"))
         (is (not (contains? strings "Details")))
-        (is (contains? strings "If BTC settles above 78213, YES pays $1."))
+        (is (some? (support/find-node-by-role view-node "outcome-market-tooltip")))
+        (is (contains? strings "Outcome Details"))
+        (is (contains? strings "This market resolves to YES or NO based on the following settlement condition at the specified time."))
+        (is (contains? strings "Settlement Condition"))
+        (is (contains? strings "BTC mark price is above 78,213"))
+        (is (contains? strings "at May 03, 2026 06:00 AM UTC"))
+        (is (contains? strings "Payout Rule"))
+        (is (contains? strings "YES"))
+        (is (contains? strings "$1.00"))
+        (is (contains? strings "NO"))
+        (is (contains? strings "$0.00"))
+        (is (contains? strings "each"))
+        (is (contains? strings "All payouts are in USDC."))
+        (is (contains? strings "Learn more"))
         (is (support/contains-class? view-node "group/outcome-name"))
         (is (support/contains-class? view-node "group/outcome-open-interest"))
         (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100"))
