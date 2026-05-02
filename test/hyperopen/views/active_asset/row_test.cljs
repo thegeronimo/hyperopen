@@ -107,14 +107,17 @@
                     :change24hPct 4.87
                     :volume24h 180211.68
                     :openInterest 254722
+                    :expiry-ms 1777788000000
                     :outcome-details "If BTC settles above 78213, YES pays $1."}
-            view-node (row/active-asset-row {} market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+            view-node (row/active-asset-row {} market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}
+                                                                                :now-ms 1777751495000})
             strings (set (support/collect-strings view-node))]
         (is (contains? strings "Countdown"))
+        (is (contains? strings "10h 8m 25s"))
         (is (contains? strings "% Chance"))
         (is (contains? strings "Price (Yes)"))
         (is (contains? strings "58%"))
-        (is (contains? strings "Details"))
+        (is (not (contains? strings "Details")))
         (is (contains? strings "If BTC settles above 78213, YES pays $1."))
         (is (support/contains-class? view-node "group/outcome-name"))
         (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100"))

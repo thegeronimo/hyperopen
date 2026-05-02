@@ -25,6 +25,24 @@
 
 (declare resolve-active-market)
 
+(def ^:private second-ms 1000)
+(def ^:private minute-ms (* 60 second-ms))
+(def ^:private hour-ms (* 60 minute-ms))
+(def ^:private day-ms (* 24 hour-ms))
+
+(defn- format-outcome-countdown
+  [expiry-ms now-ms]
+  (when (and (number? expiry-ms)
+             (number? now-ms))
+    (let [remaining-ms (max 0 (- expiry-ms now-ms))
+          days (js/Math.floor (/ remaining-ms day-ms))
+          hours (js/Math.floor (/ (mod remaining-ms day-ms) hour-ms))
+          minutes (js/Math.floor (/ (mod remaining-ms hour-ms) minute-ms))
+          seconds (js/Math.floor (/ (mod remaining-ms minute-ms) second-ms))]
+      (if (pos? days)
+        (str days "d " hours "h " minutes "m")
+        (str hours "h " minutes "m " seconds "s")))))
+
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown
    :search-term
@@ -225,7 +243,11 @@
         outcome? (= :outcome (:market-type market))
         outcome-chance-label (when (and outcome? (number? mark))
                                (str (js/Math.round (* mark 100)) "%"))
-        countdown-text (fmt/format-funding-countdown)
+        now-ms (or (:now-ms full-state) (.now js/Date))
+        countdown-text (if outcome?
+                         (or (format-outcome-countdown (:expiry-ms market) now-ms)
+                             "—")
+                         (fmt/format-funding-countdown))
         funding-tooltip-ui (get-in full-state [:funding-ui :tooltip] {})
         funding-tooltip-id (funding-policy/funding-tooltip-pin-id coin)
         funding-tooltip-open? (or (= funding-tooltip-id

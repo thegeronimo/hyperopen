@@ -172,6 +172,7 @@
                 :outcome-details "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."}
         panel-vm (active-asset-vm/active-asset-panel-vm
                   {:active-asset "#0"
+                   :now-ms 1777751495000
                    :active-market market
                    :active-assets {:contexts {"#0" {:coin "#0"}}}
                    :asset-selector {:visible-dropdown nil
@@ -184,6 +185,8 @@
     (is (= "58%" (get-in panel-vm [:row-vm :outcome-chance-label])))
     (is (= "BTC above 78213 on May 3 at 2:00 AM?"
            (get-in panel-vm [:row-vm :outcome-title])))
+    (is (= "10h 8m 25s"
+           (get-in panel-vm [:row-vm :countdown-text])))
     (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
            (get-in panel-vm [:row-vm :outcome-details])))))
 

@@ -365,10 +365,11 @@
            change-24h-pct
            volume-24h
            open-interest-usd
-           outcome-chance-label]
+           outcome-chance-label
+           countdown-text]
     :as row-vm}]
   [:div {:class ["relative" "hidden"
-                 "grid-cols-[minmax(max-content,1.8fr)_0.8fr_0.8fr_0.9fr_1fr_1fr_1fr]"
+                 "grid-cols-[max-content_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
                  "items-center" "gap-2" "px-0" "py-2" "lg:grid" "md:gap-3"]}
    [:div {:class ["relative" "group/outcome-name" "flex" "justify-start"
                   "app-shell-gutter-left" "min-w-fit" "items-center" "gap-3"]
@@ -377,21 +378,9 @@
                               dropdown-visible?
                               missing-icons
                               loaded-icons)
-    [:button {:type "button"
-              :class ["rounded-md" "bg-base-200" "px-4" "py-2" "text-xs"
-                      "font-semibold" "text-trading-text" "opacity-0"
-                      "pointer-events-none" "transition-opacity" "duration-150"
-                      "hover:bg-base-300"
-                      "group-hover/outcome-name:opacity-100"
-                      "group-hover/outcome-name:pointer-events-auto"
-                      "group-focus-within/outcome-name:opacity-100"
-                      "group-focus-within/outcome-name:pointer-events-auto"]
-              :data-role "outcome-details-button"
-              :aria-label "Outcome details"}
-     "Details"]
     (outcome-details-panel row-vm)]
    [:div {:class ["flex" "justify-center"]}
-    (data-column "Countdown" "—" {:numeric? true})]
+    (data-column "Countdown" (or countdown-text "—") {:numeric? true})]
    [:div {:class ["flex" "justify-center"]}
     (data-column "% Chance"
                  (or outcome-chance-label "—")
