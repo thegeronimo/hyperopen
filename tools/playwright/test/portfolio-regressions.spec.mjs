@@ -1086,7 +1086,9 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await seedOptimizerBtcOnlyHistory(page);
 
   const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
-  const ethCandidate = page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']");
+  const ethCandidate = page.locator("[data-role='portfolio-optimizer-universe-candidate-row-perp:ETH']");
+  const ethAdd = page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']");
+  const ethSelected = page.locator("[data-role='portfolio-optimizer-universe-selected-row-perp:ETH']");
   const ethRemove = page.locator("[data-role='portfolio-optimizer-universe-remove-perp:ETH']");
 
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
@@ -1102,6 +1104,7 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
 
   await expect(page.locator("[data-role='portfolio-optimizer-draft-state']"))
     .toContainText("Draft has unsaved changes");
+  await expect(ethSelected).toHaveCount(1);
   await expect(ethRemove).toBeVisible();
   await expect(searchInput).toHaveValue("");
   await expect(page.locator("[data-role='portfolio-optimizer-universe-search-results']"))
@@ -1116,9 +1119,14 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
   await ethRemove.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethRemove).toHaveCount(0);
+  await expect(ethSelected).toHaveCount(0);
   await searchInput.fill("eth");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(ethCandidate).toBeVisible();
+  await expect(ethAdd).toBeVisible();
+  await ethAdd.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(ethSelected).toHaveCount(1);
 });
 
 test("portfolio optimizer manual universe builder adds and removes vaults @regression", async ({ page }) => {

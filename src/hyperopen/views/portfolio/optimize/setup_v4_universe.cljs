@@ -146,13 +146,14 @@
         active? (= idx active-index)
         {:keys [label name]} (universe-candidates/market-display market)]
     [:div {:class ["grid" "grid-cols-[66px_minmax(0,1fr)_58px_72px_42px_44px]"
-                   "items-center" "gap-2" "border-b" "border-base-300" "px-2"
+                   "items-center" "gap-2" "border-b" "border-base-300" "cursor-pointer" "px-2"
                    "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
            :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
            :id (str "portfolio-optimizer-universe-candidate-" idx)
            :role "option"
            :aria-selected (if active? "true" "false")
-           :data-active (when active? "true")}
+           :data-active (when active? "true")
+           :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
      [:span {:class ["truncate" "font-mono" "text-[0.6875rem]" "font-semibold"]}
       label]
      [:span {:class ["truncate" "text-[0.6875rem]" "text-trading-muted"]}

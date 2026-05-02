@@ -302,6 +302,9 @@
     (is (contains? strings "vault"))
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument
              (str "vault:" vault-address)]]
+           (click-actions vault-row)))
+    (is (= [[:actions/add-portfolio-optimizer-universe-instrument
+             (str "vault:" vault-address)]]
            (click-actions add-button)))))
 
 (deftest setup-v4-universe-search-skips-blank-lookups-but-renders-nonblank-candidates-test
