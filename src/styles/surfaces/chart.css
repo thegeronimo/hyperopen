@@ -1,0 +1,15 @@
+@layer components {
+  /* Chart container */
+  .chart-container {
+    @apply bg-trading-surface border border-trading-border rounded-lg overflow-hidden;
+  }
+
+  .trading-chart-host .tv-lightweight-charts {
+    cursor: crosshair;
+  }
+
+  .trading-chart-host .tv-lightweight-charts canvas {
+    cursor: crosshair;
+  }
+
+}

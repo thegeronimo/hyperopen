@@ -1,0 +1,657 @@
+@layer components {
+  .portfolio-optimizer-v4 {
+    --optimizer-bg: #0a0b0d;
+    --optimizer-surface: #111316;
+    --optimizer-surface-2: #15181c;
+    --optimizer-surface-3: #1a1d22;
+    --optimizer-border: #1d2025;
+    --optimizer-border-strong: #292d33;
+    --optimizer-text: #e6e7ea;
+    --optimizer-text-2: #8a8f98;
+    --optimizer-text-3: #5a5f68;
+    --optimizer-accent: #d4b558;
+    --optimizer-accent-soft: rgb(212 181 88 / 0.06);
+    --optimizer-accent-strong: rgb(212 181 88 / 0.2);
+    --optimizer-accent-border: rgb(212 181 88 / 0.58);
+    --optimizer-long: #4ea674;
+    --optimizer-short: #c25b5b;
+    --optimizer-warn: #d49a3a;
+    --optimizer-info: #6b8db5;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+    font-family: "Inter Variable", var(--font-ui-system);
+    font-size: 12px;
+    letter-spacing: -0.005em;
+    line-height: 1.4;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-"] {
+    border-color: var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-text {
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted {
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted\/70 {
+    color: var(--optimizer-text-3);
+  }
+
+  .portfolio-optimizer-v4 .text-trading-muted\/60 {
+    color: rgb(90 95 104 / 0.72);
+  }
+
+  .portfolio-optimizer-v4 .text-warning,
+  .portfolio-optimizer-v4 .text-primary {
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 .text-success,
+  .portfolio-optimizer-v4 .text-trading-green {
+    color: var(--optimizer-long);
+  }
+
+  .portfolio-optimizer-v4 .text-error,
+  .portfolio-optimizer-v4 .text-trading-red {
+    color: var(--optimizer-short);
+  }
+
+  .portfolio-optimizer-v4 :is(.font-mono, .tabular-nums) {
+    font-family: "JetBrains Mono", var(--font-mono);
+    font-feature-settings: "tnum", "zero";
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-xl"] {
+    border-radius: 2px;
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-lg"],
+  .portfolio-optimizer-v4 [class*="rounded-md"] {
+    border-radius: 2px;
+  }
+
+  .portfolio-optimizer-v4 [class*="rounded-full"] {
+    border-radius: 9999px;
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role$="-surface"],
+      [data-role$="-header"],
+      [data-role$="-strip"],
+      [data-role$="-panel"],
+      [data-role$="-tab"],
+      [data-role$="-rail"],
+      [data-role$="-row"],
+      [data-role$="-table"],
+      [data-role$="-board"],
+      [data-role$="-shell"]
+    ) {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-route-surface"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role="portfolio-optimizer-setup-header"],
+      [data-role="portfolio-optimizer-setup-preset-row"]
+    ) {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-surface"] {
+    background-color: var(--optimizer-bg);
+    border: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role="portfolio-optimizer-setup-control-rail"],
+      [data-role="portfolio-optimizer-right-rail"]
+    ) {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-summary-pane"] {
+    background-color: transparent;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-detail-surface"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-header"] {
+    border-width: 0 0 1px 0;
+    border-radius: 0;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-header"] h1 {
+    color: var(--optimizer-text);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-status-tag"] {
+    border-color: var(--optimizer-border-strong);
+    border-radius: 2px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-provenance-strip"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-kpi-strip"] {
+    border-radius: 0;
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"] {
+    background-color: var(--optimizer-bg);
+    height: 32px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-tabs"] a {
+    min-height: 32px;
+    font-size: 11px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-scenario-kpi-strip"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] {
+    padding: 10px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:first-child {
+    color: var(--optimizer-text-3);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:nth-child(2) {
+    color: var(--optimizer-text);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-scenario-kpi-"] p:nth-child(3) {
+    font-size: 10.5px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-grid"] {
+    min-height: min(674px, calc(100vh - 236px));
+    overflow: hidden;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-left-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-center-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-right-panel"] {
+    min-width: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-left-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-results-center-panel"] {
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] {
+    border-radius: 0;
+    background-color: var(--optimizer-bg);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] table th {
+    background-color: var(--optimizer-surface);
+    color: var(--optimizer-text-3);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    padding: 6px 10px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-target-exposure-table"] table td {
+    border-bottom: 1px solid var(--optimizer-border);
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+    padding: 6px 10px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"] td {
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-asset-"]:hover td,
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-target-exposure-row-"]:hover td {
+    background-color: var(--optimizer-surface-3);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-panel"],
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
+    border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-panel"] {
+    background-color: transparent;
+    border: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-controls"] {
+    min-width: max-content;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-control"] {
+    min-height: 30px;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-frontier-overlay-mode-"] {
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 2px;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role^="portfolio-optimizer-frontier-overlay-mode-"][aria-pressed="true"] {
+    background-color: var(--optimizer-surface-3);
+    color: var(--optimizer-text);
+    box-shadow: inset 0 -1px 0 var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-frontier-chart-box"] {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker {
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-symbol-marker {
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: var(--optimizer-surface);
+    stroke-width: 3px;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-asset-icon-marker {
+    filter: drop-shadow(0 0 4px rgb(0 0 0 / 0.55));
+    pointer-events: none;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-focus-ring {
+    display: none;
+    fill: none;
+    pointer-events: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-vault-box {
+    transition: stroke 120ms ease, stroke-width 120ms ease, filter 120ms ease;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-vault-box,
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-vault-box,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-vault-box {
+    stroke: currentColor;
+    stroke-width: 1.5px;
+    filter: drop-shadow(0 0 7px currentColor);
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-focus-ring,
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-focus-ring,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-focus-ring {
+    display: inline;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-callout {
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:hover .portfolio-frontier-callout,
+  .portfolio-optimizer-v4 .portfolio-frontier-marker:focus .portfolio-frontier-callout,
+  .portfolio-optimizer-v4
+    .portfolio-frontier-marker:focus-within
+    .portfolio-frontier-callout {
+    display: inline;
+    opacity: 1;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] {
+    background-color: var(--optimizer-surface);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] > div:first-child {
+    padding: 12px 14px;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-trust-caution-panel"] [data-role="portfolio-optimizer-diagnostics-panel"] > div {
+    padding: 10px;
+  }
+
+  .portfolio-optimizer-v4 .text-info {
+    color: var(--optimizer-info);
+  }
+
+  .portfolio-optimizer-v4 .bg-info {
+    background-color: var(--optimizer-info);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-setup-control-rail"] {
+    border-right: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 details:not([open]) > :not(summary) {
+    display: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-right-rail"] {
+    border-left: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-setup-control-rail"]
+    > :is(section, details) {
+    background-color: var(--optimizer-surface);
+    border-width: 0 0 1px 0;
+    border-color: var(--optimizer-border);
+    border-radius: 0;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-setup-control-rail"]
+    > :is(section, details):last-child {
+    border-bottom-width: 0;
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role^="portfolio-optimizer-setup-preset-"],
+      [data-role^="portfolio-optimizer-objective-"]
+    )[aria-pressed="true"] {
+    border-color: var(--optimizer-accent-border);
+    background-color: var(--optimizer-accent-soft);
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      [data-role^="portfolio-optimizer-return-model-"],
+      [data-role^="portfolio-optimizer-risk-model-"]
+    )[aria-pressed="true"] {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-3);
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      button[data-role="portfolio-optimizer-run-draft"],
+      button[data-role="portfolio-optimizer-run-draft-header"],
+      button[data-role="portfolio-optimizer-scenario-rerun"],
+      button[data-role="portfolio-optimizer-scenario-rerun-stale"],
+      button[data-role="portfolio-optimizer-open-execution-modal"]
+    ):not(:disabled) {
+    border-color: var(--optimizer-accent);
+    background-color: var(--optimizer-accent);
+    color: #1a1408;
+    font-weight: 600;
+  }
+
+  .portfolio-optimizer-v4
+    :is(table, th, td, [data-role*="row"], [data-role*="kpi"], [data-role*="exposure"]) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select, button) {
+    min-height: 26px;
+    border-radius: 2px;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select) {
+    background-color: var(--optimizer-bg);
+    border-color: var(--optimizer-border-strong);
+    color: var(--optimizer-text);
+    height: 26px;
+  }
+
+  .portfolio-optimizer-v4 input::placeholder {
+    color: var(--optimizer-text-3);
+    opacity: 1;
+  }
+
+  .portfolio-optimizer-v4 :is(input, select):focus {
+    border-color: var(--optimizer-accent);
+    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: grid;
+    place-content: center;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    min-height: 14px;
+    margin: 0;
+    border: 1px solid var(--optimizer-border-strong);
+    border-radius: 2px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-accent);
+    box-shadow: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]::before {
+    content: "";
+    width: 4px;
+    height: 7px;
+    border-right: 2px solid var(--optimizer-bg);
+    border-bottom: 2px solid var(--optimizer-bg);
+    transform: rotate(45deg) scale(0);
+    transform-origin: center;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:checked {
+    border-color: var(--optimizer-accent);
+    background-color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:checked::before {
+    transform: rotate(45deg) scale(1);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:focus-visible {
+    border-color: var(--optimizer-border-strong);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-constrain-frontier-checkbox"]:focus {
+    border-color: var(--optimizer-border-strong);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .portfolio-optimizer-v4 button:not(:disabled):hover {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-3);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-shell"] {
+    min-height: 34px;
+    background-color: var(--optimizer-bg);
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-shell"][data-searching="true"] {
+    border-color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    :is(
+      [data-role="portfolio-optimizer-universe-search-icon"],
+      [data-role="portfolio-optimizer-universe-search-clear"],
+      [data-role="portfolio-optimizer-universe-search-add-hint"]
+    ) {
+    background-color: transparent;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-input"] {
+    height: 30px;
+    min-height: 30px;
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-input"]:focus {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: 0 0 0 1px rgba(212, 181, 88, 0.75);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-search-add-hint"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    margin-block: 4px;
+    padding: 0 8px;
+    border-radius: 4px;
+    border-color: var(--optimizer-border-strong);
+    color: var(--optimizer-text-2);
+    letter-spacing: 0;
+    line-height: 1;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  .portfolio-optimizer-v4
+    [data-role="portfolio-optimizer-universe-search-shell"]
+    [data-role="portfolio-optimizer-universe-search-clear"]:not(:disabled):hover {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4
+    :is(
+      button[data-role="portfolio-optimizer-run-draft"],
+      button[data-role="portfolio-optimizer-run-draft-header"],
+      button[data-role="portfolio-optimizer-scenario-rerun"],
+      button[data-role="portfolio-optimizer-scenario-rerun-stale"],
+      button[data-role="portfolio-optimizer-open-execution-modal"]
+    ):not(:disabled):hover {
+    background-color: #e0c067;
+    border-color: #e0c067;
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-universe-add-"] {
+    border-color: transparent;
+    background-color: transparent;
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role^="portfolio-optimizer-universe-candidate-row-"][data-active="true"] {
+    background-color: rgb(212 181 88 / 0.05);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table td {
+    border-bottom: 1px solid var(--optimizer-border);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-universe-panel"] table tr:hover td {
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"] {
+    border-color: var(--optimizer-border-strong);
+    background-color: var(--optimizer-surface-2);
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-active="true"] {
+    border-color: var(--optimizer-accent-border);
+    background-color: var(--optimizer-accent-soft);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="accent"] {
+    border-color: rgb(212 181 88 / 0.4);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="info"] {
+    border-color: rgb(107 141 181 / 0.4);
+    color: var(--optimizer-info, #6b8db5);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="long"] {
+    border-color: rgb(78 166 116 / 0.4);
+    color: var(--optimizer-long);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-chip="true"][data-tone="warn"] {
+    border-color: rgb(212 154 58 / 0.45);
+    color: var(--optimizer-warn, #d49a3a);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] {
+    background-color: var(--optimizer-surface);
+    border: 1px solid var(--optimizer-border);
+    border-left: 2px solid var(--optimizer-text-3);
+    color: var(--optimizer-text);
+    padding: 10px 12px;
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] > p {
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] li {
+    position: relative;
+    padding-left: 14px;
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer-v4 [data-v4-note="true"] li::before {
+    content: "·";
+    position: absolute;
+    left: 4px;
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer-v4 [data-role="portfolio-optimizer-model-assumptions-panel"][data-v4-note="true"] {
+    padding: 7px 12px;
+  }
+
+}

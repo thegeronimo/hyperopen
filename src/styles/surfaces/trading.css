@@ -1,0 +1,23 @@
+@layer components {
+  /* Trading specific components */
+  .trading-panel {
+    @apply bg-trading-surface border border-trading-border rounded-lg p-4;
+  }
+
+  .price-positive {
+    @apply text-trading-green;
+  }
+
+  .price-negative {
+    @apply text-trading-red;
+  }
+
+  .trading-button {
+    @apply btn btn-sm tracking-wide;
+  }
+
+  .trading-input {
+    @apply input input-sm bg-trading-surface border-trading-border text-trading-text;
+  }
+
+}

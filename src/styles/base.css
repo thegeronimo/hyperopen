@@ -1,0 +1,84 @@
+@font-face {
+  font-family: "Inter Variable";
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS for trading interface */
+@layer base {
+  /*
+   * Typography tokens:
+   * - Default UI text uses system fonts for fast first paint.
+   * - `data-ui-font="inter"` opt-in swaps UI text to Inter Variable.
+   * - Optional fonts should only load when the active UI path actually uses them.
+   * - Monospace is reserved for dense numeric views only.
+   */
+  :root,
+  :root[data-ui-font="system"] {
+    --font-ui-system: system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    --font-ui: var(--font-ui-system);
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --font-toast-mono: "JetBrains Mono", var(--font-mono);
+    --staking-action-popover-bg: rgb(15, 26, 31);
+    --o-bg: #051a1c;
+    --o-bg-grad-from: #072527;
+    --o-bg-grad-to: #031012;
+    --o-panel: rgba(10, 32, 34, 0.55);
+    --o-panel-solid: #0a2022;
+    --o-panel-hi: rgba(18, 48, 50, 0.75);
+    --o-border: rgba(70, 150, 150, 0.15);
+    --o-border-hi: rgba(90, 190, 190, 0.28);
+    --o-text: #c4dcdc;
+    --o-text-hi: #ffffff;
+    --o-dim: #6a8888;
+    --o-dim-2: #456666;
+    --o-teal: #2dd4bf;
+    --o-teal-soft: rgba(45, 212, 191, 0.14);
+    --o-buy: #5fd88a;
+    --o-buy-soft: rgba(95, 216, 138, 0.12);
+    --o-sell: #ef6a6a;
+    --o-sell-soft: rgba(239, 106, 106, 0.12);
+  }
+
+  :root[data-ui-font="inter"] {
+    --font-ui: "Inter Variable", var(--font-ui-system);
+  }
+
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply h-full bg-trading-bg text-trading-text antialiased;
+    font-family: var(--font-ui);
+  }
+
+  /* Ensure proper scrolling and layout */
+  * {
+    @apply box-border;
+  }
+}

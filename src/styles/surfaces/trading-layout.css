@@ -1,0 +1,39 @@
+@layer components {
+  /* Data table styles */
+  .data-table {
+    @apply table table-xs w-full;
+  }
+
+  .data-table th {
+    @apply bg-trading-surface text-trading-text-secondary uppercase tracking-wider text-xs;
+  }
+
+  .data-table td {
+    @apply border-b border-trading-border text-sm;
+  }
+
+  /* Grid layout for trading interface */
+  .trading-grid {
+    @apply grid grid-cols-4 grid-rows-3 gap-2 h-full;
+    grid-template-areas:
+      "left center center right"
+      "left center center right"
+      "tables tables tables tables";
+  }
+
+  .left-panel {
+    grid-area: left;
+  }
+
+  .center-panel {
+    grid-area: center;
+  }
+
+  .right-panel {
+    grid-area: right;
+  }
+
+  .bottom-tables {
+    grid-area: tables;
+  }
+}

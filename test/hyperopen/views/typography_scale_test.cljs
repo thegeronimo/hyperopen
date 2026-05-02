@@ -19,6 +19,30 @@
 (defn- read-text [file-path]
   (.readFileSync fs file-path "utf8"))
 
+(defn- css-import-path [line]
+  (when-let [match (re-matches #"@import\s+[\"']([^\"']+)[\"'];" (str/trim line))]
+    (second match)))
+
+(defn- read-css-with-imports
+  ([file-path]
+   (read-css-with-imports file-path #{}))
+  ([file-path seen]
+   (let [resolved-path (.resolve path file-path)]
+     (if (contains? seen resolved-path)
+       ""
+       (let [source (read-text resolved-path)
+             source-dir (.dirname path resolved-path)]
+         (->> (str/split-lines source)
+              (map (fn [line]
+                     (if-let [import-path (css-import-path line)]
+                       (read-css-with-imports (.resolve path source-dir import-path)
+                                              (conj seen resolved-path))
+                       line)))
+              (str/join "\n")))))))
+
+(defn- styles-source []
+  (read-css-with-imports (join-path (project-root) "src" "styles" "main.css")))
+
 (defn- relative-path [file-path]
   (.relative path (project-root) file-path))
 
@@ -80,8 +104,7 @@
                    balances-desktop-source)))))
 
 (deftest header-nav-link-css-uses-14px-and-600-weight-test
-  (let [styles-path (join-path (project-root) "src" "styles" "main.css")
-        styles-source (read-text styles-path)]
+  (let [styles-source (styles-source)]
     (testing "header nav links use 14px and 600 weight with ligatures disabled"
       (is (re-find #"\.header-nav-link\s*\{[\s\S]*?font-weight:\s*600;[\s\S]*?font-size:\s*14px;[\s\S]*?line-height:\s*15px;[\s\S]*?font-feature-settings:\s*\"calt\"\s*off;[\s\S]*?font-variant-ligatures:\s*no-contextual;[\s\S]*?\}"
                    styles-source)))
@@ -90,8 +113,7 @@
                    styles-source)))))
 
 (deftest order-size-slider-css-uses-progress-track-and-no-filler-trail-test
-  (let [styles-path (join-path (project-root) "src" "styles" "main.css")
-        styles-source (read-text styles-path)]
+  (let [styles-source (styles-source)]
     (testing "order size slider active fill stays darker than notch accents"
       (is (re-find #"\.order-size-slider\.range\s*\{[^}]*--order-size-slider-active:\s*rgb\(15,\s*51,\s*51\);"
                    styles-source)))
@@ -124,8 +146,7 @@
                         styles-source))))))
 
 (deftest typography-defaults-use-system-ui-token-and-body-font-variable-test
-  (let [styles-path (join-path (project-root) "src" "styles" "main.css")
-        styles-source (read-text styles-path)
+  (let [styles-source (styles-source)
         index-path (join-path (project-root) "resources" "public" "index.html")
         index-source (read-text index-path)]
     (testing "root typography variables include system/ui and monospace tokens"
@@ -138,8 +159,7 @@
       (is (re-find #"<html[^>]*data-ui-font=\"system\"" index-source)))))
 
 (deftest numeric-utility-and-inter-font-face-contract-test
-  (let [styles-path (join-path (project-root) "src" "styles" "main.css")
-        styles-source (read-text styles-path)]
+  (let [styles-source (styles-source)]
     (testing "num utility enforces tabular lining numerals with fallback features"
       (is (re-find #"\.num\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums\s+lining-nums;[\s\S]*?font-feature-settings:\s*\"tnum\"\s*1,\s*\"lnum\"\s*1;" styles-source)))
     (testing "num-right utility right aligns numeric columns"
@@ -148,8 +168,7 @@
       (is (re-find #"@font-face\s*\{[\s\S]*?font-family:\s*\"Inter Variable\";[\s\S]*?font-display:\s*swap;" styles-source)))))
 
 (deftest cold-load-font-contract-avoids-custom-brand-font-and-hard-coded-inter-measurement-test
-  (let [styles-path (join-path (project-root) "src" "styles" "main.css")
-        styles-source (read-text styles-path)
+  (let [styles-source (styles-source)
         tailwind-config-path (join-path (project-root) "tailwind.config.js")
         tailwind-config (read-text tailwind-config-path)
         header-source (read-text (join-path (project-root) "src" "hyperopen" "views" "header_view.cljs"))
