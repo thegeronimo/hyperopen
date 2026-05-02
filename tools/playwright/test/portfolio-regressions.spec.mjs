@@ -12,6 +12,36 @@ import {
 const TRADER_ADDRESS = "0x3333333333333333333333333333333333333333";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
 const OPTIMIZER_VAULT_ADDRESS = "0x1111111111111111111111111111111111111111";
+const OPTIMIZER_VAULT_LEADER_ADDRESS = "0x2222222222222222222222222222222222222222";
+const OPTIMIZER_EXACT_HLP_VAULT_ADDRESS = "0x4444444444444444444444444444444444444444";
+const OPTIMIZER_LARGE_HLP_VAULT_ADDRESS = "0x5555555555555555555555555555555555555555";
+const OPTIMIZER_MID_HLP_VAULT_ADDRESS = "0x6666666666666666666666666666666666666666";
+const OPTIMIZER_HLP_VAULT_SUMMARIES = [
+  {
+    vaultAddress: OPTIMIZER_EXACT_HLP_VAULT_ADDRESS,
+    name: "HLP",
+    leader: OPTIMIZER_VAULT_LEADER_ADDRESS,
+    tvl: "0",
+    relationship: { type: "normal" },
+    createTimeMillis: 1777045900000
+  },
+  {
+    vaultAddress: OPTIMIZER_LARGE_HLP_VAULT_ADDRESS,
+    name: "Hyperliquid HLP Provider",
+    leader: OPTIMIZER_VAULT_LEADER_ADDRESS,
+    tvl: "397000000",
+    relationship: { type: "normal" },
+    createTimeMillis: 1777045900000
+  },
+  {
+    vaultAddress: OPTIMIZER_MID_HLP_VAULT_ADDRESS,
+    name: "HLP Rule",
+    leader: OPTIMIZER_VAULT_LEADER_ADDRESS,
+    tvl: "5",
+    relationship: { type: "normal" },
+    createTimeMillis: 1777045900000
+  }
+];
 const OPTIMIZER_RELOAD_SCENARIO_ID = "scn_playwright_tracking_reload";
 const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
  :id "scn_playwright_tracking_reload"
@@ -366,21 +396,22 @@ async function seedOptimizerAssetSelectorMarkets(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-async function stubOptimizerVaultMetadata(page) {
-  const vaultSummary = {
+async function stubOptimizerVaultMetadata(page, vaultSummaries = null) {
+  const defaultVaultSummary = {
     vaultAddress: OPTIMIZER_VAULT_ADDRESS,
     name: "Alpha Yield",
-    leader: "0x2222222222222222222222222222222222222222",
+    leader: OPTIMIZER_VAULT_LEADER_ADDRESS,
     tvl: "5000000",
     relationship: { type: "normal" },
     createTimeMillis: 1777045900000
   };
+  const summaries = vaultSummaries ?? [defaultVaultSummary];
 
   await page.route("https://stats-data.hyperliquid.xyz/Mainnet/vaults", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([{ summary: vaultSummary }])
+      body: JSON.stringify(summaries.map((summary) => ({ summary })))
     });
   });
 
@@ -393,7 +424,7 @@ async function stubOptimizerVaultMetadata(page) {
           await route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify([vaultSummary])
+            body: JSON.stringify(summaries)
           });
           return;
         }
@@ -426,6 +457,34 @@ async function seedOptimizerVaultRows(page) {
       c.assoc_in(c.deref(store), path("vaults", "merged-index-rows"), rows)
     );
   }, OPTIMIZER_VAULT_ADDRESS);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
+async function seedOptimizerHlpVaultRows(page) {
+  await page.evaluate(
+    (summaries) => {
+      const c = globalThis.cljs.core;
+      const kw = (name) => c.keyword(name);
+      const path = (...segments) =>
+        c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+      const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+      const row = ({ name, vaultAddress, leader, tvl }) =>
+        map([
+          kw("name"), name,
+          kw("vault-address"), vaultAddress,
+          kw("leader"), leader,
+          kw("tvl"), Number(tvl),
+          kw("relationship"), map([kw("type"), kw("normal")])
+        ]);
+      const rows = c.PersistentVector.fromArray(summaries.map(row), true);
+      const store = globalThis.hyperopen.system.store;
+      c.reset_BANG_(
+        store,
+        c.assoc_in(c.deref(store), path("vaults", "merged-index-rows"), rows)
+      );
+    },
+    OPTIMIZER_HLP_VAULT_SUMMARIES
+  );
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
@@ -1109,6 +1168,35 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
   await searchInput.fill("alpha");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(vaultAdd).toBeVisible();
+});
+
+test("portfolio optimizer manual universe vault search sorts by TVL @regression", async ({ page }) => {
+  await stubOptimizerVaultMetadata(page, OPTIMIZER_HLP_VAULT_SUMMARIES);
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+  await seedOptimizerHlpVaultRows(page);
+
+  const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
+  const vaultRows = page.locator(
+    "[data-role^='portfolio-optimizer-universe-candidate-row-vault:']"
+  );
+
+  await searchInput.fill("hlp");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  await expect(vaultRows).toHaveCount(3);
+  await expect(vaultRows.nth(0)).toHaveAttribute(
+    "data-role",
+    `portfolio-optimizer-universe-candidate-row-vault:${OPTIMIZER_LARGE_HLP_VAULT_ADDRESS}`
+  );
+  await expect(vaultRows.nth(1)).toHaveAttribute(
+    "data-role",
+    `portfolio-optimizer-universe-candidate-row-vault:${OPTIMIZER_MID_HLP_VAULT_ADDRESS}`
+  );
+  await expect(vaultRows.nth(2)).toHaveAttribute(
+    "data-role",
+    `portfolio-optimizer-universe-candidate-row-vault:${OPTIMIZER_EXACT_HLP_VAULT_ADDRESS}`
+  );
 });
 
 test("portfolio optimizer manual universe search supports keyboard selection @regression", async ({ page }) => {

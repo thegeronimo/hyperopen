@@ -118,7 +118,8 @@
   [query-upper market]
   (let [label-upper (some-> (market-label market) str/upper-case)
         coin-upper (some-> (:coin market) normalized-text str/upper-case)]
-    (if (and (seq query-upper)
+    (if (and (not= :vault (:market-type market))
+             (seq query-upper)
              (or (= query-upper label-upper)
                  (= query-upper coin-upper)))
       0
