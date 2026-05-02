@@ -23,7 +23,7 @@
   (let [state (assoc (base-state {:type :limit})
                      :active-asset "outcome:0"
                      :active-market {:coin "outcome:0"
-                                     :quote "USDC"
+                                     :quote "USDH"
                                      :market-type :outcome
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0
@@ -44,6 +44,9 @@
         buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
     (is (contains? strings "Buy Yes"))
     (is (contains? strings "Buy No"))
+    (is (contains? strings "USDH"))
+    (is (contains? strings "Yes"))
+    (is (not (contains? strings "BTC")))
     (is (not (contains? strings "Buy")))
     (is (not (contains? strings "Sell")))
     (is (not (contains? strings "Outcome")))
@@ -61,7 +64,7 @@
                                   :outcome-side 1})
                      :active-asset "outcome:0"
                      :active-market {:coin "outcome:0"
-                                     :quote "USDC"
+                                     :quote "USDH"
                                      :market-type :outcome
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0

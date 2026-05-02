@@ -131,7 +131,7 @@
                                  {})
                      :active-asset "outcome:0"
                      :active-market {:coin "outcome:0"
-                                     :quote "USDC"
+                                     :quote "USDH"
                                      :market-type :outcome
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0
@@ -145,7 +145,8 @@
         view-model (vm/order-form-vm state)]
     (is (true? (:outcome? view-model)))
     (is (= 1 (:outcome-side-index view-model)))
-    (is (= :base (:size-input-mode view-model)))
+    (is (= :quote (:size-input-mode view-model)))
+    (is (= "USDH" (:quote-symbol view-model)))
     (is (= "No" (:base-symbol view-model)))
     (is (= ["Yes" "No"] (mapv :side-label (:outcome-sides view-model))))))
 

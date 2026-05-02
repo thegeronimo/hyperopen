@@ -107,10 +107,7 @@
                                                                   outcome-side-index))
         base-symbol* (if (and outcome? selected-outcome-side-label)
                        selected-outcome-side-label
-                       base-symbol)
-        size-input-mode* (if outcome?
-                           :base
-                           (:size-input-mode normalized-form))]
+                       base-symbol)]
     {:form normalized-form
      :side side
      :type type
@@ -132,7 +129,7 @@
      :size-percent size-percent
      :display-size-percent (selectors/display-size-percent size-percent)
      :notch-overlap-threshold selectors/notch-overlap-threshold
-     :size-input-mode size-input-mode*
+     :size-input-mode (:size-input-mode normalized-form)
      :size-display (:size-display normalized-form)
      :price price
      :quote-symbol quote-symbol
