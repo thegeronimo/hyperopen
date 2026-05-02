@@ -116,6 +116,10 @@
         (is (contains? strings "58%"))
         (is (contains? strings "Details"))
         (is (contains? strings "If BTC settles above 78213, YES pays $1."))
+        (is (support/contains-class? view-node "group/outcome-name"))
+        (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100"))
+        (is (support/contains-class? view-node "group-focus-within/outcome-name:opacity-100"))
+        (is (support/contains-class? view-node "pointer-events-none"))
         (is (not (contains? strings "Funding / Countdown")))))))
 
 (deftest active-asset-row-renders-coin-namespace-chip-when-dex-missing-test

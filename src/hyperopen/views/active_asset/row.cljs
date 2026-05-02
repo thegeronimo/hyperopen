@@ -341,21 +341,15 @@
 (defn- outcome-details-panel
   [{:keys [outcome-details]}]
   (when (seq outcome-details)
-    [:div {:class ["absolute"
-                   "left-4"
-                   "top-full"
-                   "z-[240]"
-                   "mt-1"
-                   "w-[min(28rem,calc(100vw-2rem))]"
-                   "rounded-md"
-                   "border"
-                   "border-base-300"
-                   "bg-base-100"
-                   "p-3"
-                   "text-xs"
-                   "leading-5"
-                   "text-trading-text-secondary"
-                   "shadow-xl"]
+    [:div {:class ["absolute" "left-4" "top-full" "z-[240]" "mt-1"
+                   "w-[min(28rem,calc(100vw-2rem))]" "rounded-md" "border"
+                   "border-base-300" "bg-base-100" "p-3" "text-xs" "leading-5"
+                   "text-trading-text-secondary" "shadow-xl" "opacity-0"
+                   "pointer-events-none" "transition-opacity" "duration-150"
+                   "group-hover/outcome-name:opacity-100"
+                   "group-hover/outcome-name:pointer-events-auto"
+                   "group-focus-within/outcome-name:opacity-100"
+                   "group-focus-within/outcome-name:pointer-events-auto"]
            :role "dialog"
            :data-role "outcome-details-popover"}
      outcome-details]))
@@ -373,22 +367,25 @@
            open-interest-usd
            outcome-chance-label]
     :as row-vm}]
-  [:div {:class ["relative"
-                 "hidden"
+  [:div {:class ["relative" "hidden"
                  "grid-cols-[minmax(max-content,1.8fr)_0.8fr_0.8fr_0.9fr_1fr_1fr_1fr]"
-                 "items-center"
-                 "gap-2"
-                 "px-0"
-                 "py-2"
-                 "lg:grid"
-                 "md:gap-3"]}
-   [:div {:class ["relative" "flex" "justify-start" "app-shell-gutter-left" "min-w-fit" "items-center" "gap-3"]}
+                 "items-center" "gap-2" "px-0" "py-2" "lg:grid" "md:gap-3"]}
+   [:div {:class ["relative" "group/outcome-name" "flex" "justify-start"
+                  "app-shell-gutter-left" "min-w-fit" "items-center" "gap-3"]
+          :data-role "outcome-market-name-hover-region"}
     (icon-button/asset-button icon-market
                               dropdown-visible?
                               missing-icons
                               loaded-icons)
     [:button {:type "button"
-              :class ["rounded-md" "bg-base-200" "px-4" "py-2" "text-xs" "font-semibold" "text-trading-text" "hover:bg-base-300"]
+              :class ["rounded-md" "bg-base-200" "px-4" "py-2" "text-xs"
+                      "font-semibold" "text-trading-text" "opacity-0"
+                      "pointer-events-none" "transition-opacity" "duration-150"
+                      "hover:bg-base-300"
+                      "group-hover/outcome-name:opacity-100"
+                      "group-hover/outcome-name:pointer-events-auto"
+                      "group-focus-within/outcome-name:opacity-100"
+                      "group-focus-within/outcome-name:pointer-events-auto"]
               :data-role "outcome-details-button"
               :aria-label "Outcome details"}
      "Details"]
