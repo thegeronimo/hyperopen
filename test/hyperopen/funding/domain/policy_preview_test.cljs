@@ -1,6 +1,7 @@
 (ns hyperopen.funding.domain.policy-preview-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.funding.domain.assets :as assets-domain]
+            [hyperopen.funding.domain.availability :as availability]
             [hyperopen.funding.domain.policy :as policy]))
 
 (defn- base-state
@@ -100,7 +101,7 @@
                                    :to-perp? true}))))
 
 (deftest transfer-preview-covers-unavailable-and-boundary-amount-branches-test
-  (with-redefs [policy/transfer-max-amount (constantly js/NaN)]
+  (with-redefs [availability/transfer-max-amount (constantly js/NaN)]
     (is (= {:ok? false
             :display-message "Unable to determine transfer balance."}
            (policy/transfer-preview {}
