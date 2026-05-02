@@ -199,6 +199,7 @@
             [hyperopen.portfolio.optimizer.application.tracking-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-test]
             [hyperopen.portfolio.optimizer.black-litterman-actions-test]
+            [hyperopen.portfolio.optimizer.black-litterman-view-edits-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
@@ -806,6 +807,7 @@
              'hyperopen.portfolio.optimizer.application.tracking-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-test
              'hyperopen.portfolio.optimizer.black-litterman-actions-test
+             'hyperopen.portfolio.optimizer.black-litterman-view-edits-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.constraints-test

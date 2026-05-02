@@ -102,13 +102,10 @@
 (defn- valid-instrument-update?
   [view parameter-key instrument-id]
   (case parameter-key
-    :long-instrument-id
-    (not= instrument-id (:short-instrument-id view))
+    (:instrument-id :long-instrument-id)
+    (not= instrument-id (view-comparator-instrument-id view))
 
-    :short-instrument-id
-    (not= instrument-id (:long-instrument-id view))
-
-    :comparator-instrument-id
+    (:comparator-instrument-id :short-instrument-id)
     (not= instrument-id (view-primary-instrument-id view))
 
     true))
