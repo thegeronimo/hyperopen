@@ -1,601 +1,8 @@
 (ns hyperopen.views.leaderboard-view
-  (:require [hyperopen.utils.formatting :as fmt]
-            [hyperopen.portfolio.routes :as portfolio-routes]
-            [hyperopen.views.leaderboard.vm :as leaderboard-vm]
-            [hyperopen.wallet.core :as wallet]))
-
-(def ^:private leaderboard-background-style
-  {:background-image "radial-gradient(circle at 15% 0%, rgba(0, 212, 170, 0.10), transparent 35%), radial-gradient(circle at 85% 100%, rgba(0, 212, 170, 0.08), transparent 40%)"})
-
-(def ^:private workspace-shell-classes
-  ["rounded-xl"
-   "border"
-   "border-base-300/80"
-   "bg-base-100/95"
-   "overflow-hidden"])
-
-(def ^:private control-shell-classes
-  ["rounded-xl"
-   "border"
-   "border-base-300/80"
-   "bg-base-100/95"
-   "p-2.5"
-   "md:p-3"])
-
-(def ^:private focus-visible-ring-classes
-  ["focus:outline-none"
-   "focus:ring-2"
-   "focus:ring-[#66e3c5]/45"
-   "focus:ring-offset-1"
-   "focus:ring-offset-base-100"
-   "focus-visible:outline-none"
-   "focus-visible:ring-2"
-   "focus-visible:ring-[#66e3c5]/45"
-   "focus-visible:ring-offset-1"
-   "focus-visible:ring-offset-base-100"])
-
-(def ^:private focus-reset-classes
-  ["focus:outline-none"
-   "focus:ring-0"
-   "focus:ring-offset-0"
-   "focus-visible:outline-none"
-   "focus-visible:ring-0"
-   "focus-visible:ring-offset-0"])
-
-(declare trader-chip)
-
-(defn- trader-link
-  [address child]
-  [:button {:type "button"
-            :class (into ["inline-flex" "min-w-0" "items-center" "gap-2" "text-left"]
-                         focus-visible-ring-classes)
-            :on {:click [[:actions/navigate
-                          (or (portfolio-routes/trader-portfolio-path address)
-                              portfolio-routes/canonical-route)]]}
-            :data-role "leaderboard-address-link"}
-   child])
-
-(defn- explorer-link
-  [address]
-  [:a {:href (str "https://app.hyperliquid.xyz/explorer/address/" address)
-       :target "_blank"
-       :rel "noreferrer"
-       :class (into ["inline-flex"
-                     "items-center"
-                     "justify-center"
-                     "rounded-md"
-                     "border"
-                     "border-base-300/80"
-                     "bg-base-100/95"
-                     "px-2.5"
-                     "py-1.5"
-                     "text-xs"
-                     "font-medium"
-                     "text-trading-text-secondary"
-                     "transition-colors"
-                     "hover:bg-base-200"
-                     "hover:text-trading-text"]
-                    focus-visible-ring-classes)
-       :aria-label "Open trader in Hyperliquid Explorer"
-       :data-role "leaderboard-explorer-link"}
-   "Explorer"])
-
-(defn- trader-link-shell
-  [row]
-  [:div {:class ["flex" "min-w-0" "items-center" "justify-between" "gap-3"]}
-   [:div {:class ["min-w-0" "flex-1"]}
-    (trader-link (:eth-address row)
-                 (trader-chip row))]
-   (explorer-link (:eth-address row))])
-
-(defn- trader-card-header
-  [row]
-  [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
-   [:div {:class ["min-w-0" "flex-1"]}
-    (trader-link (:eth-address row)
-                 (trader-chip row))]
-   [:div {:class ["flex" "shrink-0" "flex-col" "items-end" "gap-2"]}
-    [:div {:class ["text-right"]}
-     [:div {:class ["text-xs" "uppercase" "tracking-[0.08em]" "text-trading-text-secondary"]}
-      "Rank"]
-     [:div {:class ["num" "text-sm" "font-semibold" "text-trading-text"]}
-      (str "#" (:rank row))]]
-    (explorer-link (:eth-address row))]])
-
-(defn- format-account-value
-  [value]
-  (or (fmt/format-currency value)
-      "$0.00"))
-
-(defn- format-volume
-  [value]
-  (or (fmt/format-currency-with-digits value 0 0)
-      "$0"))
-
-(defn- format-pnl
-  [value]
-  (or (fmt/format-currency value)
-      "$0.00"))
-
-(defn- format-roi
-  [value]
-  (or (fmt/format-signed-percent-from-decimal value
-                                              {:decimals 2
-                                               :signed? true})
-      "0.00%"))
-
-(defn- metric-tone-class
-  [value]
-  (cond
-    (not (number? value)) ["text-trading-text-secondary"]
-    (pos? value) ["text-[#36e1d3]"]
-    (neg? value) ["text-[#ff6b8a]"]
-    :else ["text-trading-text"]))
-
-(defn- sort-direction-icon
-  [direction]
-  [:svg {:class (into ["h-3" "w-3" "shrink-0" "opacity-70" "transition-transform"]
-                      (if (= :asc direction)
-                        ["rotate-180"]
-                        ["rotate-0"]))
-         :viewBox "0 0 12 12"
-         :aria-hidden true}
-   [:path {:d "M3 4.5L6 7.5L9 4.5"
-           :fill "none"
-           :stroke "currentColor"
-           :stroke-width "1.5"
-           :stroke-linecap "round"
-           :stroke-linejoin "round"}]])
-
-(defn- sortable-header
-  [label column sort-state]
-  (let [active? (= column (:column sort-state))]
-    [:button {:type "button"
-              :class (into ["inline-flex"
-                            "items-center"
-                            "gap-1"
-                            "font-normal"
-                            "text-trading-text-secondary"
-                            "hover:text-trading-text"]
-                           focus-visible-ring-classes)
-              :on {:click [[:actions/set-leaderboard-sort column]]}}
-     [:span label]
-     (when active?
-       (sort-direction-icon (:direction sort-state)))]))
-
-(defn- trader-chip
-  [row]
-  [:div {:class ["flex" "min-w-0" "items-center" "gap-2"]}
-   [:div {:class ["min-w-0"]}
-    [:div {:class ["truncate" "font-semibold" "text-trading-text"]}
-     (or (:display-name row)
-         (wallet/short-addr (:eth-address row))
-         (:eth-address row))]]
-   (when (:you? row)
-     [:span {:class ["rounded-full"
-                     "border"
-                     "border-[#2b5d5b]"
-                     "bg-[#103c39]"
-                     "px-2"
-                     "py-0.5"
-                     "text-xs"
-                     "font-semibold"
-                     "uppercase"
-                     "tracking-[0.08em]"
-                     "text-[#9cf9e2]"]
-             :data-role "leaderboard-you-badge"}
-      "YOU"])])
-
-(defn- desktop-row
-  [row]
-  [:tr {:class (into ["border-b"
-                      "border-base-300/50"
-                      "text-sm"
-                      "text-trading-text"
-                      "hover:bg-base-200/40"]
-                     (when (:you? row)
-                       ["bg-[#0f2220]"]))
-        :data-role "leaderboard-row"}
-   [:td {:class ["px-3" "py-3" "num"]} (:rank row)]
-   [:td {:class ["px-3" "py-3"]}
-    (trader-link-shell row)]
-   [:td {:class ["px-3" "py-3" "num"]}
-    (format-account-value (:account-value row))]
-   [:td {:class (into ["px-3" "py-3" "num"] (metric-tone-class (:pnl row)))}
-    (format-pnl (:pnl row))]
-   [:td {:class (into ["px-3" "py-3" "num"] (metric-tone-class (:roi row)))}
-    (format-roi (:roi row))]
-   [:td {:class ["px-3" "py-3" "num"]}
-    (format-volume (:volume row))]])
-
-(defn- mobile-row
-  [row timeframe-label]
-  (let [card-classes (into ["block"
-                            "w-full"
-                            "rounded-xl"
-                            "border"
-                            "border-base-300/80"
-                            "bg-base-100/95"
-                            "p-3"
-                            "space-y-3"
-                            "transition-colors"
-                            "hover:bg-base-200"]
-                           (when (:you? row)
-                             ["border-[#2c6d64]" "bg-[#0f2220]"]))]
-    [:div {:class card-classes}
-     (trader-card-header row)
-     [:div {:class ["grid" "grid-cols-2" "gap-x-3" "gap-y-2" "text-xs"]}
-      [:div
-       [:div {:class ["text-trading-text-secondary"]} "Account Value"]
-       [:div {:class ["num" "text-sm" "text-trading-text"]}
-        (format-account-value (:account-value row))]]
-      [:div
-       [:div {:class ["text-trading-text-secondary"]} (str "PnL (" timeframe-label ")")]
-       [:div {:class (into ["num" "text-sm"] (metric-tone-class (:pnl row)))}
-        (format-pnl (:pnl row))]]
-      [:div
-       [:div {:class ["text-trading-text-secondary"]} (str "ROI (" timeframe-label ")")]
-       [:div {:class (into ["num" "text-sm"] (metric-tone-class (:roi row)))}
-        (format-roi (:roi row))]]
-      [:div
-       [:div {:class ["text-trading-text-secondary"]} (str "Volume (" timeframe-label ")")]
-       [:div {:class ["num" "text-sm" "text-trading-text"]}
-        (format-volume (:volume row))]]]]))
-
-(defn- timeframe-button
-  [selected? {:keys [value label]}]
-  [:button {:type "button"
-            :class (into ["rounded-lg"
-                          "border"
-                          "px-2.5"
-                          "py-1.5"
-                          "text-xs"
-                          "font-medium"
-                          "transition-colors"]
-                         (concat focus-visible-ring-classes
-                                 (if selected?
-                                   ["border-[#2f7f73]" "bg-[#123a36]/85" "text-[#97fce4]"]
-                                   ["border-base-300/80"
-                                    "text-trading-text-secondary"
-                                    "hover:bg-base-200"
-                                    "hover:text-trading-text"])))
-            :on {:click [[:actions/set-leaderboard-timeframe value]]}}
-   label])
-
-(defn- page-size-option
-  [size active?]
-  [:button {:type "button"
-            :class (into ["flex"
-                          "w-full"
-                          "items-center"
-                          "justify-start"
-                          "rounded-md"
-                          "px-2.5"
-                          "py-1.5"
-                          "text-xs"
-                          "text-left"
-                          "num"
-                          "text-trading-text-secondary"
-                          "hover:bg-base-200"
-                          "hover:text-trading-text"]
-                         focus-reset-classes)
-            :role "option"
-            :aria-selected (boolean active?)
-            :on {:mousedown [[:actions/set-leaderboard-page-size size]]
-                 :click [[:actions/set-leaderboard-page-size size]]}}
-   (str size)])
-
-(defn- loading-skeleton-block
-  [extra-classes]
-  [:span {:class (into ["block"
-                        "h-3.5"
-                        "rounded"
-                        "ui-loading-shimmer"]
-                       extra-classes)}])
-
-(defn- desktop-loading-row
-  [idx]
-  [:tr {:class ["border-b" "border-base-300/40"]
-        :data-index idx}
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-10"])]
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-32"])]
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-24"])]
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-20"])]
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-16"])]
-   [:td {:class ["px-3" "py-3"]} (loading-skeleton-block ["w-24"])]])
-
-(defn- mobile-loading-card
-  [idx]
-  [:div {:class ["rounded-xl"
-                 "border"
-                 "border-base-300"
-                 "bg-base-100"
-                 "p-3"
-                 "space-y-3"]
-         :data-index idx}
-   [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-    (loading-skeleton-block ["w-28"])
-    (loading-skeleton-block ["w-16"])]
-   [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-    (loading-skeleton-block ["w-20"])
-    (loading-skeleton-block ["w-20"])
-    (loading-skeleton-block ["w-24"])
-    (loading-skeleton-block ["w-16"])]])
-
-(defn- loading-state
-  [{:keys [desktop-layout? page-size]}]
-  (let [row-count (-> (or page-size 5)
-                      (max 1)
-                      (min 5))]
-    [:div {:class ["space-y-3" "p-4" "md:p-5"]
-           :data-role "leaderboard-loading"}
-     [:div {:class ["flex" "items-center" "gap-2" "text-xs" "text-trading-text-secondary"]}
-      [:span {:class ["h-2" "w-2" "rounded-full" "bg-emerald-300" "animate-pulse"]
-              :aria-hidden true}]
-      [:span "Loading ranked traders and vault exclusions..."]]
-     (if desktop-layout?
-       [:div {:class ["overflow-x-auto"]}
-        [:table {:class ["min-w-full"]}
-         [:thead
-          [:tr {:class ["border-b" "border-base-300/60"]}
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "Rank"]
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "Trader"]
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "Account Value"]
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "PnL"]
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "ROI"]
-           [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-trading-text-secondary"]} "Volume"]]]
-         [:tbody
-          (for [idx (range row-count)]
-            ^{:key (str "leaderboard-loading-row-" idx)}
-            (desktop-loading-row idx))]]]
-       [:div {:class ["space-y-2"]}
-        (for [idx (range row-count)]
-          ^{:key (str "leaderboard-loading-card-" idx)}
-          (mobile-loading-card idx))])]))
-
-(defn- empty-state
-  []
-  [:div {:class ["px-4"
-                 "py-10"
-                 "text-center"
-                 "text-sm"
-                 "text-trading-text-secondary"]
-         :data-role "leaderboard-empty"}
-   "No traders match the current filters."])
-
-(defn- error-state
-  [message]
-  [:div {:class ["space-y-3"
-                 "px-4"
-                 "py-4"]
-         :data-role "leaderboard-error"}
-   [:div {:class ["rounded-lg"
-                  "border"
-                  "border-[#7a2836]/70"
-                  "bg-[#2b1118]/80"
-                  "px-4"
-                  "py-4"]}
-    [:p {:class ["text-sm" "text-[#ffb0c0]"]}
-     (or message "Failed to load leaderboard data.")]]
-   [:button {:type "button"
-             :class (into ["rounded-lg"
-                           "border"
-                           "border-[#8a4b56]"
-                           "bg-[#341b24]"
-                           "px-3"
-                           "py-2"
-                           "text-sm"
-                           "font-medium"
-                           "text-[#ffd3db]"
-                           "transition-colors"
-                           "hover:border-[#a95e6b]"
-                           "hover:bg-[#41212b]"]
-                          focus-visible-ring-classes)
-             :on {:click [[:actions/load-leaderboard]]}}
-    "Retry"]])
-
-(defn- pinned-row-card
-  [row timeframe-label desktop-layout?]
-  (when row
-    [:div {:class ["border-b"
-                   "border-base-300/60"
-                   "bg-[#0f2220]/65"
-                   "p-4"
-                   "space-y-3"]
-               :data-role "leaderboard-pinned-row"}
-     [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-     [:div
-       [:div {:class ["text-xs" "font-semibold" "uppercase" "tracking-[0.12em]" "text-[#8fd8cb]"]}
-        "Your Position"]
-       [:div {:class ["text-sm" "text-trading-text-secondary"]}
-        "Pinned separately from paginated results."]]
-      [:div {:class ["rounded-full"
-                     "border"
-                     "border-[#2c6d64]"
-                     "px-3"
-                     "py-1"
-                     "text-xs"
-                     "font-semibold"
-                     "uppercase"
-                     "tracking-[0.08em]"
-                     "text-[#9cf9e2]"]}
-       (str "#" (:rank row))]]
-     (if desktop-layout?
-       [:div {:class ["overflow-x-auto"]}
-        [:table {:class ["min-w-full"]}
-         [:tbody
-          (desktop-row row)]]]
-       (mobile-row row timeframe-label))]))
-
-(defn- pagination-controls
-  [{:keys [page
-           page-count
-           total-rows
-           page-size
-           page-size-options
-           page-size-dropdown-open?]}]
-  (let [page-size* (str page-size)]
-    [:div {:class ["flex"
-                   "flex-wrap"
-                   "items-center"
-                   "justify-between"
-                   "gap-3"
-                   "border-t"
-                   "border-base-300/60"
-                   "px-4"
-                   "py-3"]
-           :data-role "leaderboard-pagination"}
-     [:div {:class ["flex" "flex-wrap" "items-center" "gap-3"]}
-      [:div {:class ["flex" "items-center" "gap-2"]}
-       [:span {:id "leaderboard-page-size-label"
-               :class ["text-sm" "text-trading-text-secondary"]}
-        "Rows"]
-       [:div {:class ["relative"]
-              :style (when page-size-dropdown-open?
-                       {:z-index 1200})}
-        (when page-size-dropdown-open?
-          [:button {:type "button"
-                    :class ["fixed" "inset-0" "cursor-default" "bg-transparent"]
-                    :style {:z-index 1200}
-                    :aria-label "Close rows per page menu"
-                    :on {:click [[:actions/close-leaderboard-page-size-dropdown]]}}])
-        [:button {:id "leaderboard-page-size"
-                  :type "button"
-                  :aria-haspopup "listbox"
-                  :aria-expanded (boolean page-size-dropdown-open?)
-                  :aria-labelledby "leaderboard-page-size-label"
-                  :class (into ["relative"
-                                "flex"
-                                "h-8"
-                                "min-w-[72px]"
-                                "cursor-pointer"
-                                "items-center"
-                                "justify-between"
-                                "gap-2"
-                                "rounded-lg"
-                                "border"
-                                "border-base-300"
-                                "bg-base-100"
-                                "pl-3"
-                                "pr-2"
-                                "text-xs"
-                                "text-trading-text"
-                                "hover:bg-base-200"]
-                               focus-reset-classes)
-                  :style (when page-size-dropdown-open?
-                           {:z-index 1201})
-                  :on {:click [[:actions/toggle-leaderboard-page-size-dropdown]]}}
-         [:span {:class ["num" "text-sm" "leading-none"]} page-size*]
-         [:svg {:class ["h-3.5" "w-3.5" "shrink-0" "text-trading-text-secondary"]
-                :viewBox "0 0 20 20"
-                :fill "currentColor"
-                :aria-hidden true}
-          [:path {:fill-rule "evenodd"
-                  :clip-rule "evenodd"
-                  :d "M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"}]]]
-        (when page-size-dropdown-open?
-          [:div {:class ["absolute"
-                         "left-0"
-                         "bottom-full"
-                         "mb-1"
-                         "min-w-[88px]"
-                         "max-h-40"
-                         "overflow-y-auto"
-                         "rounded-lg"
-                         "border"
-                         "border-base-300"
-                         "bg-base-100"
-                         "p-1"
-                         "shadow-2xl"]
-                 :style {:z-index 1202}
-                 :role "listbox"
-                 :aria-labelledby "leaderboard-page-size-label"}
-           (for [size page-size-options]
-             ^{:key (str "leaderboard-page-size-" size)}
-             (page-size-option size (= size page-size)))])]]
-      [:span {:class ["text-sm" "text-trading-text-secondary"]}
-       (str "Total: " total-rows " ranked trader"
-            (when (not= 1 total-rows) "s"))]]
-     [:div {:class ["flex" "items-center" "gap-2"]}
-      [:button {:type "button"
-                :class (into ["rounded-lg"
-                              "border"
-                              "border-base-300"
-                              "px-3"
-                              "py-1.5"
-                              "text-sm"
-                              "text-trading-text-secondary"
-                              "transition-colors"
-                              "hover:bg-base-200"
-                              "hover:text-trading-text"
-                              "disabled:cursor-not-allowed"
-                              "disabled:opacity-50"]
-                             focus-visible-ring-classes)
-                :disabled (= page 1)
-                :on {:click [[:actions/prev-leaderboard-page page-count]]}}
-       "Prev"]
-      [:div {:class ["num" "text-sm" "text-trading-text-secondary"]}
-       (str page " / " page-count)]
-      [:button {:type "button"
-                :class (into ["rounded-lg"
-                              "border"
-                              "border-base-300"
-                              "px-3"
-                              "py-1.5"
-                              "text-sm"
-                              "text-trading-text-secondary"
-                              "transition-colors"
-                              "hover:bg-base-200"
-                              "hover:text-trading-text"
-                              "disabled:cursor-not-allowed"
-                              "disabled:opacity-50"]
-                             focus-visible-ring-classes)
-                :disabled (= page page-count)
-                :on {:click [[:actions/next-leaderboard-page page-count]]}}
-       "Next"]]]))
-
-(defn- table-shell
-  [rows timeframe-label sort]
-  [:div {:class ["overflow-x-auto"]}
-   [:table {:class ["min-w-full"]
-            :data-role "leaderboard-table"}
-    [:thead
-     [:tr {:class ["text-xs" "text-trading-text-secondary"]}
-      [:th {:class ["px-3" "py-2" "text-left"]} "Rank"]
-      [:th {:class ["px-3" "py-2" "text-left"]} "Trader"]
-      [:th {:class ["px-3" "py-2" "text-left"]}
-       (sortable-header "Account Value" :account-value sort)]
-      [:th {:class ["px-3" "py-2" "text-left"]}
-       (sortable-header (str "PnL (" timeframe-label ")") :pnl sort)]
-      [:th {:class ["px-3" "py-2" "text-left"]}
-       (sortable-header (str "ROI (" timeframe-label ")") :roi sort)]
-      [:th {:class ["px-3" "py-2" "text-left"]}
-       (sortable-header (str "Volume (" timeframe-label ")") :volume sort)]]]
-    [:tbody
-     (for [row rows]
-       ^{:key (:eth-address row)}
-       (desktop-row row))]]])
-
-(defn- mobile-shell
-  [rows timeframe-label]
-  [:div {:class ["grid" "gap-3"]
-         :data-role "leaderboard-mobile-list"}
-   (for [row rows]
-     ^{:key (:eth-address row)}
-     (mobile-row row timeframe-label))])
-
-(defn- methodology-note
-  [timeframe-label]
-  [:section {:class ["space-y-2"
-                     "px-1"
-                     "pt-1"]
-             :data-role "leaderboard-methodology"}
-   [:h2 {:class ["text-sm" "font-semibold" "text-trading-text"]}
-    "Methodology"]
-   [:p {:class ["text-sm" "leading-6" "text-trading-text-secondary"]}
-    (str "Ranks are recomputed after filtering and sorting. Account value reflects the current balance, while PnL, ROI, and volume use the selected "
-         timeframe-label
-         " window. Vault and other non-user addresses are excluded from this leaderboard baseline.")]])
+  (:require [hyperopen.views.leaderboard.controls :as controls]
+            [hyperopen.views.leaderboard.states :as states]
+            [hyperopen.views.leaderboard.styles :as styles]
+            [hyperopen.views.leaderboard.vm :as leaderboard-vm]))
 
 (defn leaderboard-view
   [state]
@@ -624,7 +31,7 @@
                    "py-4"
                    "space-y-4"
                    "md:py-5"]
-           :style leaderboard-background-style
+           :style styles/leaderboard-background-style
            :data-parity-id "leaderboard-root"}
      [:div {:class ["pointer-events-none"
                     "absolute"
@@ -642,7 +49,7 @@
          "Leaderboard"]
         [:p {:class ["max-w-2xl" "text-sm" "text-trading-text-secondary"]}
          "Track ranked traders across selectable performance windows."]]]
-      [:div {:class control-shell-classes}
+      [:div {:class styles/control-shell-classes}
        [:div {:class ["flex" "flex-col" "gap-2.5" "lg:flex-row" "lg:items-center" "lg:justify-between"]}
         [:input {:id "leaderboard-search"
                  :type "text"
@@ -659,45 +66,45 @@
                                "text-xs"
                                "text-trading-text"
                                "placeholder:text-trading-text-secondary"]
-                              focus-visible-ring-classes)
+                              styles/focus-visible-ring-classes)
                  :on {:input [[:actions/set-leaderboard-query [:event.target/value]]]}}]
         [:div {:class ["flex" "flex-wrap" "items-center" "gap-2" "lg:justify-end"]
                :data-role "leaderboard-timeframes"}
          (for [option timeframe-options]
            ^{:key (:value option)}
-           (timeframe-button (= timeframe (:value option)) option))]]]
+           (controls/timeframe-button (= timeframe (:value option)) option))]]]
 
-      [:section {:class workspace-shell-classes}
-       (pinned-row-card pinned-row timeframe-label desktop-layout?)
+      [:section {:class styles/workspace-shell-classes}
+       (states/pinned-row-card pinned-row timeframe-label desktop-layout?)
 
        (cond
          (seq error)
-         (error-state error)
+         (states/error-state error)
 
          show-loading?
-         (loading-state {:desktop-layout? desktop-layout?
-                         :page-size page-size})
+         (states/loading-state {:desktop-layout? desktop-layout?
+                                :page-size page-size})
 
          (not has-results?)
-         (empty-state)
+         (states/empty-state)
 
          desktop-layout?
-         (table-shell rows timeframe-label sort)
+         (states/table-shell rows timeframe-label sort)
 
          :else
-         (mobile-shell rows timeframe-label))
+         (states/mobile-shell rows timeframe-label))
 
        (when (and (not show-loading?)
                   (not (seq error))
                   has-results?)
-         (pagination-controls {:page page
-                               :page-count page-count
-                               :total-rows total-rows
-                               :page-size page-size
-                               :page-size-options page-size-options
-                               :page-size-dropdown-open? page-size-dropdown-open?}))]
+         (controls/pagination-controls {:page page
+                                         :page-count page-count
+                                         :total-rows total-rows
+                                         :page-size page-size
+                                         :page-size-options page-size-options
+                                         :page-size-dropdown-open? page-size-dropdown-open?}))]
 
-      (methodology-note timeframe-label)]]))
+      (states/methodology-note timeframe-label)]]))
 
 (defn ^:export route-view
   [state]

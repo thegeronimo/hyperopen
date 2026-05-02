@@ -97,10 +97,14 @@
         (js/Promise.resolve nil)
         (let [request-opts* (request-opts opts*)
               initial-state @store
+              loading? (true? (get-in initial-state [:leaderboard :loading?]))
               current-loaded-at (get-in initial-state [:leaderboard :loaded-at-ms])]
           (cond
             force-refresh?
             (request-network! request-opts*)
+
+            loading?
+            (js/Promise.resolve {:source :in-flight})
 
             (fresh-state? initial-state)
             (do

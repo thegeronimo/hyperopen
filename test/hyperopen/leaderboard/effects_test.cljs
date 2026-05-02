@@ -102,6 +102,45 @@
                     (is false "Unexpected fresh-cache rejection")
                     (done)))))))
 
+(deftest api-fetch-leaderboard-reuses-in-flight-load-test
+  (async done
+    (let [leaderboard-calls (atom 0)
+          vault-calls (atom 0)
+          store (atom {:router {:path "/leaderboard"}
+                       :leaderboard {:rows []
+                                     :excluded-addresses #{}
+                                     :loading? true
+                                     :error nil
+                                     :error-category nil
+                                     :loaded-at-ms nil}})]
+      (-> (effects/api-fetch-leaderboard!
+           {:store store
+            :request-leaderboard! (fn [_opts]
+                                    (swap! leaderboard-calls inc)
+                                    (js/Promise.resolve []))
+            :request-vault-index! (fn [_opts]
+                                    (swap! vault-calls inc)
+                                    (js/Promise.resolve []))
+            :begin-leaderboard-load (fn [state]
+                                      (assoc-in state [:leaderboard :loading?] true))
+            :apply-leaderboard-cache-hydration apply-cache-hydration
+            :apply-leaderboard-success (fn [state payload]
+                                         (assoc state :success payload))
+            :apply-leaderboard-error (fn [state err]
+                                       (assoc state :error-result err))
+            :now-ms-fn (fn [] 1700000000000)
+            :opts {:skip-route-gate? true}})
+          (.then (fn [result]
+                   (is (= {:source :in-flight} result))
+                   (is (= 0 @leaderboard-calls))
+                   (is (= 0 @vault-calls))
+                   (is (true? (get-in @store [:leaderboard :loading?])))
+                   (done)))
+          (.catch (fn [error]
+                    (js/console.error error)
+                    (is false "Unexpected in-flight rejection")
+                    (done)))))))
+
 (deftest api-fetch-leaderboard-falls-through-to-network-for-stale-cache-and-persists-result-test
   (async done
     (let [leaderboard-calls (atom [])

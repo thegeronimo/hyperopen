@@ -282,7 +282,7 @@ export async function visitRoute(page, route, options = {}) {
   const pageLoadRetryCount =
     options.pageLoadRetryCount ?? Math.max(debugBridgeRetryCount, 8);
   const debugBridgeRetryDelayMs = options.debugBridgeRetryDelayMs ?? 250;
-  const initialUrl = `${path}${search}`;
+  const initialUrl = path === "/trade" ? `${path}${search}` : "/trade";
 
   trackDebugBridgeEvents(page);
   let lastDebugBridgeError = null;
