@@ -200,3 +200,28 @@
     (is (contains? strings "OUTCOME"))
     (is (contains? strings "58%"))
     (is (contains? strings "$254,722"))))
+
+(deftest asset-list-item-click-handlers-dispatch-selected-market-map-test
+  (let [dispatches* (atom [])
+        asset {:key "outcome:0"
+               :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+               :coin "#0"
+               :market-type :outcome}
+        desktop-row (rows/asset-list-item asset false false #{} #{} #{})
+        mobile-row (rows/mobile-asset-list-item asset false false #{})
+        desktop-click (get-in desktop-row [1 :on :click])
+        mobile-click (get-in mobile-row [1 :on :click])]
+    (with-redefs [app-system/store ::store
+                  nxr/dispatch (fn [store event actions]
+                                 (swap! dispatches* conj {:store store
+                                                          :event event
+                                                          :actions actions}))]
+      (desktop-click #js {})
+      (mobile-click #js {}))
+    (is (= [{:store ::store
+             :event nil
+             :actions [[:actions/select-asset-by-market-key "outcome:0"]]}
+            {:store ::store
+             :event nil
+             :actions [[:actions/select-asset-by-market-key "outcome:0"]]}]
+           @dispatches*))))

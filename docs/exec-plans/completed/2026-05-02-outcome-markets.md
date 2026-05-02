@@ -1,6 +1,6 @@
 ---
 owner: trading-ui
-status: active
+status: completed
 created: 2026-05-02
 source_of_truth: false
 tracked_issue: hyperopen-4lja

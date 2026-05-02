@@ -68,6 +68,7 @@
 (declare toggle-asset-dropdown
          close-asset-dropdown
          select-asset
+         select-asset-by-market-key
          toggle-asset-favorite)
 
 (defn- append-selector-subscription-sync
@@ -105,6 +106,28 @@
         [[:effects/save [:router :path] target-route]
          [:effects/push-state browser-route]])
       [])))
+
+(defn- market-token
+  [value]
+  (cond
+    (string? value)
+    value
+
+    :else nil))
+
+(defn- resolve-market-input
+  [market-by-key market-or-coin]
+  (let [token (market-token market-or-coin)]
+    (cond
+      (map? market-or-coin)
+      (or (markets/resolve-or-infer-market-by-coin market-by-key (market-token (:coin market-or-coin)))
+          market-or-coin)
+
+      (seq token)
+      (or (get market-by-key token)
+          (markets/resolve-or-infer-market-by-coin market-by-key token))
+
+      :else nil)))
 
 (defn- parse-time-ms
   [value]
@@ -250,19 +273,10 @@
 (defn select-asset
   [state market-or-coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
-        input-coin (cond
-                     (map? market-or-coin) (:coin market-or-coin)
-                     (string? market-or-coin) market-or-coin
-                     :else nil)
-        market (cond
-                 (map? market-or-coin)
-                 (or (markets/resolve-or-infer-market-by-coin market-by-key input-coin)
-                     market-or-coin)
-
-                 (string? market-or-coin)
-                 (markets/resolve-or-infer-market-by-coin market-by-key market-or-coin)
-
-                 :else nil)
+        input-coin (if (map? market-or-coin)
+                     (market-token (:coin market-or-coin))
+                     (market-token market-or-coin))
+        market (resolve-market-input market-by-key market-or-coin)
         coin (or (:coin market) input-coin)
         resolved-market (or market
                             (when (string? coin)
@@ -325,6 +339,12 @@
     (into immediate-ui-effects
           (into trade-route-effects
                 (into unsubscribe-effects subscribe-effects*)))))
+
+(defn select-asset-by-market-key
+  [state market-key]
+  (if-let [market (get-in state [:asset-selector :market-by-key market-key])]
+    (select-asset state market)
+    []))
 
 (defn update-asset-search
   [_state value]

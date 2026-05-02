@@ -1,8 +1,10 @@
 (ns hyperopen.views.asset-selector.rows
   (:require [hyperopen.asset-selector.list-metrics :as list-metrics]
+            [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.asset-selector.controls :as controls]
-            [hyperopen.views.asset-selector.icons :as icons]))
+            [hyperopen.views.asset-selector.icons :as icons]
+            [nexus.registry :as nxr]))
 
 (defn format-or-dash [value formatter]
   (or (formatter value) "—"))
@@ -13,6 +15,15 @@
     selected? "selected"
     highlighted? "highlighted"
     :else "idle"))
+
+(defn select-asset-click-handler
+  [{:keys [key] :as asset}]
+  (fn [_event]
+    (nxr/dispatch app-system/store
+                  nil
+                  [(if (string? key)
+                     [:actions/select-asset-by-market-key key]
+                     [:actions/select-asset asset])])))
 
 (defn asset-list-item [asset selected? highlighted? favorites _missing-icons _loaded-icons]
   (let [{:keys [key coin symbol mark markRaw volume24h change24h change24hPct openInterest fundingRate
@@ -41,7 +52,7 @@
       :style {:contain "layout paint style"
               :content-visibility "auto"
               :contain-intrinsic-size (str list-metrics/row-height-px "px")}
-      :on {:click [[:actions/select-asset asset]]}}
+      :on {:click (select-asset-click-handler asset)}}
      [:div.col-span-3.flex.items-center.space-x-1.5.min-w-0
       (icons/favorite-button favorite? key)
       [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
@@ -148,7 +159,7 @@
    (shortcut-item "Esc" "Close")])
 
 (defn mobile-asset-list-item [asset selected? highlighted? favorites]
-  (let [{:keys [key symbol mark markRaw volume24h change24h change24hPct openInterest market-type dex maxLeverage]} asset
+  (let [{:keys [key coin symbol mark markRaw volume24h change24h change24hPct openInterest market-type dex maxLeverage]} asset
         safe-change (when (some? change24h) (fmt/safe-number change24h))
         safe-change-pct (when (some? change24hPct) (fmt/safe-number change24hPct))
         change-available? (and (number? safe-change)
@@ -171,7 +182,7 @@
                    "cursor-pointer"
                    "asset-selector-row-surface"]
            :data-row-state (asset-selector-row-state selected? highlighted?)
-           :on {:click [[:actions/select-asset asset]]}
+           :on {:click (select-asset-click-handler asset)}
            :data-role "mobile-asset-selector-row"}
      [:div {:class ["flex" "items-start" "gap-2.5" "min-w-0"]}
       (icons/mobile-favorite-button favorite? key)

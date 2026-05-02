@@ -102,10 +102,7 @@
     (vector? node)
     (let [attrs (when (map? (second node)) (second node))
           children (if attrs (drop 2 node) (drop 1 node))
-          click-handler (get-in attrs [:on :click])
-          row? (and (vector? click-handler)
-                    (= :actions/select-asset
-                       (-> click-handler first first)))]
+          row? (= "asset-selector-row" (:data-role attrs))]
       (+ (if row? 1 0)
          (reduce + 0 (map count-selectable-asset-rows children))))
 

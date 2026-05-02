@@ -92,8 +92,7 @@
   (let [market {:key "outcome:0"
                 :coin "#0"
                 :market-type :outcome
-                :outcome-sides [{:side-index 0 :coin "#0"}
-                                {:side-index 1 :coin "#1"}]}
+                :outcome-sides [{:side-index 0 :coin "#0"} {:side-index 1 :coin "#1"}]}
         effects (actions/select-asset
                  {:active-asset "BTC"
                   :asset-selector {:market-by-key {"outcome:0" market}}}
@@ -107,7 +106,16 @@
             [:effects/subscribe-orderbook "#1"]
             [:effects/subscribe-trades "#1"]
             [:effects/sync-active-asset-funding-predictability "#0"]]
-           (subvec effects 2)))))
+           (subvec effects 2)))
+    (let [key-effects (actions/select-asset-by-market-key
+                       {:active-asset "BTC"
+                        :router {:path "/trade"}
+                        :asset-selector {:market-by-key {"outcome:0" market}}}
+                       "outcome:0")]
+      (is (= market (path-value key-effects [:active-market])))
+      (is (= [[:effects/save [:router :path] "/trade/%230"]
+              [:effects/push-state "/trade?market=%230"]]
+             (subvec key-effects 2 4))))))
 
 (deftest select-asset-syncs-trade-route-to-selected-asset-test
   (let [market {:key "perp:xyz:GOLD"

@@ -30,6 +30,7 @@
   [[:actions/toggle-asset-dropdown :toggle-asset-dropdown]
    [:actions/close-asset-dropdown :close-asset-dropdown]
    [:actions/select-asset :select-asset]
+   [:actions/select-asset-by-market-key :select-asset-by-market-key]
    [:actions/update-asset-search :update-asset-search]
    [:actions/update-asset-selector-sort :update-asset-selector-sort]
    [:actions/toggle-asset-selector-strict :toggle-asset-selector-strict]

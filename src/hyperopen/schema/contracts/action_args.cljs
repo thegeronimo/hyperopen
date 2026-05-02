@@ -2,7 +2,6 @@
   (:require [cljs.spec.alpha :as s]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.state :as state]))
-
 (s/def ::funding-history-filter-path (s/or :path ::common/state-path
                                           :key keyword?))
 (s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
@@ -157,6 +156,7 @@
    :actions/toggle-asset-dropdown ::common/dropdown-target-args
    :actions/close-asset-dropdown ::common/no-args
    :actions/select-asset ::common/market-or-coin-args
+   :actions/select-asset-by-market-key ::common/market-key-args
    :actions/update-asset-search ::common/single-input-args
    :actions/update-asset-selector-sort ::common/keyword-args
    :actions/toggle-asset-selector-strict ::common/no-args
