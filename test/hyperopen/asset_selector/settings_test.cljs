@@ -15,14 +15,14 @@
                                            "asset-selector-sort-direction" "asc"
                                            "asset-selector-strict" "true"
                                            "asset-selector-favorites" "[\"perp:BTC\",\"spot:PURR/USDC\"]"
-                                           "asset-selector-active-tab" "hip3"})]
+                                           "asset-selector-active-tab" "outcome"})]
       (settings/restore-asset-selector-sort-settings! store))
     (is (= :price (get-in @store [:asset-selector :sort-by])))
     (is (= :asc (get-in @store [:asset-selector :sort-direction])))
     (is (= true (get-in @store [:asset-selector :strict?])))
     (is (= #{"perp:BTC" "spot:PURR/USDC"}
            (get-in @store [:asset-selector :favorites])))
-    (is (= :hip3 (get-in @store [:asset-selector :active-tab])))
+    (is (= :outcome (get-in @store [:asset-selector :active-tab])))
     (is (= true (get-in @store [:asset-selector :favorites-only?])))))
 
 (deftest restore-asset-selector-sort-settings-falls-back-for-invalid-values-test

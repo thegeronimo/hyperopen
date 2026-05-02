@@ -456,6 +456,41 @@
                            (= side :sell)
                            ((:on-select-side side-handlers) :sell))])
 
+(defn- outcome-side-index
+  [side]
+  (let [value (:side-index side)
+        parsed (cond
+                 (number? value) value
+                 (string? value) (js/parseInt value 10)
+                 :else js/NaN)]
+    (when (and (number? parsed)
+               (not (js/isNaN parsed)))
+      (int parsed))))
+
+(defn outcome-side-row [outcome-sides selected-side-index outcome-handlers]
+  (when (seq outcome-sides)
+    [:div {:class ["space-y-1"]}
+     [:div {:class ["text-xs" "text-gray-400"]} "Outcome"]
+     [:div {:class ["flex" "h-[33px]" "items-center" "gap-1.5" "rounded-lg" "bg-base-200" "p-0.5" "sm:gap-2"]}
+      (for [side outcome-sides
+            :let [side-index (outcome-side-index side)]]
+        ^{:key (str "outcome-side-" side-index)}
+        [:button {:type "button"
+                  :class (into ["flex-1"
+                                "inline-flex"
+                                "h-[29px]"
+                                "items-center"
+                                "justify-center"
+                                "rounded-[5px]"
+                                "text-xs"
+                                "font-normal"
+                                "transition-colors"]
+                               (if (= side-index selected-side-index)
+                                 ["bg-primary" "text-primary-content"]
+                                 ["bg-[#273035]" "text-[#F6FEFD]"]))
+                  :on {:click ((:on-select-outcome-side outcome-handlers) side-index)}}
+         (or (:side-label side) (str "Side " side-index))])]]))
+
 (defn balances-row [display]
   [:div {:class ["space-y-1.5"]}
    [:div {:class ["flex" "items-center" "justify-between"]}

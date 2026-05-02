@@ -57,7 +57,8 @@
            "Loading markets (bootstrap)...")])
       (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
       (controls/tab-row active-tab)
-      (controls/sort-controls sort-by sort-direction)
+      (controls/outcome-subtab-row active-tab)
+      (controls/sort-controls sort-by sort-direction active-tab)
       (runtime/asset-list processed-assets-list selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key)
       (rows/selector-shortcut-footer)]]))
 
@@ -110,7 +111,8 @@
            "Loading markets (bootstrap)...")])
       (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
       (controls/mobile-tab-row active-tab)
-      (controls/mobile-sort-header sort-by sort-direction)
+      (controls/mobile-outcome-subtab-row active-tab)
+      (controls/mobile-sort-header sort-by sort-direction active-tab)
       (rows/mobile-asset-list processed-assets-list selected-market-key highlighted-market-key* favorites suppress-empty-state?)]]))
 
 (defn asset-selector-dropdown

@@ -22,6 +22,16 @@
     (order-type-label order-type)
     "Pro"))
 
+(defn- parse-outcome-side-index [value]
+  (let [parsed (cond
+                 (number? value) value
+                 (string? value) (js/parseInt value 10)
+                 :else js/NaN)]
+    (if (and (number? parsed)
+             (not (js/isNaN parsed)))
+      (int parsed)
+      0)))
+
 (defn order-form-vm [state]
   (let [{:keys [draft
                 ui
@@ -39,6 +49,8 @@
                 base-symbol
                 spot?
                 hip3?
+                outcome?
+                outcome-sides
                 read-only?
                 sz-decimals
                 max-leverage]}
@@ -61,7 +73,10 @@
         submit-errors (:errors submit-policy)
         required-submit-fields (:required-fields submit-policy)
         submit-tooltip (submit/submit-tooltip-from-policy submit-policy)
-        submit-disabled? (:disabled? submit-policy)]
+        submit-disabled? (:disabled? submit-policy)
+        outcome-side-index (parse-outcome-side-index
+                            (or (:outcome-side normalized-form)
+                                (:outcome-side-index normalized-form)))]
     {:form normalized-form
      :side side
      :type type
@@ -73,6 +88,9 @@
      :controls controls
      :spot? spot?
      :hip3? hip3?
+     :outcome? (boolean outcome?)
+     :outcome-sides (vec (or outcome-sides []))
+     :outcome-side-index outcome-side-index
      :read-only? read-only?
      :display summary-display
      :ui-leverage ui-leverage

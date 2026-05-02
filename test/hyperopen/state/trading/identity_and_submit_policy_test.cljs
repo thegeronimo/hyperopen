@@ -81,6 +81,35 @@
       (is (true? (:cross-margin-allowed? market-info)))
       (is (number? (:max-leverage market-info))))))
 
+(deftest market-info-exposes-outcome-side-metadata-test
+  (let [state {:active-asset "outcome:0"
+               :active-market {:coin "outcome:0"
+                               :title "BTC above 78213 on May 3 at 2:00 AM?"
+                               :quote "USDC"
+                               :market-type :outcome
+                               :szDecimals 0
+                               :outcome-sides [{:side-index 0
+                                                :side-label "Yes"
+                                                :coin "#0"
+                                                :asset-id 100000000}
+                                               {:side-index 1
+                                                :side-label "No"
+                                                :coin "#1"
+                                                :asset-id 100000001}]}}
+        market-info (trading/market-info state)]
+    (is (true? (:outcome? market-info)))
+    (is (false? (:read-only? market-info)))
+    (is (= "USDC" (:quote-symbol market-info)))
+    (is (= [{:side-index 0
+             :side-label "Yes"
+             :coin "#0"
+             :asset-id 100000000}
+            {:side-index 1
+             :side-label "No"
+             :coin "#1"
+             :asset-id 100000001}]
+           (:outcome-sides market-info)))))
+
 (deftest cross-margin-eligibility-and-effective-mode-test
   (let [cross-state {:active-market {:coin "BTC"
                                      :marginMode "normal"}}

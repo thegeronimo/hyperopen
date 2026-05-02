@@ -156,6 +156,37 @@
     (is (= 10000
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-value])))))
 
+(deftest active-asset-row-vm-projects-outcome-market-fields-test
+  (let [market {:key "outcome:0"
+                :coin "#0"
+                :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                :title "BTC above 78213 on May 3 at 2:00 AM?"
+                :market-type :outcome
+                :mark 0.57841
+                :markRaw "0.57841"
+                :change24h 0.0268
+                :change24hPct 4.87
+                :volume24h 180211.68
+                :openInterest 254722
+                :expiry-ms 1777788000000
+                :outcome-details "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."}
+        panel-vm (active-asset-vm/active-asset-panel-vm
+                  {:active-asset "#0"
+                   :active-market market
+                   :active-assets {:contexts {"#0" {:coin "#0"}}}
+                   :asset-selector {:visible-dropdown nil
+                                    :missing-icons #{}
+                                    :loaded-icons #{}
+                                    :market-by-key {"outcome:0" market}}
+                   :funding-ui {:tooltip {}}
+                   :trade-ui {:mobile-asset-details-open? false}})]
+    (is (true? (get-in panel-vm [:row-vm :is-outcome])))
+    (is (= "58%" (get-in panel-vm [:row-vm :outcome-chance-label])))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?"
+           (get-in panel-vm [:row-vm :outcome-title])))
+    (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
+           (get-in panel-vm [:row-vm :outcome-details])))))
+
 (deftest active-asset-row-vm-inferrs-namespaced-market-during-bootstrap-and-shows-live-position-test
   (let [state {:active-asset "xyz:BRENTOIL"
                :active-market nil

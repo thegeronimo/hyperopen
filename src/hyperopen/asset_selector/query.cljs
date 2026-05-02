@@ -31,9 +31,14 @@
 (defn- sort-token [value]
   (str/lower-case (or (some-> value str str/trim) "")))
 
+(defn- market-title-token
+  [asset]
+  (sort-token (or (:title asset)
+                  (:symbol asset))))
+
 (defn- market-primary-sort-rank [sort-key asset]
   (case sort-key
-    :name (sort-token (:symbol asset))
+    :name (market-title-token asset)
     :price (safe-sort-number (:mark asset))
     :volume (safe-sort-number (:volume24h asset))
     :change (safe-sort-number (:change24hPct asset))
@@ -44,7 +49,7 @@
 (defn- market-fallback-sort-rank [asset]
   [(or (parse-cache-order (:cache-order asset))
        js/Number.MAX_SAFE_INTEGER)
-   (sort-token (:symbol asset))
+   (market-title-token asset)
    (sort-token (:coin asset))
    (sort-token (:key asset))])
 
@@ -63,15 +68,21 @@
   [asset search-term strict?]
   (let [query (str/lower-case (or search-term ""))
         symbol (str/lower-case (or (:symbol asset) ""))
+        title (str/lower-case (or (:title asset) ""))
         coin (str/lower-case (or (:coin asset) ""))
-        base (str/lower-case (or (:base asset) ""))]
+        base (str/lower-case (or (:base asset) ""))
+        underlying (str/lower-case (or (:underlying asset) ""))]
     (if strict?
       (or (str/starts-with? symbol query)
+          (str/starts-with? title query)
           (str/starts-with? coin query)
-          (str/starts-with? base query))
+          (str/starts-with? base query)
+          (str/starts-with? underlying query))
       (or (str/includes? symbol query)
+          (str/includes? title query)
           (str/includes? coin query)
-          (str/includes? base query)))))
+          (str/includes? base query)
+          (str/includes? underlying query)))))
 
 (defn- hip3-tab-eligible?
   [asset strict?]
@@ -94,6 +105,11 @@
     :perps (and (= :perp (:market-type asset))
                 (perps-tab-eligible? asset strict?))
     :spot (= :spot (:market-type asset))
+    :outcome (= :outcome (:market-type asset))
+    :outcome-15m (and (= :outcome (:market-type asset))
+                      (= "15m" (:period asset)))
+    :outcome-1d (and (= :outcome (:market-type asset))
+                     (= "1d" (:period asset)))
     :crypto (and (= :perp (:market-type asset)) (= :crypto (:category asset)))
     :tradfi (and (= :perp (:market-type asset)) (= :tradfi (:category asset)))
     :hip3 (and (= :perp (:market-type asset))

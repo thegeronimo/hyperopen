@@ -54,6 +54,17 @@
 (def ^:private asset-selector-live-market-subscriptions-paused-path
   [:asset-selector :live-market-subscriptions-paused?])
 
+(defn- active-market-side-coins
+  [market canonical-coin]
+  (let [side-coins (when (= :outcome (:market-type market))
+                     (->> (:outcome-sides market)
+                          (keep :coin)
+                          (filter string?)
+                          distinct
+                          vec))]
+    (vec (or (seq side-coins)
+             [canonical-coin]))))
+
 (declare toggle-asset-dropdown
          close-asset-dropdown
          select-asset
@@ -258,6 +269,9 @@
                               (markets/resolve-or-infer-market-by-coin market-by-key coin)))
         canonical-coin (or (:coin resolved-market) coin)
         current-asset (get-in state [:active-asset])
+        current-market (:active-market state)
+        current-side-coins (active-market-side-coins current-market current-asset)
+        selected-side-coins (active-market-side-coins resolved-market canonical-coin)
         switched-asset? (and (seq canonical-coin)
                              (not= canonical-coin current-asset))
         reset-order-form (when (and switched-asset?
@@ -293,14 +307,18 @@
         immediate-ui-effects [[:effects/save-many immediate-ui-path-values]
                               sync-asset-selector-active-ctx-subscriptions-effect]
         unsubscribe-effects (if current-asset
-                             [[:effects/unsubscribe-active-asset current-asset]
-                              [:effects/unsubscribe-orderbook current-asset]
-                              [:effects/unsubscribe-trades current-asset]]
+                             (into [[:effects/unsubscribe-active-asset current-asset]]
+                                   (mapcat (fn [side-coin]
+                                             [[:effects/unsubscribe-orderbook side-coin]
+                                              [:effects/unsubscribe-trades side-coin]])
+                                           current-side-coins))
                              [])
         trade-route-effects (trade-route-sync-effects state canonical-coin)
-        subscribe-effects [[:effects/subscribe-active-asset canonical-coin]
-                           [:effects/subscribe-orderbook canonical-coin]
-                           [:effects/subscribe-trades canonical-coin]]
+        subscribe-effects (into [[:effects/subscribe-active-asset canonical-coin]]
+                                (mapcat (fn [side-coin]
+                                          [[:effects/subscribe-orderbook side-coin]
+                                           [:effects/subscribe-trades side-coin]])
+                                        selected-side-coins))
         subscribe-effects* (cond-> subscribe-effects
                              (seq canonical-coin)
                              (conj [:effects/sync-active-asset-funding-predictability canonical-coin]))]

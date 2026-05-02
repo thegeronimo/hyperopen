@@ -88,6 +88,27 @@
               [:effects/subscribe-trades nil]]
              effects)))))
 
+(deftest select-outcome-asset-subscribes-both-side-books-and-trades-test
+  (let [market {:key "outcome:0"
+                :coin "#0"
+                :market-type :outcome
+                :outcome-sides [{:side-index 0 :coin "#0"}
+                                {:side-index 1 :coin "#1"}]}
+        effects (actions/select-asset
+                 {:active-asset "BTC"
+                  :asset-selector {:market-by-key {"outcome:0" market}}}
+                 market)]
+    (is (= [[:effects/unsubscribe-active-asset "BTC"]
+            [:effects/unsubscribe-orderbook "BTC"]
+            [:effects/unsubscribe-trades "BTC"]
+            [:effects/subscribe-active-asset "#0"]
+            [:effects/subscribe-orderbook "#0"]
+            [:effects/subscribe-trades "#0"]
+            [:effects/subscribe-orderbook "#1"]
+            [:effects/subscribe-trades "#1"]
+            [:effects/sync-active-asset-funding-predictability "#0"]]
+           (subvec effects 2)))))
+
 (deftest select-asset-syncs-trade-route-to-selected-asset-test
   (let [market {:key "perp:xyz:GOLD"
                 :coin "xyz:GOLD"}

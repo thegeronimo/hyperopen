@@ -16,6 +16,9 @@
                   :pro-tab-label "Pro"
                   :spot? false
                   :hip3? false
+                  :outcome? false
+                  :outcome-sides []
+                  :outcome-side-index 0
                   :read-only? false
                   :display {:available-to-trade "0.00 USDC"
                             :current-position "0.0000 BTC"

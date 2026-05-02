@@ -3,7 +3,7 @@
 
 (def valid-sort-keys #{:name :price :volume :change :openInterest :funding})
 (def valid-sort-directions #{:asc :desc})
-(def valid-tabs #{:all :perps :spot :crypto :tradfi :hip3})
+(def valid-tabs #{:all :perps :spot :outcome :outcome-15m :outcome-1d :crypto :tradfi :hip3})
 
 (defn- load-sort-setting
   "Read `ls-key` from localStorage, default to `default`,

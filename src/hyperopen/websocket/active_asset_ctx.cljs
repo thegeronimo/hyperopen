@@ -39,10 +39,14 @@
                       (when-not (js/isNaN num) num))
     :else nil))
 
+(defn- active-asset-ctx-channel?
+  [channel]
+  (contains? #{"activeAssetCtx" "activeSpotAssetCtx"} channel))
+
 ;; Create a handler function that has access to the store
 (defn create-active-asset-data-handler [store]
   (fn [data]
-    (when (and (map? data) (= (:channel data) "activeAssetCtx"))
+    (when (and (map? data) (active-asset-ctx-channel? (:channel data)))
       (let [data-payload (:data data)
             coin (:coin data-payload)
             ctx (:ctx data-payload)]
@@ -70,7 +74,8 @@
                                 :change24h change
                                 :change24hPct change-pct
                                 :volume24h (parse-number (:dayNtlVlm ctx))
-                                :openInterest (parse-number (:openInterest ctx))
+                                :openInterest (or (parse-number (:openInterest ctx))
+                                                  (parse-number (:circulatingSupply ctx)))
                                 :fundingRate (when (number? funding)
                                                (* 100 funding))}]
             ;; Coalesce market projections so one frame emits one store write.
@@ -157,7 +162,7 @@
 ;; Handle incoming active asset context data
 (defn handle-active-asset-ctx-data! [data]
   (telemetry/log! "Processing active asset context data:" data)
-  (when (and (map? data) (= (:channel data) "activeAssetCtx"))
+  (when (and (map? data) (active-asset-ctx-channel? (:channel data)))
     (let [ctx-data (:data data)
           coin (:coin ctx-data)]
       (when coin
@@ -214,4 +219,6 @@
 (defn init! [store]
   (telemetry/log! "Active asset context subscription module initialized")
   ;; Register handler for activeAssetCtx channel with store access
-  (ws-client/register-handler! "activeAssetCtx" (create-active-asset-data-handler store))) 
+  (let [handler (create-active-asset-data-handler store)]
+    (ws-client/register-handler! "activeAssetCtx" handler)
+    (ws-client/register-handler! "activeSpotAssetCtx" handler))) 

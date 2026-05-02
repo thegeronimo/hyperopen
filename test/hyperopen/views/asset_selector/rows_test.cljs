@@ -164,3 +164,39 @@
                           (keyword? (first candidate))
                           (str/starts-with? (name (first candidate)) "img"))))]
     (is (nil? img-node))))
+
+(deftest outcome-asset-list-item-renders-question-market-columns-test
+  (let [asset {:key "outcome:0"
+               :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+               :title "BTC above 78213 on May 3 at 2:00 AM?"
+               :coin "#0"
+               :market-type :outcome
+               :mark 0.58
+               :markRaw "0.57841"
+               :volume24h 180824
+               :openInterest 254722
+               :change24hPct 4.87}
+        row (rows/asset-list-item asset false false #{} #{} #{})
+        strings (set (support/collect-strings row))]
+    (is (contains? strings "BTC above 78213 on May 3 at 2:00 AM?"))
+    (is (contains? strings "OUTCOME"))
+    (is (contains? strings "58%"))
+    (is (contains? strings "$180,824"))
+    (is (contains? strings "$254,722"))))
+
+(deftest mobile-outcome-asset-list-item-renders-chance-and-open-interest-test
+  (let [asset {:key "outcome:0"
+               :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+               :title "BTC above 78213 on May 3 at 2:00 AM?"
+               :coin "#0"
+               :market-type :outcome
+               :mark 0.58
+               :markRaw "0.57841"
+               :volume24h 180824
+               :openInterest 254722
+               :change24hPct 4.87}
+        row (rows/mobile-asset-list-item asset false false #{})
+        strings (set (support/collect-strings row))]
+    (is (contains? strings "OUTCOME"))
+    (is (contains? strings "58%"))
+    (is (contains? strings "$254,722"))))

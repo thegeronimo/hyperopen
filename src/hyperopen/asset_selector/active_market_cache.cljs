@@ -28,6 +28,22 @@
       "strictisolated" :strict-isolated
       nil)))
 
+(defn- normalize-outcome-side-display
+  [side normalize-display-text parse-index]
+  (when (map? side)
+    (let [side-index (parse-index (:side-index side))
+          side-name (normalize-display-text (:side-name side))
+          coin (normalize-display-text (:coin side))
+          asset-id (parse-index (:asset-id side))]
+      (when (and (some? side-index)
+                 (seq side-name)
+                 (seq coin)
+                 (some? asset-id))
+        {:side-index side-index
+         :side-name side-name
+         :coin coin
+         :asset-id asset-id}))))
+
 (defn normalize-active-market-display
   [market {:keys [normalize-display-text normalize-market-type parse-max-leverage parse-market-index]}]
   (when (map? market)
@@ -56,7 +72,14 @@
                        (when (and (some? market-idx)
                                   (not (seq dex)))
                          market-idx))
-          max-leverage (parse-max-leverage (:maxLeverage market))]
+          max-leverage (parse-max-leverage (:maxLeverage market))
+          outcome-id (parse-index (:outcome-id market))
+          expiry-ms (parse-index (:expiry-ms market))
+          target-price (normalize-display-text (:target-price market))
+          period (normalize-display-text (:period market))
+          outcome-sides (->> (:outcome-sides market)
+                             (keep #(normalize-outcome-side-display % normalize-display-text parse-index))
+                             vec)]
       (when (seq coin)
         (cond-> {:coin coin}
           (seq key) (assoc :key key)
@@ -70,7 +93,12 @@
           (some? market-idx) (assoc :idx market-idx)
           (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
           (some? asset-id) (assoc :asset-id asset-id)
-          (some? max-leverage) (assoc :maxLeverage max-leverage))))))
+          (some? max-leverage) (assoc :maxLeverage max-leverage)
+          (some? outcome-id) (assoc :outcome-id outcome-id)
+          (some? expiry-ms) (assoc :expiry-ms expiry-ms)
+          (seq target-price) (assoc :target-price target-price)
+          (seq period) (assoc :period period)
+          (seq outcome-sides) (assoc :outcome-sides outcome-sides))))))
 
 (defn persist-active-market-display!
   [market normalize-deps]

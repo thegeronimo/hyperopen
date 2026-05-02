@@ -93,6 +93,31 @@
     (is (support/contains-class? view-node "bg-emerald-500/20"))
     (is (not (support/contains-class? view-node "bg-primary")))))
 
+(deftest desktop-active-asset-row-renders-outcome-header-and-details-test
+  (support/with-viewport-width
+    1280
+    (fn []
+      (let [market {:coin "#0"
+                    :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                    :title "BTC above 78213 on May 3 at 2:00 AM?"
+                    :market-type :outcome
+                    :mark 0.57841
+                    :markRaw "0.57841"
+                    :change24h 0.0268
+                    :change24hPct 4.87
+                    :volume24h 180211.68
+                    :openInterest 254722
+                    :outcome-details "If BTC settles above 78213, YES pays $1."}
+            view-node (row/active-asset-row {} market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+            strings (set (support/collect-strings view-node))]
+        (is (contains? strings "Countdown"))
+        (is (contains? strings "% Chance"))
+        (is (contains? strings "Price (Yes)"))
+        (is (contains? strings "58%"))
+        (is (contains? strings "Details"))
+        (is (contains? strings "If BTC settles above 78213, YES pays $1."))
+        (is (not (contains? strings "Funding / Countdown")))))))
+
 (deftest active-asset-row-renders-coin-namespace-chip-when-dex-missing-test
   (let [ctx-data {:coin "xyz:XYZ100-USDC"
                   :mark 87.0

@@ -222,6 +222,9 @@
                                   (fmt/calculate-open-interest-usd open-interest-raw mark))
                                 (:openInterest market)))
         funding-rate (funding-policy/parse-optional-number (:fundingRate ctx-data))
+        outcome? (= :outcome (:market-type market))
+        outcome-chance-label (when (and outcome? (number? mark))
+                               (str (js/Math.round (* mark 100)) "%"))
         countdown-text (fmt/format-funding-countdown)
         funding-tooltip-ui (get-in full-state [:funding-ui :tooltip] {})
         funding-tooltip-id (funding-policy/funding-tooltip-pin-id coin)
@@ -276,6 +279,10 @@
      :funding-tooltip-id funding-tooltip-id
      :funding-tooltip-pinned? funding-tooltip-pinned?
      :is-spot (= :spot (:market-type market))
+     :is-outcome outcome?
+     :outcome-title (or (:title market) (:symbol market))
+     :outcome-details (:outcome-details market)
+     :outcome-chance-label outcome-chance-label
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))
 

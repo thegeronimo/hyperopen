@@ -35,6 +35,7 @@
 (declare request-asset-selector-markets!)
 (declare ensure-perp-dexs-data!)
 (declare ensure-spot-meta-data!)
+(declare ensure-outcome-meta-data!)
 (declare ensure-public-webdata2!)
 (declare request-spot-clearinghouse-state!)
 (declare request-user-abstraction!)
@@ -261,6 +262,10 @@
   ([] (request-spot-meta! {}))
   ([opts] (market/request-spot-meta! {:post-info! post-info!} opts)))
 
+(defn request-outcome-meta!
+  ([] (request-outcome-meta! {}))
+  ([opts] (market/request-outcome-meta! {:post-info! post-info!} opts)))
+
 (defn fetch-spot-meta!
   ([store] (fetch-spot-meta! store {}))
   ([store opts]
@@ -319,6 +324,15 @@
     store
     opts)))
 
+(defn ensure-outcome-meta-data!
+  ([store] (ensure-outcome-meta-data! store {}))
+  ([store opts]
+   (market/ensure-outcome-meta-data!
+    {:active-api-service active-api-service
+     :request-outcome-meta! request-outcome-meta!}
+    store
+    opts)))
+
 (defn ensure-spot-meta!
   ([store] (ensure-spot-meta! store {}))
   ([store opts]
@@ -353,6 +367,7 @@
      :store store
      :ensure-perp-dexs-data! ensure-perp-dexs-data!
      :ensure-spot-meta-data! ensure-spot-meta-data!
+     :ensure-outcome-meta-data! ensure-outcome-meta-data!
      :ensure-public-webdata2! ensure-public-webdata2!
      :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
      :now-ms-fn now-ms

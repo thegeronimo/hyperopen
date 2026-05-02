@@ -338,10 +338,100 @@
    [:div {:class ["flex" "justify-center"]}
     (desktop-funding-cell row-vm)]])
 
+(defn- outcome-details-panel
+  [{:keys [outcome-details]}]
+  (when (seq outcome-details)
+    [:div {:class ["absolute"
+                   "left-4"
+                   "top-full"
+                   "z-[240]"
+                   "mt-1"
+                   "w-[min(28rem,calc(100vw-2rem))]"
+                   "rounded-md"
+                   "border"
+                   "border-base-300"
+                   "bg-base-100"
+                   "p-3"
+                   "text-xs"
+                   "leading-5"
+                   "text-trading-text-secondary"
+                   "shadow-xl"]
+           :role "dialog"
+           :data-role "outcome-details-popover"}
+     outcome-details]))
+
+(defn- desktop-outcome-active-asset-row
+  [{:keys [icon-market
+           dropdown-visible?
+           missing-icons
+           loaded-icons
+           mark
+           mark-raw
+           change-24h
+           change-24h-pct
+           volume-24h
+           open-interest-usd
+           outcome-chance-label]
+    :as row-vm}]
+  [:div {:class ["relative"
+                 "hidden"
+                 "grid-cols-[minmax(max-content,1.8fr)_0.8fr_0.8fr_0.9fr_1fr_1fr_1fr]"
+                 "items-center"
+                 "gap-2"
+                 "px-0"
+                 "py-2"
+                 "lg:grid"
+                 "md:gap-3"]}
+   [:div {:class ["relative" "flex" "justify-start" "app-shell-gutter-left" "min-w-fit" "items-center" "gap-3"]}
+    (icon-button/asset-button icon-market
+                              dropdown-visible?
+                              missing-icons
+                              loaded-icons)
+    [:button {:type "button"
+              :class ["rounded-md" "bg-base-200" "px-4" "py-2" "text-xs" "font-semibold" "text-trading-text" "hover:bg-base-300"]
+              :data-role "outcome-details-button"
+              :aria-label "Outcome details"}
+     "Details"]
+    (outcome-details-panel row-vm)]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "Countdown" "—" {:numeric? true})]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "% Chance"
+                 (or outcome-chance-label "—")
+                 {:numeric? true})]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "Price (Yes)"
+                 (if (some? mark)
+                   (fmt/format-trade-price mark mark-raw)
+                   "Loading...")
+                 {:numeric? true})]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "24h Change"
+                 (if (some? change-24h) nil "Loading...")
+                 {:change? (some? change-24h)
+                  :change-value change-24h
+                  :change-pct change-24h-pct
+                  :change-raw nil
+                  :numeric? true})]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "24h Volume"
+                 (if (some? volume-24h)
+                   (fmt/format-large-currency volume-24h)
+                   "Loading...")
+                 {:numeric? true})]
+   [:div {:class ["flex" "justify-center"]}
+    (data-column "Open Interest"
+                 (if (some? open-interest-usd)
+                   (fmt/format-large-currency open-interest-usd)
+                   "Loading...")
+                 {:numeric? true})]])
+
 (defn active-asset-row-from-vm [row-vm]
   [:div
    (render-visible-branch #(mobile-active-asset-row row-vm)
-                          #(desktop-active-asset-row row-vm))])
+                          #(if (:is-outcome row-vm)
+                             (desktop-outcome-active-asset-row row-vm)
+                             (desktop-active-asset-row row-vm)))])
 
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (active-asset-row-from-vm

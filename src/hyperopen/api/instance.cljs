@@ -78,6 +78,12 @@
              (market-gateway/request-spot-meta!
               {:post-info! post-info!}
               opts)))
+          (request-outcome-meta!
+            ([] (request-outcome-meta! {}))
+            ([opts]
+             (market-gateway/request-outcome-meta!
+              {:post-info! post-info!}
+              opts)))
           (request-public-webdata2!
             ([] (request-public-webdata2! {}))
             ([opts]
@@ -103,6 +109,7 @@
      :request-perp-dexs! request-perp-dexs!
      :request-candle-snapshot! request-candle-snapshot!
      :request-spot-meta! request-spot-meta!
+     :request-outcome-meta! request-outcome-meta!
      :request-public-webdata2! request-public-webdata2!
      :request-market-funding-history! request-market-funding-history!
      :request-predicted-fundings! request-predicted-fundings!}))
@@ -111,6 +118,7 @@
   [service now-ms-fn log-fn market-ops]
   (let [{:keys [request-perp-dexs!
                 request-spot-meta!
+                request-outcome-meta!
                 request-public-webdata2!
                 request-meta-and-asset-ctxs!]} market-ops]
     (letfn [(ensure-perp-dexs-data!
@@ -123,6 +131,11 @@
                (ensure-spot-meta-data! store {}))
               ([store opts]
                (api-service/ensure-spot-meta-data! service store request-spot-meta! opts)))
+            (ensure-outcome-meta-data!
+              ([store]
+               (ensure-outcome-meta-data! store {}))
+              ([store opts]
+               (api-service/ensure-outcome-meta-data! service store request-outcome-meta! opts)))
             (ensure-public-webdata2!
               ([]
                (ensure-public-webdata2! {}))
@@ -139,19 +152,32 @@
                                            (ensure-perp-dexs-data! store request-opts))
                  :ensure-spot-meta-data! (fn [request-opts]
                                            (ensure-spot-meta-data! store request-opts))
+                 :ensure-outcome-meta-data! (fn [request-opts]
+                                              (ensure-outcome-meta-data! store request-opts))
                  :ensure-public-webdata2! ensure-public-webdata2!
                  :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
-                 :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
-                                       (market-gateway/build-market-state now-ms-fn
-                                                                          active-asset
-                                                                          phase
-                                                                          dexs
-                                                                          spot-meta
-                                                                          spot-asset-ctxs
-                                                                          perp-results))
+                 :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
+                                       (let [builder market-gateway/build-market-state]
+                                         (if (some? (.-cljs$core$IFn$_invoke$arity$8 builder))
+                                           (builder now-ms-fn
+                                                    active-asset
+                                                    phase
+                                                    dexs
+                                                    spot-meta
+                                                    spot-asset-ctxs
+                                                    perp-results
+                                                    outcome-meta)
+                                           (builder now-ms-fn
+                                                    active-asset
+                                                    phase
+                                                    dexs
+                                                    spot-meta
+                                                    spot-asset-ctxs
+                                                    perp-results))))
                  :log-fn log-fn})))]
       {:ensure-perp-dexs-data! ensure-perp-dexs-data!
        :ensure-spot-meta-data! ensure-spot-meta-data!
+       :ensure-outcome-meta-data! ensure-outcome-meta-data!
        :ensure-public-webdata2! ensure-public-webdata2!
        :request-asset-selector-markets! request-asset-selector-markets!})))
 

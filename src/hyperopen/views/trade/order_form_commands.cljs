@@ -97,6 +97,9 @@
 (defn set-order-side [side]
   (update-order-field [:side] side))
 
+(defn set-order-outcome-side [side-index]
+  (update-order-field [:outcome-side] side-index))
+
 (defn set-limit-price-input []
   (update-order-field [:price] event-target-value))
 

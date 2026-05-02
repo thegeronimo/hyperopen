@@ -88,6 +88,13 @@
     (request-spot-meta! (merge {:dedupe-key :spot-meta}
                                opts))))
 
+(defn ensure-outcome-meta-data!
+  [_service store request-outcome-meta! opts]
+  (if-let [meta (get-in @store [:outcome :meta])]
+    (js/Promise.resolve meta)
+    (request-outcome-meta! (merge {:dedupe-key :outcome-meta}
+                                  opts))))
+
 (defn ensure-public-webdata2!
   [service request-public-webdata2! opts]
   (let [runtime* (runtime service)

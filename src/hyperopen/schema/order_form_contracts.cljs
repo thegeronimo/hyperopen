@@ -13,6 +13,9 @@
     :controls
     :spot?
     :hip3?
+    :outcome?
+    :outcome-sides
+    :outcome-side-index
     :read-only?
     :display
     :ui-leverage
@@ -88,6 +91,9 @@
 (s/def :order-form-vm/pro-tab-label string?)
 (s/def :order-form-vm/spot? boolean?)
 (s/def :order-form-vm/hip3? boolean?)
+(s/def :order-form-vm/outcome? boolean?)
+(s/def :order-form-vm/outcome-sides vector?)
+(s/def :order-form-vm/outcome-side-index int?)
 (s/def :order-form-vm/read-only? boolean?)
 (s/def :order-form-vm/ui-leverage number?)
 (s/def :order-form-vm/next-leverage number?)
@@ -208,6 +214,9 @@
                     :order-form-vm/controls
                     :order-form-vm/spot?
                     :order-form-vm/hip3?
+                    :order-form-vm/outcome?
+                    :order-form-vm/outcome-sides
+                    :order-form-vm/outcome-side-index
                     :order-form-vm/read-only?
                     :order-form-vm/display
                     :order-form-vm/ui-leverage

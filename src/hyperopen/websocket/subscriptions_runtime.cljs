@@ -4,6 +4,18 @@
 (def ^:private active-candle-owner
   :active-chart)
 
+(defn active-market-subscription-coins
+  [market canonical-coin]
+  (let [side-coins (when (= :outcome (:market-type market))
+                     (->> (:outcome-sides market)
+                          (keep :coin)
+                          (filter string?)
+                          distinct
+                          vec))]
+    (vec (or (seq side-coins)
+             (when (string? canonical-coin)
+               [canonical-coin])))))
+
 (defn subscribe-active-asset!
   [{:keys [store
            coin
@@ -22,7 +34,8 @@
         resolved-market (or market
                            (resolve-market-by-coin-fn
                             market-by-key
-                            canonical-coin))]
+                            canonical-coin))
+        subscription-coins (active-market-subscription-coins resolved-market canonical-coin)]
     (persist-active-asset! canonical-coin)
     (persist-active-market-display! resolved-market)
     (swap! store
@@ -36,7 +49,8 @@
                    (assoc-in [:active-asset] canonical-coin)
                    (assoc-in [:selected-asset] canonical-coin)
                    (assoc :active-market (or market (:active-market state)))))))
-    (subscribe-active-asset-ctx! canonical-coin)
+    (doseq [ctx-coin subscription-coins]
+      (subscribe-active-asset-ctx! ctx-coin))
     (let [selected-timeframe (get-in @store [:chart-options :selected-timeframe] :1d)]
       (if (migration-flags/candle-subscriptions-enabled? @store)
         (when (fn? sync-candle-subscription!)
@@ -55,7 +69,10 @@
            unsubscribe-active-asset-ctx!
            clear-candle-subscription!]}]
   (log-fn "Unsubscribing from active asset context for:" coin)
-  (unsubscribe-active-asset-ctx! coin)
+  (let [market (:active-market @store)
+        subscription-coins (active-market-subscription-coins market coin)]
+    (doseq [ctx-coin subscription-coins]
+      (unsubscribe-active-asset-ctx! ctx-coin)))
   (when (fn? clear-candle-subscription!)
     (clear-candle-subscription! active-candle-owner))
   (swap! store update-in [:active-assets :contexts] dissoc coin))

@@ -34,6 +34,23 @@
     (or (nil? coin-namespace)
         (= coin-namespace market-namespace))))
 
+(defn- outcome-side-coin?
+  [coin]
+  (and (string? coin)
+       (str/starts-with? coin "#")))
+
+(defn- outcome-market-key?
+  [coin]
+  (and (string? coin)
+       (str/starts-with? coin "outcome:")))
+
+(defn- outcome-side-matches-coin?
+  [market coin-token]
+  (and (= :outcome (:market-type market))
+       (some (fn [{:keys [coin]}]
+               (= coin-token (normalized-token coin)))
+             (:outcome-sides market))))
+
 (defn market-matches-coin?
   "Return true when a market and coin refer to the same instrument even if one side
    is namespaced (for example `xyz:GOLD`) and the other is the display/base symbol (`GOLD`)."
@@ -48,6 +65,8 @@
                               (base-token (:symbol market*)))]
     (boolean
      (or (and coin-token
+              (outcome-side-matches-coin? market* coin-token))
+         (and coin-token
               (= coin-token market-coin-token))
          (and coin-token
               (= coin-token market-symbol-token))
@@ -59,12 +78,13 @@
 (defn coin-aliases
   "Return deterministic raw coin aliases for the same instrument across active-asset and market state."
   [active-asset market]
-  (->> [active-asset
-        (:coin market)
-        (:base market)
-        (some-> active-asset instrument/base-symbol-from-value)
-        (some-> (:coin market) instrument/base-symbol-from-value)
-        (some-> (:symbol market) instrument/base-symbol-from-value)]
+  (->> (concat [active-asset
+                (:coin market)
+                (:base market)
+                (some-> active-asset instrument/base-symbol-from-value)
+                (some-> (:coin market) instrument/base-symbol-from-value)
+                (some-> (:symbol market) instrument/base-symbol-from-value)]
+               (map :coin (:outcome-sides market)))
        (keep (fn [value]
                (some-> value str str/trim not-empty)))
        distinct
@@ -97,11 +117,13 @@
    Spot coins contain '/' or provider spot ids prefixed with '@'."
   [coin]
   (let [coin* (when (some? coin) (str coin))]
-    (if (and (seq coin*)
-             (or (str/includes? coin* "/")
-                 (str/starts-with? coin* "@")))
-      (spot-market-key coin*)
-      (perp-market-key coin*))))
+    (cond
+      (outcome-market-key? coin*) coin*
+      (outcome-side-coin? coin*) coin*
+      (and (seq coin*)
+           (or (str/includes? coin* "/")
+               (str/starts-with? coin* "@"))) (spot-market-key coin*)
+      :else (perp-market-key coin*))))
 
 (defn candidate-market-keys
   "Deterministically ordered candidate keys for resolving a coin into market-by-key.
@@ -116,6 +138,10 @@
       (vec (distinct [(spot-market-key (str "@" coin*))
                       (spot-market-key coin*)
                       (perp-market-key coin*)]))
+
+      (or (outcome-market-key? coin*)
+          (outcome-side-coin? coin*))
+      [coin*]
 
       :else
       (let [primary (coin->market-key coin*)
@@ -137,7 +163,12 @@
   [market-by-key coin]
   (let [coin* (when (scalar-coin-id? coin) (str coin))]
     (when (and (map? market-by-key) (seq coin*))
-      (or (some #(get market-by-key %)
+      (or (when (outcome-side-coin? coin*)
+            (some (fn [market]
+                    (when (market-matches-coin? market coin*)
+                      market))
+                  (vals market-by-key)))
+          (some #(get market-by-key %)
                 (candidate-market-keys coin*))
           (let [base-token (some-> coin* str/trim str/upper-case)
                 base-coin? (and (seq base-token)
@@ -298,10 +329,234 @@
   (when (and prev (not= prev 0))
     (* 100 (/ (- mark prev) prev))))
 
+(def ^:private outcome-asset-id-base 100000000)
+
+(defn outcome-encoding
+  [outcome side]
+  (+ (* 10 (or (parse-int-value outcome) 0))
+     (or (parse-int-value side) 0)))
+
+(defn outcome-coin
+  [outcome side]
+  (str "#" (outcome-encoding outcome side)))
+
+(defn outcome-asset-id
+  [outcome side]
+  (+ outcome-asset-id-base (outcome-encoding outcome side)))
+
+(defn- split-description-field
+  [field]
+  (let [[k v] (str/split (str field) #":" 2)]
+    (when (seq k)
+      [(str/trim k) (some-> v str/trim)])))
+
+(defn- parse-outcome-expiry-ms
+  [expiry]
+  (when-let [[_ yyyy mm dd hh minute] (and (string? expiry)
+                                           (re-matches #"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})" expiry))]
+    (js/Date.UTC (js/parseInt yyyy 10)
+                 (dec (js/parseInt mm 10))
+                 (js/parseInt dd 10)
+                 (js/parseInt hh 10)
+                 (js/parseInt minute 10))))
+
+(defn parse-outcome-description
+  [description]
+  (let [fields (->> (str/split (str (or description "")) #"\|")
+                    (keep split-description-field))
+        known (into {} fields)
+        extra-fields (into {}
+                           (remove (fn [[k _]]
+                                     (contains? #{"class" "underlying" "expiry" "targetPrice" "period"} k)))
+                           fields)
+        expiry (get known "expiry")]
+    (cond-> {:raw-description description
+             :outcome-class (get known "class")
+             :underlying (get known "underlying")
+             :expiry expiry
+             :expiry-ms (parse-outcome-expiry-ms expiry)
+             :target-price (get known "targetPrice")
+             :period (get known "period")
+             :extra-fields extra-fields}
+      (nil? description) (assoc :raw-description ""))))
+
+(def ^:private local-month-names
+  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
+
+(defn- twelve-hour-label
+  [hour]
+  (let [hour* (mod hour 24)
+        hour12 (mod hour* 12)]
+    (str (if (zero? hour12) 12 hour12)
+         ":00 "
+         (if (< hour* 12) "AM" "PM"))))
+
+(defn- outcome-title
+  [{:keys [underlying target-price expiry-ms]}]
+  (let [date (js/Date. expiry-ms)]
+    (str underlying
+         " above "
+         target-price
+         " on "
+         (get local-month-names (.getMonth date))
+         " "
+         (.getDate date)
+         " at "
+         (twelve-hour-label (.getHours date))
+         "?")))
+
+(def ^:private utc-month-names
+  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
+
+(defn- pad2
+  [value]
+  (let [text (str value)]
+    (if (= 1 (count text)) (str "0" text) text)))
+
+(defn- utc-expiry-label
+  [expiry-ms]
+  (let [date (js/Date. expiry-ms)]
+    (str (get utc-month-names (.getUTCMonth date))
+         " "
+         (pad2 (.getUTCDate date))
+         ", "
+         (.getUTCFullYear date)
+         " "
+         (pad2 (.getUTCHours date))
+         ":"
+         (pad2 (.getUTCMinutes date))
+         " UTC")))
+
+(defn- outcome-details-copy
+  [{:keys [underlying target-price expiry-ms]}]
+  (str "If the "
+       underlying
+       " mark price at time of settlement is above "
+       target-price
+       " at "
+       (utc-expiry-label expiry-ms)
+       ", YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."))
+
+(defn- outcome-ctx-by-coin
+  [spot-asset-ctxs]
+  (into {}
+        (keep (fn [{:keys [coin] :as ctx}]
+                (when (outcome-side-coin? coin)
+                  [coin ctx])))
+        (or spot-asset-ctxs [])))
+
+(defn- outcome-side-name
+  [side-index side-spec]
+  (or (:name side-spec)
+      (:sideName side-spec)
+      (case side-index
+        0 "Yes"
+        1 "No"
+        (str "Side " side-index))))
+
+(defn- outcome-side-stats
+  [ctx]
+  (let [mark-raw (:markPx ctx)
+        mid-raw (:midPx ctx)
+        prev-raw (:prevDayPx ctx)
+        mark (safe-num mark-raw)
+        prev (safe-num prev-raw)]
+    {:mark mark
+     :markRaw mark-raw
+     :mid (safe-num mid-raw)
+     :midRaw mid-raw
+     :prevDayRaw prev-raw
+     :change24h (- mark prev)
+     :change24hPct (pct-change mark prev)
+     :volume24h (safe-num (:dayNtlVlm ctx))
+     :baseVolume24h (safe-num (:dayBaseVlm ctx))
+     :circulatingSupply (safe-num (:circulatingSupply ctx))}))
+
+(defn- build-outcome-side
+  [outcome-id side-index side-spec ctx]
+  (merge {:side-index side-index
+          :side-name (outcome-side-name side-index side-spec)
+          :coin (outcome-coin outcome-id side-index)
+          :asset-id (outcome-asset-id outcome-id side-index)
+          :szDecimals 0}
+         (outcome-side-stats ctx)))
+
+(defn- outcome-entry-description
+  [entry]
+  (or (:description entry)
+      (:encodedDescription entry)
+      (:encoded-description entry)))
+
+(defn- outcome-entry-id
+  [idx entry]
+  (or (parse-int-value (:outcome entry))
+      (parse-int-value (:outcomeId entry))
+      idx))
+
+(defn- build-outcome-market-entry
+  [ctx-by-coin idx entry]
+  (let [outcome-id (outcome-entry-id idx entry)
+        parsed (parse-outcome-description (outcome-entry-description entry))
+        side-specs (vec (or (:sideSpecs entry)
+                            (:side-specs entry)
+                            [{:name "Yes"} {:name "No"}]))
+        sides (->> side-specs
+                   (map-indexed (fn [side-index side-spec]
+                                  (let [coin (outcome-coin outcome-id side-index)]
+                                    (build-outcome-side outcome-id
+                                                        side-index
+                                                        side-spec
+                                                        (get ctx-by-coin coin)))))
+                   vec)
+        yes-side (or (first sides) {})
+        title (outcome-title parsed)
+        open-interest (some->> sides
+                               (map :circulatingSupply)
+                               (filter pos?)
+                               first)]
+    (merge parsed
+           {:key (str "outcome:" outcome-id)
+            :coin (:coin yes-side)
+            :symbol title
+            :title title
+            :base (:underlying parsed)
+            :quote "USDH"
+            :market-type :outcome
+            :category :outcome
+            :hip3? false
+            :hip3-eligible? false
+            :outcome-id outcome-id
+            :outcome-sides sides
+            :asset-id (:asset-id yes-side)
+            :szDecimals 0
+            :mark (:mark yes-side)
+            :markRaw (:markRaw yes-side)
+            :volume24h (:volume24h yes-side)
+            :change24h (:change24h yes-side)
+            :change24hPct (:change24hPct yes-side)
+            :prevDayRaw (:prevDayRaw yes-side)
+            :openInterest open-interest
+            :fundingRate nil
+            :maxLeverage nil
+            :outcome-details (outcome-details-copy parsed)})))
+
+(defn build-outcome-markets
+  "Build normalized outcome question markets from outcomeMeta and webData2 spot asset contexts."
+  [outcome-meta spot-asset-ctxs]
+  (let [ctx-by-coin (outcome-ctx-by-coin spot-asset-ctxs)]
+    (->> (or (:outcomes outcome-meta)
+             (:questions outcome-meta)
+             [])
+         (keep-indexed #(build-outcome-market-entry ctx-by-coin %1 %2))
+         vec)))
+
 (defn classify-market
   "Assign :category and :hip3? based on market type and dex." 
   [market]
   (cond
+    (= :outcome (:market-type market))
+    (assoc market :category :outcome :hip3? false :hip3-eligible? false)
+
     (= :spot (:market-type market))
     (assoc market :category :spot :hip3? false :hip3-eligible? false)
 

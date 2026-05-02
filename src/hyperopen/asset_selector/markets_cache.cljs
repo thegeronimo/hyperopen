@@ -12,10 +12,10 @@
   1)
 
 (def ^:private supported-market-types
-  #{:perp :spot})
+  #{:perp :spot :outcome})
 
 (def ^:private supported-market-categories
-  #{:spot :crypto :tradfi})
+  #{:spot :crypto :tradfi :outcome})
 
 (defn normalize-market-type
   [value]
@@ -77,6 +77,22 @@
     (when (seq text)
       text)))
 
+(defn- normalize-outcome-side-cache-entry
+  [side]
+  (when (map? side)
+    (let [side-index (parse-market-index (:side-index side))
+          side-name (normalize-display-text (:side-name side))
+          coin (normalize-display-text (:coin side))
+          asset-id (parse-market-index (:asset-id side))]
+      (when (and (some? side-index)
+                 (seq side-name)
+                 (seq coin)
+                 (some? asset-id))
+        {:side-index side-index
+         :side-name side-name
+         :coin coin
+         :asset-id asset-id}))))
+
 (defn normalize-asset-selector-market-cache-entry
   [market]
   (when (map? market)
@@ -110,12 +126,21 @@
                                   (not (seq dex)))
                          market-idx))
           max-leverage (parse-max-leverage (:maxLeverage market))
-          cache-order (parse-utils/parse-int-value (:cache-order market))]
+          cache-order (parse-utils/parse-int-value (:cache-order market))
+          title (normalize-display-text (:title market))
+          outcome-id (parse-market-index (:outcome-id market))
+          expiry-ms (parse-market-index (:expiry-ms market))
+          target-price (normalize-display-text (:target-price market))
+          period (normalize-display-text (:period market))
+          outcome-sides (->> (:outcome-sides market)
+                             (keep normalize-outcome-side-cache-entry)
+                             vec)]
       (when (and (seq market-key) (seq coin) (seq symbol))
         (cond-> {:key market-key
                  :coin coin
                  :symbol symbol
                  :base base}
+          (seq title) (assoc :title title)
           (seq quote) (assoc :quote quote)
           (seq dex) (assoc :dex dex)
           market-type (assoc :market-type market-type)
@@ -128,6 +153,11 @@
           (some? perp-dex-index) (assoc :perp-dex-index perp-dex-index)
           (some? asset-id) (assoc :asset-id asset-id)
           (some? max-leverage) (assoc :maxLeverage max-leverage)
+          (some? outcome-id) (assoc :outcome-id outcome-id)
+          (some? expiry-ms) (assoc :expiry-ms expiry-ms)
+          (seq target-price) (assoc :target-price target-price)
+          (seq period) (assoc :period period)
+          (seq outcome-sides) (assoc :outcome-sides outcome-sides)
           (some? cache-order) (assoc :cache-order cache-order))))))
 
 (defn normalize-asset-selector-markets-cache

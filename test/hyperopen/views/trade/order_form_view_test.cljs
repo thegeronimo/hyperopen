@@ -18,6 +18,32 @@
     (is (contains? strings "Buy / Long"))
     (is (contains? strings "Sell / Short"))))
 
+(deftest order-form-renders-outcome-side-selector-test
+  (let [state (assoc (base-state {:type :limit})
+                     :active-asset "outcome:0"
+                     :active-market {:coin "outcome:0"
+                                     :quote "USDC"
+                                     :market-type :outcome
+                                     :szDecimals 0
+                                     :outcome-sides [{:side-index 0
+                                                      :side-label "Yes"
+                                                      :coin "#0"
+                                                      :asset-id 100000000}
+                                                     {:side-index 1
+                                                      :side-label "No"
+                                                      :coin "#1"
+                                                      :asset-id 100000001}]})
+        view-node (view/order-form-view state)
+        strings (set (collect-strings view-node))
+        no-button (find-first-node view-node
+                                   (fn [node]
+                                     (= [[:actions/update-order-form [:outcome-side] 1]]
+                                        (get-in node [1 :on :click]))))]
+    (is (contains? strings "Outcome"))
+    (is (contains? strings "Yes"))
+    (is (contains? strings "No"))
+    (is (some? no-button))))
+
 (deftest leverage-row-renders-isolated-margin-label-when-selected-test
   (let [view-node (view/order-form-view (base-state {:margin-mode :isolated}))
         trigger (find-first-node view-node

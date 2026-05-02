@@ -51,6 +51,10 @@
   [{:keys [post-info!]} opts]
   (market-gateway/request-spot-meta! {:post-info! post-info!} opts))
 
+(defn request-outcome-meta!
+  [{:keys [post-info!]} opts]
+  (market-gateway/request-outcome-meta! {:post-info! post-info!} opts))
+
 (defn fetch-spot-meta!
   [{:keys [log-fn request-spot-meta!]} store opts]
   (api-compat/fetch-spot-meta!
@@ -94,6 +98,14 @@
    request-spot-meta!
    opts))
 
+(defn ensure-outcome-meta-data!
+  [{:keys [active-api-service request-outcome-meta!]} store opts]
+  (api-service/ensure-outcome-meta-data!
+   (active-api-service)
+   store
+   request-outcome-meta!
+   opts))
+
 (defn ensure-spot-meta!
   [{:keys [ensure-spot-meta-data!]} store opts]
   (api-compat/ensure-spot-meta!
@@ -108,6 +120,13 @@
    request-public-webdata2!
    opts))
 
+(defn- build-market-state-with-optional-outcomes
+  [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
+  (let [builder market-gateway/build-market-state]
+    (if (some? (.-cljs$core$IFn$_invoke$arity$8 builder))
+      (builder now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta)
+      (builder now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results))))
+
 (defn fetch-asset-selector-markets!
   [{:keys [log-fn request-asset-selector-markets!]} store opts]
   (api-compat/fetch-asset-selector-markets!
@@ -121,6 +140,7 @@
            store
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
+           ensure-outcome-meta-data!
            ensure-public-webdata2!
            request-meta-and-asset-ctxs!
            now-ms-fn
@@ -132,14 +152,17 @@
                               (ensure-perp-dexs-data! store request-opts))
     :ensure-spot-meta-data! (fn [request-opts]
                               (ensure-spot-meta-data! store request-opts))
+    :ensure-outcome-meta-data! (fn [request-opts]
+                                 (ensure-outcome-meta-data! store request-opts))
     :ensure-public-webdata2! ensure-public-webdata2!
     :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
-    :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
-                          (market-gateway/build-market-state now-ms-fn
-                                                             active-asset
-                                                             phase
-                                                             dexs
-                                                             spot-meta
-                                                             spot-asset-ctxs
-                                                             perp-results))
+    :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
+                          (build-market-state-with-optional-outcomes now-ms-fn
+                                                                     active-asset
+                                                                     phase
+                                                                     dexs
+                                                                     spot-meta
+                                                                     spot-asset-ctxs
+                                                                     perp-results
+                                                                     outcome-meta))
     :log-fn log-fn}))

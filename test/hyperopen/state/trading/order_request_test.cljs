@@ -123,3 +123,40 @@
                    :asset-contexts {:hyna:GOLD {:idx 5}}}
             request (trading/build-order-request state form)]
         (is (nil? request))))))
+
+(deftest build-order-request-resolves-selected-outcome-side-asset-id-test
+  (let [base-form (-> (trading/default-order-form)
+                      (assoc :type :limit
+                             :side :buy
+                             :size "1"
+                             :price "0.58"))
+        state {:active-asset "outcome:0"
+               :active-market {:coin "outcome:0"
+                               :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                               :title "BTC above 78213 on May 3 at 2:00 AM?"
+                               :quote "USDC"
+                               :market-type :outcome
+                               :mark 0.58
+                               :szDecimals 0
+                               :outcome-sides [{:side-index 0
+                                                :side-label "Yes"
+                                                :coin "#0"
+                                                :asset-id 100000000}
+                                               {:side-index 1
+                                                :side-label "No"
+                                                :coin "#1"
+                                                :asset-id 100000001}]}
+               :orderbooks {"#0" {:bids [{:px "0.57"}]
+                                  :asks [{:px "0.59"}]}
+                            "#1" {:bids [{:px "0.41"}]
+                                  :asks [{:px "0.43"}]}}
+               :webdata2 {:clearinghouseState {:marginSummary {:accountValue "1000"
+                                                               :totalMarginUsed "250"}}}
+               :asset-contexts {}}
+        default-request (trading/build-order-request state (assoc base-form
+                                                                  :ui-leverage 10
+                                                                  :margin-mode :cross))
+        no-request (trading/build-order-request state (assoc base-form :outcome-side 1))]
+    (is (= 100000000 (get-in default-request [:action :orders 0 :a])))
+    (is (= 100000001 (get-in no-request [:action :orders 0 :a])))
+    (is (nil? (:pre-actions default-request)))))

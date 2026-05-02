@@ -125,6 +125,28 @@
     (is (= :quote (:size-input-mode view-model)))
     (is (= "USDC" (:quote-symbol view-model)))))
 
+(deftest order-form-vm-exposes-outcome-side-selector-model-test
+  (let [state (assoc (base-state {:type :limit
+                                  :outcome-side 1}
+                                 {})
+                     :active-asset "outcome:0"
+                     :active-market {:coin "outcome:0"
+                                     :quote "USDC"
+                                     :market-type :outcome
+                                     :szDecimals 0
+                                     :outcome-sides [{:side-index 0
+                                                      :side-label "Yes"
+                                                      :coin "#0"
+                                                      :asset-id 100000000}
+                                                     {:side-index 1
+                                                      :side-label "No"
+                                                      :coin "#1"
+                                                      :asset-id 100000001}]})
+        view-model (vm/order-form-vm state)]
+    (is (true? (:outcome? view-model)))
+    (is (= 1 (:outcome-side-index view-model)))
+    (is (= ["Yes" "No"] (mapv :side-label (:outcome-sides view-model))))))
+
 (deftest order-type-plugin-config-contract-test
   (let [config order-type-registry/order-type-config
         pro-types (set (order-type-registry/pro-order-types))

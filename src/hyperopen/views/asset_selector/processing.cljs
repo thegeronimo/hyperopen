@@ -23,8 +23,10 @@
 
 (defn processed-assets-market-signature
   [markets]
-  (mapv (fn [{:keys [key symbol coin base market-type category hip3? hip3-eligible? cache-order]}]
-          [key symbol coin base market-type category hip3? hip3-eligible? cache-order])
+  (mapv (fn [{:keys [key symbol title coin base underlying market-type category hip3? hip3-eligible?
+                     cache-order period expiry-ms target-price outcome-id]}]
+          [key symbol title coin base underlying market-type category hip3? hip3-eligible?
+           cache-order period expiry-ms target-price outcome-id])
         markets))
 
 (defn processed-assets-market-by-key

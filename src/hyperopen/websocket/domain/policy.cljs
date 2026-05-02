@@ -5,6 +5,9 @@
    "trades" :market
    "candle" :market
    "activeAssetCtx" :market
+   "activeSpotAssetCtx" :market
+   "spotAssetCtxs" :market
+   "outcomeMetaUpdates" :market
    "webData2" :lossless
    "openOrders" :lossless
    "twapStates" :lossless

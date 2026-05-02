@@ -16,6 +16,7 @@
            active-asset
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
+           ensure-outcome-meta-data!
            ensure-public-webdata2!
            request-meta-and-asset-ctxs!
            build-market-state
@@ -27,14 +28,19 @@
                                  (market-metadata/ensure-perp-dex-names!
                                   {:ensure-perp-dexs-data! ensure-perp-dexs-data!}
                                   {:priority priority}))
+        outcome-meta-promise (if (or (= phase :bootstrap)
+                                      (nil? ensure-outcome-meta-data!))
+                               (js/Promise.resolve {:outcomes [] :questions []})
+                               (ensure-outcome-meta-data! {:priority priority}))
         base-promises (js/Promise.all
                        (clj->js [perp-dex-names-promise
                                  (ensure-spot-meta-data! {:priority priority})
-                                 (ensure-public-webdata2! {:priority priority})]))]
+                                 (ensure-public-webdata2! {:priority priority})
+                                 outcome-meta-promise]))]
     (log-fn "Fetching asset selector markets. phase:" (name phase))
     (.then
      base-promises
-     (fn [[dexs* spot-meta-loaded webdata2]]
+     (fn [[dexs* spot-meta-loaded webdata2 outcome-meta]]
        (let [dexs-with-default (if (= phase :bootstrap)
                                  [nil]
                                  (vec (cons nil dexs*)))
@@ -53,7 +59,8 @@
                                                    dexs*
                                                    spot-meta-loaded
                                                    spot-asset-ctxs
-                                                   (array-seq perp-results))]
+                                                   (array-seq perp-results)
+                                                   outcome-meta)]
               {:phase phase
                :spot-meta spot-meta-loaded
                :market-state market-state}))))))))

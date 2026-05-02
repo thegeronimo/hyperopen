@@ -32,6 +32,7 @@
    (commands/set-order-margin-mode :isolated)
    (commands/update-order-form [:side] :buy)
    (commands/set-order-side :sell)
+   (commands/set-order-outcome-side 1)
    (commands/set-limit-price-input)
    (commands/set-order-size-display-input)
    (commands/set-order-size-input-mode :base)
@@ -90,7 +91,10 @@
          (commands/set-twap-hours-input)))
   (is (= {:command-id :order-form/update-order-form
           :args [[:side] :sell]}
-         (commands/set-order-side :sell))))
+         (commands/set-order-side :sell)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:outcome-side] 1]}
+         (commands/set-order-outcome-side 1))))
 
 (deftest intent-adapter-translates-to-runtime-action-vectors-test
   (is (= [[:actions/select-order-entry-mode :limit]]

@@ -304,7 +304,7 @@
                     (keyword? value) value
                     (string? value) (keyword (str/lower-case value))
                     :else nil)]
-    (when (contains? #{:perp :spot} candidate)
+    (when (contains? #{:perp :spot :outcome} candidate)
       candidate)))
 
 (defn- spot-instrument?
@@ -320,6 +320,7 @@
                        (:coin market))]
     (case market-type
       :spot false
+      :outcome false
       :perp true
       (not (spot-instrument? instrument)))))
 

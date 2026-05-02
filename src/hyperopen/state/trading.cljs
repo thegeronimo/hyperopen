@@ -73,6 +73,7 @@
          build-order-request
          market-identity
          market-max-leverage
+         outcome-market?
          cross-margin-allowed?
          active-clearinghouse-state-for-market)
 
@@ -184,7 +185,9 @@
            :max-leverage (market-max-leverage state)
            :cross-margin-allowed? (cross-margin-allowed? state)
            :market-type (:market-type market)
-           :dex (:dex market))))
+           :dex (:dex market)
+           :outcome? (outcome-market? market)
+           :outcome-sides (vec (or (:outcome-sides market) [])))))
 
 (defn market-identity [state]
   (trading-domain/market-identity {:active-asset (:active-asset state)
@@ -267,18 +270,59 @@
         (when-not named-dex?
           (asset-context-idx state active-asset)))))
 
+(defn- outcome-market?
+  [market]
+  (= :outcome (:market-type market)))
+
+(defn- requested-outcome-side-index
+  [form]
+  (some parse-int-value
+        [(:outcome-side form)
+         (:outcome-side-index form)]))
+
+(defn- selected-outcome-side
+  [market form]
+  (let [sides (seq (:outcome-sides market))
+        requested-index (requested-outcome-side-index form)
+        selected-index (or requested-index 0)]
+    (when sides
+      (or (some (fn [side]
+                  (when (= selected-index
+                           (parse-int-value (:side-index side)))
+                    side))
+                sides)
+          (when-not (some? requested-index)
+            (first sides))))))
+
+(defn- outcome-side-market
+  [market side]
+  (if (and (outcome-market? market) side)
+    (cond-> market
+      (:coin side) (assoc :coin (:coin side))
+      (some? (:asset-id side)) (assoc :asset-id (:asset-id side))
+      (some? (:assetId side)) (assoc :assetId (:assetId side))
+      (some? (:side-index side)) (assoc :outcome-side-index (:side-index side))
+      (:side-label side) (assoc :outcome-side-label (:side-label side)))
+    market))
+
 (defn- trading-context
   ([state]
    (trading-context state (trading-fee-context/select-fee-context state)))
   ([state fee-context]
-   (let [active-asset (:active-asset state)
+   (trading-context state fee-context nil))
+  ([state fee-context form]
+   (let [active-market (or (:active-market state) {})
+         outcome-side (when (outcome-market? active-market)
+                        (selected-outcome-side active-market form))
+         active-asset (or (:coin outcome-side)
+                          (:active-asset state))
          streamed-mark (get-in state [:active-assets :contexts active-asset :mark])
-         active-market (or (:active-market state) {})
-         market* (cond-> active-market
+         market* (cond-> (outcome-side-market active-market outcome-side)
                    (some? streamed-mark) (assoc :streamed-mark streamed-mark)
                    true (assoc :growth-mode? (boolean (:growth-mode? fee-context))))]
      {:active-asset active-asset
-      :asset-idx (resolve-trading-asset-idx state)
+      :asset-idx (or (market-asset-id market*)
+                     (resolve-trading-asset-idx state))
       :orderbook (get-in state [:orderbooks active-asset])
       :market market*
       :account (:account state)
@@ -346,30 +390,45 @@
   (trading-domain/best-ask-price (trading-context state)))
 
 (defn reference-price [state form]
-  (trading-domain/reference-price (trading-context state) form))
+  (trading-domain/reference-price (trading-context state
+                                                   (trading-fee-context/select-fee-context state)
+                                                   form)
+                                  form))
 
 (defn mid-price-summary
   "Return deterministic price context for UI rows:
    {:mid-price number|nil :source :mid|:reference|:none}."
   [state form]
-  (trading-domain/mid-price-summary (trading-context state) form))
+  (trading-domain/mid-price-summary (trading-context state
+                                                     (trading-fee-context/select-fee-context state)
+                                                     form)
+                                    form))
 
 (defn effective-limit-price
   "Return a deterministic fallback price for limit-like order types.
    Prefers mid (bid/ask average), then reference price."
   [state form]
-  (trading-domain/effective-limit-price (trading-context state) form))
+  (trading-domain/effective-limit-price (trading-context state
+                                                         (trading-fee-context/select-fee-context state)
+                                                         form)
+                                        form))
 
 (defn effective-limit-price-string
   "String representation for deterministic limit fallback price."
   [state form]
-  (trading-domain/effective-limit-price-string (trading-context state) form))
+  (trading-domain/effective-limit-price-string (trading-context state
+                                                                (trading-fee-context/select-fee-context state)
+                                                                form)
+                                               form))
 
 (defn mid-price-string
   "String representation for the true midpoint (best bid/ask average).
    Returns nil when midpoint is unavailable."
   [state form]
-  (trading-domain/mid-price-string (trading-context state) form))
+  (trading-domain/mid-price-string (trading-context state
+                                                    (trading-fee-context/select-fee-context state)
+                                                    form)
+                                   form))
 
 (defn size-display-for-input-mode
   "Project :size-display from canonical :size based on :size-input-mode."
@@ -504,7 +563,7 @@
         requested-type (normalize-order-type (:type form))
         normalized-form (-> (normalize-order-form state form)
                             (assoc :requested-type requested-type))]
-    (trading-domain/order-summary (trading-context state fee-context)
+    (trading-domain/order-summary (trading-context state fee-context normalized-form)
                                   normalized-form
                                   fee-context)))
 
@@ -512,7 +571,10 @@
   ([form]
    (trading-domain/validate-order-form form))
   ([state form]
-   (trading-domain/validate-order-form (trading-context state) form)))
+   (trading-domain/validate-order-form (trading-context state
+                                                        (trading-fee-context/select-fee-context state)
+                                                        form)
+                                       form)))
 
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (order-commands/build-scale-orders asset-idx side total-size start end reduce-only post-only))
@@ -523,23 +585,34 @@
 (defn build-order-action
   "Return {:action action :grouping grouping}"
   [state form]
-  (order-commands/build-order-action (trading-context state) form))
+  (order-commands/build-order-action (trading-context state
+                                                      (trading-fee-context/select-fee-context state)
+                                                      form)
+                                     form))
 
 (defn build-twap-action [state form]
-  (order-commands/build-twap-action (trading-context state) form))
+  (order-commands/build-twap-action (trading-context state
+                                                     (trading-fee-context/select-fee-context state)
+                                                     form)
+                                    form))
 
 (defn best-price [state side]
   (trading-domain/best-price (trading-context state) side))
 
 (defn apply-market-price [state form]
-  (trading-domain/apply-market-price (trading-context state) form))
+  (trading-domain/apply-market-price (trading-context state
+                                                      (trading-fee-context/select-fee-context state)
+                                                      form)
+                                     form))
 
 (defn prepare-order-form-for-submit
   "Return a normalized order form suitable for deterministic submit validation.
    {:form prepared-form
     :market-price-missing? boolean}"
   [state form]
-  (trading-submit-policy/prepare-order-form-for-submit (trading-context state)
+  (trading-submit-policy/prepare-order-form-for-submit (trading-context state
+                                                                        (trading-fee-context/select-fee-context state)
+                                                                        form)
                                                        (normalize-order-form state form)))
 
 (defn submit-policy
@@ -564,7 +637,9 @@
          submitting? (if (contains? options :submitting?)
                        submitting?
                        (:submitting? runtime))
-         context (trading-context state)
+         context (trading-context state
+                                  (trading-fee-context/select-fee-context state)
+                                  form)
          identity (market-identity state)
          normalized-form (normalize-order-form state form)]
      (trading-submit-policy/submit-policy
@@ -579,4 +654,7 @@
        :agent-unavailable-message agent-unavailable-message}))))
 
 (defn build-order-request [state form]
-  (order-commands/build-order-request (trading-context state) form))
+  (order-commands/build-order-request (trading-context state
+                                                       (trading-fee-context/select-fee-context state)
+                                                       form)
+                                      form))

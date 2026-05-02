@@ -1,15 +1,34 @@
-(ns hyperopen.runtime.action-adapters.websocket)
+(ns hyperopen.runtime.action-adapters.websocket
+  (:require [hyperopen.asset-selector.markets :as markets]))
+
+(defn- active-market-side-coins
+  [state coin]
+  (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
+        market (markets/resolve-or-infer-market-by-coin market-by-key coin)
+        side-coins (when (= :outcome (:market-type market))
+                     (->> (:outcome-sides market)
+                          (keep :coin)
+                          (filter string?)
+                          distinct
+                          vec))]
+    (vec (or (seq side-coins)
+             (when (string? coin)
+               [coin])))))
 
 (defn init-websockets
   [_state]
   [[:effects/init-websocket]])
 
 (defn subscribe-to-asset
-  [_state coin]
-  [[:effects/subscribe-active-asset coin]
-   [:effects/subscribe-orderbook coin]
-   [:effects/subscribe-trades coin]
-   [:effects/sync-active-asset-funding-predictability coin]])
+  [state coin]
+  (let [side-coins (active-market-side-coins state coin)]
+    (into [[:effects/subscribe-active-asset coin]]
+          (concat
+           (mapcat (fn [side-coin]
+                     [[:effects/subscribe-orderbook side-coin]
+                      [:effects/subscribe-trades side-coin]])
+                   side-coins)
+           [[:effects/sync-active-asset-funding-predictability coin]]))))
 
 (defn subscribe-to-webdata2
   [_state address]

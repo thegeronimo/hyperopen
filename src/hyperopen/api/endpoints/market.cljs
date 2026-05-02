@@ -78,6 +78,15 @@
                        :dedupe-key :spot-meta}
                       opts))))
 
+(defn request-outcome-meta!
+  [post-info! opts]
+  (post-info! {"type" "outcomeMeta"}
+              (request-policy/apply-info-request-policy
+               :outcome-meta
+               (merge {:priority :high
+                       :dedupe-key :outcome-meta}
+                      opts))))
+
 (defn request-public-webdata2!
   [post-info! opts]
   (post-info! {"type" "webData2"
@@ -321,35 +330,45 @@
              (vec (or markets []))))
 
 (defn build-market-state
-  [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
-  (let [dexs-with-default (if (= phase :bootstrap)
-                            [nil]
-                            (vec (cons nil (vec dexs))))
-        token-by-index (into {}
-                             (map (fn [{:keys [index name]}]
-                                    [index name]))
-                             (:tokens spot-meta))
-        perp-markets (->> (map-indexed vector (map vector dexs-with-default perp-results))
-                          (mapcat (fn [[perp-dex-index [dex [meta asset-ctxs]]]]
-                                    (markets/build-perp-markets
-                                     meta
-                                     asset-ctxs
-                                     token-by-index
-                                     :dex dex
-                                     :perp-dex-index perp-dex-index)))
-                          vec)
-        spot-markets (markets/build-spot-markets spot-meta spot-asset-ctxs)
-        all-markets (vec (concat perp-markets spot-markets))
-        market-by-key (into {}
-                            (map (fn [m] [(:key m) m]))
-                            all-markets)
-        market-index-by-key (build-market-index-by-key all-markets)
-        active-market (when active-asset
-                        (markets/resolve-market-by-coin
-                         market-by-key
-                         active-asset))]
-    {:markets all-markets
-     :market-by-key market-by-key
-     :market-index-by-key market-index-by-key
-     :active-market active-market
-     :loaded-at-ms (now-ms-fn)}))
+  ([now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
+   (build-market-state now-ms-fn
+                       active-asset
+                       phase
+                       dexs
+                       spot-meta
+                       spot-asset-ctxs
+                       perp-results
+                       {:outcomes [] :questions []}))
+  ([now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
+   (let [dexs-with-default (if (= phase :bootstrap)
+                             [nil]
+                             (vec (cons nil (vec dexs))))
+         token-by-index (into {}
+                              (map (fn [{:keys [index name]}]
+                                     [index name]))
+                              (:tokens spot-meta))
+         perp-markets (->> (map-indexed vector (map vector dexs-with-default perp-results))
+                           (mapcat (fn [[perp-dex-index [dex [meta asset-ctxs]]]]
+                                     (markets/build-perp-markets
+                                      meta
+                                      asset-ctxs
+                                      token-by-index
+                                      :dex dex
+                                      :perp-dex-index perp-dex-index)))
+                           vec)
+         spot-markets (markets/build-spot-markets spot-meta spot-asset-ctxs)
+         outcome-markets (markets/build-outcome-markets outcome-meta spot-asset-ctxs)
+         all-markets (vec (concat perp-markets spot-markets outcome-markets))
+         market-by-key (into {}
+                             (map (fn [m] [(:key m) m]))
+                             all-markets)
+         market-index-by-key (build-market-index-by-key all-markets)
+         active-market (when active-asset
+                         (markets/resolve-market-by-coin
+                          market-by-key
+                          active-asset))]
+     {:markets all-markets
+      :market-by-key market-by-key
+      :market-index-by-key market-index-by-key
+      :active-market active-market
+      :loaded-at-ms (now-ms-fn)})))

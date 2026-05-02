@@ -148,9 +148,17 @@
    (tab-button "All" (= active-tab :all) :all)
    (tab-button "Perps" (= active-tab :perps) :perps)
    (tab-button "Spot" (= active-tab :spot) :spot)
+   (tab-button "Outcome" (contains? #{:outcome :outcome-15m :outcome-1d} active-tab) :outcome)
    (tab-button "Crypto" (= active-tab :crypto) :crypto)
    (tab-button "Tradfi" (= active-tab :tradfi) :tradfi)
    (tab-button "HIP-3" (= active-tab :hip3) :hip3)])
+
+(defn outcome-subtab-row [active-tab]
+  (when (contains? #{:outcome :outcome-15m :outcome-1d} active-tab)
+    [:div.flex.items-center.gap-4.mb-3
+     (tab-button "All" (= active-tab :outcome) :outcome)
+     (tab-button "Crypto (15m)" (= active-tab :outcome-15m) :outcome-15m)
+     (tab-button "Crypto (1d)" (= active-tab :outcome-1d) :outcome-1d)]))
 
 (defn sort-button [label active? direction sort-field]
   [:button.flex.items-center.space-x-1.text-xs.transition-colors
@@ -163,15 +171,20 @@
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M5 15l7-7 7 7"}]
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}])])])
 
-(defn sort-controls [sort-by sort-direction]
-  [:div {:class ["grid" "grid-cols-12" "gap-2" "items-center" "px-2" "h-6"
-                 "text-xs" "text-gray-400" "bg-base-100"]}
-   [:div.col-span-3 (sort-button "Symbol" (= sort-by :name) sort-direction :name)]
-   [:div.col-span-2.text-left (sort-button "Last Price" (= sort-by :price) sort-direction :price)]
-   [:div.col-span-2.text-left (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
-   [:div.col-span-1.text-left (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding)]
-   [:div.col-span-2.text-left (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
-   [:div.col-span-2.text-left (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])
+(defn sort-controls
+  ([sort-by sort-direction]
+   (sort-controls sort-by sort-direction nil))
+  ([sort-by sort-direction active-tab]
+   (let [outcome? (contains? #{:outcome :outcome-15m :outcome-1d} active-tab)]
+     [:div {:class ["grid" "grid-cols-12" "gap-2" "items-center" "px-2" "h-6"
+                    "text-xs" "text-gray-400" "bg-base-100"]}
+      [:div.col-span-3 (sort-button (if outcome? "Outcome" "Symbol") (= sort-by :name) sort-direction :name)]
+      [:div.col-span-2.text-left (sort-button (if outcome? "% Chance" "Last Price") (= sort-by :price) sort-direction :price)]
+      [:div.col-span-2.text-left (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
+      [:div.col-span-1.text-left (when-not outcome?
+                                   (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding))]
+      [:div.col-span-2.text-left (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
+      [:div.col-span-2.text-left (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])))
 
 (def ^:private desktop-breakpoint-px
   1024)
@@ -191,6 +204,7 @@
   [["All" :all]
    ["Perps" :perps]
    ["Spot" :spot]
+   ["Outcome" :outcome]
    ["Crypto" :crypto]
    ["Tradfi" :tradfi]
    ["HIP-3" :hip3]])
@@ -247,14 +261,21 @@
    [:div {:class ["text-xs" "leading-tight" "text-gray-500"]}
     subtitle]])
 
-(defn mobile-sort-header [sort-by sort-direction]
-  [:div {:class ["grid"
-                 "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.95fr)]"
-                 "gap-3"
-                 "border-b"
-                 "border-base-300/80"
-                 "px-4"
-                 "py-3"]}
-   (mobile-sort-header-cell "Symbol" nil (= sort-by :name) sort-direction [[:actions/update-asset-selector-sort :name]] :left)
-   (mobile-sort-header-cell "Volume" "Open Interest" (= sort-by :volume) sort-direction [[:actions/update-asset-selector-sort :volume]] :left)
-   (mobile-sort-header-cell "Last Price" "24h Change" (= sort-by :price) sort-direction [[:actions/update-asset-selector-sort :price]] :right)])
+(defn mobile-outcome-subtab-row [active-tab]
+  (outcome-subtab-row active-tab))
+
+(defn mobile-sort-header
+  ([sort-by sort-direction]
+   (mobile-sort-header sort-by sort-direction nil))
+  ([sort-by sort-direction active-tab]
+   (let [outcome? (contains? #{:outcome :outcome-15m :outcome-1d} active-tab)]
+     [:div {:class ["grid"
+                    "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.95fr)]"
+                    "gap-3"
+                    "border-b"
+                    "border-base-300/80"
+                    "px-4"
+                    "py-3"]}
+      (mobile-sort-header-cell (if outcome? "Outcome" "Symbol") nil (= sort-by :name) sort-direction [[:actions/update-asset-selector-sort :name]] :left)
+      (mobile-sort-header-cell "Volume" "Open Interest" (= sort-by :volume) sort-direction [[:actions/update-asset-selector-sort :volume]] :left)
+      (mobile-sort-header-cell (if outcome? "% Chance" "Last Price") "24h Change" (= sort-by :price) sort-direction [[:actions/update-asset-selector-sort :price]] :right)])))

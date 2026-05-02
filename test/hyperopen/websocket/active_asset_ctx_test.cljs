@@ -104,6 +104,39 @@
     (is (empty? (active-ctx/get-subscriptions)))
     (is (nil? (get-in @active-ctx/active-asset-ctx-state [:contexts "BTC"])))))
 
+(deftest create-active-asset-data-handler-accepts-active-spot-asset-ctx-test
+  (reset-active-asset-ctx-state!)
+  (market-runtime/reset-market-projection-runtime!)
+  (try
+    (let [store (atom {:active-assets {:contexts {}
+                                       :loading true}
+                      :asset-selector {:markets [{:key "outcome:0"
+                                                  :coin "#0"
+                                                  :market-type :outcome}]
+                                       :market-by-key {"outcome:0" {:key "outcome:0"
+                                                                    :coin "#0"
+                                                                    :market-type :outcome}}
+                                       :market-index-by-key {"outcome:0" 0}}})
+          scheduled-callback (atom nil)
+          payload {:channel "activeSpotAssetCtx"
+                   :data {:coin "#0"
+                          :ctx {:markPx "0.65012"
+                                :prevDayPx "0.55"
+                                :dayNtlVlm "415908.3249700002"
+                                :circulatingSupply "204692.0"}}}]
+      (with-redefs [platform/request-animation-frame! (fn [f]
+                                                        (reset! scheduled-callback f)
+                                                        :raf-id)]
+        ((active-ctx/create-active-asset-data-handler store) payload)
+        (@scheduled-callback 16)
+        (is (= false (get-in @store [:active-assets :loading])))
+        (is (= 0.65012 (get-in @store [:active-assets :contexts "#0" :mark])))
+        (is (= 204692 (get-in @store [:active-assets :contexts "#0" :openInterest])))
+        (is (nil? (get-in @store [:active-assets :contexts "#0" :fundingRate])))))
+    (finally
+      (reset-active-asset-ctx-state!)
+      (market-runtime/reset-market-projection-runtime!))))
+
 (deftest unsubscribe-active-asset-ctx-updates-local-state-atomically-test
   (reset-active-asset-ctx-state!)
   (try

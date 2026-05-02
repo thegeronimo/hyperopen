@@ -19,6 +19,9 @@
                 pro-tab-label
                 controls
                 spot?
+                outcome?
+                outcome-sides
+                outcome-side-index
                 read-only?
                 display
                 ui-leverage
@@ -52,6 +55,7 @@
         entry-mode-handlers (:entry-mode handlers)
         leverage-handlers (:leverage handlers)
         side-handlers (:side handlers)
+        outcome-handlers (:outcome handlers)
         price-handlers (:price handlers)
         size-handlers (:size handlers)
         {:keys [show-limit-like-controls?
@@ -113,6 +117,10 @@
                                 entry-mode-handlers)
 
       (controls/side-row side side-handlers)
+      (when outcome?
+        (controls/outcome-side-row outcome-sides
+                                   outcome-side-index
+                                   outcome-handlers))
       (controls/balances-row display)
 
       (when show-limit-like-controls?

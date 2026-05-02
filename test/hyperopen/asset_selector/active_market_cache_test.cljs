@@ -23,6 +23,7 @@
                               (case normalized
                                 "perp" :perp
                                 "spot" :spot
+                                "outcome" :outcome
                                 nil)))
    :parse-max-leverage (fn [value]
                          (let [n (js/parseInt (str value) 10)]
@@ -41,6 +42,35 @@
 
   (is (= {:coin "ETH"}
          (cache/normalize-active-market-display {:coin " ETH "} normalize-deps)))
+
+  (is (= {:coin "#0"
+          :key "outcome:0"
+          :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+          :base "BTC"
+          :quote "USDH"
+          :market-type :outcome
+          :asset-id 100000000
+          :outcome-id 0
+          :period "1d"
+          :expiry-ms 1777788000000
+          :target-price "78213"
+          :outcome-sides [{:side-index 0 :side-name "Yes" :coin "#0" :asset-id 100000000}
+                          {:side-index 1 :side-name "No" :coin "#1" :asset-id 100000001}]}
+         (cache/normalize-active-market-display
+          {:coin "#0"
+           :key "outcome:0"
+           :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+           :base "BTC"
+           :quote "USDH"
+           :market-type "outcome"
+           :asset-id "100000000"
+           :outcome-id "0"
+           :period "1d"
+           :expiry-ms "1777788000000"
+           :target-price "78213"
+           :outcome-sides [{:side-index "0" :side-name "Yes" :coin "#0" :asset-id "100000000"}
+                           {:side-index "1" :side-name "No" :coin "#1" :asset-id "100000001"}]}
+          normalize-deps)))
 
   (is (= {:coin "BTC"
           :key "perp:BTC"

@@ -33,6 +33,7 @@
                               (>= safe-funding-rate 0))
         funding-color (if funding-positive "text-success" "text-error")
         is-spot (= market-type :spot)
+        is-outcome (= market-type :outcome)
         favorite? (contains? favorites key)]
     [:div.grid.grid-cols-12.gap-2.items-center.px-2.h-6.box-border.cursor-pointer.asset-selector-row-surface
      {:data-row-state (asset-selector-row-state selected? highlighted?)
@@ -45,6 +46,8 @@
       (icons/favorite-button favorite? key)
       [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
        [:div.text-sm.truncate.whitespace-nowrap symbol]
+       (when is-outcome
+         (controls/chip "OUTCOME" ["bg-sky-500/20" "text-sky-200" "border-sky-500/30" "shrink-0"]))
        (when is-spot
          (controls/chip "SPOT" ["bg-gray-500/20" "text-gray-200" "border-gray-500/30" "shrink-0"]))
        (when dex
@@ -52,7 +55,11 @@
        (when (and maxLeverage (> maxLeverage 0))
          (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))]]
      [:div.col-span-2.text-left.text-sm.text-gray-400.num
-      (or (fmt/format-trade-price mark markRaw) "—")]
+      (if is-outcome
+        (if (number? mark)
+          (str (js/Math.round (* mark 100)) "%")
+          "—")
+        (or (fmt/format-trade-price mark markRaw) "—"))]
      [:div.col-span-2.text-left
       (if change-available?
         [:div {:class [change-color "text-sm" "num"]}
@@ -60,7 +67,7 @@
               " (" (fmt/safe-to-fixed safe-change-pct 2) "%)")]
         [:div.text-sm.text-gray-400.num "—"])]
      [:div.col-span-1.text-left
-      (if is-spot
+      (if (or is-spot is-outcome)
         [:div.text-sm.text-gray-400.num "—"]
         (if funding-available?
           (controls/tooltip
@@ -151,6 +158,7 @@
         positive-change? (and change-available? (>= safe-change 0))
         change-color (if positive-change? "text-success" "text-error")
         is-spot (= market-type :spot)
+        is-outcome (= market-type :outcome)
         favorite? (contains? favorites key)]
     [:div {:class ["grid"
                    "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.95fr)]"
@@ -171,6 +179,8 @@
        [:div {:class ["truncate" "text-base" "font-medium" "leading-none" "text-trading-text"]}
         symbol]
        [:div {:class ["flex" "items-center" "gap-1.5" "overflow-hidden"]}
+        (when is-outcome
+          (controls/chip "OUTCOME" ["bg-sky-500/20" "text-sky-200" "border-sky-500/30" "shrink-0"]))
         (when is-spot
           (controls/chip "SPOT" ["bg-gray-500/20" "text-gray-200" "border-gray-500/30" "shrink-0"]))
         (when dex
@@ -186,7 +196,11 @@
          (format-or-dash openInterest fmt/format-large-currency))]]
      [:div {:class ["min-w-0" "space-y-1" "text-right"]}
       [:div {:class ["num" "text-base" "font-semibold" "leading-none" "text-trading-text"]}
-       (or (fmt/format-trade-price mark markRaw) "—")]
+       (if is-outcome
+         (if (number? mark)
+           (str (js/Math.round (* mark 100)) "%")
+           "—")
+         (or (fmt/format-trade-price mark markRaw) "—"))]
       [:div
        (if change-available?
          {:class [change-color "num" "text-xs"]}

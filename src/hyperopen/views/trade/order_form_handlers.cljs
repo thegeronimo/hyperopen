@@ -29,6 +29,9 @@
    :side {:on-select-side (fn [side]
                             (dispatch-command (cmd/set-order-side side)))}
 
+   :outcome {:on-select-outcome-side (fn [side-index]
+                                       (dispatch-command (cmd/set-order-outcome-side side-index)))}
+
    :price {:on-set-to-mid (dispatch-command (cmd/set-order-price-to-mid))
            :on-focus (dispatch-command (cmd/focus-order-price-input))
            :on-blur (dispatch-command (cmd/blur-order-price-input))

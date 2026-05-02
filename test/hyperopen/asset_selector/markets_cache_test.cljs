@@ -31,18 +31,39 @@
                   :idx 0
                   :asset-id 0
                   :volume24h 2000
-                  :mark 0.21}]
+                  :mark 0.21}
+                 {:key "outcome:0"
+                  :coin "#0"
+                  :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                  :title "BTC above 78213 on May 3 at 2:00 AM?"
+                  :base "BTC"
+                  :quote "USDH"
+                  :market-type :outcome
+                  :category :outcome
+                  :outcome-id 0
+                  :period "1d"
+                  :expiry-ms 1777788000000
+                  :target-price "78213"
+                  :asset-id 100000000
+                  :outcome-sides [{:side-index 0 :side-name "Yes" :coin "#0" :asset-id 100000000}
+                                  {:side-index 1 :side-name "No" :coin "#1" :asset-id 100000001}]
+                  :volume24h 3000
+                  :mark 0.58}]
         state {:asset-selector {:sort-by :volume
                                 :sort-direction :desc}}
         cached (markets-cache/build-asset-selector-markets-cache markets state)]
-    (is (= ["PURR/USDC" "ETH-USDC"] (mapv :symbol cached)))
-    (is (= [:spot :perp] (mapv :market-type cached)))
-    (is (= [0 110003] (mapv :asset-id cached)))
-    (is (= [0 1] (mapv :cache-order cached)))
-    (is (nil? (:mark (first cached))))
-    (is (false? (:hip3-eligible? (second cached))))
-    (is (= :strict-isolated (:margin-mode (second cached))))
-    (is (true? (:only-isolated? (second cached))))))
+    (is (= ["BTC above 78213 on May 3 at 2:00 AM?" "PURR/USDC" "ETH-USDC"] (mapv :symbol cached)))
+    (is (= [:outcome :spot :perp] (mapv :market-type cached)))
+    (is (= [100000000 0 110003] (mapv :asset-id cached)))
+    (is (= [0 1 2] (mapv :cache-order cached)))
+    (is (= "1d" (:period (first cached))))
+    (is (= [{:side-index 0 :side-name "Yes" :coin "#0" :asset-id 100000000}
+            {:side-index 1 :side-name "No" :coin "#1" :asset-id 100000001}]
+           (:outcome-sides (first cached))))
+    (is (nil? (:mark (second cached))))
+    (is (false? (:hip3-eligible? (nth cached 2))))
+    (is (= :strict-isolated (:margin-mode (nth cached 2))))
+    (is (true? (:only-isolated? (nth cached 2))))))
 
 (deftest restore-asset-selector-markets-cache-state-hydrates-when-empty-test
   (let [cached-markets [{:key "perp:ETH"

@@ -110,3 +110,22 @@
                         false
                         ["perp:BTC" "perp:ETH"]]]}]
            @dispatches*))))
+
+(deftest tab-rows-include-outcome-and-outcome-period-subfilters-test
+  (let [desktop (controls/tab-row :outcome)
+        mobile (controls/mobile-tab-row :outcome)
+        subtabs (controls/outcome-subtab-row :outcome)
+        strings (set (concat (support/collect-strings desktop)
+                             (support/collect-strings mobile)
+                             (support/collect-strings subtabs)))]
+    (is (contains? strings "Outcome"))
+    (is (contains? strings "Crypto (15m)"))
+    (is (contains? strings "Crypto (1d)"))))
+
+(deftest outcome-sort-headers-use-chance-labels-test
+  (let [desktop (controls/sort-controls :price :desc :outcome)
+        mobile (controls/mobile-sort-header :price :desc :outcome)
+        strings (set (concat (support/collect-strings desktop)
+                             (support/collect-strings mobile)))]
+    (is (contains? strings "% Chance"))
+    (is (not (contains? strings "Last Price")))))

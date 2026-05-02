@@ -142,17 +142,22 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
-(deftest request-spot-meta-and-public-webdata2-use-default-priority-test
+(deftest request-spot-meta-outcome-meta-and-public-webdata2-use-default-priority-test
   (let [calls (atom [])
         post-info! (api-stubs/post-info-stub calls {})]
     (market/request-spot-meta! post-info! nil)
+    (market/request-outcome-meta! post-info! nil)
     (market/request-public-webdata2! post-info! {})
     (is (= [{"type" "spotMeta"}
+            {"type" "outcomeMeta"}
             {"type" "webData2"
              "user" "0x0000000000000000000000000000000000000000"}]
            (mapv first @calls)))
     (is (= [{:priority :high
              :dedupe-key :spot-meta
+             :cache-ttl-ms 60000}
+            {:priority :high
+             :dedupe-key :outcome-meta
              :cache-ttl-ms 60000}
             {:priority :high
              :dedupe-key :public-webdata2
@@ -363,6 +368,8 @@
                                                [{:key [:perp dex] :coin (or dex "DEFAULT")}])
                   markets/build-spot-markets (fn [_spot-meta _spot-asset-ctxs]
                                                [{:key [:spot "HYPE"] :coin "HYPE"}])
+                  markets/build-outcome-markets (fn [_outcome-meta _spot-asset-ctxs]
+                                                  [{:key [:outcome 0] :coin "#0"}])
                   markets/resolve-market-by-coin (fn [& _]
                                                    (throw (js/Error. "unexpected active-market lookup")))]
       (let [result (market/build-market-state now-ms-fn
@@ -371,16 +378,18 @@
                                               ["vault"]
                                               {:tokens [{:index 0 :name "HYPE"}]}
                                               {:spot true}
-                                              [[{:meta "m0"} {:ctx "c0"}]])]
+                                              [[{:meta "m0"} {:ctx "c0"}]]
+                                              {:outcomes []})]
         (is (= 1 (count @perp-calls)))
         (is (= nil (:dex (first @perp-calls))))
         (is (= 0 (:perp-dex-index (first @perp-calls))))
         (is (= {0 "HYPE"} (:token-by-index (first @perp-calls))))
         (is (= nil (:active-market result)))
-        (is (= 2 (count (:markets result))))
-        (is (= 2 (count (:market-by-key result))))
+        (is (= 3 (count (:markets result))))
+        (is (= 3 (count (:market-by-key result))))
         (is (= {[:perp nil] 0
-                [:spot "HYPE"] 1}
+                [:spot "HYPE"] 1
+                [:outcome 0] 2}
                (:market-index-by-key result)))
         (is (= 4242 (:loaded-at-ms result)))))))
 
@@ -394,6 +403,8 @@
                                                [{:key [:perp dex] :coin (or dex "DEFAULT")}])
                   markets/build-spot-markets (fn [_spot-meta _spot-asset-ctxs]
                                                [{:key [:spot "SOL"] :coin "SOL"}])
+                  markets/build-outcome-markets (fn [_outcome-meta _spot-asset-ctxs]
+                                                  [{:key [:outcome 0] :coin "#0"}])
                   markets/resolve-market-by-coin (fn [market-by-key active-asset]
                                                    (swap! resolve-calls conj [market-by-key active-asset])
                                                    (get market-by-key [:perp "vault"]))]
@@ -405,16 +416,18 @@
                                               {}
                                               [[{:meta :m0} {:ctx :c0}]
                                                [{:meta :m1} {:ctx :c1}]
-                                               [{:meta :m2} {:ctx :c2}]])]
+                                               [{:meta :m2} {:ctx :c2}]]
+                                              {:outcomes [{:outcome 0}]})]
         (is (= [nil "vault" "partner"] (mapv :dex @perp-calls)))
         (is (= [0 1 2] (mapv :perp-dex-index @perp-calls)))
         (is (= 1 (count @resolve-calls)))
         (is (= "BTC" (second (first @resolve-calls))))
         (is (= [:perp "vault"] (:key (:active-market result))))
-        (is (= 4 (count (:markets result))))
+        (is (= 5 (count (:markets result))))
         (is (= {[:perp nil] 0
                 [:perp "vault"] 1
                 [:perp "partner"] 2
-                [:spot "SOL"] 3}
+                [:spot "SOL"] 3
+                [:outcome 0] 4}
                (:market-index-by-key result)))
         (is (= 999 (:loaded-at-ms result)))))))

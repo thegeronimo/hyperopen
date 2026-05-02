@@ -31,14 +31,33 @@
        :opts opts})))
 
 (defn build-market-state
-  [now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
-  (market-endpoints/build-market-state now-ms-fn
-                                       active-asset
-                                       phase
-                                       dexs
-                                       spot-meta
-                                       spot-asset-ctxs
-                                       perp-results))
+  ([now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results]
+   (build-market-state now-ms-fn
+                       active-asset
+                       phase
+                       dexs
+                       spot-meta
+                       spot-asset-ctxs
+                       perp-results
+                       {:outcomes [] :questions []}))
+  ([now-ms-fn active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
+   (let [builder market-endpoints/build-market-state]
+     (if (some? (.-cljs$core$IFn$_invoke$arity$8 builder))
+       (builder now-ms-fn
+                active-asset
+                phase
+                dexs
+                spot-meta
+                spot-asset-ctxs
+                perp-results
+                outcome-meta)
+       (builder now-ms-fn
+                active-asset
+                phase
+                dexs
+                spot-meta
+                spot-asset-ctxs
+                perp-results)))))
 
 (defn request-asset-contexts!
   [{:keys [post-info!]}
@@ -119,6 +138,11 @@
   [{:keys [post-info!]}
    opts]
   (market-endpoints/request-spot-meta! post-info! opts))
+
+(defn request-outcome-meta!
+  [{:keys [post-info!]}
+   opts]
+  (market-endpoints/request-outcome-meta! post-info! opts))
 
 (defn fetch-spot-meta!
   [{:keys [log-fn
@@ -222,6 +246,7 @@
            active-asset
            ensure-perp-dexs-data!
            ensure-spot-meta-data!
+           ensure-outcome-meta-data!
            ensure-public-webdata2!
            request-meta-and-asset-ctxs!
            build-market-state
@@ -231,6 +256,7 @@
     :active-asset active-asset
     :ensure-perp-dexs-data! ensure-perp-dexs-data!
     :ensure-spot-meta-data! ensure-spot-meta-data!
+    :ensure-outcome-meta-data! ensure-outcome-meta-data!
     :ensure-public-webdata2! ensure-public-webdata2!
     :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
     :build-market-state build-market-state

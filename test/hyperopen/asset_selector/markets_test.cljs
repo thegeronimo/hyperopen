@@ -109,6 +109,96 @@
     (is (= "USDC" (:quote market)))
     (is (= 2 (:szDecimals market)))))
 
+(def ^:private sample-outcome-meta
+  {:outcomes [{:outcome 0
+               :name "Recurring"
+               :description "class:priceBinary|underlying:BTC|expiry:20260503-0600|targetPrice:78213|period:1d"
+               :sideSpecs [{:name "Yes"} {:name "No"}]}]
+   :questions []})
+
+(def ^:private sample-outcome-ctxs
+  [{:coin "#0"
+    :markPx "0.65012"
+    :midPx "0.65006"
+    :prevDayPx "0.55"
+    :dayNtlVlm "415908.3249700002"
+    :circulatingSupply "204692.0"
+    :dayBaseVlm "683834.0"}
+   {:coin "#1"
+    :markPx "0.34988"
+    :midPx "0.34994"
+    :prevDayPx "0.45"
+    :dayNtlVlm "267925.6750300001"
+    :circulatingSupply "204692.0"
+    :dayBaseVlm "683834.0"}])
+
+(defn- close-to?
+  [expected actual]
+  (< (js/Math.abs (- expected actual)) 0.000000001))
+
+(deftest outcome-encoding-and-description-test
+  (is (= 0 (markets/outcome-encoding 0 0)))
+  (is (= 1 (markets/outcome-encoding 0 1)))
+  (is (= 21 (markets/outcome-encoding 2 1)))
+  (is (= "#0" (markets/outcome-coin 0 0)))
+  (is (= "#1" (markets/outcome-coin 0 1)))
+  (is (= 100000000 (markets/outcome-asset-id 0 0)))
+  (is (= 100000001 (markets/outcome-asset-id 0 1)))
+  (is (= {:raw-description "period:1d|targetPrice:78213|expiry:20260503-0600|underlying:BTC|class:priceBinary|newKey:value"
+          :outcome-class "priceBinary"
+          :underlying "BTC"
+          :expiry "20260503-0600"
+          :expiry-ms 1777788000000
+          :target-price "78213"
+          :period "1d"
+          :extra-fields {"newKey" "value"}}
+         (markets/parse-outcome-description
+          "period:1d|targetPrice:78213|expiry:20260503-0600|underlying:BTC|class:priceBinary|newKey:value"))))
+
+(deftest build-outcome-markets-builds-recurring-question-test
+  (let [[market] (markets/build-outcome-markets sample-outcome-meta sample-outcome-ctxs)
+        [yes no] (:outcome-sides market)
+        market-by-key {(:key market) market}]
+    (is (= "outcome:0" (:key market)))
+    (is (= "#0" (:coin market)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:symbol market)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title market)))
+    (is (= :outcome (:market-type market)))
+    (is (= :outcome (:category market)))
+    (is (= 0 (:outcome-id market)))
+    (is (= "priceBinary" (:outcome-class market)))
+    (is (= "BTC" (:underlying market)))
+    (is (= "1d" (:period market)))
+    (is (= 1777788000000 (:expiry-ms market)))
+    (is (= "78213" (:target-price market)))
+    (is (= "USDH" (:quote market)))
+    (is (= 0 (:szDecimals market)))
+    (is (= 100000000 (:asset-id market)))
+    (is (= 0 (:side-index yes)))
+    (is (= "Yes" (:side-name yes)))
+    (is (= "#0" (:coin yes)))
+    (is (= 100000000 (:asset-id yes)))
+    (is (= 0.65012 (:mark yes)))
+    (is (= 1 (:side-index no)))
+    (is (= "No" (:side-name no)))
+    (is (= "#1" (:coin no)))
+    (is (= 100000001 (:asset-id no)))
+    (is (= 0.34988 (:mark no)))
+    (is (= 0.65012 (:mark market)))
+    (is (= "0.65012" (:markRaw market)))
+    (is (close-to? 0.10012 (:change24h market)))
+    (is (close-to? 18.20363636363638 (:change24hPct market)))
+    (is (= 415908.3249700002 (:volume24h market)))
+    (is (= 204692.0 (:openInterest market)))
+    (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
+           (:outcome-details market)))
+    (is (= (:key market)
+           (:key (markets/resolve-market-by-coin market-by-key "#0"))))
+    (is (= (:key market)
+           (:key (markets/resolve-market-by-coin market-by-key "#1"))))
+    (is (= (:key market)
+           (:key (markets/resolve-market-by-coin market-by-key "outcome:0"))))))
+
 (deftest classify-market-test
   (testing "classify-market assigns crypto/tradfi/hip3"
     (let [default (markets/classify-market {:market-type :perp :dex nil :openInterest 5000000})

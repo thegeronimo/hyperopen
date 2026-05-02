@@ -19,6 +19,38 @@
       (is (= 1 (count results)))
       (is (= :spot (:market-type (first results))))))
 
+  (testing "outcome tab and search use question metadata"
+    (let [outcome {:key "outcome:0"
+                   :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                   :title "BTC above 78213 on May 3 at 2:00 AM?"
+                   :coin "#0"
+                   :base "BTC"
+                   :underlying "BTC"
+                   :period "1d"
+                   :market-type :outcome
+                   :category :outcome
+                   :mark 0.58
+                   :volume24h 180824
+                   :openInterest 254722
+                   :expiry-ms 1777788000000}
+          results (processing/filter-and-sort-assets (conj support/sample-markets outcome)
+                                                     "above 78213"
+                                                     :volume
+                                                     :desc
+                                                     #{}
+                                                     false
+                                                     false
+                                                     :outcome)]
+      (is (= ["outcome:0"] (mapv :key results)))))
+
+  (testing "outcome period subfilters narrow outcome rows"
+    (let [assets [{:key "outcome:0" :symbol "BTC 15m" :coin "#0" :market-type :outcome :category :outcome :period "15m" :volume24h 1}
+                  {:key "outcome:1" :symbol "BTC 1d" :coin "#10" :market-type :outcome :category :outcome :period "1d" :volume24h 2}]]
+      (is (= ["outcome:0"]
+             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-15m))))
+      (is (= ["outcome:1"]
+             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-1d))))))
+
   (testing "hip3 tab strict mode parity: strict off shows full HIP3 set, strict on applies eligibility"
     (let [assets [{:key "perp:xyz:USA500"
                    :symbol "USA500-USDT"
@@ -141,3 +173,26 @@
                     (filter #(= "spot:PURR/USDC" (:key %)))
                     first
                     :mark)))))
+
+(deftest processed-assets-invalidates-cache-when-outcome-metadata-changes-test
+  (processing/reset-processed-assets-cache!)
+  (let [favorites #{}
+        initial [{:key "outcome:0"
+                  :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                  :title "BTC above 78213 on May 3 at 2:00 AM?"
+                  :coin "#0"
+                  :base "BTC"
+                  :market-type :outcome
+                  :category :outcome
+                  :period "1d"
+                  :expiry-ms 1777788000000
+                  :mark 0.58
+                  :volume24h 4}]
+        changed [(assoc (first initial)
+                        :title "BTC above 80000 on May 3 at 2:00 AM?"
+                        :symbol "BTC above 80000 on May 3 at 2:00 AM?"
+                        :target-price "80000")]
+        _ (processing/processed-assets initial "" :volume :desc favorites false false :outcome)
+        changed-result (processing/processed-assets changed "" :volume :desc favorites false false :outcome)]
+    (is (= "80000"
+           (:target-price (first changed-result))))))
