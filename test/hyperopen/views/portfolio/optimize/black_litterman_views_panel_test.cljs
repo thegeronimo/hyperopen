@@ -120,6 +120,30 @@
     (is (= [[:actions/cancel-portfolio-optimizer-black-litterman-edit]]
            (click-actions cancel-button)))))
 
+(deftest black-litterman-panel-expands-single-absolute-asset-selector-test
+  (let [absolute-view (optimizer-view)
+        absolute-grid (hiccup/find-by-data-role
+                       absolute-view
+                       "portfolio-optimizer-black-litterman-editor-instrument-grid")
+        absolute-classes (hiccup/node-class-set absolute-grid)
+        relative-view (optimizer-view
+                       {:portfolio-ui
+                        {:optimizer
+                         {:black-litterman-editor
+                          {:selected-kind :relative}}}})
+        relative-grid (hiccup/find-by-data-role
+                      relative-view
+                      "portfolio-optimizer-black-litterman-editor-instrument-grid")
+        relative-classes (hiccup/node-class-set relative-grid)]
+    (is (contains? absolute-classes "grid-cols-1"))
+    (is (not (contains? absolute-classes "sm:grid-cols-2")))
+    (is (not (contains? absolute-classes "2xl:grid-cols-2")))
+    (is (contains? relative-classes "sm:grid-cols-2"))
+    (is (contains? relative-classes "2xl:grid-cols-2"))
+    (is (some? (hiccup/find-by-data-role
+                relative-grid
+                "portfolio-optimizer-black-litterman-editor-comparator-options")))))
+
 (deftest portfolio-optimizer-workspace-wires-active-view-cards-and-clear-confirmation-test
   (let [view-node (optimizer-view
                    {:portfolio-ui

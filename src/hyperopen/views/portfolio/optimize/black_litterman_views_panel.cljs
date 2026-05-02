@@ -153,6 +153,11 @@
   (merge (draft-defaults universe kind)
          (get-in editor-state [:drafts kind])))
 
+(defn- instrument-grid-class
+  [kind]
+  (cond-> ["grid" "grid-cols-1" "gap-3"]
+    (= :relative kind) (into ["sm:grid-cols-2" "xl:grid-cols-1" "2xl:grid-cols-2"])))
+
 (defn- draft-valid?
   [universe kind draft active-count editing?]
   (let [ids (set (keep :instrument-id universe))
@@ -344,7 +349,8 @@
                            [:actions/set-portfolio-optimizer-black-litterman-editor-type
                             :relative])]
 
-        [:div {:class ["grid" "grid-cols-1" "gap-3" "sm:grid-cols-2" "xl:grid-cols-1" "2xl:grid-cols-2"]}
+        [:div {:class (instrument-grid-class kind)
+               :data-role "portfolio-optimizer-black-litterman-editor-instrument-grid"}
          (instrument-option-group {:label "ASSET"
                                    :universe universe
                                    :selected (:instrument-id draft*)

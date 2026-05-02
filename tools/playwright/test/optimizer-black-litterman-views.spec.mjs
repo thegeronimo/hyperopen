@@ -124,9 +124,23 @@ async function seedBlackLittermanEditorState(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function widthRatio(child, parent) {
+  const [childBox, parentBox] = await Promise.all([
+    child.boundingBox(),
+    parent.boundingBox()
+  ]);
+
+  if (!childBox || !parentBox || parentBox.width === 0) {
+    return 0;
+  }
+
+  return childBox.width / parentBox.width;
+}
+
 test("portfolio optimizer use my views editor flow exposes the Edit Views contract @regression", async ({ page }) => {
   test.setTimeout(90_000);
 
+  await page.setViewportSize({ width: 900, height: 900 });
   await visitRoute(page, "/portfolio/optimize/new");
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']"))
     .toBeVisible({ timeout: 60_000 });
@@ -142,6 +156,36 @@ test("portfolio optimizer use my views editor flow exposes the Edit Views contra
     .toContainText("HYPE expected return +45% annualized");
   await expect(panel).toContainText("ETH > SOL by 5% annualized");
   await expect(panel.locator("select")).toHaveCount(0);
+
+  const instrumentGrid = panel.locator(
+    "[data-role='portfolio-optimizer-black-litterman-editor-instrument-grid']"
+  );
+  const assetOptions = panel.locator(
+    "[data-role='portfolio-optimizer-black-litterman-editor-asset-options']"
+  );
+  const comparatorOptions = panel.locator(
+    "[data-role='portfolio-optimizer-black-litterman-editor-comparator-options']"
+  );
+
+  await expect(assetOptions).toBeVisible();
+  await expect(comparatorOptions).toHaveCount(0);
+  await expect
+    .poll(() => widthRatio(assetOptions, instrumentGrid), {
+      message: "absolute asset selector should span the instrument editor grid",
+      timeout: 4_000
+    })
+    .toBeGreaterThan(0.95);
+
+  await page.locator("[data-role='portfolio-optimizer-black-litterman-editor-type-relative']").click();
+  await expect(comparatorOptions).toBeVisible();
+  await expect
+    .poll(() => widthRatio(assetOptions, instrumentGrid), {
+      message: "relative asset selector should share the grid with comparator",
+      timeout: 4_000
+    })
+    .toBeLessThan(0.65);
+  await page.locator("[data-role='portfolio-optimizer-black-litterman-editor-type-absolute']").click();
+  await expect(comparatorOptions).toHaveCount(0);
 
   await page.locator("[data-role='portfolio-optimizer-black-litterman-active-view-view-2-remove']").click();
   await expect(panel).toContainText("ACTIVE VIEWS (1/10)");
