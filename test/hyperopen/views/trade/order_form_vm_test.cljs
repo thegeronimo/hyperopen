@@ -145,6 +145,8 @@
         view-model (vm/order-form-vm state)]
     (is (true? (:outcome? view-model)))
     (is (= 1 (:outcome-side-index view-model)))
+    (is (= :base (:size-input-mode view-model)))
+    (is (= "No" (:base-symbol view-model)))
     (is (= ["Yes" "No"] (mapv :side-label (:outcome-sides view-model))))))
 
 (deftest order-type-plugin-config-contract-test

@@ -98,15 +98,16 @@
 
      [:div {:class (into ["flex" "flex-col" "gap-2" "sm:gap-2.5"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
-      (controls/leverage-row state
-                             (:margin-mode form)
-                             cross-margin-allowed?
-                             margin-mode-dropdown-open?
-                             leverage-popover-open?
-                             ui-leverage
-                             leverage-draft
-                             max-leverage
-                             leverage-handlers)
+      (when-not outcome?
+        (controls/leverage-row state
+                               (:margin-mode form)
+                               cross-margin-allowed?
+                               margin-mode-dropdown-open?
+                               leverage-popover-open?
+                               ui-leverage
+                               leverage-draft
+                               max-leverage
+                               leverage-handlers))
 
       (sections/entry-mode-tabs {:entry-mode entry-mode
                                  :type type
@@ -116,11 +117,19 @@
                                  :order-type-label order-form-vm/order-type-label}
                                 entry-mode-handlers)
 
-      (controls/side-row side side-handlers)
+      (when-not outcome?
+        (controls/side-row side side-handlers))
       (when outcome?
         (controls/outcome-side-row outcome-sides
                                    outcome-side-index
-                                   outcome-handlers))
+                                   outcome-handlers
+                                   {:action-prefix (if (= side :sell)
+                                                     "Sell "
+                                                     "Buy ")
+                                    :side->intent (fn [outcome-side]
+                                                    (if (= 1 (:side-index outcome-side))
+                                                      :sell
+                                                      :buy))}))
       (controls/balances-row display)
 
       (when show-limit-like-controls?
@@ -140,24 +149,26 @@
                                            form
                                            section-handlers)
 
-      [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-       (primitives/row-toggle "Reduce Only"
-                              (:reduce-only form)
-                              (:on-toggle-reduce-only toggle-handlers))
-       (when show-limit-like-controls?
-         (sections/tif-inline-control form
-                                      (assoc tif-handlers
-                                             :dropdown-open? tif-dropdown-open?)))]
+      (when (or (not outcome?) show-limit-like-controls?)
+        [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
+         (when-not outcome?
+           (primitives/row-toggle "Reduce Only"
+                                  (:reduce-only form)
+                                  (:on-toggle-reduce-only toggle-handlers)))
+         (when show-limit-like-controls?
+           (sections/tif-inline-control form
+                                        (assoc tif-handlers
+                                               :dropdown-open? tif-dropdown-open?)))])
 
-      (when show-tpsl-toggle?
+      (when (and (not outcome?) show-tpsl-toggle?)
         (primitives/row-toggle "Take Profit / Stop Loss"
                                show-tpsl-panel?
                                (:on-toggle-tpsl-panel toggle-handlers)))
 
-      (when show-tpsl-panel?
+      (when (and (not outcome?) show-tpsl-panel?)
         (sections/tp-sl-panel tpsl-panel tp-sl-handlers))
 
-      (when show-post-only?
+      (when (and (not outcome?) show-post-only?)
         (primitives/row-toggle "Post Only"
                                (:post-only form)
                                (:on-toggle-post-only toggle-handlers)))

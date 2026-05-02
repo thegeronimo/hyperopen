@@ -32,6 +32,28 @@
       (int parsed)
       0)))
 
+(defn- outcome-side-index-value
+  [side]
+  (let [parsed (parse-outcome-side-index (:side-index side))]
+    (when (some? (:side-index side))
+      parsed)))
+
+(defn- outcome-side-display-label
+  [side fallback-index]
+  (or (:side-label side)
+      (:side-name side)
+      (str "Side " fallback-index)))
+
+(defn- selected-outcome-side
+  [outcome-sides selected-index]
+  (let [sides (seq outcome-sides)]
+    (or (some (fn [side]
+                (when (= selected-index
+                         (outcome-side-index-value side))
+                  side))
+              sides)
+        (first sides))))
+
 (defn order-form-vm [state]
   (let [{:keys [draft
                 ui
@@ -76,7 +98,19 @@
         submit-disabled? (:disabled? submit-policy)
         outcome-side-index (parse-outcome-side-index
                             (or (:outcome-side normalized-form)
-                                (:outcome-side-index normalized-form)))]
+                                (:outcome-side-index normalized-form)))
+        selected-outcome-side (when outcome?
+                                (selected-outcome-side outcome-sides
+                                                       outcome-side-index))
+        selected-outcome-side-label (when selected-outcome-side
+                                      (outcome-side-display-label selected-outcome-side
+                                                                  outcome-side-index))
+        base-symbol* (if (and outcome? selected-outcome-side-label)
+                       selected-outcome-side-label
+                       base-symbol)
+        size-input-mode* (if outcome?
+                           :base
+                           (:size-input-mode normalized-form))]
     {:form normalized-form
      :side side
      :type type
@@ -98,11 +132,11 @@
      :size-percent size-percent
      :display-size-percent (selectors/display-size-percent size-percent)
      :notch-overlap-threshold selectors/notch-overlap-threshold
-     :size-input-mode (:size-input-mode normalized-form)
+     :size-input-mode size-input-mode*
      :size-display (:size-display normalized-form)
      :price price
      :quote-symbol quote-symbol
-     :base-symbol base-symbol
+     :base-symbol base-symbol*
      :scale-preview-lines scale-preview-lines
      :error (:error runtime-state)
      :submitting? submitting?

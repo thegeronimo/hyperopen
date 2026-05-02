@@ -1,9 +1,10 @@
 (ns hyperopen.views.trade.order-form-view-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.views.trade.order-form.test-support :refer [base-state
-                                                                   collect-strings
-                                                                   find-first-node
-                                                                   first-index]]
+                                                                  collect-strings
+                                                                  button-node-by-label
+                                                                  find-first-node
+                                                                  first-index]]
             [hyperopen.views.trade.order-form-view :as view]))
 
 (deftest order-form-parity-controls-render-test
@@ -26,11 +27,11 @@
                                      :market-type :outcome
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0
-                                                      :side-label "Yes"
+                                                      :side-name "Yes"
                                                       :coin "#0"
                                                       :asset-id 100000000}
                                                      {:side-index 1
-                                                      :side-label "No"
+                                                      :side-name "No"
                                                       :coin "#1"
                                                       :asset-id 100000001}]})
         view-node (view/order-form-view state)
@@ -38,11 +39,43 @@
         no-button (find-first-node view-node
                                    (fn [node]
                                      (= [[:actions/update-order-form [:outcome-side] 1]]
-                                        (get-in node [1 :on :click]))))]
-    (is (contains? strings "Outcome"))
-    (is (contains? strings "Yes"))
-    (is (contains? strings "No"))
+                                        (get-in node [1 :on :click]))))
+        buy-yes-classes (set (get-in (button-node-by-label view-node "Buy Yes") [1 :class]))
+        buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
+    (is (contains? strings "Buy Yes"))
+    (is (contains? strings "Buy No"))
+    (is (not (contains? strings "Buy")))
+    (is (not (contains? strings "Sell")))
+    (is (not (contains? strings "Outcome")))
+    (is (not (contains? strings "Buy / Long")))
+    (is (not (contains? strings "Sell / Short")))
+    (is (not (contains? strings "Cross")))
+    (is (not (contains? strings "20x")))
+    (is (not (contains? strings "Classic")))
+    (is (contains? buy-yes-classes "bg-[#50D2C1]"))
+    (is (contains? buy-no-classes "bg-[#273035]"))
     (is (some? no-button))))
+
+(deftest order-form-renders-selected-outcome-no-with-sell-color-test
+  (let [state (assoc (base-state {:type :limit
+                                  :outcome-side 1})
+                     :active-asset "outcome:0"
+                     :active-market {:coin "outcome:0"
+                                     :quote "USDC"
+                                     :market-type :outcome
+                                     :szDecimals 0
+                                     :outcome-sides [{:side-index 0
+                                                      :side-name "Yes"
+                                                      :coin "#0"
+                                                      :asset-id 100000000}
+                                                     {:side-index 1
+                                                      :side-name "No"
+                                                      :coin "#1"
+                                                      :asset-id 100000001}]})
+        view-node (view/order-form-view state)
+        buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
+    (is (contains? buy-no-classes "bg-[#ED7088]"))
+    (is (contains? buy-no-classes "text-[#F6FEFD]"))))
 
 (deftest leverage-row-renders-isolated-margin-label-when-selected-test
   (let [view-node (view/order-form-view (base-state {:margin-mode :isolated}))

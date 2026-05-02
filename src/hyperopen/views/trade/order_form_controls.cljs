@@ -445,16 +445,15 @@
                        leverage-handlers)
      (primitives/chip-button "Classic" true :disabled? true)]))
 
-(defn side-row [side side-handlers]
-  [:div {:class ["flex" "h-[33px]" "items-center" "gap-1.5" "rounded-lg" "bg-base-200" "p-0.5" "sm:gap-2"]}
-   (primitives/side-button "Buy / Long"
-                           :buy
-                           (= side :buy)
-                           ((:on-select-side side-handlers) :buy))
-   (primitives/side-button "Sell / Short"
-                           :sell
-                           (= side :sell)
-                           ((:on-select-side side-handlers) :sell))])
+(defn side-row
+  ([side side-handlers]
+   (side-row side side-handlers nil))
+  ([side side-handlers {:keys [buy-label sell-label]
+                        :or {buy-label "Buy / Long"
+                             sell-label "Sell / Short"}}]
+   [:div {:class ["flex" "h-[33px]" "items-center" "gap-1.5" "rounded-lg" "bg-base-200" "p-0.5" "sm:gap-2"]}
+    (primitives/side-button buy-label :buy (= side :buy) ((:on-select-side side-handlers) :buy))
+    (primitives/side-button sell-label :sell (= side :sell) ((:on-select-side side-handlers) :sell))]))
 
 (defn- outcome-side-index
   [side]
@@ -467,29 +466,23 @@
                (not (js/isNaN parsed)))
       (int parsed))))
 
-(defn outcome-side-row [outcome-sides selected-side-index outcome-handlers]
-  (when (seq outcome-sides)
-    [:div {:class ["space-y-1"]}
-     [:div {:class ["text-xs" "text-gray-400"]} "Outcome"]
+(defn outcome-side-row
+  ([outcome-sides selected-side-index outcome-handlers]
+   (outcome-side-row outcome-sides selected-side-index outcome-handlers nil))
+  ([outcome-sides selected-side-index outcome-handlers {:keys [action-prefix side->intent]
+                                                        :or {action-prefix ""
+                                                             side->intent (constantly :buy)}}]
+   (when (seq outcome-sides)
      [:div {:class ["flex" "h-[33px]" "items-center" "gap-1.5" "rounded-lg" "bg-base-200" "p-0.5" "sm:gap-2"]}
       (for [side outcome-sides
-            :let [side-index (outcome-side-index side)]]
+            :let [side-index (outcome-side-index side)
+                  side-label (or (:side-label side) (:side-name side) (str "Side " side-index))
+                  intent (side->intent side)]]
         ^{:key (str "outcome-side-" side-index)}
-        [:button {:type "button"
-                  :class (into ["flex-1"
-                                "inline-flex"
-                                "h-[29px]"
-                                "items-center"
-                                "justify-center"
-                                "rounded-[5px]"
-                                "text-xs"
-                                "font-normal"
-                                "transition-colors"]
-                               (if (= side-index selected-side-index)
-                                 ["bg-primary" "text-primary-content"]
-                                 ["bg-[#273035]" "text-[#F6FEFD]"]))
-                  :on {:click ((:on-select-outcome-side outcome-handlers) side-index)}}
-         (or (:side-label side) (str "Side " side-index))])]]))
+        (primitives/side-button (str action-prefix side-label)
+                                intent
+                                (= side-index selected-side-index)
+                                ((:on-select-outcome-side outcome-handlers) side-index)))])))
 
 (defn balances-row [display]
   [:div {:class ["space-y-1.5"]}
