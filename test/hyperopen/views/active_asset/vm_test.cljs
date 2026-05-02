@@ -167,14 +167,15 @@
                 :change24h 0.0268
                 :change24hPct 4.87
                 :volume24h 180211.68
-                :openInterest 254722
+                :openInterest 537233
                 :expiry-ms 1777788000000
                 :outcome-details "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."}
         panel-vm (active-asset-vm/active-asset-panel-vm
                   {:active-asset "#0"
                    :now-ms 1777751495000
                    :active-market market
-                   :active-assets {:contexts {"#0" {:coin "#0"}}}
+                   :active-assets {:contexts {"#0" {:coin "#0"
+                                                     :openInterest 276502}}}
                    :asset-selector {:visible-dropdown nil
                                     :missing-icons #{}
                                     :loaded-icons #{}
@@ -187,8 +188,63 @@
            (get-in panel-vm [:row-vm :outcome-title])))
     (is (= "10h 8m 25s"
            (get-in panel-vm [:row-vm :countdown-text])))
+    (is (= 276502
+           (get-in panel-vm [:row-vm :open-interest-usd])))
+    (is (= "Two sided-open interest: the sum of Yes and No shares on this contract"
+           (get-in panel-vm [:row-vm :open-interest-tooltip])))
     (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
            (get-in panel-vm [:row-vm :outcome-details])))))
+
+(deftest active-asset-row-vm-falls-back-to-outcome-side-supply-open-interest-test
+  (let [market {:key "outcome:0"
+                :coin "#0"
+                :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                :title "BTC above 78213 on May 3 at 2:00 AM?"
+                :market-type :outcome
+                :mark 0.57841
+                :expiry-ms 1777788000000
+                :outcome-sides [{:coin "#0"
+                                 :circulatingSupply 276502}
+                                {:coin "#1"
+                                 :circulatingSupply 260731}]}
+        panel-vm (active-asset-vm/active-asset-panel-vm
+                  {:active-asset "#0"
+                   :now-ms 1777751495000
+                   :active-market market
+                   :active-assets {:contexts {"#0" {:coin "#0"}}}
+                   :asset-selector {:visible-dropdown nil
+                                    :missing-icons #{}
+                                    :loaded-icons #{}
+                                    :market-by-key {"outcome:0" market}}
+                   :funding-ui {:tooltip {}}
+                   :trade-ui {:mobile-asset-details-open? false}})]
+    (is (= 276502
+           (get-in panel-vm [:row-vm :open-interest-usd])))))
+
+(deftest active-asset-row-vm-uses-active-outcome-context-open-interest-test
+  (let [market {:key "outcome:0"
+                :coin "#0"
+                :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                :title "BTC above 78213 on May 3 at 2:00 AM?"
+                :market-type :outcome
+                :mark 0.57841
+                :expiry-ms 1777788000000}
+        panel-vm (active-asset-vm/active-asset-panel-vm
+                  {:active-asset "#0"
+                   :now-ms 1777751495000
+                   :active-market market
+                   :active-assets {:contexts {"#0" {:coin "#0"
+                                                     :openInterest 567696}}}
+                   :asset-selector {:visible-dropdown nil
+                                    :missing-icons #{}
+                                    :loaded-icons #{}
+                                    :market-by-key {"outcome:0" market}}
+                   :funding-ui {:tooltip {}}
+                   :trade-ui {:mobile-asset-details-open? false}})]
+    (is (= 567696
+           (get-in panel-vm [:row-vm :open-interest-usd])))
+    (is (= "Two sided-open interest: the sum of Yes and No shares on this contract"
+           (get-in panel-vm [:row-vm :open-interest-tooltip])))))
 
 (deftest active-asset-row-vm-inferrs-namespaced-market-during-bootstrap-and-shows-live-position-test
   (let [state {:active-asset "xyz:BRENTOIL"

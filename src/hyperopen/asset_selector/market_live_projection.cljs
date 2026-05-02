@@ -18,6 +18,7 @@
         volume24h (parse-number (:dayNtlVlm ctx))
         funding (parse-number (:funding ctx))
         open-interest-raw (parse-number (:openInterest ctx))
+        circulating-supply (parse-number (:circulatingSupply ctx))
         change24h (when (and (number? mark) (number? prev-day))
                     (- mark prev-day))
         change24h-pct (when (and (number? change24h)
@@ -25,10 +26,13 @@
                                  (not= prev-day 0))
                         (* 100 (/ change24h prev-day)))
         perp? (= :perp (:market-type market))
+        spot? (= :spot (:market-type market))
+        outcome? (= :outcome (:market-type market))
         open-interest-usd (when (and perp?
                                      (number? open-interest-raw)
                                      (number? mark))
-                            (fmt/calculate-open-interest-usd open-interest-raw mark))]
+                            (fmt/calculate-open-interest-usd open-interest-raw mark))
+        outcome-open-interest (or circulating-supply open-interest-raw)]
     (cond-> market
       (contains? ctx :markPx)
       (assoc :markRaw mark-raw)
@@ -53,7 +57,13 @@
       (and perp? (number? open-interest-usd))
       (assoc :openInterest open-interest-usd)
 
-      (not perp?)
+      (and outcome? (number? outcome-open-interest) (pos? outcome-open-interest))
+      (assoc :openInterest outcome-open-interest)
+
+      outcome?
+      (assoc :fundingRate nil)
+
+      spot?
       (assoc :openInterest nil
              :fundingRate nil))))
 
@@ -158,7 +168,9 @@
           selector-markets (normalize-selector-markets original-selector-markets)
           market-index-by-key (get-in state [:asset-selector :market-index-by-key] {})
           original-market-index-by-key market-index-by-key
-          candidate-keys (markets/candidate-market-keys coin)
+          resolved-market-key (some-> (markets/resolve-market-by-coin market-by-key coin) :key)
+          candidate-keys (cond-> (markets/candidate-market-keys coin)
+                           (some? resolved-market-key) (conj resolved-market-key))
           selector-market-keys (filterv #(contains? market-by-key %) candidate-keys)]
       (if (empty? selector-market-keys)
         state

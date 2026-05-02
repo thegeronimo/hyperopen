@@ -92,3 +92,54 @@
               state
               "BTC"
               {:markPx "1"}))))))
+
+(deftest apply-active-asset-ctx-update-refreshes-outcome-open-interest-from-active-context-test
+  (let [outcome-market {:key "outcome:0"
+                        :coin "#0"
+                        :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                        :market-type :outcome
+                        :mark 0.58
+                        :markRaw "0.58"
+                        :openInterest 537233
+                        :fundingRate nil
+                        :outcome-sides [{:coin "#0"
+                                         :side-index 0}
+                                        {:coin "#1"
+                                         :side-index 1}]}
+        state {:asset-selector {:markets [outcome-market]
+                                :market-by-key {"outcome:0" outcome-market}
+                                :market-index-by-key {"outcome:0" 0}}}
+        next-state (market-live-projection/apply-active-asset-ctx-update
+                    state
+                    "#0"
+                    {:markPx "0.6"
+                     :prevDayPx "0.5"
+                     :openInterest "276502"
+                     :dayNtlVlm "1200"})]
+    (is (= 0.6 (get-in next-state [:asset-selector :market-by-key "outcome:0" :mark])))
+    (is (= 276502 (get-in next-state [:asset-selector :market-by-key "outcome:0" :openInterest])))
+    (is (nil? (get-in next-state [:asset-selector :market-by-key "outcome:0" :fundingRate])))))
+
+(deftest apply-active-asset-ctx-update-hydrates-outcome-open-interest-from-circulating-supply-test
+  (let [outcome-market {:key "outcome:0"
+                        :coin "#0"
+                        :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                        :market-type :outcome
+                        :mark 0.58
+                        :outcome-sides [{:coin "#0"
+                                         :side-index 0}
+                                        {:coin "#1"
+                                         :side-index 1}]}
+        state {:asset-selector {:markets [outcome-market]
+                                :market-by-key {"outcome:0" outcome-market}
+                                :market-index-by-key {"outcome:0" 0}}}
+        next-state (market-live-projection/apply-active-asset-ctx-update
+                    state
+                    "#0"
+                    {:markPx "0.63796"
+                     :prevDayPx "0.55"
+                     :circulatingSupply "567696.0"
+                     :dayNtlVlm "1403439.9898999992"})]
+    (is (= 0.63796 (get-in next-state [:asset-selector :market-by-key "outcome:0" :mark])))
+    (is (= 567696.0 (get-in next-state [:asset-selector :market-by-key "outcome:0" :openInterest])))
+    (is (= 567696.0 (get-in next-state [:asset-selector :markets 0 :openInterest])))))

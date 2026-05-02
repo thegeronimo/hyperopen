@@ -43,6 +43,32 @@
         (str days "d " hours "h " minutes "m")
         (str hours "h " minutes "m " seconds "s")))))
 
+(defn- positive-number
+  [value]
+  (when (and (number? value)
+             (pos? value))
+    value))
+
+(defn- first-positive-number
+  [values]
+  (some positive-number values))
+
+(defn- outcome-open-interest
+  [ctx-data market]
+  (or (positive-number (:openInterest ctx-data))
+      (positive-number (:openInterest market))
+      (first-positive-number (keep :circulatingSupply (:outcome-sides market)))))
+
+(defn- present-entries
+  [m]
+  (into {}
+        (filter (fn [[_ value]] (some? value)))
+        (or m {})))
+
+(defn- merge-present
+  [base overlay]
+  (merge base (present-entries overlay)))
+
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown
    :search-term
@@ -209,14 +235,19 @@
 
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
-        market-by-key (get-in full-state [:asset-selector :market-by-key] {})]
+        market-by-key (get-in full-state [:asset-selector :market-by-key] {})
+        resolved-market (when (string? active-asset)
+                          (markets/resolve-or-infer-market-by-coin market-by-key active-asset))]
     (cond
       (and (map? projected-market)
            (markets/market-matches-coin? projected-market active-asset))
-      projected-market
+      (if (and (map? resolved-market)
+               (= (:key projected-market) (:key resolved-market)))
+        (merge-present projected-market resolved-market)
+        projected-market)
 
       (string? active-asset)
-      (markets/resolve-or-infer-market-by-coin market-by-key active-asset)
+      resolved-market
 
       :else
       nil)))
@@ -234,11 +265,12 @@
         change-24h-pct (or (:change24hPct ctx-data) (:change24hPct market))
         volume-24h (or (:volume24h ctx-data) (:volume24h market))
         open-interest-raw (:openInterest ctx-data)
-        open-interest-usd (if (= :spot (:market-type market))
-                            nil
-                            (or (when (and open-interest-raw mark)
-                                  (fmt/calculate-open-interest-usd open-interest-raw mark))
-                                (:openInterest market)))
+        open-interest-usd (cond
+                            (= :spot (:market-type market)) nil
+                            (= :outcome (:market-type market)) (outcome-open-interest ctx-data market)
+                            :else (or (when (and open-interest-raw mark)
+                                        (fmt/calculate-open-interest-usd open-interest-raw mark))
+                                      (:openInterest market)))
         funding-rate (funding-policy/parse-optional-number (:fundingRate ctx-data))
         outcome? (= :outcome (:market-type market))
         outcome-chance-label (when (and outcome? (number? mark))
@@ -302,6 +334,8 @@
      :funding-tooltip-pinned? funding-tooltip-pinned?
      :is-spot (= :spot (:market-type market))
      :is-outcome outcome?
+     :open-interest-tooltip (when outcome?
+                              "Two sided-open interest: the sum of Yes and No shares on this contract")
      :outcome-title (or (:title market) (:symbol market))
      :outcome-details (:outcome-details market)
      :outcome-chance-label outcome-chance-label

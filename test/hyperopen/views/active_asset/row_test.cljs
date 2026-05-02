@@ -106,7 +106,7 @@
                     :change24h 0.0268
                     :change24hPct 4.87
                     :volume24h 180211.68
-                    :openInterest 254722
+                    :openInterest 537233
                     :expiry-ms 1777788000000
                     :outcome-details "If BTC settles above 78213, YES pays $1."}
             view-node (row/active-asset-row {} market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}
@@ -117,10 +117,14 @@
         (is (contains? strings "% Chance"))
         (is (contains? strings "Price (Yes)"))
         (is (contains? strings "58%"))
+        (is (contains? strings "$537,233"))
+        (is (contains? strings "Two sided-open interest: the sum of Yes and No shares on this contract"))
         (is (not (contains? strings "Details")))
         (is (contains? strings "If BTC settles above 78213, YES pays $1."))
         (is (support/contains-class? view-node "group/outcome-name"))
+        (is (support/contains-class? view-node "group/outcome-open-interest"))
         (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100"))
+        (is (support/contains-class? view-node "group-hover/outcome-open-interest:opacity-100"))
         (is (support/contains-class? view-node "group-focus-within/outcome-name:opacity-100"))
         (is (support/contains-class? view-node "pointer-events-none"))
         (is (not (contains? strings "Funding / Countdown")))))))

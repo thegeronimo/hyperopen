@@ -132,6 +132,7 @@
         (is (= false (get-in @store [:active-assets :loading])))
         (is (= 0.65012 (get-in @store [:active-assets :contexts "#0" :mark])))
         (is (= 204692 (get-in @store [:active-assets :contexts "#0" :openInterest])))
+        (is (= 204692 (get-in @store [:asset-selector :market-by-key "outcome:0" :openInterest])))
         (is (nil? (get-in @store [:active-assets :contexts "#0" :fundingRate])))))
     (finally
       (reset-active-asset-ctx-state!)

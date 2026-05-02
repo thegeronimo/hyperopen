@@ -354,6 +354,30 @@
            :data-role "outcome-details-popover"}
      outcome-details]))
 
+(defn- outcome-open-interest-column
+  [{:keys [open-interest-usd open-interest-tooltip]}]
+  [:div {:class ["relative" "group/outcome-open-interest" "flex" "justify-center"]}
+   (data-column "Open Interest"
+                (if (some? open-interest-usd)
+                  (fmt/format-large-currency open-interest-usd)
+                  "Loading...")
+                {:numeric? true
+                 :underlined true})
+   (when (seq open-interest-tooltip)
+     [:div {:class ["absolute" "right-0" "bottom-full" "z-[240]" "mb-1"
+                    "w-[min(24rem,calc(100vw-2rem))]"
+                    "whitespace-normal" "rounded-md" "bg-base-200" "px-3"
+                    "py-2" "text-xs" "font-medium" "leading-4"
+                    "text-left" "text-trading-text" "shadow-xl" "opacity-0"
+                    "pointer-events-none" "transition-opacity" "duration-150"
+                    "group-hover/outcome-open-interest:opacity-100"
+                    "group-hover/outcome-open-interest:pointer-events-auto"
+                    "group-focus-within/outcome-open-interest:opacity-100"
+                    "group-focus-within/outcome-open-interest:pointer-events-auto"]
+            :role "tooltip"
+            :data-role "outcome-open-interest-tooltip"}
+      open-interest-tooltip])])
+
 (defn- desktop-outcome-active-asset-row
   [{:keys [icon-market
            dropdown-visible?
@@ -405,12 +429,7 @@
                    (fmt/format-large-currency volume-24h)
                    "Loading...")
                  {:numeric? true})]
-   [:div {:class ["flex" "justify-center"]}
-    (data-column "Open Interest"
-                 (if (some? open-interest-usd)
-                   (fmt/format-large-currency open-interest-usd)
-                   "Loading...")
-                 {:numeric? true})]])
+   (outcome-open-interest-column row-vm)])
 
 (defn active-asset-row-from-vm [row-vm]
   [:div
