@@ -117,7 +117,11 @@
                                  :order-type-label order-form-vm/order-type-label}
                                 entry-mode-handlers)
 
-      (when-not outcome?
+      (if outcome?
+        (controls/side-row side
+                           side-handlers
+                           {:buy-label "Buy"
+                            :sell-label "Sell"})
         (controls/side-row side side-handlers))
       (when outcome?
         (controls/outcome-side-row outcome-sides

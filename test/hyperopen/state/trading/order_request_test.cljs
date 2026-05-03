@@ -156,7 +156,12 @@
         default-request (trading/build-order-request state (assoc base-form
                                                                   :ui-leverage 10
                                                                   :margin-mode :cross))
-        no-request (trading/build-order-request state (assoc base-form :outcome-side 1))]
+        no-request (trading/build-order-request state (assoc base-form :outcome-side 1))
+        sell-no-request (trading/build-order-request state (assoc base-form
+                                                                  :side :sell
+                                                                  :outcome-side 1))]
     (is (= 100000000 (get-in default-request [:action :orders 0 :a])))
     (is (= 100000001 (get-in no-request [:action :orders 0 :a])))
+    (is (= 100000001 (get-in sell-no-request [:action :orders 0 :a])))
+    (is (false? (get-in sell-no-request [:action :orders 0 :b])))
     (is (nil? (:pre-actions default-request)))))

@@ -40,15 +40,17 @@
                                    (fn [node]
                                      (= [[:actions/update-order-form [:outcome-side] 1]]
                                         (get-in node [1 :on :click]))))
+        buy-tab (button-node-by-label view-node "Buy")
+        sell-tab (button-node-by-label view-node "Sell")
         buy-yes-classes (set (get-in (button-node-by-label view-node "Buy Yes") [1 :class]))
         buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
     (is (contains? strings "Buy Yes"))
     (is (contains? strings "Buy No"))
+    (is (contains? strings "Buy"))
+    (is (contains? strings "Sell"))
     (is (contains? strings "USDH"))
     (is (contains? strings "Yes"))
     (is (not (contains? strings "BTC")))
-    (is (not (contains? strings "Buy")))
-    (is (not (contains? strings "Sell")))
     (is (not (contains? strings "Outcome")))
     (is (not (contains? strings "Buy / Long")))
     (is (not (contains? strings "Sell / Short")))
@@ -57,6 +59,10 @@
     (is (not (contains? strings "Classic")))
     (is (contains? buy-yes-classes "bg-[#50D2C1]"))
     (is (contains? buy-no-classes "bg-[#273035]"))
+    (is (= [[:actions/update-order-form [:side] :buy]]
+           (get-in buy-tab [1 :on :click])))
+    (is (= [[:actions/update-order-form [:side] :sell]]
+           (get-in sell-tab [1 :on :click])))
     (is (some? no-button))))
 
 (deftest order-form-renders-selected-outcome-no-with-sell-color-test

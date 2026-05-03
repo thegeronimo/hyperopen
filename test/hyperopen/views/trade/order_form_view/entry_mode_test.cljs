@@ -43,6 +43,46 @@
     (is (not (contains? strings "TIF")))
     (is (not (contains? strings "Pro Order Type")))))
 
+(deftest outcome-market-renders-independent-buy-sell-side-tabs-test
+  (let [outcome-market {:coin "outcome:0"
+                        :quote "USDH"
+                        :market-type :outcome
+                        :mark 0.58
+                        :szDecimals 0
+                        :outcome-sides [{:side-index 0
+                                         :side-label "Yes"
+                                         :coin "#0"
+                                         :asset-id 100000000}
+                                        {:side-index 1
+                                         :side-label "No"
+                                         :coin "#1"
+                                         :asset-id 100000001}]}
+        buy-view (view/order-form-view
+                  (assoc (base-state {:type :market
+                                      :side :buy
+                                      :outcome-side 0})
+                         :active-asset "outcome:0"
+                         :active-market outcome-market))
+        sell-view (view/order-form-view
+                   (assoc (base-state {:type :market
+                                       :side :sell
+                                       :outcome-side 0})
+                          :active-asset "outcome:0"
+                          :active-market outcome-market))
+        buy-tab (button-node-by-label buy-view "Buy")
+        sell-tab (button-node-by-label buy-view "Sell")
+        sell-click (get-in sell-tab [1 :on :click])
+        buy-strings (set (collect-strings buy-view))
+        sell-strings (set (collect-strings sell-view))]
+    (is (some? buy-tab))
+    (is (some? sell-tab))
+    (is (= [[:actions/update-order-form [:side] :sell]]
+           sell-click))
+    (is (contains? buy-strings "Buy Yes"))
+    (is (contains? buy-strings "Buy No"))
+    (is (contains? sell-strings "Sell Yes"))
+    (is (contains? sell-strings "Sell No"))))
+
 (deftest market-mode-button-dispatches-select-order-entry-market-action-test
   (let [view-node (view/order-form-view (base-state {:entry-mode :limit :type :limit}))
         market-button (button-node-by-label view-node "Market")
