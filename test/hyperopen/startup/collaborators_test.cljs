@@ -4,7 +4,11 @@
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.startup.collaborators :as collaborators]
-            [hyperopen.websocket.client :as ws-client]))
+            [hyperopen.websocket.active-asset-ctx :as active-ctx]
+            [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.infrastructure.transport :as ws-infra]
+            [hyperopen.websocket.orderbook :as orderbook]
+            [hyperopen.websocket.trades :as trades]))
 
 (deftest startup-base-deps-includes-default-collaborators-test
   (let [deps (collaborators/startup-base-deps
@@ -49,6 +53,61 @@
         deps (collaborators/startup-base-deps {:api api-instance})]
     (is (identical? get-request-stats*
                     (:get-request-stats deps)))))
+
+(deftest startup-base-deps-fetch-asset-selector-markets-resyncs-active-outcome-side-streams-test
+  (async done
+    (let [market {:key "outcome:1"
+                  :coin "outcome:1"
+                  :market-type :outcome
+                  :outcome-sides [{:side-index 0 :coin "#10"}
+                                  {:side-index 1 :coin "#11"}]}
+          store (atom {:active-asset "#10"
+                       :asset-selector {}})
+          original-orderbook-state @orderbook/orderbook-state
+          original-trades-state @trades/trades-state
+          original-active-ctx-state @active-ctx/active-asset-ctx-state
+          original-ws-state @ws-client/runtime-state
+          restore-state! (fn []
+                           (reset! orderbook/orderbook-state original-orderbook-state)
+                           (reset! trades/trades-state original-trades-state)
+                           (reset! active-ctx/active-asset-ctx-state original-active-ctx-state)
+                           (reset! ws-client/runtime-state original-ws-state))
+          deps (collaborators/startup-base-deps
+                {:api {:request-asset-selector-markets!
+                       (fn [_store opts]
+                         (js/Promise.resolve
+                          {:phase (:phase opts)
+                           :market-state {:markets [market]
+                                          :market-by-key {"outcome:1" market}
+                                          :active-market market
+                                          :loaded-at-ms 123}}))}})]
+      (reset! orderbook/orderbook-state {:subscriptions {}
+                                          :books {}})
+      (reset! trades/trades-state {:subscriptions #{}
+                                    :trades []
+                                    :trades-by-coin {}})
+      (reset! active-ctx/active-asset-ctx-state {:subscriptions #{}
+                                                 :owners-by-coin {}
+                                                 :coins-by-owner {}
+                                                 :contexts {}})
+      (swap! ws-client/runtime-state
+             assoc
+             :clock (ws-infra/make-function-clock (fn [] 1700000000000)
+                                                  (fn [] 0.5)))
+      (-> ((:fetch-asset-selector-markets! deps) store {:phase :bootstrap})
+          (.then (fn [_]
+                   (is (= #{"#10" "#11"}
+                          (set (keys (orderbook/get-subscriptions)))))
+                   (is (= #{"#10" "#11"}
+                          (:subscriptions @trades/trades-state)))
+                   (is (= #{"#10" "#11"}
+                          (active-ctx/get-subscribed-coins-by-owner :active-asset)))
+                   (restore-state!)
+                   (done)))
+          (.catch (fn [err]
+                    (restore-state!)
+                    (is false (str "Unexpected selector fetch error: " err))
+                    (done)))))))
 
 (deftest startup-base-deps-fetch-asset-contexts-uses-injected-api-request-test
   (async done

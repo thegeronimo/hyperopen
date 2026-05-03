@@ -28,6 +28,22 @@
             [:effects/sync-active-asset-funding-predictability "#0"]]
            (websocket-adapters/subscribe-to-asset state "#0")))))
 
+(deftest subscribe-to-asset-uses-restored-active-outcome-market-when-selector-cache-is-empty-test
+  (let [market {:key "outcome:1"
+                :coin "outcome:1"
+                :market-type :outcome
+                :outcome-sides [{:side-index 0 :coin "#10"}
+                                {:side-index 1 :coin "#11"}]}
+        state {:active-market market
+               :asset-selector {:market-by-key {}}}]
+    (is (= [[:effects/subscribe-active-asset "#10"]
+            [:effects/subscribe-orderbook "#10"]
+            [:effects/subscribe-trades "#10"]
+            [:effects/subscribe-orderbook "#11"]
+            [:effects/subscribe-trades "#11"]
+            [:effects/sync-active-asset-funding-predictability "#10"]]
+           (websocket-adapters/subscribe-to-asset state "#10")))))
+
 (deftest subscribe-to-webdata2-emits-address-subscription-test
   (is (= [[:effects/subscribe-webdata2 "0xabc"]]
          (websocket-adapters/subscribe-to-webdata2 {} "0xabc"))))

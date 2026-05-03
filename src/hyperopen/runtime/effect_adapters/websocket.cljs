@@ -251,6 +251,34 @@
     :log-fn telemetry/log!
     :subscribe-webdata2-fn webdata2/subscribe-webdata2!}))
 
+(defn- active-outcome-market-side-coins
+  [state]
+  (let [coin (:active-asset state)
+        market-by-key (get-in state [:asset-selector :market-by-key] {})
+        active-market (:active-market state)
+        market (or (when (and (map? active-market)
+                              (markets/market-matches-coin? active-market coin))
+                     active-market)
+                   (markets/resolve-or-infer-market-by-coin market-by-key coin))]
+    (when (= :outcome (:market-type market))
+      (subscriptions-runtime/active-market-subscription-coins market coin))))
+
+(defn sync-active-outcome-market-side-streams!
+  ([store]
+   (sync-active-outcome-market-side-streams! store {}))
+  ([store {:keys [subscribe-orderbook-fn
+                  subscribe-trades-fn
+                  subscribe-active-asset-ctx-fn]
+           :or {subscribe-orderbook-fn subscribe-orderbook
+                subscribe-trades-fn subscribe-trades
+                subscribe-active-asset-ctx-fn active-ctx/subscribe-active-asset-ctx!}}]
+   (let [side-coins (active-outcome-market-side-coins @store)]
+     (doseq [side-coin side-coins]
+       (subscribe-orderbook-fn store side-coin)
+       (subscribe-trades-fn side-coin)
+       (subscribe-active-asset-ctx-fn side-coin))
+     side-coins)))
+
 (defn unsubscribe-webdata2
   [address]
   (subscriptions-runtime/unsubscribe-webdata2!

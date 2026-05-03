@@ -8,6 +8,7 @@
             [hyperopen.api.projections :as api-projections]
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.runtime.api-effects :as runtime-api-effects]
+            [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.wallet.address-watcher :as address-watcher]
@@ -319,7 +320,10 @@
      :begin-asset-selector-load api-projections/begin-asset-selector-load
      :apply-spot-meta-success api-projections/apply-spot-meta-success
      :apply-asset-selector-success api-projections/apply-asset-selector-success
-     :apply-asset-selector-error api-projections/apply-asset-selector-error})))
+     :apply-asset-selector-error api-projections/apply-asset-selector-error
+     :after-asset-selector-success! (fn [runtime-store _phase _market-state]
+                                      (ws-adapters/sync-active-outcome-market-side-streams!
+                                       runtime-store))})))
 
 (defn startup-base-deps
   [overrides]

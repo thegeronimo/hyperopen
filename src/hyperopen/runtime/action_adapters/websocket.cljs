@@ -1,10 +1,18 @@
 (ns hyperopen.runtime.action-adapters.websocket
   (:require [hyperopen.asset-selector.markets :as markets]))
 
+(defn- matching-active-market
+  [state coin]
+  (let [market (:active-market state)]
+    (when (and (map? market)
+               (markets/market-matches-coin? market coin))
+      market)))
+
 (defn- active-market-side-coins
   [state coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
-        market (markets/resolve-or-infer-market-by-coin market-by-key coin)
+        market (or (matching-active-market state coin)
+                   (markets/resolve-or-infer-market-by-coin market-by-key coin))
         side-coins (when (= :outcome (:market-type market))
                      (->> (:outcome-sides market)
                           (keep :coin)

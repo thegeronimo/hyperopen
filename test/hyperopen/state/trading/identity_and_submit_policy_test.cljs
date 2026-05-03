@@ -300,6 +300,57 @@
       (is (order-request-contracts/order-request-valid? request))
       (is (= "123.45" (get-in request [:action :orders 0 :p]))))))
 
+(deftest prepare-order-form-for-submit-uses-selected-outcome-side-orderbook-test
+  (let [market {:coin "outcome:1"
+                :symbol "BTC above 78213 on May 4 at 2:00 AM?"
+                :title "BTC above 78213 on May 4 at 2:00 AM?"
+                :quote "USDC"
+                :market-type :outcome
+                :mark 0.39
+                :szDecimals 0
+                :outcome-sides [{:side-index 0
+                                 :side-label "Yes"
+                                 :coin "#10"
+                                 :asset-id 100000010}
+                                {:side-index 1
+                                 :side-label "No"
+                                 :coin "#11"
+                                 :asset-id 100000011}]}
+        base-state {:active-asset "outcome:1"
+                    :active-market market
+                    :asset-contexts {}
+                    :webdata2 {:clearinghouseState {:marginSummary {:accountValue "1000"
+                                                                    :totalMarginUsed "250"}}}}
+        form (assoc (trading/default-order-form)
+                    :type :market
+                    :side :buy
+                    :size "11"
+                    :slippage "0"
+                    :outcome-side 1)]
+    (testing "uses the No ask when the selected No book is loaded"
+      (let [state (assoc base-state
+                         :orderbooks {"#10" {:bids [{:px "0.60" :sz "10"}]
+                                             :asks [{:px "0.61" :sz "10"}]}
+                                      "#11" {:bids [{:px "0.38" :sz "10"}]
+                                             :asks [{:px "0.39" :sz "10"}]}})
+            prepared (trading/prepare-order-form-for-submit state form)
+            policy (trading/submit-policy state form {:mode :submit
+                                                      :agent-ready? true})]
+        (is (false? (:market-price-missing? prepared)))
+        (is (= "0.39" (get-in prepared [:form :price])))
+        (is (nil? (:reason policy)))
+        (is (= 100000011 (get-in policy [:request :action :orders 0 :a])))))
+
+    (testing "does not fall back to the Yes book when No is selected"
+      (let [state (assoc base-state
+                         :orderbooks {"#10" {:bids [{:px "0.60" :sz "10"}]
+                                             :asks [{:px "0.61" :sz "10"}]}})
+            prepared (trading/prepare-order-form-for-submit state form)
+            policy (trading/submit-policy state form {:mode :submit
+                                                      :agent-ready? true})]
+        (is (true? (:market-price-missing? prepared)))
+        (is (= :market-price-missing (:reason policy)))))))
+
 (deftest prepare-order-form-for-submit-uses-limit-fallback-when-price-is-blank-test
   (let [form (assoc (trading/default-order-form)
                     :type :limit

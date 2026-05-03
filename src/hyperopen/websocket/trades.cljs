@@ -242,12 +242,14 @@
 ;; Subscribe to trades for a symbol
 (defn subscribe-trades! [symbol]
   (when symbol
-    (let [subscription-msg {:method "subscribe"
-                            :subscription {:type "trades"
-                                           :coin symbol}}]
-      (swap! trades-state update :subscriptions conj symbol)
-      (ws-client/send-message! subscription-msg)
-      (telemetry/log! "Subscribed to trades for:" symbol))))
+    (if (contains? (:subscriptions @trades-state) symbol)
+      (telemetry/log! "Trades subscription already active for:" symbol)
+      (let [subscription-msg {:method "subscribe"
+                              :subscription {:type "trades"
+                                             :coin symbol}}]
+        (swap! trades-state update :subscriptions conj symbol)
+        (ws-client/send-message! subscription-msg)
+        (telemetry/log! "Subscribed to trades for:" symbol)))))
 
 ;; Unsubscribe from trades for a symbol
 (defn unsubscribe-trades! [symbol]

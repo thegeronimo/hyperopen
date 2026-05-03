@@ -279,7 +279,8 @@
     :apply-asset-selector-success api-projections/apply-asset-selector-success
     :apply-asset-selector-error api-projections/apply-asset-selector-error
     :after-asset-selector-success! (fn [runtime-store _phase _market-state]
-                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store))}))
+                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store)
+                                     (ws-adapters/sync-active-outcome-market-side-streams! runtime-store))}))
 
 (defn api-load-user-data-effect
   [_ store address]
@@ -496,5 +497,4 @@
           request
           {:show-toast! show-order-feedback-toast!}]))
 
-(def run-portfolio-optimizer-effect
-  portfolio-optimizer-adapters/run-portfolio-optimizer-effect)
+(def run-portfolio-optimizer-effect portfolio-optimizer-adapters/run-portfolio-optimizer-effect)

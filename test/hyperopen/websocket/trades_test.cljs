@@ -3,6 +3,7 @@
              :refer-macros [deftest is]]
             [hyperopen.platform :as platform]
             [hyperopen.websocket.trades :as trades]
+            [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.trades-policy :as policy]))
 
 (defn- reset-trades-fixture [f]
@@ -17,6 +18,19 @@
   (reset! trades/trades-buffer {:pending [] :timer nil}))
 
 (use-fixtures :each reset-trades-fixture)
+
+(deftest subscribe-trades-sends-one-subscription-per-symbol-test
+  (let [sent-messages (atom [])]
+    (with-redefs [ws-client/send-message! (fn [message]
+                                            (swap! sent-messages conj message)
+                                            true)]
+      (trades/subscribe-trades! "#11")
+      (trades/subscribe-trades! "#11"))
+    (is (= [{:method "subscribe"
+             :subscription {:type "trades"
+                            :coin "#11"}}]
+           @sent-messages))
+    (is (= #{"#11"} (:subscriptions @trades/trades-state)))))
 
 (deftest update-candles-from-trades-normalizes-filters-and-sorts-before-upsert-test
   (let [store (atom {:active-asset "BTC"
