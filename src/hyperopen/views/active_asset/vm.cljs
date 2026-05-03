@@ -80,7 +80,7 @@
           hour (.getUTCHours date)
           hour12 (let [remainder (mod hour 12)]
                    (if (zero? remainder) 12 remainder))]
-      (str "at "
+      (str "on "
            (get utc-month-names (.getUTCMonth date))
            " "
            (fmt/pad2 (.getUTCDate date))
@@ -101,7 +101,7 @@
                (re-find #"(?i)\bon\s+([A-Za-z]+)\s+(\d{1,2})\s+at\s+(\d{1,2}):(\d{2})\s+(AM|PM)\b"
                         title)]
       (let [date (js/Date. expiry-ms)]
-        (str "at "
+        (str "on "
              month
              " "
              (fmt/pad2 (js/parseInt day 10))
@@ -132,7 +132,7 @@
           settlement-time-label (or (format-title-settlement-time (:title market) (:expiry-ms market))
                                     (format-title-settlement-time (:symbol market) (:expiry-ms market))
                                     (format-outcome-settlement-time (:expiry-ms market))
-                                    "at settlement time")
+                                    "on settlement time")
           default-summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
           summary (if (and (seq structured-settlement-label)
                            (seq settlement-time-label))

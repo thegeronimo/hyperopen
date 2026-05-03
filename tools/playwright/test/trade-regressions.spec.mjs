@@ -938,7 +938,7 @@ test("outcome market tooltip stays within active selector width and glows on hov
 
   const settlementLabel = tooltip.getByText("BTC mark price is above 78,213");
   await expect(settlementLabel).toHaveCSS("white-space", "nowrap");
-  await expect(tooltip.getByText("at May 03, 2026 02:00 AM UTC")).toBeVisible();
+  await expect(tooltip.getByText("on May 03, 2026 02:00 AM UTC")).toBeVisible();
   await expect(tooltip.getByText("Payouts are in USDH.")).toBeVisible();
   await expect(tooltip.getByText("Learn more")).toHaveCount(0);
 });

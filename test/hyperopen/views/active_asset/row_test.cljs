@@ -129,7 +129,7 @@
         (is (contains? strings "This market resolves to YES or NO based on the following settlement condition at the specified time."))
         (is (contains? strings "Settlement Condition"))
         (is (contains? strings "BTC mark price is above 78,213"))
-        (is (contains? strings "at May 03, 2026 02:00 AM UTC"))
+        (is (contains? strings "on May 03, 2026 02:00 AM UTC"))
         (is (contains? strings "Payout Rule"))
         (is (contains? strings "YES"))
         (is (contains? strings "$1.00"))
