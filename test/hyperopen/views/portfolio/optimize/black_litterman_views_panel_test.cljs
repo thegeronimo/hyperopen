@@ -203,3 +203,38 @@
         panel-text (hiccup/node-text panel)]
     (is (str/includes? panel-text "Alpha Yield"))
     (is (not (str/includes? panel-text vault-id)))))
+
+(deftest black-litterman-panel-prefills-absolute-return-with-sharpe-input-test
+  (let [draft {:universe [{:instrument-id "perp:BTC"
+                           :market-type :perp
+                           :coin "BTC"
+                           :symbol "BTC-USDC"}]
+               :return-model {:kind :black-litterman
+                              :views []}
+               :risk-model {:kind :sample-covariance}}
+        readiness {:status :ready
+                   :request {:universe (:universe draft)
+                             :return-model (:return-model draft)
+                             :risk-model (:risk-model draft)
+                             :history {:return-series-by-instrument
+                                       {"perp:BTC" [0.01 0.02 0.03]}}
+                             :black-litterman-prior
+                             {:source :market-cap
+                              :weights-by-instrument {"perp:BTC" 1}}}}
+        editor-state {:selected-kind :absolute
+                      :drafts {:absolute {:instrument-id nil
+                                          :return-text ""
+                                          :return-text-touched? false
+                                          :confidence :medium
+                                          :horizon :3m
+                                          :notes ""}}}
+        panel (bl-panel/black-litterman-views-panel draft readiness editor-state)
+        return-input (hiccup/find-by-data-role
+                      panel
+                      "portfolio-optimizer-black-litterman-editor-return")
+        preview (hiccup/find-by-data-role
+                 panel
+                 "portfolio-optimizer-black-litterman-preview-text")]
+    (is (= "3.65" (get-in return-input [1 :value])))
+    (is (str/includes? (hiccup/node-text preview)
+                       "BTC expected return +3.65% annualized"))))

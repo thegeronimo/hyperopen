@@ -124,6 +124,93 @@ async function seedBlackLittermanEditorState(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedBlackLittermanAutomaticReturnState(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const vector = (items) => c.PersistentVector.fromArray(items, true);
+    const candle = (time, close) => map([kw("time"), time, kw("close"), close]);
+    const btcInstrument = map([
+      kw("instrument-id"), "perp:BTC",
+      kw("market-type"), kw("perp"),
+      kw("coin"), "BTC",
+      kw("symbol"), "BTC-USDC"
+    ]);
+    const draft = map([
+      kw("universe"), vector([btcInstrument]),
+      kw("objective"), map([kw("kind"), kw("max-sharpe")]),
+      kw("return-model"), map([kw("kind"), kw("black-litterman"), kw("views"), vector([])]),
+      kw("risk-model"), map([kw("kind"), kw("sample-covariance")]),
+      kw("constraints"), map([])
+    ]);
+    const editorState = map([
+      kw("selected-kind"), kw("absolute"),
+      kw("drafts"), map([
+        kw("absolute"), map([
+          kw("instrument-id"), null,
+          kw("return-text"), "",
+          kw("return-text-touched?"), false,
+          kw("confidence"), kw("medium"),
+          kw("horizon"), kw("3m"),
+          kw("notes"), ""
+        ])
+      ]),
+      kw("editing-view-id"), null,
+      kw("errors"), map([]),
+      kw("clear-confirmation-open?"), false
+    ]);
+    const store = globalThis.hyperopen.system.store;
+    let state = c.deref(store);
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray([kw("portfolio"), kw("optimizer"), kw("draft")], true),
+      draft
+    );
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray(
+        [kw("portfolio"), kw("optimizer"), kw("history-data"), kw("candle-history-by-coin"), "BTC"],
+        true
+      ),
+      vector([
+        candle(1000, "100"),
+        candle(2000, "101"),
+        candle(3000, "103.02"),
+        candle(4000, "106.1106")
+      ])
+    );
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray(
+        [kw("portfolio"), kw("optimizer"), kw("history-data"), kw("funding-history-by-coin")],
+        true
+      ),
+      map([])
+    );
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray([kw("portfolio"), kw("optimizer"), kw("market-cap-by-coin")], true),
+      map(["BTC", 1])
+    );
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray([kw("portfolio"), kw("optimizer"), kw("runtime"), kw("as-of-ms")], true),
+      5000
+    );
+    state = c.assoc_in(
+      state,
+      c.PersistentVector.fromArray(
+        [kw("portfolio-ui"), kw("optimizer"), kw("black-litterman-editor")],
+        true
+      ),
+      editorState
+    );
+    c.reset_BANG_(store, state);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function widthRatio(child, parent) {
   const [childBox, parentBox] = await Promise.all([
     child.boundingBox(),
@@ -195,4 +282,21 @@ test("portfolio optimizer use my views editor flow exposes the Edit Views contra
     .toBeVisible();
   await page.locator("[data-role='portfolio-optimizer-black-litterman-clear-cancel']").click();
   await expect(panel).toContainText(/views adjust expected returns only/i);
+});
+
+test("portfolio optimizer use my views prepopulates absolute return from Sharpe input @regression", async ({ page }) => {
+  test.setTimeout(90_000);
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']"))
+    .toBeVisible({ timeout: 60_000 });
+
+  await seedBlackLittermanAutomaticReturnState(page);
+
+  const panel = page.locator("[data-role='portfolio-optimizer-black-litterman-panel']");
+  const returnInput = panel.locator("[data-role='portfolio-optimizer-black-litterman-editor-return']");
+  await expect(returnInput).toHaveValue("3.65");
+  await expect(panel.locator("[data-role='portfolio-optimizer-black-litterman-preview-text']"))
+    .toContainText("BTC expected return +3.65% annualized");
 });

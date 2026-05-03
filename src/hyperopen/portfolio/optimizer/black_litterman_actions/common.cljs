@@ -226,19 +226,28 @@
                  :comparator-instrument-id (or second-id first-id)
                  :direction :outperform
                  :return-text ""
+                 :return-text-touched? false
                  :confidence :medium
                  :horizon :3m
                  :notes ""}
       {:instrument-id first-id
        :return-text ""
+       :return-text-touched? false
        :confidence :medium
        :horizon :3m
        :notes ""})))
 
+(defn- drop-nil-values
+  [m]
+  (into {}
+        (remove (fn [[_ value]]
+                  (nil? value)))
+        m))
+
 (defn editor-draft
   [state kind]
   (merge (draft-defaults state kind)
-         (get-in state (conj editor-path :drafts kind))))
+         (drop-nil-values (get-in state (conj editor-path :drafts kind)))))
 
 (defn editor-draft-path
   [kind field]

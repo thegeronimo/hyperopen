@@ -68,6 +68,18 @@
   (mapv #(or (get-in return-result [:expected-returns-by-instrument %]) 0)
         instrument-ids))
 
+(defn expected-return-inputs-by-instrument
+  "Returns the same ordered expected-return inputs used by objective scoring."
+  [request]
+  (let [risk-result (risk/estimate-risk-model
+                     {:risk-model (:risk-model request)
+                      :periods-per-year (:periods-per-year request)
+                      :history (:history request)})
+        instrument-ids (:instrument-ids risk-result)
+        return-result (expected-return-result request risk-result)
+        expected-returns (expected-return-vector return-result instrument-ids)]
+    (zipmap instrument-ids expected-returns)))
+
 (defn- encoded-constraints
   [request instrument-ids]
   (constraints/encode-constraints

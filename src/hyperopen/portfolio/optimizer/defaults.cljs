@@ -157,6 +157,7 @@
    :black-litterman-editor {:selected-kind :absolute
                             :drafts {:absolute {:instrument-id nil
                                                 :return-text ""
+                                                :return-text-touched? false
                                                 :confidence :medium
                                                 :horizon :3m
                                                 :notes ""}
@@ -164,6 +165,7 @@
                                                 :comparator-instrument-id nil
                                                 :direction :outperform
                                                 :return-text ""
+                                                :return-text-touched? false
                                                 :confidence :medium
                                                 :horizon :3m
                                                 :notes ""}}

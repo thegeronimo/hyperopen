@@ -1,5 +1,7 @@
 (ns hyperopen.portfolio.optimizer.black-litterman-actions.editor
-  (:require [hyperopen.portfolio.optimizer.black-litterman-actions.common :as common]
+  (:require [hyperopen.portfolio.optimizer.application.engine.context :as engine-context]
+            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
+            [hyperopen.portfolio.optimizer.black-litterman-actions.common :as common]
             [hyperopen.portfolio.optimizer.black-litterman-actions.views :as views]))
 
 (defn- draft->view
@@ -74,10 +76,33 @@
            (neg? return-value))
       (assoc :return-text "Spread must be positive. Use direction to express underperformance."))))
 
+(defn- automatic-return-inputs
+  [state]
+  (let [readiness (setup-readiness/build-readiness state)
+        request (:request readiness)]
+    (if (and (= :ready (:status readiness))
+             (= :black-litterman (get-in request [:return-model :kind])))
+      (engine-context/expected-return-inputs-by-instrument request)
+      {})))
+
+(defn- with-automatic-absolute-return-text
+  [state kind draft editing?]
+  (let [instrument-id (common/non-blank-text (:instrument-id draft))]
+    (if (and (= :absolute kind)
+             (not editing?)
+             instrument-id
+             (not (:return-text-touched? draft))
+             (nil? (common/parse-percent-text (:return-text draft))))
+      (if-let [return-input (get (automatic-return-inputs state) instrument-id)]
+        (assoc draft :return-text (common/decimal->percent-text return-input))
+        draft)
+      draft)))
+
 (defn- reset-draft-after-save
   [draft]
   (assoc draft
          :return-text ""
+         :return-text-touched? false
          :notes ""))
 
 (defn- view->draft
@@ -88,12 +113,14 @@
                  :comparator-instrument-id (views/view-comparator-instrument-id view)
                  :direction (common/normalize-direction (:direction view))
                  :return-text (common/decimal->percent-text (:return view))
+                 :return-text-touched? true
                  :confidence (common/normalize-confidence-level
                               (common/confidence-level-from-view view))
                  :horizon (common/normalize-horizon (:horizon view))
                  :notes (or (:notes view) "")}
       {:instrument-id (:instrument-id view)
        :return-text (common/decimal->percent-text (:return view))
+       :return-text-touched? true
        :confidence (common/normalize-confidence-level
                     (common/confidence-level-from-view view))
        :horizon (common/normalize-horizon (:horizon view))
@@ -111,17 +138,24 @@
   [state field value]
   (let [kind (common/selected-kind state)
         field* (common/normalize-keyword-like field)]
-    (common/save-ui-path-values [[(common/editor-draft-path kind field*)
-                                  (common/normalized-draft-field field* value)]
-                                 [(conj common/editor-path :errors field*) nil]])))
+    (common/save-ui-path-values
+     (cond-> [[(common/editor-draft-path kind field*)
+               (common/normalized-draft-field field* value)]
+              [(conj common/editor-path :errors field*) nil]]
+       (= :return-text field*)
+       (conj [(common/editor-draft-path kind :return-text-touched?) true])))))
 
 (defn save-portfolio-optimizer-black-litterman-editor-view
   [state]
   (let [kind (common/selected-kind state)
-        draft (common/editor-draft state kind)
         editing-view-id (common/non-blank-text
                          (get-in state (conj common/editor-path :editing-view-id)))
         editing? (boolean editing-view-id)
+        draft (with-automatic-absolute-return-text
+                state
+                kind
+                (common/editor-draft state kind)
+                editing?)
         errors (validate-draft state kind draft editing?)
         views* (common/black-litterman-views state)]
     (if (seq errors)

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.black-litterman-views-panel
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.return-inputs :as return-inputs]
             [hyperopen.views.portfolio.optimize.instrument-display :as instrument-display]))
 
 (def ^:private max-active-views 10)
@@ -132,11 +133,13 @@
                  :comparator-instrument-id (or second-id first-id)
                  :direction :outperform
                  :return-text ""
+                 :return-text-touched? false
                  :confidence :medium
                  :horizon :3m
                  :notes ""}
       {:instrument-id first-id
        :return-text ""
+       :return-text-touched? false
        :confidence :medium
        :horizon :3m
        :notes ""})))
@@ -148,10 +151,31 @@
       kind
       :absolute)))
 
+(defn- drop-nil-values
+  [m]
+  (into {}
+        (remove (fn [[_ value]]
+                  (nil? value)))
+        m))
+
+(defn- with-automatic-absolute-return-text
+  [draft kind return-inputs editing?]
+  (let [instrument-id (:instrument-id draft)]
+    (if (and (= :absolute kind)
+             (not editing?)
+             instrument-id
+             (not (:return-text-touched? draft))
+             (nil? (parse-percent-text (:return-text draft))))
+      (if-let [return-input (get return-inputs instrument-id)]
+        (assoc draft :return-text (return-inputs/decimal->percent-text return-input))
+        draft)
+      draft)))
+
 (defn- selected-draft
-  [universe editor-state kind]
-  (merge (draft-defaults universe kind)
-         (get-in editor-state [:drafts kind])))
+  [universe editor-state kind return-inputs editing?]
+  (-> (merge (draft-defaults universe kind)
+             (drop-nil-values (get-in editor-state [:drafts kind])))
+      (with-automatic-absolute-return-text kind return-inputs editing?)))
 
 (defn- instrument-grid-class
   [kind]
@@ -318,17 +342,18 @@
        "x"]]]))
 
 (defn black-litterman-views-panel
-  ([draft prior]
-   (black-litterman-views-panel draft prior {}))
-  ([draft _prior editor-state]
+  ([draft readiness]
+   (black-litterman-views-panel draft readiness {}))
+  ([draft readiness editor-state]
    (when (= :black-litterman (get-in draft [:return-model :kind]))
      (let [universe (vec (:universe draft))
            views (vec (get-in draft [:return-model :views]))
            kind (selected-kind editor-state)
-           draft* (selected-draft universe editor-state kind)
            errors (or (:errors editor-state) {})
            editing-view-id (:editing-view-id editor-state)
            editing? (boolean editing-view-id)
+           return-inputs (return-inputs/readiness-inputs-by-instrument readiness)
+           draft* (selected-draft universe editor-state kind return-inputs editing?)
            valid? (draft-valid? universe kind draft* (count views) editing?)
            clear-open? (true? (:clear-confirmation-open? editor-state))]
        [:section {:class ["portfolio-optimizer-bl-panel" "space-y-4"]

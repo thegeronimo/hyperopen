@@ -217,6 +217,46 @@
     (is (= :3m (:horizon underperform-view)))
     (is (= true (get underperform-values dirty-path)))))
 
+(deftest black-litterman-editor-save-uses-automatic-absolute-return-input-when-untouched-test
+  (let [save-view (resolve-action 'save-portfolio-optimizer-black-litterman-editor-view)
+        state (base-state
+               {:portfolio
+                {:optimizer
+                 {:draft
+                  {:universe [{:instrument-id "perp:BTC"
+                               :market-type :perp
+                               :coin "BTC"}]
+                   :return-model {:kind :black-litterman
+                                  :views []}
+                   :risk-model {:kind :sample-covariance}}
+                  :history-data
+                  {:candle-history-by-coin
+                   {"BTC" [{:time 1000 :close "100"}
+                           {:time 2000 :close "101"}
+                           {:time 3000 :close "103.02"}
+                           {:time 4000 :close "106.1106"}]}
+                   :funding-history-by-coin {}}
+                  :market-cap-by-coin {"BTC" 1}
+                  :runtime {:as-of-ms 5000}}}
+                :portfolio-ui
+                {:optimizer
+                 {:black-litterman-editor
+                  {:selected-kind :absolute
+                   :drafts {:absolute {:instrument-id nil
+                                       :return-text ""
+                                       :return-text-touched? false
+                                       :confidence :medium
+                                       :horizon :3m
+                                       :notes ""}}}}}})
+        values (effect-values-by-path
+                (when save-view
+                  (save-view state)))
+        [absolute-view] (get values views-path)]
+    (is (some? save-view))
+    (is (= :absolute (:kind absolute-view)))
+    (is (= "perp:BTC" (:instrument-id absolute-view)))
+    (is (near? 0.0365 (:return absolute-view)))))
+
 (deftest black-litterman-editor-save-rejects-invalid-relative-drafts-and-max-ten-views-test
   (let [save-view (resolve-action 'save-portfolio-optimizer-black-litterman-editor-view)
         same-comparator-values (effect-values-by-path
