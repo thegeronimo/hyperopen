@@ -44,6 +44,17 @@
         button-classes (set (support/class-values (get-in icon-node [1 :class])))]
     (is (not (contains? button-classes "hover:bg-base-300")))))
 
+(deftest active-asset-trigger-applies-outcome-hover-glow-when-requested-test
+  (let [market {:key "outcome:#0"
+                :coin "#0"
+                :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                :market-type :outcome}
+        icon-node (icon-button/asset-button market false #{} #{} {:outcome-hover-glow? true})
+        button-classes (set (support/class-values (get-in icon-node [1 :class])))]
+    (is (contains? button-classes "border-transparent"))
+    (is (contains? button-classes "group-hover/outcome-name:border-[#2dd4bf]/55"))
+    (is (contains? button-classes "group-hover/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]"))))
+
 (deftest asset-icon-renders-neutral-surface-while-probing-and-registers-render-hook-test
   (let [market {:key "perp:BTC"
                 :coin "BTC"

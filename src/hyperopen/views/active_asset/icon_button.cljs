@@ -107,7 +107,8 @@
         (when-let [status (mounted-image-status node)]
           (dispatch-icon-status! market-key status status*))))))
 
-(defn asset-button [market dropdown-visible? missing-icons loaded-icons]
+(defn asset-button
+  [market dropdown-visible? missing-icons loaded-icons & [{:keys [outcome-hover-glow?]}]]
   (let [coin (:coin market)
         symbol (or (:symbol market) coin)
         dex-label (market-dex-label market)
@@ -132,10 +133,26 @@
                       "pr-2"
                       "py-1"
                       "text-left"
-                      "transition-colors"
                       "focus:outline-none"
                       "focus:ring-0"
-                      "focus:ring-offset-0"]
+                      "focus:ring-offset-0"
+                      (if outcome-hover-glow?
+                        "border"
+                        "transition-colors")
+                      (when outcome-hover-glow?
+                        "border-transparent")
+                      (when outcome-hover-glow?
+                        "transition-[border-color,box-shadow,color]")
+                      (when outcome-hover-glow?
+                        "duration-150")
+                      (when outcome-hover-glow?
+                        "group-hover/outcome-name:border-[#2dd4bf]/55")
+                      (when outcome-hover-glow?
+                        "group-hover/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]")
+                      (when outcome-hover-glow?
+                        "group-focus-within/outcome-name:border-[#2dd4bf]/55")
+                      (when outcome-hover-glow?
+                        "group-focus-within/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]")]
               :aria-haspopup "dialog"
               :aria-expanded dropdown-visible?
               :on {:click [[:actions/toggle-asset-dropdown :asset-selector]]}}

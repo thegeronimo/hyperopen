@@ -48,17 +48,17 @@
            footer-label]}]
   (when settlement-label
     [:div {:class ["absolute"
-                   "left-0"
                    "top-full"
                    "z-[240]"
-                   "mt-4"
-                   "w-[min(50rem,calc(100vw-3rem))]"
+                   "mt-3"
+                   "left-3"
+                   "right-3"
                    "rounded-lg"
                    "border"
                    "border-[#0f766e]/80"
                    "bg-[#07131a]/95"
                    "text-left"
-                   "shadow-[0_18px_70px_rgba(0,0,0,0.55)]"
+                   "shadow-[0_-8px_26px_rgba(45,212,191,0.10),0_18px_70px_rgba(0,0,0,0.55)]"
                    "backdrop-blur"
                    "opacity-0"
                    "pointer-events-none"
@@ -71,15 +71,23 @@
            :role "tooltip"
            :data-role "outcome-market-tooltip"}
      [:div {:class ["absolute"
-                    "-top-[10px]"
-                    "left-[48%]"
-                    "h-5"
+                   "-top-[10px]"
+                   "left-[48%]"
+                   "h-5"
                     "w-5"
                     "rotate-45"
                     "border-l"
                     "border-t"
                     "border-[#0f766e]/80"
                     "bg-[#07131a]"]
+            :aria-hidden true}]
+     [:div {:class ["pointer-events-none"
+                    "absolute"
+                    "inset-x-8"
+                    "top-0"
+                    "h-px"
+                    "bg-[#2dd4bf]/70"
+                    "shadow-[0_0_18px_rgba(45,212,191,0.42)]"]
             :aria-hidden true}]
      [:div {:class ["relative" "space-y-0"]}
       [:div {:class ["flex" "items-start" "gap-4" "px-6" "pb-5" "pt-7"]}

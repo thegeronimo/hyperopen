@@ -386,7 +386,8 @@
     (icon-button/asset-button icon-market
                               dropdown-visible?
                               missing-icons
-                              loaded-icons)
+                              loaded-icons
+                              {:outcome-hover-glow? true})
     (outcome-tooltip/outcome-tooltip-panel (:outcome-tooltip row-vm))]
    [:div {:class ["flex" "justify-center"]}
     (data-column "Countdown" (or countdown-text "—") {:numeric? true})]

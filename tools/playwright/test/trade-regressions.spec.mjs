@@ -390,6 +390,68 @@ async function seedAssetSelectorMarketsCache(page, count = 240) {
   }, rows);
 }
 
+async function seedOutcomeActiveAsset(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+
+    if (!c || !store) {
+      throw new Error("Hyperopen store or cljs core unavailable");
+    }
+
+    const keyword = c.keyword;
+    const kwPath = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => keyword(segment)), true);
+    const opts = c.PersistentArrayMap.fromArray([keyword("keywordize-keys"), true], true);
+    let market = c.js__GT_clj(
+      {
+        key: "outcome:#0",
+        coin: "#0",
+        symbol: "BTC above 78213 on May 3 at 2:00 AM?",
+        title: "BTC above 78213 on May 3 at 2:00 AM?",
+        underlying: "BTC",
+        "target-price": 78213,
+        mark: 0.57841,
+        markRaw: "0.57841",
+        change24h: 0.0268,
+        change24hPct: 4.87,
+        volume24h: 180211.68,
+        openInterest: 537233,
+        "expiry-ms": Date.UTC(2026, 4, 3, 2, 0, 0),
+        "outcome-details": "If BTC settles above 78213, YES pays $1.",
+        "outcome-sides": [
+          { coin: "#0", name: "YES", "side-index": 0, circulatingSupply: 537233 },
+          { coin: "#1", name: "NO", "side-index": 1, circulatingSupply: 537233 }
+        ]
+      },
+      opts
+    );
+    market = c.assoc(market, keyword("market-type"), keyword("outcome"));
+
+    const context = c.js__GT_clj(
+      {
+        coin: "#0",
+        mark: 0.57841,
+        markRaw: "0.57841",
+        change24h: 0.0268,
+        change24hPct: 4.87,
+        dayNtlVlm: 180211.68,
+        openInterest: 537233
+      },
+      opts
+    );
+
+    let nextState = c.deref(store);
+    nextState = c.assoc_in(nextState, kwPath("active-asset"), "#0");
+    nextState = c.assoc_in(nextState, kwPath("selected-asset"), "#0");
+    nextState = c.assoc_in(nextState, kwPath("active-market"), market);
+    nextState = c.assoc_in(nextState, kwPath("active-assets", "contexts", "#0"), context);
+    nextState = c.assoc_in(nextState, kwPath("now-ms"), Date.UTC(2026, 4, 2, 15, 0, 0));
+
+    c.reset_BANG_(store, nextState);
+  });
+}
+
 async function seedFundingTooltipLivePositionState(
   page,
   {
@@ -820,6 +882,53 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
     },
     { args: { actionId: ":actions/select-asset" } }
   );
+});
+
+test("outcome market tooltip stays within active selector width and glows on hover @regression", async ({ page }) => {
+  await visitRoute(page, "/trade");
+  await seedOutcomeActiveAsset(page);
+  await waitForIdle(page, { quietMs: 200, timeoutMs: 4_000, pollMs: 50 });
+
+  const hoverRegion = page.locator('[data-role="outcome-market-name-hover-region"]');
+  const trigger = hoverRegion.locator("button").first();
+  const tooltip = page.locator('[data-role="outcome-market-tooltip"]');
+
+  await expect(hoverRegion).toHaveCount(1);
+  await hoverRegion.hover();
+  await expect(tooltip).toHaveCSS("opacity", "1");
+
+  const geometry = await page.evaluate(() => {
+    const region = document.querySelector('[data-role="outcome-market-name-hover-region"]');
+    const panel = document.querySelector('[data-role="outcome-market-tooltip"]');
+    if (!region || !panel) {
+      throw new Error("Outcome tooltip geometry unavailable");
+    }
+    const regionRect = region.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    return {
+      regionLeft: regionRect.left,
+      regionRight: regionRect.right,
+      regionWidth: regionRect.width,
+      panelLeft: panelRect.left,
+      panelRight: panelRect.right,
+      panelWidth: panelRect.width
+    };
+  });
+
+  expect(geometry.panelWidth).toBeLessThan(geometry.regionWidth);
+  expect(geometry.panelLeft).toBeGreaterThan(geometry.regionLeft);
+  expect(geometry.panelRight).toBeLessThan(geometry.regionRight);
+
+  const triggerGlow = await trigger.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return {
+      borderColor: style.borderTopColor,
+      boxShadow: style.boxShadow
+    };
+  });
+
+  expect(triggerGlow.borderColor).toBe("rgba(45, 212, 191, 0.55)");
+  expect(triggerGlow.boxShadow).toContain("45, 212, 191");
 });
 
 test("disconnected stop spectate clears stale account surfaces @regression", async ({ page }) => {
