@@ -274,6 +274,30 @@
       (is (= (shared/parse-num (:total-balance row))
              (shared/parse-num (:usdc-value row)))))))
 
+(deftest build-balance-rows-excludes-outcome-side-token-balances-test
+  (let [rows (projections/build-balance-rows
+              {:clearinghouseState {:marginSummary {:accountValue "0"
+                                                    :totalMarginUsed "0"}}
+               :spotAssetCtxs []}
+              {:meta {:tokens [] :universe []}
+               :clearinghouse-state {:balances [{:coin "+0"
+                                                 :token 100000000
+                                                 :hold "0"
+                                                 :total "19"
+                                                 :entryNtl "11.0271"}
+                                                {:coin "#1"
+                                                 :hold "0"
+                                                 :total "3"
+                                                 :entryNtl "1.8"}
+                                                {:coin "HYPE"
+                                                 :hold "0"
+                                                 :total "2"
+                                                 :entryNtl "0"}]}})
+        coins (set (map :coin rows))]
+    (is (contains? coins "HYPE"))
+    (is (not (contains? coins "+0")))
+    (is (not (contains? coins "#1")))))
+
 (deftest build-balance-rows-filters-zero-balance-rows-by-default-test
   (let [rows (projections/build-balance-rows
               {:clearinghouseState {:marginSummary {:accountValue "0.0"

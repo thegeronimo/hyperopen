@@ -1,0 +1,82 @@
+(ns hyperopen.views.account-info.projections.outcomes-test
+  (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.views.account-info.projections :as projections]))
+
+(def ^:private outcome-market
+  {:key "outcome:0"
+   :coin "#0"
+   :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+   :title "BTC above 78213 on May 3 at 2:00 AM?"
+   :quote "USDH"
+   :market-type :outcome
+   :outcome-id 0
+   :outcome-sides [{:side-index 0
+                    :side-name "Yes"
+                    :coin "#0"
+                    :asset-id 100000000
+                    :mark 0.57042
+                    :markRaw "0.57042"}
+                   {:side-index 1
+                    :side-name "No"
+                    :coin "#1"
+                    :asset-id 100000001
+                    :mark 0.42958
+                    :markRaw "0.42958"}]})
+
+(deftest build-outcome-rows-enriches-plus-token-balances-from-outcome-market-metadata-test
+  (let [rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "+0"
+                                                 :token 100000000
+                                                 :hold "0"
+                                                 :total "19"
+                                                 :entryNtl "11.0271"}
+                                                {:coin "HYPE"
+                                                 :token 150
+                                                 :hold "0"
+                                                 :total "2"
+                                                 :entryNtl "0"}]}}
+              {"outcome:0" outcome-market})
+        row (first rows)]
+    (is (= 1 (count rows)))
+    (is (= "outcome-#0" (:key row)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title row)))
+    (is (= "outcome:0" (:market-key row)))
+    (is (= "+0" (:raw-coin row)))
+    (is (= "#0" (:side-coin row)))
+    (is (= "Yes" (:side-name row)))
+    (is (= "Outcome" (:type-label row)))
+    (is (= 19 (:size row)))
+    (is (< (js/Math.abs (- 10.83798 (:position-value row))) 0.000001))
+    (is (< (js/Math.abs (- 0.5803736842105263 (:entry-price row))) 0.000001))
+    (is (= 0.57042 (:mark-price row)))
+    (is (< (js/Math.abs (- -0.18912 (:pnl-value row))) 0.000001))
+    (is (< (js/Math.abs (- -1.7150474739505477 (:roe-pct row))) 0.000001))))
+
+(deftest build-outcome-rows-supports-hash-coins-and-fallbacks-when-metadata-is-partial-test
+  (let [rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "#1"
+                                                 :hold "0"
+                                                 :total "3"
+                                                 :entryNotional "1.8"}
+                                                {:coin "+20"
+                                                 :hold "0"
+                                                 :total "4"
+                                                 :entryNtl "2"}]}}
+              {"outcome:0" outcome-market})
+        [no-row fallback-row] rows]
+    (is (= 2 (count rows)))
+    (is (= "#1" (:side-coin no-row)))
+    (is (= "No" (:side-name no-row)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title no-row)))
+    (is (= "#20" (:side-coin fallback-row)))
+    (is (= "#20" (:title fallback-row)))
+    (is (= "Side 20" (:side-name fallback-row)))
+    (is (nil? (:market-key fallback-row)))
+    (is (= 4 (:size fallback-row)))
+    (is (= 0 (:mark-price fallback-row)))))
+
+(deftest outcome-token-predicate-detects-plus-and-hash-encodings-test
+  (is (true? (projections/outcome-token? "+0")))
+  (is (true? (projections/outcome-token? "#1")))
+  (is (false? (projections/outcome-token? "HYPE")))
+  (is (false? (projections/outcome-token? nil))))

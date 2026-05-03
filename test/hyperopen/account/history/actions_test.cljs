@@ -202,9 +202,9 @@
   (let [state {:router {:path "/trade"}
                :active-asset "ETH"
                :account-info {:selected-tab :balances}}
-        effects (history-actions/select-account-info-tab state :positions)]
-    (is (= [[:effects/save [:account-info :selected-tab] :positions]
-            [:effects/push-state "/trade?market=ETH&tab=positions"]]
+        effects (history-actions/select-account-info-tab state :outcomes)]
+    (is (= [[:effects/save [:account-info :selected-tab] :outcomes]
+            [:effects/push-state "/trade?market=ETH&tab=outcomes"]]
            effects))))
 
 (deftest select-account-info-tab-sync-preserves-spectate-query-when-active-test

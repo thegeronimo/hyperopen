@@ -474,3 +474,38 @@
     (is (< (js/Math.abs (- 0.04 (:usdc-value meow-row))) 0.000001))
     (is (< (js/Math.abs (- 0.01 (:pnl-value meow-row))) 0.000001))
     (is (< (js/Math.abs (- 33.3333333333 (:pnl-pct meow-row))) 0.000001))))
+
+(deftest account-info-vm-projects-outcome-balances-into-outcomes-tab-and-count-test
+  (let [outcome-market {:key "outcome:0"
+                        :coin "#0"
+                        :title "BTC above 78213 on May 3 at 2:00 AM?"
+                        :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                        :quote "USDH"
+                        :market-type :outcome
+                        :outcome-id 0
+                        :outcome-sides [{:side-index 0
+                                         :side-name "Yes"
+                                         :coin "#0"
+                                         :mark 0.57042}]}
+        state {:account-info {:selected-tab :outcomes}
+               :asset-selector {:market-by-key {"outcome:0" outcome-market}}
+               :webdata2 {}
+               :orders (base-orders)
+               :account {:mode :classic}
+               :spot {:meta nil
+                      :clearinghouse-state {:balances [{:coin "+0"
+                                                        :hold "0"
+                                                        :total "19"
+                                                        :entryNtl "11.0271"}
+                                                       {:coin "HYPE"
+                                                        :hold "0"
+                                                        :total "2"
+                                                        :entryNtl "0"}]}}
+               :perp-dex-clearinghouse {}}
+        view-model (vm/account-info-vm state)
+        [outcome-row] (:outcomes view-model)]
+    (is (= :outcomes (:selected-tab view-model)))
+    (is (= 1 (get-in view-model [:tab-counts :outcomes])))
+    (is (= 1 (count (:outcomes view-model))))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title outcome-row)))
+    (is (= "Yes" (:side-name outcome-row)))))

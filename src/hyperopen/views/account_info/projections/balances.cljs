@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.views.account-info.projections.coins :as coins]
+            [hyperopen.views.account-info.projections.outcomes :as outcomes]
             [hyperopen.views.account-info.projections.parse :as parse]))
 
 (def parse-num parse/parse-num)
@@ -408,6 +409,7 @@
                         :amount-decimals nil}))
          spot-rows (when (seq (get spot-state :balances))
                      (->> (get spot-state :balances)
+                          (remove outcomes/outcome-balance?)
                           (map (fn [{:keys [coin token hold total] :as balance}]
                                  (let [{:keys [token-idx total-num price usdc-value]}
                                        (spot-balance-valuation price-by-token price-by-coin coin token total)

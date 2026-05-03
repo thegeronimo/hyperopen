@@ -64,6 +64,7 @@
 
   (is (= "CL" (router/trade-route-market-from-search "?market=CL&tab=positions")))
   (is (= "positions" (router/trade-route-tab-from-search "?market=CL&tab=positions")))
+  (is (= "outcomes" (router/trade-route-tab-from-search "?market=CL&tab=outcomes")))
   (is (= "CL" (router/trade-route-asset-or-market "/trade/BTC" "?market=CL")))
   (is (= "BTC" (router/trade-route-asset-or-market "/trade/BTC" nil)))
 

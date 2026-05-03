@@ -354,6 +354,7 @@
             [hyperopen.views.account-info.position-overlay-mobile-layout-test]
             [hyperopen.views.account-info.position-tpsl-modal-test]
             [hyperopen.views.account-info.projections-test]
+            [hyperopen.views.account-info.projections.outcomes-test]
             [hyperopen.views.account-info.table-contract-test]
             [hyperopen.views.account-info.tabs.balances.content-test]
             [hyperopen.views.account-info.tabs.balances.desktop-test]
@@ -366,6 +367,7 @@
             [hyperopen.views.account-info.tabs.order-history-test]
             [hyperopen.views.account-info.tabs.order-history.sorting-test]
             [hyperopen.views.account-info.tabs.order-history.table-test]
+            [hyperopen.views.account-info.tabs.outcomes-test]
             [hyperopen.views.account-info.tabs.positions.content-test]
             [hyperopen.views.account-info.tabs.positions.desktop-actions-test]
             [hyperopen.views.account-info.tabs.positions.desktop-render-test]
@@ -963,6 +965,7 @@
              'hyperopen.views.account-info.position-overlay-mobile-layout-test
              'hyperopen.views.account-info.position-tpsl-modal-test
              'hyperopen.views.account-info.projections-test
+             'hyperopen.views.account-info.projections.outcomes-test
              'hyperopen.views.account-info.table-contract-test
              'hyperopen.views.account-info.tabs.balances.content-test
              'hyperopen.views.account-info.tabs.balances.desktop-test
@@ -975,6 +978,7 @@
              'hyperopen.views.account-info.tabs.order-history-test
              'hyperopen.views.account-info.tabs.order-history.sorting-test
              'hyperopen.views.account-info.tabs.order-history.table-test
+             'hyperopen.views.account-info.tabs.outcomes-test
              'hyperopen.views.account-info.tabs.positions.content-test
              'hyperopen.views.account-info.tabs.positions.desktop-actions-test
              'hyperopen.views.account-info.tabs.positions.desktop-render-test

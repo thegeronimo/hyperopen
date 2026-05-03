@@ -14,6 +14,7 @@
 (def ^:private account-info-route-tabs
   #{:balances
     :positions
+    :outcomes
     :open-orders
     :twap
     :trade-history
@@ -75,6 +76,8 @@
                      :balances :balances
                      :position :positions
                      :positions :positions
+                     :outcome :outcomes
+                     :outcomes :outcomes
                      :openorder :open-orders
                      :openorders :open-orders
                      :open-orders :open-orders

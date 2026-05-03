@@ -29,7 +29,9 @@
 
 (defn- balance-tab-count [webdata2 spot-data account]
   (let [balances (or (get-in spot-data [:clearinghouse-state :balances]) [])
-        non-zero-spot-balances (filter non-zero-spot-balance? balances)
+        non-zero-spot-balances (->> balances
+                                    (remove projections/outcome-balance?)
+                                    (filter non-zero-spot-balance?))
         perps-usdc-visible? (boolean (non-zero-perps-usdc? webdata2))]
     (if (unified-account-mode? account)
       (let [non-usdc-count (count (remove #(= "USDC" (:coin %)) non-zero-spot-balances))
@@ -228,6 +230,7 @@
   (let [now-ms (platform/now-ms)]
     (case selected-tab
       :balances {:balance-rows (derived-cache/memoized-balance-rows webdata2 spot-data account market-by-key)}
+      :outcomes {:outcomes (projections/build-outcome-rows spot-data market-by-key)}
       :positions (let [positions (derived-cache/memoized-positions webdata2 perp-dex-states)
                        positions (attach-position-market-mark-prices positions market-by-key)
                        normalized-open-orders (derived-cache/memoized-open-orders open-orders
@@ -271,7 +274,7 @@
         twap-history-source (:twap-history orders)
         twap-slice-fills-source (:twap-slice-fills orders)
         pending-cancel-oids (:pending-cancel-oids orders)
-        {:keys [balance-rows positions open-orders twap-active-rows twap-history-rows twap-fill-rows]}
+        {:keys [balance-rows outcomes positions open-orders twap-active-rows twap-history-rows twap-fill-rows]}
         (selected-tab-derivations selected-tab
                                   webdata2
                                   spot-data
@@ -314,11 +317,13 @@
                                         :coin-search ""}
                                        (get-in state [:account-info :order-history] {}))
                                 (assoc :market-by-key market-by-key))
+        outcome-count (count (projections/build-outcome-rows spot-data market-by-key))
         tab-counts {:open-orders (open-orders-tab-count open-orders-source
                                                         open-orders-snapshot-source
                                                         open-orders-snapshot-by-dex-source
                                                         pending-cancel-oids)
                     :positions (positions-tab-count webdata2 perp-dex-states)
+                    :outcomes outcome-count
                     :balances (balance-tab-count webdata2 spot-data account)
                     :twap (count (or twap-states-source []))}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
@@ -375,6 +380,7 @@
      :perp-dex-states perp-dex-states
      :webdata2 webdata2
      :balance-rows (or balance-rows [])
+     :outcomes (or outcomes [])
      :positions (or positions [])
      :open-orders (or open-orders [])
      :trade-history-rows (prefer-orders-value orders webdata2 :fills)

@@ -8,6 +8,7 @@
             [hyperopen.views.account-info.tabs.funding-history :as funding-history-tab]
             [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
             [hyperopen.views.account-info.tabs.order-history :as order-history-tab]
+            [hyperopen.views.account-info.tabs.outcomes :as outcomes-tab]
             [hyperopen.views.account-info.tabs.positions :as positions-tab]
             [hyperopen.views.account-info.tabs.twap :as twap-tab]
             [hyperopen.views.account-info.tabs.trade-history :as trade-history-tab]))
@@ -189,6 +190,8 @@
                                           :margin-modal position-margin-modal
                                           :positions-state (assoc positions-state
                                                                   :mobile-expanded-card mobile-expanded-card)})))
+   :outcomes (fn [{:keys [outcomes]}]
+               (outcomes-tab/outcomes-tab-content {:outcomes outcomes}))
    :open-orders (fn [{:keys [open-orders open-orders-sort open-orders-state]}]
                   (open-orders-tab-content open-orders open-orders-sort open-orders-state))
    :twap (fn [view-model]

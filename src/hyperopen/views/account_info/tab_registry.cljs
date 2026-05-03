@@ -4,6 +4,7 @@
   (array-map
    :balances {:label "Balances"}
    :positions {:label "Positions"}
+   :outcomes {:label "Outcomes"}
    :open-orders {:label "Open Orders"}
    :twap {:label "TWAP"}
    :trade-history {:label "Trade History"}
@@ -103,12 +104,12 @@
    (let [base (get labels tab (name tab))
          count (get counts tab)]
      (cond
-       (and (contains? #{:positions :open-orders :twap} tab)
+       (and (contains? #{:positions :outcomes :open-orders :twap} tab)
             (number? count)
             (pos? count))
        (str base " (" count ")")
 
-       (and (contains? #{:positions :open-orders :twap} tab)
+       (and (contains? #{:positions :outcomes :open-orders :twap} tab)
             (number? count))
        base
 

@@ -3,6 +3,7 @@
             [hyperopen.views.account-info.projections.coins :as coins]
             [hyperopen.views.account-info.projections.order-history :as order-history]
             [hyperopen.views.account-info.projections.orders :as orders]
+            [hyperopen.views.account-info.projections.outcomes :as outcomes]
             [hyperopen.views.account-info.projections.parse :as parse]
             [hyperopen.views.account-info.projections.positions :as positions]
             [hyperopen.views.account-info.projections.twaps :as twaps]
@@ -43,6 +44,9 @@
 (def normalize-balance-contract-id balances/normalize-balance-contract-id)
 (def portfolio-usdc-value balances/portfolio-usdc-value)
 (def build-balance-rows balances/build-balance-rows)
+(def outcome-token? outcomes/outcome-token?)
+(def outcome-balance? outcomes/outcome-balance?)
+(def build-outcome-rows outcomes/build-outcome-rows)
 (def position-unique-key positions/position-unique-key)
 (def collect-positions positions/collect-positions)
 
