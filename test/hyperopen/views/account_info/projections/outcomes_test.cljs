@@ -102,6 +102,29 @@
     (is (= 0.53210 (:mark-price row)))
     (is (< (js/Math.abs (- -0.9172 (:pnl-value row))) 0.000001))))
 
+(deftest build-outcome-rows-uses-spot-asset-contexts-for-side-mark-test
+  (let [market-without-marks (update outcome-market
+                                     :outcome-sides
+                                     (fn [sides]
+                                       (mapv #(dissoc % :mark :markRaw) sides)))
+        rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "+0"
+                                                 :token 100000000
+                                                 :hold "0"
+                                                 :total "19"
+                                                 :entryNtl "11.0271"}]}}
+              {}
+              {:active-market market-without-marks
+               :spot-asset-ctxs [{:coin "#0"
+                                  :markPx "0.53210"}]})
+        [row] rows]
+    (is (= 1 (count rows)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title row)))
+    (is (= "Yes" (:side-name row)))
+    (is (= 0.53210 (:mark-price row)))
+    (is (< (js/Math.abs (- 10.1099 (:position-value row))) 0.000001))
+    (is (< (js/Math.abs (- -0.9172 (:pnl-value row))) 0.000001))))
+
 (deftest outcome-token-predicate-detects-plus-and-hash-encodings-test
   (is (true? (projections/outcome-token? "+0")))
   (is (true? (projections/outcome-token? "#1")))

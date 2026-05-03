@@ -149,16 +149,73 @@
        (not (zero? (parse-num (:total balance))))))
 
 (defn- active-context-mark-price
-  [active-contexts side-coin token-name]
-  (when-let [ctx (or (get active-contexts side-coin)
-                    (get active-contexts token-name))]
+  [context-by-coin side-coin token-name]
+  (when-let [ctx (or (get context-by-coin side-coin)
+                    (get context-by-coin token-name))]
     (some parse-optional-num
           [(:mark ctx)
-           (:markPx ctx)])))
+           (:markPx ctx)
+           (get-in ctx [:funding :mark])
+           (get-in ctx [:funding :markPx])])))
+
+(defn- present-text
+  [value]
+  (some-> value str str/trim not-empty))
+
+(defn- assoc-context-entry
+  [lookup key ctx]
+  (if-let [key* (present-text key)]
+    (assoc lookup key* ctx)
+    lookup))
+
+(defn- context-entry-keys
+  [entry-key ctx]
+  (let [funding (:funding ctx)
+        info (:info ctx)]
+    (->> [entry-key
+          (:coin ctx)
+          (:name ctx)
+          (:coin funding)
+          (:name funding)
+          (:name info)
+          (:coin info)]
+         (keep present-text)
+         distinct
+         vec)))
+
+(defn- add-context-entry
+  [lookup entry-key ctx]
+  (reduce #(assoc-context-entry %1 %2 ctx)
+          lookup
+          (context-entry-keys entry-key ctx)))
+
+(defn- context-map->lookup
+  [contexts]
+  (if (map? contexts)
+    (reduce-kv (fn [lookup entry-key ctx]
+                 (add-context-entry lookup entry-key ctx))
+               {}
+               contexts)
+    {}))
+
+(defn- context-seq->lookup
+  [contexts]
+  (if (sequential? contexts)
+    (reduce (fn [lookup ctx]
+              (add-context-entry lookup (:coin ctx) ctx))
+            {}
+            contexts)
+    {}))
+
+(defn- build-context-lookup
+  [{:keys [active-contexts asset-contexts spot-asset-ctxs]}]
+  (merge (context-seq->lookup spot-asset-ctxs)
+         (context-map->lookup asset-contexts)
+         (context-map->lookup active-contexts)))
 
 (defn- side-mark-price
-  [active-contexts side-entry side-coin]
-  (or (active-context-mark-price active-contexts
+  [context-by-coin side-entry side-coin]
+  (or (active-context-mark-price context-by-coin
                                  side-coin
                                  (:token-name side-entry))
       (parse-optional-num (:mark side-entry))
@@ -167,13 +224,13 @@
       0))
 
 (defn- outcome-row
-  [side-by-coin active-contexts balance]
+  [side-by-coin context-by-coin balance]
   (let [side-coin (balance-side-coin balance)
         side-entry (or (get side-by-coin side-coin)
                        (get side-by-coin (:coin balance)))
         size (parse-num (:total balance))
         entry-notional (or (balance-entry-notional balance) 0)
-        mark-price (side-mark-price active-contexts side-entry side-coin)
+        mark-price (side-mark-price context-by-coin side-entry side-coin)
         position-value (* size mark-price)
         entry-price (if (zero? size)
                       0
@@ -205,8 +262,8 @@
    (build-outcome-rows spot-data market-by-key {}))
   ([spot-data market-by-key options]
    (let [side-by-coin (outcome-side-lookup market-by-key options)
-         active-contexts (or (:active-contexts options) {})]
+         context-by-coin (build-context-lookup options)]
      (->> (get-in spot-data [:clearinghouse-state :balances])
           (filter non-zero-outcome-balance?)
-          (map #(outcome-row side-by-coin active-contexts %))
+          (map #(outcome-row side-by-coin context-by-coin %))
           vec))))

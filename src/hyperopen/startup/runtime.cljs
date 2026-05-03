@@ -501,6 +501,8 @@
 (defn- skip-deferred-bootstrap?
   [store]
   (and (true? (get-in @store [:asset-selector :cache-hydrated?]))
+       (some #(= :outcome (:market-type %))
+             (get-in @store [:asset-selector :markets]))
        (not (incomplete-active-perp-market? store))))
 
 (defn run-deferred-bootstrap!

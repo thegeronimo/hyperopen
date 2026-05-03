@@ -283,6 +283,7 @@
             [hyperopen.staking.effects-test]
             [hyperopen.startup.account-lifecycle-test]
             [hyperopen.startup.collaborators-test]
+            [hyperopen.startup.deferred-bootstrap-outcome-cache-test]
             [hyperopen.startup.init-test]
             [hyperopen.startup.restore-test]
             [hyperopen.startup.route-aware-bootstrap-test]
@@ -376,6 +377,7 @@
             [hyperopen.views.account-info.tabs.trade-history.sorting-test]
             [hyperopen.views.account-info.tabs.trade-history.table-test]
             [hyperopen.views.account-info.tabs.twap-test]
+            [hyperopen.views.account-info.vm-outcomes-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
             [hyperopen.views.active-asset.funding-tooltip-model-test]
@@ -894,6 +896,7 @@
              'hyperopen.staking.effects-test
              'hyperopen.startup.account-lifecycle-test
              'hyperopen.startup.collaborators-test
+             'hyperopen.startup.deferred-bootstrap-outcome-cache-test
              'hyperopen.startup.init-test
              'hyperopen.startup.restore-test
              'hyperopen.startup.route-aware-bootstrap-test
@@ -987,6 +990,7 @@
              'hyperopen.views.account-info.tabs.trade-history.sorting-test
              'hyperopen.views.account-info.tabs.trade-history.table-test
              'hyperopen.views.account-info.tabs.twap-test
+             'hyperopen.views.account-info.vm-outcomes-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
              'hyperopen.views.active-asset.funding-tooltip-model-test

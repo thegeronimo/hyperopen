@@ -1209,10 +1209,10 @@
              (is (= [{:phase :full}] @deferred-selector-fetches))
              (is (some #(= [:mark "app:critical-data:ready"] %) @mark-calls))
              (is (some #(= [:mark "app:full-bootstrap:ready"] %) @mark-calls))
-             (let [skipped-fetches (atom [])
-                   skipped-marks (atom [])]
+             (let [skipped-fetches (atom []) skipped-marks (atom [])]
                (-> (startup-runtime/run-deferred-bootstrap!
-                    {:store (atom {:asset-selector {:cache-hydrated? true}})
+                    {:store (atom {:asset-selector {:cache-hydrated? true
+                                                    :markets [{:key "outcome:0" :coin "#0" :market-type :outcome}]}})
                      :fetch-asset-selector-markets! (fn [_store opts]
                                                       (swap! skipped-fetches conj opts)
                                                       (js/Promise.resolve :unexpected))
