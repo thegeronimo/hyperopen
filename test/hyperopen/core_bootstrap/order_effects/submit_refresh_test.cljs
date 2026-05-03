@@ -78,6 +78,64 @@
              (done))))
        0))))
 
+(deftest api-submit-order-effect-refreshes-spot-clearinghouse-for-outcome-orders-test
+  (async done
+    (let [address "0xabc"
+          store (atom (support/base-submit-order-store
+                       {:wallet {:address address
+                                 :agent {:status :ready}}}))
+          dispatched (atom [])
+          refresh-calls (atom [])
+          clearinghouse-calls (atom [])
+          spot-clearinghouse-calls (atom [])
+          original-submit-order trading-api/submit-order!
+          original-dispatch nxr/dispatch
+          restore-account-refresh-mocks! (support/install-account-refresh-mocks! refresh-calls
+                                                                                 clearinghouse-calls
+                                                                                 [])
+          original-request-spot-clearinghouse-state api/request-spot-clearinghouse-state!]
+      (support/clear-order-feedback-toast-timeout!)
+      (set! trading-api/submit-order!
+            (fn [_store _address _action]
+              (js/Promise.resolve {:status "ok"})))
+      (set! nxr/dispatch
+            (fn [_store _evt actions]
+              (swap! dispatched conj actions)))
+      (set! api/request-spot-clearinghouse-state!
+            (fn request-spot-clearinghouse-state-mock
+              ([refresh-address]
+               (request-spot-clearinghouse-state-mock refresh-address {}))
+              ([refresh-address opts]
+               (swap! spot-clearinghouse-calls conj [refresh-address opts])
+               (js/Promise.resolve {:balances [{:coin "+10"
+                                                :token 100000010
+                                                :total "8.5"}]}))))
+      (core/api-submit-order nil store {:action {:type "order"
+                                                 :orders [{:a 100000010
+                                                           :b false
+                                                           :p "0.59"
+                                                           :s "8.5"
+                                                           :r false
+                                                           :t {:limit {:tif "Gtc"}}}]
+                                                 :grouping "na"}})
+      (js/setTimeout
+       (fn []
+         (try
+           (is (nil? (get-in @store [:order-form-runtime :error])))
+           (is (= [[[:actions/refresh-order-history]]]
+                  @dispatched))
+           (is (= [[address {:priority :high
+                             :force-refresh? true}]]
+                  @spot-clearinghouse-calls))
+           (finally
+             (support/clear-order-feedback-toast-timeout!)
+             (set! trading-api/submit-order! original-submit-order)
+             (set! nxr/dispatch original-dispatch)
+             (set! api/request-spot-clearinghouse-state! original-request-spot-clearinghouse-state)
+             (restore-account-refresh-mocks!)
+             (done))))
+       100))))
+
 (deftest api-submit-order-effect-refreshes-dex-open-orders-and-skips-per-dex-clearinghouse-when-ws-snapshot-ready-test
   (async done
     (let [address "0xabc"

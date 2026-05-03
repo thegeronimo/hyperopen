@@ -286,7 +286,11 @@
       (when-not open-orders-live?
         (call-when-fn! refresh-open-orders! store address nil {:priority :high}))
       (when refresh-spot?
-        (call-when-fn! refresh-spot-clearinghouse! store address {:priority :high}))
+        (call-when-fn! refresh-spot-clearinghouse!
+                       store
+                       address
+                       {:priority :high
+                        :force-refresh? true}))
       (when-not webdata2-live?
         (call-when-fn! refresh-default-clearinghouse! store address {:priority :high}))
       (when (fn? ensure-perp-dexs!)
@@ -361,10 +365,10 @@
           :error-prefix "Error refreshing per-dex account surfaces after user fill:")))
 
 (defn refresh-after-order-mutation!
-  [deps]
+  [{:keys [refresh-spot?] :as deps}]
    (run-post-event-refresh!
    (assoc deps
-          :refresh-spot? false
+          :refresh-spot? (true? refresh-spot?)
           :refresh-dex-open-orders-when-stream-live? true
           :gate-perp-dex-by-stream? true
           :skip-perp-dex-when-subscribed-and-ready? true

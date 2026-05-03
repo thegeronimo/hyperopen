@@ -334,7 +334,8 @@
            @open-orders-calls))
     (is (= [[address {:priority :high}]]
            @default-clearinghouse-calls))
-    (is (= [[address {:priority :high}]]
+    (is (= [[address {:priority :high
+                      :force-refresh? true}]]
            @spot-calls))
     (is (= [] @perp-dex-calls))
     (is (= [[address [dex]]]

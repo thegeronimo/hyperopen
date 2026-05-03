@@ -104,11 +104,46 @@
        (fn []
          (is (= [] @refresh-open-orders-calls))
          (is (= [] @refresh-default-clearinghouse-calls))
-         (is (= [[address {:priority :high}]]
+         (is (= [[address {:priority :high
+                           :force-refresh? true}]]
                 @refresh-spot-calls))
          (is (= [] @refresh-perp-dex-calls))
          (is (= [[address [dex]]]
                 @sync-calls))
+         (done))
+       0))))
+
+(deftest refresh-after-order-mutation-forces-spot-refresh-when-requested-test
+  (async done
+    (let [refresh-spot-calls (atom [])
+          store (atom {:wallet {:address address}
+                       :websocket {:health {:transport {:state :connected
+                                                        :freshness :live}
+                                            :streams {["openOrders" nil address nil nil]
+                                                      {:topic "openOrders"
+                                                       :status :live
+                                                       :subscribed? true
+                                                       :descriptor {:type "openOrders"
+                                                                    :user address}}
+                                                      ["webData2" nil address nil nil]
+                                                      {:topic "webData2"
+                                                       :status :live
+                                                       :subscribed? true
+                                                       :descriptor {:type "webData2"
+                                                                    :user address}}}}}})]
+      (surface-service/refresh-after-order-mutation!
+       {:store store
+        :address address
+        :refresh-spot? true
+        :ensure-perp-dexs! (fn [_store _opts]
+                             (js/Promise.resolve []))
+        :refresh-spot-clearinghouse! (fn [_store refresh-address opts]
+                                       (swap! refresh-spot-calls conj [refresh-address opts]))})
+      (js/setTimeout
+       (fn []
+         (is (= [[address {:priority :high
+                           :force-refresh? true}]]
+                @refresh-spot-calls))
          (done))
        0))))
 

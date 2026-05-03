@@ -50,6 +50,9 @@
   (is (true? (surface-policy/spot-refresh-surface-active?
               {:router {:path "/trade"}
                :account-info {:selected-tab :balances}})))
+  (is (true? (surface-policy/spot-refresh-surface-active?
+              {:router {:path "/trade"}
+               :account-info {:selected-tab :outcomes}})))
   (is (false? (surface-policy/spot-refresh-surface-active?
                {:router {:path "/trade"}
                 :account-info {:selected-tab :funding-history}})))

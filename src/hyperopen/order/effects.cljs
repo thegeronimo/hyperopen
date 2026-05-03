@@ -7,6 +7,7 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.order.effects.spot-refresh :as spot-refresh]
             [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.order.cancel-guard :as cancel-guard]
@@ -46,17 +47,14 @@
   (let [cancel-entries (cancel-guard/cancel-request-guard-entries request)]
     (cancel-guard/prune-open-order-sources state cancel-entries)))
 
-(defn- same-address?
-  [a b]
-  (let [a* (account-context/normalize-address a)
-        b* (account-context/normalize-address b)]
-    (if (and a* b*)
-      (= a* b*)
-      (= a b))))
-
 (defn- active-wallet-address?
   [state address]
-  (same-address? address (get-in state [:wallet :address])))
+  (let [wallet-address (get-in state [:wallet :address])
+        address* (account-context/normalize-address address)
+        wallet-address* (account-context/normalize-address wallet-address)]
+    (if (and address* wallet-address*)
+      (= address* wallet-address*)
+      (= address wallet-address))))
 
 (defn- apply-open-orders-success-for-active-address
   [store address dex]
@@ -120,16 +118,17 @@
    opts))
 
 (defn- refresh-account-surfaces-after-order-mutation!
-  [store address]
+  [store address & [{:keys [refresh-spot?]}]]
   (account-surface-service/refresh-after-order-mutation!
    {:store store
     :address address
     :ensure-perp-dexs! ensure-perp-dex-metadata!
     :refresh-open-orders! refresh-open-orders-snapshot!
     :refresh-default-clearinghouse! refresh-default-clearinghouse-snapshot!
+    :refresh-spot-clearinghouse! spot-refresh/refresh-spot-clearinghouse-snapshot!
     :refresh-perp-dex-clearinghouse! refresh-perp-dex-clearinghouse-snapshot!
-    :resolve-current-address (fn [state]
-                               (get-in state [:wallet :address]))
+    :refresh-spot? refresh-spot?
+    :resolve-current-address (fn [state] (get-in state [:wallet :address]))
     :log-fn telemetry/log!}))
 
 (defn- submit-order-error-message
@@ -461,10 +460,11 @@
             (swap! store open-enable-trading-recovery message)))
         (do
           (swap! store assoc-in [:order-form-runtime :submitting?] true)
-          (letfn [(handle-submit-runtime-error! [err]
-                    (let [error-text (runtime-error-message err)]
-                      (swap! store update-order-submit-runtime error-text)
-                      (show-toast! store :error (str "Order placement failed: " error-text))))]
+          (let [refresh-opts {:refresh-spot? (spot-refresh/outcome-order-mutation? request)}]
+            (letfn [(handle-submit-runtime-error! [err]
+                      (let [error-text (runtime-error-message err)]
+                        (swap! store update-order-submit-runtime error-text)
+                        (show-toast! store :error (str "Order placement failed: " error-text))))]
             (-> (run-pre-submit-actions! store
                                          address
                                          request
@@ -483,7 +483,7 @@
                                             (do
                                               (swap! store update-order-submit-runtime nil)
                                               (show-toast! store :success {:toast-surface :order-submitted :headline "Order submitted" :subline "Awaiting fill confirmation" :message "Order submitted."})
-                                              (refresh-account-surfaces-after-order-mutation! store address)
+                                              (refresh-account-surfaces-after-order-mutation! store address refresh-opts)
                                               (dispatch! store nil [[:actions/refresh-order-history]]))
                                             (if (trading-api/enable-trading-recovery-error? error-text)
                                               (swap! store open-enable-trading-recovery)
@@ -491,10 +491,10 @@
                                                 (swap! store update-order-submit-runtime error-text)
                                                 (show-toast! store :error toast-message)
                                                 (when (pos? success-count)
-                                                  (refresh-account-surfaces-after-order-mutation! store address)
+                                                  (refresh-account-surfaces-after-order-mutation! store address refresh-opts)
                                                   (dispatch! store nil [[:actions/refresh-order-history]]))))))))
                                (.catch handle-submit-runtime-error!)))))
-                (.catch handle-submit-runtime-error!)))))))))
+                (.catch handle-submit-runtime-error!))))))))))
 
 (defn- update-position-tpsl-modal-error
   [state error-text]

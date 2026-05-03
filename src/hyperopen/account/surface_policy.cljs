@@ -57,6 +57,7 @@
         selected-tab (get-in state [:account-info :selected-tab])
         balances-tab-active? (or (nil? selected-tab)
                                  (= selected-tab :balances))
+        outcomes-tab-active? (= selected-tab :outcomes)
         trade-route-active? (or (str/blank? route)
                                 (str/starts-with? route "/trade"))
         funding-modal-open? (true? (get-in state [:funding-ui :modal :open?]))
@@ -66,4 +67,5 @@
         position-margin-modal-open?
         vault-transfer-modal-open?
         (and trade-route-active?
-             balances-tab-active?))))
+             (or balances-tab-active?
+                 outcomes-tab-active?)))))
