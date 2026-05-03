@@ -900,25 +900,30 @@ test("outcome market tooltip stays within active selector width and glows on hov
 
   const geometry = await page.evaluate(() => {
     const region = document.querySelector('[data-role="outcome-market-name-hover-region"]');
+    const trigger = region?.querySelector("button");
     const panel = document.querySelector('[data-role="outcome-market-tooltip"]');
-    if (!region || !panel) {
+    if (!region || !trigger || !panel) {
       throw new Error("Outcome tooltip geometry unavailable");
     }
     const regionRect = region.getBoundingClientRect();
+    const triggerRect = trigger.getBoundingClientRect();
     const panelRect = panel.getBoundingClientRect();
     return {
       regionLeft: regionRect.left,
       regionRight: regionRect.right,
       regionWidth: regionRect.width,
+      triggerLeft: triggerRect.left,
+      triggerRight: triggerRect.right,
+      triggerWidth: triggerRect.width,
       panelLeft: panelRect.left,
       panelRight: panelRect.right,
       panelWidth: panelRect.width
     };
   });
 
-  expect(geometry.panelWidth).toBeLessThan(geometry.regionWidth);
-  expect(geometry.panelLeft).toBeGreaterThan(geometry.regionLeft);
-  expect(geometry.panelRight).toBeLessThan(geometry.regionRight);
+  expect(Math.abs(geometry.panelLeft - geometry.triggerLeft)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry.panelRight - geometry.triggerRight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry.panelWidth - geometry.triggerWidth)).toBeLessThanOrEqual(1);
 
   const triggerGlow = await trigger.evaluate((node) => {
     const style = getComputedStyle(node);
