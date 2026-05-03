@@ -136,6 +136,31 @@
   [expected actual]
   (< (js/Math.abs (- expected actual)) 0.000000001))
 
+(def ^:private expected-local-month-names
+  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
+
+(defn- expected-twelve-hour-label
+  [hour]
+  (let [hour* (mod hour 24)
+        hour12 (mod hour* 12)]
+    (str (if (zero? hour12) 12 hour12)
+         ":00 "
+         (if (< hour* 12) "AM" "PM"))))
+
+(defn- expected-local-outcome-title
+  [{:keys [underlying target-price expiry-ms]}]
+  (let [date (js/Date. expiry-ms)]
+    (str underlying
+         " above "
+         target-price
+         " on "
+         (get expected-local-month-names (.getMonth date))
+         " "
+         (.getDate date)
+         " at "
+         (expected-twelve-hour-label (.getHours date))
+         "?")))
+
 (deftest outcome-encoding-and-description-test
   (is (= 0 (markets/outcome-encoding 0 0)))
   (is (= 1 (markets/outcome-encoding 0 1)))
@@ -158,11 +183,12 @@
 (deftest build-outcome-markets-builds-recurring-question-test
   (let [[market] (markets/build-outcome-markets sample-outcome-meta sample-outcome-ctxs)
         [yes no] (:outcome-sides market)
+        expected-title (expected-local-outcome-title market)
         market-by-key {(:key market) market}]
     (is (= "outcome:0" (:key market)))
     (is (= "#0" (:coin market)))
-    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:symbol market)))
-    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title market)))
+    (is (= expected-title (:symbol market)))
+    (is (= expected-title (:title market)))
     (is (= :outcome (:market-type market)))
     (is (= :outcome (:category market)))
     (is (= 0 (:outcome-id market)))
