@@ -40,7 +40,7 @@ After this change, search dropdown candidates will no longer claim validated opt
 - [x] (2026-05-03 20:53Z) Ran `npm run lint:namespace-sizes` and `npm run lint:namespace-sizes:test`: both passed.
 - [x] (2026-05-03 20:55Z) Ran relevant browser QA with `PLAYWRIGHT_REUSE_EXISTING_SERVER=true npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs -g "portfolio optimizer (setup|universe|manual universe)"`: `7 passed`.
 - [x] (2026-05-03 20:56Z) Ran `npm run browser:cleanup`: returned `ok: true` with no tracked sessions stopped.
-- [ ] `npm run check` remains blocked by unrelated active ExecPlan guardrail `docs/exec-plans/active/2026-05-03-outcome-no-market-order-book-subscription.md` having no unchecked progress items.
+- [x] (2026-05-03 20:36Z) Moved the completed outcome subscription ExecPlan out of `active` and reran `npm run check`: passed.
 
 ## Surprises & Discoveries
 
@@ -94,7 +94,7 @@ After this change, search dropdown candidates will no longer claim validated opt
 
 Implemented the UI correctness fix without changing optimizer execution, history loading, or candidate ranking behavior. Search dropdown candidates now render no history-status chip instead of `sufficient` or `pending`. Selected rows now consume optimizer readiness and history-load state so they can display `pending`, `loading`, `missing`, `insufficient`, or `sufficient` based on validation state.
 
-The implementation slightly increases view-layer complexity by adding a small status derivation helper in `setup_v4_universe.cljs`, but it reduces product ambiguity. The helper keeps side effects out of render code and consumes only state already computed by `workspace_view.cljs`. The only remaining blocker is external to this task: `npm run check` cannot pass until the unrelated completed-looking active ExecPlan is moved or given a valid unchecked item.
+The implementation slightly increases view-layer complexity by adding a small status derivation helper in `setup_v4_universe.cljs`, but it reduces product ambiguity. The helper keeps side effects out of render code and consumes only state already computed by `workspace_view.cljs`. The final repository check passed after moving the unrelated completed outcome subscription ExecPlan out of `active`.
 
 ## Context and Orientation
 
