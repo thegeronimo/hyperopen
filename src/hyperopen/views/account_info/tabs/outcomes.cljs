@@ -1,5 +1,7 @@
 (ns hyperopen.views.account-info.tabs.outcomes
-  (:require [hyperopen.views.account-info.shared :as shared]
+  (:require [clojure.string :as str]
+            [hyperopen.router :as router]
+            [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.tabs.positions.shared :as positions-shared]))
 
 (def ^:private outcomes-grid-template-class
@@ -24,12 +26,41 @@
                  "whitespace-nowrap"]}
    label])
 
+(defn- outcome-side
+  [{:keys [side-index side-name]}]
+  (cond
+    (= 1 side-index) :short
+    (= 0 side-index) :long
+    (= "no" (some-> side-name str str/trim str/lower-case)) :short
+    (= "yes" (some-> side-name str str/trim str/lower-case)) :long
+    :else :long))
+
+(defn- outcome-title-click-actions
+  [{:keys [market-key side-coin]}]
+  (when-let [side-coin* (shared/non-blank-text side-coin)]
+    (let [market-key* (shared/non-blank-text market-key)
+          select-action (if market-key*
+                          [:actions/select-asset-by-market-key market-key*]
+                          [:actions/select-asset side-coin*])]
+      [select-action
+       [:actions/navigate (router/trade-route-path side-coin*)]])))
+
 (defn- outcome-title-cell
-  [{:keys [title]}]
-  [:div {:class ["flex" "min-w-0" "items-center" "pl-3"]}
-   [:span {:class ["min-w-0" "truncate" "font-semibold" "text-trading-green"]
-           :title title}
-    title]])
+  [{:keys [title side-coin] :as row}]
+  (let [side (outcome-side row)
+        coin-cell-style (shared/position-coin-cell-style-for-side side)
+        coin-tone-class (shared/position-side-tone-class side)]
+    [:div {:class ["flex" "min-w-0" "items-center" "self-stretch"]
+           :style coin-cell-style}
+     (shared/coin-select-control
+      side-coin
+      [:span {:class ["flex" "w-full" "min-w-0" "items-center"]}
+       [:span {:class ["block" "min-w-0" "truncate" "font-semibold" coin-tone-class]
+               :title title}
+        title]]
+      {:extra-classes ["w-full" "justify-start" "overflow-hidden" "text-left"]
+       :click-actions (outcome-title-click-actions row)
+       :attrs {:data-role "outcome-market-select"}})]))
 
 (defn- amount-cell
   [text & [tone-class]]

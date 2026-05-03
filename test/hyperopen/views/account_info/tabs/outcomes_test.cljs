@@ -41,6 +41,38 @@
     (is (contains? row-strings "0.57042"))
     (is (contains? row-strings "-$0.20 (-1.8%)"))))
 
+(deftest outcomes-tab-title-selects-and-navigates-to-outcome-market-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]})
+        row (hiccup/first-viewport-row content)
+        outcome-button (hiccup/find-first-node row #(= "outcome-market-select"
+                                                       (get-in % [1 :data-role])))]
+    (is (some? outcome-button))
+    (is (= [[:actions/select-asset-by-market-key "outcome:0"]
+            [:actions/navigate "/trade/%230"]]
+           (get-in outcome-button [1 :on :click])))))
+
+(deftest outcomes-tab-title-highlight-follows-outcome-side-test
+  (let [no-row (assoc sample-row
+                      :key "outcome-#1"
+                      :raw-coin "+1"
+                      :side-coin "#1"
+                      :side-name "No"
+                      :side-index 1)
+        content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row no-row]})
+        rows (vec (hiccup/node-children (hiccup/tab-rows-viewport-node content)))
+        yes-cell (first (hiccup/node-children (first rows)))
+        no-cell (first (hiccup/node-children (second rows)))
+        yes-label (hiccup/find-first-node yes-cell #(contains? (hiccup/direct-texts %)
+                                                               (:title sample-row)))
+        no-label (hiccup/find-first-node no-cell #(contains? (hiccup/direct-texts %)
+                                                             (:title no-row)))]
+    (is (= "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
+           (get-in yes-cell [1 :style :background])))
+    (is (contains? (hiccup/node-class-set yes-label) "text-emerald-300"))
+    (is (= "transparent linear-gradient(90deg, rgb(237, 112, 136) 0px, rgb(237, 112, 136) 4px, rgba(52, 36, 46, 1) 0%, transparent 100%)"
+           (get-in no-cell [1 :style :background])))
+    (is (contains? (hiccup/node-class-set no-label) "text-red-300"))))
+
 (deftest outcomes-tab-empty-state-is-specific-test
   (let [content (outcomes-tab/outcomes-tab-content {:outcomes []})
         strings (set (hiccup/collect-strings content))]
