@@ -72,10 +72,24 @@
         buy-tab (button-node-by-label buy-view "Buy")
         sell-tab (button-node-by-label buy-view "Sell")
         sell-click (get-in sell-tab [1 :on :click])
+        tablist (find-first-node buy-view
+                                 (fn [candidate]
+                                   (= "outcome-action-side-tabs"
+                                      (get-in candidate [1 :data-role]))))
+        buy-tab-classes (set (get-in buy-tab [1 :class]))
+        sell-tab-classes (set (get-in sell-tab [1 :class]))
         buy-strings (set (collect-strings buy-view))
         sell-strings (set (collect-strings sell-view))]
+    (is (some? tablist))
+    (is (= "tablist" (get-in tablist [1 :role])))
     (is (some? buy-tab))
     (is (some? sell-tab))
+    (is (= "tab" (get-in buy-tab [1 :role])))
+    (is (= true (get-in buy-tab [1 :aria-selected])))
+    (is (= false (get-in sell-tab [1 :aria-selected])))
+    (is (contains? buy-tab-classes "border-primary"))
+    (is (not (contains? buy-tab-classes "bg-[#50D2C1]")))
+    (is (not (contains? sell-tab-classes "bg-[#273035]")))
     (is (= [[:actions/update-order-form [:side] :sell]]
            sell-click))
     (is (contains? buy-strings "Buy Yes"))

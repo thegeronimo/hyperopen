@@ -8,6 +8,27 @@
             [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]))
 
+(defn- action-side-tab
+  [label active? on-click]
+  [:button {:type "button"
+            :role "tab"
+            :aria-selected (boolean active?)
+            :class (into ["h-8" "min-w-11" "border-b" "px-1" "text-xs" "font-medium" "transition-colors" "focus:outline-none" "focus:ring-0" "focus:ring-offset-0"]
+                         (if active?
+                           ["border-primary" "text-[#F6FEFD]"]
+                           ["border-transparent" "text-[#949E9C]" "hover:text-[#D2DAD7]"]))
+            :on {:click on-click}}
+   label])
+
+(defn- action-side-tabs
+  [side side-handlers]
+  [:div {:class ["flex" "h-8" "items-end" "gap-5" "border-b" "border-base-300" "px-1"]
+         :data-role "outcome-action-side-tabs"
+         :role "tablist"
+         :aria-label "Order action side"}
+   (action-side-tab "Buy" (= side :buy) ((:on-select-side side-handlers) :buy))
+   (action-side-tab "Sell" (= side :sell) ((:on-select-side side-handlers) :sell))])
+
 (defn render-order-form
   [{:keys [state vm handlers ui]}]
   (let [{:keys [form
@@ -118,10 +139,7 @@
                                 entry-mode-handlers)
 
       (if outcome?
-        (controls/side-row side
-                           side-handlers
-                           {:buy-label "Buy"
-                            :sell-label "Sell"})
+        (action-side-tabs side side-handlers)
         (controls/side-row side side-handlers))
       (when outcome?
         (controls/outcome-side-row outcome-sides
