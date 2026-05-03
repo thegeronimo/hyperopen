@@ -199,7 +199,7 @@
     (is (= {:title "Outcome Details"
             :summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
             :settlement-label "BTC mark price is above 78,213"
-            :settlement-time-label "at May 03, 2026 06:00 AM UTC"
+            :settlement-time-label "at May 03, 2026 02:00 AM UTC"
             :yes-payout-label "$1.00"
             :no-payout-label "$0.00"
             :footer-label "All payouts are in USDC."}

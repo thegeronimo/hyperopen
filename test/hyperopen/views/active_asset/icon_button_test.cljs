@@ -52,8 +52,10 @@
         icon-node (icon-button/asset-button market false #{} #{} {:outcome-hover-glow? true})
         button-classes (set (support/class-values (get-in icon-node [1 :class])))]
     (is (contains? button-classes "border-transparent"))
-    (is (contains? button-classes "group-hover/outcome-name:border-[#2dd4bf]/55"))
-    (is (contains? button-classes "group-hover/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]"))))
+    (is (contains? button-classes "px-2"))
+    (is (contains? button-classes "py-1.5"))
+    (is (contains? button-classes "group-hover/outcome-name:border-[#2dd4bf]/35"))
+    (is (contains? button-classes "group-hover/outcome-name:shadow-[0_0_14px_rgba(45,212,191,0.14)]"))))
 
 (deftest asset-icon-renders-neutral-surface-while-probing-and-registers-render-hook-test
   (let [market {:key "perp:BTC"

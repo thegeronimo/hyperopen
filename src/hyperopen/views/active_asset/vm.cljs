@@ -94,6 +94,27 @@
            (if (< hour 12) "AM" "PM")
            " UTC"))))
 
+(defn- format-title-settlement-time
+  [title expiry-ms]
+  (when (and (string? title) (number? expiry-ms))
+    (when-let [[_ month day hour minute meridiem]
+               (re-find #"(?i)\bon\s+([A-Za-z]+)\s+(\d{1,2})\s+at\s+(\d{1,2}):(\d{2})\s+(AM|PM)\b"
+                        title)]
+      (let [date (js/Date. expiry-ms)]
+        (str "at "
+             month
+             " "
+             (fmt/pad2 (js/parseInt day 10))
+             ", "
+             (.getUTCFullYear date)
+             " "
+             (fmt/pad2 (js/parseInt hour 10))
+             ":"
+             minute
+             " "
+             (.toUpperCase meridiem)
+             " UTC")))))
+
 (defn- outcome-tooltip-model
   [market]
   (when (= :outcome (:market-type market))
@@ -106,7 +127,9 @@
                                         (str underlying " mark price is above " target-price-label))
           settlement-label (or structured-settlement-label
                                (non-blank-text (:outcome-details market)))
-          settlement-time-label (or (format-outcome-settlement-time (:expiry-ms market))
+          settlement-time-label (or (format-title-settlement-time (:title market) (:expiry-ms market))
+                                    (format-title-settlement-time (:symbol market) (:expiry-ms market))
+                                    (format-outcome-settlement-time (:expiry-ms market))
                                     "at settlement time")
           default-summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
           summary (if (and (seq structured-settlement-label)

@@ -927,8 +927,12 @@ test("outcome market tooltip stays within active selector width and glows on hov
     };
   });
 
-  expect(triggerGlow.borderColor).toBe("rgba(45, 212, 191, 0.55)");
+  expect(triggerGlow.borderColor).toBe("rgba(45, 212, 191, 0.35)");
   expect(triggerGlow.boxShadow).toContain("45, 212, 191");
+
+  const settlementLabel = tooltip.getByText("BTC mark price is above 78,213");
+  await expect(settlementLabel).toHaveCSS("white-space", "nowrap");
+  await expect(tooltip.getByText("at May 03, 2026 02:00 AM UTC")).toBeVisible();
 });
 
 test("disconnected stop spectate clears stale account surfaces @regression", async ({ page }) => {

@@ -25,18 +25,20 @@
              (array-seq node))))
 
 (defn- detail-row
-  [icon-node icon-role label body]
-  [:div {:class ["grid"
-                 "grid-cols-[1.75rem_minmax(0,0.8fr)_minmax(0,1.35fr)]"
-                 "items-start"
+  ([icon-node icon-role label body]
+   (detail-row icon-node icon-role label body nil))
+  ([icon-node icon-role label body {:keys [center?]}]
+   [:div {:class ["grid"
+                 "grid-cols-[1.75rem_minmax(0,0.62fr)_minmax(0,1.78fr)]"
+                 (if center? "items-center" "items-start")
                  "gap-4"
                  "px-6"
                  "py-4"]}
-   [:div {:class ["flex" "justify-center" "pt-0.5"]}
+   [:div {:class ["flex" "justify-center" (when-not center? "pt-0.5")]}
     (icon icon-node icon-role)]
-   [:div {:class ["text-sm" "font-medium" "text-slate-300"]}
+   [:div {:class ["text-sm" "font-medium" "leading-5" "text-slate-300"]}
     label]
-   body])
+   body]))
 
 (defn outcome-tooltip-panel
   [{:keys [title
@@ -55,10 +57,10 @@
                    "right-3"
                    "rounded-lg"
                    "border"
-                   "border-[#0f766e]/80"
+                   "border-[#0f766e]/65"
                    "bg-[#07131a]/95"
                    "text-left"
-                   "shadow-[0_-8px_26px_rgba(45,212,191,0.10),0_18px_70px_rgba(0,0,0,0.55)]"
+                   "shadow-[0_0_24px_rgba(45,212,191,0.10),0_18px_70px_rgba(0,0,0,0.55)]"
                    "backdrop-blur"
                    "opacity-0"
                    "pointer-events-none"
@@ -78,16 +80,8 @@
                     "rotate-45"
                     "border-l"
                     "border-t"
-                    "border-[#0f766e]/80"
+                    "border-[#0f766e]/65"
                     "bg-[#07131a]"]
-            :aria-hidden true}]
-     [:div {:class ["pointer-events-none"
-                    "absolute"
-                    "inset-x-8"
-                    "top-0"
-                    "h-px"
-                    "bg-[#2dd4bf]/70"
-                    "shadow-[0_0_18px_rgba(45,212,191,0.42)]"]
             :aria-hidden true}]
      [:div {:class ["relative" "space-y-0"]}
       [:div {:class ["flex" "items-start" "gap-4" "px-6" "pb-5" "pt-7"]}
@@ -105,7 +99,7 @@
         "outcome-tooltip-settlement-icon"
         "Settlement Condition"
         [:div {:class ["space-y-1" "text-sm" "leading-5"]}
-         [:div {:class ["font-semibold" "text-slate-100"]}
+         [:div {:class ["whitespace-nowrap" "font-semibold" "text-slate-100"]}
           settlement-label]
          [:div {:class ["text-slate-400"]}
           settlement-time-label]])]
@@ -121,10 +115,11 @@
           [:span {:class ["font-semibold" "text-[#2dd4bf]"]} yes-payout-label]
           [:span {:class ["text-slate-400"]} "each"]]
          [:div {:class ["flex" "items-center" "gap-3"]}
-          [:span {:class ["font-semibold" "text-[#fb7185]"]} "NO"]
-          [:span {:class ["text-slate-500"]} "->"]
-          [:span {:class ["font-semibold" "text-[#fb7185]"]} no-payout-label]
-          [:span {:class ["text-slate-400"]} "each"]]])]
+         [:span {:class ["font-semibold" "text-[#fb7185]"]} "NO"]
+         [:span {:class ["text-slate-500"]} "->"]
+         [:span {:class ["font-semibold" "text-[#fb7185]"]} no-payout-label]
+          [:span {:class ["text-slate-400"]} "each"]]]
+        {:center? true})]
       [:div {:class ["flex"
                      "items-center"
                      "gap-3"

@@ -130,8 +130,8 @@
                       "gap-2"
                       "rounded"
                       "bg-transparent"
-                      "pr-2"
-                      "py-1"
+                      (if outcome-hover-glow? "px-2" "pr-2")
+                      (if outcome-hover-glow? "py-1.5" "py-1")
                       "text-left"
                       "focus:outline-none"
                       "focus:ring-0"
@@ -146,13 +146,13 @@
                       (when outcome-hover-glow?
                         "duration-150")
                       (when outcome-hover-glow?
-                        "group-hover/outcome-name:border-[#2dd4bf]/55")
+                        "group-hover/outcome-name:border-[#2dd4bf]/35")
                       (when outcome-hover-glow?
-                        "group-hover/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]")
+                        "group-hover/outcome-name:shadow-[0_0_14px_rgba(45,212,191,0.14)]")
                       (when outcome-hover-glow?
-                        "group-focus-within/outcome-name:border-[#2dd4bf]/55")
+                        "group-focus-within/outcome-name:border-[#2dd4bf]/35")
                       (when outcome-hover-glow?
-                        "group-focus-within/outcome-name:shadow-[0_0_20px_rgba(45,212,191,0.22)]")]
+                        "group-focus-within/outcome-name:shadow-[0_0_14px_rgba(45,212,191,0.14)]")]
               :aria-haspopup "dialog"
               :aria-expanded dropdown-visible?
               :on {:click [[:actions/toggle-asset-dropdown :asset-selector]]}}
