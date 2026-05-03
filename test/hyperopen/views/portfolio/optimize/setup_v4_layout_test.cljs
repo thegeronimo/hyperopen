@@ -108,7 +108,8 @@
                        #(and (vector? %)
                              (contains? (class-token-set %) "grid-cols-2")
                              (= ["portfolio-optimizer-universe-use-current"]
-                                (child-roles %))))
+                                (child-roles %))
+                             (str/starts-with? (node-text %) "Custom")))
         strings (set (collect-strings source-toggle))]
     (is (some? source-toggle))
     (is (contains? strings "From holdings"))
