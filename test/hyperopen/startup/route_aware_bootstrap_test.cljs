@@ -89,6 +89,34 @@
              (is false (str "Unexpected critical bootstrap error: " err))
              (done)))))))
 
+(deftest start-critical-bootstrap-fetches-asset-selector-on-portfolio-optimize-route-test
+  (async done
+    (let [store (atom {:router {:path "/portfolio/optimize/new"}
+                       :portfolio-ui {:account-info-tab :performance-metrics}})
+          context-fetches (atom [])
+          selector-fetches (atom [])
+          mark-calls (atom [])]
+      (-> (startup-runtime/start-critical-bootstrap!
+           {:store store
+            :fetch-asset-contexts! (fn [_store opts]
+                                     (swap! context-fetches conj opts)
+                                     (js/Promise.resolve :ctx))
+            :fetch-asset-selector-markets! (fn [_store opts]
+                                             (swap! selector-fetches conj opts)
+                                             (js/Promise.resolve :selector))
+            :mark-performance! (fn [mark]
+                                 (swap! mark-calls conj mark))})
+          (.then
+           (fn []
+             (is (= [{:priority :high}] @context-fetches))
+             (is (= [{:phase :bootstrap}] @selector-fetches))
+             (is (= ["app:critical-data:ready"] @mark-calls))
+             (done)))
+          (.catch
+           (fn [err]
+             (is false (str "Unexpected critical bootstrap error: " err))
+             (done)))))))
+
 (deftest schedule-deferred-bootstrap-uses-timeout-delay-on-portfolio-performance-route-test
   (let [store (atom {:router {:path "/portfolio"}
                      :portfolio-ui {:account-info-tab :performance-metrics}})

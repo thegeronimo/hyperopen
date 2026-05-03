@@ -15,6 +15,7 @@
 (defn portfolio-performance-metrics-route?
   [state]
   (and (portfolio-routes/portfolio-route? (get-in state [:router :path]))
+       (not (portfolio-routes/portfolio-optimize-route? (get-in state [:router :path])))
        (= :performance-metrics
           (portfolio-actions/normalize-portfolio-account-info-tab
            (get-in state [:portfolio-ui :account-info-tab])))))

@@ -94,15 +94,18 @@
 (deftest load-portfolio-optimizer-route-emits-scenario-read-effects-test
   (is (= [[:effects/load-portfolio-optimizer-scenario-index]]
          (actions/load-portfolio-optimizer-route
-          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          {:asset-selector {:phase :full}
+           :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize")))
   (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]]
          (actions/load-portfolio-optimizer-route
-          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          {:asset-selector {:phase :full}
+           :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/scn_01")))
   (is (= []
          (actions/load-portfolio-optimizer-route
-          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          {:asset-selector {:phase :full}
+           :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/new")))
   (is (= []
          (actions/load-portfolio-optimizer-route
@@ -113,23 +116,38 @@
   (is (= [[:effects/api-fetch-vault-index]
           [:effects/api-fetch-vault-summaries]]
          (actions/load-portfolio-optimizer-route
-          {}
+          {:asset-selector {:phase :full}}
           "/portfolio/optimize/new")))
   (is (= [[:effects/load-portfolio-optimizer-scenario-index]
           [:effects/api-fetch-vault-index]
           [:effects/api-fetch-vault-summaries]]
          (actions/load-portfolio-optimizer-route
-          {:vaults {}}
+          {:asset-selector {:phase :full}
+           :vaults {}}
           "/portfolio/optimize")))
   (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]
           [:effects/api-fetch-vault-index]
           [:effects/api-fetch-vault-summaries]]
          (actions/load-portfolio-optimizer-route
-          {:vaults {}}
+          {:asset-selector {:phase :full}
+           :vaults {}}
           "/portfolio/optimize/scn_01")))
   (is (= []
          (actions/load-portfolio-optimizer-route
-          {:vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          {:asset-selector {:phase :full}
+           :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
+          "/portfolio/optimize/new"))))
+
+(deftest load-portfolio-optimizer-route-refreshes-cache-only-selector-markets-test
+  (is (= [[:effects/fetch-asset-selector-markets {:phase :full}]]
+         (actions/load-portfolio-optimizer-route
+          {:asset-selector {:cache-hydrated? true
+                            :phase :bootstrap
+                            :markets [{:key "perp:BTC"
+                                       :coin "BTC"
+                                       :symbol "BTC-USDC"
+                                       :market-type :perp}]}
+           :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/new"))))
 
 (deftest set-portfolio-optimizer-results-tab-updates-shareable-tab-state-test

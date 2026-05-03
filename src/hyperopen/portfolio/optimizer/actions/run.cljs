@@ -37,6 +37,12 @@
     [[:effects/save-portfolio-optimizer-scenario]]
     []))
 
+(defn- asset-selector-market-fetch-effects
+  [state]
+  (if (= :full (get-in state [:asset-selector :phase]))
+    []
+    [[:effects/fetch-asset-selector-markets {:phase :full}]]))
+
 (defn load-portfolio-optimizer-route
   [state path]
   (let [route (portfolio-routes/parse-portfolio-route path)]
@@ -48,7 +54,8 @@
        [])
      (if (contains? #{:optimize-index :optimize-new :optimize-scenario}
                     (:kind route))
-       (common/vault-list-metadata-fetch-effects state)
+       (into (asset-selector-market-fetch-effects state)
+             (common/vault-list-metadata-fetch-effects state))
        []))))
 
 (defn archive-portfolio-optimizer-scenario

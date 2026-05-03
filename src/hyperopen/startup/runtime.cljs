@@ -5,6 +5,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.startup.route-refresh :as route-refresh]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 (defn default-startup-runtime-state
@@ -501,8 +502,8 @@
 (defn- skip-deferred-bootstrap?
   [store]
   (and (true? (get-in @store [:asset-selector :cache-hydrated?]))
-       (some #(= :outcome (:market-type %))
-             (get-in @store [:asset-selector :markets]))
+       (not (portfolio-routes/portfolio-optimize-route? (get-in @store [:router :path])))
+       (some #(= :outcome (:market-type %)) (get-in @store [:asset-selector :markets]))
        (not (incomplete-active-perp-market? store))))
 
 (defn run-deferred-bootstrap!
