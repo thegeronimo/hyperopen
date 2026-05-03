@@ -9,25 +9,46 @@
             [hyperopen.views.trade.order-form-vm :as order-form-vm]))
 
 (defn- action-side-tab
-  [label active? on-click]
-  [:button {:type "button"
-            :role "tab"
-            :aria-selected (boolean active?)
-            :class (into ["h-8" "min-w-11" "border-b" "px-1" "text-xs" "font-medium" "transition-colors" "focus:outline-none" "focus:ring-0" "focus:ring-offset-0"]
-                         (if active?
-                           ["border-primary" "text-[#F6FEFD]"]
-                           ["border-transparent" "text-[#949E9C]" "hover:text-[#D2DAD7]"]))
-            :on {:click on-click}}
-   label])
+  [label side active? on-click]
+  (let [active-classes (if (= side :sell)
+                         ["border-[#ED7088]" "text-[#ED7088]"]
+                         ["border-primary" "text-primary"])
+        dot-class (if (= side :sell) "bg-[#ED7088]" "bg-primary")]
+    [:button {:type "button"
+              :role "tab"
+              :aria-selected (boolean active?)
+              :class (into ["flex"
+                            "h-12"
+                            "w-full"
+                            "items-center"
+                            "justify-center"
+                            "gap-2"
+                            "border-b-2"
+                            "text-sm"
+                            "font-medium"
+                            "transition-colors"
+                            "focus:outline-none"
+                            "focus:ring-0"
+                            "focus:ring-offset-0"]
+                           (if active?
+                             active-classes
+                             ["border-transparent" "text-[#949E9C]" "hover:text-[#D2DAD7]"]))
+              :on {:click on-click}}
+     (when active?
+       [:span {:class ["h-1.5" "w-1.5" "rounded-full" dot-class]
+               :data-role "outcome-action-side-active-dot"}])
+     label]))
 
 (defn- action-side-tabs
   [side side-handlers]
-  [:div {:class ["flex" "h-8" "items-end" "gap-5" "border-b" "border-base-300" "px-1"]
+  [:div {:class ["relative" "grid" "h-12" "grid-cols-2" "items-end" "border-y" "border-base-300"]
          :data-role "outcome-action-side-tabs"
          :role "tablist"
          :aria-label "Order action side"}
-   (action-side-tab "Buy" (= side :buy) ((:on-select-side side-handlers) :buy))
-   (action-side-tab "Sell" (= side :sell) ((:on-select-side side-handlers) :sell))])
+   [:span {:class ["pointer-events-none" "absolute" "left-1/2" "top-4" "h-4" "w-px" "bg-base-300"]
+           :data-role "outcome-action-side-divider"}]
+   (action-side-tab "Buy" :buy (= side :buy) ((:on-select-side side-handlers) :buy))
+   (action-side-tab "Sell" :sell (= side :sell) ((:on-select-side side-handlers) :sell))])
 
 (defn render-order-form
   [{:keys [state vm handlers ui]}]

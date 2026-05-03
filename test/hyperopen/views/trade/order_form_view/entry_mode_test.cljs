@@ -71,23 +71,48 @@
                           :active-market outcome-market))
         buy-tab (button-node-by-label buy-view "Buy")
         sell-tab (button-node-by-label buy-view "Sell")
+        active-sell-tab (button-node-by-label sell-view "Sell")
         sell-click (get-in sell-tab [1 :on :click])
         tablist (find-first-node buy-view
                                  (fn [candidate]
                                    (= "outcome-action-side-tabs"
                                       (get-in candidate [1 :data-role]))))
+        divider (find-first-node buy-view
+                                 (fn [candidate]
+                                   (= "outcome-action-side-divider"
+                                      (get-in candidate [1 :data-role]))))
+        active-dot (find-first-node buy-view
+                                    (fn [candidate]
+                                      (= "outcome-action-side-active-dot"
+                                         (get-in candidate [1 :data-role]))))
+        active-sell-dot (find-first-node sell-view
+                                         (fn [candidate]
+                                           (= "outcome-action-side-active-dot"
+                                              (get-in candidate [1 :data-role]))))
+        tablist-classes (set (get-in tablist [1 :class]))
         buy-tab-classes (set (get-in buy-tab [1 :class]))
         sell-tab-classes (set (get-in sell-tab [1 :class]))
+        active-sell-tab-classes (set (get-in active-sell-tab [1 :class]))
+        active-sell-dot-classes (set (get-in active-sell-dot [1 :class]))
         buy-strings (set (collect-strings buy-view))
         sell-strings (set (collect-strings sell-view))]
     (is (some? tablist))
     (is (= "tablist" (get-in tablist [1 :role])))
+    (is (contains? tablist-classes "grid-cols-2"))
+    (is (contains? tablist-classes "border-y"))
+    (is (some? divider))
+    (is (some? active-dot))
     (is (some? buy-tab))
     (is (some? sell-tab))
     (is (= "tab" (get-in buy-tab [1 :role])))
     (is (= true (get-in buy-tab [1 :aria-selected])))
     (is (= false (get-in sell-tab [1 :aria-selected])))
+    (is (contains? buy-tab-classes "w-full"))
+    (is (contains? buy-tab-classes "justify-center"))
     (is (contains? buy-tab-classes "border-primary"))
+    (is (contains? active-sell-tab-classes "border-[#ED7088]"))
+    (is (contains? active-sell-tab-classes "text-[#ED7088]"))
+    (is (contains? active-sell-dot-classes "bg-[#ED7088]"))
     (is (not (contains? buy-tab-classes "bg-[#50D2C1]")))
     (is (not (contains? sell-tab-classes "bg-[#273035]")))
     (is (= [[:actions/update-order-form [:side] :sell]]
