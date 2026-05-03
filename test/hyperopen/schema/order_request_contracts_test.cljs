@@ -18,6 +18,19 @@
     (is (= request
            (contracts/assert-order-request! request {:boundary :test/contracts})))))
 
+(deftest order-request-contract-accepts-spot-order-without-reduce-only-test
+  (let [order (array-map :a 100000010
+                         :b false
+                         :p "0.59"
+                         :s "8.5"
+                         :t (array-map :limit (array-map :tif "Gtc")))
+        request (array-map :action (array-map :type "order"
+                                              :orders [order]
+                                              :grouping "na")
+                           :asset-idx 100000010
+                           :orders [order])]
+    (is (true? (contracts/order-request-valid? request)))))
+
 (deftest order-request-contract-rejects-invalid-pre-action-shape-test
   (is (thrown-with-msg?
        js/Error

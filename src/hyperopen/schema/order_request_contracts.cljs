@@ -22,6 +22,9 @@
 (def ^:private order-keys
   #{:a :b :p :s :r :t})
 
+(def ^:private order-keys-without-reduce-only
+  #{:a :b :p :s :t})
+
 (def ^:private limit-container-keys
   #{:limit})
 
@@ -80,15 +83,21 @@
   (or (nil? value)
       (boolean? value)))
 
-(defn limit-order?
+(defn- order-shell?
   [order]
-  (and (exact-keys? order order-keys)
-       (exact-key-order? order [:a :b :p :s :r :t])
+  (and (or (and (exact-keys? order order-keys)
+                (exact-key-order? order [:a :b :p :s :r :t])
+                (reduce-only-flag? (:r order)))
+           (and (exact-keys? order order-keys-without-reduce-only)
+                (exact-key-order? order [:a :b :p :s :t])))
        (non-negative-integer-value? (:a order))
        (boolean? (:b order))
        (positive-numberish-string? (:p order))
-       (positive-numberish-string? (:s order))
-       (reduce-only-flag? (:r order))
+       (positive-numberish-string? (:s order))))
+
+(defn limit-order?
+  [order]
+  (and (order-shell? order)
        (let [t (:t order)]
          (and (exact-keys? t limit-container-keys)
               (exact-key-order? t [:limit])
@@ -98,13 +107,7 @@
 
 (defn trigger-order?
   [order]
-  (and (exact-keys? order order-keys)
-       (exact-key-order? order [:a :b :p :s :r :t])
-       (non-negative-integer-value? (:a order))
-       (boolean? (:b order))
-       (positive-numberish-string? (:p order))
-       (positive-numberish-string? (:s order))
-       (reduce-only-flag? (:r order))
+  (and (order-shell? order)
        (let [t (:t order)]
          (and (exact-keys? t trigger-container-keys)
               (exact-key-order? t [:trigger])

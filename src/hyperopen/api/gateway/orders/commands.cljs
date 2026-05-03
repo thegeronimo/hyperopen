@@ -24,6 +24,20 @@
            parsed)
           (trading-domain/number->clean-string parsed 8)))))
 
+(defn- normalize-market-type
+  [value]
+  (let [candidate (cond
+                    (keyword? value) value
+                    (string? value) (keyword (str/lower-case value))
+                    :else nil)]
+    (when (contains? #{:perp :spot :outcome} candidate)
+      candidate)))
+
+(defn- reduce-only-wire-supported?
+  [command-context]
+  (not (contains? #{:spot :outcome}
+                  (normalize-market-type (get-in command-context [:market :market-type])))))
+
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (let [legs (trading-domain/scale-order-legs (get total-size :size)
                                               (get total-size :count)
@@ -174,11 +188,12 @@
                (number? asset-idx)
                required-values-valid?
                wire-values-valid?)
-      (let [base-order (array-map :a asset-idx
-                                  :b (trading-domain/order-side->is-buy side)
-                                  :p (or price-text "")
-                                  :s (str size)
-                                  :r reduce-only)
+      (let [base-order (cond-> (array-map :a asset-idx
+                                          :b (trading-domain/order-side->is-buy side)
+                                          :p (or price-text "")
+                                          :s (str size))
+                         (reduce-only-wire-supported? command-context)
+                         (assoc :r reduce-only))
             order (shape-builder base-order
                                  {:post-only post-only
                                   :tif tif
@@ -297,15 +312,6 @@
   (let [parsed (trading-domain/parse-num value)]
     (when (positive-number? parsed)
       (-> parsed js/Math.round int (max 1)))))
-
-(defn- normalize-market-type
-  [value]
-  (let [candidate (cond
-                    (keyword? value) value
-                    (string? value) (keyword (str/lower-case value))
-                    :else nil)]
-    (when (contains? #{:perp :spot :outcome} candidate)
-      candidate)))
 
 (defn- spot-instrument?
   [value]

@@ -364,6 +364,22 @@
     (is (map? request))
     (is (nil? (:pre-actions request)))))
 
+(deftest build-order-request-omits-reduce-only-for-outcome-orders-test
+  (let [outcome-context {:active-asset "#10"
+                         :asset-idx 100000010
+                         :market {:market-type :outcome
+                                  :coin "#10"
+                                  :szDecimals 0}}
+        request (commands/build-order-request outcome-context {:type :limit
+                                                               :side :sell
+                                                               :size "8.5"
+                                                               :price "0.59"
+                                                               :reduce-only true})
+        order (get-in request [:orders 0])]
+    (is (= 100000010 (:a order)))
+    (is (= false (:b order)))
+    (is (not (contains? order :r)))))
+
 (deftest build-order-request-fails-closed-on-invalid-scale-and-twap-test
   (is (nil? (commands/build-order-request command-context {:type :scale
                                                             :side :buy
