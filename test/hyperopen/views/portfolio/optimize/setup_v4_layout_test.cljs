@@ -75,6 +75,20 @@
 
     :else 0))
 
+(def ^:private btc-instrument
+  {:instrument-id "perp:BTC"
+   :market-type :perp
+   :coin "BTC"
+   :symbol "BTC-USDC"
+   :name "Bitcoin"})
+
+(defn- candle-rows
+  [time-and-close-pairs]
+  (mapv (fn [[time-ms close]]
+          {:time time-ms
+           :close (str close)})
+        time-and-close-pairs))
+
 (deftest setup-new-route-uses-v4-grid-instead-of-old-left-rail-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
@@ -325,6 +339,77 @@
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument
              (str "vault:" vault-address)]]
            (click-actions add-button)))))
+
+(deftest setup-v4-universe-search-candidates-do-not-claim-sufficient-history-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio-ui {:optimizer {:universe-search-query "btc"}}
+                    :portfolio {:optimizer {:draft {:universe []
+                                                     :constraints {:long-only? false}}}}
+                    :asset-selector
+                    {:markets [{:key "perp:BTC"
+                                :market-type :perp
+                                :coin "BTC"
+                                :symbol "BTC-USDC"
+                                :base "BTC"
+                                :quote "USDC"
+                                :volume24h 961000000}]}})
+        candidate-row (node-by-role view-node
+                                    "portfolio-optimizer-universe-candidate-row-perp:BTC")
+        candidate-strings (set (collect-strings candidate-row))]
+    (is (some? candidate-row))
+    (is (contains? candidate-strings "pending"))
+    (is (not (contains? candidate-strings "sufficient")))
+    (is (= [[:actions/add-portfolio-optimizer-universe-instrument "perp:BTC"]]
+           (click-actions candidate-row)))))
+
+(deftest setup-v4-selected-universe-history-statuses-reflect-readiness-test
+  (let [base-state {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [btc-instrument]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true}}}}}
+        row-strings (fn [state]
+                      (-> (portfolio-view/portfolio-view state)
+                          (node-by-role "portfolio-optimizer-universe-selected-row-perp:BTC")
+                          collect-strings
+                          set))
+        pending-strings (row-strings base-state)
+        loading-strings (row-strings
+                         (assoc-in base-state
+                                   [:portfolio :optimizer :history-load-state]
+                                   {:status :loading
+                                    :request-signature {:universe [btc-instrument]}}))
+        missing-strings (row-strings
+                         (assoc-in base-state
+                                   [:portfolio :optimizer :history-load-state]
+                                   {:status :succeeded
+                                    :request-signature {:universe [btc-instrument]}}))
+        insufficient-strings (row-strings
+                              (-> base-state
+                                  (assoc-in [:portfolio :optimizer :history-load-state]
+                                            {:status :succeeded
+                                             :request-signature {:universe [btc-instrument]}})
+                                  (assoc-in [:portfolio :optimizer :history-data
+                                             :candle-history-by-coin "BTC"]
+                                            (candle-rows [[1000 100]]))))
+        sufficient-strings (row-strings
+                            (-> base-state
+                                (assoc-in [:portfolio :optimizer :history-load-state]
+                                          {:status :succeeded
+                                           :request-signature {:universe [btc-instrument]}})
+                                (assoc-in [:portfolio :optimizer :history-data
+                                           :candle-history-by-coin "BTC"]
+                                          (candle-rows [[1000 100]
+                                                        [2000 101]]))))]
+    (is (contains? pending-strings "pending"))
+    (is (not (contains? pending-strings "sufficient")))
+    (is (contains? loading-strings "loading"))
+    (is (contains? missing-strings "missing"))
+    (is (contains? insufficient-strings "insufficient"))
+    (is (contains? sufficient-strings "sufficient"))))
 
 (deftest setup-v4-universe-search-skips-blank-lookups-but-renders-nonblank-candidates-test
   (let [vault-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

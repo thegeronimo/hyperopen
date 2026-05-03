@@ -66,7 +66,9 @@
                 :data-role "portfolio-optimizer-setup-surface"}
       (setup-v4/control-rail {:state state
                               :draft draft
-                              :highlighted-controls highlighted-controls})
+                              :highlighted-controls highlighted-controls
+                              :readiness readiness
+                              :history-load-state history-load-state})
       (setup-v4/summary-pane {:draft draft
                               :readiness readiness
                               :running? running?

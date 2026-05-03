@@ -331,9 +331,11 @@
                       "portfolio-optimizer-constraint-rebalance-tolerance-input" false)])))
 
 (defn control-rail
-  [{:keys [state draft highlighted-controls]}]
+  [{:keys [state draft highlighted-controls readiness history-load-state]}]
   [:aside {:class ["min-h-0" "overflow-hidden"] :data-role "portfolio-optimizer-setup-control-rail"}
-   (setup-v4-universe/universe-section state draft)
+   (setup-v4-universe/universe-section state draft
+                                       {:readiness readiness
+                                        :history-load-state history-load-state})
    (objective-section draft highlighted-controls)
    (model-section draft)
    (constraints-section draft highlighted-controls)
