@@ -19,10 +19,12 @@
    :pnl-value -0.20
    :roe-pct -1.8})
 
-(deftest outcomes-tab-renders-designated-outcome-columns-and-chips-test
+(deftest outcomes-tab-renders-hyperliquid-style-outcome-columns-without-chips-test
   (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]})
         header-strings (set (hiccup/collect-strings (hiccup/tab-header-node content)))
         row (hiccup/first-viewport-row content)
+        outcome-cell (first (hiccup/node-children row))
+        outcome-cell-strings (set (hiccup/collect-strings outcome-cell))
         row-strings (set (hiccup/collect-strings row))]
     (is (contains? header-strings "Outcome"))
     (is (contains? header-strings "Size"))
@@ -30,10 +32,9 @@
     (is (contains? header-strings "Entry Price"))
     (is (contains? header-strings "Mark Price"))
     (is (contains? header-strings "PNL (ROE %)"))
-    (is (contains? row-strings "BTC above 78213 on May 3 at 2:00 AM?"))
-    (is (contains? row-strings "Outcome"))
-    (is (contains? row-strings "Yes"))
-    (is (contains? row-strings "#0 / outcome:0"))
+    (is (= #{"BTC above 78213 on May 3 at 2:00 AM?"} outcome-cell-strings))
+    (is (not (contains? row-strings "Outcome")))
+    (is (not (contains? row-strings "#0 / outcome:0")))
     (is (contains? row-strings "19 Yes"))
     (is (contains? row-strings "10.84 USDH"))
     (is (contains? row-strings "0.58090"))

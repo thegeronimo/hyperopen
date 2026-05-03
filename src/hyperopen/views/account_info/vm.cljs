@@ -226,11 +226,12 @@
                                  twap-states
                                  twap-history
                                  twap-slice-fills
-                                 market-by-key]
+                                 market-by-key
+                                 outcome-options]
   (let [now-ms (platform/now-ms)]
     (case selected-tab
       :balances {:balance-rows (derived-cache/memoized-balance-rows webdata2 spot-data account market-by-key)}
-      :outcomes {:outcomes (projections/build-outcome-rows spot-data market-by-key)}
+      :outcomes {:outcomes (projections/build-outcome-rows spot-data market-by-key outcome-options)}
       :positions (let [positions (derived-cache/memoized-positions webdata2 perp-dex-states)
                        positions (attach-position-market-mark-prices positions market-by-key)
                        normalized-open-orders (derived-cache/memoized-open-orders open-orders
@@ -267,6 +268,9 @@
         spot-data (or (:spot state) {})
         account (or (:account state) {})
         market-by-key (get-in state [:asset-selector :market-by-key] {})
+        outcome-options {:active-market (:active-market state)
+                         :selector-active-market (get-in state [:asset-selector :active-market])
+                         :active-contexts (get-in state [:active-assets :contexts] {})}
         open-orders-source (prefer-orders-value orders webdata2 :open-orders)
         open-orders-snapshot-source (prefer-orders-value orders webdata2 :open-orders-snapshot)
         open-orders-snapshot-by-dex-source (prefer-orders-value orders webdata2 :open-orders-snapshot-by-dex)
@@ -287,7 +291,8 @@
                                   twap-states-source
                                   twap-history-source
                                   twap-slice-fills-source
-                                  market-by-key)
+                                  market-by-key
+                                  outcome-options)
         trade-history-state (-> (merge {:direction-filter :all
                                         :coin-search ""
                                         :filter-open? false}
@@ -317,7 +322,7 @@
                                         :coin-search ""}
                                        (get-in state [:account-info :order-history] {}))
                                 (assoc :market-by-key market-by-key))
-        outcome-count (count (projections/build-outcome-rows spot-data market-by-key))
+        outcome-count (count (projections/build-outcome-rows spot-data market-by-key outcome-options))
         tab-counts {:open-orders (open-orders-tab-count open-orders-source
                                                         open-orders-snapshot-source
                                                         open-orders-snapshot-by-dex-source

@@ -25,20 +25,11 @@
    label])
 
 (defn- outcome-title-cell
-  [{:keys [title type-label side-name side-coin market-key]}]
-  (let [symbol-copy (if (seq market-key)
-                      (str side-coin " / " market-key)
-                      side-coin)]
-    [:div {:class ["flex" "min-w-0" "flex-col" "gap-1" "pl-3"]}
-     [:div {:class ["flex" "min-w-0" "items-center" "gap-1.5"]}
-      [:span {:class ["min-w-0" "truncate" "font-semibold" "text-trading-green"]
-              :title title}
-       title]
-      [:span {:class shared/position-chip-classes} type-label]
-      [:span {:class shared/position-chip-classes} side-name]]
-     [:div {:class ["text-xs" "font-medium" "text-trading-text-secondary" "truncate"]
-            :title symbol-copy}
-      symbol-copy]]))
+  [{:keys [title]}]
+  [:div {:class ["flex" "min-w-0" "items-center" "pl-3"]}
+   [:span {:class ["min-w-0" "truncate" "font-semibold" "text-trading-green"]
+           :title title}
+    title]])
 
 (defn- amount-cell
   [text & [tone-class]]

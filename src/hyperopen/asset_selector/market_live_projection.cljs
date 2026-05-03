@@ -9,8 +9,40 @@
                       (when-not (js/isNaN num) num))
     :else nil))
 
+(defn- patch-outcome-side-from-active-asset-ctx
+  [coin
+   {:keys [mark-raw mark prev-day-raw volume24h change24h change24h-pct circulating-supply] :as _ctx-values}
+   side]
+  (if-not (= coin (:coin side))
+    side
+    (cond-> side
+      (some? mark-raw)
+      (assoc :markRaw mark-raw)
+
+      (number? mark)
+      (assoc :mark mark)
+
+      (some? prev-day-raw)
+      (assoc :prevDayRaw prev-day-raw)
+
+      (number? volume24h)
+      (assoc :volume24h volume24h)
+
+      (and (number? change24h)
+           (number? change24h-pct))
+      (assoc :change24h change24h
+             :change24hPct change24h-pct)
+
+      (number? circulating-supply)
+      (assoc :circulatingSupply circulating-supply))))
+
+(defn- patch-outcome-sides-from-active-asset-ctx
+  [market coin ctx-values]
+  (mapv #(patch-outcome-side-from-active-asset-ctx coin ctx-values %)
+        (or (:outcome-sides market) [])))
+
 (defn- patch-market-from-active-asset-ctx
-  [market ctx]
+  [market coin ctx]
   (let [mark-raw (:markPx ctx)
         prev-day-raw (:prevDayPx ctx)
         mark (parse-number mark-raw)
@@ -32,21 +64,37 @@
                                      (number? open-interest-raw)
                                      (number? mark))
                             (fmt/calculate-open-interest-usd open-interest-raw mark))
-        outcome-open-interest (or circulating-supply open-interest-raw)]
+        outcome-open-interest (or circulating-supply open-interest-raw)
+        primary-outcome-side? (and outcome?
+                                   (= coin (:coin market)))
+        update-market-price? (or (not outcome?)
+                                 primary-outcome-side?)
+        ctx-values {:mark-raw mark-raw
+                    :mark mark
+                    :prev-day-raw prev-day-raw
+                    :volume24h volume24h
+                    :change24h change24h
+                    :change24h-pct change24h-pct
+                    :circulating-supply circulating-supply}]
     (cond-> market
-      (contains? ctx :markPx)
+      (and update-market-price?
+           (contains? ctx :markPx))
       (assoc :markRaw mark-raw)
 
-      (number? mark)
+      (and update-market-price?
+           (number? mark))
       (assoc :mark mark)
 
-      (contains? ctx :prevDayPx)
+      (and update-market-price?
+           (contains? ctx :prevDayPx))
       (assoc :prevDayRaw prev-day-raw)
 
-      (number? volume24h)
+      (and update-market-price?
+           (number? volume24h))
       (assoc :volume24h volume24h)
 
-      (and (number? change24h)
+      (and update-market-price?
+           (number? change24h)
            (number? change24h-pct))
       (assoc :change24h change24h
              :change24hPct change24h-pct)
@@ -62,6 +110,9 @@
 
       outcome?
       (assoc :fundingRate nil)
+
+      outcome?
+      (assoc :outcome-sides (patch-outcome-sides-from-active-asset-ctx market coin ctx-values))
 
       spot?
       (assoc :openInterest nil
@@ -83,10 +134,10 @@
              selector-markets))
 
 (defn- patch-selector-market-by-key
-  [market-by-key market-keys ctx]
+  [market-by-key market-keys coin ctx]
   (reduce (fn [{:keys [patched-market-by-key changed-markets]} market-key]
             (if-let [market (get patched-market-by-key market-key)]
-              (let [patched-market (patch-market-from-active-asset-ctx market ctx)]
+              (let [patched-market (patch-market-from-active-asset-ctx market coin ctx)]
                 (if (= market patched-market)
                   {:patched-market-by-key patched-market-by-key
                    :changed-markets changed-markets}
@@ -176,6 +227,7 @@
         state
         (let [{:keys [patched-market-by-key changed-markets]} (patch-selector-market-by-key market-by-key
                                                                                              selector-market-keys
+                                                                                             coin
                                                                                              ctx)
               {:keys [patched-markets patched-market-index-by-key]} (patch-selector-markets-by-index selector-markets
                                                                                                       market-index-by-key

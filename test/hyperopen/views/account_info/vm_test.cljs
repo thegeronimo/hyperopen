@@ -509,3 +509,47 @@
     (is (= 1 (count (:outcomes view-model))))
     (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title outcome-row)))
     (is (= "Yes" (:side-name outcome-row)))))
+
+(deftest account-info-vm-enriches-outcome-rows-from-active-market-and-contexts-test
+  (let [outcome-market {:key "outcome:0"
+                        :coin "#0"
+                        :title "BTC above 78213 on May 3 at 2:00 AM?"
+                        :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                        :quote "USDH"
+                        :market-type :outcome
+                        :outcome-id 0
+                        :outcome-sides [{:side-index 0
+                                         :side-name "Yes"
+                                         :coin "#0"}
+                                        {:side-index 1
+                                         :side-name "No"
+                                         :coin "#1"}]}
+        state {:account-info {:selected-tab :outcomes}
+               :active-market outcome-market
+               :active-assets {:contexts {"#0" {:mark 0.53210
+                                                 :markRaw "0.53210"}}}
+               :asset-selector {:market-by-key {}}
+               :webdata2 {}
+               :orders (base-orders)
+               :account {:mode :classic}
+               :spot {:meta nil
+                      :clearinghouse-state {:balances [{:coin "+0"
+                                                        :token 100000000
+                                                        :hold "0"
+                                                        :total "19"
+                                                        :entryNtl "11.0271"}
+                                                       {:coin "+1"
+                                                        :token 100000001
+                                                        :hold "0"
+                                                        :total "0"
+                                                        :entryNtl "0"}]}}
+               :perp-dex-clearinghouse {}}
+        view-model (vm/account-info-vm state)
+        [outcome-row] (:outcomes view-model)]
+    (is (= 1 (get-in view-model [:tab-counts :outcomes])))
+    (is (= 1 (count (:outcomes view-model))))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title outcome-row)))
+    (is (= "Yes" (:side-name outcome-row)))
+    (is (= 0.53210 (:mark-price outcome-row)))
+    (is (< (js/Math.abs (- 10.1099 (:position-value outcome-row))) 0.000001))
+    (is (< (js/Math.abs (- -0.9172 (:pnl-value outcome-row))) 0.000001))))

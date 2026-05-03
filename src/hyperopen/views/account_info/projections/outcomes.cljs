@@ -56,6 +56,11 @@
   (when (number? encoding)
     (str "+" encoding)))
 
+(defn- side-index-from-encoding
+  [encoding]
+  (when (number? encoding)
+    (mod encoding 10)))
+
 (defn- balance-encoding
   [{:keys [coin token]}]
   (or (token-encoding coin)
@@ -77,6 +82,8 @@
                                 (:symbol market)
                                 side-coin)
               :market-symbol (:symbol market)
+              :market-coin (:coin market)
+              :market-mark (:mark market)
               :quote (or (:quote market) "USDH")
               :token-name (token-name-from-encoding encoding)}))))
 
@@ -89,8 +96,24 @@
     (seq (:token-name side-entry))
     (assoc (:token-name side-entry) side-entry)))
 
+(defn- outcome-market-candidates
+  [market-by-key {:keys [active-market selector-active-market]}]
+  (->> (concat (vals (or market-by-key {}))
+               [active-market selector-active-market])
+       (filter #(= :outcome (:market-type %)))
+       (reduce (fn [{:keys [seen markets]} market]
+                 (let [identity [(or (:key market) "")
+                                 (or (:coin market) "")
+                                 (:outcome-id market)]]
+                   (if (contains? seen identity)
+                     {:seen seen :markets markets}
+                     {:seen (conj seen identity)
+                      :markets (conj markets market)})))
+               {:seen #{} :markets []})
+       :markets))
+
 (defn- outcome-side-lookup
-  [market-by-key]
+  [market-by-key options]
   (reduce (fn [lookup market]
             (if (= :outcome (:market-type market))
               (reduce (fn [lookup* side]
@@ -101,7 +124,7 @@
                       (or (:outcome-sides market) []))
               lookup))
           {}
-          (vals (or market-by-key {}))))
+          (outcome-market-candidates market-by-key options)))
 
 (defn- balance-entry-notional
   [balance]
@@ -113,16 +136,44 @@
 
 (defn- fallback-side-name
   [side-coin]
-  (str "Side " (or (token-encoding side-coin) side-coin)))
+  (let [encoding (token-encoding side-coin)
+        side-index (side-index-from-encoding encoding)]
+    (case side-index
+      0 "Yes"
+      1 "No"
+      (str "Side " (or side-index encoding side-coin)))))
+
+(defn- non-zero-outcome-balance?
+  [balance]
+  (and (outcome-balance? balance)
+       (not (zero? (parse-num (:total balance))))))
+
+(defn- active-context-mark-price
+  [active-contexts side-coin token-name]
+  (when-let [ctx (or (get active-contexts side-coin)
+                    (get active-contexts token-name))]
+    (some parse-optional-num
+          [(:mark ctx)
+           (:markPx ctx)])))
+
+(defn- side-mark-price
+  [active-contexts side-entry side-coin]
+  (or (active-context-mark-price active-contexts
+                                 side-coin
+                                 (:token-name side-entry))
+      (parse-optional-num (:mark side-entry))
+      (when (= side-coin (:market-coin side-entry))
+        (parse-optional-num (:market-mark side-entry)))
+      0))
 
 (defn- outcome-row
-  [side-by-coin balance]
+  [side-by-coin active-contexts balance]
   (let [side-coin (balance-side-coin balance)
         side-entry (or (get side-by-coin side-coin)
                        (get side-by-coin (:coin balance)))
         size (parse-num (:total balance))
         entry-notional (or (balance-entry-notional balance) 0)
-        mark-price (or (parse-optional-num (:mark side-entry)) 0)
+        mark-price (side-mark-price active-contexts side-entry side-coin)
         position-value (* size mark-price)
         entry-price (if (zero? size)
                       0
@@ -150,9 +201,12 @@
      :entry-notional entry-notional}))
 
 (defn build-outcome-rows
-  [spot-data market-by-key]
-  (let [side-by-coin (outcome-side-lookup market-by-key)]
-    (->> (get-in spot-data [:clearinghouse-state :balances])
-         (filter outcome-balance?)
-         (map #(outcome-row side-by-coin %))
-         vec)))
+  ([spot-data market-by-key]
+   (build-outcome-rows spot-data market-by-key {}))
+  ([spot-data market-by-key options]
+   (let [side-by-coin (outcome-side-lookup market-by-key options)
+         active-contexts (or (:active-contexts options) {})]
+     (->> (get-in spot-data [:clearinghouse-state :balances])
+          (filter non-zero-outcome-balance?)
+          (map #(outcome-row side-by-coin active-contexts %))
+          vec))))

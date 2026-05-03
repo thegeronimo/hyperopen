@@ -70,10 +70,37 @@
     (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title no-row)))
     (is (= "#20" (:side-coin fallback-row)))
     (is (= "#20" (:title fallback-row)))
-    (is (= "Side 20" (:side-name fallback-row)))
+    (is (= "Yes" (:side-name fallback-row)))
     (is (nil? (:market-key fallback-row)))
     (is (= 4 (:size fallback-row)))
     (is (= 0 (:mark-price fallback-row)))))
+
+(deftest build-outcome-rows-filters-zero-sides-and-enriches-from-active-market-context-test
+  (let [rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "+0"
+                                                 :token 100000000
+                                                 :hold "0"
+                                                 :total "19"
+                                                 :entryNtl "11.0271"}
+                                                {:coin "+1"
+                                                 :token 100000001
+                                                 :hold "0"
+                                                 :total "0"
+                                                 :entryNtl "0"}]}}
+              {}
+              {:active-market outcome-market
+               :active-contexts {"#0" {:mark 0.53210
+                                        :markRaw "0.53210"}}})
+        [row] rows]
+    (is (= 1 (count rows)))
+    (is (= "BTC above 78213 on May 3 at 2:00 AM?" (:title row)))
+    (is (= "#0" (:side-coin row)))
+    (is (= "Yes" (:side-name row)))
+    (is (= 19 (:size row)))
+    (is (< (js/Math.abs (- 10.1099 (:position-value row))) 0.000001))
+    (is (< (js/Math.abs (- 0.5803736842105263 (:entry-price row))) 0.000001))
+    (is (= 0.53210 (:mark-price row)))
+    (is (< (js/Math.abs (- -0.9172 (:pnl-value row))) 0.000001))))
 
 (deftest outcome-token-predicate-detects-plus-and-hash-encodings-test
   (is (true? (projections/outcome-token? "+0")))
