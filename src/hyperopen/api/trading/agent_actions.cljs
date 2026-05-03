@@ -19,18 +19,25 @@
       (catch :default _
         nil))))
 
-(defn should-invalidate-missing-api-wallet-session!
+(defn- missing-api-wallet-session-disposition!
   [owner-address session]
   (let [agent-address* (http/normalize-address (:agent-address session))]
     (if-not (seq agent-address*)
-      (js/Promise.resolve true)
+      (js/Promise.resolve :invalidate)
       (-> (http/fetch-user-role! agent-address*)
           (.then (fn [role-response]
-                   (not (http/user-role-agent-for-owner? owner-address role-response))))
+                   (if (http/user-role-agent-for-owner? owner-address role-response)
+                     :verified-agent
+                     :invalidate)))
           ;; Preserve local key if lookup itself fails (network/rate-limit),
           ;; because we could not prove the session is invalid.
           (.catch (fn [_]
-                    (js/Promise.resolve false)))))))
+                    (js/Promise.resolve :inconclusive)))))))
+
+(defn should-invalidate-missing-api-wallet-session!
+  [owner-address session]
+  (-> (missing-api-wallet-session-disposition! owner-address session)
+      (.then #(= :invalidate %))))
 
 (defn- reconcile-session-agent-address!
   [store owner-address storage-mode local-protection-mode session crypto]
@@ -132,6 +139,13 @@
                   :status :error
                   :error message))))
 
+(defn- flag-agent-session-recovery!
+  [store message]
+  (swap! store update-in [:wallet :agent] merge
+         {:status :error
+          :error message
+          :recovery-modal-open? true}))
+
 (defn- normalize-agent-action-options
   [options]
   (let [{:keys [vault-address expires-after is-mainnet max-nonce-retries]} (or options {})]
@@ -163,13 +177,16 @@
      :response (http/response-error-text resp)}))
 
 (defn- resolve-missing-api-wallet-response!
-  [store owner-address session resp invalidate?]
-  (when invalidate?
+  [store owner-address session resp disposition]
+  (if (= :invalidate disposition)
     (invalidate-agent-session! store
                                owner-address
                                session
-                               http/missing-api-wallet-error-message))
-  (missing-api-wallet-result resp invalidate?))
+                               http/missing-api-wallet-error-message)
+    (when (= :inconclusive disposition)
+      (flag-agent-session-recovery! store
+                                    http/missing-api-wallet-preserved-message)))
+  (missing-api-wallet-result resp (= :invalidate disposition)))
 
 (defn- handle-agent-action-response!
   [store owner-address session nonce resp retries-left retry-fn]
@@ -179,14 +196,14 @@
     (retry-fn)
 
     (http/missing-api-wallet-response? resp)
-    (-> (should-invalidate-missing-api-wallet-session! owner-address session)
-        (.then (fn [invalidate?]
+    (-> (missing-api-wallet-session-disposition! owner-address session)
+        (.then (fn [disposition]
                  (resolve-missing-api-wallet-response!
                   store
                   owner-address
                   session
                   resp
-                  invalidate?))))
+                  disposition))))
 
     :else
     (persist-agent-action-response! store owner-address session nonce resp)))

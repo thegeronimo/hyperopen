@@ -80,8 +80,9 @@
   (let [text (cond
                (map? value) (response-error-text value)
                :else (some-> value str))]
-    (= missing-api-wallet-error-message
-       (some-> text str str/trim))))
+    (contains? #{missing-api-wallet-error-message
+                 missing-api-wallet-preserved-message}
+               (some-> text str str/trim))))
 
 (defn normalize-address
   [address]

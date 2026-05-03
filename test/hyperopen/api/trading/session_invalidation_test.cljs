@@ -219,7 +219,10 @@
                    (is (= 1 @info-lookups))
                    (is (= [] @cleared))
                    (is (= 0 @persisted))
-                   (is (= :ready (get-in @store [:wallet :agent :status])))
+                   (is (= :error (get-in @store [:wallet :agent :status])))
+                   (is (true? (get-in @store [:wallet :agent :recovery-modal-open?])))
+                   (is (re-find #"Preserved local trading key"
+                                (str (get-in @store [:wallet :agent :error]))))
                    (done)))
           (.catch (async-support/unexpected-error done))
           (.finally

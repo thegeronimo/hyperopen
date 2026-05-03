@@ -99,6 +99,7 @@
             [hyperopen.core-bootstrap.asset-cache-persistence-test]
             [hyperopen.core-bootstrap.asset-selector-actions-test]
             [hyperopen.core-bootstrap.chart-menu-and-storage-test]
+            [hyperopen.core-bootstrap.order-effects.agent-recovery-test]
             [hyperopen.core-bootstrap.order-effects.cancel-test]
             [hyperopen.core-bootstrap.order-effects.position-margin-test]
             [hyperopen.core-bootstrap.order-effects.position-tpsl-test]
@@ -713,6 +714,7 @@
              'hyperopen.core-bootstrap.asset-cache-persistence-test
              'hyperopen.core-bootstrap.asset-selector-actions-test
              'hyperopen.core-bootstrap.chart-menu-and-storage-test
+             'hyperopen.core-bootstrap.order-effects.agent-recovery-test
              'hyperopen.core-bootstrap.order-effects.cancel-test
              'hyperopen.core-bootstrap.order-effects.position-margin-test
              'hyperopen.core-bootstrap.order-effects.position-tpsl-test
