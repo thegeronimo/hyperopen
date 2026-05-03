@@ -225,3 +225,22 @@
     (is (some? img-node))
     (is (= "https://app.hyperliquid.xyz/coins/xyz:MSFT.svg"
            (:src attrs)))))
+
+(deftest asset-icon-renders-underlying-icon-for-outcome-markets-test
+  (let [market {:key "outcome:0"
+                :coin "#0"
+                :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                :title "BTC above 78213 on May 3 at 2:00 AM?"
+                :base "BTC"
+                :underlying "BTC"
+                :market-type :outcome}
+        icon-node (icon-button/asset-button market false #{} #{})
+        img-node (first (support/find-img-nodes icon-node))
+        attrs (second img-node)
+        icon-layer (first (support/find-nodes-with-style-key icon-node :background-image))
+        background-image (get-in icon-layer [1 :style :background-image])]
+    (is (some? img-node))
+    (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
+           (:src attrs)))
+    (is (= "url('https://app.hyperliquid.xyz/coins/BTC.svg')"
+           background-image))))

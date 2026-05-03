@@ -26,6 +26,18 @@
   (testing "retains namespaced keys when no alias is needed"
     (is (= "xyz:XYZ100" (asset-icon/market-icon-key {:coin "xyz:XYZ100" :base "XYZ100"})))))
 
+(deftest outcome-market-icon-key-prefers-underlying-asset-test
+  (testing "recurring outcome markets use the underlying asset icon instead of the outcome side coin"
+    (is (= "BTC" (asset-icon/market-icon-key {:coin "#0"
+                                              :base "BTC"
+                                              :underlying "BTC"
+                                              :market-type :outcome})))
+    (is (= "HYPE" (asset-icon/market-icon-key {:coin "#10"
+                                               :base "BTC"
+                                               :underlying "BTC"
+                                               :underlying-for-icon "HYPE"
+                                               :market-type :outcome})))))
+
 (deftest market-icon-url-builds-canonical-path-test
   (is (= "https://app.hyperliquid.xyz/coins/xyz:MSFT.svg"
          (asset-icon/market-icon-url {:coin "cash:MSFT" :base "MSFT"})))
@@ -37,4 +49,9 @@
          (asset-icon/market-icon-url {:coin "@123"
                                       :symbol "MEOW/USDC"
                                       :base "MEOW"
-                                      :market-type :spot}))))
+                                      :market-type :spot})))
+  (is (= "https://app.hyperliquid.xyz/coins/BTC.svg"
+         (asset-icon/market-icon-url {:coin "#0"
+                                      :base "BTC"
+                                      :underlying "BTC"
+                                      :market-type :outcome}))))

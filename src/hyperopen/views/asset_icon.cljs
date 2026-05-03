@@ -80,15 +80,25 @@
   (or (get icon-key-aliases icon-key)
       icon-key))
 
+(defn- outcome-candidate-icon-key
+  [underlying-for-icon underlying base]
+  (or (non-blank-text underlying-for-icon)
+      (non-blank-text underlying)
+      (non-blank-text base)))
+
 (defn market-icon-key
-  [{:keys [coin symbol base market-type]}]
+  [{:keys [coin symbol base market-type underlying underlying-for-icon]}]
   (let [coin* (non-blank-text coin)
         symbol* (non-blank-text symbol)
         base* (non-blank-text base)
+        outcome? (= :outcome market-type)
         spot? (spot-market? coin* symbol* market-type)
-        candidate (or (when spot?
+        candidate (or (when outcome?
+                        (outcome-candidate-icon-key underlying-for-icon underlying base*))
+                      (when spot?
                         (spot-candidate-icon-key coin* symbol* base*))
-                      (when-not (str/starts-with? (or coin* "") "@")
+                      (when-not (or outcome?
+                                    (str/starts-with? (or coin* "") "@"))
                         coin*)
                       base*)
         normalized (normalize-icon-key candidate)
