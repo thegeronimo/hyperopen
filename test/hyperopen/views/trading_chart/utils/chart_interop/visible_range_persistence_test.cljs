@@ -226,6 +226,36 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
+(deftest apply-persisted-visible-range-missing-range-centers-single-candle-test
+  (async done
+    (let [applied-logical-ranges (atom [])
+          fit-content-calls (atom 0)
+          right-offset-calls (atom 0)
+          scroll-to-realtime-calls (atom 0)
+          time-scale #js {:setVisibleLogicalRange (fn [range]
+                                                    (swap! applied-logical-ranges conj (js->clj range :keywordize-keys true)))
+                          :fitContent (fn []
+                                        (swap! fit-content-calls inc))
+                          :setRightOffset (fn [_]
+                                            (swap! right-offset-calls inc))
+                          :scrollToRealTime (fn []
+                                              (swap! scroll-to-realtime-calls inc))}
+          chart #js {:timeScale (fn [] time-scale)}
+          candles (daily-candles 1)]
+      (-> (chart-interop/apply-persisted-visible-range! chart
+                                                        :1d
+                                                        {:asset "BTC"
+                                                         :candles candles
+                                                         :storage-get (fn [_] nil)})
+          (.then (fn [applied?]
+                   (is (false? applied?))
+                   (is (= [{:from -2 :to 2}] @applied-logical-ranges))
+                   (is (= 1 @fit-content-calls))
+                   (is (zero? @right-offset-calls))
+                   (is (zero? @scroll-to-realtime-calls))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
 (deftest apply-persisted-visible-range-respects-allow-apply-guard-test
   (async done
     (let [applied-range (atom nil)

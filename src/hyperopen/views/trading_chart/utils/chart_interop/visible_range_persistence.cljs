@@ -8,6 +8,7 @@
 (def ^:private visible-range-write-debounce-ms 250)
 (def ^:private default-recent-logical-bars 120)
 (def ^:private default-recent-right-offset-bars 8)
+(def ^:private single-candle-centered-logical-half-width 2)
 (def ^:private logical-range-overhang-bars 24)
 (def ^:private time-range-overhang-bars 24)
 
@@ -318,17 +319,25 @@
                                        (clj->js {:from from :to to}))
               (catch :default _
                 nil))))
-        (do
-          (when (fn? (.-setRightOffset ^js time-scale))
+        (if (= 1 candle-count)
+          (when (fn? (.-setVisibleLogicalRange ^js time-scale))
             (try
-              (.setRightOffset ^js time-scale default-recent-right-offset-bars)
+              (.setVisibleLogicalRange ^js time-scale
+                                       (clj->js {:from (- single-candle-centered-logical-half-width)
+                                                 :to single-candle-centered-logical-half-width}))
               (catch :default _
                 nil)))
-          (when (fn? (.-scrollToRealTime ^js time-scale))
-            (try
-              (.scrollToRealTime ^js time-scale)
-              (catch :default _
-                nil))))))))
+          (do
+            (when (fn? (.-setRightOffset ^js time-scale))
+              (try
+                (.setRightOffset ^js time-scale default-recent-right-offset-bars)
+                (catch :default _
+                  nil)))
+            (when (fn? (.-scrollToRealTime ^js time-scale))
+              (try
+                (.scrollToRealTime ^js time-scale)
+                (catch :default _
+                  nil)))))))))
 
 (defn apply-default-visible-range!
   [chart candles]
