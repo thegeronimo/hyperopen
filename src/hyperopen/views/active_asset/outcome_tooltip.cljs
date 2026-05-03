@@ -130,5 +130,4 @@
                      "text-sm"
                      "text-slate-400"]}
        (icon lucide-shield-node "outcome-tooltip-shield-icon")
-       [:span footer-label]
-       [:span {:class ["font-medium" "text-[#2dd4bf]"]} "Learn more"]]]]))
+       [:span footer-label]]]]))

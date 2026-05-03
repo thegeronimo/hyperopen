@@ -120,6 +120,8 @@
   (when (= :outcome (:market-type market))
     (let [underlying (non-blank-text (or (:underlying market)
                                          (:base market)))
+          payout-currency (or (non-blank-text (:quote market))
+                              "USDH")
           target-price-label (or (fmt/format-integer (:target-price market))
                                  (non-blank-text (:target-price market)))
           structured-settlement-label (when (and (seq underlying)
@@ -143,7 +145,7 @@
        :settlement-time-label settlement-time-label
        :yes-payout-label "$1.00"
        :no-payout-label "$0.00"
-       :footer-label "All payouts are in USDC."})))
+       :footer-label (str "Payouts are in " payout-currency ".")})))
 
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown

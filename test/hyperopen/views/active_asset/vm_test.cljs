@@ -163,6 +163,7 @@
                 :title "BTC above 78213 on May 3 at 2:00 AM?"
                 :market-type :outcome
                 :underlying "BTC"
+                :quote "USDH"
                 :target-price 78213
                 :mark 0.57841
                 :markRaw "0.57841"
@@ -202,7 +203,7 @@
             :settlement-time-label "at May 03, 2026 02:00 AM UTC"
             :yes-payout-label "$1.00"
             :no-payout-label "$0.00"
-            :footer-label "All payouts are in USDC."}
+            :footer-label "Payouts are in USDH."}
            (get-in panel-vm [:row-vm :outcome-tooltip])))))
 
 (deftest active-asset-row-vm-falls-back-to-outcome-side-supply-open-interest-test

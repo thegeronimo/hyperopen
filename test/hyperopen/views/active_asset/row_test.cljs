@@ -103,6 +103,7 @@
                     :title "BTC above 78213 on May 3 at 2:00 AM?"
                     :market-type :outcome
                     :underlying "BTC"
+                    :quote "USDH"
                     :target-price 78213
                     :mark 0.57841
                     :markRaw "0.57841"
@@ -135,8 +136,9 @@
         (is (contains? strings "NO"))
         (is (contains? strings "$0.00"))
         (is (contains? strings "each"))
-        (is (contains? strings "All payouts are in USDC."))
-        (is (contains? strings "Learn more"))
+        (is (contains? strings "Payouts are in USDH."))
+        (is (not (contains? strings "All payouts are in USDC.")))
+        (is (not (contains? strings "Learn more")))
         (is (support/contains-class? view-node "group/outcome-name"))
         (is (support/contains-class? view-node "group/outcome-open-interest"))
         (is (support/contains-class? view-node "left-3"))
