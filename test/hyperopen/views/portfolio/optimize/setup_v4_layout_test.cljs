@@ -93,9 +93,27 @@
     (is (contains? strings "Start with"))
     (is (contains? strings "From holdings"))
     (is (contains? strings "Custom"))
+    (is (not (contains? strings "Index")))
     (is (contains? strings "What this scenario will solve for"))
     (is (contains? strings "Why this preset is safe"))
     (is (not (contains? strings "Execution Assumptions")))))
+
+(deftest setup-v4-universe-source-toggle-has-two-equal-options-test
+  (let [view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :wallet {:address "0x1111111111111111111111111111111111111111"}})
+        universe-panel (node-by-role view-node "portfolio-optimizer-universe-panel")
+        source-toggle (find-first-node
+                       universe-panel
+                       #(and (vector? %)
+                             (contains? (class-token-set %) "grid-cols-2")
+                             (= ["portfolio-optimizer-universe-use-current"]
+                                (child-roles %))))
+        strings (set (collect-strings source-toggle))]
+    (is (some? source-toggle))
+    (is (contains? strings "From holdings"))
+    (is (contains? strings "Custom"))
+    (is (not (contains? strings "Index")))))
 
 (deftest setup-v4-control-rail-orders-objective-before-return-risk-model-test
   (let [view-node (portfolio-view/portfolio-view

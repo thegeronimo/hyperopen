@@ -206,7 +206,7 @@
       [:span {:class ["font-mono" "text-[0.65625rem]" "uppercase" "tracking-[0.08em]"
                       "text-trading-muted/70"]}
        (str (count universe) " included")]]
-     [:div {:class ["mt-3" "grid" "grid-cols-3" "border" "border-base-300" "text-center"
+     [:div {:class ["mt-3" "grid" "grid-cols-2" "border" "border-base-300" "text-center"
                     "text-[0.65625rem]" "font-medium" "uppercase"
                     "tracking-[0.04em]" "text-trading-muted"]}
       [:button {:type "button"
@@ -215,9 +215,8 @@
                 :on {:click [[:actions/set-portfolio-optimizer-universe-from-current]]}}
        "From holdings"
        [:span {:class ["sr-only"]} "Use Current Holdings"]]
-      [:span {:class ["border-r" "border-warning/60" "bg-warning/10" "px-2" "py-2" "text-warning"]}
-       "Custom"]
-      [:span {:class ["px-2" "py-2" "text-trading-muted/60"]} "Index"]]
+      [:span {:class ["bg-warning/10" "px-2" "py-2" "text-warning"]}
+       "Custom"]]
      [:div {:class ["sr-only"]} "Manual Add"]
      [:div {:class ["mt-3" "relative"]}
       [:div {:class ["flex" "items-center" "gap-1.5" "border" "px-2"
