@@ -190,8 +190,10 @@
                                           :margin-modal position-margin-modal
                                           :positions-state (assoc positions-state
                                                                   :mobile-expanded-card mobile-expanded-card)})))
-   :outcomes (fn [{:keys [outcomes]}]
-               (outcomes-tab/outcomes-tab-content {:outcomes outcomes}))
+   :outcomes (fn [{:keys [outcomes position-reduce-popover read-only?]}]
+               (outcomes-tab/outcomes-tab-content {:outcomes outcomes
+                                                   :reduce-popover position-reduce-popover
+                                                   :read-only? read-only?}))
    :open-orders (fn [{:keys [open-orders open-orders-sort open-orders-state]}]
                   (open-orders-tab-content open-orders open-orders-sort open-orders-state))
    :twap (fn [view-model]

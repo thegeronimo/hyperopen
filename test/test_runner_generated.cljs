@@ -6,6 +6,7 @@
             [hyperopen.account.history.actions-test]
             [hyperopen.account.history.effects-test]
             [hyperopen.account.history.position-margin-test]
+            [hyperopen.account.history.position-reduce-test]
             [hyperopen.account.history.position-tpsl-test]
             [hyperopen.account.lifecycle-invariants-test]
             [hyperopen.account.lifecycle-transitions-test]
@@ -619,6 +620,7 @@
              'hyperopen.account.history.actions-test
              'hyperopen.account.history.effects-test
              'hyperopen.account.history.position-margin-test
+             'hyperopen.account.history.position-reduce-test
              'hyperopen.account.history.position-tpsl-test
              'hyperopen.account.lifecycle-invariants-test
              'hyperopen.account.lifecycle-transitions-test

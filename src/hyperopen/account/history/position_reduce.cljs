@@ -105,7 +105,12 @@
    :anchor nil
    :coin nil
    :dex nil
+   :market-type nil
+   :market-key nil
+   :outcome-side-index nil
+   :outcome-side-name nil
    :position-side nil
+   :position-side-label nil
    :position-size 0
    :locale nil
    :size-percent-input "100"
@@ -136,10 +141,11 @@
 
 (defn position-side-label
   [popover]
-  (case (:position-side popover)
-    :short "Short"
-    :long "Long"
-    "Position"))
+  (or (normalize-display-text (:position-side-label popover))
+      (case (:position-side popover)
+        :short "Short"
+        :long "Long"
+        "Position")))
 
 (defn set-popover-field
   [popover path value]
@@ -215,7 +221,9 @@
 
 (defn- reduce-order-side
   [popover]
-  (trading-domain/opposite-side (position-open-side (:position-side popover))))
+  (if (= :outcome (:market-type popover))
+    :sell
+    (trading-domain/opposite-side (position-open-side (:position-side popover)))))
 
 (defn- active-close-size
   [popover]
@@ -239,12 +247,66 @@
          (= (or dex* "")
             (or market-dex* "")))))
 
-(defn- resolve-market-by-coin-and-dex
-  [market-by-key coin dex]
-  (let [markets* (vals (or market-by-key {}))
-        exact (some #(when (candidate-market? % coin dex) %) markets*)
-        fallback (markets/resolve-market-by-coin market-by-key coin)]
-    (or exact fallback)))
+(defn- outcome-side-matches?
+  [side coin side-index]
+  (let [coin* (normalize-display-text coin)
+        side-coin* (normalize-display-text (:coin side))
+        requested-side-index (parse-int-value side-index)
+        candidate-side-index (parse-int-value (:side-index side))]
+    (or (and (seq coin*) (= coin* side-coin*))
+        (and (number? requested-side-index)
+             (= requested-side-index candidate-side-index)))))
+
+(defn- outcome-market-side
+  [market popover]
+  (when (= :outcome (:market-type market))
+    (or (some #(when (outcome-side-matches? %
+                                             (:coin popover)
+                                             (:outcome-side-index popover))
+                 %)
+              (:outcome-sides market))
+        (let [popover-coin* (normalize-display-text (:coin popover))
+              market-coin* (normalize-display-text (:coin market))]
+          (when (or (and (seq popover-coin*)
+                         (= popover-coin* market-coin*))
+                    (let [requested-side-index (parse-int-value (:outcome-side-index popover))
+                          market-side-index (parse-int-value (:outcome-side-index market))]
+                      (and (number? requested-side-index)
+                           (= requested-side-index market-side-index))))
+            market)))))
+
+(defn- outcome-market-with-side
+  [market popover]
+  (when-let [side (outcome-market-side market popover)]
+    (cond-> market
+      (:coin side) (assoc :coin (:coin side))
+      (some? (:asset-id side)) (assoc :asset-id (:asset-id side))
+      (some? (:assetId side)) (assoc :assetId (:assetId side))
+      (some? (:side-index side)) (assoc :outcome-side-index (:side-index side))
+      (:side-name side) (assoc :outcome-side-name (:side-name side))
+      (:side-label side) (assoc :outcome-side-name (:side-label side))
+      (:mark side) (assoc :mark (:mark side))
+      (:markRaw side) (assoc :markRaw (:markRaw side)))))
+
+(defn- resolve-outcome-market
+  [market-by-key popover]
+  (let [market-key (normalize-display-text (:market-key popover))
+        keyed-market (when (seq market-key)
+                       (get market-by-key market-key))
+        markets* (vals (or market-by-key {}))]
+    (or (outcome-market-with-side keyed-market popover)
+        (some #(outcome-market-with-side % popover) markets*))))
+
+(defn- resolve-market
+  [market-by-key popover]
+  (if (= :outcome (:market-type popover))
+    (resolve-outcome-market market-by-key popover)
+    (let [coin (:coin popover)
+          dex (:dex popover)]
+      (let [markets* (vals (or market-by-key {}))
+            exact (some #(when (candidate-market? % coin dex) %) markets*)
+            fallback (markets/resolve-market-by-coin market-by-key coin)]
+        (or exact fallback)))))
 
 (defn- resolve-market-asset-id
   [market]
@@ -320,9 +382,7 @@
   [state popover]
   (let [validation (validate-popover popover)
         market-by-key (get-in state [:asset-selector :market-by-key] {})
-        market (resolve-market-by-coin-and-dex market-by-key
-                                               (:coin popover)
-                                               (:dex popover))
+        market (resolve-market market-by-key popover)
         asset-id (resolve-market-asset-id market)
         form (submit-form popover market)
         request (when (number? asset-id)
@@ -354,20 +414,65 @@
        :display-message (:display-message validation)
        :request {:action (:action request)}})))
 
+(defn- outcome-row?
+  [position-data]
+  (and (map? position-data)
+       (or (= "Outcome" (:type-label position-data))
+           (= :outcome (:market-type position-data))
+           (seq (normalize-display-text (:side-coin position-data))))))
+
+(defn- outcome-mid-price-text
+  [row]
+  (some normalize-positive-price-text
+        [(:mark-price row)
+         (:markPrice row)
+         (:mid-price row)
+         (:midPrice row)
+         (:mark row)
+         (:markPx row)
+         (:entry-price row)]))
+
+(defn- from-outcome-row
+  ([row]
+   (from-outcome-row row nil))
+  ([row anchor]
+   (let [side-coin (normalize-display-text (:side-coin row))
+         side-name (or (normalize-display-text (:side-name row))
+                       (normalize-display-text (:outcome-side-name row))
+                       "Outcome")
+         size (absolute-position-size (:size row))]
+     (assoc (default-popover-state)
+            :open? true
+            :position-key (or (normalize-display-text (:key row))
+                              (str "outcome-" side-coin))
+            :anchor (normalize-anchor anchor)
+            :coin side-coin
+            :market-type :outcome
+            :market-key (normalize-display-text (:market-key row))
+            :outcome-side-index (parse-int-value (:side-index row))
+            :outcome-side-name side-name
+            :position-side :outcome
+            :position-side-label side-name
+            :position-size size
+            :mid-price (outcome-mid-price-text row)
+            :size-percent-input (if (pos? size) "100" "0")))))
+
 (defn from-position-row
   ([position-data]
    (from-position-row position-data nil))
   ([position-data anchor]
-   (let [position (or (:position position-data) {})
-         side (position-side (:szi position))
-         size (absolute-position-size (:szi position))]
-     (assoc (default-popover-state)
-            :open? true
-            :position-key (position-identity/position-unique-key position-data)
-            :anchor (normalize-anchor anchor)
-            :coin (:coin position)
-            :dex (normalize-display-text (:dex position-data))
-            :position-side side
-            :position-size size
-            :mid-price (resolve-mid-price-text position-data)
-            :size-percent-input (if (pos? size) "100" "0")))))
+   (if (outcome-row? position-data)
+     (from-outcome-row position-data anchor)
+     (let [position (or (:position position-data) {})
+           side (position-side (:szi position))
+           size (absolute-position-size (:szi position))]
+       (assoc (default-popover-state)
+              :open? true
+              :position-key (position-identity/position-unique-key position-data)
+              :anchor (normalize-anchor anchor)
+              :coin (:coin position)
+              :dex (normalize-display-text (:dex position-data))
+              :position-side side
+              :position-size size
+              :mid-price (resolve-mid-price-text position-data)
+              :size-percent-input (if (pos? size) "100" "0"))))))

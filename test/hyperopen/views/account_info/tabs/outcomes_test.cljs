@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.outcomes-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.views.account-info.tabs.outcomes :as outcomes-tab]))
 
@@ -32,6 +33,7 @@
     (is (contains? header-strings "Entry Price"))
     (is (contains? header-strings "Mark Price"))
     (is (contains? header-strings "PNL (ROE %)"))
+    (is (contains? header-strings "Actions"))
     (is (= #{"BTC above 78213 on May 3 at 2:00 AM?"} outcome-cell-strings))
     (is (not (contains? row-strings "Outcome")))
     (is (not (contains? row-strings "#0 / outcome:0")))
@@ -40,6 +42,45 @@
     (is (contains? row-strings "0.58090"))
     (is (contains? row-strings "0.57042"))
     (is (contains? row-strings "-$0.20 (-1.8%)"))))
+
+(deftest outcomes-tab-renders-reduce-action-and-active-popover-test
+  (let [popover (assoc (position-reduce/default-popover-state)
+                       :open? true
+                       :position-key (:key sample-row)
+                       :position-side :outcome
+                       :position-side-label "Yes"
+                       :position-size 19
+                       :size-percent-input "100")
+        content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]
+                                                    :reduce-popover popover})
+        row (hiccup/first-viewport-row content)
+        reduce-button (hiccup/find-first-node
+                       row
+                       #(and (= :button (first %))
+                             (contains? (hiccup/direct-texts %) "Reduce")))
+        reduce-actions (get-in reduce-button [1 :on :click])
+        panel-node (hiccup/find-first-node
+                    row
+                    #(= "true" (get-in % [1 :data-position-reduce-surface])))]
+    (is (some? reduce-button))
+    (is (= :actions/open-position-reduce-popover
+           (first (first reduce-actions))))
+    (is (= sample-row
+           (second (first reduce-actions))))
+    (is (= :event.currentTarget/bounds
+           (nth (first reduce-actions) 2)))
+    (is (= "true" (get-in reduce-button [1 :data-position-reduce-trigger])))
+    (is (some? panel-node))))
+
+(deftest outcomes-tab-read-only-mode-omits-reduce-actions-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]
+                                                    :read-only? true})
+        row (hiccup/first-viewport-row content)
+        reduce-button (hiccup/find-first-node
+                       row
+                       #(and (= :button (first %))
+                             (contains? (hiccup/direct-texts %) "Reduce")))]
+    (is (nil? reduce-button))))
 
 (deftest outcomes-tab-title-selects-and-navigates-to-outcome-market-test
   (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]})
