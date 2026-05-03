@@ -179,10 +179,21 @@
         row (rows/asset-list-item asset false false #{} #{} #{})
         strings (set (support/collect-strings row))]
     (is (contains? strings "BTC above 78213 on May 3 at 2:00 AM?"))
-    (is (contains? strings "OUTCOME"))
+    (is (not (contains? strings "OUTCOME")))
     (is (contains? strings "58%"))
     (is (contains? strings "$180,824"))
     (is (contains? strings "$254,722"))))
+
+(deftest outcome-asset-list-item-uses-wide-desktop-outcome-grid-test
+  (let [asset {:key "outcome:0"
+               :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+               :coin "#0"
+               :market-type :outcome
+               :mark 0.58}
+        row (rows/asset-list-item asset false false #{} #{} #{})
+        classes (set (support/collect-all-classes row))]
+    (is (contains? classes "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]"))
+    (is (not (contains? classes "grid-cols-12")))))
 
 (deftest mobile-outcome-asset-list-item-renders-chance-and-open-interest-test
   (let [asset {:key "outcome:0"

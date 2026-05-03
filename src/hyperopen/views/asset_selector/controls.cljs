@@ -171,20 +171,39 @@
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M5 15l7-7 7 7"}]
         [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M19 9l-7 7-7-7"}])])])
 
+(defn- desktop-sort-grid-classes
+  [outcome?]
+  (cond-> ["grid" "gap-2" "items-center" "px-2" "h-6" "text-xs" "text-gray-400" "bg-base-100"]
+    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]")
+    (not outcome?) (conj "grid-cols-12")))
+
+(defn- desktop-sort-cell-classes
+  [outcome? fallback-classes]
+  (if outcome?
+    ["min-w-0" "text-left"]
+    fallback-classes))
+
 (defn sort-controls
   ([sort-by sort-direction]
    (sort-controls sort-by sort-direction nil))
   ([sort-by sort-direction active-tab]
    (let [outcome? (contains? #{:outcome :outcome-15m :outcome-1d} active-tab)]
-     [:div {:class ["grid" "grid-cols-12" "gap-2" "items-center" "px-2" "h-6"
-                    "text-xs" "text-gray-400" "bg-base-100"]}
-      [:div.col-span-3 (sort-button (if outcome? "Outcome" "Symbol") (= sort-by :name) sort-direction :name)]
-      [:div.col-span-2.text-left (sort-button (if outcome? "% Chance" "Last Price") (= sort-by :price) sort-direction :price)]
-      [:div.col-span-2.text-left (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
-      [:div.col-span-1.text-left (when-not outcome?
-                                   (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding))]
-      [:div.col-span-2.text-left (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
-      [:div.col-span-2.text-left (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])))
+     [:div {:class (desktop-sort-grid-classes outcome?)}
+      [:div {:class (if outcome?
+                      ["min-w-0"]
+                      ["col-span-3"])}
+       (sort-button (if outcome? "Outcome" "Symbol") (= sort-by :name) sort-direction :name)]
+      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
+       (sort-button (if outcome? "% Chance" "Last Price") (= sort-by :price) sort-direction :price)]
+      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
+       (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
+      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-1" "text-left"])}
+       (when-not outcome?
+         (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding))]
+      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
+       (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
+      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
+       (sort-button "Open Interest" (= sort-by :openInterest) sort-direction :openInterest)]])))
 
 (def ^:private desktop-breakpoint-px
   1024)

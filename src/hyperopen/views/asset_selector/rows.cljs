@@ -25,6 +25,18 @@
                      [:actions/select-asset-by-market-key key]
                      [:actions/select-asset asset])])))
 
+(defn- desktop-grid-classes
+  [outcome?]
+  (cond-> ["grid" "gap-2" "items-center" "px-2" "h-6" "box-border" "cursor-pointer" "asset-selector-row-surface"]
+    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]")
+    (not outcome?) (conj "grid-cols-12")))
+
+(defn- desktop-outcome-cell-classes
+  [outcome? fallback-classes]
+  (if outcome?
+    ["min-w-0" "text-left"]
+    fallback-classes))
+
 (defn asset-list-item [asset selected? highlighted? favorites _missing-icons _loaded-icons]
   (let [{:keys [key coin symbol mark markRaw volume24h change24h change24hPct openInterest fundingRate
                 market-type dex maxLeverage]} asset
@@ -46,38 +58,43 @@
         is-spot (= market-type :spot)
         is-outcome (= market-type :outcome)
         favorite? (contains? favorites key)]
-    [:div.grid.grid-cols-12.gap-2.items-center.px-2.h-6.box-border.cursor-pointer.asset-selector-row-surface
-     {:data-row-state (asset-selector-row-state selected? highlighted?)
+    [:div
+     {:class (desktop-grid-classes is-outcome)
+      :data-row-state (asset-selector-row-state selected? highlighted?)
       :data-role "asset-selector-row"
       :style {:contain "layout paint style"
               :content-visibility "auto"
               :contain-intrinsic-size (str list-metrics/row-height-px "px")}
       :on {:click (select-asset-click-handler asset)}}
-     [:div.col-span-3.flex.items-center.space-x-1.5.min-w-0
+     [:div {:class (cond-> ["flex" "items-center" "space-x-1.5" "min-w-0"]
+                     (not is-outcome) (conj "col-span-3"))}
       (icons/favorite-button favorite? key)
       [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
        [:div.text-sm.truncate.whitespace-nowrap symbol]
-       (when is-outcome
-         (controls/chip "OUTCOME" ["bg-sky-500/20" "text-sky-200" "border-sky-500/30" "shrink-0"]))
        (when is-spot
          (controls/chip "SPOT" ["bg-gray-500/20" "text-gray-200" "border-gray-500/30" "shrink-0"]))
        (when dex
          (controls/chip dex ["bg-emerald-500/20" "text-emerald-300" "border-emerald-500/30" "shrink-0"]))
        (when (and maxLeverage (> maxLeverage 0))
          (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))]]
-     [:div.col-span-2.text-left.text-sm.text-gray-400.num
+     [:div {:class (desktop-outcome-cell-classes is-outcome
+                                                  ["col-span-2" "text-left"])}
       (if is-outcome
-        (if (number? mark)
-          (str (js/Math.round (* mark 100)) "%")
-          "—")
-        (or (fmt/format-trade-price mark markRaw) "—"))]
-     [:div.col-span-2.text-left
+        [:div.text-sm.text-gray-400.num
+         (if (number? mark)
+           (str (js/Math.round (* mark 100)) "%")
+           "—")]
+        [:div.text-sm.text-gray-400.num
+         (or (fmt/format-trade-price mark markRaw) "—")])]
+     [:div {:class (desktop-outcome-cell-classes is-outcome
+                                                  ["col-span-2" "text-left"])}
       (if change-available?
         [:div {:class [change-color "text-sm" "num"]}
          (str (if is-positive "+" "") (or (fmt/format-trade-price-delta safe-change) "0.00")
               " (" (fmt/safe-to-fixed safe-change-pct 2) "%)")]
         [:div.text-sm.text-gray-400.num "—"])]
-     [:div.col-span-1.text-left
+     [:div {:class (desktop-outcome-cell-classes is-outcome
+                                                  ["col-span-1" "text-left"])}
       (if (or is-spot is-outcome)
         [:div.text-sm.text-gray-400.num "—"]
         (if funding-available?
@@ -88,8 +105,13 @@
              (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate (* safe-funding-rate 100)) 2))]
             "bottom")
           [:div.text-sm.text-gray-400.num "—"]))]
-     [:div.col-span-2.text-left.text-sm.num (format-or-dash volume24h fmt/format-large-currency)]
-     [:div.col-span-2.text-left.text-sm.num
+     [:div {:class (if is-outcome
+                     ["min-w-0" "text-left" "text-sm" "num"]
+                     ["col-span-2" "text-left" "text-sm" "num"])}
+      (format-or-dash volume24h fmt/format-large-currency)]
+     [:div {:class (if is-outcome
+                     ["min-w-0" "text-left" "text-sm" "num"]
+                     ["col-span-2" "text-left" "text-sm" "num"])}
       (if is-spot
         "—"
         (format-or-dash openInterest fmt/format-large-currency))]]))

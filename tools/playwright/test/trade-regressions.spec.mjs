@@ -390,6 +390,40 @@ async function seedAssetSelectorMarketsCache(page, count = 240) {
   }, rows);
 }
 
+async function seedOutcomeAssetSelectorMarketsCache(page) {
+  await page.addInitScript(() => {
+    const rows = [
+      {
+        key: "outcome:#0",
+        coin: "#0",
+        symbol: "BTC above 78213 on May 3 at 2:00 AM?",
+        title: "BTC above 78213 on May 3 at 2:00 AM?",
+        underlying: "BTC",
+        quote: "USDH",
+        "market-type": "outcome",
+        category: "crypto",
+        mark: 0.62,
+        markRaw: "0.6214",
+        volume24h: 2_250_183,
+        openInterest: 865_785,
+        change24h: 0.07,
+        change24hPct: 12,
+        "cache-order": 0
+      }
+    ];
+    window.localStorage.setItem("asset-selector-active-tab", "outcome");
+    window.localStorage.setItem(
+      "asset-selector-markets-cache",
+      JSON.stringify({
+        id: "asset-selector-markets-cache",
+        version: 1,
+        "saved-at-ms": Date.now(),
+        rows
+      })
+    );
+  });
+}
+
 async function seedOutcomeActiveAsset(page) {
   await page.evaluate(() => {
     const c = globalThis.cljs?.core;
@@ -883,6 +917,27 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
     },
     { args: { actionId: ":actions/select-asset" } }
   );
+});
+
+test("asset selector outcome rows use full-width question copy without duplicate chip @regression", async ({ page }) => {
+  await seedOutcomeAssetSelectorMarketsCache(page);
+  await visitRoute(page, "/trade");
+
+  await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  const row = page.locator('[data-role="asset-selector-row"]').first();
+  const question = row.locator(".truncate").first();
+
+  await expect(row).toContainText("BTC above 78213 on May 3 at 2:00 AM?");
+  await expect(row).toContainText("62%");
+  await expect(row).not.toContainText("OUTCOME");
+
+  const textGeometry = await question.evaluate((node) => ({
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth
+  }));
+  expect(textGeometry.scrollWidth).toBeLessThanOrEqual(textGeometry.clientWidth + 1);
 });
 
 test("outcome market tooltip stays within active selector width and glows on hover @regression", async ({ page }) => {
