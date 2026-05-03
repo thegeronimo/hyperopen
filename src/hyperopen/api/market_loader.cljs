@@ -28,8 +28,7 @@
                                  (market-metadata/ensure-perp-dex-names!
                                   {:ensure-perp-dexs-data! ensure-perp-dexs-data!}
                                   {:priority priority}))
-        outcome-meta-promise (if (or (= phase :bootstrap)
-                                      (nil? ensure-outcome-meta-data!))
+        outcome-meta-promise (if (nil? ensure-outcome-meta-data!)
                                (js/Promise.resolve {:outcomes [] :questions []})
                                (ensure-outcome-meta-data! {:priority priority}))
         base-promises (js/Promise.all

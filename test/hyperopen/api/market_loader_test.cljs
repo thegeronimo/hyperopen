@@ -40,7 +40,7 @@
                           result))
                    (is (= [] @ensure-perp-calls))
                    (is (= [{:priority :high}] @ensure-spot-calls))
-                   (is (= [] @ensure-outcome-calls))
+                   (is (= [{:priority :high}] @ensure-outcome-calls))
                    (is (= [{:priority :high}] @ensure-webdata-calls))
                    (is (= [[nil {:priority :high
                                  :dedupe-key :asset-contexts}]]
@@ -48,7 +48,7 @@
                    (is (= 1 (count @build-calls)))
                    (is (= "BTC" (first (first @build-calls))))
                    (is (= [] (nth (first @build-calls) 2)))
-                   (is (= {:outcomes [] :questions []} (nth (first @build-calls) 6)))
+                   (is (= {:outcomes [{:outcome 0}]} (nth (first @build-calls) 6)))
                    (done)))
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
