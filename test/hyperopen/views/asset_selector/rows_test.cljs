@@ -175,11 +175,13 @@
                :markRaw "0.57841"
                :volume24h 180824
                :openInterest 254722
+               :change24h 0.04
                :change24hPct 4.87}
         row (rows/asset-list-item asset false false #{} #{} #{})
         strings (set (support/collect-strings row))]
     (is (contains? strings "BTC above 78213 on May 3 at 2:00 AM?"))
     (is (not (contains? strings "OUTCOME")))
+    (is (not (contains? strings "—")))
     (is (contains? strings "58%"))
     (is (contains? strings "$180,824"))
     (is (contains? strings "$254,722"))))
@@ -192,7 +194,7 @@
                :mark 0.58}
         row (rows/asset-list-item asset false false #{} #{} #{})
         classes (set (support/collect-all-classes row))]
-    (is (contains? classes "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]"))
+    (is (contains? classes "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_7rem_7rem]"))
     (is (not (contains? classes "grid-cols-12")))))
 
 (deftest mobile-outcome-asset-list-item-renders-chance-and-open-interest-test

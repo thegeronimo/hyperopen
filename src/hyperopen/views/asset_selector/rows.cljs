@@ -28,7 +28,7 @@
 (defn- desktop-grid-classes
   [outcome?]
   (cond-> ["grid" "gap-2" "items-center" "px-2" "h-6" "box-border" "cursor-pointer" "asset-selector-row-surface"]
-    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]")
+    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_7rem_7rem]")
     (not outcome?) (conj "grid-cols-12")))
 
 (defn- desktop-outcome-cell-classes
@@ -93,18 +93,19 @@
          (str (if is-positive "+" "") (or (fmt/format-trade-price-delta safe-change) "0.00")
               " (" (fmt/safe-to-fixed safe-change-pct 2) "%)")]
         [:div.text-sm.text-gray-400.num "—"])]
-     [:div {:class (desktop-outcome-cell-classes is-outcome
-                                                  ["col-span-1" "text-left"])}
-      (if (or is-spot is-outcome)
-        [:div.text-sm.text-gray-400.num "—"]
-        (if funding-available?
-          (controls/tooltip
-            [[:div {:class [funding-color "text-sm" "cursor-help" "num" "text-left"]
-                    :style {:min-width "max-content"}}
-              (str (if funding-positive "+" "") (fmt/safe-to-fixed (* safe-funding-rate 100) 4) "%")]
-             (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate (* safe-funding-rate 100)) 2))]
-            "bottom")
-          [:div.text-sm.text-gray-400.num "—"]))]
+     (when-not is-outcome
+       [:div {:class (desktop-outcome-cell-classes is-outcome
+                                                    ["col-span-1" "text-left"])}
+        (if is-spot
+          [:div.text-sm.text-gray-400.num "—"]
+          (if funding-available?
+            (controls/tooltip
+              [[:div {:class [funding-color "text-sm" "cursor-help" "num" "text-left"]
+                      :style {:min-width "max-content"}}
+                (str (if funding-positive "+" "") (fmt/safe-to-fixed (* safe-funding-rate 100) 4) "%")]
+               (str "Annualized: " (fmt/format-percentage (fmt/annualized-funding-rate (* safe-funding-rate 100)) 2))]
+              "bottom")
+            [:div.text-sm.text-gray-400.num "—"]))])
      [:div {:class (if is-outcome
                      ["min-w-0" "text-left" "text-sm" "num"]
                      ["col-span-2" "text-left" "text-sm" "num"])}

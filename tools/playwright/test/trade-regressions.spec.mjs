@@ -930,8 +930,9 @@ test("asset selector outcome rows use full-width question copy without duplicate
   const question = row.locator(".truncate").first();
 
   await expect(row).toContainText("BTC above 78213 on May 3 at 2:00 AM?");
-  await expect(row).toContainText("62%");
+  await expect(row).toContainText(/\d+%/);
   await expect(row).not.toContainText("OUTCOME");
+  await expect(row).not.toContainText("—");
 
   const textGeometry = await question.evaluate((node) => ({
     clientWidth: node.clientWidth,

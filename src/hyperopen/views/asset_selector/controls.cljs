@@ -174,7 +174,7 @@
 (defn- desktop-sort-grid-classes
   [outcome?]
   (cond-> ["grid" "gap-2" "items-center" "px-2" "h-6" "text-xs" "text-gray-400" "bg-base-100"]
-    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_3.5rem_7rem_7rem]")
+    outcome? (conj "grid-cols-[minmax(0,1fr)_4.75rem_10.5rem_7rem_7rem]")
     (not outcome?) (conj "grid-cols-12")))
 
 (defn- desktop-sort-cell-classes
@@ -197,9 +197,9 @@
        (sort-button (if outcome? "% Chance" "Last Price") (= sort-by :price) sort-direction :price)]
       [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
        (sort-button "24H Change" (= sort-by :change) sort-direction :change)]
-      [:div {:class (desktop-sort-cell-classes outcome? ["col-span-1" "text-left"])}
-       (when-not outcome?
-         (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding))]
+      (when-not outcome?
+        [:div {:class (desktop-sort-cell-classes outcome? ["col-span-1" "text-left"])}
+         (sort-button "8H Funding" (= sort-by :funding) sort-direction :funding)])
       [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
        (sort-button "Volume" (= sort-by :volume) sort-direction :volume)]
       [:div {:class (desktop-sort-cell-classes outcome? ["col-span-2" "text-left"])}
