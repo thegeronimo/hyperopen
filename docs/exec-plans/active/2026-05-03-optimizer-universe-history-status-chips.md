@@ -17,7 +17,7 @@ Tracked issue: `hyperopen-cr4r` ("Correct optimizer universe history status chip
 
 On `/portfolio/optimize/new`, the universe search dropdown currently shows a green `sufficient` chip for assets such as BTC before the user has added the asset and before optimizer history has been fetched or validated. That is incorrect because the optimizer cannot know whether the asset has sufficient usable return history until the selected universe is evaluated against cached or freshly fetched history.
 
-After this change, search dropdown candidates will no longer claim validated optimizer history. Candidate rows will show a pre-validation state such as `pending`, while selected universe rows will show the real state derived from optimizer readiness: `pending`, `loading`, `missing`, `insufficient`, or `sufficient`. A user can see the fix by opening `/portfolio/optimize/new`, typing `btc`, and confirming the dropdown does not display `SUFFICIENT` before an optimization/history pass.
+After this change, search dropdown candidates will no longer claim validated optimizer history and will not show a history-status chip at all. Selected universe rows will show the real state derived from optimizer readiness: `pending`, `loading`, `missing`, `insufficient`, or `sufficient`. A user can see the fix by opening `/portfolio/optimize/new`, typing `btc`, and confirming the dropdown displays the asset candidate without any history-status chip before an optimization/history pass.
 
 ## Progress
 
@@ -32,6 +32,14 @@ After this change, search dropdown candidates will no longer claim validated opt
 - [x] (2026-05-03 20:20Z) Added a focused namespace-size exception for `test/hyperopen/views/portfolio/optimize/setup_v4_layout_test.cljs` after the new regression tests brought it to 575 lines; `npm run lint:namespace-sizes` and `npm run lint:namespace-sizes:test` passed.
 - [x] (2026-05-03 20:18Z) Ran relevant browser QA with `PLAYWRIGHT_REUSE_EXISTING_SERVER=true npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs -g "portfolio optimizer (setup|universe|manual universe)"`: `7 passed`.
 - [x] (2026-05-03 20:18Z) Ran `npm run browser:cleanup`: returned `ok: true` with no tracked sessions stopped.
+- [x] (2026-05-03 20:44Z) Added RED follow-up coverage proving search candidates render no `pending`, `unchecked`, or `sufficient` history-status chip.
+- [x] (2026-05-03 20:45Z) Verified RED with `npm test`: 1 expected failure in `setup-v4-universe-search-candidates-do-not-render-history-status-chip-test` because candidates still rendered `pending`.
+- [x] (2026-05-03 20:47Z) Removed the candidate history-status chip and its dropdown grid column while preserving candidate add behavior.
+- [x] (2026-05-03 20:50Z) Verified GREEN with `npm test`: `3753 tests`, `20723 assertions`, `0 failures`, `0 errors`.
+- [x] (2026-05-03 20:53Z) Ran `npm run test:websocket`: `524 tests`, `3043 assertions`, `0 failures`, `0 errors`.
+- [x] (2026-05-03 20:53Z) Ran `npm run lint:namespace-sizes` and `npm run lint:namespace-sizes:test`: both passed.
+- [x] (2026-05-03 20:55Z) Ran relevant browser QA with `PLAYWRIGHT_REUSE_EXISTING_SERVER=true npx playwright test tools/playwright/test/portfolio-regressions.spec.mjs -g "portfolio optimizer (setup|universe|manual universe)"`: `7 passed`.
+- [x] (2026-05-03 20:56Z) Ran `npm run browser:cleanup`: returned `ok: true` with no tracked sessions stopped.
 - [ ] `npm run check` remains blocked by unrelated active ExecPlan guardrail `docs/exec-plans/active/2026-05-03-outcome-no-market-order-book-subscription.md` having no unchecked progress items.
 
 ## Surprises & Discoveries
@@ -62,8 +70,12 @@ After this change, search dropdown candidates will no longer claim validated opt
 
 ## Decision Log
 
-- Decision: Candidate rows will show `pending`, not `sufficient`.
-  Rationale: A dropdown candidate is selectable metadata from the asset selector or vault index. It is not an optimizer-ready instrument until selected history has been fetched and validated.
+- Decision: Superseded: candidate rows initially showed `pending`, not `sufficient`.
+  Rationale: A dropdown candidate is selectable metadata from the asset selector or vault index. It is not an optimizer-ready instrument until selected history has been fetched and validated. User feedback clarified that even `pending` implies an in-flight or known validation state, so the later decision removes the chip entirely.
+  Date/Author: 2026-05-03 / Codex
+
+- Decision: Search dropdown candidate rows will show no history-status chip, rather than `pending` or another pre-validation label.
+  Rationale: The dropdown is not fetching or validating optimizer history at search time, so any status-like chip implies a validation state that does not exist yet. Selected universe rows retain status chips because they are the rows evaluated by readiness and history-load state.
   Date/Author: 2026-05-03 / Codex
 
 - Decision: Selected-row `sufficient` will mean the instrument is present in `readiness[:request :universe]`, not merely that some cached history rows exist.
@@ -80,7 +92,7 @@ After this change, search dropdown candidates will no longer claim validated opt
 
 ## Outcomes & Retrospective
 
-Implemented the UI correctness fix without changing optimizer execution, history loading, or candidate ranking behavior. Search dropdown candidates now default to `pending` instead of `sufficient`. Selected rows now consume optimizer readiness and history-load state so they can display `pending`, `loading`, `missing`, `insufficient`, or `sufficient` based on validation state.
+Implemented the UI correctness fix without changing optimizer execution, history loading, or candidate ranking behavior. Search dropdown candidates now render no history-status chip instead of `sufficient` or `pending`. Selected rows now consume optimizer readiness and history-load state so they can display `pending`, `loading`, `missing`, `insufficient`, or `sufficient` based on validation state.
 
 The implementation slightly increases view-layer complexity by adding a small status derivation helper in `setup_v4_universe.cljs`, but it reduces product ambiguity. The helper keeps side effects out of render code and consumes only state already computed by `workspace_view.cljs`. The only remaining blocker is external to this task: `npm run check` cannot pass until the unrelated completed-looking active ExecPlan is moved or given a valid unchecked item.
 
@@ -96,9 +108,9 @@ The current incorrect UI is in `setup_v4_universe.cljs`. The private `market-row
 
 ## Plan of Work
 
-First, add focused tests in `test/hyperopen/views/portfolio/optimize/setup_v4_layout_test.cljs`. The test suite already renders the v4 setup route and has helpers such as `node-by-role`, `collect-strings`, `click-actions`, and `keydown-actions`. Add tests that render a non-blank search query and assert that a candidate row does not include `sufficient`; it should include the chosen pre-validation label `pending`. Add selected-row tests that render `setup-v4-universe/universe-section` directly with crafted `readiness` and `history-load-state` inputs. These tests should prove the five selected statuses: pending before a completed validation, loading while history is in flight, missing after a missing-history warning, insufficient after an insufficient-history warning, and sufficient when the instrument is in the eligible request universe with no blocking warning for that instrument.
+First, add focused tests in `test/hyperopen/views/portfolio/optimize/setup_v4_layout_test.cljs`. The test suite already renders the v4 setup route and has helpers such as `node-by-role`, `collect-strings`, `click-actions`, and `keydown-actions`. Add tests that render a non-blank search query and assert that a candidate row does not include history-status terms such as `pending`, `unchecked`, or `sufficient`. Add selected-row tests that render `setup-v4-universe/universe-section` directly with crafted `readiness` and `history-load-state` inputs. These tests should prove the five selected statuses: pending before a completed validation, loading while history is in flight, missing after a missing-history warning, insufficient after an insufficient-history warning, and sufficient when the instrument is in the eligible request universe with no blocking warning for that instrument.
 
-Second, change `src/hyperopen/views/portfolio/optimize/setup_v4_universe.cljs`. Remove the default `sufficient` from `market-row` and replace it with a candidate-only label, preferably `pending`. Add a helper that derives selected-row history status from state plus readiness. The helper should use the instrument id as the primary key. It should return `loading` when `history-load-state[:status]` is `:loading` and the loading request signature includes that instrument. It should return `missing` for warning codes `:missing-history-coin`, `:missing-candle-history`, `:missing-vault-address`, or `:missing-vault-history`. It should return `insufficient` for warning codes `:insufficient-candle-history` or `:insufficient-vault-history`. It should return `sufficient` when the selected instrument id is in `readiness[:request :universe]`. It should return `pending` when none of those cases apply.
+Second, change `src/hyperopen/views/portfolio/optimize/setup_v4_universe.cljs`. Remove the default `sufficient` from `market-row` and do not render a candidate history-status chip. Add a helper that derives selected-row history status from state plus readiness. The helper should use the instrument id as the primary key. It should return `loading` when `history-load-state[:status]` is `:loading` and the loading request signature includes that instrument. It should return `missing` for warning codes `:missing-history-coin`, `:missing-candle-history`, `:missing-vault-address`, or `:missing-vault-history`. It should return `insufficient` for warning codes `:insufficient-candle-history` or `:insufficient-vault-history`. It should return `sufficient` when the selected instrument id is in `readiness[:request :universe]`. It should return `pending` when none of those cases apply.
 
 Third, thread `readiness` and `history-load-state` into the universe section. Modify `src/hyperopen/views/portfolio/optimize/setup_v4_sections.cljs` so `control-rail` accepts `:readiness` and `:history-load-state` in its argument map and passes both into `setup-v4-universe/universe-section`. Modify `src/hyperopen/views/portfolio/optimize/workspace_view.cljs` so the existing call to `setup-v4/control-rail` includes the `readiness` and `history-load-state` values it already computes. Keep the previous `universe-section` arity or default behavior if practical so direct tests and any existing call sites remain simple; there is currently only one production call site.
 
@@ -110,7 +122,7 @@ Finally, run focused tests first, then broaden to the required gates and browser
 
 Work from `/Users/barry/.codex/worktrees/7048/hyperopen`.
 
-1. Edit `test/hyperopen/views/portfolio/optimize/setup_v4_layout_test.cljs` and add the candidate-row regression. Use a state similar to the existing `setup-v4-universe-search-renders-vault-candidates-test`, but search for `btc` against an asset-selector market candidate. Assert the candidate row exists, `collect-strings` contains `pending`, and the candidate row's strings do not contain `sufficient`.
+1. Edit `test/hyperopen/views/portfolio/optimize/setup_v4_layout_test.cljs` and add the candidate-row regression. Use a state similar to the existing `setup-v4-universe-search-renders-vault-candidates-test`, but search for `btc` against an asset-selector market candidate. Assert the candidate row exists, the add action still dispatches correctly, and the candidate row's strings do not contain `pending`, `unchecked`, or `sufficient`.
 
 2. In the same test file, add selected-row status tests against `setup-v4-universe/universe-section`. Build a BTC instrument map like:
 
@@ -136,15 +148,11 @@ Work from `/Users/barry/.codex/worktrees/7048/hyperopen`.
 
    Expected before implementation: the new assertions fail because candidate rows show `sufficient` and selected rows derive history status from the old binary cache check.
 
-4. Edit `src/hyperopen/views/portfolio/optimize/setup_v4_universe.cljs`. Change `market-row` from:
+4. Edit `src/hyperopen/views/portfolio/optimize/setup_v4_universe.cljs`. Remove the candidate-row history label and status chip. The old defect started from:
 
        history (:history-label market "sufficient")
 
-   to a pre-validation status such as:
-
-       history (:history-label market "pending")
-
-   Do not add a `:history-label` to `candidate-markets`; candidate generation should remain presentation-agnostic.
+   Do not replace this with another default status. Search candidates should render symbol/name/type/ADV/add affordances only. Do not add a `:history-label` to `candidate-markets`; candidate generation should remain presentation-agnostic.
 
 5. In `setup_v4_universe.cljs`, replace the old selected-row `history-label` helper with a status helper that accepts `state`, `readiness`, `history-load-state`, and `instrument`. Keep the function private. Use warning-code sets so the mapping is explicit:
 
@@ -182,7 +190,7 @@ Work from `/Users/barry/.codex/worktrees/7048/hyperopen`.
 
 ## Validation and Acceptance
 
-The fix is accepted when `/portfolio/optimize/new` no longer shows `SUFFICIENT` on search dropdown candidates before selection/history validation. Typing `btc` should show BTC as a selectable asset with a pre-validation label such as `pending`, and the row should still dispatch `[:actions/add-portfolio-optimizer-universe-instrument "perp:BTC"]` or the market key produced by the candidate source.
+The fix is accepted when `/portfolio/optimize/new` no longer shows `SUFFICIENT`, `PENDING`, or any other history-status chip on search dropdown candidates before selection/history validation. Typing `btc` should show BTC as a selectable asset with no history-status chip, and the row should still dispatch `[:actions/add-portfolio-optimizer-universe-instrument "perp:BTC"]` or the market key produced by the candidate source.
 
 Selected universe rows must show honest status. A newly added asset with no completed history validation should show `pending`. While a matching history load is in flight, it should show `loading`. After readiness reports `:missing-candle-history` or `:missing-vault-history`, it should show `missing`. After readiness reports `:insufficient-candle-history` or `:insufficient-vault-history`, it should show `insufficient`. When the instrument id is present in `readiness[:request :universe]`, it should show `sufficient`.
 

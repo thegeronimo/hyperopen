@@ -340,7 +340,7 @@
              (str "vault:" vault-address)]]
            (click-actions add-button)))))
 
-(deftest setup-v4-universe-search-candidates-do-not-claim-sufficient-history-test
+(deftest setup-v4-universe-search-candidates-do-not-render-history-status-chip-test
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio-ui {:optimizer {:universe-search-query "btc"}}
@@ -358,7 +358,8 @@
                                     "portfolio-optimizer-universe-candidate-row-perp:BTC")
         candidate-strings (set (collect-strings candidate-row))]
     (is (some? candidate-row))
-    (is (contains? candidate-strings "pending"))
+    (is (not (contains? candidate-strings "pending")))
+    (is (not (contains? candidate-strings "unchecked")))
     (is (not (contains? candidate-strings "sufficient")))
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument "perp:BTC"]]
            (click-actions candidate-row)))))
