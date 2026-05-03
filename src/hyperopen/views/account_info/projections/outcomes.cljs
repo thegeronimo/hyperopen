@@ -87,6 +87,18 @@
               :quote (or (:quote market) "USDH")
               :token-name (token-name-from-encoding encoding)}))))
 
+(defn- outcome-market-primary-side-entry
+  [market]
+  (let [coin (:coin market)
+        encoding (token-encoding coin)]
+    (outcome-side-entry
+     market
+     (cond-> {:coin coin
+              :mark (:mark market)
+              :markRaw (:markRaw market)}
+       (number? encoding)
+       (assoc :side-index (side-index-from-encoding encoding))))))
+
 (defn- assoc-side-lookup
   [lookup side-entry]
   (cond-> lookup
@@ -116,12 +128,15 @@
   [market-by-key options]
   (reduce (fn [lookup market]
             (if (= :outcome (:market-type market))
-              (reduce (fn [lookup* side]
-                        (if-let [side-entry (outcome-side-entry market side)]
-                          (assoc-side-lookup lookup* side-entry)
-                          lookup*))
-                      lookup
-                      (or (:outcome-sides market) []))
+              (let [lookup* (if-let [side-entry (outcome-market-primary-side-entry market)]
+                              (assoc-side-lookup lookup side-entry)
+                              lookup)]
+                (reduce (fn [lookup** side]
+                          (if-let [side-entry (outcome-side-entry market side)]
+                            (assoc-side-lookup lookup** side-entry)
+                            lookup**))
+                        lookup*
+                        (or (:outcome-sides market) [])))
               lookup))
           {}
           (outcome-market-candidates market-by-key options)))

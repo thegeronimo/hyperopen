@@ -125,6 +125,31 @@
     (is (< (js/Math.abs (- 10.1099 (:position-value row))) 0.000001))
     (is (< (js/Math.abs (- -0.9172 (:pnl-value row))) 0.000001))))
 
+(deftest build-outcome-rows-enriches-from-outcome-market-primary-coin-test
+  (let [market {:key "outcome:1"
+                :coin "#10"
+                :title "ETH above 3600 on May 4 at 2:00 AM?"
+                :symbol "ETH above 3600 on May 4 at 2:00 AM?"
+                :quote "USDH"
+                :market-type :outcome
+                :outcome-id 1
+                :mark 0.42}
+        rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "+10"
+                                                 :token 100000010
+                                                 :hold "0"
+                                                 :total "5"
+                                                 :entryNtl "2"}]}}
+              {"outcome:1" market})
+        [row] rows]
+    (is (= 1 (count rows)))
+    (is (= "ETH above 3600 on May 4 at 2:00 AM?" (:title row)))
+    (is (= "outcome:1" (:market-key row)))
+    (is (= "#10" (:side-coin row)))
+    (is (= "Yes" (:side-name row)))
+    (is (= 0.42 (:mark-price row)))
+    (is (= 2.1 (:position-value row)))))
+
 (deftest outcome-token-predicate-detects-plus-and-hash-encodings-test
   (is (true? (projections/outcome-token? "+0")))
   (is (true? (projections/outcome-token? "#1")))
