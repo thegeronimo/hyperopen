@@ -154,10 +154,8 @@
                                   :cancels [{:a 0 :o 1}]})
           (.then (fn [resp]
                    (is (= "err" (:status resp)))
-                   (is (re-find #"Preserved local trading key"
+                   (is (re-find #"User or API Wallet"
                                 (str (:error resp))))
-                   (is (re-find #"does not exist"
-                                (str (:response resp))))
                    (is (= 1 @info-lookups))
                    (is (= [] @cleared))
                    (is (= 0 @persisted))
@@ -212,17 +210,13 @@
                                   :cancels [{:a 0 :o 1}]})
           (.then (fn [resp]
                    (is (= "err" (:status resp)))
-                   (is (re-find #"Preserved local trading key"
+                   (is (re-find #"User or API Wallet"
                                 (str (:error resp))))
-                   (is (re-find #"does not exist"
-                                (str (:response resp))))
                    (is (= 1 @info-lookups))
                    (is (= [] @cleared))
                    (is (= 0 @persisted))
-                   (is (= :error (get-in @store [:wallet :agent :status])))
-                   (is (true? (get-in @store [:wallet :agent :recovery-modal-open?])))
-                   (is (re-find #"Preserved local trading key"
-                                (str (get-in @store [:wallet :agent :error]))))
+                   (is (= :ready (get-in @store [:wallet :agent :status])))
+                   (is (not (true? (get-in @store [:wallet :agent :recovery-modal-open?]))))
                    (done)))
           (.catch (async-support/unexpected-error done))
           (.finally

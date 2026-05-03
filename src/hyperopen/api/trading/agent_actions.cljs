@@ -139,13 +139,6 @@
                   :status :error
                   :error message))))
 
-(defn- flag-agent-session-recovery!
-  [store message]
-  (swap! store update-in [:wallet :agent] merge
-         {:status :error
-          :error message
-          :recovery-modal-open? true}))
-
 (defn- normalize-agent-action-options
   [options]
   (let [{:keys [vault-address expires-after is-mainnet max-nonce-retries]} (or options {})]
@@ -173,8 +166,7 @@
     {:status "err"
      :error http/missing-api-wallet-error-message}
     {:status "err"
-     :error http/missing-api-wallet-preserved-message
-     :response (http/response-error-text resp)}))
+     :error (http/response-error-text resp)}))
 
 (defn- resolve-missing-api-wallet-response!
   [store owner-address session resp disposition]
@@ -182,10 +174,7 @@
     (invalidate-agent-session! store
                                owner-address
                                session
-                               http/missing-api-wallet-error-message)
-    (when (= :inconclusive disposition)
-      (flag-agent-session-recovery! store
-                                    http/missing-api-wallet-preserved-message)))
+                               http/missing-api-wallet-error-message))
   (missing-api-wallet-result resp (= :invalidate disposition)))
 
 (defn- handle-agent-action-response!

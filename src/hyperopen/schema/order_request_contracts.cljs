@@ -22,9 +22,6 @@
 (def ^:private order-keys
   #{:a :b :p :s :r :t})
 
-(def ^:private order-keys-without-reduce-only
-  #{:a :b :p :s :t})
-
 (def ^:private limit-container-keys
   #{:limit})
 
@@ -80,16 +77,13 @@
 
 (defn- reduce-only-flag?
   [value]
-  (or (nil? value)
-      (boolean? value)))
+  (boolean? value))
 
 (defn- order-shell?
   [order]
-  (and (or (and (exact-keys? order order-keys)
-                (exact-key-order? order [:a :b :p :s :r :t])
-                (reduce-only-flag? (:r order)))
-           (and (exact-keys? order order-keys-without-reduce-only)
-                (exact-key-order? order [:a :b :p :s :t])))
+  (and (exact-keys? order order-keys)
+       (exact-key-order? order [:a :b :p :s :r :t])
+       (reduce-only-flag? (:r order))
        (non-negative-integer-value? (:a order))
        (boolean? (:b order))
        (positive-numberish-string? (:p order))

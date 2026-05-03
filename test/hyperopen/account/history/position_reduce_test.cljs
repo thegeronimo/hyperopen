@@ -54,6 +54,6 @@
            (first (second submit-effects))))
     (is (= 100000010 (:a submitted-order)))
     (is (= false (:b submitted-order)))
-    (is (not (contains? submitted-order :r)))
+    (is (= false (:r submitted-order)))
     (is (= "8.5" (:s submitted-order)))
     (is (= "0.59" (:p submitted-order)))))

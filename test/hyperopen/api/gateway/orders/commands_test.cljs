@@ -364,7 +364,7 @@
     (is (map? request))
     (is (nil? (:pre-actions request)))))
 
-(deftest build-order-request-omits-reduce-only-for-outcome-orders-test
+(deftest build-order-request-forces-reduce-only-false-for-outcome-orders-test
   (let [outcome-context {:active-asset "#10"
                          :asset-idx 100000010
                          :market {:market-type :outcome
@@ -378,7 +378,7 @@
         order (get-in request [:orders 0])]
     (is (= 100000010 (:a order)))
     (is (= false (:b order)))
-    (is (not (contains? order :r)))))
+    (is (= false (:r order)))))
 
 (deftest build-order-request-fails-closed-on-invalid-scale-and-twap-test
   (is (nil? (commands/build-order-request command-context {:type :scale

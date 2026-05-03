@@ -33,11 +33,6 @@
     (when (contains? #{:perp :spot :outcome} candidate)
       candidate)))
 
-(defn- reduce-only-wire-supported?
-  [command-context]
-  (not (contains? #{:spot :outcome}
-                  (normalize-market-type (get-in command-context [:market :market-type])))))
-
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (let [legs (trading-domain/scale-order-legs (get total-size :size)
                                               (get total-size :count)
@@ -51,7 +46,7 @@
                        :b (trading-domain/order-side->is-buy side)
                        :p (str price)
                        :s (str size)
-                       :r reduce-only
+                       :r (boolean reduce-only)
                        :t {:limit {:tif tif}}))
           legs)))
 
@@ -165,7 +160,10 @@
         size (trading-domain/parse-num (:size form))
         price (trading-domain/parse-num (:price form))
         trigger (trading-domain/parse-num (:trigger-px form))
-        reduce-only (:reduce-only form)
+        reduce-only (if (contains? #{:spot :outcome}
+                                   (normalize-market-type (get-in command-context [:market :market-type])))
+                      false
+                      (boolean (:reduce-only form)))
         post-only (:post-only form)
         tif (tif->wire (:tif form))
         price-text (canonical-price-text command-context price)
@@ -188,12 +186,11 @@
                (number? asset-idx)
                required-values-valid?
                wire-values-valid?)
-      (let [base-order (cond-> (array-map :a asset-idx
-                                          :b (trading-domain/order-side->is-buy side)
-                                          :p (or price-text "")
-                                          :s (str size))
-                         (reduce-only-wire-supported? command-context)
-                         (assoc :r reduce-only))
+      (let [base-order (array-map :a asset-idx
+                                  :b (trading-domain/order-side->is-buy side)
+                                  :p (or price-text "")
+                                  :s (str size)
+                                  :r reduce-only)
             order (shape-builder base-order
                                  {:post-only post-only
                                   :tif tif
