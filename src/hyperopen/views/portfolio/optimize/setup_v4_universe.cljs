@@ -95,6 +95,13 @@
 (defn- selected-history-label
   [state readiness history-load-state history-status-by-id instrument]
   (let [instrument-id (:instrument-id instrument)
+        prefetch-status (get-in state
+                                [:portfolio
+                                 :optimizer
+                                 :history-prefetch
+                                 :by-instrument-id
+                                 instrument-id
+                                 :status])
         loading-ids (instrument-ids (get-in history-load-state
                                             [:request-signature :universe]))
         eligible-ids (instrument-ids (get-in readiness [:request :universe]))
@@ -105,6 +112,12 @@
                              (contains? loading-ids instrument-id))
         cached-history? (seq (history-rows state instrument))]
     (cond
+      (= :queued prefetch-status)
+      "queued"
+
+      (= :loading prefetch-status)
+      "loading"
+
       (and (= :loading (:status history-load-state))
            (contains? loading-ids instrument-id))
       "loading"
@@ -353,4 +366,4 @@
                     "text-trading-muted/70"]}
       "Search adds tradeable spot, perp, or vault return legs. Symbols with limited history use stabilized covariance with a longer pull toward the market reference."
       [:span {:class ["sr-only"]}
-       "Requires history reload after adding new assets."]]])))
+       "History starts loading after assets are included."]]])))

@@ -39,7 +39,7 @@ async function seedMarkets(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-test("portfolio optimizer adding an asset does not fetch history until run @regression", async ({ page }) => {
+test("portfolio optimizer adding an asset prefetches history before run @regression", async ({ page }) => {
   test.setTimeout(90_000);
 
   const seen = [];
@@ -85,19 +85,24 @@ test("portfolio optimizer adding an asset does not fetch history until run @regr
   await page.locator("[data-role='portfolio-optimizer-universe-search-input']").fill("eth");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']").click();
-  await waitForIdle(page, { quietMs: 300, timeoutMs: 4_000, pollMs: 50 });
+  await expect.poll(
+    () => seen.filter((entry) => entry.coin === "ETH").length,
+    { timeout: 10_000 }
+  ).toBe(2);
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-selected-row-perp:ETH']"))
+    .toContainText("sufficient", { timeout: 10_000 });
 
-  const afterAddCount = seen.length;
+  const beforeRun = [...seen];
   await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toHaveCount(0);
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-progress-panel']"))
     .toContainText("Optimization", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
+    .toContainText("Optimizer history is loaded for the selected assets.", { timeout: 10_000 });
 
-  expect(afterAddCount).toBe(0);
-  expect(seen).toEqual([
+  expect([...beforeRun].sort((a, b) => `${a.type}:${a.coin}`.localeCompare(`${b.type}:${b.coin}`))).toEqual([
     { type: "candleSnapshot", coin: "ETH" },
     { type: "fundingHistory", coin: "ETH" }
   ]);
+  expect(seen).toEqual(beforeRun);
 });

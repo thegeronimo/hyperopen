@@ -55,3 +55,17 @@
                              "portfolio-optimizer-readiness-warning")))
     (is (contains? strings "pmaIt: vault details returned no usable return history."))
     (is (contains? strings "missing-vault-history"))))
+
+(deftest readiness-panel-describes-background-selection-history-loading-test
+  (let [view-node (panel/readiness-panel
+                   {:reason :no-eligible-history}
+                   {:status nil})
+        loading-node (panel/readiness-panel
+                      {:reason :history-loading}
+                      {:status :loading})
+        idle-strings (set (collect-strings view-node))
+        loading-strings (set (collect-strings loading-node))]
+    (is (contains? idle-strings
+                   "History starts loading as assets are included. Run Optimization retries anything still missing."))
+    (is (contains? loading-strings
+                   "Loading optimizer history for the selected assets."))))

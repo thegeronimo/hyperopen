@@ -391,6 +391,18 @@
                           collect-strings
                           set))
         pending-strings (row-strings base-state)
+        queued-strings (row-strings
+                        (assoc-in base-state
+                                  [:portfolio
+                                   :optimizer
+                                   :history-prefetch
+                                   :by-instrument-id
+                                   "perp:BTC"]
+                                  {:status :queued
+                                   :started-at-ms nil
+                                   :completed-at-ms nil
+                                   :error nil
+                                   :warnings []}))
         loading-strings (row-strings
                          (assoc-in base-state
                                    [:portfolio :optimizer :history-load-state]
@@ -420,6 +432,7 @@
                                                         [2000 101]]))))]
     (is (contains? pending-strings "pending"))
     (is (not (contains? pending-strings "sufficient")))
+    (is (contains? queued-strings "queued"))
     (is (contains? loading-strings "loading"))
     (is (contains? missing-strings "missing"))
     (is (contains? insufficient-strings "insufficient"))

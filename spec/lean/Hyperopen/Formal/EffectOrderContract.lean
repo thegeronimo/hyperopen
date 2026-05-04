@@ -89,6 +89,8 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/select-chart-timeframe", defaultPolicy false ["effects/fetch-candle-snapshot", "effects/sync-active-candle-subscription"])
   ,("actions/select-orderbook-price-aggregation", defaultPolicy false ["effects/subscribe-orderbook"])
   ,("actions/select-portfolio-chart-tab", defaultPolicy true ["effects/fetch-candle-snapshot"])
+  ,("actions/add-portfolio-optimizer-universe-instrument", defaultPolicy false ["effects/load-portfolio-optimizer-history"])
+  ,("actions/set-portfolio-optimizer-universe-from-current", defaultPolicy false ["effects/load-portfolio-optimizer-history"])
   ,("actions/select-portfolio-returns-benchmark", defaultPolicy false ["effects/api-fetch-vault-benchmark-details", "effects/fetch-candle-snapshot"])
   ,("actions/select-portfolio-summary-time-range", defaultPolicy true ["effects/fetch-candle-snapshot"])
   ,("actions/select-vault-detail-returns-benchmark", defaultPolicy false ["effects/api-fetch-vault-benchmark-details", "effects/fetch-candle-snapshot"])

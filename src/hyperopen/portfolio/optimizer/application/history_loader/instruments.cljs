@@ -10,10 +10,32 @@
     (when (seq text)
       text)))
 
+(declare market-type)
+
+(defn- display-pair-coin?
+  [coin base quote symbol]
+  (let [dash-pair (when (and base quote) (str base "-" quote))
+        slash-pair (when (and base quote) (str base "/" quote))]
+    (boolean
+     (and base
+          (or (and symbol
+                   (= coin symbol)
+                   (or (str/includes? symbol "-")
+                       (str/includes? symbol "/")))
+              (= coin dash-pair)
+              (= coin slash-pair))))))
+
 (defn normalize-coin
   [instrument]
-  (non-blank-text (or (:coin instrument)
-                      (:asset instrument))))
+  (let [coin (non-blank-text (or (:coin instrument)
+                                 (:asset instrument)))
+        base (non-blank-text (:base instrument))
+        quote (non-blank-text (:quote instrument))
+        symbol (non-blank-text (:symbol instrument))]
+    (if (and (= :perp (market-type instrument))
+             (display-pair-coin? coin base quote symbol))
+      base
+      coin)))
 
 (defn normalize-instrument-id
   [instrument]

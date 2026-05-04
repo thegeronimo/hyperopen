@@ -45,6 +45,18 @@
     :allow-duplicate-heavy-effects? true
     :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
 
+   :actions/add-portfolio-optimizer-universe-instrument
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/load-portfolio-optimizer-history}}
+
+   :actions/set-portfolio-optimizer-universe-from-current
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/load-portfolio-optimizer-history}}
+
    :actions/select-portfolio-returns-benchmark
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

@@ -50,6 +50,12 @@
    :error nil
    :warnings []})
 
+(defn default-history-prefetch-state
+  []
+  {:queue []
+   :active-instrument-id nil
+   :by-instrument-id {}})
+
 (defn default-optimization-progress-state
   []
   {:status :idle
@@ -135,7 +141,9 @@
    :last-successful-run nil
    :history-data {:candle-history-by-coin {}
                   :funding-history-by-coin {}
+                  :vault-details-by-address {}
                   :warnings []}
+   :history-prefetch (default-history-prefetch-state)
    :history-load-state (default-history-load-state)
    :optimization-progress (default-optimization-progress-state)
    :scenario-save-state (default-scenario-save-state)

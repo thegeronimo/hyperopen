@@ -1183,10 +1183,10 @@ test("portfolio optimizer manual universe builder adds and removes assets @regre
     .toHaveCount(0);
   await expect(ethCandidate).toHaveCount(0);
   await expect(page.locator("[data-role='portfolio-optimizer-universe-panel']"))
-    .toContainText("Requires history reload after adding new assets.");
+    .toContainText("History starts loading after assets are included.");
   await expect(page.locator("[data-role='portfolio-optimizer-run-draft']")).toBeEnabled();
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Run Optimization will refresh history for this changed universe.");
+    .toContainText(/Loading optimizer history for the selected assets|no candle history returned for ETH/);
 
   await ethRemove.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
@@ -1404,7 +1404,7 @@ test("portfolio optimizer selected universe keeps remove controls visible for lo
   await expect(longAssetRemove).toHaveCount(0);
 });
 
-test("portfolio optimizer history load requests each manual perp once @regression", async ({ page }) => {
+test("portfolio optimizer selection prefetch requests each manual perp once @regression", async ({ page }) => {
   const historyRequests = [];
   await page.route("https://api.hyperliquid.xyz/info", async (route) => {
     const request = route.request();
@@ -1446,32 +1446,44 @@ test("portfolio optimizer history load requests each manual perp once @regressio
 
   await visitRoute(page, "/portfolio/optimize/new");
   await seedOptimizerAssetSelectorMarkets(page);
+  historyRequests.length = 0;
 
   const searchInput = page.locator("[data-role='portfolio-optimizer-universe-search-input']");
   await searchInput.fill("btc");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:BTC']").click();
-  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect.poll(
+    () => historyRequests.filter((entry) => entry.endsWith(":BTC")).length,
+    { timeout: 10_000 }
+  ).toBe(2);
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-selected-row-perp:BTC']"))
+    .toContainText("sufficient", { timeout: 10_000 });
 
   await searchInput.fill("eth");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:ETH']").click();
-  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect.poll(
+    () => historyRequests.filter((entry) => entry.endsWith(":ETH")).length,
+    { timeout: 10_000 }
+  ).toBe(2);
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-selected-row-perp:ETH']"))
+    .toContainText("sufficient", { timeout: 10_000 });
 
-  historyRequests.length = 0;
+  const beforeRun = [...historyRequests];
   await expect(page.locator("[data-role='portfolio-optimizer-load-history']")).toHaveCount(0);
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-progress-panel']"))
     .toContainText("Optimization", { timeout: 10_000 });
   await expect(page.locator("[data-role='portfolio-optimizer-readiness-panel']"))
-    .toContainText("Optimizer history is loaded.", { timeout: 10_000 });
+    .toContainText("Optimizer history is loaded for the selected assets.", { timeout: 10_000 });
 
-  expect(historyRequests.sort()).toEqual([
+  expect([...beforeRun].sort()).toEqual([
     "candleSnapshot:BTC",
     "candleSnapshot:ETH",
     "fundingHistory:BTC",
     "fundingHistory:ETH"
   ]);
+  expect(historyRequests).toEqual(beforeRun);
 });
 
 test("portfolio optimizer recommendation chart shows minimum variance frontier overlays and honest target weights @regression", async ({ page }) => {

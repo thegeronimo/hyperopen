@@ -140,7 +140,7 @@
                             "portfolio-optimizer-universe-add-perp:BTC")))
     (is (contains? strings "Manual Add"))
     (is (contains? strings "ETH-USDC"))
-    (is (contains? strings "Requires history reload after adding new assets."))))
+    (is (contains? strings "History starts loading after assets are included."))))
 
 (deftest portfolio-optimizer-search-results-use-active-keyboard-row-test
   (let [view-node (portfolio-view/portfolio-view
@@ -263,5 +263,5 @@
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")
         strings (set (collect-strings view-node))]
     (is (= false (get-in run-button [1 :disabled])))
-    (is (contains? strings "Run Optimization will refresh history for this changed universe."))
+    (is (contains? strings "History is incomplete for this universe. Run Optimization retries anything still missing."))
     (is (contains? strings "missing-candle-history"))))

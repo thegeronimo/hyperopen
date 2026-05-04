@@ -136,6 +136,36 @@
            (:vault-detail-requests plan)))
     (is (= [] (:warnings plan)))))
 
+(deftest build-history-request-plan-uses-perp-base-coin-instead-of-display-pair-test
+  (let [plan (history-loader/build-history-request-plan
+              [{:instrument-id "perp:ETH"
+                :market-type :perp
+                :coin "ETH-USDC"
+                :symbol "ETH-USDC"
+                :base "ETH"
+                :quote "USDC"}]
+              {:interval :1d
+               :bars 180
+               :priority :low
+               :now-ms 2000000
+               :funding-window-ms 86400000})]
+    (is (= [{:coin "ETH"
+             :instrument-ids ["perp:ETH"]
+             :opts {:interval :1d
+                    :bars 180
+                    :priority :low
+                    :cache-key [:portfolio-optimizer :candles "ETH" :1d 180]
+                    :dedupe-key [:portfolio-optimizer :candles "ETH" :1d 180]}}]
+           (:candle-requests plan)))
+    (is (= [{:coin "ETH"
+             :instrument-ids ["perp:ETH"]
+             :opts {:priority :low
+                    :start-time-ms (- 2000000 86400000)
+                    :end-time-ms 2000000
+                    :cache-key [:portfolio-optimizer :funding "ETH" (- 2000000 86400000) 2000000]
+                    :dedupe-key [:portfolio-optimizer :funding "ETH" (- 2000000 86400000) 2000000]}}]
+           (:funding-requests plan)))))
+
 (deftest align-history-inputs-aligns-common-calendar-and-exposes-funding-carry-test
   (let [aligned (history-loader/align-history-inputs
                  {:universe [{:instrument-id "perp:BTC"

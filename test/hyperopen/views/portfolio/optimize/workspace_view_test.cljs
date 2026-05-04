@@ -124,7 +124,7 @@
         loading-button (node-by-role loading-node "portfolio-optimizer-load-history")]
     (is (nil? loading-button))
     (is (contains? (set (collect-strings loading-node))
-                   "Loading optimizer history for the selected universe."))
+                   "Loading optimizer history for the selected assets."))
     (is (contains? (set (collect-strings failed-node))
                    "history unavailable"))))
 

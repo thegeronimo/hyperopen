@@ -85,8 +85,65 @@
       (throw (js/Error. (setup-readiness/readiness-error-message readiness))))
     request))
 
+(defn- selection-prefetch-loading?
+  [state]
+  (and (= :loading
+          (get-in state [:portfolio :optimizer :history-load-state :status]))
+       (some? (get-in state
+                      [:portfolio :optimizer :history-prefetch :active-instrument-id]))))
+
+(defn- wait-for-history-load-idle!
+  [store {:keys [poll-ms timeout-ms]
+          :or {poll-ms 50
+               timeout-ms 30000}}]
+  (let [started-at-ms (.now js/Date)]
+    (js/Promise.
+     (fn [resolve reject]
+       (letfn [(tick []
+                 (cond
+                   (not (selection-prefetch-loading? @store))
+                   (resolve true)
+
+                   (> (- (.now js/Date) started-at-ms) timeout-ms)
+                   (reject (js/Error. "Timed out waiting for optimizer history prefetch to settle."))
+
+                   :else
+                   (js/setTimeout tick poll-ms)))]
+         (tick))))))
+
+(defn- load-history-then-run!
+  [load-history! request-run! store run-id]
+  (-> (load-history! store
+                     {:on-progress (fetch-progress-callback store run-id)})
+      (.then (fn [_bundle]
+               (let [request (pipeline-ready-request store)]
+                 (run-worker-from-ready-request! request-run! store run-id request)
+                 run-id)))))
+
+(defn- wait-or-load-history-then-run!
+  [{:keys [request-run! load-history! history-idle-poll-ms history-idle-timeout-ms]} store run-id]
+  (if (selection-prefetch-loading? @store)
+    (-> (wait-for-history-load-idle!
+         store
+         {:poll-ms history-idle-poll-ms
+          :timeout-ms history-idle-timeout-ms})
+        (.then (fn [_]
+                 (let [{:keys [request runnable?]} (setup-readiness/build-readiness @store)]
+                   (if runnable?
+                     (do
+                       (run-worker-from-ready-request! request-run! store run-id request)
+                     run-id)
+                    (load-history-then-run! load-history!
+                                            request-run!
+                                            store
+                                            run-id))))))
+    (load-history-then-run! load-history!
+                            request-run!
+                            store
+                            run-id)))
+
 (defn run-portfolio-optimizer-pipeline-effect
-  [{:keys [now-ms next-run-id request-run! load-history!]} _ store]
+  [{:keys [now-ms next-run-id request-run! load-history!] :as env} _ store]
   (let [state @store
         draft (get-in state [:portfolio :optimizer :draft])
         universe (vec (:universe draft))
@@ -119,12 +176,7 @@
         (js/Promise.resolve run-id))
 
       :else
-      (-> (load-history! store
-                         {:on-progress (fetch-progress-callback store run-id)})
-          (.then (fn [_bundle]
-                   (let [request (pipeline-ready-request store)]
-                     (run-worker-from-ready-request! request-run! store run-id request)
-                     run-id)))
+      (-> (wait-or-load-history-then-run! env store run-id)
           (.catch (fn [err]
                     (fail-progress!
                      now-ms

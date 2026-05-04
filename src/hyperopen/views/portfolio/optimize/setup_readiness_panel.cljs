@@ -15,16 +15,16 @@
   [readiness]
   (case (:reason readiness)
     :missing-universe "Select a universe before running."
-    :no-eligible-history "Run Optimization will fetch history before computing."
-    :incomplete-history "Run Optimization will refresh history for this changed universe."
-    :history-loading "History reload is in flight as part of the optimization run."
+    :no-eligible-history "History starts loading as assets are included. Run Optimization retries anything still missing."
+    :incomplete-history "History is incomplete for this universe. Run Optimization retries anything still missing."
+    :history-loading "History is loading for the selected assets."
     "Optimizer inputs are ready to run."))
 
 (defn- history-load-copy
   [history-load-state readiness]
   (case (:status history-load-state)
-    :loading "Loading optimizer history for the selected universe."
-    :succeeded "Optimizer history is loaded. Run Optimization refreshes this when the universe changes."
+    :loading "Loading optimizer history for the selected assets."
+    :succeeded "Optimizer history is loaded for the selected assets."
     :failed "History load failed. Existing history, if any, is retained."
     (readiness-copy readiness)))
 

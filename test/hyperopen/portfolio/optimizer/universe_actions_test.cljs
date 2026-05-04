@@ -2,8 +2,40 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.portfolio.optimizer.actions :as actions]))
 
+(def ^:private selection-prefetch-effect
+  [:effects/load-portfolio-optimizer-history
+   {:source :selection-prefetch
+    :queue? true
+    :merge? true}])
+
+(defn- queued-prefetch-state
+  [instruments]
+  {:queue (vec instruments)
+   :active-instrument-id nil
+   :by-instrument-id
+   (into {}
+         (map (fn [instrument]
+                [(:instrument-id instrument)
+                 {:status :queued
+                  :started-at-ms nil
+                  :completed-at-ms nil
+                  :error nil
+                  :warnings []}]))
+         instruments)})
+
 (deftest set-draft-universe-from-current-holdings-test
-  (let [state {:webdata2 {:clearinghouseState
+  (let [btc-instrument {:instrument-id "perp:BTC"
+                        :market-type :perp
+                        :coin "BTC"
+                        :shortable? true}
+        purr-instrument {:instrument-id "spot:PURR"
+                         :market-type :spot
+                         :coin "PURR"
+                         :shortable? false
+                         :symbol "PURR/USDC"
+                         :base "PURR"
+                         :quote "USDC"}
+        state {:webdata2 {:clearinghouseState
                           {:marginSummary {:accountValue "1000"}
                            :assetPositions
                            [{:position {:coin "BTC"
@@ -23,19 +55,12 @@
                                               :mark "2"}}}}]
     (is (= [[:effects/save-many
              [[[:portfolio :optimizer :draft :universe]
-               [{:instrument-id "perp:BTC"
-                 :market-type :perp
-                 :coin "BTC"
-                 :shortable? true}
-                {:instrument-id "spot:PURR"
-                 :market-type :spot
-                 :coin "PURR"
-                 :shortable? false
-                 :symbol "PURR/USDC"
-                 :base "PURR"
-                 :quote "USDC"}]]
+               [btc-instrument purr-instrument]]
+              [[:portfolio :optimizer :history-prefetch]
+               (queued-prefetch-state [btc-instrument purr-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
-               true]]]]
+               true]]]
+            selection-prefetch-effect]
            (actions/set-portfolio-optimizer-universe-from-current state)))))
 
 (deftest set-draft-universe-from-current-holdings-ignores-empty-snapshot-test
@@ -43,10 +68,26 @@
          (actions/set-portfolio-optimizer-universe-from-current {}))))
 
 (deftest add-draft-universe-instrument-from-asset-selector-market-test
-  (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"
-                                                            :market-type :perp
-                                                            :coin "BTC"
-                                                            :shortable? true}]}}}
+  (let [btc-instrument {:instrument-id "perp:BTC"
+                        :market-type :perp
+                        :coin "BTC"
+                        :shortable? true}
+        eth-instrument {:instrument-id "perp:ETH"
+                        :market-type :perp
+                        :coin "ETH"
+                        :shortable? true
+                        :dex "hl"
+                        :symbol "ETH-USDC"
+                        :base "ETH"
+                        :quote "USDC"}
+        purr-instrument {:instrument-id "spot:PURR/USDC"
+                         :market-type :spot
+                         :coin "PURR/USDC"
+                         :shortable? false
+                         :symbol "PURR/USDC"
+                         :base "PURR"
+                         :quote "USDC"}
+        state {:portfolio {:optimizer {:draft {:universe [btc-instrument]}}}
                :asset-selector {:market-by-key
                                 {"perp:ETH" {:key "perp:ETH"
                                              :market-type :perp
@@ -64,52 +105,45 @@
                                                    :quote "USDC"}}}}]
     (is (= [[:effects/save-many
              [[[:portfolio :optimizer :draft :universe]
-               [{:instrument-id "perp:BTC"
-                 :market-type :perp
-                 :coin "BTC"
-                 :shortable? true}
-                {:instrument-id "perp:ETH"
-                 :market-type :perp
-                 :coin "ETH"
-                 :shortable? true
-                 :dex "hl"
-                 :symbol "ETH-USDC"
-                 :base "ETH"
-                 :quote "USDC"}]]
+               [btc-instrument eth-instrument]]
               [[:portfolio-ui :optimizer :universe-search-query]
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio :optimizer :history-prefetch]
+               (queued-prefetch-state [eth-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
-               true]]]]
+               true]]]
+            selection-prefetch-effect]
            (actions/add-portfolio-optimizer-universe-instrument
             state
             "perp:ETH")))
     (is (= [[:effects/save-many
              [[[:portfolio :optimizer :draft :universe]
-               [{:instrument-id "perp:BTC"
-                 :market-type :perp
-                 :coin "BTC"
-                 :shortable? true}
-                {:instrument-id "spot:PURR/USDC"
-                 :market-type :spot
-                 :coin "PURR/USDC"
-                 :shortable? false
-                 :symbol "PURR/USDC"
-                 :base "PURR"
-                 :quote "USDC"}]]
+               [btc-instrument purr-instrument]]
               [[:portfolio-ui :optimizer :universe-search-query]
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio :optimizer :history-prefetch]
+               (queued-prefetch-state [purr-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
-               true]]]]
+               true]]]
+            selection-prefetch-effect]
            (actions/add-portfolio-optimizer-universe-instrument
             state
             "spot:PURR/USDC")))))
 
 (deftest add-draft-universe-instrument-from-vault-row-test
   (let [vault-address "0x1111111111111111111111111111111111111111"
+        vault-instrument {:instrument-id (str "vault:" vault-address)
+                          :market-type :vault
+                          :coin (str "vault:" vault-address)
+                          :vault-address vault-address
+                          :shortable? false
+                          :name "Alpha Yield"
+                          :symbol "Alpha Yield"
+                          :tvl 500}
         state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"
                                                             :market-type :perp
                                                             :coin "BTC"
@@ -124,14 +158,40 @@
                  :market-type :perp
                  :coin "BTC"
                  :shortable? true}
-                {:instrument-id (str "vault:" vault-address)
-                 :market-type :vault
-                 :coin (str "vault:" vault-address)
-                 :vault-address vault-address
-                 :shortable? false
-                 :name "Alpha Yield"
-                 :symbol "Alpha Yield"
-                 :tvl 500}]]
+                vault-instrument]]
+              [[:portfolio-ui :optimizer :universe-search-query]
+               ""]
+              [[:portfolio-ui :optimizer :universe-search-active-index]
+               0]
+              [[:portfolio :optimizer :history-prefetch]
+               (queued-prefetch-state [vault-instrument])]
+              [[:portfolio :optimizer :draft :metadata :dirty?]
+               true]]]
+            selection-prefetch-effect]
+           (actions/add-portfolio-optimizer-universe-instrument
+            state
+            (str "vault:" vault-address))))))
+
+(deftest add-draft-universe-instrument-skips-prefetch-when-history-is-loaded-test
+  (let [eth-instrument {:instrument-id "perp:ETH"
+                        :market-type :perp
+                        :coin "ETH"
+                        :shortable? true}
+        state {:portfolio {:optimizer
+                           {:draft {:universe []}
+                            :history-data {:candle-history-by-coin
+                                           {"ETH" [{:time 1000 :close "100"}
+                                                   {:time 2000 :close "101"}]}
+                                           :funding-history-by-coin
+                                           {"ETH" [{:time-ms 1000
+                                                   :funding-rate-raw 0}]}}}}
+               :asset-selector {:market-by-key
+                                {"perp:ETH" {:key "perp:ETH"
+                                             :market-type :perp
+                                             :coin "ETH"}}}}]
+    (is (= [[:effects/save-many
+             [[[:portfolio :optimizer :draft :universe]
+               [eth-instrument]]
               [[:portfolio-ui :optimizer :universe-search-query]
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
@@ -140,7 +200,7 @@
                true]]]]
            (actions/add-portfolio-optimizer-universe-instrument
             state
-            (str "vault:" vault-address))))))
+            "perp:ETH")))))
 
 (deftest add-draft-universe-instrument-rejects-missing-or-duplicate-market-test
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"
