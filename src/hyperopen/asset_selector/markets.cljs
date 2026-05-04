@@ -295,6 +295,12 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
+(defn expired-outcome-market? [market now-ms]
+  (let [expiry-ms (parse-int-value (:expiry-ms market))
+        now-ms* (parse-int-value now-ms)]
+    (boolean (and (= :outcome (:market-type market)) (number? expiry-ms) (number? now-ms*)
+                  (<= expiry-ms now-ms*)))))
+
 (defn- canonical-perp-dex-index
   [meta dex perp-dex-index]
   (some parse-int-value

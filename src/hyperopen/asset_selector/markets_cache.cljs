@@ -11,6 +11,9 @@
 (def ^:private asset-selector-markets-cache-version
   1)
 
+(def ^:private default-active-asset
+  "BTC")
+
 (def ^:private supported-market-types
   #{:perp :spot :outcome})
 
@@ -394,14 +397,26 @@
           market-index-by-key (market-index-by-key-from-markets cached-markets)
           active-asset (:active-asset state)
           resolved-active-market (when (string? active-asset)
-                                   (resolve-market-by-coin-fn market-by-key active-asset))]
+                                   (resolve-market-by-coin-fn market-by-key active-asset))
+          expired-active-outcome? (markets/expired-outcome-market?
+                                   resolved-active-market
+                                   (platform/now-ms))
+          fallback-active-market (when expired-active-outcome?
+                                   (resolve-market-by-coin-fn market-by-key
+                                                              default-active-asset))]
       (cond-> (-> state
                   (assoc-in [:asset-selector :markets] cached-markets)
                   (assoc-in [:asset-selector :market-by-key] market-by-key)
                   (assoc-in [:asset-selector :market-index-by-key] market-index-by-key)
                   (assoc-in [:asset-selector :phase] :bootstrap)
                   (assoc-in [:asset-selector :cache-hydrated?] true))
-        (map? resolved-active-market)
+        expired-active-outcome?
+        (assoc :active-asset default-active-asset
+               :selected-asset default-active-asset
+               :active-market fallback-active-market)
+
+        (and (not expired-active-outcome?)
+             (map? resolved-active-market))
         (assoc :active-market resolved-active-market)))))
 
 (defn restore-asset-selector-markets-cache!

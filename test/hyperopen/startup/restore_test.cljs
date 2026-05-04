@@ -333,3 +333,40 @@
     (is (= "CL" (:selected-asset @store)))
     (is (= [["active-asset" "CL"]]
            @local-storage-set-calls))))
+
+(deftest restore-active-asset-defaults-expired-cached-outcome-to-btc-test
+  (let [expired-outcome {:key "outcome:1"
+                         :coin "#10"
+                         :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                         :base "BTC"
+                         :market-type :outcome
+                         :expiry-ms 1777788000000
+                         :outcome-sides [{:side-index 0 :coin "#10"}
+                                         {:side-index 1 :coin "#11"}]}
+        store (atom {:router {:path "/trade"}
+                     :active-asset nil
+                     :selected-asset nil
+                     :active-market nil})
+        local-storage-set-calls (atom [])
+        loaded-assets (atom [])]
+    (with-redefs [platform/now-ms (fn [] 1777874400000)
+                  platform/local-storage-get (fn [key]
+                                               (case key
+                                                 "active-asset" "#10"
+                                                 nil))
+                  platform/local-storage-set! (fn [key value]
+                                                (swap! local-storage-set-calls conj [key value]))]
+      (startup-restore/restore-active-asset!
+       store
+       {:connected?-fn (constantly false)
+        :dispatch! (fn [& _] nil)
+        :load-active-market-display-fn (fn [asset]
+                                         (swap! loaded-assets conj asset)
+                                         (when (= "#10" asset)
+                                           expired-outcome))}))
+    (is (= ["#10"] @loaded-assets))
+    (is (= "BTC" (:active-asset @store)))
+    (is (= "BTC" (:selected-asset @store)))
+    (is (nil? (:active-market @store)))
+    (is (= [["active-asset" "BTC"]]
+           @local-storage-set-calls))))

@@ -1,6 +1,7 @@
 (ns hyperopen.startup.restore
   (:require [clojure.string :as str]
             [hyperopen.account.history.shared :as history-shared]
+            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.account.context :as account-context]
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
@@ -9,6 +10,9 @@
             [hyperopen.platform.webauthn :as webauthn]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.wallet.agent-session :as agent-session]))
+
+(def ^:private default-active-asset
+  "BTC")
 
 (defn restore-agent-storage-mode!
   [store]
@@ -167,14 +171,24 @@
           asset (cond
                   (seq route-asset) route-asset
                   (seq stored-asset) stored-asset
-                  :else "BTC")
-          cached-market (load-active-market-display-fn asset)]
+                  :else default-active-asset)
+          cached-market (load-active-market-display-fn asset)
+          expired-outcome? (markets/expired-outcome-market? cached-market
+                                                            (platform/now-ms))
+          restored-asset (if expired-outcome?
+                           default-active-asset
+                           asset)
+          restored-market (when-not expired-outcome?
+                            cached-market)]
       (swap! store
              (fn [state]
-               (cond-> (assoc state :active-asset asset :selected-asset asset)
-                 (map? cached-market) (assoc :active-market cached-market))))
-      (when (or (seq route-asset)
+               (cond-> (assoc state
+                               :active-asset restored-asset
+                               :selected-asset restored-asset)
+                 (map? restored-market) (assoc :active-market restored-market))))
+      (when (or expired-outcome?
+                (seq route-asset)
                 (not (seq stored-asset)))
-        (platform/local-storage-set! "active-asset" asset))
+        (platform/local-storage-set! "active-asset" restored-asset))
       (when (connected?-fn)
-        (dispatch! store nil [[:actions/subscribe-to-asset asset]])))))
+        (dispatch! store nil [[:actions/subscribe-to-asset restored-asset]])))))

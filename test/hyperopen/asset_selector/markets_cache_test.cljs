@@ -3,6 +3,7 @@
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.asset-selector.markets-cache :as markets-cache]
             [hyperopen.core-bootstrap.test-support.browser-mocks :as browser-mocks]
+            [hyperopen.platform :as platform]
             [hyperopen.test-support.async :as async-support]))
 
 (deftest build-asset-selector-markets-cache-sorts-and-normalizes-test
@@ -142,6 +143,38 @@
            (get-in result [:active-market :asset-id])))
     (is (= true
            (get-in result [:asset-selector :cache-hydrated?])))))
+
+(deftest restore-asset-selector-markets-cache-state-defaults-expired-active-outcome-to-btc-test
+  (let [expired-outcome {:key "outcome:1"
+                         :coin "#10"
+                         :symbol "BTC above 78213 on May 3 at 2:00 AM?"
+                         :base "BTC"
+                         :market-type :outcome
+                         :expiry-ms 1777788000000
+                         :outcome-sides [{:side-index 0 :coin "#10"}
+                                         {:side-index 1 :coin "#11"}]}
+        btc-market {:key "perp:BTC"
+                    :coin "BTC"
+                    :symbol "BTC-USDC"
+                    :base "BTC"
+                    :market-type :perp}
+        state {:active-asset "#10"
+               :selected-asset "#10"
+               :active-market nil
+               :asset-selector {:markets []
+                                :market-by-key {}
+                                :market-index-by-key {}
+                                :phase :bootstrap}}
+        result (with-redefs [platform/now-ms (fn [] 1777874400000)]
+                 (markets-cache/restore-asset-selector-markets-cache-state
+                  state
+                  [expired-outcome btc-market]
+                  markets/resolve-market-by-coin))]
+    (is (= "BTC" (:active-asset result)))
+    (is (= "BTC" (:selected-asset result)))
+    (is (= btc-market (:active-market result)))
+    (is (= [expired-outcome btc-market]
+           (get-in result [:asset-selector :markets])))))
 
 (deftest persist-and-load-asset-selector-markets-cache-roundtrip-test
   (async done
