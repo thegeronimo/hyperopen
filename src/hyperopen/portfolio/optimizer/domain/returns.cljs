@@ -12,7 +12,13 @@
 
 (defn- return-series
   [history instrument-id]
-  (vec (get-in history [:return-series-by-instrument instrument-id])))
+  (vec (or (get-in history [:expected-return-series-by-instrument instrument-id])
+           (get-in history [:return-series-by-instrument instrument-id]))))
+
+(defn- return-intervals
+  [history instrument-id]
+  (vec (or (get-in history [:expected-return-intervals-by-instrument instrument-id])
+           (:return-intervals history))))
 
 (defn- funding-summary
   [history instrument-id]
@@ -50,8 +56,8 @@
          total-weight))))
 
 (defn- interval-observations
-  [history series]
-  (let [intervals (vec (:return-intervals history))]
+  [history instrument-id series]
+  (let [intervals (return-intervals history instrument-id)]
     (when (= (count intervals) (count series))
       (let [observations (mapv (fn [simple-return {:keys [dt-days dt-years]}]
                                  (when (and (math/finite-number? simple-return)
@@ -84,9 +90,9 @@
          1))))
 
 (defn- return-component
-  [return-model periods-per-year history series]
+  [return-model periods-per-year history instrument-id series]
   (let [kind (:kind return-model)
-        observations (interval-observations history series)]
+        observations (interval-observations history instrument-id series)]
     (or (case kind
           :ew-mean (when observations
                      (ew-mean (mapv :annualized-return observations)
@@ -123,6 +129,7 @@
                   (let [return-part (return-component return-model*
                                                       periods-per-year*
                                                       history
+                                                      instrument-id
                                                       series)
                         funding-part (funding-carry history instrument-id)
                         total (+ return-part funding-part)

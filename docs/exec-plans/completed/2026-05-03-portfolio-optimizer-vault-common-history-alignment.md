@@ -1,6 +1,6 @@
 ---
 owner: platform
-status: active
+status: completed
 created: 2026-05-03
 source_of_truth: false
 tracked_issue: hyperopen-ejzz
@@ -33,6 +33,8 @@ After this change, the optimizer should derive a returns matrix from a common sh
 - [x] (2026-05-03 20:50Z) Added and ran targeted Playwright regression for the selected vault row `shared gap` label.
 - [x] (2026-05-03 20:52Z) Ran focused optimizer tests, `npm test`, `npm run test:websocket`, targeted Playwright, and browser cleanup. `npm run check` remains blocked by unrelated `docs/exec-plans/active/2026-05-03-outcome-no-market-order-book-subscription.md` failing `active-exec-plan-no-unchecked-progress`.
 - [x] (2026-05-03 20:57Z) Addressed static review edge case where direct `:one-year` candidates could mask valid derived `:one-year` candidates during common-window fallback; added regression coverage and reran focused optimizer tests.
+- [x] (2026-05-04 00:34Z) Confirmed follow-up regression: HLP's displayed `-4.11%` expected return came from annualizing its shared direct-month risk window, while the preferred derived one-year vault history was about `+20.9%`.
+- [x] (2026-05-04 00:43Z) Added RED coverage for preferred expected-return histories and implemented a separate expected-return history contract while keeping covariance on the aligned common window.
 
 ## Surprises & Discoveries
 
@@ -54,6 +56,9 @@ After this change, the optimizer should derive a returns matrix from a common sh
 - Observation: Same-window vault candidates must be tried by rank, not collapsed to the first candidate for a window.
   Evidence: static review found that a direct `:one-year` summary could prevent fallback from trying a derived `:one-year` summary for the same vault. Added `align-history-inputs-tries-derived-one-year-when-direct-one-year-window-does-not-overlap-test` and updated fallback to try ranked candidates per common window.
 
+- Observation: The common-window fallback fixed covariance alignment but accidentally changed HLP's expected-return sample from its preferred one-year-derived vault history to its shared direct-month history.
+  Evidence: live `vaultDetails` replay on 2026-05-04 showed HLP direct month return around `-0.35%`, which geometric-annualizes to about `-4.16%`, matching the screenshot. The same payload's derived one-year history returned about `+20.94%`.
+
 ## Decision Log
 
 - Decision: Fix the return-history selection, not the solver or progress UI.
@@ -72,11 +77,17 @@ After this change, the optimizer should derive a returns matrix from a common sh
   Rationale: The current green `sufficient` chip creates the false impression that the selected universe is ready even when the actual readiness panel says `INSUFFICIENT-COMMON-HISTORY`.
   Date/Author: 2026-05-03 / Codex
 
+- Decision: Split risk-aligned return series from expected-return series for vault histories.
+  Rationale: Covariance and volatility require a shared calendar across all selected assets, but a vault's standalone expected return should use its preferred available return window. Keeping a separate expected-return series lets HLP use its derived one-year path while Systemic can still force the covariance matrix onto a shared month window.
+  Date/Author: 2026-05-04 / Codex
+
 ## Outcomes & Retrospective
 
 Implemented. Vault detail normalization now exposes ordered candidate histories while preserving `normalize-vault-history` as the preferred-history compatibility wrapper. History alignment first uses the existing preferred histories, then tries deterministic common vault windows and same-window candidate ranks before emitting `:insufficient-common-history`. The motivating fixture aligns on the direct `:month` window with four shared price observations and three return observations.
 
 Setup readiness now exposes `history-status-by-instrument`, and the setup universe panel uses that status map so rows distinguish `sufficient`, `shared gap`, `short`, and `missing`. A targeted Playwright regression covers the browser-rendered `shared gap` chip.
+
+Follow-up regression fixed: aligned history now exposes `:expected-return-series-by-instrument` and per-instrument `:expected-return-intervals-by-instrument` for vaults. The return estimator prefers those keys when present, falling back to the covariance-aligned return series otherwise. This preserves common-window risk estimation without turning HLP's one-year-derived expected return into a month-window estimate.
 
 ## Context and Orientation
 

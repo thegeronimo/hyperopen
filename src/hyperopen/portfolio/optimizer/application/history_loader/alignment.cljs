@@ -163,6 +163,26 @@
              :dt-years (/ dt-days 365.2425)}))
         (partition 2 1 calendar)))
 
+(defn- expected-return-series-map
+  [eligible]
+  (into {}
+        (keep (fn [{:keys [instrument-id expected-return-history]}]
+                (let [history (vec expected-return-history)
+                      series (return-series history)]
+                  (when (seq series)
+                    [instrument-id series]))))
+        eligible))
+
+(defn- expected-return-intervals-map
+  [eligible]
+  (into {}
+        (keep (fn [{:keys [instrument-id expected-return-history]}]
+                (let [calendar (mapv :time-ms expected-return-history)
+                      intervals (return-intervals calendar)]
+                  (when (seq intervals)
+                    [instrument-id intervals]))))
+        eligible))
+
 (defn- funding-summary
   [instrument funding-history-by-coin funding-periods-per-year]
   (if-not (instruments/perp-instrument? instrument)
@@ -288,6 +308,7 @@
                                       :excluded? false}
                                vault? (assoc :vault-address vault-address*)
                                vault? (assoc :vault-history-candidates vault-candidates)
+                               vault? (assoc :expected-return-history history)
                                vault? (assoc :history-source
                                              (select-keys (first vault-candidates)
                                                           [:source :window]))
@@ -319,6 +340,9 @@
                                           (map (fn [[instrument-id prices]]
                                                  [instrument-id (return-series prices)]))
                                           price-series-by-instrument)
+        expected-return-series-by-instrument (expected-return-series-map effective-eligible)
+        expected-return-intervals-by-instrument (expected-return-intervals-map
+                                                 effective-eligible)
         funding-by-instrument (into {}
                                     (map (fn [instrument]
                                            [(instruments/normalize-instrument-id instrument)
@@ -333,6 +357,8 @@
      :price-series-by-instrument price-series-by-instrument
      :return-series-by-instrument return-series-by-instrument
      :return-intervals (return-intervals effective-calendar)
+     :expected-return-series-by-instrument expected-return-series-by-instrument
+     :expected-return-intervals-by-instrument expected-return-intervals-by-instrument
      :funding-by-instrument funding-by-instrument
      :warnings warnings
      :freshness (freshness effective-calendar as-of-ms stale-after-ms)

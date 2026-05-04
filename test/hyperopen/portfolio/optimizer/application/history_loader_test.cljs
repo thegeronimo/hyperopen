@@ -400,6 +400,76 @@
     (is (not-any? #(= :insufficient-common-history (:code %))
                   (:warnings aligned)))))
 
+(deftest align-history-inputs-keeps-preferred-vault-return-series-for-expected-returns-test
+  (let [hlp-address "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+        growi-address "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
+        systemic-address "0xd6e56265890b76413d1d527eb9b75e334c0c5b42"
+        hlp-id (vault-instrument-id hlp-address)
+        growi-id (vault-instrument-id growi-address)
+        systemic-id (vault-instrument-id systemic-address)
+        h0 (day-start-ms "2025-05-03")
+        h1 (day-start-ms "2025-10-30")
+        m0 (day-start-ms "2026-04-02")
+        m1 (day-start-ms "2026-04-12")
+        m2 (day-start-ms "2026-04-23")
+        m3 (day-start-ms "2026-05-03")
+        hlp-month (summary-from-points [[m0 100 0]
+                                        [m1 99 -1]
+                                        [m2 98 -2]
+                                        [m3 97 -3]])
+        growi-month (summary-from-points [[m0 100 0]
+                                          [m1 102 2]
+                                          [m2 104 4]
+                                          [m3 106 6]])
+        systemic-month (summary-from-points [[m0 100 0]
+                                             [m1 103 3]
+                                             [m2 106 6]
+                                             [m3 109 9]])
+        positive-derived (summary-from-points [[h0 100 0]
+                                               [h1 110 10]
+                                               [m3 121 21]])
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id hlp-id
+                              :market-type :vault
+                              :coin hlp-id
+                              :vault-address hlp-address}
+                             {:instrument-id growi-id
+                              :market-type :vault
+                              :coin growi-id
+                              :vault-address growi-address}
+                             {:instrument-id systemic-id
+                              :market-type :vault
+                              :coin systemic-id
+                              :vault-address systemic-address}]
+                  :vault-details-by-address
+                  {hlp-address {:portfolio {:all-time positive-derived
+                                             :month hlp-month}}
+                   growi-address {:portfolio {:all-time positive-derived
+                                               :month growi-month}}
+                   systemic-address {:portfolio {:all-time (summary-from-points [[m3 109 9]])
+                                                  :month systemic-month}}}
+                  :as-of-ms (+ m3 day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [m0 m1 m2 m3] (:calendar aligned)))
+    (is (= {:kind :common-vault-window
+            :window :month
+            :observations 4}
+           (:alignment-source aligned)))
+    (is (neg? (get-in aligned [:return-series-by-instrument hlp-id 0])))
+    (is (= 2
+           (count (get-in aligned [:expected-return-series-by-instrument hlp-id]))))
+    (is (every? #(near? 0.1 %)
+                (get-in aligned [:expected-return-series-by-instrument hlp-id])))
+    (is (= [{:start-ms h0
+             :end-ms h1
+             :dt-days 180
+             :dt-years (/ 180 365.2425)}
+            {:start-ms h1
+             :end-ms m3
+             :dt-days 185
+             :dt-years (/ 185 365.2425)}]
+           (get-in aligned [:expected-return-intervals-by-instrument hlp-id])))))
+
 (deftest align-history-inputs-keeps-common-history-warning-when-no-vault-window-overlaps-test
   (let [vault-a "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         vault-b "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

@@ -65,6 +65,28 @@
            (get-in result
                    [:decomposition-by-instrument "vault:HLP" :funding-source])))))
 
+(deftest historical-mean-prefers-expected-return-series-over-risk-aligned-series-test
+  (let [result (returns/estimate-expected-returns
+                {:return-model {:kind :historical-mean}
+                 :history {:return-series-by-instrument {"vault:HLP" [-0.0035]}
+                           :return-intervals [{:dt-days 31
+                                               :dt-years (/ 31 365.2425)}]
+                           :expected-return-series-by-instrument {"vault:HLP" [0.1 0.1]}
+                           :expected-return-intervals-by-instrument {"vault:HLP" [{:dt-years 0.5}
+                                                                                  {:dt-years 0.5}]}
+                           :funding-by-instrument {"vault:HLP" {:annualized-carry 0
+                                                                :source :not-applicable}}}})]
+    (is (near? 0.21
+               (get-in result [:expected-returns-by-instrument "vault:HLP"])))
+    (is (near? 0.21
+               (get-in result
+                       [:decomposition-by-instrument "vault:HLP" :return-component])))
+    (is (= [{:code :low-return-sample-size
+             :instrument-id "vault:HLP"
+             :observations 2
+             :recommended-observations 30}]
+           (:warnings result)))))
+
 (deftest historical-mean-preserves-daily-arithmetic-estimator-test
   (let [result (returns/estimate-expected-returns
                 {:return-model {:kind :historical-mean}
