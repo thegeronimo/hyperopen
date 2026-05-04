@@ -12,13 +12,12 @@
 (def ^:private vault-accent "#35d7c7")
 (def ^:private vault-border "rgba(53, 215, 199, 0.72)")
 (def ^:private vault-text "#8ffcf1")
-(def ^:private vault-icon-bg "rgba(6, 18, 20, 0.92)")
-(def ^:private vault-label-bg "rgba(9, 22, 24, 0.92)")
-(def ^:private vault-icon-size 30)
-(def ^:private vault-label-height 24)
-(def ^:private vault-gap 5)
-(def ^:private vault-label-padding-x 8)
-(def ^:private vault-label-min-width 44)
+(def ^:private vault-icon-size 22)
+(def ^:private vault-label-height 22)
+(def ^:private vault-gap 4)
+(def ^:private vault-leader-length 10)
+(def ^:private vault-label-padding-x 9)
+(def ^:private vault-label-min-width 48)
 
 (defn- lucide-node->hiccup
   [node]
@@ -28,17 +27,18 @@
 
 (defn- vault-layers-icon
   []
-  (into [:svg {:x -12
-               :y -12
-               :width 24
-               :height 24
+  (into [:svg {:x -11
+               :y -11
+               :width 22
+               :height 22
                :viewBox "0 0 24 24"
                :fill "none"
                :stroke "currentColor"
-               :stroke-width 1.75
+               :stroke-width 1.65
                :stroke-linecap "round"
                :stroke-linejoin "round"
                :aria-hidden true
+               :class "portfolio-frontier-vault-glyph"
                :style {:color vault-text
                        :filter (str "drop-shadow(0 0 2px rgba(143, 252, 241, 0.78)) "
                                     "drop-shadow(0 0 8px rgba(53, 215, 199, 0.36))")}}]
@@ -248,13 +248,17 @@
                             (* 2 vault-label-padding-x)))
         icon-half (/ vault-icon-size 2)
         label-half (/ vault-label-height 2)
-        label-x (+ icon-half vault-gap)]
+        leader-x1 (+ icon-half vault-gap)
+        leader-x2 (+ leader-x1 vault-leader-length)
+        label-x (+ leader-x2 vault-gap)]
     {:code code
      :icon-half icon-half
      :label-half label-half
+     :leader-x1 leader-x1
+     :leader-x2 leader-x2
      :label-x label-x
      :label-width label-width
-     :full-width (+ vault-icon-size vault-gap label-width)}))
+     :full-width (+ vault-icon-size vault-gap vault-leader-length vault-gap label-width)}))
 
 (defn- marker-shell-attrs
   ([data-role label rows]
@@ -285,7 +289,7 @@
   [data-role x y point color]
   (let [label (overlay-label point)]
     (if (vault-point? point)
-      (let [{:keys [code icon-half label-half label-x label-width]}
+      (let [{:keys [code label-half leader-x1 leader-x2 label-x label-width]}
             (vault-marker-layout point)]
         [:g {:data-role data-role
              :class ["portfolio-frontier-asset-icon-marker"
@@ -294,33 +298,31 @@
          [:g {:data-role (str/replace data-role
                                       "portfolio-optimizer-frontier-overlay-symbol"
                                       "portfolio-optimizer-frontier-vault-icon")}
-          [:rect {:x (- icon-half)
-                  :y (- icon-half)
-                  :width vault-icon-size
-                  :height vault-icon-size
-                  :rx 6
-                  :class "portfolio-frontier-vault-box"
-                  :fill vault-icon-bg
-                  :stroke vault-border
-                  :strokeWidth 1
-                  :style {:filter "drop-shadow(0 0 7px rgba(53, 215, 199, 0.26))"}}]
           (vault-layers-icon)]
+         [:line {:x1 leader-x1
+                 :y1 0
+                 :x2 leader-x2
+                 :y2 0
+                 :class "portfolio-frontier-vault-leader"
+                 :stroke vault-border
+                 :strokeWidth 1
+                 :strokeLinecap "round"}]
          [:rect {:x label-x
                  :y (- label-half)
                  :width label-width
                  :height vault-label-height
-                 :rx 5
-                 :class "portfolio-frontier-vault-box"
-                 :fill vault-label-bg
+                 :rx 4
+                 :class "portfolio-frontier-vault-label"
+                 :fill "transparent"
                  :stroke vault-border
                  :strokeWidth 1
-                 :style {:filter "drop-shadow(0 0 5px rgba(53, 215, 199, 0.16))"}}]
+                 :style {:filter "drop-shadow(0 0 4px rgba(53, 215, 199, 0.18))"}}]
          [:text {:x (+ label-x (/ label-width 2))
                  :y 0
                  :fill vault-text
-                 :fontSize 13
+                 :fontSize 12
                  :fontWeight 600
-                 :letterSpacing "0.035em"
+                 :letterSpacing "0.02em"
                  :dominant-baseline "middle"
                  :alignment-baseline "middle"
                  :text-anchor "middle"
