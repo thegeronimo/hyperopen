@@ -93,11 +93,12 @@
                    (:coin instrument)])))
 
 (defn- selected-history-label
-  [state readiness history-load-state instrument]
+  [state readiness history-load-state history-status-by-id instrument]
   (let [instrument-id (:instrument-id instrument)
         loading-ids (instrument-ids (get-in history-load-state
                                             [:request-signature :universe]))
         eligible-ids (instrument-ids (get-in readiness [:request :universe]))
+        readiness-status (get history-status-by-id instrument-id)
         warning (warning-by-instrument-id readiness instrument-id)
         warning-code (:code warning)
         load-validated? (and (= :succeeded (:status history-load-state))
@@ -108,12 +109,26 @@
            (contains? loading-ids instrument-id))
       "loading"
 
+      (= :loaded-but-misaligned readiness-status)
+      "shared gap"
+
+      (= :aligned readiness-status)
+      "sufficient"
+
       (contains? eligible-ids instrument-id)
       "sufficient"
+
+      (and (= :insufficient readiness-status)
+           (or load-validated? cached-history?))
+      "insufficient"
 
       (and (contains? insufficient-history-warning-codes warning-code)
            (or load-validated? cached-history?))
       "insufficient"
+
+      (and (= :missing readiness-status)
+           load-validated?)
+      "missing"
 
       (and (contains? missing-history-warning-codes warning-code)
            load-validated?)
@@ -150,11 +165,15 @@
      (tag "vault" :info))])
 
 (defn- selected-row
-  [state readiness history-load-state instrument]
+  [state readiness history-load-state history-status-by-id instrument]
   (let [instrument-id (:instrument-id instrument)
         coin (:coin instrument)
         market-type (:market-type instrument)
-        history (selected-history-label state readiness history-load-state instrument)
+        history (selected-history-label state
+                                        readiness
+                                        history-load-state
+                                        history-status-by-id
+                                        instrument)
         primary-label (instrument-display/primary-label instrument)
         {:keys [name base-label]} (universe-candidates/market-display instrument)
         secondary-label (or (normalized-text (:name instrument))
@@ -215,7 +234,7 @@
       "+ add"]]))
 
 (defn- selected-table
-  [state readiness history-load-state universe]
+  [state readiness history-load-state history-status-by-id universe]
   [:div {:class ["mt-2" "border" "border-base-300" "bg-base-100/50"]}
    [:div {:class ["flex" "items-center" "border-b" "border-base-300" "px-2" "py-1.5"]}
     [:span {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.12em]"
@@ -225,17 +244,23 @@
      "cap: 25 assets"]]
    (if (seq universe)
      (into [:div {:class ["text-xs"]}]
-           (map #(selected-row state readiness history-load-state %) universe))
+           (map #(selected-row state
+                               readiness
+                               history-load-state
+                               history-status-by-id
+                               %)
+                universe))
      [:p {:class ["px-2" "py-3" "text-xs" "text-trading-muted"]}
       "No instruments selected yet."])])
 
 (defn universe-section
   ([state draft]
    (universe-section state draft nil))
-  ([state draft {:keys [readiness history-load-state]}]
+  ([state draft {:keys [readiness history-load-state history-status-by-id]}]
    (let [universe (vec (or (:universe draft) []))
          history-load-state* (or history-load-state
                                  (get-in state [:portfolio :optimizer :history-load-state]))
+         history-status-by-id* (or history-status-by-id {})
          search-query (or (get-in state [:portfolio-ui :optimizer :universe-search-query]) "")
          searching? (seq (normalized-text search-query))
          markets (if searching?
@@ -319,7 +344,11 @@
                        "text-xs" "text-trading-muted"]
                :data-role "portfolio-optimizer-universe-search-results-empty"}
            "No matching unused instruments found."]))]
-     (selected-table state readiness history-load-state* universe)
+     (selected-table state
+                     readiness
+                     history-load-state*
+                     history-status-by-id*
+                     universe)
      [:div {:class ["mt-2" "font-mono" "text-[0.58rem]" "leading-5"
                     "text-trading-muted/70"]}
       "Search adds tradeable spot, perp, or vault return legs. Symbols with limited history use stabilized covariance with a longer pull toward the market reference."

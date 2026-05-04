@@ -58,6 +58,19 @@
   [node]
   (get-in node [1 :on :keydown]))
 
+(defn- day-start-ms
+  [day]
+  (.getTime (js/Date. (str day "T00:00:00.000Z"))))
+
+(defn- summary-from-points
+  [points]
+  {:accountValueHistory (mapv (fn [[time-ms account-value _pnl-value]]
+                                [time-ms account-value])
+                              points)
+   :pnlHistory (mapv (fn [[time-ms _account-value pnl-value]]
+                       [time-ms pnl-value])
+                     points)})
+
 (defn- class-token-set
   [node]
   (set (get-in node [1 :class])))
@@ -411,6 +424,48 @@
     (is (contains? missing-strings "missing"))
     (is (contains? insufficient-strings "insufficient"))
     (is (contains? sufficient-strings "sufficient"))))
+
+(deftest setup-v4-selected-vault-row-shows-shared-gap-when-loaded-history-is-misaligned-test
+  (let [vault-a "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        vault-b "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        vault-a-id (str "vault:" vault-a)
+        vault-b-id (str "vault:" vault-b)
+        a0 (day-start-ms "2026-04-01")
+        a1 (day-start-ms "2026-04-02")
+        b0 (day-start-ms "2026-04-10")
+        b1 (day-start-ms "2026-04-11")
+        view-node (portfolio-view/portfolio-view
+                   {:router {:path "/portfolio/optimize/new"}
+                    :portfolio {:optimizer
+                                {:draft {:universe [{:instrument-id vault-a-id
+                                                     :market-type :vault
+                                                     :coin vault-a-id
+                                                     :vault-address vault-a
+                                                     :name "Vault A"}
+                                                    {:instrument-id vault-b-id
+                                                     :market-type :vault
+                                                     :coin vault-b-id
+                                                     :vault-address vault-b
+                                                     :name "Vault B"}]
+                                         :objective {:kind :minimum-variance}
+                                         :return-model {:kind :historical-mean}
+                                         :risk-model {:kind :diagonal-shrink}
+                                         :constraints {:long-only? true}}
+                                 :runtime {:as-of-ms (+ b1 (* 24 60 60 1000))
+                                           :stale-after-ms (* 2 24 60 60 1000)}
+                                 :history-data
+                                 {:vault-details-by-address
+                                  {vault-a {:portfolio
+                                            {:month (summary-from-points [[a0 100 0]
+                                                                         [a1 101 1]])}}
+                                   vault-b {:portfolio
+                                            {:month (summary-from-points [[b0 100 0]
+                                                                         [b1 101 1]])}}}}}}})
+        row (node-by-role view-node
+                          (str "portfolio-optimizer-universe-selected-row-" vault-a-id))
+        row-text (node-text row)]
+    (is (str/includes? row-text "shared gap"))
+    (is (not (str/includes? row-text "sufficient")))))
 
 (deftest setup-v4-universe-search-skips-blank-lookups-but-renders-nonblank-candidates-test
   (let [vault-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

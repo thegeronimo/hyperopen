@@ -3,6 +3,22 @@
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-pipeline :as pipeline]
             [hyperopen.test-support.async :as async-support]))
 
+(def day-ms
+  (* 24 60 60 1000))
+
+(defn- day-start-ms
+  [day]
+  (.getTime (js/Date. (str day "T00:00:00.000Z"))))
+
+(defn- summary-from-points
+  [points]
+  {:accountValueHistory (mapv (fn [[time-ms account-value _pnl-value]]
+                                [time-ms account-value])
+                              points)
+   :pnlHistory (mapv (fn [[time-ms _account-value pnl-value]]
+                       [time-ms pnl-value])
+                     points)})
+
 (deftest run-portfolio-optimizer-pipeline-loads-history-before-worker-run-test
   (async done
     (let [calls (atom [])
@@ -78,6 +94,106 @@
                                    :steps
                                    0
                                    :percent])))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest run-portfolio-optimizer-pipeline-uses-common-vault-window-fallback-after-history-load-test
+  (async done
+    (let [hlp-address "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+          growi-address "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
+          systemic-address "0xd6e56265890b76413d1d527eb9b75e334c0c5b42"
+          hlp-id (str "vault:" hlp-address)
+          growi-id (str "vault:" growi-address)
+          systemic-id (str "vault:" systemic-address)
+          h0 (day-start-ms "2025-05-03")
+          h1 (day-start-ms "2025-10-30")
+          m0 (day-start-ms "2026-04-02")
+          m1 (day-start-ms "2026-04-12")
+          m2 (day-start-ms "2026-04-23")
+          m3 (day-start-ms "2026-05-03")
+          month-summary (summary-from-points [[m0 100 0]
+                                              [m1 105 5]
+                                              [m2 110 10]
+                                              [m3 115 15]])
+          sparse-derived-summary (summary-from-points [[h0 90 -10]
+                                                       [h1 100 0]
+                                                       [m3 115 15]])
+          calls (atom [])
+          store (atom {:portfolio {:optimizer
+                                    {:draft {:id "draft-three-vaults"
+                                             :universe [{:instrument-id hlp-id
+                                                         :market-type :vault
+                                                         :coin hlp-id
+                                                         :vault-address hlp-address
+                                                         :name "Hyperliquidity Provider (HLP)"}
+                                                        {:instrument-id growi-id
+                                                         :market-type :vault
+                                                         :coin growi-id
+                                                         :vault-address growi-address
+                                                         :name "Growi HF"}
+                                                        {:instrument-id systemic-id
+                                                         :market-type :vault
+                                                         :coin systemic-id
+                                                         :vault-address systemic-address
+                                                         :name "[ Systemic Strategies ] HyperGrowth"}]
+                                             :objective {:kind :minimum-variance}
+                                             :return-model {:kind :historical-mean}
+                                             :risk-model {:kind :diagonal-shrink}
+                                             :constraints {:long-only? true
+                                                           :max-asset-weight 1.0}}
+                                     :history-data {:vault-details-by-address {}}
+                                     :runtime {:as-of-ms (+ m3 day-ms)
+                                               :stale-after-ms (* 2 day-ms)}}}
+                       :webdata2 {:clearinghouseState
+                                  {:marginSummary {:accountValue "1000"}
+                                   :assetPositions []}}})
+          bundle {:vault-details-by-address
+                  {hlp-address {:portfolio {:all-time sparse-derived-summary
+                                             :month month-summary}}
+                   growi-address {:portfolio {:all-time sparse-derived-summary
+                                               :month month-summary}}
+                   systemic-address {:portfolio {:all-time (summary-from-points [[m3 115 15]])
+                                                  :month month-summary}}}
+                  :warnings []
+                  :request-plan {:vault-detail-requests [{:vault-address hlp-address}
+                                                         {:vault-address growi-address}
+                                                         {:vault-address systemic-address}]}}
+          env {:now-ms (constantly 1000)
+               :next-run-id (constantly "pipeline-run-three-vaults")
+               :load-history! (fn [store* opts]
+                                ((:on-progress opts) {:completed 3
+                                                      :total 3
+                                                      :percent 100})
+                                (swap! calls conj [:history])
+                                (swap! store*
+                                       assoc-in
+                                       [:portfolio :optimizer :history-data]
+                                       bundle)
+                                (swap! store*
+                                       assoc-in
+                                       [:portfolio :optimizer :history-load-state]
+                                       {:status :succeeded
+                                        :warnings []})
+                                (js/Promise.resolve bundle))
+               :request-run! (fn [payload]
+                               (swap! calls conj [:run (:request payload)])
+                               (:run-id payload))}]
+      (-> (pipeline/run-portfolio-optimizer-pipeline-effect env nil store)
+          (.then (fn [run-id]
+                   (let [request (second (second @calls))]
+                     (is (= "pipeline-run-three-vaults" run-id))
+                     (is (= [:history :run] (mapv first @calls)))
+                     (is (= [hlp-id growi-id systemic-id]
+                            (mapv :instrument-id (:universe request))))
+                     (is (= {:kind :common-vault-window
+                             :window :month
+                             :observations 4}
+                            (get-in request [:history :alignment-source])))
+                     (is (not-any? #(= :insufficient-common-history (:code %))
+                                   (:warnings request)))
+                     (is (= :running
+                            (get-in @store
+                                    [:portfolio :optimizer :optimization-progress :status]))))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 

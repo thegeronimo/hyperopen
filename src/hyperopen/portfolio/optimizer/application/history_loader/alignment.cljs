@@ -10,6 +10,9 @@
 (def default-funding-periods-per-year
   1095)
 
+(def ^:private common-vault-window-preference
+  [:one-year :six-month :three-month :month :week :day :all-time])
+
 (defn- row-by-time
   [rows]
   (into {}
@@ -46,6 +49,93 @@
           {:calendar []
            :eligible eligible
            :observations (max (count exact-calendar) daily-observations)})))))
+
+(defn- vault-entry?
+  [entry]
+  (contains? entry :vault-address))
+
+(defn- candidates-for-window
+  [entry window]
+  (filterv (fn [candidate]
+             (= window (:window candidate)))
+           (:vault-history-candidates entry)))
+
+(defn- window-candidate-depth
+  [eligible window]
+  (let [candidate-counts (map (fn [entry]
+                                (count (candidates-for-window entry window)))
+                              (filter vault-entry? eligible))]
+    (when (and (seq candidate-counts)
+               (every? pos? candidate-counts))
+      (reduce max candidate-counts))))
+
+(defn- ranked-window-candidate
+  [candidates rank]
+  (or (nth candidates rank nil)
+      (last candidates)))
+
+(defn- with-vault-window
+  [eligible window candidate-rank]
+  (reduce (fn [acc entry]
+            (if (vault-entry? entry)
+              (let [candidates (candidates-for-window entry window)]
+                (if-let [candidate (ranked-window-candidate candidates candidate-rank)]
+                  (conj acc
+                        (assoc entry
+                               :history (:history candidate)
+                               :history-source (select-keys candidate
+                                                            [:source :window])))
+                  (reduced nil)))
+              (conj acc entry)))
+          []
+          eligible))
+
+(defn- successful-alignment?
+  [alignment]
+  (seq (:calendar alignment)))
+
+(defn- source-alignment
+  [alignment source]
+  (assoc alignment
+         :alignment-source (assoc source :observations (:observations alignment))))
+
+(defn- common-vault-window-alignments
+  [eligible min-observations]
+  (when (some vault-entry? eligible)
+    (mapcat (fn [window]
+              (if-let [depth (window-candidate-depth eligible window)]
+                (keep (fn [candidate-rank]
+                        (when-let [window-eligible (with-vault-window
+                                                     eligible
+                                                     window
+                                                     candidate-rank)]
+                          (source-alignment
+                           (effective-history-alignment window-eligible
+                                                        min-observations)
+                           {:kind :common-vault-window
+                            :window window})))
+                      (range depth))
+                []))
+            common-vault-window-preference)))
+
+(defn- best-observations
+  [alignments]
+  (reduce max 0 (map #(or (:observations %) 0) alignments)))
+
+(defn- resolve-history-alignment
+  [eligible min-observations]
+  (let [preferred (source-alignment
+                   (effective-history-alignment eligible min-observations)
+                   {:kind :preferred-history})
+        fallbacks (vec (common-vault-window-alignments eligible min-observations))]
+    (if (successful-alignment? preferred)
+      preferred
+      (or (some #(when (successful-alignment? %) %) fallbacks)
+          (let [observations (best-observations (into [preferred] fallbacks))]
+            (assoc preferred
+                   :observations observations
+                   :alignment-source {:kind :preferred-history
+                                      :observations observations}))))))
 
 (defn- prices-for-calendar
   [history calendar]
@@ -127,9 +217,11 @@
                                instrument-id (instruments/normalize-instrument-id instrument)
                                vault? (instruments/vault-instrument? instrument)
                                vault-address* (instruments/vault-address instrument)
+                               vault-candidates (when vault?
+                                                  (normalization/vault-history-candidates
+                                                   (get vault-details-by-address vault-address*)))
                                history (if vault?
-                                         (normalization/normalize-vault-history
-                                          (get vault-details-by-address vault-address*))
+                                         (some-> vault-candidates first :history)
                                          (normalization/normalize-candle-history
                                           (get candle-history-by-coin coin)))]
                            (cond
@@ -195,10 +287,14 @@
                                       :history history
                                       :excluded? false}
                                vault? (assoc :vault-address vault-address*)
+                               vault? (assoc :vault-history-candidates vault-candidates)
+                               vault? (assoc :history-source
+                                             (select-keys (first vault-candidates)
+                                                          [:source :window]))
                                (not vault?) (assoc :coin coin)))))
                        (or universe []))
         eligible (filterv (complement :excluded?) prepared)
-        alignment (effective-history-alignment eligible min-observations*)
+        alignment (resolve-history-alignment eligible min-observations*)
         effective-calendar (:calendar alignment)
         effective-eligible (:eligible alignment)
         history-warning (when (and (seq eligible)
@@ -239,4 +335,5 @@
      :return-intervals (return-intervals effective-calendar)
      :funding-by-instrument funding-by-instrument
      :warnings warnings
-     :freshness (freshness effective-calendar as-of-ms stale-after-ms)}))
+     :freshness (freshness effective-calendar as-of-ms stale-after-ms)
+     :alignment-source (:alignment-source alignment)}))

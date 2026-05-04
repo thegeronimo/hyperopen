@@ -17,6 +17,16 @@
     :insufficient-vault-history
     :insufficient-common-history})
 
+(def ^:private missing-history-warning-codes
+  #{:missing-history-coin
+    :missing-candle-history
+    :missing-vault-address
+    :missing-vault-history})
+
+(def ^:private insufficient-history-warning-codes
+  #{:insufficient-candle-history
+    :insufficient-vault-history})
+
 (defn- current-as-of-ms
   [state]
   (or (get-in state [:portfolio :optimizer :runtime :as-of-ms])
@@ -181,6 +191,44 @@
                        (contains? history-blocking-warning-codes
                                   (:code warning)))))
          (with-warning-messages request))))
+
+(defn- warning-history-status
+  [warning]
+  (cond
+    (contains? missing-history-warning-codes (:code warning))
+    :missing
+
+    (contains? insufficient-history-warning-codes (:code warning))
+    :insufficient
+
+    :else
+    nil))
+
+(defn history-status-by-instrument
+  [readiness]
+  (let [request (:request readiness)
+        requested-ids (mapv :instrument-id (:requested-universe request))
+        aligned-ids (instrument-ids (:universe request))
+        warnings (vec (concat (or (:warnings request) [])
+                              (or (:warnings readiness) [])))
+        common-gap? (boolean (some #(= :insufficient-common-history (:code %))
+                                   warnings))
+        warning-status-by-id (into {}
+                                   (keep (fn [warning]
+                                           (when-let [instrument-id (:instrument-id warning)]
+                                             (when-let [status (warning-history-status warning)]
+                                               [instrument-id status]))))
+                                   warnings)]
+    (into {}
+          (map (fn [instrument-id]
+                 [instrument-id
+                  (or (when (contains? aligned-ids instrument-id)
+                        :aligned)
+                      (get warning-status-by-id instrument-id)
+                      (when common-gap?
+                        :loaded-but-misaligned)
+                      :missing)]))
+          requested-ids)))
 
 (defn readiness-error-message
   [readiness]

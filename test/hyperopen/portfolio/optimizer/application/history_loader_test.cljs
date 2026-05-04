@@ -344,6 +344,148 @@
     (is (near? (/ 5 105) (get-in aligned [:return-series-by-instrument vault-instrument-id 1])))
     (is (= [] (:warnings aligned)))))
 
+(deftest align-history-inputs-falls-back-to-common-direct-vault-window-when-preferred-windows-do-not-overlap-test
+  (let [hlp-address "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"
+        growi-address "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
+        systemic-address "0xd6e56265890b76413d1d527eb9b75e334c0c5b42"
+        hlp-id (vault-instrument-id hlp-address)
+        growi-id (vault-instrument-id growi-address)
+        systemic-id (vault-instrument-id systemic-address)
+        h0 (day-start-ms "2025-05-03")
+        h1 (day-start-ms "2025-10-30")
+        m0 (day-start-ms "2026-04-02")
+        m1 (day-start-ms "2026-04-12")
+        m2 (day-start-ms "2026-04-23")
+        m3 (day-start-ms "2026-05-03")
+        month-summary (summary-from-points [[m0 100 0]
+                                            [m1 105 5]
+                                            [m2 110 10]
+                                            [m3 115 15]])
+        sparse-derived-summary (summary-from-points [[h0 90 -10]
+                                                     [h1 100 0]
+                                                     [m3 115 15]])
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id hlp-id
+                              :market-type :vault
+                              :coin hlp-id
+                              :vault-address hlp-address
+                              :name "Hyperliquidity Provider (HLP)"}
+                             {:instrument-id growi-id
+                              :market-type :vault
+                              :coin growi-id
+                              :vault-address growi-address
+                              :name "Growi HF"}
+                             {:instrument-id systemic-id
+                              :market-type :vault
+                              :coin systemic-id
+                              :vault-address systemic-address
+                              :name "[ Systemic Strategies ] HyperGrowth"}]
+                  :vault-details-by-address
+                  {hlp-address {:portfolio {:all-time sparse-derived-summary
+                                             :month month-summary}}
+                   growi-address {:portfolio {:all-time sparse-derived-summary
+                                               :month month-summary}}
+                   systemic-address {:portfolio {:all-time (summary-from-points [[m3 115 15]])
+                                                  :month month-summary}}}
+                  :as-of-ms (+ m3 day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [m0 m1 m2 m3] (:calendar aligned)))
+    (is (= [m1 m2 m3] (:return-calendar aligned)))
+    (is (= [hlp-id growi-id systemic-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (= {:kind :common-vault-window
+            :window :month
+            :observations 4}
+           (:alignment-source aligned)))
+    (is (not-any? #(= :insufficient-common-history (:code %))
+                  (:warnings aligned)))))
+
+(deftest align-history-inputs-keeps-common-history-warning-when-no-vault-window-overlaps-test
+  (let [vault-a "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        vault-b "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        vault-c "0xcccccccccccccccccccccccccccccccccccccccc"
+        vault-a-id (vault-instrument-id vault-a)
+        vault-b-id (vault-instrument-id vault-b)
+        vault-c-id (vault-instrument-id vault-c)
+        a0 (day-start-ms "2026-04-01")
+        a1 (day-start-ms "2026-04-02")
+        b0 (day-start-ms "2026-04-10")
+        b1 (day-start-ms "2026-04-11")
+        c0 (day-start-ms "2026-04-20")
+        c1 (day-start-ms "2026-04-21")
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id vault-a-id
+                              :market-type :vault
+                              :coin vault-a-id
+                              :vault-address vault-a}
+                             {:instrument-id vault-b-id
+                              :market-type :vault
+                              :coin vault-b-id
+                              :vault-address vault-b}
+                             {:instrument-id vault-c-id
+                              :market-type :vault
+                              :coin vault-c-id
+                              :vault-address vault-c}]
+                  :vault-details-by-address
+                  {vault-a {:portfolio {:month (summary-from-points [[a0 100 0]
+                                                                      [a1 101 1]])}}
+                   vault-b {:portfolio {:month (summary-from-points [[b0 100 0]
+                                                                      [b1 101 1]])}}
+                   vault-c {:portfolio {:month (summary-from-points [[c0 100 0]
+                                                                      [c1 101 1]])}}}
+                  :as-of-ms (+ c1 day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [] (:calendar aligned)))
+    (is (= [] (:eligible-instruments aligned)))
+    (is (= [vault-a-id vault-b-id vault-c-id]
+           (mapv :instrument-id (:excluded-instruments aligned))))
+    (is (= {:code :insufficient-common-history
+            :observations 0
+            :required 2}
+           (last (:warnings aligned))))))
+
+(deftest align-history-inputs-tries-derived-one-year-when-direct-one-year-window-does-not-overlap-test
+  (let [vault-a "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        vault-b "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        vault-a-id (vault-instrument-id vault-a)
+        vault-b-id (vault-instrument-id vault-b)
+        prior (day-start-ms "2025-05-02")
+        cutoff (day-start-ms "2025-05-03")
+        a-direct (day-start-ms "2025-06-01")
+        b-direct (day-start-ms "2025-07-01")
+        mid (day-start-ms "2025-11-03")
+        end (day-start-ms "2026-05-03")
+        derived-source (summary-from-points [[prior 90 -10]
+                                             [mid 100 0]
+                                             [end 110 10]])
+        aligned (history-loader/align-history-inputs
+                 {:universe [{:instrument-id vault-a-id
+                              :market-type :vault
+                              :coin vault-a-id
+                              :vault-address vault-a}
+                             {:instrument-id vault-b-id
+                              :market-type :vault
+                              :coin vault-b-id
+                              :vault-address vault-b}]
+                  :vault-details-by-address
+                  {vault-a {:portfolio {:one-year (summary-from-points [[a-direct 100 0]
+                                                                         [end 110 10]])
+                                         :all-time derived-source}}
+                   vault-b {:portfolio {:one-year (summary-from-points [[b-direct 100 0]
+                                                                         [end 110 10]])
+                                         :all-time derived-source}}}
+                  :as-of-ms (+ end day-ms)
+                  :stale-after-ms (* 2 day-ms)})]
+    (is (= [cutoff mid end] (:calendar aligned)))
+    (is (= [vault-a-id vault-b-id]
+           (mapv :instrument-id (:eligible-instruments aligned))))
+    (is (= {:kind :common-vault-window
+            :window :one-year
+            :observations 3}
+           (:alignment-source aligned)))
+    (is (not-any? #(= :insufficient-common-history (:code %))
+                  (:warnings aligned)))))
+
 (deftest align-history-inputs-reports-missing-and-insufficient-history-without-silent-drops-test
   (let [aligned (history-loader/align-history-inputs
                  {:universe [{:instrument-id "perp:BTC"

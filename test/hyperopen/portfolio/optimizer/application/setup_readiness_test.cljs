@@ -173,3 +173,24 @@
            (get-in readiness [:request :current-portfolio :capital-ready?])))
     (is (= #{:manual-capital-base}
            (set (map :code (get-in readiness [:request :current-portfolio :warnings])))))))
+
+(deftest history-status-by-instrument-distinguishes-aligned-misaligned-and-missing-history-test
+  (let [readiness {:request {:requested-universe [{:instrument-id "vault:aligned"}
+                                                  {:instrument-id "vault:misaligned"}
+                                                  {:instrument-id "vault:missing"}
+                                                  {:instrument-id "perp:short"}]
+                             :universe [{:instrument-id "vault:aligned"}]
+                             :warnings [{:code :insufficient-common-history
+                                         :observations 1
+                                         :required 2}
+                                        {:code :missing-vault-history
+                                         :instrument-id "vault:missing"}
+                                        {:code :insufficient-candle-history
+                                         :instrument-id "perp:short"
+                                         :observations 1
+                                         :required 2}]}}]
+    (is (= {"vault:aligned" :aligned
+            "vault:misaligned" :loaded-but-misaligned
+            "vault:missing" :missing
+            "perp:short" :insufficient}
+           (setup-readiness/history-status-by-instrument readiness)))))

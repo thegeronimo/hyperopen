@@ -551,6 +551,78 @@ async function seedOptimizerBtcOnlyHistory(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
+async function seedOptimizerMisalignedVaultHistory(page) {
+  await page.evaluate(() => {
+    const c = globalThis.cljs.core;
+    const kw = (name) => c.keyword(name);
+    const path = (...segments) =>
+      c.PersistentVector.fromArray(segments.map((segment) => kw(segment)), true);
+    const vector = (items) => c.PersistentVector.fromArray(items, true);
+    const map = (entries) => c.PersistentArrayMap.fromArray(entries, true);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const dayStartMs = (day) => new Date(`${day}T00:00:00.000Z`).getTime();
+    const summaryFromPoints = (points) =>
+      map([
+        kw("accountValueHistory"),
+        vector(points.map(([timeMs, accountValue]) => vector([timeMs, accountValue]))),
+        kw("pnlHistory"),
+        vector(points.map(([timeMs, _accountValue, pnlValue]) => vector([timeMs, pnlValue])))
+      ]);
+    const vaultInstrument = (vaultAddress, name) => {
+      const vaultId = `vault:${vaultAddress}`;
+      return map([
+        kw("instrument-id"), vaultId,
+        kw("market-type"), kw("vault"),
+        kw("coin"), vaultId,
+        kw("vault-address"), vaultAddress,
+        kw("name"), name
+      ]);
+    };
+    const vaultA = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const vaultB = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const a0 = dayStartMs("2026-04-01");
+    const a1 = dayStartMs("2026-04-02");
+    const b0 = dayStartMs("2026-04-10");
+    const b1 = dayStartMs("2026-04-11");
+    const draft = map([
+      kw("universe"), vector([
+        vaultInstrument(vaultA, "Vault A"),
+        vaultInstrument(vaultB, "Vault B")
+      ]),
+      kw("objective"), map([kw("kind"), kw("minimum-variance")]),
+      kw("return-model"), map([kw("kind"), kw("historical-mean")]),
+      kw("risk-model"), map([kw("kind"), kw("diagonal-shrink")]),
+      kw("constraints"), map([kw("long-only?"), true])
+    ]);
+    const historyData = map([
+      kw("vault-details-by-address"),
+      map([
+        vaultA,
+        map([
+          kw("portfolio"),
+          map([kw("month"), summaryFromPoints([[a0, 100, 0], [a1, 101, 1]])])
+        ]),
+        vaultB,
+        map([
+          kw("portfolio"),
+          map([kw("month"), summaryFromPoints([[b0, 100, 0], [b1, 101, 1]])])
+        ])
+      ])
+    ]);
+    const store = globalThis.hyperopen.system.store;
+    let state = c.deref(store);
+    state = c.assoc_in(state, path("portfolio", "optimizer", "draft"), draft);
+    state = c.assoc_in(state, path("portfolio", "optimizer", "history-data"), historyData);
+    state = c.assoc_in(
+      state,
+      path("portfolio", "optimizer", "runtime"),
+      map([kw("as-of-ms"), b1 + dayMs, kw("stale-after-ms"), 2 * dayMs])
+    );
+    c.reset_BANG_(store, state);
+  });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+}
+
 async function putOptimizerRecord(page, key, payload) {
   await page.evaluate(async ({ key, payload }) => {
     const db = await new Promise((resolve, reject) => {
@@ -1176,6 +1248,21 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
   await searchInput.fill("alpha");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(vaultAdd).toBeVisible();
+});
+
+test("portfolio optimizer selected vault rows show shared gap for loaded misaligned history @regression", async ({ page }) => {
+  await visitRoute(page, "/portfolio/optimize/new");
+  await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
+  await seedOptimizerMisalignedVaultHistory(page);
+
+  const vaultAId = "vault:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const vaultARow = page.locator(
+    `[data-role='portfolio-optimizer-universe-selected-row-${vaultAId}']`
+  );
+
+  await expect(vaultARow).toBeVisible();
+  await expect(vaultARow).toContainText("shared gap");
+  await expect(vaultARow).not.toContainText("sufficient");
 });
 
 test("portfolio optimizer manual universe vault search sorts by TVL @regression", async ({ page }) => {

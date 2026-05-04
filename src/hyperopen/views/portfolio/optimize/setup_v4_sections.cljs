@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.setup-v4-sections
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.views.portfolio.optimize.black-litterman-preview-chart :as black-litterman-preview-chart]
             [hyperopen.views.portfolio.optimize.instrument-overrides-panel :as instrument-overrides-panel]
             [hyperopen.views.portfolio.optimize.setup-v4-summary :as setup-v4-summary]
@@ -335,7 +336,9 @@
   [:aside {:class ["min-h-0" "overflow-hidden"] :data-role "portfolio-optimizer-setup-control-rail"}
    (setup-v4-universe/universe-section state draft
                                        {:readiness readiness
-                                        :history-load-state history-load-state})
+                                        :history-load-state history-load-state
+                                        :history-status-by-id (setup-readiness/history-status-by-instrument
+                                                               readiness)})
    (objective-section draft highlighted-controls)
    (model-section draft)
    (constraints-section draft highlighted-controls)
