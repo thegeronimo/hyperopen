@@ -41,7 +41,7 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-14 12:05Z) Closed the delegator-summary identity exposure with `verified-*` accessors gating both the Portfolio headline and its breakdown.
 - [x] (2026-08-14 14:10Z) Performed the browser-QA matrix for real and fixed the layout-regression failure it exposed (see Surprises and Outcomes). Re-ran `npm run gates` PASS 34/34 and the staking Playwright file PASS 10/10 afterwards.
 - [x] (2026-08-14 15:05Z) Measured the jank/perf pass A/B (block idle vs in-flight) rather than asserting it from code: render cost indistinguishable, zero dropped frames, no animations at runtime, CLS 0.0285 within the good band. Recorded in the QA note.
-- [ ] Owner sign-off on the two judgement calls recorded in the Decision Log: no ticking countdown, and a synthesized (rather than omitted) HYPE row in the Balances tab.
+- [x] (2026-08-14 15:40Z) Owner signed off on both judgement calls recorded in the Decision Log — no ticking countdown, and a synthesized (rather than omitted) HYPE row in the Balances tab — assessed as a non-issue. Plan accepted; moved to `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
