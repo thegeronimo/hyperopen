@@ -70,9 +70,30 @@ Constants set to 460 (transfer) and 490 (other). After the fix the CTA is fully 
 1280x700, 1440x760, 768x700 and 375x640, and `document.scrollWidth` equals
 `window.innerWidth` at 375, 768, 1280 and 1440.
 
-**Jank/perf — NOT MEASURED.** The block declares no animation, transition or timer and
-renders from state like every other panel, but no frame-timing or profiling measurement was
-taken. Recorded as not measured rather than as a pass.
+**Jank/perf — PASS (measured).** A/B measured at 1440x900 with the block idle (reading
+"None") against the block in flight (amount, progress bar, arrival lines), to isolate its
+cost rather than measure the page as a whole.
+
+    metric                          idle        in-flight
+    render mean / p95 / max (ms)    2.35 / 4.6 / 6.6   2.33 / 3.0 / 3.6
+    frame median / max gap (ms)     8.3 / 9.3          8.3 / 8.9
+    dropped frames (>32ms) of 45    0                  0
+    block DOM nodes                 4                  14
+    CSS transitions / animations    0 / 0              0 / 0
+    running animations              0                  0
+    cumulative layout shift         0.0012             0.0285
+
+Render cost over 60 forced full re-renders of the staking route is indistinguishable between
+the two conditions, and frame pacing stayed under the 16.7ms budget with zero dropped frames
+across 45 consecutive re-render frames. The block runs no animation or timer, confirmed at
+runtime via `getAnimations({subtree: true})` rather than only by reading the source.
+
+One honest caveat: the in-flight condition carries a cumulative layout shift of 0.0285
+against 0.0012 idle. The always-present slot keeps the element in the tree but not its
+height — when the summary lands and the slot expands from one line to the full block, the
+tabbed content below it moves. 0.0285 is comfortably inside the "good" band (≤0.1) so no
+reservation of height was added, but it is a real shift attributable to this block and should
+be revisited if the block grows.
 
 ## Off-route surfaces
 
