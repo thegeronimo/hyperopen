@@ -404,9 +404,13 @@
                     (base-connected-state
                      {:staking-ui {:active-tab :staking-action-history}}))
         loaded-strings (set (collect-strings loaded-view))]
-    (is (contains? loaded-strings "Transfer Out"))
+    (is (contains? loaded-strings "Transfer to Spot")
+        "cWithdraw is the transfer that starts the 7-day queue, so it says so")
     (is (contains? loaded-strings "3.00000000 HYPE"))
-    (is (contains? loaded-strings "pending"))
+    (is (contains? loaded-strings "Pending")
+        "provider phase tokens are humanized rather than printed raw")
+    (is (not (contains? loaded-strings "pending"))
+        "the raw provider spelling must not reach the Status column")
     (is (contains? loaded-strings "0x12345678"))
     (is (contains? (set (collect-strings loading-view)) "Loading staking action history..."))
     (is (contains? (set (collect-strings empty-view)) "No staking actions found."))))

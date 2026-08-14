@@ -451,6 +451,7 @@
             [hyperopen.staking.effects-freshness-test]
             [hyperopen.staking.effects-test]
             [hyperopen.staking.unstake-actions-regression-test]
+            [hyperopen.staking.unstaking-test]
             [hyperopen.startup.account-lifecycle-test]
             [hyperopen.startup.collaborators-test]
             [hyperopen.startup.deferred-bootstrap-outcome-cache-test]
@@ -690,6 +691,8 @@
             [hyperopen.views.portfolio.volume-history-popover-test]
             [hyperopen.views.referrals-view-test]
             [hyperopen.views.spectate-mode-modal-test]
+            [hyperopen.views.staking-offroute-surfaces-test]
+            [hyperopen.views.staking-unstaking-block-test]
             [hyperopen.views.staking-view-test]
             [hyperopen.views.subaccounts-view-test]
             [hyperopen.views.trade-view.layout-state-test]
@@ -1304,6 +1307,7 @@
              'hyperopen.staking.effects-freshness-test
              'hyperopen.staking.effects-test
              'hyperopen.staking.unstake-actions-regression-test
+             'hyperopen.staking.unstaking-test
              'hyperopen.startup.account-lifecycle-test
              'hyperopen.startup.collaborators-test
              'hyperopen.startup.deferred-bootstrap-outcome-cache-test
@@ -1543,6 +1547,8 @@
              'hyperopen.views.portfolio.volume-history-popover-test
              'hyperopen.views.referrals-view-test
              'hyperopen.views.spectate-mode-modal-test
+             'hyperopen.views.staking-offroute-surfaces-test
+             'hyperopen.views.staking-unstaking-block-test
              'hyperopen.views.staking-view-test
              'hyperopen.views.subaccounts-view-test
              'hyperopen.views.trade-view.layout-state-test

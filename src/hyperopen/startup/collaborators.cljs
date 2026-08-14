@@ -350,7 +350,8 @@
                (.then (apply-success-and-return-when-current
                        store
                        requested-address
-                       api-projections/apply-staking-delegator-summary-success))
+                       api-projections/apply-staking-delegator-summary-success
+                       requested-address))
                (.catch (apply-error-and-reject-when-current
                         store
                         requested-address

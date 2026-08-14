@@ -1,7 +1,8 @@
 (ns hyperopen.views.staking.vm
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
-            [hyperopen.staking.actions :as staking-actions]))
+            [hyperopen.staking.actions :as staking-actions]
+            [hyperopen.staking.unstaking :as unstaking]))
 
 (def timeframe-options
   [{:value :day :label "1D"}
@@ -154,15 +155,32 @@
   (case (:kind delta)
     :delegate "Stake"
     :undelegate "Unstake"
-    :deposit "Transfer In"
-    :withdraw "Transfer Out"
-    :withdrawal "Withdrawal"
+    :deposit "Transfer to Staking"
+    :withdraw "Transfer to Spot"
+    :withdrawal "Queued Transfer"
     :unknown "Unknown"
     "Unknown"))
 
 (defn- history-amount
   [delta]
   (optional-number (:amount delta)))
+
+(defn- humanize-phase
+  "The provider's withdrawal phase vocabulary is not pinned anywhere in this
+  repo, so rather than mapping a fixed set of names we make whatever arrives
+  readable: split camelCase, normalize separators, and sentence-case it. A raw
+  token like `initiatedWithdrawal` reads as `Initiated Withdrawal` instead of
+  leaking provider spelling into the Status column."
+  [phase]
+  (when-let [raw (some-> phase name str/trim not-empty)]
+    (when-not (= "unknown" (str/lower-case raw))
+      (let [spaced (-> raw
+                       (str/replace #"([a-z0-9])([A-Z])" "$1 $2")
+                       (str/replace #"[_-]+" " ")
+                       str/trim)]
+        (when (seq spaced)
+          (str (str/upper-case (subs spaced 0 1))
+               (subs spaced 1)))))))
 
 (defn- history-rows
   [rows]
@@ -173,7 +191,7 @@
                  :hash (:hash row)
                  :kind (history-kind-label delta)
                  :amount (history-amount delta)
-                 :status (some-> (:phase delta) name)})))
+                 :status (humanize-phase (:phase delta))})))
        (sort-by :time-ms >)
        vec))
 
@@ -288,8 +306,16 @@
              (:anchor popover-state))
    :transfer-direction transfer-direction})
 
-(defn staking-vm
-  [state]
+(defn- selected-validator-lock
+  "The delegation lock on the currently selected validator, when it has not
+  expired. Rendered as a warning before the user presses Unstake; the submit
+  guard in hyperopen.staking.actions remains the authority that blocks it."
+  [state selected-validator now-ms]
+  (when (seq selected-validator)
+    (unstaking/locked-delegation state selected-validator now-ms)))
+
+(defn- staking-vm*
+  [state now-ms]
   (let [{:keys [active-tab
                 timeframe
                 timeframe-dropdown-open?
@@ -345,6 +371,9 @@
                 :available-stake staking-balance
                 :total-staked your-stake
                 :pending-withdrawals pending-withdrawals}
+     :unstaking (unstaking/pending-unstake state now-ms)
+     :selected-validator-lock (selected-validator-lock state selected-validator now-ms)
+     :projected-transfer-arrival-ms (unstaking/projected-arrival-ms now-ms)
      :validators validators
      :rewards (reward-rows rewards)
      :history (history-rows history)
@@ -358,3 +387,11 @@
             :undelegate-amount (str (or (get-in state [:staking-ui :undelegate-amount]) ""))}
      :submitting (or (get-in state [:staking-ui :submitting]) {})
      :delegations (vec delegations)}))
+
+(defn staking-vm
+  "The /staking view model. The two-arity takes an explicit clock so view tests
+  stay deterministic; the one-arity reads the live clock at render time."
+  ([state]
+   (staking-vm* state (.now js/Date)))
+  ([state now-ms]
+   (staking-vm* state now-ms)))

@@ -371,7 +371,8 @@
         perps-equity (vm-equity/perp-account-equity state metrics)
         spot-equity (vm-equity/spot-account-equity metrics)
         vault-equity-value (vm-equity/vault-equity state summary-entry)
-        staking-hype (vm-equity/staking-account-hype state)
+        staking-hype (vm-equity/verified-staking-account-hype state)
+        staking-unstaking-hype (vm-equity/verified-staking-unstaking-hype state)
         staking-usd (vm-equity/staking-value-usd state staking-hype)
         earn-equity (vm-equity/earn-balance state)
         total-equity (vm-equity/compute-total-equity {:top-up-enabled? top-up-enabled?
@@ -449,4 +450,5 @@
                :show-vault-equity? true
                :vault-equity vault-equity-value
                :show-staking-account? true
-               :staking-account-hype staking-hype}}))
+               :staking-account-hype staking-hype
+               :staking-unstaking-hype staking-unstaking-hype}}))

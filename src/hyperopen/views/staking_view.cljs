@@ -2,6 +2,7 @@
   (:require [hyperopen.views.staking.history :as staking-history]
             [hyperopen.views.staking.popovers :as staking-popovers]
             [hyperopen.views.staking.shared :as shared]
+            [hyperopen.views.staking.unstaking-panel :as staking-unstaking]
             [hyperopen.views.staking.validators :as staking-validators]
             [hyperopen.views.staking.vm :as staking-vm]))
 
@@ -86,7 +87,7 @@
     (staking-toolbar connected?)]])
 
 (defn- summary-and-balance-panels
-  [summary balances]
+  [summary balances unstaking]
   [:div {:class ["grid" "gap-2" "lg:grid-cols-[340px_minmax(0,1fr)]"]}
    [:div {:class ["grid" "gap-2"]}
     (shared/summary-card "Total Staked" (shared/format-summary-hype (:total-staked summary)) "staking-summary-total")
@@ -96,11 +97,18 @@
     [:div {:class ["text-sm" "leading-[15px]" "font-normal" "text-ho-text-secondary"]}
      "Staking Balance"]
     (shared/key-value-row "Available to Transfer to Staking Balance"
-                          (shared/format-balance-hype (:available-transfer balances)))
-    (shared/key-value-row "Available to Stake" (shared/format-balance-hype (:available-stake balances)))
-    (shared/key-value-row "Total Staked" (shared/format-balance-hype (:total-staked balances)))
-    (shared/key-value-row "Pending Transfers to Spot Balance"
-                          (shared/format-balance-hype (:pending-withdrawals balances)))]])
+                          (shared/format-balance-hype (:available-transfer balances))
+                          "staking-balance-available-transfer")
+    (shared/key-value-row "Available to Stake"
+                          (shared/format-balance-hype (:available-stake balances))
+                          "staking-balance-available-stake")
+    (shared/key-value-row "Total Staked"
+                          (shared/format-balance-hype (:total-staked balances))
+                          "staking-balance-total-staked")
+    ;; The queue is deliberately separated from the spendable rows above: it is
+    ;; the one figure here that cannot be traded or transferred.
+    [:div {:class ["border-t" "border-ho-surface" "pt-2"]}
+     (staking-unstaking/unstaking-block unstaking)]]])
 
 (defn- tab-button
   [active? label action]
@@ -194,19 +202,23 @@
      error]))
 
 (defn staking-view
-  [state]
-  (let [view-state (staking-vm/staking-vm state)
-        {:keys [connected?
-                summary
-                balances
-                error
-                action-popover
-                form
-                submitting
-                selected-validator
-                validator-search-query
-                validator-dropdown-open?
-                validators]} view-state]
+  ([state]
+   (staking-view state (staking-vm/staking-vm state)))
+  ([_state view-state]
+   (let [{:keys [connected?
+                 summary
+                 balances
+                 unstaking
+                 selected-validator-lock
+                 projected-transfer-arrival-ms
+                 error
+                 action-popover
+                 form
+                 submitting
+                 selected-validator
+                 validator-search-query
+                 validator-dropdown-open?
+                 validators]} view-state]
     [:div {:class ["flex"
                    "flex-1"
                    "min-h-0"
@@ -226,7 +238,7 @@
                     "gap-2"
                     "pb-16"]}
       (staking-hero connected?)
-      (summary-and-balance-panels summary balances)
+      (summary-and-balance-panels summary balances unstaking)
       (tabbed-content view-state)
       (error-banner error)
       (when (and connected?
@@ -235,11 +247,14 @@
                                                 :form form
                                                 :submitting submitting
                                                 :balances balances
+                                                :unstaking unstaking
+                                                :selected-validator-lock selected-validator-lock
+                                                :projected-transfer-arrival-ms projected-transfer-arrival-ms
                                                 :error error
                                                 :selected-validator selected-validator
                                                 :validator-search-query validator-search-query
                                                 :validator-dropdown-open? validator-dropdown-open?
-                                                :validators validators}))]]))
+                                                :validators validators}))]])))
 
 (defn ^:export route-view
   [state]

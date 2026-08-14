@@ -63,7 +63,8 @@
  "src/hyperopen/views/referrals_view.cljs" 29
  "src/hyperopen/views/spectate_mode_modal.cljs" 15
  "src/hyperopen/views/spectate_mode_modal/watchlist.cljs" 7
- "src/hyperopen/views/staking/popovers.cljs" 20
+ "src/hyperopen/views/staking/popover_content.cljs" 17
+ "src/hyperopen/views/staking/popovers.cljs" 3
  "src/hyperopen/views/staking/shared.cljs" 3
  "src/hyperopen/views/staking/validators.cljs" 18
  "src/hyperopen/views/staking_view.cljs" 11

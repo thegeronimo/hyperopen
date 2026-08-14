@@ -108,12 +108,14 @@
                         "grid-cols-2"
                         [(mobile-cards/detail-item
                           "Available Balance"
-                          (balances-shared/available-balance-value-node {:coin coin
-                                                                         :unit-label base-label
-                                                                         :available-balance available-balance
-                                                                         :amount-decimals amount-decimals
-                                                                         :transfer-disabled? transfer-disabled?
-                                                                         :tooltip-position available-balance-tooltip-position})
+                          [:span {:class ["inline-flex" "flex-wrap" "items-center" "gap-1.5"]}
+                           (balances-shared/available-balance-value-node {:coin coin
+                                                                          :unit-label base-label
+                                                                          :available-balance available-balance
+                                                                          :amount-decimals amount-decimals
+                                                                          :transfer-disabled? transfer-disabled?
+                                                                          :tooltip-position available-balance-tooltip-position})
+                           (balances-shared/unstaking-chip (:unstaking-hype row))]
                           {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                          (mobile-cards/detail-item
                           "PNL (ROE %)"

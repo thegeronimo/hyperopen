@@ -8,6 +8,7 @@
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as projections]
+            [hyperopen.views.account-info.projections.balances-staking :as balances-staking]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
 (defn- unified-account-mode? [account]
@@ -43,22 +44,32 @@
                       (non-zero-perps-dex-clearinghouse? clearinghouse-state))))
        count))
 
-(defn- balance-tab-count [webdata2 spot-data account perp-dex-states]
+(defn- balance-tab-count [webdata2 spot-data account perp-dex-states state]
+  ;; The badge must agree with what the tab actually renders, so a HYPE row that
+  ;; exists only because HYPE is in the unstaking queue counts once — but only
+  ;; when it was synthesized, never when it annotated a spot row that is already
+  ;; counted below.
   (let [balances (or (get-in spot-data [:clearinghouse-state :balances]) [])
         non-zero-spot-balances (->> balances
                                     (remove projections/outcome-balance?)
                                     (filter non-zero-spot-balance?))
-        perps-usdc-visible? (boolean (non-zero-perps-usdc? webdata2))]
-    (if (unified-account-mode? account)
-      (let [non-usdc-count (count (remove #(= "USDC" (:coin %)) non-zero-spot-balances))
-            has-non-zero-spot-usdc? (boolean (some #(and (= "USDC" (:coin %))
-                                                         (non-zero-spot-balance? %))
-                                                   balances))
-            usdc-count (if (or has-non-zero-spot-usdc? perps-usdc-visible?) 1 0)]
-        (+ non-usdc-count usdc-count))
-      (+ (count non-zero-spot-balances)
-         (if perps-usdc-visible? 1 0)
-         (non-zero-named-dex-perps-count perp-dex-states)))))
+        perps-usdc-visible? (boolean (non-zero-perps-usdc? webdata2))
+        ;; 1 when a HYPE row exists only because of the unstaking queue, 0 when
+        ;; the queue merely annotated a spot row the sum below already counts.
+        synthesized-hype-count (- (count (balances-staking/with-unstaking-hype
+                                          non-zero-spot-balances state))
+                                  (count non-zero-spot-balances))]
+    (+ synthesized-hype-count
+       (if (unified-account-mode? account)
+         (let [non-usdc-count (count (remove #(= "USDC" (:coin %)) non-zero-spot-balances))
+               has-non-zero-spot-usdc? (boolean (some #(and (= "USDC" (:coin %))
+                                                            (non-zero-spot-balance? %))
+                                                      balances))
+               usdc-count (if (or has-non-zero-spot-usdc? perps-usdc-visible?) 1 0)]
+           (+ non-usdc-count usdc-count))
+         (+ (count non-zero-spot-balances)
+            (if perps-usdc-visible? 1 0)
+            (non-zero-named-dex-perps-count perp-dex-states))))))
 
 (defn- positions-tab-count [webdata2 perp-dex-states]
   (let [base-positions (->> (or (get-in webdata2 [:clearinghouseState :assetPositions]) [])
@@ -348,7 +359,7 @@
                                                         pending-cancel-oids)
                     :positions (positions-tab-count webdata2 perp-dex-states)
                     :outcomes outcome-count
-                    :balances (balance-tab-count webdata2 spot-data account perp-dex-states)
+                    :balances (balance-tab-count webdata2 spot-data account perp-dex-states state)
                     :twap (count (or twap-states-source []))}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
         positions-state (cond-> (merge {:direction-filter :all
@@ -405,7 +416,7 @@
      :hide-small? hide-small?
      :perp-dex-states perp-dex-states
      :webdata2 webdata2
-     :balance-rows (or balance-rows [])
+     :balance-rows (balances-staking/with-unstaking-hype balance-rows state)
      :outcomes (or outcomes [])
      :positions (or positions [])
      :open-orders (or open-orders [])

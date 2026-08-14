@@ -1,5 +1,8 @@
 (ns hyperopen.views.portfolio.vm.equity
-  (:require [hyperopen.views.account-info.projections :as projections]))
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.staking.account-scope :as account-scope]
+            [hyperopen.staking.unstaking :as unstaking]
+            [hyperopen.views.account-info.projections :as projections]))
 
 (defn- optional-number
   [value]
@@ -56,6 +59,9 @@
     (sum-optional-numbers (map :amount delegations))))
 
 (defn staking-account-hype
+  "Sums whatever staking totals are currently loaded. Says nothing about WHICH
+  account they belong to — prefer `verified-staking-account-hype` for anything
+  user-facing."
   [state]
   (or (optional-number (get-in state [:staking :total-hype]))
       (optional-number (get-in state [:staking :total]))
@@ -64,6 +70,34 @@
       (delegations-total-hype
        (get-in state [:staking :delegations]))
       0))
+
+;; The delegator summary is written by two fetch paths that resolve different
+;; addresses (account bootstrap uses the effective/subaccount address; the
+;; /staking route uses the owner), so an ungated read can report another
+;; account's HYPE. Everything below returns nil unless the loaded summary can be
+;; shown to describe the account the surface is about; nil means "render an
+;; explicit unknown", never zero. The headline and its breakdown are gated
+;; together on purpose — gating one and not the other lets the card contradict
+;; itself.
+
+(defn verified-staking-account-hype
+  "Total staking-system HYPE for `address`, or nil when unverifiable."
+  ([state]
+   (verified-staking-account-hype state (account-context/effective-account-address state)))
+  ([state address]
+   (when (account-scope/delegator-summary-describes? state address)
+     (staking-account-hype state))))
+
+(defn verified-staking-unstaking-hype
+  "The portion of `verified-staking-account-hype` stuck in the 7-day queue, or
+  nil when unverifiable or when nothing is in flight."
+  ([state]
+   (verified-staking-unstaking-hype state (account-context/effective-account-address state)))
+  ([state address]
+   (when (account-scope/delegator-summary-describes? state address)
+     (let [amount (:amount (unstaking/pending-unstake state))]
+       (when (and (number? amount) (pos? amount))
+         amount)))))
 
 (defn staking-value-usd
   [_state _staking-hype]

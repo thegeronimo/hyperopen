@@ -1,5 +1,6 @@
 (ns hyperopen.api.projections.staking
-  (:require [hyperopen.api.errors :as api-errors]))
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.api.errors :as api-errors]))
 
 (defn- normalized-error
   [err]
@@ -55,14 +56,27 @@
       (assoc-in [:staking :errors :delegator-summary] nil)))
 
 (defn apply-staking-delegator-summary-success
-  [state summary]
-  (-> state
-      (assoc-in [:staking :delegator-summary]
-                (when (map? summary)
-                  summary))
-      (assoc-in [:staking :loading :delegator-summary] false)
-      (assoc-in [:staking :errors :delegator-summary] nil)
-      (assoc-in [:staking :loaded-at-ms :delegator-summary] (.now js/Date))))
+  "The delegator summary is written by two paths with different identities: the
+  /staking route loads it for the native staking (owner) address and records
+  `[:staking :loaded-for :delegator-summary]`, while account bootstrap loads it
+  for the effective (possibly subaccount) address off-route and records nothing.
+
+  The three-arity is the bootstrap path and stamps the address it fetched for.
+  The two-arity is the route path, which clears that stamp so the freshest of
+  the two identity records always wins — see
+  `hyperopen.staking.account-scope/delegator-summary-address`."
+  ([state summary]
+   (apply-staking-delegator-summary-success state nil summary))
+  ([state address summary]
+   (-> state
+       (assoc-in [:staking :delegator-summary]
+                 (when (map? summary)
+                   summary))
+       (assoc-in [:staking :delegator-summary-address]
+                 (account-context/normalize-address address))
+       (assoc-in [:staking :loading :delegator-summary] false)
+       (assoc-in [:staking :errors :delegator-summary] nil)
+       (assoc-in [:staking :loaded-at-ms :delegator-summary] (.now js/Date)))))
 
 (defn apply-staking-delegator-summary-error
   [state err]
