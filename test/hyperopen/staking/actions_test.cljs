@@ -14,6 +14,7 @@
 
 (def ^:private cleared-staking-user-projections
   [[[:staking :delegator-summary] nil]
+   [[:staking :delegator-summary-address] nil]
    [[:staking :delegations] []]
    [[:staking :rewards] []]
    [[:staking :history] []]

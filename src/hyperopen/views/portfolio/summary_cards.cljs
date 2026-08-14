@@ -124,7 +124,20 @@
       (when (:show-earn-balance? summary)
         (summary-row "Earn Balance" (portfolio-format/format-currency (:earn-balance summary))))
       (when (:show-staking-account? summary)
-        (summary-row "Staking Account" (portfolio-format/format-hype (:staking-account-hype summary))))])))
+        ;; An explicit unknown, never a fabricated zero: a vanished or wrong
+        ;; number is the exact failure this surface is meant to stop.
+        (summary-row "Staking Account"
+                     (if-let [hype (:staking-account-hype summary)]
+                       (portfolio-format/format-hype hype)
+                       "--")))
+      ;; "Staking Account" silently folds in HYPE that is mid-unstake and cannot
+      ;; be traded. Break that portion out so the headline number is not read as
+      ;; spendable.
+      (when-let [unstaking-hype (:staking-unstaking-hype summary)]
+        [:div {:data-role "portfolio-summary-staking-unstaking"}
+         (summary-row "In 7-day unstaking queue"
+                      (portfolio-format/format-hype unstaking-hype)
+                      ["text-ho-warn"])])])))
 
 (defn metric-cards [{:keys [volume-14d-usd fees fee-schedule]}]
   (let [fee-schedule-open? (if (:open? fee-schedule) "true" "false")]

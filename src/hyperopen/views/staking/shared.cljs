@@ -102,9 +102,13 @@
     value]])
 
 (defn key-value-row
-  [label value]
-  [:div {:class ["flex" "items-start" "justify-between" "gap-3" "text-xs"]}
-   [:span {:class ["text-ho-text-secondary" "leading-[15px]"]}
-    label]
-   [:span {:class ["num" "text-ho-text" "font-normal" "leading-[15px]"]}
-    value]])
+  ([label value]
+   (key-value-row label value nil))
+  ([label value data-role]
+   [:div (cond-> {:class ["flex" "items-start" "justify-between" "gap-3" "text-xs"]}
+           (seq data-role)
+           (assoc :data-role data-role))
+    [:span {:class ["text-ho-text-secondary" "leading-[15px]"]}
+     label]
+    [:span {:class ["num" "text-ho-text" "font-normal" "leading-[15px]"]}
+     value]]))

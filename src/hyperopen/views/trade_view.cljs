@@ -29,14 +29,23 @@
    :webdata2])
 
 (def ^:private account-info-view-base-state-keys
+  ;; :staking plus the three identity slices are required by the Balances tab's
+  ;; unstaking annotation: it must resolve the effective account address and
+  ;; verify the loaded delegator summary describes it. Omitting any of them makes
+  ;; the annotation silently never render on the trade route. All four change
+  ;; rarely, so they do not meaningfully widen this panel's memoized slice.
   [:account
+   :account-context
    :account-info
    :margin-rec
    :orders
    :perp-dex-clearinghouse
    :positions-ui
+   :router
    :spot
+   :staking
    :trading-settings
+   :wallet
    :webdata2])
 
 (def ^:private account-equity-view-state-keys

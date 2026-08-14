@@ -1,5 +1,6 @@
 (ns hyperopen.views.account-info.tabs.balances.shared
   (:require [clojure.string :as str]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.projections :as projections]
             [hyperopen.views.account-info.shared :as shared]))
 
@@ -174,12 +175,49 @@
     {:base-label (or base-label coin "Asset")
      :prefix-label prefix-label}))
 
+(def ^:private unstaking-chip-classes
+  ["px-2"
+   "py-[1px]"
+   "text-xs"
+   "leading-none"
+   "font-medium"
+   "rounded-lg"
+   "border"
+   "border-ho-warn/40"
+   "bg-ho-warn/10"
+   "text-ho-warn"
+   "whitespace-nowrap"])
+
+(defn unstaking-chip-label
+  "Label for HYPE that has left the staking balance but has not reached spot.
+  Names the state rather than only the number, so the adjacent zero balance reads
+  as deliberate rather than as a missing figure. Two decimals keep the chip short
+  in a dense table; an amount that would round away falls back to full precision
+  so a real balance is never displayed as zero."
+  [unstaking-hype]
+  (when (and (number? unstaking-hype) (pos? unstaking-hype))
+    (str (if (>= unstaking-hype 0.01)
+           (fmt/format-fixed-number unstaking-hype 2)
+           (fmt/format-fixed-number unstaking-hype 8))
+         " unstaking")))
+
 (defn balance-coin-node [{:keys [base-label prefix-label]}]
   [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
    [:span {:class ["truncate"]} base-label]
    (when prefix-label
      [:span {:class shared/position-chip-classes}
       prefix-label])])
+
+(defn unstaking-chip
+  "Sits under the available balance rather than beside the coin name: the coin
+  column is narrow, and a chip there squeezes the ticker itself out of view. It
+  also belongs next to the zero it explains."
+  [unstaking-hype]
+  (when-let [label (unstaking-chip-label unstaking-hype)]
+    [:span {:class unstaking-chip-classes
+            :title "Moving from your staking balance to your spot balance. This takes 7 days and cannot be traded until it arrives."
+            :data-role "balance-row-unstaking-chip"}
+     label]))
 
 (defn balance-amount-cell [amount amount-decimals unit-label]
   [:div {:class ["text-left" "font-semibold" "num" "whitespace-nowrap"]}

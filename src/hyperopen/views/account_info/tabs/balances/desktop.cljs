@@ -90,7 +90,10 @@
                                                             :available-balance available-balance
                                                             :amount-decimals amount-decimals
                                                             :transfer-disabled? transfer-disabled?
-                                                            :tooltip-position available-balance-tooltip-position})]
+                                                            :tooltip-position available-balance-tooltip-position})
+             (when-let [chip (balances-shared/unstaking-chip (:unstaking-hype row))]
+               [:div {:class ["mt-0.5"]}
+                chip])]
             [:div.text-left.font-semibold.num "$" (shared/format-currency usdc-value)]
             [:div.text-left.font-medium.num.pr-4
              (balances-shared/balance-pnl-node {:coin coin

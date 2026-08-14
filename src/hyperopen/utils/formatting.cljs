@@ -332,6 +332,25 @@
            (.padStart (str minutes) 2 "0") ":"
            (.padStart (str secs) 2 "0")))))
 
+(defn format-duration-approx
+  "Short human span for a duration in milliseconds, for waits that can exceed a
+  day (e.g. the 7-day staking withdrawal queue). Drops the least significant
+  unit once a larger one is present, because the caller is describing an
+  approximate remaining time rather than a precise clock."
+  [ms]
+  (when (and (number? ms)
+             (js/isFinite ms)
+             (not (js/isNaN ms)))
+    (let [total-seconds (js/Math.floor (/ (max 0 ms) 1000))
+          days (js/Math.floor (/ total-seconds 86400))
+          hours (js/Math.floor (/ (mod total-seconds 86400) 3600))
+          minutes (js/Math.floor (/ (mod total-seconds 3600) 60))]
+      (cond
+        (pos? days) (str days "d " hours "h")
+        (pos? hours) (str hours "h " minutes "m")
+        (pos? minutes) (str minutes "m")
+        :else "less than a minute"))))
+
 (defn format-funding-countdown []
   (let [now (js/Date.)
         current-minutes (.getMinutes now)

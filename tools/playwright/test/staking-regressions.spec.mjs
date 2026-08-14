@@ -66,7 +66,11 @@ async function setAppState(page, updates) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 5_000, pollMs: 50 });
 }
 
-async function stubStakingInfoRefreshes(page, { lockedUntilTimestamp = null } = {}) {
+async function stubStakingInfoRefreshes(page, {
+  lockedUntilTimestamp = null,
+  delegatorSummary = null,
+  delegatorHistory = null
+} = {}) {
   await page.route("https://api.hyperliquid.xyz/info", async (route) => {
     const payload = JSON.parse(route.request().postData() || "{}");
     let body;
@@ -85,7 +89,7 @@ async function stubStakingInfoRefreshes(page, { lockedUntilTimestamp = null } = 
         ];
         break;
       case "delegatorSummary":
-        body = {
+        body = delegatorSummary || {
           delegated: "101",
           undelegated: "0",
           totalPendingWithdrawal: "0",
@@ -102,8 +106,10 @@ async function stubStakingInfoRefreshes(page, { lockedUntilTimestamp = null } = 
         ];
         break;
       case "delegatorRewards":
-      case "delegatorHistory":
         body = [];
+        break;
+      case "delegatorHistory":
+        body = delegatorHistory || [];
         break;
       case "clearinghouseState":
         body = { balances: [] };
@@ -449,4 +455,120 @@ test("master 101 unstake reports an exchange rejection inside the open popover a
       (call) => call?.request?.action?.type === "tokenDelegate"
     )
   ).toHaveLength(1);
+});
+
+const DAY_MS = 86_400_000;
+const QUEUE_MS = 7 * DAY_MS;
+
+function formatLocalStamp(ms) {
+  // Mirrors hyperopen.utils.formatting/format-local-date-time. The spec pins
+  // timezoneId "UTC", so UTC parts are the local parts the app renders.
+  const d = new Date(ms);
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}` +
+    ` - ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`
+  );
+}
+
+// Served through the stubbed /info route rather than written straight into
+// app-db, so the wire shapes go through the real normalizers and the route's own
+// post-visit refresh cannot overwrite the scenario.
+function withdrawWireRow(amount, startedAtMs) {
+  // The live delegatorHistory shape for a queue entry still in flight. cWithdraw
+  // is what starts the queue but never appears in this endpoint's responses.
+  return {
+    time: startedAtMs,
+    hash: `0x${String(startedAtMs)}`,
+    delta: { withdrawal: { amount: String(amount), phase: "initiated" } }
+  };
+}
+
+async function seedUnstakingQueue(page, { pending, count, history }) {
+  await stubStakingInfoRefreshes(page, {
+    delegatorSummary: {
+      delegated: "101",
+      undelegated: "0",
+      totalPendingWithdrawal: String(pending),
+      nPendingWithdrawals: count
+    },
+    delegatorHistory: history
+  });
+  await visitRoute(page, "/staking");
+  await setAppState(page, [
+    [["wallet", "connected?"], true],
+    [["wallet", "address"], OWNER_ADDRESS]
+  ]);
+  await dispatch(page, [":actions/load-staking"]);
+  await waitForIdle(page, { quietMs: 250, timeoutMs: 8_000, pollMs: 50 });
+}
+
+test("staking balance panel reports in-flight unstaking as locked with an arrival time @regression", async ({ page }) => {
+  // Offset by 30 minutes so the rendered hour bucket cannot straddle a boundary
+  // between the seed and the render.
+  const startedAtMs = Date.now() - 2 * DAY_MS - 30 * 60_000;
+  await seedUnstakingQueue(page, {
+    pending: 25,
+    count: 1,
+    history: [withdrawWireRow(25, startedAtMs)]
+  });
+
+  const block = page.locator("[data-role='staking-unstaking-block']");
+  await expect(block).toBeVisible();
+  await expect(block).toContainText("Unstaking to Spot Balance");
+  await expect(block.locator("[data-role='staking-unstaking-locked-pill']")).toHaveText("Locked");
+  await expect(block.locator("[data-role='staking-unstaking-amount']")).toHaveText("25.00000000 HYPE");
+  await expect(block).toContainText("Not tradable or transferable until it arrives.");
+  await expect(block.locator("[data-role='staking-unstaking-arrival']")).toContainText(
+    `Arrives ${formatLocalStamp(startedAtMs + QUEUE_MS)}`
+  );
+  await expect(block.locator("[data-role='staking-unstaking-arrival']")).toContainText(/about \d+d \d+h left/);
+  await expect(block).toContainText("1 transfer in the queue");
+
+  const bar = block.locator("[data-role='staking-unstaking-progress']");
+  await expect(bar).toHaveAttribute("role", "progressbar");
+  await expect(bar).toHaveAttribute("aria-valuemax", "100");
+});
+
+test("staking balance panel keeps the unstaking slot present and quiet when nothing is queued @regression", async ({ page }) => {
+  await seedUnstakingQueue(page, { pending: 0, count: 0, history: [] });
+
+  const block = page.locator("[data-role='staking-unstaking-block']");
+  await expect(block).toBeVisible();
+  await expect(block).toContainText("Unstaking to Spot Balance");
+  await expect(block).toContainText("None");
+  await expect(block.locator("[data-role='staking-unstaking-locked-pill']")).toHaveCount(0);
+});
+
+test("staking balance panel refuses to invent an arrival time it cannot attribute @regression", async ({ page }) => {
+  await seedUnstakingQueue(page, { pending: 25, count: 2, history: [] });
+
+  const block = page.locator("[data-role='staking-unstaking-block']");
+  await expect(block.locator("[data-role='staking-unstaking-amount']")).toHaveText("25.00000000 HYPE");
+  await expect(block).toContainText("2 transfers in the queue");
+  await expect(block).toContainText("The exact arrival time is not available right now.");
+  await expect(block.locator("[data-role='staking-unstaking-progress']")).toHaveCount(0);
+});
+
+test("unstake popover explains the second step and warns about a live lock before submit @regression", async ({ page }) => {
+  const unlockMs = Date.now() + 6 * 3_600_000;
+  await setupMasterUnstakeScenario(page, { lockedUntilTimestamp: unlockMs });
+  const { popover } = await openUnstakeAndSelectValidator(page);
+
+  await expect(popover.locator("[data-role='staking-unstake-guidance']")).toContainText(
+    "Unstaking returns HYPE to your Staking Balance right away."
+  );
+  await expect(popover.locator("[data-role='staking-unstake-guidance']")).toContainText(
+    "separate transfer that then takes 7 days"
+  );
+
+  const notice = popover.locator("[data-role='staking-unstake-lock-notice']");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(`This delegation is locked until ${formatLocalStamp(unlockMs)}`);
+  await expect(notice).toContainText("You cannot unstake from this validator yet.");
+
+  const exchangeSnapshot = await debugCall(page, "exchangeSimulatorSnapshot");
+  expect(
+    (exchangeSnapshot?.calls ?? []).filter((call) => call?.request?.action?.type === "tokenDelegate")
+  ).toHaveLength(0);
 });
