@@ -7,8 +7,7 @@
   (:require [clojure.string :as str]
             [hyperopen.staking.unstaking :as unstaking]
             [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.staking.shared :as shared]
-            [hyperopen.views.staking.unstaking-panel :as unstaking-panel]))
+            [hyperopen.views.staking.shared :as shared]))
 (defn- popover-amount-input
   [{:keys [input-id amount on-change on-max]}]
   [:div {:class ["relative"]}
@@ -302,14 +301,20 @@
      [:div {:class ["space-y-1.5"]}
       (shared/key-value-row source-label source-value)
       (shared/key-value-row "Available to Stake"
-                            (shared/format-balance-hype (:available-stake balances)))]
+                            (shared/format-balance-hype (:available-stake balances)))
+      ;; A compact line rather than the full block from the page behind this
+      ;; popover: what matters when starting another transfer is how much is
+      ;; already queued, and the taller block pushed the CTA off short viewports.
+      (when (:in-flight? unstaking)
+        (shared/key-value-row "Already in the 7-day queue"
+                              (shared/format-balance-hype (:amount unstaking))
+                              "staking-transfer-queued-amount"))]
      [:div {:data-role "staking-transfer-arrival-note"}
       (when-not spot->staking?
         (caution-note (if-let [stamp (fmt/format-local-date-time projected-transfer-arrival-ms)]
                         (str "A transfer started now would arrive around " stamp ".")
                         "Transfers to your Spot Balance take 7 days.")
                       "staking-transfer-projected-arrival"))]
-     (unstaking-panel/unstaking-block unstaking)
      (popover-cta-button {:label "Transfer"
                           :submitting? submitting?
                           :on-submit on-submit})]))

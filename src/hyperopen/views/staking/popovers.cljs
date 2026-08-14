@@ -58,7 +58,13 @@
         ;; panel carries the queue block, and the unstake panel carries both the
         ;; two-step note and a lock notice. Under-estimating here lets the panel
         ;; run past the bottom of a short viewport.
-        estimated-height-px (if (= kind :transfer) 620 480)
+        ;; Measured in a real browser at 1440x900 with the fullest content each
+        ;; panel can carry: transfer in the staking->spot direction with a queued
+        ;; row = 427px; unstake with both the delegation-lock notice and a form
+        ;; error = 460px; stake = 324px. The values below add ~30px of headroom.
+        ;; Underestimating pushes the CTA off the bottom of a short viewport,
+        ;; where it becomes unreachable, so re-measure if the panels grow.
+        estimated-height-px (if (= kind :transfer) 460 490)
         viewport-width (max 320
                             (anchor-number anchor* :viewport-width popover-fallback-viewport-width)
                             (+ (anchor-number anchor* :right 0) popover-margin-px))

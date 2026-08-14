@@ -7,9 +7,16 @@
   all of their HYPE into the unstaking queue therefore sees no HYPE row at all
   and reasonably concludes the balance vanished.
 
-  The annotation added here is display-only. The synthesized row carries no USD
-  value, no P&L and a zero available balance, so USD totals, the tab count badge,
-  and the send/transfer affordances are all left exactly as they were."
+  The annotation added here is display-only: the synthesized row carries no USD
+  value, no P&L and a zero available balance, so USD totals and the send/transfer
+  affordances are left exactly as they were.
+
+  The tab count badge is the one exception. It is computed from non-zero spot
+  balances, so leaving it alone made the UI contradict itself — a visible HYPE
+  row under a label reading `Balances (0)`. `balance-tab-count` in
+  hyperopen.views.account-info.vm therefore adds the synthesized row, and only
+  the synthesized one; when the queue merely annotates an existing spot row, that
+  row is already counted."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.staking.account-scope :as account-scope]
