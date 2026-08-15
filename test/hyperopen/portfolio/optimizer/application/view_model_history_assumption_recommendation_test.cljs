@@ -74,7 +74,7 @@
     (is (= :actions/apply-portfolio-optimizer-recommended-history-assumptions
            (get-in model [:recommended-actions :apply-all])))
     (is (= :proxy (:approach rec)))
-    (is (= "Model from similar assets" (:approach-label rec)))
+    (is (= "Model on similar assets" (:approach-label rec)))
     (is (true? (:applicable? rec)))
     (is (= [["perp:BTC" "BTC" true] ["external:tiingo:SMH" "SMH" false]]
            (mapv (juxt :instrument-id :label :available?) (:members rec)))

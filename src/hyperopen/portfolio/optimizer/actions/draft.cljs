@@ -728,34 +728,15 @@
 
 (declare unacknowledged)
 
-(defn- conj-some
-  [effects effect]
-  (if (some? effect) (conj effects effect) effects))
-
-(defn- without-assumption-card-collapse-override
-  "Effect dropping any explicit collapse override for the card, so the
-  status-derived default (configured collapses, everything else expands)
-  takes over. Nil when no override exists — conj via conj-some."
-  [state instrument-id]
-  (let [overrides (get-in state contracts/ui-assumption-cards-collapsed-path)]
-    (when (contains? overrides instrument-id)
-      [:effects/save
-       contracts/ui-assumption-cards-collapsed-path
-       (dissoc overrides instrument-id)])))
-
-(defn set-portfolio-optimizer-history-assumption-card-collapsed
-  "Explicit user collapse/expand for one assumption card. Stored as a per-card
-  override; a card without an override follows the default (configured cards
-  collapse to their summary, unfinished ones stay open)."
-  [state instrument-id collapsed?]
-  (let [instrument-id* (common/non-blank-text instrument-id)
-        collapsed?* (common/parse-boolean-value collapsed?)]
-    (if (and instrument-id* (some? collapsed?*))
-      [[:effects/save
-        contracts/ui-assumption-cards-collapsed-path
-        (assoc (or (get-in state contracts/ui-assumption-cards-collapsed-path) {})
-               instrument-id* collapsed?*)]]
-      [])))
+(defn set-portfolio-optimizer-history-assumption-active
+  "Selects the asset the History-assumptions queue is asking about; the rail
+  pills, Prev and Skip dispatch it. A stale id (the asset left the universe, or
+  its history arrived and retired the card) needs no cleanup — the queue
+  view-model falls back to the first unsettled asset."
+  [_state instrument-id]
+  [[:effects/save
+    contracts/ui-history-assumption-active-path
+    (common/non-blank-text instrument-id)]])
 
 (defn- update-history-assumption-field
   [state instrument-id field value*]
@@ -795,11 +776,9 @@
                         (assoc :volatility (:volatility existing)))]
             ;; Switching away from proxy drops the entry's proxy ids, so
             ;; reconcile the reference-only instruments (GC any now-unreferenced).
-            ;; A (re)seeded card starts expanded: drop any stale collapse override.
-            (conj-some (save-assumptions+refs state
-                                              (assoc assumptions instrument-id* entry)
-                                              instrument-id*)
-                       (without-assumption-card-collapse-override state instrument-id*)))))
+            (save-assumptions+refs state
+                                   (assoc assumptions instrument-id* entry)
+                                   instrument-id*))))
       [])))
 
 (defn set-portfolio-optimizer-history-assumption-expected-return
@@ -826,11 +805,10 @@
       ;; Removing the entry drops its proxy ids, so reconcile the reference-only
       ;; instruments too (GC any proxy no assumption references anymore). The
       ;; library entry is removed as well — Clear is the explicit "forget this
-      ;; asset" gesture — and any collapse override goes with it.
-      (conj-some (save-assumptions+refs state
-                                        (dissoc assumptions instrument-id*)
-                                        instrument-id*)
-                 (without-assumption-card-collapse-override state instrument-id*))
+      ;; asset" gesture.
+      (save-assumptions+refs state
+                             (dissoc assumptions instrument-id*)
+                             instrument-id*)
       [])))
 
 (defn- unacknowledged
@@ -909,21 +887,19 @@
       [])))
 
 (defn apply-portfolio-optimizer-history-assumption
-  "Acknowledges the configured assumption: collapses the card to its summary.
-  Purely presentational - run readiness never depends on acknowledgment. Any
-  explicit expand override is dropped so the acknowledged card actually
-  collapses."
+  "Acknowledges the configured assumption — the queue's Accept. Purely
+  presentational: run readiness never depends on acknowledgment, it only
+  decides whether the queue still owes this asset a turn."
   [state instrument-id]
   (let [instrument-id* (common/non-blank-text instrument-id)
         assumptions (history-assumptions-map state)]
     (if (and instrument-id*
              (contains? assumptions instrument-id*))
-      (conj-some (save-assumptions+refs
-                  state
-                  (update assumptions instrument-id*
-                          assoc :metadata {:source :user :acknowledged? true})
-                  instrument-id*)
-                 (without-assumption-card-collapse-override state instrument-id*))
+      (save-assumptions+refs
+       state
+       (update assumptions instrument-id*
+               assoc :metadata {:source :user :acknowledged? true})
+       instrument-id*)
       [])))
 
 (defn hydrate-portfolio-optimizer-history-assumption-library

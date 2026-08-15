@@ -54,15 +54,6 @@
                     (history-assumptions/proxy-instrument-ids entry))))
         assumptions))
 
-(defn- collapse-override-cleanup
-  ;; Recommendation entries arrive acknowledged, so their cards should rest
-  ;; collapsed like a hand Apply; drop any explicit expand overrides.
-  [state applied-ids]
-  (let [overrides (get-in state contracts/ui-assumption-cards-collapsed-path)
-        overrides* (when (map? overrides) (apply dissoc overrides applied-ids))]
-    (when (and (map? overrides) (not= overrides overrides*))
-      [:effects/save contracts/ui-assumption-cards-collapsed-path overrides*])))
-
 (def ^:private workflow-adequacies
   ;; Same enrollment signal as the assumption cards and the file export: a
   ;; recommendation reaches only assets whose history adequacy warrants a
@@ -100,7 +91,7 @@
 (defn- plan-effects
   "The import channel's bulk apply, driven by a recommendation plan: one draft
   save (assumptions + reconciled references + prefetch state), one library
-  sync carrying every upsert, collapse cleanup, and the outcome note."
+  sync carrying every upsert, and the outcome note."
   [state plan]
   (let [assumptions* (:assumptions plan)
         applied-ids (mapv :instrument-id (:applied plan))
@@ -133,13 +124,11 @@
                            :assumption entry
                            :reference-instruments
                            (assumption-library/entry-reference-instruments refs* entry)}))
-                      applied-ids)
-        collapse-effect (collapse-override-cleanup state applied-ids)]
+                      applied-ids)]
     (cond-> (conj (common/save-draft-path-values path-values)
                   [:effects/sync-portfolio-optimizer-assumption-library
                    {:upserts upserts}])
       (:start? prefetch-plan) (conj history-prefetch/selection-prefetch-effect)
-      (some? collapse-effect) (conj collapse-effect)
       true (conj (note-effect :success
                               (default-assumptions/apply-note-message plan))))))
 

@@ -93,11 +93,11 @@
 ;; proxy card's catalog typeahead reads/writes its own entry.
 (def ui-proxy-search-queries-path
   (conj optimizer-ui-path :proxy-search-queries))
-;; Explicit per-card collapse overrides: {instrument-id collapsed?}. Absent id
-;; means "use the default" (configured cards collapse, others expand), so the
-;; map stays empty until the user toggles a card by hand.
-(def ui-assumption-cards-collapsed-path
-  (conj optimizer-ui-path :assumption-cards-collapsed))
+;; Asset the History-assumptions queue is working on (the rail pills, Prev and
+;; Skip set it). Never cleaned up: an id absent from the current card set falls
+;; back to the queue view-model's default — the first asset still unsettled.
+(def ui-history-assumption-active-path
+  (conj optimizer-ui-path :history-assumption-active))
 (def ui-draft-add-asset-open-path
   (conj optimizer-ui-path :draft-add-asset-open?))
 ;; Instrument whose contribution breakdown the Equal Risk correlation view
@@ -232,7 +232,7 @@
    :optimizer-ui/return-views-filter ui-return-views-filter-path
    :optimizer-ui/return-views-io-note ui-return-views-io-note-path
    :optimizer-ui/history-assumptions-io-note ui-history-assumptions-io-note-path
-   :optimizer-ui/assumption-cards-collapsed ui-assumption-cards-collapsed-path})
+   :optimizer-ui/history-assumption-active ui-history-assumption-active-path})
 
 (defn optimizer-state-path
   [& segments]

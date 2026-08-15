@@ -93,7 +93,7 @@
 (def ui-universe-search-query-path paths/ui-universe-search-query-path)
 (def ui-universe-search-active-index-path paths/ui-universe-search-active-index-path)
 (def ui-proxy-search-queries-path paths/ui-proxy-search-queries-path)
-(def ui-assumption-cards-collapsed-path paths/ui-assumption-cards-collapsed-path)
+(def ui-history-assumption-active-path paths/ui-history-assumption-active-path)
 (def ui-draft-add-asset-open-path paths/ui-draft-add-asset-open-path)
 (def ui-selected-risk-instrument-path paths/ui-selected-risk-instrument-path)
 (def ui-objective-menu-open-path paths/ui-objective-menu-open-path)

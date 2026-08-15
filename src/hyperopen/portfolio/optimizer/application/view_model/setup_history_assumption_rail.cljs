@@ -58,8 +58,7 @@
 
 (defn history-assumption-rail-model
   "Right-rail summary of every asset in the assumption workflow: a one-line
-  summary per asset (the same line the center's collapsed card shows) with the
-  full compact facts behind it. No aggregate ready banner and no disclosure
+  summary per asset, with the full compact facts behind it. No aggregate ready banner and no disclosure
   note (2026-07-10): \"ready\" belongs to the run verdict + Data health, and
   the results-disclosure fact already surfaces as the folded
   :proxy-history-used data note."

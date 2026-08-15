@@ -295,6 +295,7 @@
             [hyperopen.portfolio.optimizer.application.view-model-frontier-test]
             [hyperopen.portfolio.optimizer.application.view-model-history-assumption-cards-test]
             [hyperopen.portfolio.optimizer.application.view-model-history-assumption-loading-test]
+            [hyperopen.portfolio.optimizer.application.view-model-history-assumption-queue-test]
             [hyperopen.portfolio.optimizer.application.view-model-history-assumption-recommendation-test]
             [hyperopen.portfolio.optimizer.application.view-model-rebalance-test]
             [hyperopen.portfolio.optimizer.application.view-model-results-test]
@@ -1151,6 +1152,7 @@
              'hyperopen.portfolio.optimizer.application.view-model-frontier-test
              'hyperopen.portfolio.optimizer.application.view-model-history-assumption-cards-test
              'hyperopen.portfolio.optimizer.application.view-model-history-assumption-loading-test
+             'hyperopen.portfolio.optimizer.application.view-model-history-assumption-queue-test
              'hyperopen.portfolio.optimizer.application.view-model-history-assumption-recommendation-test
              'hyperopen.portfolio.optimizer.application.view-model-rebalance-test
              'hyperopen.portfolio.optimizer.application.view-model-results-test

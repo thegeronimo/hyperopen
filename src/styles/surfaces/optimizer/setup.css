@@ -330,6 +330,62 @@
     padding: 7px 12px;
   }
 
+  /* --- History assumptions queue --------------------------------------------
+     The asset rail is the queue's orientation device: every asset in the
+     workflow, always visible, never its own scroll container — so "what is
+     left" is answerable without moving anything. It wraps rather than scrolls
+     for exactly that reason. */
+  .portfolio-optimizer .optimizer-assumption-queue__rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .portfolio-optimizer .optimizer-assumption-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--optimizer-border);
+    background-color: var(--optimizer-surface);
+    padding: 7px 10px;
+    color: var(--optimizer-text-2);
+    cursor: pointer;
+  }
+
+  .portfolio-optimizer .optimizer-assumption-pill[aria-pressed="true"] {
+    border-color: var(--optimizer-accent-border);
+    background-color: color-mix(in srgb, var(--optimizer-accent) 12%, transparent);
+    color: var(--optimizer-accent);
+  }
+
+  /* Three states in the order the queue cares about them: done, a one-click
+     model is waiting, still unanswered. */
+  .portfolio-optimizer .optimizer-assumption-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    flex: none;
+    background-color: var(--optimizer-warn);
+  }
+
+  .portfolio-optimizer .optimizer-assumption-dot[data-tone="settled"] {
+    background-color: var(--optimizer-long);
+  }
+
+  .portfolio-optimizer .optimizer-assumption-dot[data-tone="suggested"] {
+    background-color: var(--optimizer-accent);
+  }
+
+  /* The one folded diagnostics block. Its head stays readable while closed —
+     it carries the model line itself — so the summary marker would only
+     compete with the explicit Show/Hide label. */
+  .portfolio-optimizer .optimizer-assumption-queue__detail {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 7px 16px;
+    align-items: baseline;
+  }
+
   .portfolio-optimizer .optimizer-use-my-views-insight-cards {
     display: grid;
     grid-template-columns: 1fr;

@@ -909,37 +909,32 @@
                (ha-state {}) "perp:NEW"))
         "Clearing an absent assumption is a no-op.")))
 
-(def ^:private cards-collapsed-path
-  [:portfolio-ui :optimizer :assumption-cards-collapsed])
+(def ^:private queue-active-path
+  [:portfolio-ui :optimizer :history-assumption-active])
 
-(deftest set-history-assumption-card-collapsed-writes-override-test
-  (is (= [[:effects/save cards-collapsed-path {"perp:NEW" true}]]
-         (actions/set-portfolio-optimizer-history-assumption-card-collapsed
-          (ha-state {}) "perp:NEW" true))
-      "Collapsing writes an explicit per-card override.")
-  (is (= [[:effects/save cards-collapsed-path {"perp:NEW" false "perp:OLD" true}]]
-         (actions/set-portfolio-optimizer-history-assumption-card-collapsed
-          (assoc-in (ha-state {}) cards-collapsed-path {"perp:OLD" true})
-          "perp:NEW" false))
-      "Expanding overrides just the one card and preserves the rest.")
-  (is (= [] (actions/set-portfolio-optimizer-history-assumption-card-collapsed
-             (ha-state {}) " " true))
-      "A blank instrument-id is a no-op."))
+(deftest set-history-assumption-active-moves-the-queue-test
+  (is (= [[:effects/save queue-active-path "perp:NEW"]]
+         (actions/set-portfolio-optimizer-history-assumption-active
+          (ha-state {}) "perp:NEW"))
+      "A rail pill / Prev / Skip writes the asset the queue is asking about.")
+  (is (= [[:effects/save queue-active-path nil]]
+         (actions/set-portfolio-optimizer-history-assumption-active (ha-state {}) " "))
+      "A blank id clears the pointer, handing the queue back to its default."))
 
-(deftest apply-history-assumption-drops-collapse-override-test
-  ;; Apply acknowledges AND collapses: an explicit "expanded" override left
-  ;; behind would pin the card open against the acknowledgment's default.
-  (let [state (-> (ha-state {"perp:NEW" {:behavior :conservative
-                                         :expected-return 0.0
-                                         :volatility 0.8
-                                         :max-weight 0.03
-                                         :correlation-floor 0.75}})
-                  (assoc-in cards-collapsed-path {"perp:NEW" false}))
-        effects (actions/apply-portfolio-optimizer-history-assumption state "perp:NEW")]
-    (is (some #(= [:effects/save cards-collapsed-path {}] %) effects)
-        "The stale expand override is dropped so the default (collapsed) applies.")
-    (is (true? (get-in (vec effects) [0 1 0 1 "perp:NEW" :metadata :acknowledged?]))
-        "The entry is acknowledged in the same dispatch.")))
+(deftest apply-history-assumption-acknowledges-the-entry-test
+  ;; Apply IS the queue's Accept: it records the user's yes on the entry and
+  ;; nothing else. Run readiness never depends on it — it only decides whether
+  ;; the queue still owes this asset a turn.
+  (let [state (ha-state {"perp:NEW" {:behavior :conservative
+                                     :expected-return 0.0
+                                     :volatility 0.8
+                                     :max-weight 0.03
+                                     :correlation-floor 0.75}})
+        effects (vec (actions/apply-portfolio-optimizer-history-assumption state "perp:NEW"))]
+    (is (true? (get-in effects [0 1 0 1 "perp:NEW" :metadata :acknowledged?]))
+        "The entry is acknowledged.")
+    (is (= [] (actions/apply-portfolio-optimizer-history-assumption (ha-state {}) "perp:NEW"))
+        "Acknowledging an absent assumption is a no-op.")))
 
 (deftest hydrate-history-assumption-library-gap-fills-draft-test
   (let [conservative {:behavior :conservative

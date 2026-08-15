@@ -67,10 +67,7 @@
                                                  :acknowledged? true
                                                  :rationale "Broad market anchor."}}}}}}
    :portfolio-ui {:optimizer {:history-assumptions-io-note
-                              {:kind :success :message "Configured 1 asset"}
-                              ;; keep the imported card expanded so the
-                              ;; rationale line renders in this projection.
-                              :assumption-cards-collapsed {"perp:WLFI" false}}}})
+                              {:kind :success :message "Configured 1 asset"}}}})
 
 (deftest section-renders-toolbar-note-and-rationale-test
   (let [draft (get-in section-state contracts/draft-path)
