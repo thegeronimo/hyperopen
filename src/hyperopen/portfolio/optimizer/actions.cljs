@@ -143,8 +143,8 @@
 (def reset-portfolio-optimizer-history-assumption
   draft/reset-portfolio-optimizer-history-assumption)
 
-(def set-portfolio-optimizer-history-assumption-card-collapsed
-  draft/set-portfolio-optimizer-history-assumption-card-collapsed)
+(def set-portfolio-optimizer-history-assumption-active
+  draft/set-portfolio-optimizer-history-assumption-active)
 
 (def hydrate-portfolio-optimizer-history-assumption-library
   draft/hydrate-portfolio-optimizer-history-assumption-library)

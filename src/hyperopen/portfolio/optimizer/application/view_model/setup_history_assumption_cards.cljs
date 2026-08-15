@@ -27,11 +27,13 @@
     (str value)))
 
 (def ^:private mode-options
+  ;; Plain-language button copy (queue restructure, 2026-08-14): the control
+  ;; names the outcome the user is choosing, not the estimator's family name.
   [{:value :proxy
-    :label "Model from similar assets"
+    :label "Model on similar assets"
     :description "Model this asset as a basket of assets it behaves like."}
    {:value :conservative
-    :label "Use conservative assumption"
+    :label "Assume worst case"
     :description "High volatility, no diversification credit, tight cap."}])
 
 (def ^:private mode-labels
@@ -56,8 +58,7 @@
    :set-relationship-strength :actions/set-portfolio-optimizer-history-assumption-relationship-strength
    :apply :actions/apply-portfolio-optimizer-history-assumption
    :reset :actions/reset-portfolio-optimizer-history-assumption
-   :clear :actions/clear-portfolio-optimizer-history-assumption
-   :set-card-collapsed :actions/set-portfolio-optimizer-history-assumption-card-collapsed})
+   :clear :actions/clear-portfolio-optimizer-history-assumption})
 
 (def ^:private card-needing-adequacy
   ;; universe/history-adequacy values that warrant a card: no usable history, or
@@ -112,12 +113,13 @@
    :configured "Configured"})
 
 (defn- card-attention-order
-  "Sort weight that floats cards still needing attention above configured
-  ones. `:configured` is the only status whose work is done (it carries the
-  green Configured chip and can collapse); every other status still asks the
-  user for something, so it belongs on top regardless of the asset's
-  alphabetical position. Cards with equal weight keep their incoming
-  (universe) order because the CLJS sort is stable."
+  "Sort weight that floats cards still needing attention above engine-backed
+  ones — what the right rail lists by. `:configured` is the only status whose
+  work is done; every other status still asks the user for something, so it
+  belongs on top regardless of the asset's alphabetical position. Cards with
+  equal weight keep their incoming (universe) order because the CLJS sort is
+  stable. NOTE the queue deliberately re-sorts back to universe order: a rail
+  that reshuffles as you accept is not a map of what is left."
   [card]
   (if (= :configured (:status card)) 1 0))
 
@@ -195,15 +197,15 @@
    :equal "Equal-weight fallback"})
 
 (def ^:private recommendation-approach-labels
-  {:proxy "Model from similar assets"
-   :conservative "Use conservative assumption"})
+  {:proxy "Model on similar assets"
+   :conservative "Assume worst case"})
 
 (def ^:private recommended-action-ids
   {:apply-one :actions/apply-portfolio-optimizer-recommended-history-assumption
    :apply-all :actions/apply-portfolio-optimizer-recommended-history-assumptions})
 
 (defn- recommendation-member-row
-  [resolve-proxy-label available? {:keys [instrument-id label role]}]
+  [resolve-proxy-label available? {:keys [instrument-id label role weight]}]
   {:instrument-id instrument-id
    ;; Prefer the richer catalog/universe label; fall back to the discovery
    ;; display symbol (external members never resolve from the catalog).
@@ -212,6 +214,10 @@
               (or label resolved)
               resolved))
    :role role
+   ;; The served economic prior, carried raw. Applying normalizes it over the
+   ;; USABLE members only, so any split shown to the user must normalize the
+   ;; same way rather than reading these numbers as percentages.
+   :weight weight
    :available? available?})
 
 (defn- card-recommendation
@@ -248,8 +254,7 @@
   [{:keys [instrument label entry complete? errors warnings note percent-label*
            assumption-required? return-required? observations
            covariance-observations readiness recommendation
-           resolve-proxy-label usable-ids proxy-in-flight? search-query state
-           collapse-overrides]}]
+           resolve-proxy-label usable-ids proxy-in-flight? search-query state]}]
   (let [id (:instrument-id instrument)
         behavior (:behavior entry)
         proxy? (= :proxy behavior)
@@ -269,10 +274,9 @@
         final-rows (when preview
                      (exposure/basket-rows (:final-beta preview) selected-ids resolve-proxy-label))
         acknowledged? (boolean (get-in entry [:metadata :acknowledged?]))
-        configured? (boolean (and complete? acknowledged?))
-        ;; Configured cards rest collapsed (Apply's acknowledgment IS the
-        ;; collapse); an explicit user toggle overrides the default either way.
-        collapsed? (boolean (get collapse-overrides id configured?))]
+        ;; Complete AND accepted. `complete?` alone only says the engine can
+        ;; back it; the queue's "settled" needs the user's yes as well.
+        configured? (boolean (and complete? acknowledged?))]
     (cond-> {:instrument-id id
              :label label
              :role (str "portfolio-optimizer-history-assumption-card-" id)
@@ -297,10 +301,6 @@
              :engine-applied? (boolean complete?)
              :acknowledged? acknowledged?
              :configured? configured?
-             ;; Only a card with a chosen mode can collapse - a mode-less card
-             ;; has nothing to summarize and hides required work.
-             :collapsible? (some? behavior)
-             :collapsed? (boolean (and (some? behavior) collapsed?))
              :summary (when complete?
                         (card-summary entry (mapv :label selected-proxies) percent-label*))
              :actions assumption-action-ids}
@@ -363,7 +363,6 @@
          load-in-progress? (exposure/history-load-in-progress? state load-state)
          proxy-in-flight? (exposure/proxy-in-flight-fn state load-in-progress?)
          search-queries (get-in state contracts/ui-proxy-search-queries-path)
-         collapse-overrides (get-in state contracts/ui-assumption-cards-collapsed-path)
          ;; The shared covariance window (proxy-extended: complete proxy assets
          ;; are excluded from alignment, so this is the window the risk model
          ;; estimates over). One number for the whole universe.
@@ -419,8 +418,7 @@
                                     :usable-ids usable-ids
                                     :proxy-in-flight? proxy-in-flight?
                                     :resolve-proxy-label resolve-proxy-label
-                                    :search-query (get search-queries id)
-                                    :collapse-overrides collapse-overrides}))))))
+                                    :search-query (get search-queries id)}))))))
                     ;; Stack unconfigured cards above configured ones so the
                     ;; asset you still have to act on never hides beneath a
                     ;; finished one; stable, so within each group the universe

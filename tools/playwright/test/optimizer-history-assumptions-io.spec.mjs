@@ -76,6 +76,19 @@ async function ensureAssumptionsOpen(page) {
   }
 }
 
+// The queue leads with the model and keeps every hand-editing control behind
+// one opt-in disclosure, so any assertion about chips/inputs has to open it.
+// Both disclosures are DOM state, so this is a plain summary click.
+async function ensureAdjustOpen(page, instrumentId) {
+  const drawer = page.locator(
+    `[data-role='portfolio-optimizer-history-assumption-adjust-${instrumentId}']`
+  );
+  await expect(drawer).toHaveCount(1);
+  if (!(await drawer.evaluate((el) => el.open))) {
+    await drawer.locator("summary").first().click();
+  }
+}
+
 async function importFile(page, name, contents) {
   await ensureAssumptionsOpen(page);
   const [chooser] = await Promise.all([
@@ -180,11 +193,18 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   // Assert on :coin — clj->js drops keyword namespaces, so the decoration key
   // :optimizer-history/instrument-id shadows :instrument-id in this JS view.
   expect((references ?? []).map((reference) => reference.coin)).toContain("SOL");
-  // The import may complete the card and let the section re-collapse; the
-  // card content is still there, one summary-click away.
+  // The import may settle the asset and let the section re-collapse; the queue
+  // content is still there, one summary-click away.
   await ensureAssumptionsOpen(page);
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-rationale-perp:WLFI']"))
     .toContainText("Agent rationale: Anchor plus Solana ecosystem beta.");
+  // The imported basket reads off the queue's model line without opening
+  // anything — the panel leads with the model, not with the editor.
+  await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-model-line']"))
+    .toContainText("BTC");
+  // The chips themselves are editor state, so they live behind the opt-in
+  // "Adjust by hand" drawer (queue restructure 2026-08-14).
+  await ensureAdjustOpen(page, "perp:WLFI");
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-proxy-chip-perp:WLFI-perp:BTC']"))
     .toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-proxy-chip-perp:WLFI-perp:SOL']"))

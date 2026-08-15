@@ -137,8 +137,8 @@
     actions/apply-portfolio-optimizer-history-assumption
     :reset-portfolio-optimizer-history-assumption
     actions/reset-portfolio-optimizer-history-assumption
-    :set-portfolio-optimizer-history-assumption-card-collapsed
-    actions/set-portfolio-optimizer-history-assumption-card-collapsed
+    :set-portfolio-optimizer-history-assumption-active
+    actions/set-portfolio-optimizer-history-assumption-active
     :hydrate-portfolio-optimizer-history-assumption-library
     actions/hydrate-portfolio-optimizer-history-assumption-library
     :hydrate-portfolio-optimizer-view-library

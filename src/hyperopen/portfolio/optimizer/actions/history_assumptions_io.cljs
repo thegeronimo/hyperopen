@@ -192,15 +192,6 @@
                     (history-assumptions/proxy-instrument-ids entry))))
         assumptions))
 
-(defn- collapse-override-cleanup
-  ;; Imported entries arrive acknowledged, so their cards should rest collapsed
-  ;; like a hand Apply; drop any explicit expand overrides for the applied ids.
-  [state applied-ids]
-  (let [overrides (get-in state contracts/ui-assumption-cards-collapsed-path)
-        overrides* (when (map? overrides) (apply dissoc overrides applied-ids))]
-    (when (and (map? overrides) (not= overrides overrides*))
-      [:effects/save contracts/ui-assumption-cards-collapsed-path overrides*])))
-
 (defn apply-imported-portfolio-optimizer-history-assumptions
   [state data]
   (let [universe (draft-universe state)
@@ -252,13 +243,11 @@
                                :assumption entry
                                :reference-instruments
                                (assumption-library/entry-reference-instruments refs* entry)}))
-                          applied-ids)
-            collapse-effect (collapse-override-cleanup state applied-ids)]
+                          applied-ids)]
         (cond-> (conj (common/save-draft-path-values path-values)
                       [:effects/sync-portfolio-optimizer-assumption-library
                        {:upserts upserts}])
           (:start? prefetch-plan) (conj history-prefetch/selection-prefetch-effect)
-          (some? collapse-effect) (conj collapse-effect)
           true (conj (note-effect :success
                                   (history-assumptions-io/import-success-message plan))))))))
 

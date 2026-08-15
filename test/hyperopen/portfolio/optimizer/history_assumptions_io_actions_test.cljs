@@ -149,9 +149,7 @@
          (actions/import-portfolio-optimizer-history-assumptions base-state))))
 
 (deftest apply-imported-authors-entry-refs-library-and-note-test
-  (let [state (assoc-in base-state
-                        contracts/ui-assumption-cards-collapsed-path
-                        {"perp:WLFI" false "perp:BTC" true})
+  (let [state base-state
         data {"assets" [{"instrument-id" "perp:WLFI"
                          "approach" "proxy"
                          "proxies" [{"symbol" "BTC"} {"symbol" "SOL"}]
@@ -179,14 +177,6 @@
     (is (= ["perp:SOL"]
            (mapv :instrument-id
                  (:reference-instruments (first (:upserts sync))))))
-    ;; the applied card's explicit expand override is dropped (it collapses as
-    ;; configured); the untouched card's override survives.
-    (let [collapse (some (fn [[effect-id path value]]
-                           (when (and (= :effects/save effect-id)
-                                      (= contracts/ui-assumption-cards-collapsed-path path))
-                             value))
-                         effects)]
-      (is (= {"perp:BTC" true} collapse)))
     (is (= :effects/save (first note)))
     (is (= contracts/ui-history-assumptions-io-note-path (second note)))
     (is (= :success (:kind (nth note 2))))))

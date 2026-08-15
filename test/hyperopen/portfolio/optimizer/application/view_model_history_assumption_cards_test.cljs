@@ -429,10 +429,12 @@
            (:addable-assets model))
         "Fewest days first; unknown counts last with no claimed count.")))
 
-(deftest history-assumption-cards-collapse-defaults-and-overrides-test
-  ;; Configured (complete + acknowledged) cards rest collapsed; unfinished ones
-  ;; stay open; an explicit user override wins over either default; a mode-less
-  ;; card is never collapsible (it would hide required work).
+(deftest history-assumption-cards-separate-engine-backing-from-acceptance-test
+  ;; Two different questions, two different keys. `:engine-applied?` /
+  ;; `:status :configured` answer "can the engine back this?"; `:configured?`
+  ;; additionally requires the user's yes. The queue's "settled" is the latter,
+  ;; so conflating them would mark an entry the user edited since accepting as
+  ;; done and stop asking about it.
   (let [conservative {:behavior :conservative
                       :expected-return 0.0
                       :volatility 0.8
@@ -447,33 +449,24 @@
                              :universe [btc-instrument]
                              :objective {:kind :minimum-variance}}
                    :blocking-warnings []}
-        card-for (fn [state assumptions]
+        card-for (fn [assumptions]
                    (first (:cards (view-model/history-assumption-cards
-                                   state
+                                   {}
                                    (assoc draft :history-assumptions assumptions)
                                    readiness loaded-state-with-new {}))))]
-    (let [card (card-for {} {"perp:NEW" acknowledged})]
-      (is (true? (:configured? card)))
-      (is (true? (:collapsible? card)))
-      (is (true? (:collapsed? card)) "Configured default: collapsed."))
-    (let [card (card-for {} {"perp:NEW" conservative})]
-      (is (false? (:collapsed? card)) "Unacknowledged default: expanded."))
-    (let [expanded-override {:portfolio-ui {:optimizer {:assumption-cards-collapsed
-                                                        {"perp:NEW" false}}}}
-          card (card-for expanded-override {"perp:NEW" acknowledged})]
-      (is (false? (:collapsed? card)) "An explicit expand wins over the configured default."))
-    (let [collapsed-override {:portfolio-ui {:optimizer {:assumption-cards-collapsed
-                                                         {"perp:NEW" true}}}}
-          card (card-for collapsed-override {"perp:NEW" conservative})]
-      (is (true? (:collapsed? card)) "An explicit collapse wins over the unfinished default."))
-    (let [card (card-for {:portfolio-ui {:optimizer {:assumption-cards-collapsed
-                                                     {"perp:NEW" true}}}}
-                         {})]
-      (is (false? (:collapsible? card)) "A mode-less card is not collapsible.")
-      (is (false? (:collapsed? card)) "...and never renders collapsed, override or not."))
-    (is (= :actions/set-portfolio-optimizer-history-assumption-card-collapsed
-           (get-in (card-for {} {"perp:NEW" acknowledged})
-                   [:actions :set-card-collapsed])))))
+    (let [card (card-for {"perp:NEW" acknowledged})]
+      (is (= :configured (:status card)))
+      (is (true? (:engine-applied? card)))
+      (is (true? (:acknowledged? card)))
+      (is (true? (:configured? card)) "Complete AND accepted."))
+    (let [card (card-for {"perp:NEW" conservative})]
+      (is (= :configured (:status card)))
+      (is (true? (:engine-applied? card)) "The engine can back it either way.")
+      (is (false? (:acknowledged? card)))
+      (is (false? (:configured? card)) "...but the user never said yes."))
+    (let [card (card-for {})]
+      (is (false? (:engine-applied? card)))
+      (is (false? (:configured? card))))))
 
 (deftest history-assumption-cards-unconfigured-sort-above-configured-test
   ;; A card that still needs assumptions floats above a configured one even when

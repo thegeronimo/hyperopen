@@ -5,6 +5,7 @@
             [hyperopen.portfolio.optimizer.application.view-model.scenario-library :as scenario-library]
             [hyperopen.portfolio.optimizer.application.view-model.setup :as setup]
             [hyperopen.portfolio.optimizer.application.view-model.setup-history-assumption-cards :as assumption-cards]
+            [hyperopen.portfolio.optimizer.application.view-model.setup-history-assumption-queue :as assumption-queue]
             [hyperopen.portfolio.optimizer.application.view-model.setup-history-assumption-rail :as assumption-rail]
             [hyperopen.portfolio.optimizer.application.view-model.setup-summary :as setup-summary]
             [hyperopen.portfolio.optimizer.application.view-model.tracking :as tracking]
@@ -118,6 +119,12 @@
    (assumption-cards/history-assumption-cards state draft readiness history-load-state))
   ([state draft readiness history-load-state formatters]
    (assumption-cards/history-assumption-cards state draft readiness history-load-state formatters)))
+
+(defn history-assumption-queue-model
+  ([state draft readiness history-load-state]
+   (assumption-queue/history-assumption-queue-model state draft readiness history-load-state))
+  ([state draft readiness history-load-state formatters]
+   (assumption-queue/history-assumption-queue-model state draft readiness history-load-state formatters)))
 
 (defn history-assumption-rail-model
   ([state draft readiness history-load-state]
