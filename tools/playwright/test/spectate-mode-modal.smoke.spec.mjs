@@ -110,7 +110,13 @@ async function exerciseSpectateModal(page, mode) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 5_000, pollMs: 50 });
 
   await expect(page.locator("[data-role='spectate-mode-modal']")).toHaveCount(0);
-  await expect(page.locator("[data-role='spectate-mode-active-banner']")).toBeVisible();
+
+  const banner = page.locator("[data-role='spectate-mode-active-banner']");
+  await expect(banner).toBeVisible();
+  await expect(banner.locator("[data-role='spectate-mode-active-banner-label']"))
+    .toHaveText(WATCHLIST_LABEL);
+  await expect(banner.locator("[data-role='spectate-mode-active-banner-address']"))
+    .toContainText("0x2222");
   await expect
     .poll(() => new URL(page.url()).searchParams.get("spectate"))
     .toBe(WATCHLIST_ADDRESS);

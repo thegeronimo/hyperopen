@@ -142,6 +142,17 @@
     (and active?
          (some? (spectate-address state)))))
 
+(defn spectate-label
+  "Saved watchlist label for the address currently being spectated, or nil when
+   that address is unlabeled. Surfaces that identify the spectated account in a
+   short space prefer this over a truncated address, because a name the user
+   chose reads faster than `0x7c93…c8fd`."
+  [state]
+  (when-let [address (spectate-address state)]
+    (:label (watchlist-entry-by-address
+             (get-in state [:account-context :watchlist])
+             address))))
+
 (defn trader-portfolio-address
   [state]
   (portfolio-routes/trader-portfolio-address

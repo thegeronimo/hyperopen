@@ -43,6 +43,30 @@
             initial
             "0x2222222222222222222222222222222222222222")))))
 
+(deftest spectate-label-resolves-watchlist-label-for-active-address-test
+  (let [spectate "0x2222222222222222222222222222222222222222"
+        watchlist [{:address "0x1111111111111111111111111111111111111111"
+                    :label "Primary"}
+                   {:address spectate
+                    :label "Treasury"}]
+        state {:account-context {:spectate-mode {:active? true
+                                                 :address spectate}
+                                 :watchlist watchlist}}]
+    (is (= "Treasury" (account-context/spectate-label state)))
+    (is (= "Treasury"
+           (account-context/spectate-label
+            (assoc-in state
+                      [:account-context :spectate-mode :address]
+                      "0x2222222222222222222222222222222222222222 "))))
+    (is (nil? (account-context/spectate-label
+               (assoc-in state
+                         [:account-context :spectate-mode :address]
+                         "0x3333333333333333333333333333333333333333"))))
+    (is (nil? (account-context/spectate-label
+               (assoc-in state [:account-context :watchlist] [{:address spectate
+                                                               :label "  "}]))))
+    (is (nil? (account-context/spectate-label {:account-context {:watchlist watchlist}})))))
+
 (deftest effective-account-address-prefers-spectate-when-active-test
   (let [owner "0x1111111111111111111111111111111111111111"
         spectate "0x2222222222222222222222222222222222222222"]

@@ -18,7 +18,8 @@
   [state]
   (let [spectate-active? (account-context/spectate-mode-active? state)
         trader-portfolio-route? (account-context/trader-portfolio-route-active? state)
-        spectate-address (account-context/spectate-address state)]
+        spectate-address (account-context/spectate-address state)
+        spectate-label (account-context/spectate-label state)]
     (when (and spectate-active?
                (not trader-portfolio-route?)
                (seq spectate-address))
@@ -48,7 +49,16 @@
           "Spectate Mode"]
          [:span {:class ["text-sm" "text-[#b4d9d4]"]}
           "Currently spectating"]
-         [:span {:class ["text-sm" "font-semibold" "num"]
+         (when spectate-label
+           [:span {:class ["min-w-0" "truncate" "text-sm" "font-semibold"]
+                   :title spectate-address
+                   :data-role "spectate-mode-active-banner-label"}
+            spectate-label])
+         [:span {:class (cond-> ["num" "shrink-0" "text-sm"]
+                          ;; With a label leading, the address stays as the
+                          ;; identity check behind it rather than the headline.
+                          spectate-label (conj "opacity-70")
+                          (not spectate-label) (conj "font-semibold"))
                  :data-role "spectate-mode-active-banner-address"}
           (or (wallet/short-addr spectate-address) spectate-address)]]
         [:div {:class ["flex" "items-center" "gap-2"]}

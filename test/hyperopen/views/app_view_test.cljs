@@ -423,15 +423,37 @@
                                                               :spectate-ui {:modal-open? false}
                                                               :watchlist []}))
         banner-node (hiccup/find-by-data-role view-node "spectate-mode-active-banner")
+        address-node (hiccup/find-by-data-role view-node "spectate-mode-active-banner-address")
+        label-node (hiccup/find-by-data-role view-node "spectate-mode-active-banner-label")
         manage-button (hiccup/find-by-data-role view-node "spectate-mode-banner-manage")
         stop-button (hiccup/find-by-data-role view-node "spectate-mode-banner-stop")]
     (is (some? banner-node))
     (is (contains? (set (hiccup/collect-strings banner-node)) "Spectate Mode"))
     (is (contains? (set (hiccup/collect-strings banner-node)) "Currently spectating"))
+    (is (nil? label-node))
+    (is (= ["0xabcd…abcd"] (hiccup/collect-strings address-node)))
     (is (= [[:actions/open-spectate-mode-modal :event.currentTarget/bounds]]
            (get-in manage-button [1 :on :click])))
     (is (= [[:actions/stop-spectate-mode]]
            (get-in stop-button [1 :on :click])))))
+
+(deftest app-view-spectate-banner-prefers-watchlist-label-over-truncated-address-test
+  (let [address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        view-node (app-view/app-view (assoc (base-state)
+                                            :router {:path "/trade"}
+                                            :wallet {}
+                                            :account-context {:spectate-mode {:active? true
+                                                                              :address address}
+                                                              :spectate-ui {:modal-open? false}
+                                                              :watchlist [{:address address
+                                                                           :label "hyperliquidated"}]}))
+        label-node (hiccup/find-by-data-role view-node "spectate-mode-active-banner-label")
+        address-node (hiccup/find-by-data-role view-node "spectate-mode-active-banner-address")]
+    (is (= ["hyperliquidated"] (hiccup/collect-strings label-node)))
+    (is (= address (get-in label-node [1 :title])))
+    (is (not (contains? (set (get-in label-node [1 :class])) "num")))
+    (is (= ["0xabcd…abcd"] (hiccup/collect-strings address-node)))
+    (is (contains? (set (get-in address-node [1 :class])) "num"))))
 
 (deftest app-view-hides-spectate-banner-on-trader-portfolio-route-test
   (let [address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
