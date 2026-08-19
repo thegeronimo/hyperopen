@@ -56,9 +56,12 @@
    (commands/set-scale-end-input)
    (commands/set-scale-count-input)
    (commands/set-scale-skew-input)
+   (commands/set-twap-days-input)
    (commands/set-twap-hours-input)
    (commands/set-twap-minutes-input)
    (commands/toggle-twap-randomize)
+   (commands/set-twap-trigger-price-input)
+   (commands/set-twap-stop-price-input)
    (commands/toggle-tp-enabled)
    (commands/set-tp-trigger-input)
    (commands/set-tp-offset-input)
@@ -104,6 +107,15 @@
   (is (= {:command-id :order-form/update-order-form
           :args [[:twap :hours] commands/event-target-value]}
          (commands/set-twap-hours-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :days] commands/event-target-value]}
+         (commands/set-twap-days-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :trigger-px] commands/event-target-value]}
+         (commands/set-twap-trigger-price-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :stop-px] commands/event-target-value]}
+         (commands/set-twap-stop-price-input)))
   (is (= {:command-id :order-form/update-order-form
           :args [[:side] :sell]}
          (commands/set-order-side :sell)))

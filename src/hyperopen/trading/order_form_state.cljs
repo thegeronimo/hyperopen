@@ -6,9 +6,12 @@
 (def default-scale-skew "1.00")
 (def default-ui-leverage 20)
 (def default-slippage trading-domain/default-market-slippage-pct)
+(def default-twap-days 0)
 (def default-twap-hours 0)
 (def default-twap-minutes 30)
 (def default-twap-randomize false)
+(def default-twap-trigger-px "")
+(def default-twap-stop-px "")
 (def default-margin-mode :cross)
 (def default-size-input-mode :quote)
 (def default-size-input-source :manual)
@@ -82,9 +85,12 @@
            :end ""
            :count default-scale-order-count
            :skew default-scale-skew}
-   :twap {:hours default-twap-hours
+   :twap {:days default-twap-days
+          :hours default-twap-hours
           :minutes default-twap-minutes
-          :randomize default-twap-randomize}
+          :randomize default-twap-randomize
+          :trigger-px default-twap-trigger-px
+          :stop-px default-twap-stop-px}
    :tpsl {:unit default-tpsl-unit}
    :tp {:enabled? false
         :trigger ""
@@ -137,10 +143,25 @@
     (number? value) (-> value js/Math.floor int (max 0))
     :else default-value))
 
-(defn- normalize-twap-form [twap]
+(defn- normalize-twap-price-field [value]
+  (if (or (string? value) (number? value))
+    (str value)
+    ""))
+
+(defn- normalize-twap-form
+  "Rebuilds the canonical TWAP form map. Anything this function does not name is dropped
+   on every read, so every TWAP form key must appear here.
+
+   The runtime is stored split across :days/:hours/:minutes because the venue accepts
+   runtimes up to 7 days. A stored map with none of those keys is a legacy draft whose
+   :minutes held the whole runtime as a total, and is migrated by splitting it."
+  [twap]
   (let [raw-twap (or twap {})
-        runtime-fields (if (contains? raw-twap :hours)
-                         {:hours (normalize-twap-runtime-field (:hours raw-twap) 0)
+        split? (or (contains? raw-twap :days)
+                   (contains? raw-twap :hours))
+        runtime-fields (if split?
+                         {:days (normalize-twap-runtime-field (:days raw-twap) 0)
+                          :hours (normalize-twap-runtime-field (:hours raw-twap) 0)
                           :minutes (normalize-twap-runtime-field (:minutes raw-twap) 0)}
                          (trading-domain/split-twap-total-minutes
                           (or (:minutes raw-twap)
@@ -149,7 +170,9 @@
     (assoc runtime-fields
            :randomize (if (contains? raw-twap :randomize)
                         (boolean (:randomize raw-twap))
-                        default-twap-randomize))))
+                        default-twap-randomize)
+           :trigger-px (normalize-twap-price-field (:trigger-px raw-twap))
+           :stop-px (normalize-twap-price-field (:stop-px raw-twap)))))
 
 (defn normalize-order-form [form]
   (let [raw-tpsl (:tpsl form)]

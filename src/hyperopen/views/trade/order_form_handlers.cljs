@@ -71,9 +71,12 @@
                          :on-set-scale-end (dispatch-command (cmd/set-scale-end-input))
                          :on-set-scale-count (dispatch-command (cmd/set-scale-count-input))
                          :on-set-scale-skew (dispatch-command (cmd/set-scale-skew-input))
+                         :on-set-twap-days (dispatch-command (cmd/set-twap-days-input))
                          :on-set-twap-hours (dispatch-command (cmd/set-twap-hours-input))
                          :on-set-twap-minutes (dispatch-command (cmd/set-twap-minutes-input))
-                         :on-toggle-twap-randomize (dispatch-command (cmd/toggle-twap-randomize))}
+                         :on-toggle-twap-randomize (dispatch-command (cmd/toggle-twap-randomize))
+                         :on-set-twap-trigger-price (dispatch-command (cmd/set-twap-trigger-price-input))
+                         :on-set-twap-stop-price (dispatch-command (cmd/set-twap-stop-price-input))}
 
    :toggles {:on-toggle-reduce-only (dispatch-command (cmd/toggle-reduce-only))
              :on-toggle-post-only (dispatch-command (cmd/toggle-post-only))

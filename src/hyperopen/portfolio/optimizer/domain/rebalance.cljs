@@ -20,10 +20,10 @@
   0.3)
 
 (def twap-suborder-interval-seconds
-  ;; Venue TWAP cadence: Hyperliquid works a twapOrder as one suborder each 30 seconds.
-  ;; Mirrors hyperopen.domain.trading.core/twap-frequency-seconds; kept local (like
-  ;; min-order-notional-usd below) so the optimizer domain stays decoupled from the
-  ;; scale/TWAP trading domain.
+  ;; FLOOR on venue suborder spacing, NOT a fixed cadence: since the 2026-08-01 upgrade
+  ;; Hyperliquid clips at most this often and stretches the gap rather than let a clip
+  ;; fall below min-order-notional-usd. Mirrors trading.core/twap-frequency-seconds;
+  ;; kept local (like min-order-notional-usd below) so this domain stays decoupled.
   30)
 
 (def twap-min-runtime-minutes
@@ -38,10 +38,9 @@
   0.005)
 
 (def ^:private min-order-notional-usd
-  ;; Hyperliquid rejects orders below a $10 notional. The same floor is encoded
-  ;; for scale/TWAP suborders in hyperopen.domain.trading.core
-  ;; (scale-min-endpoint-notional / twap-min-suborder-notional); kept local here
-  ;; so the optimizer domain stays decoupled from the scale/TWAP trading domain.
+  ;; Hyperliquid rejects orders below a $10 notional, and holds every TWAP CLIP to the
+  ;; same floor -- it spaces clips wider rather than breach it (twap-venue-suborder-count).
+  ;; Mirrors trading.core's scale-min-endpoint-notional / twap-min-suborder-notional.
   10)
 
 (defn- abs-num
@@ -393,43 +392,52 @@
                                 :impact-usd (* notional (/ impact-bps 10000))))))
 
 ;; ── TWAP cost model ───────────────────────────────────────────────────────
-;; A TWAP order slices a parent order into suborders spaced over time, letting the
-;; book refill between clips -- so its estimated book impact must sit well below a
-;; single full-size market order. These are the pure estimate-side counterparts of
-;; the venue mechanics in hyperopen.domain.trading.core (one suborder each 30s).
+;; A TWAP order slices a parent order into suborders spaced over time, letting the book
+;; refill between clips -- so its estimated book impact must sit well below one full-size
+;; market order. Pure estimate-side counterparts of the venue mechanics in trading.core,
+;; whose clip spacing derives from BOTH the runtime and the notional since 2026-08-01.
 
 (defn twap-suborder-count
-  "Number of venue suborders a TWAP of the given duration executes: one clip per
-   twap-suborder-interval-seconds plus the initial clip, runtime floored at the venue
-   minimum. Mirrors hyperopen.domain.trading.core/twap-suborder-count."
+  "UPPER BOUND on a TWAP's clips: what the venue runs when every clip can sit at the
+   twap-suborder-interval-seconds floor (runtime floored at the venue minimum). Blind to
+   notional -- see twap-venue-suborder-count. Mirrors trading.core/twap-suborder-count."
   [minutes]
   (let [m (max twap-min-runtime-minutes
                (js/Math.floor (if (finite-positive? minutes) minutes 0)))]
     (inc (js/Math.round (/ (* 60 m) twap-suborder-interval-seconds)))))
 
+(defn twap-venue-suborder-count
+  "Clips the venue ACTUALLY works a TWAP of this runtime and notional as: as often as the
+   spacing floor allows, but never so often that a clip falls below min-order-notional-usd
+   (and never fewer than 2). Fails open to the notional-blind bound when the notional is
+   unusable, so a cost map without one prices as before. Mirrors trading.core's namesake."
+  [minutes total-notional]
+  (let [spacing-bound (twap-suborder-count minutes)]
+    (if (finite-positive? total-notional)
+      (max 2 (min spacing-bound (js/Math.floor (/ total-notional min-order-notional-usd))))
+      spacing-bound)))
+
 (defn twap-cost
   "Sliced-execution price-cost estimate for working a row's order as a venue TWAP over
-   `minutes`, derived from the row's one-shot cost map (the full-size book-walk figures
-   stamped by cost-estimate). Model: the order splits into n suborders; the book
-   REFILLS between 30s clips, so each clip pays ~1/n of the one-shot book impact
-   (linear-ladder approximation: walking 1/n of the size costs ~1/n the average
-   impact), but twap-permanent-impact-fraction of every clip's impact is permanent and
-   accumulates against later clips (a clip absorbs on average (n-1)/2 prior shifts):
+   `minutes`, from the row's one-shot cost map (the full-size book-walk stamped by
+   cost-estimate). The order splits into n = twap-venue-suborder-count clips and the book
+   REFILLS between them, so each clip pays ~1/n of the one-shot impact (linear ladder),
+   but phi = twap-permanent-impact-fraction of every clip's impact is permanent and
+   accumulates against later clips (a clip absorbs (n-1)/2 prior shifts on average):
 
      twap-impact = impact/n + phi * impact * (n-1) / (2n)   (never above the one-shot)
      twap-slip   = spread + twap-impact                     (every clip crosses the spread)
 
-   Continuity: n=1 reproduces the one-shot cost; the n->inf asymptote is
-   spread + phi/2 * impact. A cost with no spread/impact split (flat fallback,
-   prebaked bps, untrusted snapshot) returns unchanged with :twap-adjusted? false -- a
-   flat assumption has no impact component to slice, and discounting it would
-   fabricate precision. Floor semantics (:estimate-floor?) are inherited, and when one
-   clip's notional still exceeds the visible book the result is additionally flagged
-   :slice-exceeds-visible-depth? true (even sliced, each clip overruns the book)."
+   Continuity: n=1 reproduces the one-shot cost; the n->inf asymptote is spread +
+   phi/2 * impact. A cost with no spread/impact split (flat fallback, prebaked bps,
+   untrusted snapshot) returns unchanged with :twap-adjusted? false -- a flat assumption
+   has no impact component to slice, and discounting it would fabricate precision. Floor
+   semantics (:estimate-floor?) are inherited, and a clip that still exceeds the visible
+   book additionally flags :slice-exceeds-visible-depth? true."
   [cost minutes]
   (let [{:keys [spread-bps impact-bps notional-usd visible-notional-usd
                 slippage-bps estimated-slippage-usd estimate-floor?]} cost
-        n (twap-suborder-count minutes)]
+        n (twap-venue-suborder-count minutes notional-usd)]
     (if-not (and (finite-number? spread-bps)
                  (finite-number? impact-bps))
       {:twap-adjusted? false

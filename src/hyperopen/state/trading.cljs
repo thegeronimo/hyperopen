@@ -26,6 +26,7 @@
 (def twap-max-runtime-minutes trading-domain/twap-max-runtime-minutes)
 (def twap-frequency-seconds trading-domain/twap-frequency-seconds)
 (def twap-min-suborder-notional trading-domain/twap-min-suborder-notional)
+(def twap-min-order-notional trading-domain/twap-min-order-notional)
 
 (def parse-num trading-domain/parse-num)
 (def clamp-percent trading-domain/clamp-percent)
@@ -34,6 +35,10 @@
 (def twap-total-minutes trading-domain/twap-total-minutes)
 (def valid-twap-runtime? trading-domain/valid-twap-runtime?)
 (def twap-suborder-count trading-domain/twap-suborder-count)
+(def twap-venue-suborder-count trading-domain/twap-venue-suborder-count)
+(def twap-suborder-interval-seconds trading-domain/twap-suborder-interval-seconds)
+(def twap-interval-seconds-for-count trading-domain/twap-interval-seconds-for-count)
+(def twap-order-notional trading-domain/twap-order-notional)
 (def twap-suborder-size trading-domain/twap-suborder-size)
 (def twap-suborder-notional trading-domain/twap-suborder-notional)
 ;; Value-object adapters for canonical order field semantics.

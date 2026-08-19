@@ -113,11 +113,21 @@
                 show-liquidation-row?
                 show-slippage-row?]}
         controls
-        twap-preview (when (some #{:twap} (order-form-vm/order-type-sections type))
+        twap-section? (some #{:twap} (order-form-vm/order-type-sections type))
+        twap-preview (when twap-section?
                        (feedback/twap-preview state form base-symbol))
+        ;; The venue carries ONE termination price and reads its direction from the side,
+        ;; so the label flips while the form field and the wire key stay side-neutral.
+        ;; Section renderers only receive (form callbacks), so the side-dependent label
+        ;; rides in the callbacks map alongside :twap-preview.
+        twap-advanced (when twap-section?
+                        {:stop-price-label (if (= :sell side) "Min Price" "Max Price")})
         section-handlers (cond-> (:order-type-sections handlers)
                            twap-preview
-                           (assoc :twap-preview twap-preview))
+                           (assoc :twap-preview twap-preview)
+
+                           twap-advanced
+                           (assoc :twap-advanced twap-advanced))
         toggle-handlers (:toggles handlers)
         tif-handlers (:tif handlers)
         tp-sl-handlers (:tp-sl handlers)

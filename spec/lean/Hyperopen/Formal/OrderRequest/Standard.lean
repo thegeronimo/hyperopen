@@ -70,6 +70,10 @@ structure Market where
   idx : Option Nat := none
   marginMode : Option MarketMarginMode := none
   onlyIsolated : Bool := false
+  -- Last mark price for the market, as the streams carry it. Optional and defaulted to
+  -- none so every existing context serializes byte-identically; only the advanced TWAP
+  -- surface reads it, to infer the direction of a twapOrder trigger price.
+  mark : Option String := none
   deriving Repr, DecidableEq, Inhabited
 
 structure Context where
@@ -867,7 +871,8 @@ def marketToClj (market : Market) : Clj :=
       (match market.marginMode with
        | some mode => [(.keyword "marginMode", .str (marketMarginModeText mode))]
        | none => []) ++
-      (if market.onlyIsolated then [(.keyword "onlyIsolated", .bool true)] else [])
+      (if market.onlyIsolated then [(.keyword "onlyIsolated", .bool true)] else []) ++
+      optionalEntry "mark" (market.mark.map Clj.str)
 
 def contextToClj (context : Context) : Clj :=
   .arrayMap <|

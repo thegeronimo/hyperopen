@@ -78,7 +78,7 @@
         view-model (vm/order-form-vm state)]
     (is (true? (get-in view-model [:submit :disabled?])))
     (is (= :validation-errors (get-in view-model [:submit :reason])))
-    (is (= "TWAP runtime must be between 5 minutes and 24 hours."
+    (is (= "TWAP runtime must be between 5 minutes and 7 days."
            (get-in view-model [:submit :tooltip])))))
 
 (deftest order-form-vm-shows-spectate-mode-submit-remediation-tooltip-test

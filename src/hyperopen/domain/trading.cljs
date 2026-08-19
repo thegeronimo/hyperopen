@@ -20,6 +20,7 @@
 (def twap-max-runtime-minutes core/twap-max-runtime-minutes)
 (def twap-frequency-seconds core/twap-frequency-seconds)
 (def twap-min-suborder-notional core/twap-min-suborder-notional)
+(def twap-min-order-notional core/twap-min-order-notional)
 
 (def parse-num core/parse-num)
 (def clamp-percent core/clamp-percent)
@@ -29,6 +30,10 @@
 (def twap-total-minutes core/twap-total-minutes)
 (def valid-twap-runtime? core/valid-twap-runtime?)
 (def twap-suborder-count core/twap-suborder-count)
+(def twap-venue-suborder-count core/twap-venue-suborder-count)
+(def twap-suborder-interval-seconds core/twap-suborder-interval-seconds)
+(def twap-interval-seconds-for-count core/twap-interval-seconds-for-count)
+(def twap-order-notional core/twap-order-notional)
 (def twap-suborder-size core/twap-suborder-size)
 (def twap-suborder-notional core/twap-suborder-notional)
 (def normalize-order-type core/normalize-order-type)

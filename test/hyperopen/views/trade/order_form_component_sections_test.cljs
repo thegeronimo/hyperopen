@@ -252,44 +252,91 @@
     (is (= "open" (get-in menu [1 :data-ui-state])))
     (is (false? (get-in menu [1 :aria-hidden])))))
 
+(def ^:private twap-section-callbacks
+  {:on-set-twap-days [[:actions/twap-days [:event.target/value]]]
+   :on-set-twap-hours [[:actions/twap-hours [:event.target/value]]]
+   :on-set-twap-minutes [[:actions/twap-minutes [:event.target/value]]]
+   :on-toggle-twap-randomize [[:actions/twap-randomize [:event.target/checked]]]
+   :on-set-twap-trigger-price [[:actions/twap-trigger-px [:event.target/value]]]
+   :on-set-twap-stop-price [[:actions/twap-stop-px [:event.target/value]]]
+   :twap-preview {:runtime "30m"
+                  :frequency "30s"
+                  :order-count "61"
+                  :size-per-suborder "0.0491 BTC"}})
+
+(defn- twap-section-node
+  ([] (twap-section-node {} {}))
+  ([twap-form extra-callbacks]
+   (first (type-extensions/render-order-type-sections
+           :twap
+           {:twap (merge {:days 0 :hours 0 :minutes 30 :randomize false}
+                         twap-form)}
+           (merge twap-section-callbacks extra-callbacks)))))
+
 (deftest twap-section-renders-runtime-inputs-randomize-and-preview-test
-  (let [node (first (type-extensions/render-order-type-sections
-                     :twap
-                     {:twap {:hours 0
-                             :minutes 30
-                             :randomize false}}
-                     {:on-set-twap-hours [[:actions/twap-hours [:event.target/value]]]
-                      :on-set-twap-minutes [[:actions/twap-minutes [:event.target/value]]]
-                      :on-toggle-twap-randomize [[:actions/twap-randomize [:event.target/checked]]]
-                      :twap-preview {:runtime "30m"
-                                     :frequency "30s"
-                                     :order-count "61"
-                                     :size-per-suborder "0.0491 BTC"}}))
+  (let [node (twap-section-node)
+        days-input (input-node-by-aria-label node "Days")
         hours-input (input-node-by-aria-label node "Hours")
         minutes-input (input-node-by-aria-label node "Minutes")
         checkbox (first (filter #(= "checkbox" (get-in % [1 :type]))
                                 (collect-nodes-by-tag node :input)))
         labels (set (collect-strings node))]
+    (is (some? days-input))
     (is (some? hours-input))
     (is (some? minutes-input))
+    (is (= [[:actions/twap-days [:event.target/value]]]
+           (get-in days-input [1 :on :input])))
     (is (= [[:actions/twap-hours [:event.target/value]]]
            (get-in hours-input [1 :on :input])))
     (is (= [[:actions/twap-minutes [:event.target/value]]]
            (get-in minutes-input [1 :on :input])))
     (is (= [[:actions/twap-randomize [:event.target/checked]]]
            (get-in checkbox [1 :on :change])))
+    (is (contains? labels "Days"))
     (is (contains? labels "Hours"))
     (is (contains? labels "Minutes"))
     (is (contains? labels "Randomize"))
-    (is (contains? labels "Hyperliquid slices TWAP orders every 30 seconds."))
+    (is (contains? labels
+                   "Hyperliquid slices this order over its runtime, at most one slice every 30s. Estimated:"))
     (is (contains? labels "Runtime"))
     (is (contains? labels "30m"))
-    (is (contains? labels "Frequency"))
+    (is (contains? labels "Every"))
     (is (contains? labels "30s"))
-    (is (contains? labels "Orders"))
+    (is (contains? labels "Slices"))
     (is (contains? labels "61"))
     (is (contains? labels "Per Slice"))
     (is (contains? labels "0.0491 BTC"))))
+
+(deftest twap-section-renders-advanced-trigger-and-stop-price-inputs-test
+  (let [node (twap-section-node)
+        trigger-input (input-node-by-aria-label node "Trigger Price")
+        stop-input (input-node-by-aria-label node "Max Price")
+        labels (set (collect-strings node))]
+    (is (contains? labels "Advanced Settings"))
+    (is (some? trigger-input))
+    (is (some? stop-input))
+    (is (= [[:actions/twap-trigger-px [:event.target/value]]]
+           (get-in trigger-input [1 :on :input])))
+    (is (= [[:actions/twap-stop-px [:event.target/value]]]
+           (get-in stop-input [1 :on :input])))))
+
+(deftest twap-advanced-stop-price-label-flips-with-side-test
+  (let [sell-node (twap-section-node {} {:twap-advanced {:stop-price-label "Min Price"}})
+        labels (set (collect-strings sell-node))]
+    (is (contains? labels "Min Price"))
+    (is (not (contains? labels "Max Price")))
+    (is (some? (input-node-by-aria-label sell-node "Min Price")))))
+
+(deftest twap-advanced-panel-opens-when-the-draft-already-carries-values-test
+  (let [closed (twap-section-node)
+        open (twap-section-node {:trigger-px "65000"} {})
+        details-attrs (fn [node]
+                        (get-in (first (collect-nodes-by-tag node :details)) [1]))]
+    (is (nil? (:open (details-attrs closed))))
+    (is (true? (:open (details-attrs open))))
+    ;; A stable key keeps the native <details> node across re-renders; without it
+    ;; Replicant remounts the element and the panel snaps shut while the user types.
+    (is (= "trade-twap-advanced-settings" (:replicant/key (details-attrs open))))))
 
 (deftest section-module-delegates-to-type-extensions-test
   (with-redefs [type-extensions/render-order-type-sections

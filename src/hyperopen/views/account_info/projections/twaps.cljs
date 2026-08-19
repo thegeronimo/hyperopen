@@ -70,12 +70,35 @@
     nil))
 
 (defn- display-duration
+  "Human runtime label. Carries a day bucket because the venue now accepts runtimes up to
+   7 days, which would otherwise render as an unreadable 168h 0m."
   [duration-ms]
   (when-let [duration-ms* (parse/parse-optional-num duration-ms)]
     (let [seconds (max 0 (js/Math.floor (/ duration-ms* 1000)))
-          hours (js/Math.floor (/ seconds 3600))
+          days (js/Math.floor (/ seconds 86400))
+          hours (js/Math.floor (/ (mod seconds 86400) 3600))
           minutes (js/Math.floor (/ (mod seconds 3600) 60))]
-      (str hours "h " minutes "m"))))
+      (if (pos? days)
+        (str days "d " hours "h " minutes "m")
+        (str hours "h " minutes "m")))))
+
+(defn- twap-stop-price
+  "Price at which the venue terminates the order (the ticket's Max/Min Price), or nil when
+   the order carries none. Arrives on the raw payload as camelCase :stopPx because the
+   websocket layer stores provider frames verbatim."
+  [state]
+  (some parse/parse-optional-num [(:stopPx state) (:stop-px state)]))
+
+(defn- twap-trigger
+  "Activation condition, or nil when the order carries none. Wire shape is
+   {:px <price> :above <bool>}; :above says whether the mark must rise to the trigger or
+   fall to it."
+  [state]
+  (let [raw (:trigger state)]
+    (when (map? raw)
+      (when-let [px (parse/parse-optional-num (:px raw))]
+        {:trigger-px px
+         :trigger-above? (true? (parse/boolean-value (:above raw)))}))))
 
 (defn- elapsed-duration
   [elapsed-ms]
@@ -175,22 +198,26 @@
                        (:totalSz state*)
                        (:size state*)])
            average-price (twap-average-price state*)
-           reduce-only? (true? (parse/boolean-value (:reduceOnly state*)))]
+           reduce-only? (true? (parse/boolean-value (:reduceOnly state*)))
+           trigger (twap-trigger state*)]
        (when (and (not finished?)
                   coin
                   (number? creation-time-ms))
-         {:twap-id twap-id
-          :coin coin
-          :size size
-          :executed-size executed-size
-          :average-price average-price
-          :running-label (running-label creation-time-ms total-ms now-ms*)
-          :running-ms (when (number? creation-time-ms)
-                        (max 0 (- now-ms* creation-time-ms)))
-          :total-ms total-ms
-          :reduce-only? reduce-only?
-          :side (parse/non-blank-text (:side state*))
-          :creation-time-ms creation-time-ms})))))
+         (merge
+          {:twap-id twap-id
+           :coin coin
+           :size size
+           :executed-size executed-size
+           :average-price average-price
+           :running-label (running-label creation-time-ms total-ms now-ms*)
+           :running-ms (when (number? creation-time-ms)
+                         (max 0 (- now-ms* creation-time-ms)))
+           :total-ms total-ms
+           :reduce-only? reduce-only?
+           :stop-price (twap-stop-price state*)
+           :side (parse/non-blank-text (:side state*))
+           :creation-time-ms creation-time-ms}
+          (or trigger {:trigger-px nil :trigger-above? nil})))))))
 
 (defn normalized-active-twaps
   ([rows]
@@ -223,6 +250,7 @@
           average-price (twap-average-price state)
           reduce-only? (true? (parse/boolean-value (:reduceOnly state)))
           randomize? (true? (parse/boolean-value (:randomize state)))
+          trigger (twap-trigger state)
           total-ms (twap-duration-ms state)
           {:keys [status-key status-label status-tooltip]} (twap-status (:status row))
           time-ms (some parse/parse-time-ms
@@ -231,18 +259,21 @@
                          (:createdAt row)
                          (:timestamp state)])]
       (when coin
-        {:time-ms time-ms
-         :coin coin
-         :size size
-         :executed-size executed-size
-         :average-price average-price
-         :total-runtime-label (or (display-duration total-ms) "—")
-         :reduce-only? reduce-only?
-         :randomize? randomize?
-         :status-key status-key
-         :status-label status-label
-         :status-tooltip status-tooltip
-         :side (parse/non-blank-text (:side state))}))))
+        (merge
+         {:time-ms time-ms
+          :coin coin
+          :size size
+          :executed-size executed-size
+          :average-price average-price
+          :total-runtime-label (or (display-duration total-ms) "—")
+          :reduce-only? reduce-only?
+          :randomize? randomize?
+          :stop-price (twap-stop-price state)
+          :status-key status-key
+          :status-label status-label
+          :status-tooltip status-tooltip
+          :side (parse/non-blank-text (:side state))}
+         (or trigger {:trigger-px nil :trigger-above? nil}))))))
 
 (defn normalized-twap-history
   [rows]

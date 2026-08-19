@@ -14,7 +14,9 @@
     :scale/skew-invalid
     :scale/endpoint-notional-too-small
     :twap/runtime-invalid
-    :twap/suborder-notional-too-small
+    :twap/order-notional-too-small
+    :twap/trigger-price-invalid
+    :twap/stop-price-invalid
     :tpsl/tp-trigger-required
     :tpsl/sl-trigger-required
     :spot/insufficient-usdc

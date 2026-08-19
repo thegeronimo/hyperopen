@@ -15,10 +15,40 @@
                                        (get state :order-form)
                                        "BTC")]
     (is (= "1h 30m" (:runtime preview)))
-    (is (= "30s" (:frequency preview)))
-    (is (not= "--" (:order-count preview)))
-    (is (pos? (js/parseFloat (:order-count preview))))
+    ;; 6 BTC at the fixture's best ask of 101 is $606 of notional. The venue will not let
+    ;; a clip fall below $10, so it works this as 60 clips rather than the 181 a flat 30s
+    ;; cadence would imply, spacing them ~92s apart.
+    (is (= "60" (:order-count preview)))
+    (is (= "~2m" (:frequency preview)))
     (is (re-find #" BTC$" (:size-per-suborder preview)))))
+
+(deftest twap-preview-uses-the-thirty-second-floor-for-large-orders-test
+  (let [state (base-state {:type :twap
+                           :size "600"
+                           :twap {:minutes "90"}})
+        preview (feedback/twap-preview state (get state :order-form) "BTC")]
+    ;; $60,600 over 90 minutes clears the $10 clip floor at every 30s slot, so the
+    ;; spacing floor binds and the count is the classic 1 + 2*minutes.
+    (is (= "181" (:order-count preview)))
+    (is (= "30s" (:frequency preview)))))
+
+(deftest twap-preview-reports-a-bound-when-the-notional-is-unknown-test
+  (let [state (base-state {:type :twap
+                           :size ""
+                           :twap {:minutes "1440"}})
+        preview (feedback/twap-preview state (get state :order-form) "BTC")]
+    ;; With no size the venue count cannot be derived, so the ceiling the 30-second floor
+    ;; allows is shown as a bound rather than presented as the schedule.
+    (is (= "up to 2881" (:order-count preview)))
+    (is (= "30s+" (:frequency preview)))
+    (is (= "--" (:size-per-suborder preview)))))
+
+(deftest twap-preview-runtime-label-includes-days-test
+  (let [state (base-state {:type :twap
+                           :size "6"
+                           :twap {:days "2" :hours "3" :minutes "4"}})
+        preview (feedback/twap-preview state (get state :order-form) "BTC")]
+    (is (= "2d 3h 4m" (:runtime preview)))))
 
 (deftest spectate-stop-affordance-renders-stop-action-test
   (let [affordance (feedback/spectate-mode-stop-affordance)

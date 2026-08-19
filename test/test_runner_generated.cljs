@@ -56,6 +56,7 @@
             [hyperopen.api.gateway.market-test]
             [hyperopen.api.gateway.orders-test]
             [hyperopen.api.gateway.orders.commands-test]
+            [hyperopen.api.gateway.orders.twap-advanced-details-test]
             [hyperopen.api.gateway.vaults-test]
             [hyperopen.api.info-client-cache-test]
             [hyperopen.api.info-client-scheduling-test]
@@ -331,6 +332,7 @@
             [hyperopen.portfolio.optimizer.domain.leverage-risk-test]
             [hyperopen.portfolio.optimizer.domain.objectives-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-test]
+            [hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test]
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-contributions-test]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test]
@@ -473,6 +475,7 @@
             [hyperopen.state.trading.order-request-test]
             [hyperopen.state.trading.scale-pm-summary-test]
             [hyperopen.state.trading.submit-policy-formal-conformance-test]
+            [hyperopen.state.trading.twap-venue-model-test]
             [hyperopen.state.trading.validation-and-scale-test]
             [hyperopen.subaccounts.actions-test]
             [hyperopen.subaccounts.effects-spectate-test]
@@ -913,6 +916,7 @@
              'hyperopen.api.gateway.market-test
              'hyperopen.api.gateway.orders-test
              'hyperopen.api.gateway.orders.commands-test
+             'hyperopen.api.gateway.orders.twap-advanced-details-test
              'hyperopen.api.gateway.vaults-test
              'hyperopen.api.info-client-cache-test
              'hyperopen.api.info-client-scheduling-test
@@ -1188,6 +1192,7 @@
              'hyperopen.portfolio.optimizer.domain.leverage-risk-test
              'hyperopen.portfolio.optimizer.domain.objectives-test
              'hyperopen.portfolio.optimizer.domain.rebalance-test
+             'hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-contributions-test
              'hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test
@@ -1330,6 +1335,7 @@
              'hyperopen.state.trading.order-request-test
              'hyperopen.state.trading.scale-pm-summary-test
              'hyperopen.state.trading.submit-policy-formal-conformance-test
+             'hyperopen.state.trading.twap-venue-model-test
              'hyperopen.state.trading.validation-and-scale-test
              'hyperopen.subaccounts.actions-test
              'hyperopen.subaccounts.effects-spectate-test

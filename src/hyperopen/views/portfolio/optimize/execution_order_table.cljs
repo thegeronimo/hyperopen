@@ -246,11 +246,11 @@
      [:p {:class ["optimizer-exec-cost-head"]}
       [:span "Execution cost breakdown (est.)"]
       [:span {:class ["optimizer-exec-cost-info"]
-              :title (str "Price cost = crossing the spread + walking the book (impact). "
-                          "All-in adds exchange fees. Resting Limit/Passive orders pay "
-                          "neither spread nor impact and earn the lower maker fee. "
-                          "TWAP works the order as venue suborders every 30s, so its "
-                          "impact estimate is the sliced cost, not one full-size walk.")}
+              :title (str "Price cost = crossing the spread + walking the book (impact). All-in "
+                          "adds exchange fees. Resting Limit/Passive orders pay neither spread "
+                          "nor impact and earn the lower maker fee. TWAP works the order as venue "
+                          "suborders — every 30s at most, wider when a clip would fall under $10 "
+                          "— so its impact estimate is the sliced cost, not one full-size walk.")}
        "ⓘ"]]
      [:div {:class ["optimizer-exec-cost-eq"]}
       (cond
@@ -345,11 +345,11 @@
                                  (= (:twap-min params) m) (conj "optimizer-primary-action" "font-semibold"))
                         :on {:click [[:actions/set-portfolio-optimizer-execution-row-param row-id :twap-min m]]}}
                (str m " min")])
-            ;; Clip count from the venue's real cadence (one suborder each 30s) — the
-            ;; prior minutes÷2 copy claimed 10 slices for a 20-minute TWAP that actually
-            ;; executes 41, and the cost model prices the real count.
+            ;; Clip count AND gap from the venue's real slice model: 30s is a spacing
+            ;; FLOOR, so a small order over a long runtime is not "one every 30s" — the
+            ;; label prices the notional-aware count the cost model also charges.
             [:span {:class ["font-mono" "text-trading-muted/70"]}
-             (str (shared/twap-suborder-count (:twap-min params)) " clips · one every 30s")]]
+             (shared/twap-clip-schedule-label row (:twap-min params))]]
            [:span "Post-only at the best price — never crosses the spread, re-pegs as the book moves."])]
         [:p {:class ["font-mono" "text-[0.65rem]" "text-trading-muted/70"]}
          (str "Recommended: " (shared/order-type-labels rec) " — " rec-reason-text)]
