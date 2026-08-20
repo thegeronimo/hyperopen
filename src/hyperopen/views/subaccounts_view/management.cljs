@@ -217,7 +217,9 @@
         max-label (or (:available-display selected-asset)
                       (if withdrawing? withdraw-max deposit-max))
         selected-available (:available selected-asset)
-        submit-disabled? (not (pos? (or selected-available 0)))
+        unresolved? (true? (:unresolved? selected-asset))
+        submit-disabled? (or unresolved?
+                             (not (pos? (or selected-available 0))))
         symbol (or (:symbol selected-asset) "USDC")]
     [:div {:data-role (str "subaccounts-transfer-popover-" address)
            :class (into ["relative"
@@ -290,7 +292,15 @@
                                           [:event.target/value]]]}}]
                    [:span {:data-role (str "subaccounts-transfer-max-" address)
                            :class ["shrink-0" "text-xs" "font-medium" "text-ho-accent"]}
-                    (str "MAX: " max-label " " symbol)]]})]
+                    (str "MAX: " max-label " " symbol)]]})
+      ;; An asset spot metadata cannot name has no wire token id, and signing a
+      ;; bare symbol is rejected by the exchange, so say so instead of failing
+      ;; at submit time.
+      (when unresolved?
+        [:p {:data-role (str "subaccounts-transfer-unresolved-" address)
+             :class ["mt-2" "text-xs" "text-ho-warn"]}
+         (str symbol " cannot be sent right now. "
+              transfer-dropdowns/unresolved-token-message ".")])]
      [:div {:class ["mt-6" "grid" "grid-cols-2" "gap-3"]}
       (action-button {:data-role (str "subaccounts-transfer-cancel-" address)
                       :label "Cancel"

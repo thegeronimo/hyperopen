@@ -240,7 +240,7 @@
     (is (contains? strings "Loading subaccounts...")
         "With no rows yet, the loading placeholder is the right empty state.")))
 
-(deftest unified-owner-mode-popover-offers-trading-only-even-when-active-account-classic-test
+(deftest unified-owner-mode-popover-offers-one-spot-option-even-when-active-account-classic-test
   (let [view-node (view/subaccounts-view
                    (-> (base-state)
                        ;; Active trading account is classic, but the master/owner
@@ -261,11 +261,17 @@
         transfer-spot-option (hiccup/find-by-data-role view-node
                                                        (str "subaccounts-transfer-account-option-"
                                                             subaccount-address
-                                                            "-spot"))]
+                                                            "-spot"))
+        transfer-trading-option (hiccup/find-by-data-role view-node
+                                                          (str "subaccounts-transfer-account-option-"
+                                                               subaccount-address
+                                                               "-trading"))]
     (is (contains? (set (hiccup/collect-strings transfer-account-menu)) "Spot Account"))
     (is (not (contains? (set (hiccup/collect-strings transfer-account-menu)) "Trading Account")))
-    (is (nil? transfer-spot-option)
-        "A unified master must not expose the spot transfer option, regardless of the active account mode.")))
+    (is (some? transfer-spot-option)
+        "A unified master pools spot and perps collateral and moves funds through the spot path, so its single option is the spot one.")
+    (is (nil? transfer-trading-option)
+        "A unified master must not offer a choice of funding source, regardless of the active account mode.")))
 
 (deftest subaccounts-view-renders-create-rename-and-transfer-controls-test
   (let [view-node (view/subaccounts-view
@@ -421,7 +427,7 @@
     (is (nil? rename-button))
     (is (nil? transfer-button))))
 
-(deftest unified-subaccounts-transfer-popover-offers-trading-account-only-test
+(deftest unified-subaccounts-transfer-popover-offers-a-single-spot-option-test
   (let [view-node (view/subaccounts-view
                    (-> (base-state)
                        (assoc :account {:mode :unified})
@@ -460,6 +466,10 @@
                                                        (str "subaccounts-transfer-account-option-"
                                                             subaccount-address
                                                             "-spot"))
+        transfer-trading-option (hiccup/find-by-data-role view-node
+                                                          (str "subaccounts-transfer-account-option-"
+                                                               subaccount-address
+                                                               "-trading"))
         transfer-max (hiccup/find-by-data-role view-node
                                                (str "subaccounts-transfer-max-" subaccount-address))]
     (is (contains? (set (hiccup/collect-strings transfer-direction))
@@ -468,6 +478,7 @@
                    "Spot Account"))
     (is (not (contains? (set (hiccup/collect-strings transfer-account-menu))
                         "Trading Account")))
-    (is (nil? transfer-spot-option))
+    (is (some? transfer-spot-option))
+    (is (nil? transfer-trading-option))
     (is (contains? (set (hiccup/collect-strings transfer-max))
                    "MAX: 301.12859 USDC"))))

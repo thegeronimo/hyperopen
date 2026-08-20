@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.funding.domain.spot-tokens :as spot-tokens]
             [hyperopen.platform :as platform]
             [hyperopen.subaccounts.actions :as actions]))
 
@@ -476,28 +477,33 @@
                                        amount
                                        token)))
 
-(def ^:private hyperliquid-mainnet-usdc-token
-  "USDC:0x6d1e7cde53ba9467b783cb7c530ce054")
-
 (def ^:private unified-transfer-dex
   "spot")
 
-(defn- unified-send-asset-token
-  [token]
-  (let [token* (some-> token str str/trim)]
-    (cond
-      (and (seq token*) (str/includes? token* ":")) token*
-      (= "USDC" (some-> token* str/upper-case)) hyperliquid-mainnet-usdc-token
-      (seq token*) token*
-      :else hyperliquid-mainnet-usdc-token)))
+(def ^:private unresolved-spot-token-message
+  "Spot asset details are unavailable. Refresh balances before transferring.")
+
+(defn- spot-wire-token
+  "Wire token id (`NAME:0x<hash>`) for a spot transfer request, or nil.
+
+   Hyperliquid rejects both a bare symbol such as `HYPE` and the bare numeric
+   token index that a `spotClearinghouseState` balance row carries, so an
+   unresolvable token must fail here rather than be signed unqualified. A blank
+   token means the caller never chose one, which only happens on the legacy
+   unified USDC default, so it resolves to USDC."
+  [state token]
+  (if (seq (some-> token str str/trim))
+    (spot-tokens/resolve-with (spot-tokens/resolver state)
+                              {:coin token :token token})
+    (spot-tokens/usdc-wire-token-id state)))
 
 (defn- unified-send-asset-action
-  [owner address is-deposit? token amount]
+  [owner address is-deposit? wire-token amount]
   {:type "sendAsset"
    :destination (if is-deposit? address owner)
    :sourceDex unified-transfer-dex
    :destinationDex unified-transfer-dex
-   :token (unified-send-asset-token token)
+   :token wire-token
    :amount (str amount)
    :fromSubAccount (if is-deposit? "" address)})
 
@@ -526,9 +532,17 @@
         token (:token request)
         amount (:amount request)
         amount-display (or (:amount-display request) amount)
+        ;; Account mode decides which exchange primitive is legal at all, so it
+        ;; is the outer question; the asset kind is the inner one. Hyperliquid
+        ;; rejects the classic sub-account primitives for unified accounts
+        ;; ("Unified account only supports sending assets through spot"), so
+        ;; `unified?` must be tested before `spot?`.
+        wire-token (when (or unified? spot?)
+                     (spot-wire-token @store token))
         submit! (cond
-                  spot?
-                  (transfer-sub-account-spot! store owner address is-deposit? token amount)
+                  (and (or unified? spot?) (not wire-token))
+                  (js/Promise.resolve
+                   {:status "err" :error unresolved-spot-token-message})
 
                   unified?
                   (submit-send-asset! store
@@ -536,8 +550,11 @@
                                       (unified-send-asset-action owner
                                                                  address
                                                                  is-deposit?
-                                                                 token
+                                                                 wire-token
                                                                  amount))
+
+                  spot?
+                  (transfer-sub-account-spot! store owner address is-deposit? wire-token amount)
 
                   :else
                   (transfer-sub-account! store owner address is-deposit? usd))]

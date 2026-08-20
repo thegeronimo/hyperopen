@@ -45,11 +45,17 @@
                   :transfer-account-menu-open? false
                   :transfer-token "USDC"
                   :transfer-token-menu-open? false}}
+   ;; Production `spotMeta` shape: :name, :index, and :tokenId arrive
+   ;; separately; Hyperliquid never returns a prejoined "NAME:0x..." string.
    :spot {:meta {:tokens [{:name "USDH"
-                           :token "USDH:0xabc"
+                           :index 12
+                           :tokenId "0xabc"
+                           :szDecimals 2
                            :weiDecimals 6}
                           {:name "MEOW"
-                           :token "MEOW:0xdef"
+                           :index 34
+                           :tokenId "0xdef"
+                           :szDecimals 0
                            :weiDecimals 2}]}}})
 
 (deftest parse-subaccounts-route-supports-hyperliquid-casing-test
@@ -266,8 +272,8 @@
   (is (= []
          (actions/set-subaccount-form-field {} :unknown "value"))))
 
-(deftest unified-subaccount-transfer-account-selection-stays-on-trading-test
-  (is (= [[:effects/save-many [[[:account-context :subaccounts :transfer-account] :trading]
+(deftest unified-subaccount-transfer-account-selection-resolves-to-spot-test
+  (is (= [[:effects/save-many [[[:account-context :subaccounts :transfer-account] :spot]
                                 [[:account-context :subaccounts :transfer-account-menu-open?] false]
                                 [[:account-context :subaccounts :transfer-token-menu-open?] false]
                                 [[:account-context :subaccounts :error] nil]]]]
@@ -471,25 +477,6 @@
               (assoc-in [:account-context :subaccounts :transfer-amount] "1")
               (assoc-in [:account-context :subaccounts :transfer-account] :spot)
               (assoc-in [:account-context :subaccounts :transfer-token] "UNKNOWN:0xaaa"))
-          subaccount-address)))
-  (is (= [[:effects/save-many [[[:account-context :subaccounts :transferring-address]
-                                 subaccount-address]
-                                [[:account-context :subaccounts :error] nil]]]
-          [:effects/api-transfer-subaccount {:sub-account-user subaccount-address
-                                             :is-deposit true
-                                             :usd 10000000
-                                             :amount "10"
-                                             :amount-display "10"
-                                             :amount-units "10000000"
-                                             :amount-decimals 6
-                                             :account-kind :trading
-                                             :token "USDC"}]]
-         (actions/submit-transfer-subaccount
-          (-> (base-management-state)
-              (assoc :account {:mode :unified})
-              (assoc-in [:account-context :subaccounts :transfer-amount] "10")
-              (assoc-in [:account-context :subaccounts :transfer-account] :spot)
-              (assoc-in [:account-context :subaccounts :transfer-token] "USDH:0xabc"))
           subaccount-address)))
   (is (= [[:effects/save-many [[[:account-context :subaccounts :transferring-address] nil]
                                 [[:account-context :subaccounts :error]

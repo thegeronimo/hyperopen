@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [hyperopen.funding.domain.amounts :as amounts]
             [hyperopen.funding.domain.assets :as assets-domain]
-            [hyperopen.funding.domain.availability :as availability]))
+            [hyperopen.funding.domain.availability :as availability]
+            [hyperopen.funding.domain.spot-tokens :as spot-tokens]))
 
 (defn normalize-mode
   [value]
@@ -39,21 +40,12 @@
       :asset-select)))
 
 ;; Full mainnet USDC spot token id expected by Hyperliquid `sendAsset` signing.
-;; Matches the precedent in `hyperopen.subaccounts.effects` and the
-;; 2026-06-03 unified sendAsset routing fix. Used only as a fallback when spot
-;; metadata is unavailable.
-(def ^:private hyperliquid-mainnet-usdc-token
-  "USDC:0x6d1e7cde53ba9467b783cb7c530ce054")
-
+;; Resolution and the mainnet fallback both live in
+;; `hyperopen.funding.domain.spot-tokens`, which is the single owner of the
+;; `NAME:0x<hash>` wire-token-id format for the whole repository.
 (defn- usdc-transfer-token
   [state]
-  (or (some (fn [{:keys [name tokenId]}]
-              (let [token-name (some-> name str str/trim str/upper-case)
-                    token-id (some-> tokenId str str/trim)]
-                (when (and (= "USDC" token-name) (seq token-id))
-                  (str "USDC:" token-id))))
-            (get-in state [:spot :meta :tokens]))
-      hyperliquid-mainnet-usdc-token))
+  (spot-tokens/usdc-wire-token-id state))
 
 (defn- named-dex-transfer-request
   "Builds the `sendAsset` for a named-DEX (or default-perp, when `dex` is \"\")

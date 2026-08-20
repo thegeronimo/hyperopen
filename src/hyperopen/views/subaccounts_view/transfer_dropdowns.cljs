@@ -51,16 +51,17 @@
 
 (defn transfer-account-dropdown
   [{:keys [address subaccounts unified-account?]}]
+  ;; A unified (portfolio-margin) master has one pooled funding source, so it
+  ;; keeps a single option — but that option must carry `:spot`, because the
+  ;; transfer really does travel Hyperliquid's spot path. It previously carried
+  ;; `:trading`, which is what locked the token list to USDC.
   (let [selected (if unified-account?
-                   :trading
+                   :spot
                    (or (:transfer-account subaccounts) :trading))
-        selected-label (cond
-                         unified-account? "Spot Account"
-                         (= :spot selected) "Spot Account"
-                         :else "Trading Account")
+        selected-label (if (= :spot selected) "Spot Account" "Trading Account")
         open? (true? (:transfer-account-menu-open? subaccounts))
         options (if unified-account?
-                  [{:value :trading :label "Spot Account"}]
+                  [{:value :spot :label "Spot Account"}]
                   [{:value :trading :label "Trading Account"}
                    {:value :spot :label "Spot Account"}])]
     [:div {:class ["relative" "h-full" "w-full"]}
@@ -123,20 +124,34 @@
                 (when (= selected (:token asset))
                   asset))
               transfer-assets)
+        ;; The stored default is the bare symbol "USDC" while assets now carry
+        ;; `NAME:0x<hash>` wire token ids, so fall back to a symbol match before
+        ;; giving up and selecting whichever asset happens to be first.
+        (some (fn [asset]
+                (when (and (some? selected)
+                           (= (str selected) (str (:symbol asset))))
+                  asset))
+              transfer-assets)
         (first transfer-assets)
         {:symbol "USDC"
          :token "USDC"
          :available-display "--"})))
 
+(def unresolved-token-message
+  "Asset details unavailable - refresh balances")
+
 (defn- token-option
   [{:keys [address asset selected?]}]
   (let [token (:token asset)
         symbol (:symbol asset)
+        unresolved? (true? (:unresolved? asset))
         available-display (:available-display asset)]
     [:button {:type "button"
               :data-role (str "subaccounts-transfer-token-option-" address "-" token)
               :role "option"
               :aria-selected (boolean selected?)
+              :disabled unresolved?
+              :title (when unresolved? unresolved-token-message)
               :class (into ["flex"
                             "h-8"
                             "w-full"
@@ -151,15 +166,17 @@
                             "focus:outline-none"
                             "focus:ring-0"
                             "focus:ring-offset-0"]
-                           (if selected?
-                             ["bg-[#12312e]" "text-ho-accent"]
-                             ["text-[#aab6b9]" "hover:bg-[#122124]" "hover:text-white"]))
-              :on {:click [[:actions/set-subaccount-form-field
-                            :transfer-token
-                            token]]}}
+                           (cond
+                             unresolved? ["cursor-not-allowed" "text-ho-text-dim"]
+                             selected? ["bg-[#12312e]" "text-ho-accent"]
+                             :else ["text-[#aab6b9]" "hover:bg-[#122124]" "hover:text-white"]))
+              :on {:click (when-not unresolved?
+                            [[:actions/set-subaccount-form-field
+                              :transfer-token
+                              token]])}}
      [:span {:class ["font-semibold"]} symbol]
      [:span {:class ["num" "text-xs" "font-medium" "text-[#9aa8ab]"]}
-      available-display]]))
+      (if unresolved? "unavailable" available-display)]]))
 
 (defn token-dropdown
   [{:keys [address subaccounts transfer-assets]}]

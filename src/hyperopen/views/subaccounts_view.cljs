@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.funding.domain.availability :as funding-availability]
+            [hyperopen.funding.domain.spot-tokens :as spot-tokens]
             [hyperopen.subaccounts.actions :as subaccounts-actions]
             [hyperopen.views.subaccounts-view.management :as management]))
 
@@ -108,18 +109,6 @@
   [balance]
   (some-> (or (:coin balance) (get balance "coin")) str str/trim))
 
-(defn- balance-token
-  [balance coin]
-  (let [token (some-> (or (:token balance)
-                          (:token-id balance)
-                          (:tokenId balance)
-                          (get balance "token")
-                          (get balance "tokenId")
-                          (get balance "token-id"))
-                      str
-                      str/trim)]
-    (if (seq token) token coin)))
-
 (defn- balance-available
   [balance]
   (let [total (parse-number (or (:total balance)
@@ -133,33 +122,51 @@
       (max 0 (- total hold)))))
 
 (defn- transfer-asset-row
-  [balance]
+  "One selectable asset. `:token` is the `NAME:0x<hash>` wire token id
+   Hyperliquid needs, never the numeric index the balance row carries; a row
+   that spot metadata cannot name is still listed with its balance but marked
+   `:unresolved?` so the dialog can disable it instead of signing a rejected
+   identifier."
+  [resolver balance]
   (when-let [coin (balance-coin balance)]
-    (let [available (or (balance-available balance) 0)]
+    (let [available (or (balance-available balance) 0)
+          token (spot-tokens/resolve-with resolver
+                                          {:coin coin
+                                           :token (or (:token balance)
+                                                      (get balance "token"))})]
       {:symbol coin
-       :token (balance-token balance coin)
+       :token (or token coin)
+       :unresolved? (nil? token)
        :available available
        :available-display (format-usdc-amount available)})))
 
 (defn- spot-transfer-assets
-  [spot-state]
+  [state spot-state]
   (let [balances (or (:balances spot-state)
-                     (get spot-state "balances"))]
-    (or (seq (keep transfer-asset-row balances))
+                     (get spot-state "balances"))
+        resolver (spot-tokens/resolver state)]
+    (or (seq (keep #(transfer-asset-row resolver %) balances))
         [{:symbol "USDC"
-          :token "USDC"
+          :token (spot-tokens/usdc-wire-token-id state)
           :available 0
           :available-display "0"}])))
 
 (defn- transfer-assets
-  [{:keys [subaccounts active-transfer owner-spot-state deposit-max-value withdraw-max-value deposit-max withdraw-max unified-account?]}]
+  "Assets the Send Tokens dialog can offer.
+
+   A unified (portfolio-margin) master pools spot and perps collateral and
+   moves funds through the spot `sendAsset` path, so it is spot-kind and gets
+   the full per-token balance list. Only a classic master's `:trading` kind is
+   USDC-only, because perps collateral genuinely is USDC."
+  [{:keys [state subaccounts active-transfer owner-spot-state deposit-max-value withdraw-max-value deposit-max withdraw-max unified-account?]}]
   (let [direction (or (:transfer-direction subaccounts) :deposit)
         account-kind (if unified-account?
-                       :trading
+                       :spot
                        (or (:transfer-account subaccounts) :trading))
         withdrawing? (= :withdraw direction)]
     (if (= :spot account-kind)
       (spot-transfer-assets
+       state
        (if withdrawing?
          (spot-state active-transfer)
          owner-spot-state))
@@ -456,7 +463,8 @@
             :subaccount-name (row-name active-transfer)
             :deposit-max deposit-max
             :withdraw-max withdraw-max
-            :transfer-assets (transfer-assets {:subaccounts subaccounts
+            :transfer-assets (transfer-assets {:state state
+                                               :subaccounts subaccounts
                                                :active-transfer active-transfer
                                                :owner-spot-state owner-spot-state
                                                :deposit-max-value master-transfer-max-value
