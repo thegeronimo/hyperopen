@@ -10,6 +10,7 @@
 (def default-twap-hours 0)
 (def default-twap-minutes 30)
 (def default-twap-randomize false)
+(def default-twap-custom-runtime false)
 (def default-twap-trigger-px "")
 (def default-twap-stop-px "")
 (def default-margin-mode :cross)
@@ -89,6 +90,7 @@
           :hours default-twap-hours
           :minutes default-twap-minutes
           :randomize default-twap-randomize
+          :custom-runtime? default-twap-custom-runtime
           :trigger-px default-twap-trigger-px
           :stop-px default-twap-stop-px}
    :tpsl {:unit default-tpsl-unit}
@@ -171,6 +173,7 @@
            :randomize (if (contains? raw-twap :randomize)
                         (boolean (:randomize raw-twap))
                         default-twap-randomize)
+           :custom-runtime? (boolean (:custom-runtime? raw-twap))
            :trigger-px (normalize-twap-price-field (:trigger-px raw-twap))
            :stop-px (normalize-twap-price-field (:stop-px raw-twap)))))
 

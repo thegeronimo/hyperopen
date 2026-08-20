@@ -114,20 +114,22 @@
                 show-slippage-row?]}
         controls
         twap-section? (some #{:twap} (order-form-vm/order-type-sections type))
-        twap-preview (when twap-section?
-                       (feedback/twap-preview state form base-symbol))
-        ;; The venue carries ONE termination price and reads its direction from the side,
-        ;; so the label flips while the form field and the wire key stay side-neutral.
-        ;; Section renderers only receive (form callbacks), so the side-dependent label
-        ;; rides in the callbacks map alongside :twap-preview.
-        twap-advanced (when twap-section?
-                        {:stop-price-label (if (= :sell side) "Min Price" "Max Price")})
+        ;; Section renderers only receive (form callbacks), so everything the TWAP section
+        ;; needs that it cannot derive from the form -- the resolved schedule, the guard
+        ;; band, the side-dependent Max/Min label -- rides in the callbacks map.
+        twap-schedule (when twap-section?
+                        (feedback/twap-schedule state form base-symbol))
+        twap-guards (when twap-section?
+                      (feedback/twap-guards state form))
+        twap-submit (feedback/twap-submit-copy {:order-type type
+                                                :schedule twap-schedule
+                                                :guards twap-guards})
         section-handlers (cond-> (:order-type-sections handlers)
-                           twap-preview
-                           (assoc :twap-preview twap-preview)
+                           twap-schedule
+                           (assoc :twap-schedule twap-schedule)
 
-                           twap-advanced
-                           (assoc :twap-advanced twap-advanced))
+                           twap-guards
+                           (assoc :twap-guards twap-guards))
         toggle-handlers (:toggles handlers)
         tif-handlers (:tif handlers)
         tp-sl-handlers (:tp-sl handlers)
@@ -281,8 +283,10 @@
         (footer/submit-row {:submitting? submitting?
                             :submit-disabled? (:disabled? submit)
                             :submit-tooltip (:tooltip submit)
-                            :submit-label (voice/label state :order-form/submit)
+                            :submit-label (or (:label twap-submit)
+                                              (voice/label state :order-form/submit))
                             :submitting-label (voice/label state :order-form/submitting)
+                            :submit-recap (:recap twap-submit)
                             :on-submit (:on-submit submit-handlers)}))
 
       (footer/footer-metrics display

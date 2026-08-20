@@ -241,7 +241,18 @@ In `hyperopen.api.gateway.orders.commands`:
 - [x] (2026-08-19 18:30Z) Milestone 5: the optimizer's duplicate slice model is notional-aware and the execution order table no longer claims a flat 30-second cadence. No pinned optimizer figure moved, as predicted.
 - [x] (2026-08-19 18:35Z) Bumped the two namespace-size exceptions this work overflowed, with reasons.
 - [x] (2026-08-19 18:55Z) Full gate matrix green: 34/34 gates pass, 6,610 tests, 35,861 assertions.
+- [x] (2026-08-19 19:10Z) Design polish pass against the reviewing designer's Claude Design project: runtime presets, the schedule as a sentence, price guards with a band and a KILL SWITCH tag, and a TWAP-specific submit label with a guard recap.
 - [ ] Confirm a triggered TWAP on testnet (acceptance step 7). This is the one acceptance criterion that cannot be met from the working tree, because Hyperliquid's exchange-endpoint documentation does not describe the `details` field — the shape is taken from an SDK whose integration tests exercise the live API.
+
+### Design polish pass (2026-08-19, second sitting)
+
+The designer reviewed the shipped ticket in a Claude Design project and returned two directions plus a shared set of fixes answering the six questions this plan raised. The maintainer chose the mix: the schedule explained in words, the guards explained by a drawing.
+
+`src/hyperopen/views/trade/order_form_twap_section.cljs` is new and owns the whole TWAP block; `order_form_type_extensions.cljs` now just delegates to it. The runtime is a preset row — 15m / 30m / 4h / 1d / Custom — with Custom revealing three single-letter D/H/M fields, replacing the three labelled fields that never fit the ticket's column. The four-row estimate block is gone, replaced by one sentence ("Buys $5,000 of BTC in 499 pieces — $10.02 about every 3 minutes for 24 hours.") plus a single Per slice row; with no size entered the sentence asks for one rather than showing a bound. "Advanced Settings" is now "Price guards" and states its value when collapsed — "none set", or "65,000 → 72,000". Open, it draws a band placing the trigger and termination levels either side of the mark, and tags the termination price KILL SWITCH.
+
+The submit button reads "Start TWAP - buy over 24 hours" with the guard levels recapped beneath it, because a TWAP is a run the venue works over time rather than an order that lands. That copy is built in `order_form_feedback.cljs/twap-submit-copy` and applied at the single `submit-row` call site, returning nil for every other order type so the voice catalog stays untouched.
+
+The account table's Trigger / Stop cell is verb-first — "starts 65,000" over a tinted "stops 72,000" — because a bare comparison makes the reader supply the verb.
 
 ## Surprises & Discoveries
 
@@ -281,6 +292,21 @@ In `hyperopen.api.gateway.orders.commands`:
 - Observation: the wire-level failure mode of an unusable advanced price was a silently disabled submit button.
   Evidence: `build-twap-action` fails closed by returning nil, which the submit policy reports as `:request-unavailable` with no message. Two new validation codes now explain it before the user gets there.
 
+- Observation: dispatching several `update-order-form` actions from one event silently loses all but the last. Every such action re-reads the same pre-event form and rewrites the whole `:order-form` map, so writing days, hours and minutes as three actions left only the third. The preset chips looked completely inert.
+  Evidence: the chips rendered and were clickable, the handler returned exactly the right four-action payload, and the runtime never changed. Fixed by making preset selection a single write to `[:twap :preset]` that `apply-order-form-path-effects` expands into the runtime fields in one transition — the extension point that exists for precisely this.
+
+- Observation: that bug was invisible to the entire unit suite and only a browser test caught it. Hiccup-level tests assert the payload a control carries, not what the runtime does with it.
+  Evidence: `order_form_component_sections_test.cljs` passed throughout. Three transition tests now pin the expansion directly.
+
+- Observation: `getByRole("button", {name: "1d"})` is ambiguous on the trade route — the chart's timeframe strip carries 15m / 1h / 1d too. Playwright's strict mode turns that into a thrown click rather than a failed assertion, which reads like a broken feature.
+  Evidence: "strict mode violation: resolved to 2 elements". Every ticket-local query in the spec is now scoped through the `[data-parity-id="order-form"]` root.
+
+- Observation: the named type scale bottoms out at 12px — `text-xs` and `text-sm` are both 12px — so the designer's 9–11px tags have no utility class. The sanctioned route down is an inline `font-size`, which `order_form_footer.cljs` already uses.
+  Evidence: `test/hyperopen/views/typography_scale_test.cljs` bans only `text-[10|11|13|14|15px]`; relying on the gaps in that regex would be relying on a loophole.
+
+- Observation: every colour in the designer's mock except one is already a theme token — they pulled the palette from `dark.css`. #50D2C1 is `--ho-accent`, #0D3A35 is `--ho-accent-soft`, #ED7088 is `--ho-sell-hi`.
+  Evidence: `src/styles/themes/dark.css`. Only the sunken teal panel (#0B2124) has no token; it renders as `bg-ho-bg-deep` with an accent border, which does the same figure/ground job without inventing one.
+
 - Observation: two namespace-size exceptions had less headroom than the change needed, and `src/hyperopen/portfolio/optimizer/domain/rebalance.cljs` is now at exactly its 675-line cap.
   Evidence: `npm run lint:namespace-sizes` reported `state/trading.cljs` at 726 against 722 and `order_form_transitions.cljs` at 722 against 719. Both were bumped with reasons naming what was added; the next line added to `rebalance.cljs` will fail the gate and needs its own bump.
 
@@ -316,6 +342,18 @@ In `hyperopen.api.gateway.orders.commands`:
 
 - Decision: add `:twap/trigger-price-invalid` and `:twap/stop-price-invalid` rather than relying on the builder's fail-closed behaviour.
   Rationale: failing closed is correct for the wire, but on its own it disables the submit button with no explanation. A validation error names the problem.
+  Date/Author: 2026-08-19, Claude (agent).
+
+- Decision: build the mix of the designer's two directions — 1b's sentence for the schedule, 1a's band for the guards.
+  Rationale: the maintainer's call, and it matches where each device earns its keep. A trigger and a termination price are positions either side of the mark, and position is what a drawing carries better than words; a slice schedule is a set of quantities, and a dashed rail only says "over time", which the sentence says better and in a form that survives screen readers and translation.
+  Date/Author: 2026-08-19, maintainer's selection, implemented by Claude (agent).
+
+- Decision: order the guard band by price value rather than by side.
+  Rationale: the designer's sell example reverses the band (stop left, start right), but that is a consequence of where a seller's levels naturally sit, not a rule about sides. Positioning from the values themselves reproduces both of their examples and also handles the cases they did not draw.
+  Date/Author: 2026-08-19, Claude (agent).
+
+- Decision: the Runtime header states the venue's window rather than the resolved schedule.
+  Rationale: the designer's mock puts the recap in that header only in the frame where the sentence is not visible. Our sentence is always visible, so showing both would say the same thing twice, six pixels apart.
   Date/Author: 2026-08-19, Claude (agent).
 
 - Decision: do not validate that the Max/Min price sits on the profitable side of the mark.

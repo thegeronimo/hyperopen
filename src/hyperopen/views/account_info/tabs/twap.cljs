@@ -6,15 +6,15 @@
 
 (def ^:private active-grid-template-style
   {:grid-template-columns
-   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)"})
+   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)"})
 
 (def ^:private active-read-only-grid-template-style
   {:grid-template-columns
-   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(150px,1.1fr)"})
+   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr)"})
 
 (def ^:private history-grid-template-style
   {:grid-template-columns
-   "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)"})
+   "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)"})
 
 (def ^:private subtab-order
   [:active :history :fill-history])
@@ -41,26 +41,28 @@
     "--"))
 
 (defn- trigger-stop-node
-  "Renders a TWAP's advanced settings by exception: a row shows nothing here unless the
-   order actually carries a trigger or a termination price.
+  "Renders a TWAP's guards by exception: a row shows nothing here unless the order actually
+   carries a trigger or a termination price.
 
-   The trigger reads as a comparison against the mark, because that is exactly what it is
-   -- the venue starts working the order once the mark reaches the level. The termination
-   price is labelled Stop, not Max/Min, because a single column serves buys and sells; it
-   halts the order and does NOT cap the fill price."
+   Both levels read verb-first -- starts, stops -- so the reader does not have to supply
+   the verb for a bare comparison, and both stack in one cell because most TWAPs carry
+   neither and two columns would sit empty. Stop is tinted, since it is the one that ends
+   the run."
   [row]
   (let [trigger-px (:trigger-px row)
         stop-price (:stop-price row)
         trigger-line (when (number? trigger-px)
-                       (str (if (:trigger-above? row) "\u2265 " "\u2264 ")
-                            (format-average-price trigger-px)))
+                       {:text (str "starts " (format-average-price trigger-px))
+                        :tone nil})
         stop-line (when (number? stop-price)
-                    (str "Stop " (format-average-price stop-price)))
+                    {:text (str "stops " (format-average-price stop-price))
+                     :tone "text-ho-sell-hi"})
         lines (remove nil? [trigger-line stop-line])]
     (if (seq lines)
-      [:div {:class ["flex" "flex-col" "num" "whitespace-nowrap"]}
-       (for [line lines]
-         ^{:key line} [:span line])]
+      [:div {:class ["flex" "flex-col" "leading-tight" "num" "whitespace-nowrap"]}
+       (for [{:keys [text tone]} lines]
+         ^{:key text}
+         [:span {:class (if tone [tone] [])} text])]
       "--")))
 
 (defn- yes-no

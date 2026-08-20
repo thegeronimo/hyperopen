@@ -16,6 +16,10 @@
   [side]
   (dispatch-command (cmd/set-order-outcome-side (outcome-side-index side))))
 
+(defn- twap-runtime-preset-actions
+  [{:keys [key]}]
+  (dispatch-command (cmd/select-twap-runtime-preset key)))
+
 (defn build-handlers []
   {:entry-mode {:on-close-dropdown (dispatch-command (cmd/close-pro-order-type-dropdown))
                 :on-select-entry-market (dispatch-command (cmd/select-entry-market))
@@ -75,6 +79,8 @@
                          :on-set-twap-hours (dispatch-command (cmd/set-twap-hours-input))
                          :on-set-twap-minutes (dispatch-command (cmd/set-twap-minutes-input))
                          :on-toggle-twap-randomize (dispatch-command (cmd/toggle-twap-randomize))
+                         :on-select-twap-runtime-preset twap-runtime-preset-actions
+                         :on-select-twap-custom-runtime (dispatch-command (cmd/select-twap-runtime-preset :custom))
                          :on-set-twap-trigger-price (dispatch-command (cmd/set-twap-trigger-price-input))
                          :on-set-twap-stop-price (dispatch-command (cmd/set-twap-stop-price-input))}
 

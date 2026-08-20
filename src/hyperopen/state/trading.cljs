@@ -39,6 +39,9 @@
 (def twap-suborder-interval-seconds trading-domain/twap-suborder-interval-seconds)
 (def twap-interval-seconds-for-count trading-domain/twap-interval-seconds-for-count)
 (def twap-order-notional trading-domain/twap-order-notional)
+(def twap-runtime-presets trading-domain/twap-runtime-presets)
+(def twap-preset-runtime trading-domain/twap-preset-runtime)
+(def twap-preset-key-for-runtime trading-domain/twap-preset-key-for-runtime)
 (def twap-suborder-size trading-domain/twap-suborder-size)
 (def twap-suborder-notional trading-domain/twap-suborder-notional)
 ;; Value-object adapters for canonical order field semantics.

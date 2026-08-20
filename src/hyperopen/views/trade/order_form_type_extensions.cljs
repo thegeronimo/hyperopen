@@ -1,11 +1,7 @@
 (ns hyperopen.views.trade.order-form-type-extensions
   (:require [hyperopen.trading.order-type-registry :as order-types]
-            [hyperopen.views.trade.order-form-component-primitives :as primitives]))
-
-(defn- twap-preview-row [label value]
-  [:div {:class ["flex" "items-center" "justify-between" "gap-3" "text-xs"]}
-   [:span {:class ["text-gray-400"]} label]
-   [:span {:class ["font-semibold" "text-gray-100" "num"]} (or value "--")]])
+            [hyperopen.views.trade.order-form-component-primitives :as primitives]
+            [hyperopen.views.trade.order-form-twap-section :as twap-section]))
 
 (def ^:private section-renderers
   {:trigger
@@ -38,68 +34,8 @@
                                               on-set-scale-skew)]])
 
    :twap
-   (fn [form {:keys [on-set-twap-days
-                     on-set-twap-hours
-                     on-set-twap-minutes
-                     on-toggle-twap-randomize
-                     on-set-twap-trigger-price
-                     on-set-twap-stop-price
-                     twap-preview
-                     twap-advanced]}]
-     (let [trigger-px (get-in form [:twap :trigger-px])
-           stop-px (get-in form [:twap :stop-px])
-           stop-label (or (:stop-price-label twap-advanced) "Max Price")
-           ;; Native <details> owns its own open state. The key must be stable or
-           ;; Replicant remounts the node and the panel snaps shut mid-edit; :open seeds
-           ;; it so a draft that already carries advanced values comes back open.
-           advanced-open? (boolean (or (seq (str (or trigger-px "")))
-                                       (seq (str (or stop-px "")))))]
-       [:div {:class ["space-y-2"]}
-        (primitives/section-label "TWAP")
-        [:div {:class ["grid" "grid-cols-3" "gap-2"]}
-         (primitives/inline-labeled-scale-input "Days"
-                                                (get-in form [:twap :days])
-                                                on-set-twap-days)
-         (primitives/inline-labeled-scale-input "Hours"
-                                                (get-in form [:twap :hours])
-                                                on-set-twap-hours)
-         (primitives/inline-labeled-scale-input "Minutes"
-                                                (get-in form [:twap :minutes])
-                                                on-set-twap-minutes)]
-        (primitives/row-toggle "Randomize"
-                               (get-in form [:twap :randomize])
-                               on-toggle-twap-randomize
-                               "trade-toggle-twap-randomize")
-        [:div {:class ["rounded-lg"
-                       "border"
-                       "border-base-300"
-                       "bg-base-200/50"
-                       "px-3"
-                       "py-2"
-                       "space-y-1.5"]}
-         [:div {:class ["text-xs" "text-gray-400"]}
-          "Hyperliquid slices this order over its runtime, at most one slice every 30s. Estimated:"]
-         (twap-preview-row "Runtime" (:runtime twap-preview))
-         (twap-preview-row "Every" (:frequency twap-preview))
-         (twap-preview-row "Slices" (:order-count twap-preview))
-         (twap-preview-row "Per Slice" (:size-per-suborder twap-preview))]
-        [:details (cond-> {:replicant/key "trade-twap-advanced-settings"
-                           :class ["rounded-lg" "border" "border-base-300" "px-3" "py-2"]}
-                    advanced-open? (assoc :open true))
-         [:summary {:class ["cursor-pointer" "select-none" "text-xs" "text-gray-400"
-                            "focus:outline-none" "focus:text-primary"]}
-          "Advanced Settings"]
-         [:div {:class ["mt-2" "space-y-2"]}
-          (primitives/inline-labeled-scale-input "Trigger Price"
-                                                 trigger-px
-                                                 on-set-twap-trigger-price)
-          (primitives/inline-labeled-scale-input stop-label
-                                                 stop-px
-                                                 on-set-twap-stop-price)
-          [:div {:class ["text-xs" "text-gray-400"]}
-           (str "Trigger starts the order when the mark reaches it. "
-                stop-label
-                " stops the order when the mark reaches it - it does not cap the fill price.")]]]]))})
+   (fn [form callbacks]
+     (twap-section/twap-section form callbacks))})
 
 (declare ensure-valid-extension-registry!)
 

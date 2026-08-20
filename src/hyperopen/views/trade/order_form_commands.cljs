@@ -184,6 +184,13 @@
 (defn toggle-twap-randomize []
   (update-order-field [:twap :randomize] event-target-checked))
 
+(defn select-twap-runtime-preset
+  "Selects a runtime preset, or :custom to reveal the D/H/M fields. One write: the
+   transition expands the key into the runtime fields, because three separate writes would
+   clobber one another."
+  [preset-key]
+  (update-order-field [:twap :preset] preset-key))
+
 (defn set-twap-trigger-price-input []
   (update-order-field [:twap :trigger-px] event-target-value))
 

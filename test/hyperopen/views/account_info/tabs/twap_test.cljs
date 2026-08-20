@@ -5,13 +5,13 @@
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]))
 
 (def ^:private active-grid-template-columns
-  "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)")
+  "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)")
 
 (def ^:private active-read-only-grid-template-columns
-  "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(150px,1.1fr)")
+  "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr)")
 
 (def ^:private history-grid-template-columns
-  "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(120px,1fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)")
+  "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)")
 
 (defn- nodes-with-grid-template
   [node template-columns]

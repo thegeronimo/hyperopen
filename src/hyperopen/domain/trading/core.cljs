@@ -194,6 +194,32 @@
          (or (normalize-nonnegative-int (:minutes twap*)) 0))
       (normalize-nonnegative-int (:minutes twap*)))))
 
+(def twap-runtime-presets
+  "The runtimes the ticket offers as one tap. Anything else is entered under Custom."
+  [{:key :15m :label "15m" :days 0 :hours 0 :minutes 15}
+   {:key :30m :label "30m" :days 0 :hours 0 :minutes 30}
+   {:key :4h :label "4h" :days 0 :hours 4 :minutes 0}
+   {:key :1d :label "1d" :days 1 :hours 0 :minutes 0}])
+
+(defn twap-preset-runtime
+  "The {:days :hours :minutes} a preset key stands for, or nil for :custom and anything
+   unrecognised."
+  [preset-key]
+  (some (fn [{:keys [key days hours minutes]}]
+          (when (= key preset-key)
+            {:days days :hours hours :minutes minutes}))
+        twap-runtime-presets))
+
+(defn twap-preset-key-for-runtime
+  "The preset a runtime corresponds to, or nil when no preset covers it."
+  [total-minutes]
+  (some (fn [{:keys [key] :as preset}]
+          (when (= total-minutes (+ (* 1440 (:days preset))
+                                    (* 60 (:hours preset))
+                                    (:minutes preset)))
+            key))
+        twap-runtime-presets))
+
 (defn valid-twap-runtime? [minutes]
   (when-let [total-minutes (normalize-nonnegative-int minutes)]
     (<= twap-min-runtime-minutes total-minutes twap-max-runtime-minutes)))
