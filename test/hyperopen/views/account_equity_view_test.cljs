@@ -188,7 +188,7 @@
                                              :perp-dex-clearinghouse {}})]
     (is (some? (find-first-node view-node
                                 #(contains? (direct-texts %)
-                                            "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated."))))))
+                                            "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated. Cross positions only: isolated positions liquidate one at a time and cannot take the portfolio with them, so this reads -- when every position is isolated."))))))
 
 (deftest unified-account-summary-uses-hyperliquid-leverage-tooltip-copy-test
   (let [view-node (view/account-equity-view {:account {:mode :unified}
@@ -206,7 +206,7 @@
                                              :perp-dex-clearinghouse {}})]
     (is (some? (find-first-node view-node
                                 #(contains? (direct-texts %)
-                                            "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance. Perp positions only; spot holdings are not counted as exposure here."))))))
+                                            "Unified Account Leverage = Total Perp Positions Value / Total Collateral Balance. Counts cross and isolated positions together, because both draw margin from the same unified collateral. Perp positions only; spot holdings are not counted as exposure here."))))))
 
 (deftest classic-account-equity-renders-classic-account-value-label-test
   (let [view-node (view/account-equity-view {:account {:mode :classic}
@@ -540,12 +540,14 @@
                                                                              :marginUsed "20.0"
                                                                              :leverage {:type "isolated"
                                                                                         :value 20}
+                                                                             :maxLeverage 20
                                                                              :positionValue "100.0"
                                                                              :unrealizedPnl "3.0"}}
                                                                  {:position {:coin "xyz:AAPL"
                                                                              :marginUsed "10.0"
                                                                              :leverage {:type "cross"
                                                                                         :value 5}
+                                                                             :maxLeverage 5
                                                                              :positionValue "50.0"
                                                                              :unrealizedPnl "-1.0"}}]}}}
         original-resolve-market-by-coin asset-selector-markets/resolve-market-by-coin
@@ -560,8 +562,8 @@
             coins @resolver-coins]
         (is (approx= 500.0 (:portfolio-value metrics)))
         (is (approx= (/ 1.0 380.0) (:unified-account-ratio metrics)))
-        (is (approx= 1.0 (:maintenance-margin metrics)))
-        (is (approx= 0.125 (:unified-account-leverage metrics)))
+        (is (approx= 3.5 (:maintenance-margin metrics)))
+        (is (approx= 0.375 (:unified-account-leverage metrics)))
         (is (seq coins))
         (is (every? scalar-coin-value? coins))
         (is (not-any? map? coins))

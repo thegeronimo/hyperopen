@@ -9,10 +9,10 @@
                                                             unified-account?]]))
 
 (def ^:private unified-account-ratio-tooltip
-  "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated.")
+  "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated. Cross positions only: isolated positions liquidate one at a time and cannot take the portfolio with them, so this reads -- when every position is isolated.")
 
 (def ^:private unified-account-leverage-tooltip
-  "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance. Perp positions only; spot holdings are not counted as exposure here.")
+  "Unified Account Leverage = Total Perp Positions Value / Total Collateral Balance. Counts cross and isolated positions together, because both draw margin from the same unified collateral. Perp positions only; spot holdings are not counted as exposure here.")
 
 
 (defn- classic-account-equity-view [{:keys [spot-equity
@@ -77,7 +77,7 @@
     (metric-row "Unrealized PNL" (:text pnl-info)
                 :value-class (:class pnl-info))
     (metric-row "Perps Maintenance Margin" (display-currency maintenance-margin)
-                :tooltip "The minimum portfolio value required to keep your perps positions open.")
+                :tooltip "The minimum collateral required to keep your perps positions open, counting cross and isolated positions together.")
     (metric-row "Unified Account Leverage" (display-leverage unified-account-leverage)
                 :tooltip unified-account-leverage-tooltip)]])
 
