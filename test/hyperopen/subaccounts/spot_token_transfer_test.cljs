@@ -25,9 +25,10 @@
   "USDC:0x6d1e7cde53ba9467b783cb7c530ce054")
 
 (def ^:private production-spot-meta
-  "Production-shaped `spotMeta` `:tokens`. Hyperliquid returns `:name`,
-   `:index`, and `:tokenId` separately and never a prejoined `NAME:0x...`
-   string."
+  "Real mainnet `spotMeta` `:tokens`, verified against a live
+   `{\"type\": \"spotMeta\"}` response on 2026-08-20. Hyperliquid returns
+   `:name`, `:index`, and `:tokenId` separately and never a prejoined
+   `NAME:0x...` string."
   {:tokens [{:name "USDC" :index 0 :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"
              :szDecimals 8 :weiDecimals 8}
             {:name "HYPE" :index 150 :tokenId "0x0d01dc56dcaaca66ad901c959b4011ec"

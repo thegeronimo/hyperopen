@@ -1,5 +1,13 @@
 # Let a unified (portfolio-margin) master send any spot token to a sub-account
 
+**Status: closed 2026-08-20.** Shipped as commit `5c1558de4` on
+`feature/spot-hype-subaccount-transfer-1cff9a`. Every acceptance criterion that
+can be checked without moving real funds is met, and the token id and wire
+format were confirmed against live Hyperliquid data. One acceptance step remains
+unchecked and is the maintainer's to perform: signing one real non-USDC
+sub-account transfer. See `Outcomes & Retrospective` for why closing with it open
+is defensible.
+
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds. This document must be maintained in accordance with `/hyperopen/docs/PLANS.md` and the detailed writing contract at `/hyperopen/.agents/PLANS.md`.
 
 ## Purpose / Big Picture
@@ -126,8 +134,12 @@ Also update `/hyperopen/docs/exec-plans/deferred/2026-06-03-hyperliquid-subaccou
 - [x] (2026-08-20) Milestone three: `effective-transfer-account` resolves unified to `:spot`; `transfer-subaccount!` resolves one wire token id up front and tests `unified?` before `spot?`; an unresolvable token now fails with a message instead of signing a bare symbol. `/hyperopen/dev/namespace_size_exceptions.edn` was bumped from five hundred sixty-seven to five hundred ninety lines with a reason.
 - [x] (2026-08-20) Milestone four: replaced the assertion that pinned the wrong-asset coercion, rewrote the invented `spotMeta` fixture shape to production shape in both the ClojureScript and Playwright suites, moved the unified action-layer expectations into `/hyperopen/test/hyperopen/subaccounts/spot_token_transfer_test.cljs` (which also owns the index-versus-wire-id regression), and updated the three view and browser tests that asserted a unified master must not expose the spot option.
 - [x] (2026-08-20) All gates pass: `npm run gates` reports 34/34, 6648 tests, 35987 assertions. `npx playwright test tools/playwright/test/subaccounts-regressions.spec.mjs` passes 7/7, including a new end-to-end regression that submits a non-USDC token and asserts the signed `sendAsset` payload. `git diff --check` is clean and `npm run browser:cleanup` reports no leaked sessions.
-- [ ] Confirm against a live unified master that the HYPE wire token id resolved from production `spotMeta` matches `HYPE:0x0d01dc56dcaaca66ad901c959b4011ec`, and that a real HYPE transfer is accepted by the exchange. Everything below the UI is covered by deterministic tests, but no live exchange call has been made from this branch.
-- [ ] Confirm whether the classic (non-unified) spot path was in fact broken on live data before this change, which the code strongly implies but no live evidence yet proves.
+- [x] (2026-08-20) Confirmed the HYPE wire token id against a live `{"type": "spotMeta"}` response from `https://api.hyperliquid.xyz/info`: HYPE is index 150, tokenId `0x0d01dc56dcaaca66ad901c959b4011ec`, weiDecimals 8, so the wire id is exactly the `HYPE:0x0d01dc56dcaaca66ad901c959b4011ec` this plan assumed. USDC is index 0, tokenId `0x6d1e7cde53ba9467b783cb7c530ce054`, weiDecimals 8, which confirms both the mainnet fallback constant and the eight-decimal precision noted below.
+- [x] (2026-08-20) Confirmed the production `spotMeta` token shape against live data. Entries carry `deployerTradingFeeShare`, `evmContract`, `fullName`, `index`, `isCanonical`, `name`, `szDecimals`, and `tokenId` — and no `token` key, which is what the retired fixture invented.
+- [x] (2026-08-20) Swept the full live token table (491 tokens) for resolver hazards: no duplicate names, no duplicate indexes, no missing or empty `tokenId`, no missing `index`, and no case-insensitive name collisions. Both lookup maps the resolver builds are therefore unambiguous against real data.
+- [x] (2026-08-20) Confirmed the wire token format independently of this repository. Hyperliquid's own Python SDK ships `examples/basic_spot_transfer.py`, which transfers `"PURR:0xc4bf3f870c0e9465323c0b6ed28096c2"` — a `NAME:0x<hash>` string, not a symbol and not an index. Its `sub_account_spot_transfer` builds the same `{type, subAccountUser, isDeposit, token, amount}` action this repository signs, and its `send_asset` docstring confirms `"spot"` as the DEX name. That settles the format question that made the pre-change classic path suspect.
+- [x] (2026-08-20) Repinned both ClojureScript fixtures to live-verified mainnet values, correcting PURR from `0xc4bf3f870c0e9465323c0b6ed28096c2` (a testnet id, taken from the SDK example) to the mainnet `0xc1fb593aeffbeb02f85e0308e9956a90`.
+- [ ] **Maintainer action, not agent action:** sign one real non-USDC sub-account transfer from a unified master and confirm the exchange accepts it. This step moves real funds, so it is deliberately left for the maintainer to perform rather than automated. Expected observable: the signed action is `sendAsset` with `sourceDex` and `destinationDex` both `spot`, `token` `HYPE:0x0d01dc56dcaaca66ad901c959b4011ec`, the success toast names HYPE, and the sub-account's spot HYPE balance rises by the sent amount while the master's falls by the same amount.
 
 ## Surprises & Discoveries
 
@@ -155,6 +167,12 @@ Also update `/hyperopen/docs/exec-plans/deferred/2026-06-03-hyperliquid-subaccou
 - Observation: the deposit-side token list and the deposit-side amount validation were reading different accounts. The view lists the master's balances from the owner snapshot, while `selected-balance` in `transfer_amount.cljs` read `[:spot :clearinghouse-state]`, which holds the *active trading* account's balances and can be a sub-account. Precision still resolved through spotMeta, so it never surfaced as a failure, but the two are now both read from the owner snapshot.
   Evidence: the new `owner-spot-state` helper in `/hyperopen/src/hyperopen/subaccounts/transfer_amount.cljs`.
 
+- Observation: a Hyperliquid spot token id is network-specific, so it can never be safely hard-coded per token. Hyperliquid's own SDK example transfers `PURR:0xc4bf3f870c0e9465323c0b6ed28096c2` against testnet, while live mainnet `spotMeta` gives PURR the completely different id `0xc1fb593aeffbeb02f85e0308e9956a90`. This retroactively justifies resolving from metadata rather than shipping a token table, and it caught a wrong value that had been copied from the SDK example into this plan's own unit fixture.
+  Evidence: `examples/basic_spot_transfer.py` in `hyperliquid-dex/hyperliquid-python-sdk` versus a live `{"type": "spotMeta"}` response on 2026-08-20. The fixture in `/hyperopen/test/hyperopen/funding/domain/spot_tokens_test.cljs` now carries the mainnet id and says why.
+
+- Observation: the live token table is large but clean, which is why a name-keyed fallback in the resolver is safe. Across 491 tokens there are no duplicate names, no duplicate indexes, no missing `tokenId`, and no case-insensitive name collisions.
+  Evidence: swept the full live `spotMeta` payload on 2026-08-20.
+
 ## Decision Log
 
 - Model a unified master as a spot-kind transfer rather than inventing a third account kind. A unified account pools spot and perps collateral, and its existing `:trading` availability figure was already `hyperopen.funding.domain.availability/spot-usdc-available`, meaning it was spot USDC wearing a perps label. Reusing `:spot` makes the model honest, gets per-token precision handling from `normalize-spot-transfer` for free, and satisfies the existing `spot-transfer-request?` contract without relaxing the USDC guard on the perps contract.
@@ -172,6 +190,8 @@ Also update `/hyperopen/docs/exec-plans/deferred/2026-06-03-hyperliquid-subaccou
 - List an unresolvable asset but disable it, rather than hiding it. Hiding a token the user can see in their balances reproduces the original complaint ("no option") with a different cause. Showing it disabled with a reason distinguishes "you cannot send this" from "we do not know about this yet".
 
 - Keep the two remaining live-verification items open rather than closing the plan. Every layer below the UI is now covered by deterministic tests, but nothing in this branch has been signed against the real exchange, and the plan should not claim otherwise.
+
+- Close the plan with the live-transfer step unchecked rather than either performing it or leaving the plan open indefinitely. Signing a real transfer moves funds and is the maintainer's call, not something to automate as a verification step. Everything that step would have proven about *format* — the token id, the DEX names, the action shape — has now been confirmed from live `spotMeta` and from Hyperliquid's own SDK, so what remains is confirmation that the exchange accepts a correctly-formed action, not discovery of what a correct action looks like.
 
 ## Validation / Acceptance
 
@@ -196,3 +216,8 @@ What remains: the two open Progress items are live-exchange confirmations. The H
 On complexity: this is a net reduction. One shared resolver replaced two duplicated copies of the mainnet USDC constant and one implicit index-as-identifier assumption; collapsing unified masters onto the existing spot path removed a parallel USDC-only branch rather than adding one; and the view lost its `balance-token` helper entirely. The test suite got larger, but the growth is coverage of behavior that previously had none — the old suite asserted the wrong-asset coercion as correct.
 
 The lesson worth carrying forward is the one the 2026-06-03 routing plan already recorded and this work hit again from a different angle: a fixture that invents a payload shape the upstream API never returns will keep a broken path green indefinitely. Here the invented `{:name :token :weiDecimals}` spot-metadata shape hid the index-versus-wire-id defect, and an un-intercepted network call let the real shape overwrite the fake one mid-test. Both fixture families are now production-shaped and served locally.
+
+Live verification, added on close: HYPE resolves to `HYPE:0x0d01dc56dcaaca66ad901c959b4011ec` from a live `spotMeta` response, matching what this plan assumed; USDC's mainnet id and its eight-decimal `weiDecimals` are confirmed; the production token entry shape carries `index` and `tokenId` and no `token` key, exactly as the root-cause section claimed; the full 491-token table contains no ambiguity that could confuse the resolver; and Hyperliquid's own SDK confirms `NAME:0x<hash>` as the token format for spot transfers while building the identical `subAccountSpotTransfer` action this repository signs. Taken together, these close the format question that the classic-path inference rested on: a bare numeric index was never a valid identifier, so the pre-change classic spot path could not have worked for any token whose balance row carried one.
+
+The plan closes with one acceptance step unchecked: signing a real non-USDC sub-account transfer. That step moves funds and belongs to the maintainer. Closing early is defensible here for the same reason it was when the TWAP plan closed with its testnet step open — the risk the step covers is contained. The action is built from live metadata rather than a hard-coded table, so a wrong token id cannot be baked into the build; an unresolvable token refuses to sign at all rather than sending something malformed; and the classic and perps paths are unchanged, so nothing that worked before can regress if the unified path turns out to need adjustment.
+

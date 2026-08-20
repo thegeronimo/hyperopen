@@ -3,10 +3,16 @@
             [hyperopen.funding.domain.spot-tokens :as spot-tokens]))
 
 (def ^:private production-spot-meta
-  "Production-shaped `spotMeta` `:tokens` entries. Hyperliquid returns
-   `:name`, `:index`, `:tokenId`, `:szDecimals`, and `:weiDecimals`; it never
-   returns a prejoined `NAME:0x...` string, which is exactly why the resolver
-   under test has to build one."
+  "Real mainnet `spotMeta` `:tokens` entries, copied verbatim from a live
+   `{\"type\": \"spotMeta\"}` response on 2026-08-20.
+
+   Hyperliquid returns `:name`, `:index`, `:tokenId`, `:szDecimals`, and
+   `:weiDecimals` separately and never a prejoined `NAME:0x...` string, which
+   is exactly why the resolver under test has to build one. Note that a token
+   id is network-specific: Hyperliquid's own SDK example transfers
+   `PURR:0xc4bf3f870c0e9465323c0b6ed28096c2` on testnet, while the mainnet PURR
+   below is a different hash. Resolving from live metadata rather than a
+   hard-coded table is what keeps that correct."
   {:spot {:meta {:tokens [{:name "USDC"
                            :index 0
                            :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"
@@ -19,7 +25,7 @@
                            :weiDecimals 8}
                           {:name "PURR"
                            :index 1
-                           :tokenId "0xc4bf3f870c0e9465323c0b6ed28096c2"
+                           :tokenId "0xc1fb593aeffbeb02f85e0308e9956a90"
                            :szDecimals 0
                            :weiDecimals 5}]}}})
 
@@ -28,7 +34,7 @@
     (is (= "HYPE:0x0d01dc56dcaaca66ad901c959b4011ec"
            (spot-tokens/wire-token-id production-spot-meta
                                       {:coin "HYPE" :token 150})))
-    (is (= "PURR:0xc4bf3f870c0e9465323c0b6ed28096c2"
+    (is (= "PURR:0xc1fb593aeffbeb02f85e0308e9956a90"
            (spot-tokens/wire-token-id production-spot-meta
                                       {:coin "PURR" :token 1}))))
   (testing "the index may arrive as a string or an @-prefixed pair reference"
