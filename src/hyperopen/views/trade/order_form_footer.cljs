@@ -5,7 +5,7 @@
   "Position risk is low, so there is no liquidation price for the time being. Note that increasing the position or reducing the margin will increase the risk.")
 
 (defn submit-row [{:keys [submitting? submit-disabled? submit-tooltip
-                          submit-label submitting-label on-submit]}]
+                          submit-label submitting-label submit-recap on-submit]}]
   [:div {:class ["relative" "group"]
          :tabindex (when (seq submit-tooltip) 0)}
    [:button {:type "button"
@@ -32,6 +32,12 @@
     (if submitting?
       (or submitting-label "Submitting...")
       (or submit-label "Place Order"))]
+   ;; A one-line recap of anything the button's own label cannot carry -- today the TWAP
+   ;; price guards. Sits above the metrics divider so it reads as part of the action.
+   (when (seq submit-recap)
+     [:div {:class ["mt-1" "text-center" "text-ho-text-dim"]
+            :style {:font-size "11px"}}
+      submit-recap])
    (when (seq submit-tooltip)
      [:div {:class ["order-submit-tooltip"
                     "pointer-events-none"

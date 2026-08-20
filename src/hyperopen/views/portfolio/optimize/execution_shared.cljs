@@ -53,7 +53,24 @@
 (def high-cost-crossing-row? execution-order-type/high-cost-crossing-row?)
 (def crossing-cost-bps execution-order-type/crossing-cost-bps)
 (def effective-crossing-cost execution-order-type/effective-crossing-cost)
-(def twap-suborder-count execution-order-type/twap-suborder-count)
+
+(defn twap-clip-schedule-label
+  "Editor copy for how a row's TWAP is actually worked. With a usable notional both the
+  venue's clip count and the gap between clips are known (\"41 clips · one every 30s\").
+  Without one only the bounds are: the venue spaces clips wider than the 30s floor rather
+  than let a clip fall under $10, so the copy states the bound instead of asserting a
+  cadence it cannot know."
+  [row minutes]
+  (let [{:keys [clips interval-seconds notional-known?]}
+        (execution-order-type/twap-clip-schedule row minutes)
+        gap (cond
+              (not (finite interval-seconds)) nil
+              (< interval-seconds 90) (str (js/Math.round interval-seconds) "s")
+              :else (str "~" (js/Math.round (/ interval-seconds 60)) "m"))]
+    (cond
+      (nil? gap) (str clips " clips")
+      notional-known? (str clips " clips · one every " gap)
+      :else (str "up to " clips " clips · no closer than " gap " apart"))))
 
 ;; ── live type-aware cost recompute ────────────────────────────────────────
 

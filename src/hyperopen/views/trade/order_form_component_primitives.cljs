@@ -32,8 +32,11 @@
 (defn- dom-event-attr [event-id]
   (keyword (str "on-" (name event-id))))
 
-(defn- bind-event
+(defn bind-event
   "Bind either runtime DSL event payloads or plain callback functions.
+
+   Public because sibling order-form view namespaces build their own controls against the
+   same event contract (see order-form-twap-section).
    - vector/keyword payloads use {:on {event-id payload}}
    - functions use the native DOM attribute (:on-click, :on-input, etc)
    - maps are merged into :on directly"

@@ -48,8 +48,11 @@
     [:scale :end]
     [:scale :count]
     [:scale :skew]
+    [:twap :days]
     [:twap :hours]
     [:twap :minutes]
+    [:twap :trigger-px]
+    [:twap :stop-px]
     [:tp :trigger]
     [:tp :limit]
     [:sl :trigger]
@@ -639,9 +642,27 @@
          (not= offset-leg :sl)) (assoc-in [:sl :offset-input] "")
     (= path [:tpsl :unit]) (assoc-in [:tp :offset-input] "")
     (= path [:tpsl :unit]) (assoc-in [:sl :offset-input] "")))
+(defn- apply-twap-runtime-preset
+  "Expands a runtime preset into the three runtime fields in ONE transition.
+
+   Writing days, hours and minutes as three separate actions cannot work: every
+   update-order-form action re-reads the same pre-event form and rewrites the whole map, so
+   the last write wins and the others are lost. Selecting a preset is therefore a single
+   write to [:twap :preset], expanded here."
+  [form value]
+  (let [runtime (trading/twap-preset-runtime value)]
+    (-> form
+        (update :twap (fn [twap]
+                        (cond-> (dissoc (or twap {}) :preset)
+                          runtime (merge runtime)
+                          true (assoc :custom-runtime? (nil? runtime))))))))
+
 (defn- apply-order-form-path-effects
   [state form {:keys [path value]}]
   (cond
+    (= path [:twap :preset])
+    (apply-twap-runtime-preset form value)
+
     (= path [:type])
     (let [typed (-> form
                     (update :type trading/normalize-order-type)

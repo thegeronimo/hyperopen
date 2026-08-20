@@ -39,9 +39,12 @@
   (is (nil? (:size-input-source (trading/default-order-form))))
   (is (nil? (:size-display (trading/default-order-form))))
   (is (= :usd (get-in (trading/default-order-form) [:tpsl :unit])))
+  (is (= 0 (get-in (trading/default-order-form) [:twap :days])))
   (is (= 0 (get-in (trading/default-order-form) [:twap :hours])))
   (is (= 30 (get-in (trading/default-order-form) [:twap :minutes])))
   (is (false? (get-in (trading/default-order-form) [:twap :randomize])))
+  (is (= "" (get-in (trading/default-order-form) [:twap :trigger-px])))
+  (is (= "" (get-in (trading/default-order-form) [:twap :stop-px])))
   (is (= trading/default-market-slippage-pct
          (:slippage (trading/default-order-form))))
   (is (= :limit (:entry-mode (trading/default-order-form-ui))))

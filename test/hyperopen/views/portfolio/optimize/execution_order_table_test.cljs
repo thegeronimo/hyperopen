@@ -118,10 +118,11 @@
     (is (str/includes? (h/node-text order-list) "Click any order to change its type"))))
 
 (deftest twap-row-breakdown-shows-worked-clips-and-sliced-figures-test
-  ;; A TWAP-typed row's cost equation shows the SLICED estimate (impact spread across
-  ;; the venue's 30s clips + permanent residue), says how it is worked, and the editor's
-  ;; clip count matches the venue cadence (the old copy claimed minutes÷2 "slices").
-  ;; $100k at 2 bp spread + 100 bp impact, 20 minutes = 41 clips:
+  ;; A TWAP-typed row's cost equation shows the SLICED estimate (impact spread across the
+  ;; venue's clips + permanent residue), says how it is worked, and the editor's clip
+  ;; count matches the venue's real slice model (the old copy claimed minutes÷2 "slices").
+  ;; $100k at 2 bp spread + 100 bp impact, 20 minutes = 41 clips of $2,439 — every clip
+  ;; clears the $10 floor, so the 30s spacing floor binds and the schedule is unchanged:
   ;; price cost 19.07 bp ≈ $190.73 (never the one-shot $1,020).
   (let [split-cost {:source :snapshot :slippage-bps 102 :estimated-slippage-usd 1020
                     :spread-bps 2 :spread-usd 20 :impact-bps 100 :impact-usd 1000
@@ -141,6 +142,28 @@
     (is (str/includes? text "190.73"))
     (is (not (str/includes? text "1,020")))
     (is (str/includes? (h/node-text editor) "41 clips · one every 30s"))))
+
+(deftest twap-editor-states-the-real-clip-spacing-for-a-small-order-test
+  ;; 30s is the venue's spacing FLOOR: since 2026-08-01 it spaces clips wider rather than
+  ;; let one fall under $10. A $150 leg over 10 minutes is 15 clips ~43s apart, so the old
+  ;; unconditional "one every 30s" copy (and the 21 clips it implied) was simply false.
+  (let [split-cost {:source :snapshot :slippage-bps 102 :estimated-slippage-usd 1.53
+                    :spread-bps 2 :spread-usd 0.03 :impact-bps 100 :impact-usd 1.5
+                    :notional-usd 150
+                    :fee-bps 4 :estimated-fee-usd 0.06
+                    :maker-fee-bps 1 :maker-fee-usd 0.015}
+        plan* (-> plan
+                  (assoc-in [:rows 0 :delta-notional-usd] 150)
+                  (assoc-in [:rows 0 :cost] split-cost))
+        node (view {:plan plan* :overrides {"perp:EWZ" :twap} :open-row "perp:EWZ"})
+        editor (h/find-by-data-role node "portfolio-optimizer-execution-order-editor-perp-EWZ")
+        breakdown (h/find-by-data-role node "portfolio-optimizer-execution-cost-breakdown")
+        editor-text (h/node-text editor)]
+    (is (str/includes? editor-text "15 clips · one every 43s"))
+    (is (not (str/includes? editor-text "21 clips")))
+    (is (not (str/includes? editor-text "one every 30s")))
+    ;; the cost equation slices against the same 15 clips it names
+    (is (str/includes? (h/node-text breakdown) "worked as 15 clips over 10m"))))
 
 (deftest depth-floor-row-disclosure-test
   ;; A depth-overrun row must read as a lower bound everywhere: "≥" on the row's cost

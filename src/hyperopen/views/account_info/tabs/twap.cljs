@@ -6,15 +6,15 @@
 
 (def ^:private active-grid-template-style
   {:grid-template-columns
-   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)"})
+   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr) minmax(96px,0.8fr)"})
 
 (def ^:private active-read-only-grid-template-style
   {:grid-template-columns
-   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(88px,0.72fr) minmax(150px,1.1fr)"})
+   "minmax(110px,1fr) minmax(90px,0.9fr) minmax(110px,1fr) minmax(90px,0.85fr) minmax(150px,1.25fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(150px,1.1fr)"})
 
 (def ^:private history-grid-template-style
   {:grid-template-columns
-   "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)"})
+   "minmax(150px,1.2fr) minmax(110px,0.9fr) minmax(90px,0.82fr) minmax(100px,0.9fr) minmax(90px,0.82fr) minmax(110px,0.92fr) minmax(128px,1.4fr) minmax(88px,0.72fr) minmax(88px,0.72fr) minmax(90px,0.82fr)"})
 
 (def ^:private subtab-order
   [:active :history :fill-history])
@@ -39,6 +39,31 @@
   (if-let [num (shared/parse-optional-num value)]
     (shared/format-trade-price num)
     "--"))
+
+(defn- trigger-stop-node
+  "Renders a TWAP's guards by exception: a row shows nothing here unless the order actually
+   carries a trigger or a termination price.
+
+   Both levels read verb-first -- starts, stops -- so the reader does not have to supply
+   the verb for a bare comparison, and both stack in one cell because most TWAPs carry
+   neither and two columns would sit empty. Stop is tinted, since it is the one that ends
+   the run."
+  [row]
+  (let [trigger-px (:trigger-px row)
+        stop-price (:stop-price row)
+        trigger-line (when (number? trigger-px)
+                       {:text (str "starts " (format-average-price trigger-px))
+                        :tone nil})
+        stop-line (when (number? stop-price)
+                    {:text (str "stops " (format-average-price stop-price))
+                     :tone "text-ho-sell-hi"})
+        lines (remove nil? [trigger-line stop-line])]
+    (if (seq lines)
+      [:div {:class ["flex" "flex-col" "leading-tight" "num" "whitespace-nowrap"]}
+       (for [{:keys [text tone]} lines]
+         ^{:key text}
+         [:span {:class (if tone [tone] [])} text])]
+      "--")))
 
 (defn- yes-no
   [value]
@@ -179,6 +204,7 @@
       [:div.text-left (table/non-sortable-header "Executed Size")]
       [:div.text-left (table/non-sortable-header "Average Price")]
       [:div.text-left (table/non-sortable-header "Running Time and Total")]
+      [:div.text-left (table/non-sortable-header "Trigger / Stop")]
       [:div.text-left (table/non-sortable-header "Reduce Only")]
       [:div.text-left (table/non-sortable-header "Creation Time")]
       (when-not read-only?
@@ -194,6 +220,7 @@
         [:div.text-left.num (format-size (:executed-size row))]
         [:div.text-left.num (format-average-price (:average-price row))]
         [:div.text-left.whitespace-nowrap (:running-label row)]
+        [:div.text-left (trigger-stop-node row)]
         [:div.text-left (yes-no (:reduce-only? row))]
         [:div.text-left.whitespace-nowrap (shared/format-open-orders-time (:creation-time-ms row))]
         (when-not read-only?
@@ -212,6 +239,7 @@
       [:div.text-left (table/non-sortable-header "Executed Size")]
       [:div.text-left (table/non-sortable-header "Average Price")]
       [:div.text-left (table/non-sortable-header "Total Runtime")]
+      [:div.text-left (table/non-sortable-header "Trigger / Stop")]
       [:div.text-left (table/non-sortable-header "Reduce Only")]
       [:div.text-left (table/non-sortable-header "Randomize")]
       [:div.text-left (table/non-sortable-header "Status")]]
@@ -229,6 +257,7 @@
                               "--"
                               (format-average-price (:average-price row)))]
         [:div.text-left.whitespace-nowrap (:total-runtime-label row)]
+        [:div.text-left (trigger-stop-node row)]
         [:div.text-left (yes-no (:reduce-only? row))]
         [:div.text-left (yes-no (:randomize? row))]
         [:div.text-left (status-node row)]]))

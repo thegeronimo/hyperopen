@@ -57,7 +57,7 @@
       (is (= [:order/trigger-required]
              (mapv :code errors)))))
 
-  (testing "twap runtime must be between 5 minutes and 24 hours"
+  (testing "twap runtime must be between 5 minutes and 7 days"
     (let [too-short (assoc (trading/default-order-form)
                            :size "1"
                            :type :twap
@@ -65,21 +65,28 @@
           too-long (assoc (trading/default-order-form)
                           :size "1"
                           :type :twap
-                          :twap {:hours 24 :minutes 1 :randomize false})]
+                          :twap {:days 7 :hours 0 :minutes 1 :randomize false})
+          seven-days (assoc (trading/default-order-form)
+                            :size "1"
+                            :type :twap
+                            :twap {:days 7 :hours 0 :minutes 0 :randomize false})]
       (is (= #{:twap/runtime-invalid}
              (validation-codes (trading/validate-order-form too-short))))
       (is (= #{:twap/runtime-invalid}
-             (validation-codes (trading/validate-order-form too-long))))))
+             (validation-codes (trading/validate-order-form too-long))))
+      (is (empty? (validation-codes (trading/validate-order-form seven-days))))))
 
-  (testing "twap suborders must satisfy the venue minimum order value"
+  (testing "twap orders must satisfy the venue minimum TOTAL order value"
     (let [too-small (assoc (trading/default-order-form)
                            :side :buy
-                           :size "1"
+                           :size "0.5"
                            :type :twap
                            :twap {:hours 0 :minutes 30 :randomize false})
+          at-floor (assoc too-small :size "1")
           valid (assoc too-small :size "10")]
-      (is (= #{:twap/suborder-notional-too-small}
+      (is (= #{:twap/order-notional-too-small}
              (validation-codes (trading/validate-order-form support/base-state too-small))))
+      (is (empty? (trading/validate-order-form support/base-state at-floor)))
       (is (empty? (trading/validate-order-form support/base-state valid))))))
 
 (deftest spot-affordability-skips-unified-portfolio-margin-test
@@ -321,7 +328,7 @@
     (is (approx= 0.3333333333 (nth weights 3)))))
 
 (deftest split-twap-total-minutes-defaults-nil-to-zero-test
-  (is (= {:hours 0 :minutes 0}
+  (is (= {:days 0 :hours 0 :minutes 0}
          (trading/split-twap-total-minutes nil))))
 
 (deftest twap-total-minutes-hours-branch-defaults-missing-fields-to-zero-test

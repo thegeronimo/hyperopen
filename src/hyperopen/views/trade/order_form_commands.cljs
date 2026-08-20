@@ -172,6 +172,9 @@
 (defn set-scale-skew-input []
   (update-order-field [:scale :skew] event-target-value))
 
+(defn set-twap-days-input []
+  (update-order-field [:twap :days] event-target-value))
+
 (defn set-twap-hours-input []
   (update-order-field [:twap :hours] event-target-value))
 
@@ -180,6 +183,19 @@
 
 (defn toggle-twap-randomize []
   (update-order-field [:twap :randomize] event-target-checked))
+
+(defn select-twap-runtime-preset
+  "Selects a runtime preset, or :custom to reveal the D/H/M fields. One write: the
+   transition expands the key into the runtime fields, because three separate writes would
+   clobber one another."
+  [preset-key]
+  (update-order-field [:twap :preset] preset-key))
+
+(defn set-twap-trigger-price-input []
+  (update-order-field [:twap :trigger-px] event-target-value))
+
+(defn set-twap-stop-price-input []
+  (update-order-field [:twap :stop-px] event-target-value))
 
 (defn toggle-tp-enabled []
   (update-order-field [:tp :enabled?] event-target-checked))

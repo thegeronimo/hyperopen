@@ -1,5 +1,6 @@
 (ns hyperopen.domain.trading.validation
-  (:require [hyperopen.domain.trading.core :as core]
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.core :as core]
             [hyperopen.domain.trading.market :as market]))
 
 (def ^:private validation-error-specs
@@ -15,10 +16,14 @@
                         :fields []}
    :scale/endpoint-notional-too-small {:message "Scale start/end orders must each be at least 10 in order value."
                                        :fields []}
-   :twap/runtime-invalid {:message "TWAP runtime must be between 5 minutes and 24 hours."
+   :twap/runtime-invalid {:message "TWAP runtime must be between 5 minutes and 7 days."
                           :fields []}
-   :twap/suborder-notional-too-small {:message "Each TWAP suborder must be at least 10 USDC in order value."
-                                      :fields []}
+   :twap/order-notional-too-small {:message "A TWAP order must be at least 100 USDC in total order value."
+                                   :fields [:size]}
+   :twap/trigger-price-invalid {:message "TWAP trigger price must be greater than 0."
+                                :fields []}
+   :twap/stop-price-invalid {:message "TWAP max/min price must be greater than 0."
+                             :fields []}
    :tpsl/tp-trigger-required {:message "TP trigger price is required when TP is enabled."
                               :fields [:tp-trigger]}
    :tpsl/sl-trigger-required {:message "SL trigger price is required when SL is enabled."
@@ -138,17 +143,39 @@
            [(validation-error :spot/insufficient-usdc)]))))
    []))
 
-(defn- validate-twap [{:keys [twap-minutes
-                              twap-suborder-notional] :as parsed}]
+(defn- advanced-price-invalid?
+  "An optional TWAP price field is invalid only when the user typed something that is not a
+   usable positive price. Blank means 'not set' and is always fine."
+  [value]
+  (and (some? value)
+       (seq (str/trim (str value)))
+       (invalid-positive? (core/parse-num value))))
+
+(defn- validate-twap
+  "TWAP validation checks the runtime window and the order's TOTAL notional.
+
+   It deliberately does NOT check per-clip notional. Since the 2026-08-01 venue upgrade
+   Hyperliquid keeps each clip above its own $10 floor by spacing clips further apart, so
+   a per-clip check can only produce false rejections -- it used to block a $200 order over
+   24 hours that the venue works happily as 20 clips of $10."
+  [{:keys [twap-minutes twap-order-notional twap-trigger-px twap-stop-px] :as parsed}]
   (let [runtime-valid? (boolean (core/valid-twap-runtime? twap-minutes))]
     (cond-> (require-size-error parsed)
       (not runtime-valid?)
       (conj (validation-error :twap/runtime-invalid))
 
-      (and runtime-valid?
-           (number? twap-suborder-notional)
-           (< twap-suborder-notional core/twap-min-suborder-notional))
-      (conj (validation-error :twap/suborder-notional-too-small)))))
+      (and (number? twap-order-notional)
+           (< twap-order-notional core/twap-min-order-notional))
+      (conj (validation-error :twap/order-notional-too-small))
+
+      ;; The advanced settings are optional, so blank is fine -- but a value that was typed
+      ;; and cannot be used must say so here. Without this the request builder just fails
+      ;; closed and the user gets a disabled submit button with no explanation.
+      (advanced-price-invalid? twap-trigger-px)
+      (conj (validation-error :twap/trigger-price-invalid))
+
+      (advanced-price-invalid? twap-stop-px)
+      (conj (validation-error :twap/stop-price-invalid)))))
 
 (def ^:private type-validator-dispatch
   {:validate/market validate-market
@@ -193,9 +220,10 @@
                                  (number? (:size end-leg)))
                         (* (:price end-leg) (:size end-leg)))
          twap-minutes (core/twap-total-minutes (get-in form [:twap]))
-         twap-suborder-notional (core/twap-suborder-notional size
-                                                             twap-minutes
-                                                             (market/reference-price context form))
+         twap-order-notional (core/twap-order-notional size
+                                                       (market/reference-price context form))
+         twap-trigger-px (get-in form [:twap :trigger-px])
+         twap-stop-px (get-in form [:twap :stop-px])
          tp-enabled? (get-in form [:tp :enabled?])
          sl-enabled? (get-in form [:sl :enabled?])
          tp-trigger (core/parse-num (get-in form [:tp :trigger]))
@@ -211,7 +239,9 @@
                  :start-notional start-notional
                  :end-notional end-notional
                  :twap-minutes twap-minutes
-                 :twap-suborder-notional twap-suborder-notional}
+                 :twap-order-notional twap-order-notional
+                 :twap-trigger-px twap-trigger-px
+                 :twap-stop-px twap-stop-px}
          validator-id (core/order-type-validator-id order-type)
          validator-fn (get type-validator-dispatch validator-id validate-limit)
          type-errors (validator-fn parsed)

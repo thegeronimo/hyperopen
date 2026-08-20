@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.schema.order-form-command-catalog :as command-catalog]
             [hyperopen.views.trade.order-form-commands :as commands]
+            [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]))
 
 (def ^:private representative-command-builders
@@ -56,9 +57,12 @@
    (commands/set-scale-end-input)
    (commands/set-scale-count-input)
    (commands/set-scale-skew-input)
+   (commands/set-twap-days-input)
    (commands/set-twap-hours-input)
    (commands/set-twap-minutes-input)
    (commands/toggle-twap-randomize)
+   (commands/set-twap-trigger-price-input)
+   (commands/set-twap-stop-price-input)
    (commands/toggle-tp-enabled)
    (commands/set-tp-trigger-input)
    (commands/set-tp-offset-input)
@@ -104,6 +108,15 @@
   (is (= {:command-id :order-form/update-order-form
           :args [[:twap :hours] commands/event-target-value]}
          (commands/set-twap-hours-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :days] commands/event-target-value]}
+         (commands/set-twap-days-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :trigger-px] commands/event-target-value]}
+         (commands/set-twap-trigger-price-input)))
+  (is (= {:command-id :order-form/update-order-form
+          :args [[:twap :stop-px] commands/event-target-value]}
+         (commands/set-twap-stop-price-input)))
   (is (= {:command-id :order-form/update-order-form
           :args [[:side] :sell]}
          (commands/set-order-side :sell)))
@@ -164,3 +177,31 @@
        #"order-form command contract validation failed"
        (intent-adapter/command->actions {:command-id :order-form/unknown
                                          :args []}))))
+
+(deftest no-handler-emits-two-order-form-writes-test
+  ;; Regression guard for a bug that shipped silently: selecting a TWAP runtime preset
+  ;; dispatched one :actions/update-order-form per runtime field. Every such action
+  ;; recomputes the WHOLE order form from the state it was handed and emits a whole-map
+  ;; write, and all actions from one event are computed against the same pre-event state --
+  ;; so the last write wins and the earlier ones vanish. The chips looked completely inert
+  ;; while every unit test stayed green.
+  ;;
+  ;; Pairing one update-order-form with a narrow nested write (a dropdown close, say) is
+  ;; fine and several handlers do it. Two whole-map writes in one event are not.
+  (let [handlers (handlers/build-handlers)
+        order-form-writes (fn [actions]
+                            (count (filter #(= :actions/update-order-form (first %))
+                                           (when (sequential? actions) actions))))
+        offenders (atom [])]
+    (doseq [[group entries] handlers
+            [handler-key value] entries]
+      (let [actions (cond
+                      (fn? value) (try (value {:key :1d :label "1d" :days 1 :hours 0 :minutes 0})
+                                       (catch :default _ nil))
+                      (sequential? value) value
+                      :else nil)]
+        (when (and actions (> (order-form-writes actions) 1))
+          (swap! offenders conj [group handler-key (order-form-writes actions)]))))
+    (is (= [] @offenders)
+        (str "handlers emitting more than one :actions/update-order-form per event will "
+             "silently lose all but the last write: " (pr-str @offenders)))))

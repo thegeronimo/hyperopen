@@ -230,6 +230,16 @@ def twapClj (hours minutes : Nat) (randomize : Bool) : Clj :=
     ,kv "minutes" (.nat minutes)
     ,kv "randomize" (.bool randomize)]
 
+-- A TWAP form carrying the ticket's optional Advanced Settings: a trigger price that arms
+-- the order, and the max/min price at which the venue terminates it.
+def twapAdvancedClj (hours minutes : Nat) (randomize : Bool) (triggerPx stopPx : String) : Clj :=
+  mapClj
+    [kv "hours" (.nat hours)
+    ,kv "minutes" (.nat minutes)
+    ,kv "randomize" (.bool randomize)
+    ,kv "trigger-px" (.str triggerPx)
+    ,kv "stop-px" (.str stopPx)]
+
 def scaleClj (start finish : String) (count : Nat) (skew : String) : Clj :=
   mapClj
     [kv "start" (.str start)
@@ -408,10 +418,28 @@ def validationVectors : Clj :=
        ,kv "form" (form "twap" "buy" "1" "" none none none none (some (twapClj 0 4 false)) none)
        ,kv "expected" (validationExpected ["twap/runtime-invalid"] [])]
     ,mapClj
-       [kv "id" (.keyword "twap-suborder-too-small")
+       -- Since the 2026-08-01 venue upgrade the binding size constraint on a TWAP is its
+       -- TOTAL notional ($100), not its per-clip notional -- the venue keeps clips above
+       -- their own $10 floor by spacing them further apart. 0.5 at a mark of 100 is $50.
+       [kv "id" (.keyword "twap-order-notional-too-small")
+       ,kv "context" basePerpContext
+       ,kv "form" (form "twap" "buy" "0.5" "" none none none none (some (twapClj 0 30 false)) none)
+       ,kv "expected" (validationExpected ["twap/order-notional-too-small"] ["Size"])]
+    ,mapClj
+       -- The same ticket at $100 total clears the floor: 10 clips of $10.
+       [kv "id" (.keyword "twap-order-at-notional-floor-is-valid")
        ,kv "context" basePerpContext
        ,kv "form" (form "twap" "buy" "1" "" none none none none (some (twapClj 0 30 false)) none)
-       ,kv "expected" (validationExpected ["twap/suborder-notional-too-small"] [])]
+       ,kv "expected" (validationExpected [] [])]
+    ,mapClj
+       -- Advanced settings are optional, but a typed-and-unusable price must explain
+       -- itself rather than silently disabling submit.
+       [kv "id" (.keyword "twap-advanced-prices-invalid")
+       ,kv "context" basePerpContext
+       ,kv "form" (form "twap" "buy" "1" "" none none none none
+                        (some (twapAdvancedClj 0 30 false "0" "-1")) none)
+       ,kv "expected" (validationExpected ["twap/trigger-price-invalid",
+                                           "twap/stop-price-invalid"] [])]
     ,mapClj
        [kv "id" (.keyword "enabled-tpsl-requires-triggers")
        ,kv "context" basePerpContext

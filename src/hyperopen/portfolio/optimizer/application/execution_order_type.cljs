@@ -76,7 +76,26 @@
           :twap-min (if (>= (abs-num (:delta-notional-usd row)) 70000) 20 10)}
          (get params (:row-id row))))
 
-(def twap-suborder-count rebalance/twap-suborder-count)
+(defn twap-clip-schedule
+  "How the venue will actually work a row's TWAP over `minutes`:
+  {:clips n :interval-seconds gap :notional-known? bool}.
+
+  Since the 2026-08-01 upgrade the venue derives the spacing from the order's NOTIONAL as
+  well as its runtime — it clips no faster than every 30s, and spaces clips wider rather
+  than let one fall below the $10 clip floor. So a row with no usable notional only knows
+  the upper bound on the clip count (and the 30s lower bound on the gap), which is what
+  :notional-known? false means. The first clip goes out immediately, so the runtime spans
+  one gap fewer than there are clips."
+  [row minutes]
+  (let [notional (or (get-in row [:cost :notional-usd])
+                     (abs-num (:delta-notional-usd row)))
+        known? (and (number? notional) (pos? notional))
+        clips (rebalance/twap-venue-suborder-count minutes (when known? notional))
+        runtime-minutes (max rebalance/twap-min-runtime-minutes
+                             (if (number? minutes) minutes 0))]
+    {:clips clips
+     :notional-known? known?
+     :interval-seconds (when (> clips 1) (/ (* 60 runtime-minutes) (dec clips)))}))
 
 (defn effective-crossing-cost
   "The price-cost figures the row's EFFECTIVE order type would actually pay, for every

@@ -15,8 +15,26 @@ abbrev UpdateLeverageAction := Standard.UpdateLeverageAction
 def surface : Surface := .orderRequestAdvanced
 
 def twapMinRuntimeMinutes : Nat := 5
-def twapMaxRuntimeMinutes : Nat := 1440
+
+-- Venue ceiling on TWAP runtime: 7 days. Raised from 1440 (24h) by the 2026-08-01
+-- Hyperliquid TWAP upgrade, which also added trigger/termination prices and dynamic
+-- suborder spacing.
+def twapMaxRuntimeMinutes : Nat := 10080
+
+def twapMinutesPerDay : Nat := 1440
+
+-- FLOOR on venue suborder spacing, not the cadence. Before 2026-08-01 the venue always
+-- worked a twapOrder as one clip every 30s; it now stretches the interval so each clip
+-- clears twapMinSuborderNotional. See twapVenueSuborderCount?.
 def twapFrequencySeconds : Nat := 30
+
+-- Venue floor on a single TWAP clip's notional. The venue maintains this itself by
+-- spacing clips further apart -- it is NOT a reason to reject an order.
+def twapMinSuborderNotional : Nat := 10
+
+-- Venue floor on a TWAP's TOTAL notional. This is the constraint a user can actually
+-- violate.
+def twapMinOrderNotional : Nat := 100
 
 inductive AdvancedOrderType where
   | scale
@@ -38,9 +56,16 @@ structure ScaleSpec where
   deriving Repr, DecidableEq, Inhabited
 
 structure TwapSpec where
+  -- Days exist because the venue accepts runtimes up to 7 days; like hours it is absent
+  -- on the legacy bare-minutes form shape.
+  days : Option NumericInput := none
   hours : Option NumericInput := none
   minutes : NumericInput := .nat 0
   randomize : Bool := false
+  -- Optional advanced settings (2026-08-01 twapOrder upgrade). Blank means "not set",
+  -- which is different from "set to something the wire cannot express".
+  triggerPx : String := ""
+  stopPx : String := ""
   deriving Repr, DecidableEq, Inhabited
 
 structure Context where
@@ -61,6 +86,20 @@ structure Form where
   marginMode : MarginMode := .cross
   deriving Repr, DecidableEq, Inhabited
 
+-- A twapOrder activation condition: the venue starts working the order once the mark
+-- reaches `px`, from below when `above` is true and from above when it is false.
+structure TwapTrigger where
+  px : String
+  above : Bool
+  deriving Repr, DecidableEq, Inhabited
+
+-- The optional advanced block a twapOrder may carry alongside its :twap payload. Both
+-- fields are emitted on the wire whenever the block exists, with the unused one nil.
+structure TwapDetails where
+  trigger : Option TwapTrigger := none
+  stopPx : Option String := none
+  deriving Repr, DecidableEq, Inhabited
+
 structure TwapAction where
   asset : Nat
   isBuy : Bool
@@ -68,6 +107,9 @@ structure TwapAction where
   reduceOnly : Bool
   minutes : Nat
   randomize : Bool
+  -- Absent unless the user typed a trigger or termination price, so an ordinary TWAP
+  -- msgpacks to exactly the bytes it always has.
+  details : Option TwapDetails := none
   deriving Repr, DecidableEq, Inhabited
 
 inductive AdvancedRequestPayload where
@@ -116,6 +158,15 @@ def btcPerpTwoDpContext : Context :=
     assetIdx := some 5
     market := { marketType := some Standard.MarketType.perp
                 szDecimals := 2 } }
+
+-- Mark-carrying perp context. A twapOrder trigger price is only expressible when the
+-- market's mark is known, because the venue infers the trigger direction from it.
+def btcPerpMarkContext : Context :=
+  { activeAsset := some "BTC"
+    assetIdx := some 5
+    market := { marketType := some Standard.MarketType.perp
+                szDecimals := 4
+                mark := some "100" } }
 
 def spotPurrContext : Context :=
   { activeAsset := some "PURR/USDC"
@@ -181,6 +232,18 @@ def ratioLt (left right : Ratio) : Bool :=
 
 def ratioPositive (value : Ratio) : Bool :=
   ratioLt ratioZero value
+
+def ratioEq (left right : Ratio) : Bool :=
+  left.numerator * Int.ofNat right.denominator =
+    right.numerator * Int.ofNat left.denominator
+
+-- Floor of a non-negative ratio. Negative ratios floor to 0; every caller guards
+-- positivity first.
+def ratioFloorNat (value : Ratio) : Nat :=
+  if value.numerator ≤ 0 then
+    0
+  else
+    (Int.toNat value.numerator) / value.denominator
 
 def pow10 : Nat → Nat
   | 0 => 1
@@ -303,24 +366,75 @@ def parseNonnegativeInt? : NumericInput → Option Nat
       | some decimal =>
           Standard.parseNatDigits? (Standard.trimLeadingZeroDigits decimal.wholeDigits)
 
+-- Runtime is the split {days, hours, minutes} triple whenever either coarse field is
+-- present; the legacy shape carries minutes alone and treats it as the whole total.
 def twapTotalMinutes? (twap : TwapSpec) : Option Nat := do
   let minutes ← parseNonnegativeInt? twap.minutes
-  match twap.hours with
-  | some hoursInput =>
-      let hours ← parseNonnegativeInt? hoursInput
-      some (hours * 60 + minutes)
-  | none => some minutes
+  match twap.days, twap.hours with
+  | none, none => some minutes
+  | days?, hours? =>
+      let days ←
+        match days? with
+        | some daysInput => parseNonnegativeInt? daysInput
+        | none => some 0
+      let hours ←
+        match hours? with
+        | some hoursInput => parseNonnegativeInt? hoursInput
+        | none => some 0
+      some (days * twapMinutesPerDay + hours * 60 + minutes)
 
 def validTwapRuntime (minutes : Nat) : Bool :=
   twapMinRuntimeMinutes ≤ minutes && minutes ≤ twapMaxRuntimeMinutes
 
+-- Upper bound on the number of clips a TWAP of this runtime can be worked as: the count
+-- the venue would use if it could sit at the twapFrequencySeconds spacing floor.
+-- Notional-blind, so it OVERSTATES the clip count for small orders over long runtimes --
+-- use twapVenueSuborderCount? when the order's notional is known.
 def twapSuborderCount (minutes : Nat) : Nat :=
   1 + ((60 * minutes) / twapFrequencySeconds)
 
+def twapOrderNotional? (size referencePrice : String) : Option Ratio := do
+  let sizeRatio ← parsePositiveRatio? size
+  let referencePriceRatio ← parsePositiveRatio? referencePrice
+  pure (ratioMul sizeRatio referencePriceRatio)
+
+-- Number of clips the venue will actually work this TWAP as.
+--
+-- Since the 2026-08-01 upgrade the venue picks the spacing from the order's total size
+-- AND its runtime rather than always firing every 30 seconds: it clips as often as the
+-- twapFrequencySeconds floor allows, but never so often that a clip falls below
+-- twapMinSuborderNotional. So the real count is the smaller of the spacing-floor count
+-- and the notional-floor count, and never fewer than two clips.
+def twapVenueSuborderCount? (minutes : Nat) (totalNotional : Ratio) : Option Nat :=
+  let spacingBound := twapSuborderCount minutes
+  if ratioPositive totalNotional && 0 < spacingBound then
+    let notionalBound :=
+      ratioFloorNat
+        (mkRatio totalNotional.numerator (totalNotional.denominator * twapMinSuborderNotional))
+    some (max 2 (min spacingBound notionalBound))
+  else
+    none
+
+-- Seconds between clips when a runtime of `minutes` is worked as `orderCount` clips. The
+-- first clip goes out immediately, so the runtime is divided across one fewer gap than
+-- there are clips.
+def twapIntervalSecondsForCount? (minutes orderCount : Nat) : Option Ratio :=
+  if 1 < orderCount && 0 < minutes then
+    some (mkRatio (Int.ofNat (60 * minutes)) (orderCount - 1))
+  else
+    none
+
+def twapSuborderIntervalSeconds? (minutes : Nat) (totalNotional : Ratio) : Option Ratio := do
+  let orderCount ← twapVenueSuborderCount? minutes totalNotional
+  twapIntervalSecondsForCount? minutes orderCount
+
+-- Notional of one clip: the venue clip count is notional-aware, so this settles at
+-- twapMinSuborderNotional rather than shrinking without bound.
 def twapSuborderNotional? (size : String) (minutes : Nat) (referencePrice : String) : Option Ratio := do
   let sizeRatio ← parsePositiveRatio? size
   let referencePriceRatio ← parsePositiveRatio? referencePrice
-  let count := twapSuborderCount minutes
+  let notional ← twapOrderNotional? size referencePrice
+  let count ← twapVenueSuborderCount? minutes notional
   let suborderSize ← ratioDivNat? sizeRatio count
   pure (ratioMul suborderSize referencePriceRatio)
 
@@ -410,12 +524,64 @@ def buildScaleRequest (context : Context) (form : Form) : Option AdvancedRequest
   some { payload := .scale orders
          assetIdx := assetIdx }
 
+-- True when the user actually typed something into an optional price field.
+def priceInputPresent (value : String) : Bool :=
+  !(Standard.trim value).isEmpty
+
+-- The venue watches the MARK price for TWAP trigger and termination conditions, so the
+-- trigger direction is inferred against the mark rather than the book.
+def twapReferenceMark? (context : Context) : Option Ratio :=
+  context.market.mark.bind parsePositiveRatio?
+
+inductive TwapDetailsResult where
+  -- The user set neither advanced field: no :details key at all, so the action is the
+  -- exact map it always was and signs to the same bytes.
+  | absent
+  -- A value was typed but cannot be expressed on the wire (sub-tick, non-positive,
+  -- unparseable), or a trigger was typed with no mark to infer its direction from. The
+  -- builder fails closed rather than silently dropping the setting the user asked for.
+  | invalid
+  | present (details : TwapDetails)
+  deriving Repr, DecidableEq, Inhabited
+
+-- The direction flag is inferred rather than asked for: Hyperliquid's own ticket exposes
+-- a single Trigger Price field with no above/below control, and infers the direction from
+-- where the trigger sits relative to the mark.
+def twapDetails (context : Context) (form : Form) : TwapDetailsResult :=
+  let triggerTyped := priceInputPresent form.twap.triggerPx
+  let stopTyped := priceInputPresent form.twap.stopPx
+  if !triggerTyped && !stopTyped then
+    .absent
+  else
+    let priceContext := leverageContext context
+    let triggerPx? :=
+      if triggerTyped then Standard.canonicalPriceText? priceContext form.twap.triggerPx else none
+    let stopPx? :=
+      if stopTyped then Standard.canonicalPriceText? priceContext form.twap.stopPx else none
+    if (triggerTyped && triggerPx?.isNone) || (stopTyped && stopPx?.isNone) then
+      .invalid
+    else
+      match triggerPx? with
+      | none => .present { trigger := none, stopPx := stopPx? }
+      | some triggerPx =>
+          match twapReferenceMark? context, parsePositiveRatio? triggerPx with
+          | some mark, some triggerRatio =>
+              .present
+                { trigger := some { px := triggerPx, above := !ratioLt triggerRatio mark }
+                  stopPx := stopPx? }
+          | _, _ => .invalid
+
 def buildTwapRequest (context : Context) (form : Form) : Option AdvancedRequest := do
   let activeAsset ← context.activeAsset
   let _ : Unit := if activeAsset.isEmpty then () else ()
   let assetIdx ← context.assetIdx
   let sizeText ← Standard.normalizedSizeText? form.size
   let minutes ← twapTotalMinutes? form.twap
+  let details? ←
+    match twapDetails context form with
+    | .invalid => none
+    | .absent => some none
+    | .present details => some (some details)
   if validTwapRuntime minutes then
     some
       { payload :=
@@ -425,7 +591,8 @@ def buildTwapRequest (context : Context) (form : Form) : Option AdvancedRequest 
               size := sizeText
               reduceOnly := effectiveReduceOnly context form
               minutes := minutes
-              randomize := form.twap.randomize }
+              randomize := form.twap.randomize
+              details := details? }
         assetIdx := assetIdx }
   else
     none
@@ -558,6 +725,72 @@ def spotTwapForm : Form :=
               minutes := .nat 30
               randomize := false } }
 
+def twapTriggerAboveMarkForm : Form :=
+  -- Trigger above the mark: the venue must watch for the mark RISING to it.
+  { orderType := .twap
+    side := Standard.Side.buy
+    size := "3"
+    reduceOnly := false
+    twap := { hours := some (.nat 1)
+              minutes := .nat 0
+              randomize := false
+              triggerPx := "105" } }
+
+def twapTriggerBelowMarkForm : Form :=
+  -- Trigger below the mark: the venue must watch for the mark FALLING to it.
+  { orderType := .twap
+    side := Standard.Side.sell
+    size := "3"
+    reduceOnly := true
+    twap := { hours := some (.nat 1)
+              minutes := .nat 0
+              randomize := false
+              triggerPx := "95" } }
+
+def twapStopPriceOnlyForm : Form :=
+  -- A termination price alone needs no mark: nothing has to be inferred from one.
+  { orderType := .twap
+    side := Standard.Side.buy
+    size := "3"
+    reduceOnly := false
+    twap := { hours := some (.nat 0)
+              minutes := .nat 30
+              randomize := false
+              stopPx := "90" } }
+
+def twapTriggerAndStopForm : Form :=
+  { orderType := .twap
+    side := Standard.Side.buy
+    size := "3"
+    reduceOnly := false
+    twap := { hours := some (.nat 2)
+              minutes := .nat 0
+              randomize := true
+              triggerPx := "105"
+              stopPx := "95" } }
+
+def twapSevenDayRuntimeForm : Form :=
+  -- 7 days is the post-upgrade ceiling; the same runtime was rejected before it.
+  { orderType := .twap
+    side := Standard.Side.buy
+    size := "3"
+    reduceOnly := false
+    twap := { days := some (.nat 7)
+              hours := some (.nat 0)
+              minutes := .nat 0
+              randomize := true } }
+
+def twapTriggerWithoutMarkForm : Form :=
+  -- Same trigger as twapTriggerAboveMarkForm, run against a context with no mark.
+  { orderType := .twap
+    side := Standard.Side.buy
+    size := "3"
+    reduceOnly := false
+    twap := { hours := some (.nat 1)
+              minutes := .nat 0
+              randomize := false
+              triggerPx := "105" } }
+
 def advancedVectors : List AdvancedVector :=
   [ { id := "scale-order-request"
       contract := .submitReady
@@ -618,7 +851,37 @@ def advancedVectors : List AdvancedVector :=
       contract := .submitReady
       context := spotPurrContext
       form := spotTwapForm
-      expected := buildAdvancedRequest spotPurrContext spotTwapForm } ]
+      expected := buildAdvancedRequest spotPurrContext spotTwapForm }
+  , { id := "twap-trigger-above-mark-request"
+      contract := .submitReady
+      context := btcPerpMarkContext
+      form := twapTriggerAboveMarkForm
+      expected := buildAdvancedRequest btcPerpMarkContext twapTriggerAboveMarkForm }
+  , { id := "twap-trigger-below-mark-request"
+      contract := .submitReady
+      context := btcPerpMarkContext
+      form := twapTriggerBelowMarkForm
+      expected := buildAdvancedRequest btcPerpMarkContext twapTriggerBelowMarkForm }
+  , { id := "twap-stop-price-only-request"
+      contract := .submitReady
+      context := btcPerpContext
+      form := twapStopPriceOnlyForm
+      expected := buildAdvancedRequest btcPerpContext twapStopPriceOnlyForm }
+  , { id := "twap-trigger-and-stop-request"
+      contract := .submitReady
+      context := btcPerpMarkContext
+      form := twapTriggerAndStopForm
+      expected := buildAdvancedRequest btcPerpMarkContext twapTriggerAndStopForm }
+  , { id := "twap-seven-day-runtime-request"
+      contract := .submitReady
+      context := btcPerpMarkContext
+      form := twapSevenDayRuntimeForm
+      expected := buildAdvancedRequest btcPerpMarkContext twapSevenDayRuntimeForm }
+  , { id := "twap-trigger-without-mark-fails-closed"
+      contract := .rawBuilder
+      context := btcPerpContext
+      form := twapTriggerWithoutMarkForm
+      expected := buildAdvancedRequest btcPerpContext twapTriggerWithoutMarkForm } ]
 
 def advancedOrderTypeKeyword : AdvancedOrderType → String
   | .scale => "scale"
@@ -650,11 +913,16 @@ def scaleSpecToClj (scale : ScaleSpec) : Clj :=
 
 def twapSpecToClj (twap : TwapSpec) : Clj :=
   .arrayMap <|
-    (match twap.hours with
-     | some hours => [(.keyword "hours", Standard.numericInputToClj hours)]
+    (match twap.days with
+     | some days => [(.keyword "days", Standard.numericInputToClj days)]
      | none => []) ++
+      (match twap.hours with
+       | some hours => [(.keyword "hours", Standard.numericInputToClj hours)]
+       | none => []) ++
       [(.keyword "minutes", Standard.numericInputToClj twap.minutes)
-      ,(.keyword "randomize", .bool twap.randomize)]
+      ,(.keyword "randomize", .bool twap.randomize)] ++
+      (if twap.triggerPx.isEmpty then [] else [(.keyword "trigger-px", .str twap.triggerPx)]) ++
+      (if twap.stopPx.isEmpty then [] else [(.keyword "stop-px", .str twap.stopPx)])
 
 def formToClj (form : Form) : Clj :=
   .arrayMap <|
@@ -674,8 +942,26 @@ def formToClj (form : Form) : Clj :=
        else
          [])
 
-def twapActionToClj (action : TwapAction) : Clj :=
+def twapTriggerToClj (trigger : TwapTrigger) : Clj :=
   .arrayMap
+    [(.keyword "p", .str trigger.px)
+    ,(.keyword "a", .bool trigger.above)]
+
+-- Both keys are always present when the block is emitted, with the unused one nil --
+-- that is the venue wire format, and an all-nil block is invalid rather than empty.
+def twapDetailsToClj (details : TwapDetails) : Clj :=
+  .arrayMap
+    [(.keyword "t",
+      match details.trigger with
+      | some trigger => twapTriggerToClj trigger
+      | none => .nil)
+    ,(.keyword "s",
+      match details.stopPx with
+      | some stopPx => .str stopPx
+      | none => .nil)]
+
+def twapActionToClj (action : TwapAction) : Clj :=
+  .arrayMap <|
     [(.keyword "type", .str "twapOrder")
     ,(.keyword "twap",
       .arrayMap
@@ -684,7 +970,11 @@ def twapActionToClj (action : TwapAction) : Clj :=
         ,(.keyword "s", .str action.size)
         ,(.keyword "r", .bool action.reduceOnly)
         ,(.keyword "m", .nat action.minutes)
-        ,(.keyword "t", .bool action.randomize)])]
+        ,(.keyword "t", .bool action.randomize)])] ++
+      -- Emitted LAST so the signed key order stays type, twap, details.
+      (match action.details with
+       | some details => [(.keyword "details", twapDetailsToClj details)]
+       | none => [])
 
 def requestToClj (request : AdvancedRequest) : Clj :=
   match request.payload with
@@ -823,9 +1113,116 @@ theorem scale_repeating_price_step_canonicalizes_leg_prices :
              preActions := [] } := by
   native_decide
 
+-- twapSuborderCount is the spacing-floor upper bound, not the clip count the venue
+-- necessarily uses: 90 minutes at the 30s floor is 181 clips.
 theorem twap_total_minutes_and_suborder_formula :
     twapTotalMinutes? twapOrderRequestForm.twap = some 90 ∧
       twapSuborderCount 90 = 181 := by
+  native_decide
+
+-- The venue's own two documented examples of the post-2026-08-01 dynamic spacing.
+-- $10,000 over 60 minutes is spacing-bound: 121 clips of ~$82.64, one every 30s.
+-- $10,000 over 5,760 minutes (4 days) is notional-bound: 1,000 clips of $10.00, one
+-- every ~5.77 minutes -- far slower than the 30s floor.
+theorem twap_venue_suborder_count_matches_documented_examples :
+    twapVenueSuborderCount? 60 (ratioOfNat 10000) = some 121 ∧
+      twapVenueSuborderCount? 5760 (ratioOfNat 10000) = some 1000 ∧
+      (twapIntervalSecondsForCount? 60 121).map (ratioEq (ratioOfNat 30)) = some true ∧
+      (twapIntervalSecondsForCount? 5760 1000).map (ratioEq (mkRatio 345600 999)) = some true := by
+  native_decide
+
+-- The notional floor is a spacing rule, never a rejection: a tiny order is still worked
+-- as at least two clips.
+theorem twap_venue_suborder_count_never_below_two :
+    twapVenueSuborderCount? 60 (ratioOfNat 15) = some 2 := by
+  native_decide
+
+-- 7 days is now inside the runtime window; the pre-upgrade ceiling was 1440.
+theorem twap_seven_day_runtime_is_valid :
+    twapTotalMinutes? twapSevenDayRuntimeForm.twap = some 10080 ∧
+      validTwapRuntime 10080 = true ∧
+      validTwapRuntime 10081 = false := by
+  native_decide
+
+-- A TWAP with neither advanced price carries NO details block, so its wire action is
+-- byte-identical to every TWAP this app has ever signed.
+theorem twap_without_advanced_prices_carries_no_details :
+    (buildAdvancedRequest btcPerpContext twapOrderRequestForm).map
+        (fun request =>
+          match request.payload with
+          | .twap action => action.details
+          | .scale _ => none) = some none := by
+  native_decide
+
+-- Trigger direction is inferred from where the trigger sits relative to the mark.
+theorem twap_trigger_above_mark_sets_direction_true :
+    buildAdvancedRequest btcPerpMarkContext twapTriggerAboveMarkForm =
+      some { payload :=
+               .twap
+                 { asset := 5
+                   isBuy := true
+                   size := "3"
+                   reduceOnly := false
+                   minutes := 60
+                   randomize := false
+                   details := some { trigger := some { px := "105", above := true }
+                                     stopPx := none } }
+             assetIdx := 5
+             preActions := [] } := by
+  native_decide
+
+theorem twap_trigger_below_mark_sets_direction_false :
+    buildAdvancedRequest btcPerpMarkContext twapTriggerBelowMarkForm =
+      some { payload :=
+               .twap
+                 { asset := 5
+                   isBuy := false
+                   size := "3"
+                   reduceOnly := true
+                   minutes := 60
+                   randomize := false
+                   details := some { trigger := some { px := "95", above := false }
+                                     stopPx := none } }
+             assetIdx := 5
+             preActions := [] } := by
+  native_decide
+
+-- A termination price alone needs no mark.
+theorem twap_stop_price_only_needs_no_mark :
+    buildAdvancedRequest btcPerpContext twapStopPriceOnlyForm =
+      some { payload :=
+               .twap
+                 { asset := 5
+                   isBuy := true
+                   size := "3"
+                   reduceOnly := false
+                   minutes := 30
+                   randomize := false
+                   details := some { trigger := none, stopPx := some "90" } }
+             assetIdx := 5
+             preActions := [] } := by
+  native_decide
+
+-- The runtime contract rejects an all-nil details block, so the model must never build
+-- one: `absent` and `present` are the only outcomes, never `present` with nothing in it.
+theorem twap_details_are_never_all_nil :
+    advancedVectors.all
+        (fun vector =>
+          match vector.expected with
+          | some request =>
+              match request.payload with
+              | .twap action =>
+                  match action.details with
+                  | some details => details.trigger.isSome || details.stopPx.isSome
+                  | none => true
+              | .scale _ => true
+          | none => true) = true := by
+  native_decide
+
+-- A typed trigger with no mark to infer its direction from fails closed rather than
+-- silently dropping the setting the user asked for.
+theorem twap_trigger_without_mark_fails_closed :
+    buildAdvancedRequest btcPerpContext twapTriggerWithoutMarkForm = none := by
   native_decide
 
 theorem twap_suborder_too_small_builder_still_emits_request :

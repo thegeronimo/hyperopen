@@ -19,6 +19,15 @@
 (def ^:private twap-action-keys
   #{:type :twap})
 
+(def ^:private twap-action-with-details-keys
+  #{:type :twap :details})
+
+(def ^:private twap-details-keys
+  #{:t :s})
+
+(def ^:private twap-trigger-keys
+  #{:p :a})
+
 (def ^:private order-keys
   #{:a :b :p :s :r :t})
 
@@ -141,11 +150,40 @@
        (seq (:orders action))
        (every? wire-order? (:orders action))))
 
+(defn- twap-trigger-detail?
+  "A TWAP activation condition: {:p <trigger price string> :a <true when the mark must be
+   ABOVE the trigger>}. nil means no activation condition."
+  [value]
+  (or (nil? value)
+      (and (exact-keys? value twap-trigger-keys)
+           (exact-key-order? value [:p :a])
+           (positive-numberish-string? (:p value))
+           (boolean? (:a value)))))
+
+(defn- twap-details?
+  "The optional advanced block a twapOrder may carry alongside :twap. Both keys are always
+   present when the block is emitted, with the unused one nil, matching the venue wire
+   format. :t is the activation condition; :s is the price at which the venue terminates
+   the order."
+  [value]
+  (and (exact-keys? value twap-details-keys)
+       (exact-key-order? value [:t :s])
+       (twap-trigger-detail? (:t value))
+       (or (nil? (:s value))
+           (positive-numberish-string? (:s value)))
+       ;; An all-nil details block carries no information and must be omitted instead, so
+       ;; that a plain TWAP signs byte-identically to how it always has.
+       (boolean (or (:t value) (:s value)))))
+
 (defn twap-action?
   [action]
-  (and (exact-keys? action twap-action-keys)
-       (exact-key-order? action [:type :twap])
+  (and (or (exact-keys? action twap-action-keys)
+           (exact-keys? action twap-action-with-details-keys))
+       (or (exact-key-order? action [:type :twap])
+           (exact-key-order? action [:type :twap :details]))
        (= "twapOrder" (:type action))
+       (or (not (contains? action :details))
+           (twap-details? (:details action)))
        (let [twap (:twap action)]
          (and (exact-keys? twap twap-keys)
               (exact-key-order? twap [:a :b :s :r :m :t])

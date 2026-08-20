@@ -83,9 +83,28 @@
 (def scale-max-order-count 100)
 (def scale-min-endpoint-notional 10)
 (def twap-min-runtime-minutes 5)
-(def twap-max-runtime-minutes 1440)
-(def twap-frequency-seconds 30)
-(def twap-min-suborder-notional 10)
+
+(def twap-max-runtime-minutes
+  ;; Venue ceiling on TWAP runtime: 7 days. Raised from 1440 (24h) by the 2026-08-01
+  ;; Hyperliquid TWAP upgrade, which also added trigger/termination prices and dynamic
+  ;; suborder spacing.
+  10080)
+
+(def twap-frequency-seconds
+  ;; FLOOR on venue suborder spacing, not the cadence. Before 2026-08-01 the venue always
+  ;; worked a twapOrder as one clip every 30s; it now stretches the interval so each clip
+  ;; clears twap-min-suborder-notional. See twap-venue-suborder-count.
+  30)
+
+(def twap-min-suborder-notional
+  ;; Venue floor on a single TWAP clip's notional. The venue maintains this itself by
+  ;; spacing clips further apart -- it is NOT a reason to reject an order.
+  10)
+
+(def twap-min-order-notional
+  ;; Venue floor on a TWAP's TOTAL notional. This is the constraint a user can actually
+  ;; violate, and the one validate-twap enforces.
+  100)
 
 (defn parse-num [v]
   (cond
@@ -153,37 +172,132 @@
     (and (>= parsed scale-min-order-count)
          (<= parsed scale-max-order-count))))
 
-(defn split-twap-total-minutes [value]
+(def ^:private minutes-per-day 1440)
+
+(defn split-twap-total-minutes
+  "Splits a total minute count into the {:days :hours :minutes} triple the TWAP runtime
+   inputs render. Days exist because the venue accepts runtimes up to 7 days."
+  [value]
   (let [total-minutes (or (normalize-nonnegative-int value) 0)]
-    {:hours (quot total-minutes 60)
+    {:days (quot total-minutes minutes-per-day)
+     :hours (quot (mod total-minutes minutes-per-day) 60)
      :minutes (mod total-minutes 60)}))
 
-(defn twap-total-minutes [twap-form]
+(defn twap-total-minutes
+  "Total runtime in minutes for a TWAP form. Accepts either the split
+   {:days :hours :minutes} shape or a bare {:minutes n} total."
+  [twap-form]
   (let [twap* (or twap-form {})]
-    (if (contains? twap* :hours)
-      (+ (* 60 (or (normalize-nonnegative-int (:hours twap*)) 0))
+    (if (or (contains? twap* :days) (contains? twap* :hours))
+      (+ (* minutes-per-day (or (normalize-nonnegative-int (:days twap*)) 0))
+         (* 60 (or (normalize-nonnegative-int (:hours twap*)) 0))
          (or (normalize-nonnegative-int (:minutes twap*)) 0))
       (normalize-nonnegative-int (:minutes twap*)))))
+
+(def twap-runtime-presets
+  "The runtimes the ticket offers as one tap. Anything else is entered under Custom."
+  [{:key :15m :label "15m" :days 0 :hours 0 :minutes 15}
+   {:key :30m :label "30m" :days 0 :hours 0 :minutes 30}
+   {:key :4h :label "4h" :days 0 :hours 4 :minutes 0}
+   {:key :1d :label "1d" :days 1 :hours 0 :minutes 0}])
+
+(defn twap-preset-runtime
+  "The {:days :hours :minutes} a preset key stands for, or nil for :custom and anything
+   unrecognised."
+  [preset-key]
+  (some (fn [{:keys [key days hours minutes]}]
+          (when (= key preset-key)
+            {:days days :hours hours :minutes minutes}))
+        twap-runtime-presets))
+
+(defn twap-preset-key-for-runtime
+  "The preset a runtime corresponds to, or nil when no preset covers it."
+  [total-minutes]
+  (some (fn [{:keys [key] :as preset}]
+          (when (= total-minutes (+ (* 1440 (:days preset))
+                                    (* 60 (:hours preset))
+                                    (:minutes preset)))
+            key))
+        twap-runtime-presets))
 
 (defn valid-twap-runtime? [minutes]
   (when-let [total-minutes (normalize-nonnegative-int minutes)]
     (<= twap-min-runtime-minutes total-minutes twap-max-runtime-minutes)))
 
-(defn twap-suborder-count [minutes]
+(defn twap-suborder-count
+  "Upper bound on the number of clips a TWAP of this runtime can be worked as: the count
+   the venue would use if it could sit at the twap-frequency-seconds spacing floor.
+   Notional-blind, so it OVERSTATES the clip count for small orders over long runtimes --
+   use twap-venue-suborder-count when the order's notional is known."
+  [minutes]
   (when-let [total-minutes (normalize-nonnegative-int minutes)]
     (+ 1 (/ (* 60 total-minutes) twap-frequency-seconds))))
 
-(defn twap-suborder-size [total-size minutes]
+(defn twap-order-notional
+  "Total USD notional of a TWAP order, or nil when either input is unusable."
+  [total-size reference-price]
   (let [size* (parse-num total-size)
-        order-count (twap-suborder-count minutes)]
-    (when (and (number? size*)
-               (pos? size*)
-               (number? order-count)
-               (pos? order-count))
-      (/ size* order-count))))
+        price* (parse-num reference-price)]
+    (when (and (number? size*) (pos? size*)
+               (number? price*) (pos? price*))
+      (* size* price*))))
+
+(defn twap-venue-suborder-count
+  "Number of clips the venue will actually work this TWAP as.
+
+   Since the 2026-08-01 upgrade the venue picks the spacing from the order's total size
+   AND its runtime rather than always firing every 30 seconds: it clips as often as the
+   twap-frequency-seconds floor allows, but never so often that a clip falls below
+   twap-min-suborder-notional. So the real count is the smaller of the spacing-floor
+   count and the notional-floor count.
+
+   Reproduces both of the venue's own documented examples: $10,000 over 60 minutes gives
+   121 clips of ~$83 (spacing-bound, every 30s), and $10,000 over 4 days gives 1,000
+   clips of ~$10 (notional-bound, roughly every 6 minutes)."
+  [minutes total-notional]
+  (let [spacing-bound (twap-suborder-count minutes)
+        notional* (parse-num total-notional)]
+    (when (and (number? spacing-bound) (pos? spacing-bound)
+               (number? notional*) (pos? notional*))
+      (let [notional-bound (js/Math.floor (/ notional* twap-min-suborder-notional))]
+        (max 2 (min spacing-bound notional-bound))))))
+
+(defn twap-interval-seconds-for-count
+  "Seconds between clips when a runtime of `minutes` is worked as `order-count` clips.
+   The first clip goes out immediately, so the runtime is divided across one fewer gap
+   than there are clips."
+  [minutes order-count]
+  (let [total-minutes (normalize-nonnegative-int minutes)]
+    (when (and (number? order-count) (> order-count 1)
+               (number? total-minutes) (pos? total-minutes))
+      (/ (* 60 total-minutes) (dec order-count)))))
+
+(defn twap-suborder-interval-seconds
+  "Estimated seconds between clips for a TWAP of this runtime and notional. Derived from
+   twap-venue-suborder-count, so it stretches past twap-frequency-seconds for small orders
+   over long runtimes. An estimate: the venue owns the real schedule."
+  [minutes total-notional]
+  (twap-interval-seconds-for-count minutes (twap-venue-suborder-count minutes total-notional)))
+
+(defn twap-suborder-size
+  "Base-currency size of one TWAP clip. With a reference price the notional-aware venue
+   clip count is used; without one it falls back to the notional-blind spacing bound."
+  ([total-size minutes]
+   (twap-suborder-size total-size minutes nil))
+  ([total-size minutes reference-price]
+   (let [size* (parse-num total-size)
+         notional (twap-order-notional total-size reference-price)
+         order-count (if (number? notional)
+                       (twap-venue-suborder-count minutes notional)
+                       (twap-suborder-count minutes))]
+     (when (and (number? size*)
+                (pos? size*)
+                (number? order-count)
+                (pos? order-count))
+       (/ size* order-count)))))
 
 (defn twap-suborder-notional [total-size minutes reference-price]
-  (let [suborder-size (twap-suborder-size total-size minutes)
+  (let [suborder-size (twap-suborder-size total-size minutes reference-price)
         reference-price* (parse-num reference-price)]
     (when (and (number? suborder-size)
                (pos? suborder-size)

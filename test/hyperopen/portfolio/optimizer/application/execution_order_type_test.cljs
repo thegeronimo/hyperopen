@@ -78,6 +78,31 @@
           :impact-bps 100 :impact-usd 1000
           :notional-usd 100000}})
 
+(deftest twap-clip-schedule-follows-the-venue-slice-model-test
+  ;; 30s is the venue's spacing FLOOR, not a cadence: since 2026-08-01 it stretches the
+  ;; gap rather than let a clip fall under $10, so the schedule the editor renders has to
+  ;; come from the row's notional as well as its runtime.
+  (testing "a large clip is spacing-bound: one every 30 seconds"
+    (let [schedule (order-type/twap-clip-schedule (perp-buy 100000) 20)]
+      (is (= 41 (:clips schedule)))
+      (is (= 30 (:interval-seconds schedule)))
+      (is (true? (:notional-known? schedule)))))
+  (testing "a small clip is notional-bound: fewer clips, spaced wider than 30s"
+    ;; $87 over 10 minutes is 8 clips of ~$10.88, ~86s apart -- not the 21 the
+    ;; notional-blind bound claims.
+    (let [schedule (order-type/twap-clip-schedule (perp-buy 87) 10)]
+      (is (= 8 (:clips schedule)))
+      (is (< 85 (:interval-seconds schedule) 86))
+      (is (true? (:notional-known? schedule)))))
+  (testing "the cost map's notional wins over the row delta when both are present"
+    (let [row (assoc (perp-buy 100000) :cost {:notional-usd 150})]
+      (is (= 15 (:clips (order-type/twap-clip-schedule row 20))))))
+  (testing "with no usable notional only the spacing bound is knowable"
+    (let [schedule (order-type/twap-clip-schedule {:row-id "perp:X"} 10)]
+      (is (= 21 (:clips schedule)))
+      (is (= 30 (:interval-seconds schedule)))
+      (is (false? (:notional-known? schedule))))))
+
 (deftest effective-crossing-cost-is-type-aware-test
   (testing "a market override pays the full one-shot walk"
     (let [c (order-type/effective-crossing-cost

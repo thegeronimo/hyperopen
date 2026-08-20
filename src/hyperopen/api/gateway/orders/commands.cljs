@@ -286,24 +286,81 @@
        :asset-idx asset-idx
        :orders orders})))
 
+(defn- price-input-present?
+  "True when the user actually typed something into an optional price field. Blank means
+   'not set', which is different from 'set to something the wire cannot express'."
+  [value]
+  (and (some? value)
+       (seq (str/trim (str value)))))
+
+(defn- twap-reference-mark
+  "The venue watches the MARK price for TWAP trigger and termination conditions, so the
+   trigger direction is inferred against the mark rather than the book."
+  [command-context]
+  (or (trading-domain/parse-num (get-in command-context [:market :mark]))
+      (trading-domain/parse-num (get-in command-context [:market :streamed-mark]))))
+
+(defn- twap-details
+  "Builds the optional :details block that carries a twapOrder's advanced settings.
+
+   Shape (venue format): {:t {:p <trigger price> :a <true when the mark must rise TO the
+   trigger, false when it must fall to it>} :s <price at which the venue terminates the
+   order>}. Both keys are always present when the block is emitted, with the unused one
+   nil -- that is what the exchange expects.
+
+   Returns nil when the user set neither field, so an ordinary TWAP produces the exact
+   action map it always has and signs to the same bytes. Returns ::invalid when a value
+   was typed but cannot be expressed on the wire (sub-tick, non-positive, unparseable),
+   or when a trigger was typed and there is no mark price to infer its direction from --
+   in both cases the builder must fail closed rather than silently drop the setting the
+   user asked for.
+
+   The direction flag is inferred rather than asked for: Hyperliquid's own ticket exposes
+   a single Trigger Price field with no above/below control, and infers the direction from
+   where the trigger sits relative to the mark."
+  [command-context form]
+  (let [trigger-raw (get-in form [:twap :trigger-px])
+        stop-raw (get-in form [:twap :stop-px])
+        trigger-typed? (price-input-present? trigger-raw)
+        stop-typed? (price-input-present? stop-raw)]
+    (when (or trigger-typed? stop-typed?)
+      (let [trigger-px (when trigger-typed? (canonical-price-text command-context trigger-raw))
+            stop-px (when stop-typed? (canonical-price-text command-context stop-raw))
+            mark (twap-reference-mark command-context)
+            trigger-parsed (trading-domain/parse-num trigger-px)]
+        (if (or (and trigger-typed? (not trigger-px))
+                (and stop-typed? (not stop-px))
+                (and trigger-typed? (not (positive-number? mark))))
+          ::invalid
+          (array-map :t (when trigger-px
+                          (array-map :p trigger-px
+                                     :a (>= trigger-parsed mark)))
+                     :s stop-px))))))
+
 (defn build-twap-action [command-context form]
   (let [active-asset (:active-asset command-context)
         asset-idx (:asset-idx command-context)
         side (:side form)
         size (trading-domain/parse-num (:size form))
         minutes (trading-domain/twap-total-minutes (get-in form [:twap]))
-        randomize (boolean (get-in form [:twap :randomize]))]
+        randomize (boolean (get-in form [:twap :randomize]))
+        details (twap-details command-context form)]
     (when (and (string? active-asset)
                (number? asset-idx)
                (positive-number? size)
-               (trading-domain/valid-twap-runtime? minutes))
-      {:action (array-map :type "twapOrder"
-                          :twap (array-map :a asset-idx
-                                           :b (trading-domain/order-side->is-buy side)
-                                           :s (str size)
-                                           :r (effective-reduce-only command-context form)
-                                           :m (int minutes)
-                                           :t randomize))
+               (trading-domain/valid-twap-runtime? minutes)
+               (not= ::invalid details))
+      {:action (cond-> (array-map :type "twapOrder"
+                                  :twap (array-map :a asset-idx
+                                                   :b (trading-domain/order-side->is-buy side)
+                                                   :s (str size)
+                                                   :r (effective-reduce-only command-context form)
+                                                   :m (int minutes)
+                                                   :t randomize))
+                 ;; Assoc'd LAST so the signed key order stays type, twap, details. With no
+                 ;; advanced settings the key is absent entirely and the msgpack bytes are
+                 ;; identical to every TWAP this app has ever sent.
+                 details (assoc :details details))
        :asset-idx asset-idx})))
 
 (defn- normalize-margin-mode
