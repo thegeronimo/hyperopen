@@ -10,17 +10,21 @@ import { expect, test } from "@playwright/test";
 const ticket = (page) => page.locator('[data-parity-id="order-form"]').first();
 
 async function openTwapTicket(page) {
-  // The app mounts after its bundle boots. A fresh context opened right behind a previous
-  // test occasionally stalls that boot against the dev server and leaves a blank page, so
-  // give it one reload before failing rather than reporting a phantom regression.
+  // shadow-cljs rewrites main.js while the watch settles, so a context that loads during
+  // that window receives a truncated bundle and dies with "Invalid or unexpected token"
+  // before the app ever mounts — a blank page with no app code, not a slow one. Re-fetch
+  // until we get a whole bundle rather than reporting a phantom regression.
   const root = page.locator('[data-parity-id="trade-root"]');
-  await page.goto("/trade", { waitUntil: "commit" });
-  try {
-    await expect(root).toBeVisible({ timeout: 10_000 });
-  } catch {
-    await page.reload({ waitUntil: "commit" });
-    await expect(root).toBeVisible({ timeout: 20_000 });
+  let mounted = false;
+  for (let attempt = 0; attempt < 4 && !mounted; attempt++) {
+    if (attempt > 0) await page.waitForTimeout(1500);
+    await page.goto(`/trade?boot=${attempt}`, { waitUntil: "commit" });
+    mounted = await root
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
   }
+  await expect(root).toBeVisible();
 
   // The pro order types (Scale, TWAP, Stop, ...) live behind the third entry-mode tab.
   const proTab = page

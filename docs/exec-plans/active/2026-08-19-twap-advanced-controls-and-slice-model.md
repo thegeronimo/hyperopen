@@ -296,7 +296,13 @@ The account table's Trigger / Stop cell is verb-first — "starts 65,000" over a
   Evidence: the chips rendered and were clickable, the handler returned exactly the right four-action payload, and the runtime never changed. Fixed by making preset selection a single write to `[:twap :preset]` that `apply-order-form-path-effects` expands into the runtime fields in one transition — the extension point that exists for precisely this.
 
 - Observation: that bug was invisible to the entire unit suite and only a browser test caught it. Hiccup-level tests assert the payload a control carries, not what the runtime does with it.
-  Evidence: `order_form_component_sections_test.cljs` passed throughout. Three transition tests now pin the expansion directly.
+  Evidence: `order_form_component_sections_test.cljs` passed throughout. Three transition tests now pin the expansion directly, and `no-handler-emits-two-order-form-writes-test` walks the whole handler tree so the shape cannot come back — injecting the old pattern makes it fail naming the offending handler.
+
+- Observation: the same multi-action shape appears in three long-standing handlers (outcome option, TIF, TP/SL unit) and is safe there, so the fix did not need to generalise. Each pairs a narrow nested UI write with one whole-map write, and the whole-map write independently produces the intended UI state rather than contradicting it.
+  Evidence: replaying `close-tif-dropdown` and `update-order-form [:tif] :ioc` against one shared state and applying both effects in order leaves the dropdown closed AND the TIF set. Only two whole-map writes conflict.
+
+- Observation: the browser spec's "flake" was not timing at all — the second context reproducibly received a TRUNCATED `main.js` and died with "Invalid or unexpected token" before any app code ran. shadow-cljs rewrites the bundle while the watch settles, and a page that loads inside that window gets half a file.
+  Evidence: instrumented boot across three sequential contexts — `mounted=true app=77643 cljs=true` / `mounted=false app=44 cljs=false errs=["PAGEERROR Invalid or unexpected token"]` / `mounted=true app=77722 cljs=true`. Waiting longer never helped because the bundle was already broken; re-fetching does. The spec now retries the boot up to four times and passes 18/18 across three full repeats.
 
 - Observation: `getByRole("button", {name: "1d"})` is ambiguous on the trade route — the chart's timeframe strip carries 15m / 1h / 1d too. Playwright's strict mode turns that into a thrown click rather than a failed assertion, which reads like a broken feature.
   Evidence: "strict mode violation: resolved to 2 elements". Every ticket-local query in the spec is now scoped through the `[data-parity-id="order-form"]` root.
