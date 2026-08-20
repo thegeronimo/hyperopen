@@ -164,6 +164,38 @@
           {}
           records))
 
+(defn- record-positions
+  [record]
+  (or (get-in record [:state :assetPositions]) []))
+
+(defn- isolated-position?
+  [position-row]
+  (= "isolated"
+     (some-> (get-in position-row [:position :leverage :type])
+             str
+             str/lower-case)))
+
+(defn- position-notional
+  [position-row]
+  (let [value (parse-num (get-in position-row [:position :positionValue]))]
+    (when (number? value)
+      (js/Math.abs value))))
+
+(defn- position-maintenance-margin
+  "Maintenance margin one position requires, in that position's quote token.
+   Hyperliquid charges half the initial rate implied by the asset's max
+   leverage, so the rate is 1 / (2 * maxLeverage); replaying a live position's
+   own `liquidationPx` from that rate confirms the convention. Returns nil when
+   `maxLeverage` is absent so callers can report an incomplete total rather than
+   one they know is too small."
+  [position-row]
+  (let [notional (position-notional position-row)
+        max-leverage (parse-num (get-in position-row [:position :maxLeverage]))]
+    (when (and (number? notional)
+               (number? max-leverage)
+               (pos? max-leverage))
+      (/ notional (* 2 max-leverage)))))
+
 (defn- position-quote-token
   [market-by-key {:keys [quote-token]} position-row]
   (or (let [coin (get-in position-row [:position :coin])
@@ -176,35 +208,63 @@
   (reduce (fn [acc record]
             (reduce (fn [acc* position-row]
                       (let [margin-used (parse-num (get-in position-row [:position :marginUsed]))
-                            leverage-type (some-> (get-in position-row [:position :leverage :type])
-                                                  str
-                                                  str/lower-case)
                             quote-token (position-quote-token market-by-key record position-row)]
-                        (if (and (= "isolated" leverage-type)
+                        (if (and (isolated-position? position-row)
                                  (number? margin-used)
                                  quote-token)
                           (update acc* quote-token (fnil + 0) margin-used)
                           acc*)))
                     acc
-                    (or (get-in record [:state :assetPositions]) [])))
+                    (record-positions record)))
           {}
           records))
 
+(defn- cross-notional-total
+  "Sum of `crossMarginSummary.totalNtlPos` across records. Only ever compared
+   against zero -- to tell \"no cross positions\" apart from \"cross positions
+   worth nothing\" -- so the quote-token mix across dexes does not matter."
+  [records]
+  (sum-when-present
+   (for [{:keys [state]} records]
+     (let [value (parse-num (get-in state [:crossMarginSummary :totalNtlPos]))]
+       (when (number? value)
+         (js/Math.abs value))))))
+
+(defn- isolated-notional-total
+  [records]
+  (sum-when-present
+   (for [record records
+         position-row (record-positions record)
+         :when (isolated-position? position-row)]
+     (position-notional position-row))))
+
 (defn- unified-account-ratio*
+  "Cross-liquidation risk: cross maintenance margin against the collateral still
+   free once isolated margin is held back.
+
+   Isolated positions stay out of the numerator on purpose -- each liquidates on
+   its own and cannot take the portfolio down with it. That also means the ratio
+   describes nothing on a book that is entirely isolated, so this returns nil
+   there rather than a 0% that reads as \"no risk\". A genuinely flat account
+   still reports 0%."
   [records balance-row-by-token market-by-key]
-  (let [cross-maintenance (cross-maintenance-by-token records)
-        isolated-margin (isolated-margin-by-token records market-by-key)
-        ratios (keep (fn [[token maintenance]]
-                       (let [spot-total (parse-num (get-in balance-row-by-token [token :total-balance]))
-                             available (when (number? spot-total)
-                                         (- spot-total (or (get isolated-margin token) 0)))]
-                         (when (and (number? maintenance)
-                                    (number? available)
-                                    (pos? available))
-                           (min 1 (/ maintenance available)))))
-                     cross-maintenance)]
-    (when (seq ratios)
-      (reduce max ratios))))
+  (let [cross-notional (or (cross-notional-total records) 0)
+        isolated-notional (or (isolated-notional-total records) 0)]
+    (when-not (and (zero? cross-notional)
+                   (pos? isolated-notional))
+      (let [cross-maintenance (cross-maintenance-by-token records)
+            isolated-margin (isolated-margin-by-token records market-by-key)
+            ratios (keep (fn [[token maintenance]]
+                           (let [spot-total (parse-num (get-in balance-row-by-token [token :total-balance]))
+                                 available (when (number? spot-total)
+                                             (- spot-total (or (get isolated-margin token) 0)))]
+                             (when (and (number? maintenance)
+                                        (number? available)
+                                        (pos? available))
+                               (min 1 (/ maintenance available)))))
+                         cross-maintenance)]
+        (when (seq ratios)
+          (reduce max ratios))))))
 
 (defn- unified-cross-maintenance-margin*
   [records balance-row-by-token market-by-key]
@@ -215,6 +275,39 @@
        (when (and (number? maintenance)
                   (number? usd-price))
          (* maintenance usd-price))))))
+
+(defn- unified-isolated-maintenance-margin*
+  "Maintenance margin held against isolated positions, in USD. nil when any
+   isolated position withholds the `maxLeverage` the rate is derived from: an
+   under-count would understate account risk, so report nothing instead."
+  [records balance-row-by-token market-by-key]
+  (let [contributions
+        (vec
+         (for [record records
+               position-row (record-positions record)
+               :when (isolated-position? position-row)]
+           (let [maintenance (position-maintenance-margin position-row)
+                 quote-token (position-quote-token market-by-key record position-row)
+                 usd-price (token-price-usd balance-row-by-token market-by-key quote-token)]
+             (when (and (number? maintenance)
+                        (number? usd-price))
+               (* maintenance usd-price)))))]
+    (when-not (some nil? contributions)
+      (reduce + 0 contributions))))
+
+(defn- unified-maintenance-margin*
+  "Total perps maintenance margin in USD: cross plus isolated. Isolated
+   positions post margin out of the same unified collateral pool, so a
+   cross-only figure reported $0.00 for accounts carrying real liquidation
+   risk."
+  [records balance-row-by-token market-by-key]
+  (let [cross (unified-cross-maintenance-margin* records balance-row-by-token market-by-key)
+        isolated (unified-isolated-maintenance-margin* records balance-row-by-token market-by-key)]
+    (cond
+      (nil? isolated) nil
+      (number? cross) (+ cross isolated)
+      (pos? isolated) isolated
+      :else nil)))
 
 (defn- unified-collateral-usd-value
   [records balance-row-by-token market-by-key]
@@ -227,14 +320,28 @@
                     (number? usd-price))
            (* spot-total usd-price)))))))
 
-(defn- unified-account-leverage*
+(defn- unified-notional-usd-value
+  "Whole-book perp notional in USD, taken from each record's
+   `marginSummary.totalNtlPos` (cross *and* isolated) rather than the cross-only
+   summary, and converted through the record's quote token like the collateral
+   side already is."
   [records balance-row-by-token market-by-key]
-  (let [cross-total-ntl-pos
-        (sum-when-present
-         (for [{:keys [state]} records]
-           (parse-num (get-in state [:crossMarginSummary :totalNtlPos]))))
-        collateral-usd-value (unified-collateral-usd-value records balance-row-by-token market-by-key)]
-    (safe-div cross-total-ntl-pos collateral-usd-value)))
+  (sum-when-present
+   (for [{:keys [quote-token state]} records]
+     (let [notional (parse-num (get-in state [:marginSummary :totalNtlPos]))
+           usd-price (token-price-usd balance-row-by-token market-by-key quote-token)]
+       (when (and (number? notional)
+                  (number? usd-price))
+         (* notional usd-price))))))
+
+(defn- unified-account-leverage*
+  "Perp notional over unified collateral. The numerator counts isolated
+   positions because on a unified account their margin comes out of the same
+   collateral pool; a cross-only numerator reported 0.00x for an account whose
+   entire book is isolated."
+  [records balance-row-by-token market-by-key]
+  (safe-div (unified-notional-usd-value records balance-row-by-token market-by-key)
+            (unified-collateral-usd-value records balance-row-by-token market-by-key)))
 
 (defn- derive-account-equity-metrics [state]
   (let [webdata2 (:webdata2 state)
@@ -282,22 +389,27 @@
         account-value-display (derive-account-value-display portfolio-value spot-equity perps-value)
         cross-margin-ratio (safe-div maintenance-margin cross-account-value)
         cross-account-leverage (safe-div cross-total-ntl-pos cross-account-value)
-        unified-records (when (unified-account? state)
+        unified? (unified-account? state)
+        unified-records (when unified?
                           (unified-clearinghouse-state-records state market-by-key))
-        aggregated-maintenance-margin (when (unified-account? state)
-                                        (unified-cross-maintenance-margin* unified-records
-                                                                           balance-row-by-token
-                                                                           market-by-key))
-        unified-account-ratio (or (when (unified-account? state)
-                                    (unified-account-ratio* unified-records
-                                                            balance-row-by-token
-                                                            market-by-key))
-                                  (safe-div maintenance-margin portfolio-value))
-        unified-account-leverage (or (when (unified-account? state)
-                                       (unified-account-leverage* unified-records
+        ;; Unified accounts never fall back to the classic cross-only formulas.
+        ;; That fallback is what turned an all-isolated book into 0.00x / 0.00%
+        ;; / $0.00; when a unified figure cannot be derived the row shows "--"
+        ;; instead of a zero that reads as "no exposure".
+        unified-maintenance-margin (when unified?
+                                     (unified-maintenance-margin* unified-records
                                                                   balance-row-by-token
                                                                   market-by-key))
-                                     (safe-div cross-total-ntl-pos portfolio-value))
+        unified-account-ratio (if unified?
+                                (unified-account-ratio* unified-records
+                                                        balance-row-by-token
+                                                        market-by-key)
+                                (safe-div maintenance-margin portfolio-value))
+        unified-account-leverage (if unified?
+                                   (unified-account-leverage* unified-records
+                                                              balance-row-by-token
+                                                              market-by-key)
+                                   (safe-div cross-total-ntl-pos portfolio-value))
         pnl-info (pnl-display unrealized-pnl)]
     {:spot-equity spot-equity
      :perps-value perps-value
@@ -305,8 +417,9 @@
      :unrealized-pnl unrealized-pnl
      :cross-margin-ratio cross-margin-ratio
      :unified-account-ratio unified-account-ratio
-     :maintenance-margin (or aggregated-maintenance-margin
-                             maintenance-margin)
+     :maintenance-margin (if unified?
+                           unified-maintenance-margin
+                           maintenance-margin)
      :cross-account-leverage cross-account-leverage
      :unified-account-leverage unified-account-leverage
      :cross-account-value cross-account-value
