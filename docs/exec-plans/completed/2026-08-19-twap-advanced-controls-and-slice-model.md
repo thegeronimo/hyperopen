@@ -2,6 +2,8 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds. This document is maintained in accordance with `/hyperopen/docs/PLANS.md` and the detailed writing contract in `/hyperopen/.agents/PLANS.md`.
 
+**Status: closed 2026-08-19, with one acceptance criterion parked rather than met.** The work merged to `main` as `cdebefc35`. Acceptance step 7 — confirming a triggered TWAP against testnet — remains unchecked below and is deliberately not claimed. It cannot be met from the working tree, and it is the only evidence that would prove the undocumented `details` wire field is accepted by a real exchange. Anyone picking this up should read `Outcomes & Retrospective` before treating the feature as fully proven.
+
 ## Purpose / Big Picture
 
 Hyperliquid changed how TWAP orders work on 1 August 2026. A trader on the official Hyperliquid interface can now open an "Advanced Settings" panel on a TWAP order and set a **Trigger Price** (do not start working the order until the mark price reaches this level) and a **Max Price** for buys or **Min Price** for sells (stop working the order if the mark price runs past this level). The same upgrade raised the maximum running time from one day to seven days and changed the way the venue chops a parent order into child orders.
@@ -242,6 +244,7 @@ In `hyperopen.api.gateway.orders.commands`:
 - [x] (2026-08-19 18:35Z) Bumped the two namespace-size exceptions this work overflowed, with reasons.
 - [x] (2026-08-19 18:55Z) Full gate matrix green: 34/34 gates pass, 6,610 tests, 35,861 assertions.
 - [x] (2026-08-19 19:10Z) Design polish pass against the reviewing designer's Claude Design project: runtime presets, the schedule as a sentence, price guards with a band and a KILL SWITCH tag, and a TWAP-specific submit label with a guard recap.
+- [x] (2026-08-19 20:05Z) Landed on `main` as merge commit `cdebefc35` (branch `feature/twap-advanced-controls`), gates 34/34.
 - [ ] Confirm a triggered TWAP on testnet (acceptance step 7). This is the one acceptance criterion that cannot be met from the working tree, because Hyperliquid's exchange-endpoint documentation does not describe the `details` field — the shape is taken from an SDK whose integration tests exercise the live API.
 
 ### Design polish pass (2026-08-19, second sitting)
@@ -373,6 +376,8 @@ Everything that can be verified from the working tree is done and green. A trade
 One acceptance criterion is deliberately still open: step 7, confirming a triggered TWAP against testnet. It cannot be closed from the working tree, and it matters more than usual here because Hyperliquid's exchange-endpoint documentation still does not describe the `details` field — the wire shape is taken from an SDK whose integration tests exercise the live API, cross-checked against the venue's own product documentation and its shipped interface. The design contains that risk: `details` is omitted entirely unless the user sets an advanced field, so every ordinary TWAP signs byte-identically to before and cannot regress, and backing the feature out is the deletion of one `cond->` branch plus its UI.
 
 On complexity, the change is close to net neutral and arguably reducing. It adds four pure functions to the trading domain, one optional wire branch, three form fields and one disclosure. Against that it deletes a validation rule that was actively wrong, removes two exported copies of a misleading slice count from the optimizer's view layer, and replaces three separate statements of a fixed 30-second cadence — in the ticket copy, the execution order table and the optimizer cost model — with one model that reproduces the venue's own documented examples. The largest single saving was structural rather than numeric: choosing a native `<details>` element over an application-state flag kept roughly a dozen files, one of them already at its size cap, entirely out of the diff.
+
+This plan was moved to `completed/` on 2026-08-19 with acceptance step 7 still open. That is a deliberate choice, not an oversight: everything verifiable from the repository is verified, the change is merged, and leaving the plan in `active/` would have implied work in progress when there is none. The open step is a single external confirmation, and the design contains the risk it covers — `details` is omitted from the signed action unless a user sets a trigger or termination price, so every ordinary TWAP is byte-identical to what shipped before, and backing the feature out is the deletion of one `cond->` branch plus its UI. If the testnet order is rejected, that deletion is the whole remedy.
 
 Two pieces of debt are recorded rather than paid: `src/hyperopen/portfolio/optimizer/domain/rebalance.cljs` now sits at exactly its 675-line cap, so the next edit there needs a bump; and the clip-gap derivation lives in `execution_order_type.cljs` rather than beside the rest of the model in `rebalance.cljs` purely because of that cap.
 
