@@ -97,10 +97,13 @@
   [caption]
   [:div {:class ["flex" "flex-col" "gap-2"]}
    [:div {:class ["flex" "items-baseline" "justify-between"]}
-    (section-label "Caption")
+    (section-label "Post text")
     [:div {:class ["text-xs" "text-ho-text-dim" "num"]
            :data-role "pnl-share-caption-count"}
      (str (count caption) "/" pnl-share-actions/caption-limit)]]
+   [:p {:class ["text-xs" "leading-relaxed" "text-ho-text-dim"]
+        :data-role "pnl-share-caption-hint"}
+    "Goes in the X post alongside the image. It is not drawn on the card."]
    [:textarea {:rows 3
                :data-role "pnl-share-caption"
                :aria-label "Caption to post with the card"
@@ -149,12 +152,13 @@
     "The image is built in your browser. Nothing about your wallet leaves this page."]])
 
 (defn- preview
+  "The card sits directly on the panel. An enclosing well would have to be taller
+   than a 16:9 card to hold the controls' height, and the dead bands above and
+   below read as broken rather than as framing."
   [card]
-  [:div {:class ["flex" "min-h-0" "flex-1" "items-center" "justify-center" "rounded-xl"
-                 "border" "border-ho-border" "bg-ho-bg-deep" "p-4"]}
-   [:div {:class ["w-full"] :data-role "pnl-share-preview"}
-    (-> (card-view/card-svg card)
-        (update 1 assoc :style {:width "100%" :height "auto" :display "block"}))]])
+  [:div {:class ["w-full"] :data-role "pnl-share-preview"}
+   (-> (card-view/card-svg card)
+       (update 1 assoc :style {:width "100%" :height "auto" :display "block"}))])
 
 (defn- panel
   [state card]
@@ -174,7 +178,7 @@
            :replicant/on-render (dialog-focus/dialog-focus-on-render
                                  {:restore-selector "[data-role='pnl-share-trigger']"})
            :on {:keydown [[:actions/handle-pnl-share-card-keydown [:event/key]]]}}
-     [:div {:class ["flex" "min-w-0" "flex-col" "gap-3"]}
+     [:div {:class ["flex" "min-w-0" "flex-col" "justify-center" "gap-3"]}
       [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
        [:h2 {:id title-id :class ["text-sm" "font-semibold" "text-ho-text-hi"]}
         (str "Share " (:coin-label card) " " (or (:leverage-label card) ""))]

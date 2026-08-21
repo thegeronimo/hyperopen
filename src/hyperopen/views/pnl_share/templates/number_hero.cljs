@@ -10,7 +10,6 @@
 (def card-height 608)
 (def ^:private card-radius 18)
 (def ^:private pad-x 48)
-(def ^:private mark-height 20)
 (def ^:private stat-pitch 140)
 
 (defn- defs
@@ -30,12 +29,9 @@
 
 (defn- header
   [{:keys [handle-text timestamp-text]} colours]
-  (let [mark-width (art/brand-mark-width mark-height)
-        text-x (+ pad-x mark-width 12)
+  (let [text-x pad-x
         split-x (+ text-x (svg/text-width "hyper" 19))]
     [:g
-     (art/brand-mark {:x pad-x :y 52 :height mark-height
-                      :colour-a (:mark-a colours) :colour-b (:mark-b colours)})
      (svg/text {:x text-x :y 67 :size 19 :weight 500 :fill (:text-hi colours)} "hyper")
      (svg/text {:x split-x :y 67 :size 19 :weight 500 :fill (:accent colours)} "open")
      (when handle-text

@@ -1,6 +1,6 @@
 (ns hyperopen.views.account-info.tabs.positions.desktop-render-test
   (:require [clojure.string :as str]
-            [cljs.test :refer-macros [deftest is use-fixtures]]
+            [cljs.test :refer-macros [deftest is testing use-fixtures]]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.test-support.fixtures :as fixtures]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
@@ -300,8 +300,27 @@
     (is (contains? margin-strings "(Cross)"))
     (is (nil? action-button))))
 
+(deftest pnl-cell-keeps-its-share-trigger-inside-its-own-column-test
+  ;; The share glyph made the PNL cell wider than its track: "+$5.01 (+216.6%)"
+  ;; measures 112px at the table's 12px/600 type, and the glyph adds 18px more,
+  ;; against a track that used to bottom out at 114px. It spilled over Liq.
+  ;; Price. The track now bottoms out at 160px, reclaimed from Entry, Mark,
+  ;; Liq. Price, Funding and Margin rather than by widening the table, and the
+  ;; cell clips itself so no value can ever reach the next column again.
+  (let [row-node (positions-tab/position-row (fixtures/sample-position-row "SOL" 20 "41.2"))
+        pnl-cell (nth (vec (hiccup/node-children row-node)) 5)
+        trigger (hiccup/find-first-node pnl-cell
+                                        #(= "pnl-share-trigger" (get-in % [1 :data-role])))]
+    (is (some? trigger) "the PNL cell is the share affordance")
+    (is (contains? (hiccup/node-class-set pnl-cell) "min-w-0"))
+    (is (contains? (hiccup/node-class-set trigger) "max-w-full"))
+    (is (contains? (hiccup/node-class-set trigger) "overflow-hidden"))
+    (is (contains? (hiccup/node-class-set trigger) "whitespace-nowrap")))
+  (testing "the PNL track is wide enough for a figure plus the glyph"
+    (is (str/includes? shared/positions-grid-template-class "minmax(160px,1.5fr)"))))
+
 (deftest position-table-layout-reclaims-right-edge-space-and-truncates-long-coin-labels-test
-  (let [grid-template-class "grid-cols-[minmax(166px,1.95fr)_minmax(136px,1.28fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(94px,0.9fr)_minmax(114px,1.06fr)_minmax(88px,0.82fr)_minmax(160px,1.22fr)_minmax(86px,0.82fr)_minmax(92px,0.8fr)_minmax(136px,1fr)]"
+  (let [grid-template-class "grid-cols-[minmax(166px,1.95fr)_minmax(108px,1fr)_minmax(116px,1.1fr)_minmax(84px,0.6fr)_minmax(84px,0.6fr)_minmax(160px,1.5fr)_minmax(76px,0.5fr)_minmax(136px,1.3fr)_minmax(76px,0.5fr)_minmax(80px,0.6fr)_minmax(136px,1.28fr)]"
         header-node (positions-tab/position-table-header fixtures/default-sort-state)
         row-node (positions-tab/position-row (fixtures/sample-position-row "xyz:BRENTOIL" 20 "0.41"))
         coin-cell (first (vec (hiccup/node-children row-node)))
@@ -311,9 +330,9 @@
         coin-button (hiccup/find-first-node coin-cell #(= :button (first %)))
         coin-label-node (hiccup/find-first-node coin-cell #(= "BRENTOIL" (get-in % [1 :title])))]
     (is (contains? (hiccup/node-class-set header-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set header-node) "min-w-[1355px]"))
+    (is (contains? (hiccup/node-class-set header-node) "min-w-[1315px]"))
     (is (contains? (hiccup/node-class-set row-node) grid-template-class))
-    (is (contains? (hiccup/node-class-set row-node) "min-w-[1355px]"))
+    (is (contains? (hiccup/node-class-set row-node) "min-w-[1315px]"))
     (is (contains? (hiccup/node-class-set coin-cell) "min-w-0"))
     (is (contains? (hiccup/node-class-set coin-button) "overflow-hidden"))
     (is (contains? (hiccup/node-class-set coin-label-node) "min-w-0"))

@@ -10,19 +10,15 @@
             [hyperopen.views.pnl-share.templates.neon-arrow-art :as art]))
 
 (def ^:private pad-x 56)
-(def ^:private mark-height 30)
 (def ^:private wordmark-size 32)
 
 (defn- wordmark
   [{:keys [loss-pill]} colours]
-  (let [mark-width (art/brand-mark-width mark-height)
-        text-x (+ pad-x mark-width 14)
+  (let [text-x pad-x
         baseline 79
         split-x (+ text-x (svg/text-width "hyper" wordmark-size))
         pill-x (+ split-x (svg/text-width "open" wordmark-size) 22)]
     [:g
-     (art/brand-mark {:x pad-x :y 54 :height mark-height
-                      :colour-a (:mark-a colours) :colour-b (:mark-b colours)})
      (svg/text {:x text-x :y baseline :size wordmark-size :weight 500
                 :fill (:text-hi colours)}
                "hyper")

@@ -89,12 +89,13 @@
         tone (:pnl-color-class row-vm)]
     (if read-only?
       [:div {:class ["text-left" "font-semibold" "num" tone]} figure]
-      [:div {:class ["text-left" "font-semibold" "num" tone]}
+      [:div {:class ["text-left" "min-w-0" "font-semibold" "num" tone]}
        [:button {:type "button"
                  :data-role "pnl-share-trigger"
                  :title "Share this position"
                  :aria-label (str "Share this position, " figure)
-                 :class ["inline-flex" "items-center" "gap-1" "bg-transparent" "p-0"
+                 :class ["inline-flex" "max-w-full" "items-center" "gap-1"
+                         "overflow-hidden" "bg-transparent" "p-0"
                          "font-semibold" "num" tone "whitespace-nowrap"
                          "transition-opacity" "hover:opacity-80"
                          "focus:outline-none" "focus-visible:underline"]

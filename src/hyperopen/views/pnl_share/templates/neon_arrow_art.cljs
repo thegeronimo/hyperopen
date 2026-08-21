@@ -160,25 +160,3 @@
   (stroked-icon (assoc opts :width 1.4)
                 [:circle {:cx 12 :cy 12 :r 8.6}]
                 [:path {:d "M3.4 12h17.2M12 3.4c2.4 2.4 2.4 14.8 0 17.2-2.4-2.4-2.4-14.8 0-17.2Z"}]))
-
-(defn brand-mark
-  "The repo's own H-bar-O monogram from resources/public/favicon.svg: two upright
-   bars flanking a stroked ring. The design's four-slash mark is not hyperopen's
-   mark and is deliberately not reproduced."
-  [{:keys [x y height colour-a colour-b]}]
-  (let [bar-width (* height 0.17)
-        ring-radius (* height 0.30)
-        ring-stroke (* height 0.165)
-        centre-y (+ y (/ height 2))
-        ring-cx (+ x (/ (+ bar-width bar-width (* ring-radius 2) 8) 2) 1)]
-    [:g
-     [:rect {:x x :y y :width bar-width :height height
-             :rx 2 :fill colour-a}]
-     [:circle {:cx ring-cx :cy centre-y :r ring-radius
-               :fill "none" :stroke colour-b :stroke-width ring-stroke}]
-     [:rect {:x (+ x (* ring-radius 2) (* bar-width 1) 8) :y y
-             :width bar-width :height height :rx 2 :fill colour-a}]]))
-
-(defn brand-mark-width
-  [height]
-  (+ (* height 0.17 2) (* height 0.30 2) 8))
