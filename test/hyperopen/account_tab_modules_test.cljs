@@ -94,3 +94,23 @@
                       (is (not (contains? (get-in @store [:account-tab-modules :loaded]) :positions-outcomes)))
                       (is (false? (account-tab-modules/tab-loading? @store :outcomes)))
                       (done))))))))
+
+(deftest load-account-tab-module-records-failure-when-the-chunk-never-arrives-test
+  (async done
+    (let [store (atom {:account-tab-modules (account-tab-modules/default-state)})]
+      (account-tab-modules/reset-account-tab-module-state!)
+      (with-redefs [account-tab-modules/module-load-timeout-ms 20
+                    loader/loaded? (constantly false)
+                    ;; A stalled chunk: shadow's loader never settles this.
+                    loader/load (fn [_module-name] (js/Promise. (fn [_ _])))]
+        (-> (account-tab-modules/load-account-tab-module! store :open-orders)
+            (.then (fn [_]
+                     (is false "a stalled module load must not resolve")
+                     (done))
+                   (fn [_err]
+                     (is (some? (account-tab-modules/tab-error @store :open-orders))
+                         "a stalled module load must record a retryable error")
+                     (is (not (contains? (get-in @store [:account-tab-modules :loading]) :orders))
+                         "a failed module must not stay marked as loading")
+                     (account-tab-modules/reset-account-tab-module-state!)
+                     (done))))))))

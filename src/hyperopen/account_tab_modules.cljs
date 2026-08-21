@@ -165,6 +165,41 @@
           (assoc-in [:account-tab-modules :errors module-id] message)))
     state))
 
+(def module-load-timeout-ms
+  "Upper bound on a single chunk request. Public so tests can shorten it.
+
+   shadow's module loader never rejects on a stalled or unusable response, so
+   without this the failure branch below is unreachable: a tab whose chunk never
+   arrives sits on its pending state forever with nothing to retry. The most
+   common way to get there is a deploy that rotates chunk hashes underneath a
+   long-lived tab. This bound exists to make failure reportable, not to make
+   loading faster -- a healthy chunk resolves in tens of milliseconds."
+  10000)
+
+(defn- with-load-timeout
+  [load-promise module-name]
+  (let [timer* (atom nil)
+        clear-timer! (fn []
+                       (when-let [timer @timer*]
+                         (reset! timer* nil)
+                         (js/clearTimeout timer)))]
+    (-> (js/Promise.race
+         #js [(js/Promise.resolve load-promise)
+              (js/Promise.
+               (fn [_resolve reject]
+                 (reset! timer*
+                         (js/setTimeout
+                          (fn []
+                            (reject (js/Error. (str "Timed out loading account tab module: "
+                                                    module-name))))
+                          module-load-timeout-ms))))])
+        (.then (fn [value]
+                 (clear-timer!)
+                 value)
+               (fn [err]
+                 (clear-timer!)
+                 (js/Promise.reject err))))))
+
 (defn load-account-tab-module!
   [store tab]
   (if-let [module-id (module-id-for-tab tab)]
@@ -189,7 +224,7 @@
         (try
           (if (loader/loaded? module-name)
             (js/Promise.resolve (resolve-loaded-renderer!))
-            (-> (loader/load module-name)
+            (-> (with-load-timeout (loader/load module-name) module-name)
                 (.then (fn [_]
                          (resolve-loaded-renderer!)))
                 (.catch (fn [err]

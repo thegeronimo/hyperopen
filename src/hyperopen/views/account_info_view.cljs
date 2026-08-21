@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info-view
   (:require [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.ui.voice :as voice]
+            [hyperopen.views.account-info.loading-skeleton :as loading-skeleton]
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.tab-actions :as tab-actions]
             [hyperopen.views.account-info.tab-registry :as tab-registry]
@@ -22,9 +23,9 @@
 (def tab-navigation
   tab-actions/tab-navigation)
 
-(defn loading-spinner []
-  [:div.flex.justify-center.items-center.py-8
-   [:div.animate-spin.rounded-full.h-8.w-8.border-b-2.border-primary]])
+(def lazy-tab-loading-state loading-skeleton/lazy-tab-loading-state)
+
+(def lazy-tab-error-state loading-skeleton/lazy-tab-error-state)
 
 (defn empty-state [message]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-base-content
@@ -186,8 +187,7 @@
                  positions-state
                  open-orders-state
                  freshness-cues
-                 error
-                 loading?]} view-model
+                 error]} view-model
          available-tabs* (tab-registry/available-tabs-for extra-tabs* tab-order tab-label-overrides*)
          fallback-selected-tab (if (some #(= % default-selected-tab) available-tabs*)
                                  default-selected-tab
@@ -213,6 +213,11 @@
                                 (account-tab-modules/lazy-tab? selected-tab*)
                                 (nil? selected-tab-renderer)
                                 (nil? lazy-tab-error))
+         ;; The pending/failed states name the tab, so they need the label after
+         ;; route overrides (portfolio renames :funding-history to "Interest")
+         ;; but without the row-count suffix the tab strip appends.
+         selected-tab-plain-label (get (tab-registry/tab-labels-for extra-tabs* tab-label-overrides*)
+                                       selected-tab*)
          panel-shell-classes (or (:panel-classes selected-extra-tab)
                                  default-panel-classes)
          panel-shell-style (or (:panel-style selected-extra-tab)
@@ -247,14 +252,20 @@
       [:div {:class ["flex-1" "min-h-0" "min-w-0" "overflow-hidden"]}
        (cond
          lazy-tab-error
-         (error-state lazy-tab-error)
+         (lazy-tab-error-state
+          {:tab-label selected-tab-plain-label
+           :message lazy-tab-error
+           ;; Re-selecting the tab is the retry: select-account-info-tab always
+           ;; re-emits the module-load effect, and mark-account-tab-module-loading
+           ;; clears the stored error. It also rewrites the already-selected tab
+           ;; and pushes the same URL on the trade route; both are harmless.
+           :retry-actions [[:actions/select-account-info-tab selected-tab*]]})
 
          (and (nil? selected-extra-renderer) error)
          (error-state error)
 
-         (or lazy-tab-pending?
-             (and (nil? selected-extra-renderer) loading?))
-         (loading-spinner)
+         lazy-tab-pending?
+         (lazy-tab-loading-state {:tab-label selected-tab-plain-label})
 
          :else
          (tab-content (assoc view-model :selected-tab selected-tab*)

@@ -285,7 +285,6 @@
         route (get-in state [:router :path])
         webdata2 (or (:webdata2 state) {})
         orders (or (:orders state) {})
-        loading? (get-in state [:account-info :loading] false)
         error (get-in state [:account-info :error])
         mobile-expanded-card (get-in state [:account-info :mobile-expanded-card] {})
         positions-sort (get-in state [:account-info :positions-sort] {:column nil :direction :asc})
@@ -399,7 +398,6 @@
                                                                 :live-prefix "Updated"
                                                                 :na-prefix "Last update"})})]
     {:selected-tab selected-tab
-     :loading? loading?
      :error error
      :mobile-expanded-card mobile-expanded-card
      :read-only? read-only?

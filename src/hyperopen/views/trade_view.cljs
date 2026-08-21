@@ -37,6 +37,7 @@
   [:account
    :account-context
    :account-info
+   :account-tab-modules
    :margin-rec
    :orders
    :perp-dex-clearinghouse
@@ -259,19 +260,28 @@
        (asset-selector-view/asset-list-freeze-active?)))
 
 (defn- selector-scroll-snapshot
-  [snapshot* freeze? next-state-fn]
-  (if freeze?
-    (let [snapshot @snapshot*]
-      (if (some? snapshot)
-        snapshot
-        (do
-          (let [next-state (next-state-fn)]
-            (reset! snapshot* next-state)
-            next-state))))
-    (do
-      (let [next-state (next-state-fn)]
-        (reset! snapshot* next-state)
-        next-state))))
+  "Reuse the previously captured panel state while the asset-selector dropdown is
+   being scrolled, so heavy panels do not re-render underneath it.
+
+   `invalidate-on` is a value that bypasses the freeze whenever it changes. A
+   lazily-loaded module that finishes downloading mid-scroll has to reach the
+   panel, otherwise the panel stays on its pending state until the dropdown
+   closes. Pass nil for panels with no lazy module of their own."
+  ([snapshot* freeze? next-state-fn]
+   (selector-scroll-snapshot snapshot* freeze? nil next-state-fn))
+  ([snapshot* freeze? invalidate-on next-state-fn]
+   (let [capture! (fn []
+                    (let [next-state (next-state-fn)]
+                      (reset! snapshot* {:invalidate-on invalidate-on
+                                         :state next-state})
+                      next-state))]
+     (if freeze?
+       (let [snapshot @snapshot*]
+         (if (and (some? (:state snapshot))
+                  (= invalidate-on (:invalidate-on snapshot)))
+           (:state snapshot)
+           (capture!)))
+       (capture!)))))
 
 (defn- orderbook-view-state
   [state active-asset orderbook-data show-surface-freshness-cues? websocket-health]
@@ -346,6 +356,7 @@
                                   (selector-scroll-snapshot
                                    frozen-account-info-view-state*
                                    freeze-heavy-panels?
+                                   (:account-tab-modules state)
                                    #(account-info-view-state state)))
         account-equity-panel-state (when (and (:show-equity-surface? layout)
                                               desktop-secondary-panels-ready?*)
