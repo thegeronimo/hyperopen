@@ -49,3 +49,50 @@
   (if (fn? (.-requestIdleCallback js/globalThis))
     (.requestIdleCallback js/globalThis f #js {:timeout timeout-ms})
     (set-timeout! f timeout-ms)))
+
+(defonce ^:private inflate-raw-support (atom nil))
+
+(defn- probe-inflate-raw-support []
+  (boolean
+   (when (and (exists? js/DecompressionStream)
+              (exists? js/Blob)
+              (exists? js/Response)
+              (fn? (.-atob js/globalThis)))
+     (try
+       (js/DecompressionStream. "deflate-raw")
+       true
+       (catch :default _ false)))))
+
+(defn inflate-raw-base64-supported?
+  "Whether this runtime can inflate base64 raw-DEFLATE payloads.
+
+   `deflate-raw` is a narrower capability than `DecompressionStream` itself, so the
+   probe constructs one rather than sniffing for the constructor. Cached because
+   callers hit it on every subscription change."
+  []
+  (if-some [cached @inflate-raw-support]
+    cached
+    (reset! inflate-raw-support (probe-inflate-raw-support))))
+
+(defn inflate-raw-base64!
+  "base64 raw-DEFLATE text -> Promise of the decompressed string.
+
+   Raw DEFLATE carries neither a zlib nor a gzip header, so `deflate-raw` is the
+   only decoder that accepts it."
+  [base64-text]
+  (js/Promise.
+   (fn [resolve reject]
+     (try
+       (let [binary (.atob js/globalThis base64-text)
+             length (.-length binary)
+             bytes (js/Uint8Array. length)]
+         (dotimes [index length]
+           (aset bytes index (.charCodeAt binary index)))
+         (-> (.stream (js/Blob. #js [bytes]))
+             (.pipeThrough (js/DecompressionStream. "deflate-raw"))
+             (js/Response.)
+             (.text)
+             (.then resolve)
+             (.catch reject)))
+       (catch :default error
+         (reject error))))))

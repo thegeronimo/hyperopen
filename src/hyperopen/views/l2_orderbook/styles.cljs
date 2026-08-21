@@ -13,7 +13,15 @@
 (def bid-price-text-class "ob-bid-px")
 (def orderbook-tab-indicator-class "bg-ho-accent")
 (def desktop-breakpoint-px 1024)
+;; Width-only, short, and non-overshooting. The previous 300ms
+;; ease-[cubic-bezier(0.68,-0.6,0.32,1.6)] curve is an easeInOutBack: its control
+;; points sit below 0 and above 1, so every bar deliberately undershoots and then
+;; overshoots its target. That was tolerable while the book refreshed once every
+;; ~5.4s, but the incremental `l2` feed retargets these bars roughly every 550ms,
+;; where a 300ms overshoot reads as a wobble on data that should be crisp.
+;; `transition-all` also transitioned every animatable property rather than the one
+;; that actually changes.
 (def depth-bar-transition-classes
-  ["transition-all"
-   "duration-300"
-   "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"])
+  ["transition-[width]"
+   "duration-100"
+   "ease-out"])
