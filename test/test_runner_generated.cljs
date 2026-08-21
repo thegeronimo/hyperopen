@@ -610,6 +610,7 @@
             [hyperopen.views.header-view-test]
             [hyperopen.views.header.vm-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.l2-orderbook.depth-transition-test]
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.notifications-view-trade-confirmation-test]
@@ -841,6 +842,7 @@
             [hyperopen.websocket.market-projection-runtime-test]
             [hyperopen.websocket.migration-flags-test]
             [hyperopen.websocket.order-feedback-runtime-coverage-test]
+            [hyperopen.websocket.orderbook-l2-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
             [hyperopen.websocket.runtime-state-coverage-test]
@@ -1473,6 +1475,7 @@
              'hyperopen.views.header-view-test
              'hyperopen.views.header.vm-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.l2-orderbook.depth-transition-test
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.notifications-view-trade-confirmation-test
@@ -1704,6 +1707,7 @@
              'hyperopen.websocket.market-projection-runtime-test
              'hyperopen.websocket.migration-flags-test
              'hyperopen.websocket.order-feedback-runtime-coverage-test
+             'hyperopen.websocket.orderbook-l2-test
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test
              'hyperopen.websocket.runtime-state-coverage-test

@@ -75,9 +75,9 @@
 
 (defn- animated-depth-bar-node? [node]
   (let [classes (node-class-set node)]
-    (and (contains? classes "transition-all")
-         (contains? classes "duration-300")
-         (contains? classes "ease-[cubic-bezier(0.68,-0.6,0.32,1.6)]"))))
+    (and (contains? classes "transition-[width]")
+         (contains? classes "duration-100")
+         (contains? classes "ease-out"))))
 
 (defn- collect-strings [node]
   (cond

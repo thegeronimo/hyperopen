@@ -2,6 +2,12 @@
 
 (def default-channel-tier-policy
   {"l2Book" :market
+   ;; `l2` carries incremental book deltas, not snapshots. The :market tier keeps only
+   ;; the last envelope per [topic coin] inside its coalesce window, which would drop
+   ;; deltas and corrupt the book -- and `l2` delta frames carry no coin outside their
+   ;; compressed payload, so every coin would collapse onto one key. :lossless dispatches
+   ;; every frame immediately, in order, which is what deltas require.
+   "l2" :lossless
    "trades" :market
    "candle" :market
    "activeAssetCtx" :market
