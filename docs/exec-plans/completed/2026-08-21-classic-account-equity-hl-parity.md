@@ -42,12 +42,21 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-21 09:45Z) Found the more severe named-dex case, `0xb9aebb46919bccbf210537a1f2173690d9ee7af7`, where the classic panel renders four separate fake zeros over a six-figure book.
 - [x] (2026-08-21 09:50Z) Recovered the venue's aggregation function `HM()` from its production bundle, which settles what "the clearinghouse state" means for every classic row.
 - [x] (2026-08-21 09:55Z) Mapped the blast radius of `:base-balance`, `:perps-value`, `:cross-account-value`, `:cross-margin-ratio`, `:cross-account-leverage` and `:maintenance-margin` across the codebase.
-- [ ] Milestone 0 — build the venue oracle, the fixture matrix and the both-panel parity harness. No behaviour change.
-- [ ] Milestone 1 — add a pure aggregate-clearinghouse helper mirroring the venue's `HM()`, with its own tests, not yet wired in.
-- [ ] Milestone 2 — move classic Balance and Perps onto the venue's definitions, sourced from the aggregate.
-- [ ] Milestone 3 — move classic Cross Margin Ratio, Maintenance Margin and Cross Account Leverage onto the aggregate.
-- [ ] Milestone 4 — fix the unrealized-PNL summary fallback and add the panel reconciliation invariant.
-- [ ] Milestone 5 — Playwright coverage for the classic named-dex case, live verification against both anchor wallets, full gates.
+- [x] (2026-08-21 11:20Z) Milestone 0 — venue oracle, 13-fixture matrix and the both-panel parity harness landed with no behaviour change. `npm test` ended at **5,933 tests / 32,739 assertions / 30 failures**, every failure in the new harness and every one of them classic. The list, which is the bug stated as test output:
+  - base-dex cross **long**: Perps 5,600 vs 1,000; Balance 5,400 vs 800.
+  - base-dex cross **short**: Perps 6,000 vs 2,000; Balance 7,500 vs 3,500.
+  - **named-dex only**: Spot 156,001.46 vs 100; Perps 6,743.65 vs 155,901.46; Balance 0 vs 149,157.81; Maintenance 0 vs 1,144.15; Cross Margin Ratio nil vs 0.73%; Cross Account Leverage nil vs 0.29x.
+  - **two collateral tokens**: Account Value 1,750 vs 3,700; Spot 750 vs 700; Perps 3,324 vs 3,000; Balance 3,200 vs 2,876; Ratio 5.00% vs 8.33%; Maintenance 50 vs 250.
+  - **cross plus isolated**: Perps 6,500 vs 3,000; Balance 6,400 vs 2,900.
+  - **degenerate, `crossMarginSummary` only**: Perps, Balance and Unrealized PNL invented from a summary that is not there.
+  - **degenerate, numeric wire fields**: Perps 3,930 vs 1,200; Balance 3,840 vs 1,110.
+  - the reconciliation invariant failed on 7 of the 9 classic fixtures.
+  All ten unified assertions passed on the first run, against an oracle that shares no code with them — independent confirmation that `dc2ada72d` is at parity.
+- [x] (2026-08-21 11:45Z) Milestone 1 — `aggregate-clearinghouse-usd` added with six direct tests, and `clearinghouse-state-records` made unconditional.
+- [x] (2026-08-21 11:55Z) Milestone 2 — Perps is the aggregate account value; Balance is that net of unrealized PNL. `cross-derived-balance` and `fallback-balance` deleted.
+- [x] (2026-08-21 11:55Z) Milestone 3 — Cross Margin Ratio, Maintenance Margin and Cross Account Leverage all read the aggregate.
+- [x] (2026-08-21 12:05Z) Milestone 4 — `unrealized-from-summary` deleted, Spot stopped counting named-dex perps rows, classic Account Value derived as Spot + Perps. `npm test` green at **5,939 tests / 32,768 assertions / 0 failures**.
+- [x] (2026-08-21 13:10Z) Milestone 5 — `account-equity-classic-named-dex.spec.mjs` passes and, stash-verified against the pre-change build, fails exactly as the bug predicts (Spot $156,001.46, Perps $6,743.65, Balance $0.00, Maintenance $0.00, Ratio `--`, Leverage `--`). `account-equity-venue-parity.live.spec.mjs` passes against both anchor wallets live. Full gates green.
 
 ## Surprises & Discoveries
 
@@ -90,6 +99,18 @@ Local scratch refs (non-authoritative):
 - Observation: The blast radius of the two figures being changed is narrow, but not empty, and one consumer masks the bug rather than propagating it.
   Evidence: `:base-balance` has no consumer outside `panels.cljs`. `:perps-value` reaches `account-value-display` only when `portfolio-value` is nil (see `derive-account-value-display`), and reaches `perp-account-equity` in `src/hyperopen/views/portfolio/vm/equity.cljs` only as a fourth-choice fallback behind `marginSummary.accountValue`, `crossMarginSummary.accountValue` and `:cross-account-value` — so the Portfolio page already shows the right number and will not move. `:cross-margin-ratio` reaches `src/hyperopen/views/degen/widgets.cljs`, and `:cross-account-value` reaches `perp-account-equity` as a third-choice fallback; both will move once Milestone 3 lands, and that is intended.
 
+- Observation: The Spot row had a second defect nobody had written down. `spot-equity` excluded the balance row keyed `perps-usdc` — the base dex's perps equity — but not the `perps-usdc-<dex>` row that `named-dex-perps-rows` emits for every named dex. A classic account trading on a HIP-3 dex therefore reported that dex's entire perps equity as a spot holding.
+  Evidence: on the named-dex fixture the Spot row read $156,001.46 against $100 of actual spot. This is why the panel's Account Value looked roughly right while the rows beneath it did not: Account Value came from `portfolio-usdc-value`, which sums every row including the perps ones, so it accidentally landed near Spot + Perps by double-counting in two places at once.
+
+- Observation: Once the aggregate existed, the classic and unified Maintenance Margin rows turned out to be the same expression, and the `(if unified? ...)` branch that had separated them collapsed.
+  Evidence: `unified-cross-maintenance-margin*` summed `crossMaintenanceMarginUsed` across records, USD-converted per record — which is precisely `(:maintenance-margin aggregate)`. The same held for the unified leverage numerator and `(:cross-total-ntl-pos aggregate)`. Both wrappers were deleted and `:maintenance-margin` became unconditional. The venue makes the same choice: one aggregation feeds both of its panels.
+
+- Observation: Deleting `unrealized-from-summary` outright would have regressed a funded-but-flat account from `$0.00` to `--`.
+  Evidence: with no positions, `unrealized-from-positions` is nil, and the deleted fallback was the only thing putting a number on that row. A flat book's unrealized PNL is genuinely zero and the venue prints `$0.00`. The replacement signal is whether any record's state actually carries an `assetPositions` list: an empty list means the book is flat, an absent key means we have not been told. The degenerate fixture with no `assetPositions` key pins the difference.
+
+- Observation: `metrics.cljs` crossed the repository's 500-line namespace ceiling as soon as the aggregate landed, at 509 lines.
+  Evidence: `npm run lint:namespace-sizes` fails above 500 (`dev/check_namespace_sizes.clj`). The namespace was carrying three separable jobs, so it was split rather than granted an exception.
+
 ## Decision Log
 
 - Decision: Build the regression harness in Milestone 0, before any behaviour change, rather than adding tests alongside each fix.
@@ -112,9 +133,37 @@ Local scratch refs (non-authoritative):
   Rationale: it depends on the public Hyperliquid API and on two wallets continuing to hold the shapes they hold today. That makes it excellent verification and terrible CI. The repo already uses this pattern for `RUN_BROWSER_INSPECTION_SMOKE`. The fixture matrix, which is hermetic, is what protects the build.
   Date/Author: 2026-08-21, planning.
 
+- Decision: Split `account_equity/metrics.cljs` into `pricing.cljs` (USD conversion and the venue's aggregation), `unified.cljs` (the unified-only figures) and `metrics.cljs` (the one derivation both panels read), rather than taking a namespace-size exception.
+  Rationale: the 500-line ceiling was the prompt, not the reason. The file already held three jobs that only ever spoke to each other through a handful of names, and the aggregate belongs with the conversion it depends on rather than beside the panel arithmetic that consumes it. The split is 157 / 188 / 213 lines with a single public seam each, and `token-price-usd` is re-exported from `metrics` so existing callers are untouched.
+  Date/Author: 2026-08-21, implementation.
+
+- Decision: Do not adopt the venue's `+ 1e-8` divide-by-zero guard for the two classic quotients; declare the difference as a fixture divergence instead.
+  Rationale: the guard makes a flat account read `0.00%` and `0.00x`, which is truthful for that account — but the same guard prints an equally confident `0.00x` for any account whose cross equity we failed to read, which is the exact failure this plan exists to remove. `safe-div` returning nil keeps the two cases distinguishable at the cost of a `--` on a genuinely flat book. The divergence is declared on the flat fixture with that reasoning attached, so the choice is visible rather than accidental.
+  Date/Author: 2026-08-21, implementation.
+
+- Decision: Derive the classic Account Value row as Spot + Perps rather than from `portfolio-usdc-value`.
+  Rationale: the row exists to reconcile the two rows beneath it, and summing balance rows cannot do that. Balance rows count a named dex's perps equity as its own row and record it in that dex's collateral token unconverted, so a dex settling in anything other than a dollar lands in a USD total at face value. Summing the two figures the panel already displays makes the invariant true by construction. The unified panel keeps `portfolio-usdc-value`, which is correct there: its balance rows are merged into spot-only.
+  Date/Author: 2026-08-21, implementation.
+
 ## Outcomes & Retrospective
 
-Not yet started. To be written at the end of Milestone 5. It must state whether the change reduced or increased overall complexity. The expectation is a modest increase in the source tree — an aggregate helper that did not exist before — offset by the removal of two ad-hoc expressions (`cross-derived-balance` and `unrealized-from-summary`) whose meaning nobody can currently state in one sentence, and a large increase in the test tree that is the point of the exercise rather than a cost.
+Both classic defects are fixed and both panels are now measured against an executable model of the venue rather than against themselves.
+
+The formula defect: Perps is the aggregate `marginSummary.accountValue` and Balance is that net of unrealized PNL, which is what our own tooltips already promised. `cross-derived-balance` -- a sum of a dollar equity, a dollar margin requirement and a dollar notional, whose meaning nobody could state -- is gone, along with `fallback-balance` and `unrealized-from-summary`.
+
+The scope defect: every classic row now reads a single synthetic clearinghouse state summed across every dex, each converted to USD through its own collateral token, exactly as the venue's `HM()` does. The account that rendered four confident zeros over a $155,901 book now renders $149,157.81 Balance, $155,901.46 Perps, $1,144.15 Maintenance Margin, 0.73% Cross Margin Ratio and 0.29x Cross Account Leverage.
+
+Two defects nobody had written down turned up on the way and are fixed here as well. `spot-equity` counted the `perps-usdc-<dex>` balance row of every named dex as a spot holding, so the Spot row on a HIP-3 account reported that dex's entire perps equity. And the classic Account Value row was summed from balance rows rather than from the two rows beneath it, so it could not reconcile with them and silently absorbed a named dex's collateral token into a USD total unconverted.
+
+**Live verification, 2026-08-21.** `RUN_VENUE_PARITY=1` against both anchors, comparing the rendered panel with the venue's formulas recomputed from a snapshot taken in the same run. `0x68bd85dc…` rendered Perps $29,683.64 against a recomputed $29,705.64; `0xb9aebb46…` rendered Perps $155,868.78 against $155,869.30 and Maintenance Margin $1,144.62 against $1,144.45. The residual differences are drift -- the venue pushes user state on events rather than continuously, so the panel's marks can be seconds old -- which is why the spec also asserts the two identities that hold between the rendered figures alone, at whatever instant they were marked.
+
+**On complexity.** The source tree grew by one concept and shed two. `metrics.cljs` went from 473 lines doing three jobs to 167 doing one, with `pricing.cljs` (188) owning USD conversion and the venue's aggregation and `unified.cljs` (178) owning the figures only a unified account has. Two near-duplicate helpers disappeared once the aggregate existed -- `unified-cross-maintenance-margin*` and `unified-cross-notional-usd-value` were each a special case of it -- and with them the `(if unified? ...)` branch on Maintenance Margin, because both panels turn out to render the same figure. Net source lines are up by about 60; the number of distinct ideas is down by one.
+
+The test tree grew by roughly 1,000 lines of ClojureScript plus two browser specs, and that is the point of the exercise rather than a cost. The suite went from 5,929 tests / 32,591 assertions to 5,939 / 32,768.
+
+**What the harness bought.** Milestone 0 ended with 30 failures, every one classic, and every unified assertion green on its first run against an oracle that shares no code with the implementation -- including its number parser. That is independent evidence that `dc2ada72d` was already at parity, which no amount of re-reading our own code could have established. It also caught two things the milestones had not anticipated: the Spot row's double-count, which showed up as a fixture failure nobody had predicted, and the fact that deleting `unrealized-from-summary` would have regressed a funded-but-flat account from `$0.00` to `--`.
+
+**What would have gone wrong without it.** Milestones 2 and 3 rewrote the expression that computes every number on both panels. The unified work had shipped hours earlier, was not yet load-bearing in anyone's habits, and had exactly two focused tests plus one browser spec guarding it. A regression there would have been invisible until someone compared the panel to the venue again.
 
 ## Context and Orientation
 

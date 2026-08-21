@@ -1,7 +1,17 @@
 (ns hyperopen.views.account-equity.metrics
+  "Every number on both account panels, derived once from application state.
+
+   One function serves two panels: `account-equity-view` renders the venue's
+   \"Unified Account Summary\" for unified accounts and \"Account Equity\" plus
+   \"Perps Overview\" for everyone else, and both read this map. The conversion
+   and aggregation live in `hyperopen.views.account-equity.pricing`; the
+   unified-only figures live in `hyperopen.views.account-equity.unified`."
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.markets :as asset-selector-markets]
             [hyperopen.views.account-equity.format :refer [parse-num pnl-display safe-div]]
+            [hyperopen.views.account-equity.pricing :as pricing
+             :refer [aggregate-clearinghouse-usd balance-rows-by-token
+                     clearinghouse-state-records sum-when-present]]
+            [hyperopen.views.account-equity.unified :as unified]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as account-projections]))
 
@@ -19,408 +29,94 @@
         (+ (or spot-equity 0)
            (or perps-value 0)))))
 
-(defn- normalized-token-name [value]
-  (some-> value str str/trim str/upper-case not-empty))
+(def token-price-usd
+  "Re-exported for callers that only need one token's USD price."
+  pricing/token-price-usd)
 
-(defn- normalized-dex-name [value]
-  (some-> value str str/trim not-empty))
-
-(defn- scalar-coin-id?
-  [value]
-  (or (string? value)
-      (keyword? value)
-      (number? value)))
-
-(defn- same-dex?
-  [left right]
-  (= (normalized-dex-name left)
-     (normalized-dex-name right)))
-
-(defn- stable-dollar-token?
-  [token]
-  (let [token* (normalized-token-name token)]
-    (or (= "USDC" token*)
-        (= "USDE" token*)
-        (= "USDH" token*)
-        (some-> token* (str/starts-with? "USDT"))
-        (some-> token* (str/starts-with? "USD")))))
-
-(defn- market-mark-price [market]
-  (let [mark (parse-num (:mark market))
-        mark-raw (parse-num (:markRaw market))]
-    (cond
-      (and (number? mark) (pos? mark)) mark
-      (and (number? mark-raw) (pos? mark-raw)) mark-raw
-      :else nil)))
-
-(defn- market-token-usd-price
-  [token market]
-  (let [mark-price (market-mark-price market)
-        base (normalized-token-name (:base market))
-        quote (normalized-token-name (:quote market))]
-    (cond
-      (and (number? mark-price) (pos? mark-price) (= token base) (= "USDC" quote))
-      mark-price
-      (and (number? mark-price) (pos? mark-price) (= token quote) (= "USDC" base))
-      (/ 1 mark-price)
-      :else nil)))
-
-(defn- perp-market-for-coin
-  [market-by-key coin]
-  (when-let [coin* (when (scalar-coin-id? coin)
-                     (str coin))]
-    (let [direct (get market-by-key (str "perp:" coin*))]
-      (if (= :perp (:market-type direct))
-        direct
-        (let [resolved (asset-selector-markets/resolve-market-by-coin market-by-key coin*)]
-          (when (= :perp (:market-type resolved))
-            resolved))))))
-
-(defn- balance-row-token-key
+(defn- perps-balance-row?
+  "Balance rows carrying perps equity: the base dex's `perps-usdc` row and one
+   `perps-usdc-<dex>` row per named dex. They are not spot holdings. Counting
+   them as spot is what made the Spot row on a named-dex account report the
+   whole perps book."
   [row]
-  (normalized-token-name (or (:selection-coin row)
-                             (:coin row))))
-
-(defn- balance-rows-by-token
-  [balance-rows]
-  (reduce (fn [acc row]
-            (if-let [token (balance-row-token-key row)]
-              (assoc acc token row)
-              acc))
-          {}
-          (or balance-rows [])))
-
-(defn- balance-row-usd-price
-  [row]
-  (let [total-balance (parse-num (:total-balance row))
-        usdc-value (parse-num (:usdc-value row))]
-    (cond
-      (and (number? total-balance)
-           (not (zero? total-balance))
-           (number? usdc-value))
-      (/ usdc-value total-balance)
-
-      (stable-dollar-token? (balance-row-token-key row))
-      1
-
-      :else nil)))
-
-(defn token-price-usd
-  [balance-row-by-token market-by-key token]
-  (let [token* (normalized-token-name token)
-        row (get balance-row-by-token token*)
-        row-price (some-> row balance-row-usd-price)
-        market (or (get market-by-key (str "spot:" token*))
-                   (asset-selector-markets/resolve-market-by-coin market-by-key token*))]
-    (or row-price
-        (market-token-usd-price token* market)
-        (when (stable-dollar-token? token*) 1))))
-
-(defn- clearinghouse-state-quote-token
-  [market-by-key dex clearinghouse-state]
-  (or (some->> (or (:assetPositions clearinghouse-state) [])
-               (some (fn [row]
-                       (let [coin (get-in row [:position :coin])
-                             market (perp-market-for-coin market-by-key coin)]
-                         (some-> market :quote normalized-token-name)))))
-      (some->> (vals market-by-key)
-               (some (fn [market]
-                       (when (and (= :perp (:market-type market))
-                                  (same-dex? dex (:dex market)))
-                         (normalized-token-name (:quote market))))))
-      (when (nil? dex)
-        "USDC")))
-
-(defn- unified-clearinghouse-state-records
-  [state market-by-key]
-  (let [default-state (get-in state [:webdata2 :clearinghouseState])
-        named-states (:perp-dex-clearinghouse state)
-        default-record (when (map? default-state)
-                         {:dex nil
-                          :quote-token (clearinghouse-state-quote-token market-by-key nil default-state)
-                          :state default-state})]
-    (vec
-     (concat (when default-record [default-record])
-             (keep (fn [[dex clearinghouse-state]]
-                     (when (map? clearinghouse-state)
-                       {:dex dex
-                        :quote-token (clearinghouse-state-quote-token market-by-key dex clearinghouse-state)
-                        :state clearinghouse-state}))
-                   named-states)))))
-
-(defn- sum-when-present
-  [values]
-  (let [values* (vec (keep identity values))]
-    (when (seq values*)
-      (reduce + values*))))
-
-(defn- cross-maintenance-by-token
-  [records]
-  (reduce (fn [acc {:keys [quote-token state]}]
-            (let [maintenance (parse-num (:crossMaintenanceMarginUsed state))]
-              (if (and (number? maintenance) quote-token)
-                (update acc quote-token (fnil + 0) maintenance)
-                acc)))
-          {}
-          records))
-
-(defn- record-positions
-  [record]
-  (or (get-in record [:state :assetPositions]) []))
-
-(defn- isolated-position?
-  [position-row]
-  (= "isolated"
-     (some-> (get-in position-row [:position :leverage :type])
-             str
-             str/lower-case)))
-
-(defn- position-notional
-  [position-row]
-  (let [value (parse-num (get-in position-row [:position :positionValue]))]
-    (when (number? value)
-      (js/Math.abs value))))
-
-(defn- position-quote-token
-  [market-by-key {:keys [quote-token]} position-row]
-  (or (let [coin (get-in position-row [:position :coin])
-            market (perp-market-for-coin market-by-key coin)]
-        (some-> market :quote normalized-token-name))
-      quote-token))
-
-(defn- isolated-margin-by-token
-  [records market-by-key]
-  (reduce (fn [acc record]
-            (reduce (fn [acc* position-row]
-                      (let [margin-used (parse-num (get-in position-row [:position :marginUsed]))
-                            quote-token (position-quote-token market-by-key record position-row)]
-                        (if (and (isolated-position? position-row)
-                                 (number? margin-used)
-                                 quote-token)
-                          (update acc* quote-token (fnil + 0) margin-used)
-                          acc*)))
-                    acc
-                    (record-positions record)))
-          {}
-          records))
-
-(defn- cross-notional-total
-  "Sum of `crossMarginSummary.totalNtlPos` across records. Only ever compared
-   against zero -- to tell \"no cross positions\" apart from \"cross positions
-   worth nothing\" -- so the quote-token mix across dexes does not matter."
-  [records]
-  (sum-when-present
-   (for [{:keys [state]} records]
-     (let [value (parse-num (get-in state [:crossMarginSummary :totalNtlPos]))]
-       (when (number? value)
-         (js/Math.abs value))))))
-
-(defn- isolated-notional-total
-  [records]
-  (sum-when-present
-   (for [record records
-         position-row (record-positions record)
-         :when (isolated-position? position-row)]
-     (position-notional position-row))))
-
-(defn- unified-account-ratio*
-  "Cross-liquidation risk: cross maintenance margin against the collateral still
-   free once isolated margin is held back.
-
-   Isolated positions stay out of the numerator on purpose -- each liquidates on
-   its own and cannot take the portfolio down with it. That also means the ratio
-   describes nothing on a book that is entirely isolated, so this returns nil
-   there rather than a 0% that reads as \"no risk\". A genuinely flat account
-   still reports 0%."
-  [records balance-row-by-token market-by-key]
-  (let [cross-notional (or (cross-notional-total records) 0)
-        isolated-notional (or (isolated-notional-total records) 0)]
-    (when-not (and (zero? cross-notional)
-                   (pos? isolated-notional))
-      (let [cross-maintenance (cross-maintenance-by-token records)
-            isolated-margin (isolated-margin-by-token records market-by-key)
-            ratios (keep (fn [[token maintenance]]
-                           (let [spot-total (parse-num (get-in balance-row-by-token [token :total-balance]))
-                                 available (when (number? spot-total)
-                                             (- spot-total (or (get isolated-margin token) 0)))]
-                             (when (and (number? maintenance)
-                                        (number? available)
-                                        (pos? available))
-                               (min 1 (/ maintenance available)))))
-                         cross-maintenance)]
-        (when (seq ratios)
-          (reduce max ratios))))))
-
-(defn- unified-cross-maintenance-margin*
-  [records balance-row-by-token market-by-key]
-  (sum-when-present
-   (for [{:keys [quote-token state]} records]
-     (let [maintenance (parse-num (:crossMaintenanceMarginUsed state))
-           usd-price (token-price-usd balance-row-by-token market-by-key quote-token)]
-       (when (and (number? maintenance)
-                  (number? usd-price))
-         (* maintenance usd-price))))))
-
-(defn- unified-maintenance-margin*
-  "Perps maintenance margin in USD. Cross positions only, matching the venue:
-   its own row reads `crossMaintenanceMarginUsed` straight through and its
-   tooltip says \"the minimum portfolio value required to keep your *cross*
-   positions open\". Isolated positions each carry their own maintenance and
-   liquidate alone; the panel discloses their notional separately rather than
-   folding it in here, where it would put a number on screen that disagrees
-   with the venue about how close the account is to liquidation."
-  [records balance-row-by-token market-by-key]
-  (unified-cross-maintenance-margin* records balance-row-by-token market-by-key))
-
-(defn- known-collateral-tokens
-  "Every token that backs perp positions anywhere on the venue, not just on the
-   dexes this wallet happens to trade.
-
-   The venue builds this set from its whole dex catalogue, so a wallet holding
-   a token that collateralises some dex it has never touched still has that
-   holding counted as collateral. `flx` settles in USDH, for instance, which is
-   why a USDH balance belongs in the denominator of an account whose positions
-   are all USDC-quoted. The market catalogue carries the same information:
-   every perp market's `:quote` is its dex's collateral symbol. Record quote
-   tokens are unioned in so a dex present in state but missing from the
-   catalogue still contributes."
-  [market-by-key records]
-  (into (set (keep :quote-token records))
-        (keep (fn [market]
-                (when (= :perp (:market-type market))
-                  (normalized-token-name (:quote market)))))
-        (vals (or market-by-key {}))))
-
-(defn- unified-collateral-usd-value
-  [records balance-row-by-token market-by-key]
-  (sum-when-present
-   (for [token (known-collateral-tokens market-by-key records)]
-     (let [spot-total (parse-num (get-in balance-row-by-token [token :total-balance]))
-           usd-price (token-price-usd balance-row-by-token market-by-key token)]
-       (when (and (number? spot-total)
-                  (number? usd-price))
-         (* spot-total usd-price))))))
-
-(defn- unified-cross-notional-usd-value
-  "Cross perp notional in USD, from each record's
-   `crossMarginSummary.totalNtlPos`, converted through that record's quote
-   token so a dex settling in something other than USDC is not added raw to a
-   USD total."
-  [records balance-row-by-token market-by-key]
-  (sum-when-present
-   (for [{:keys [quote-token state]} records]
-     (let [notional (parse-num (get-in state [:crossMarginSummary :totalNtlPos]))
-           usd-price (token-price-usd balance-row-by-token market-by-key quote-token)]
-       (when (and (number? notional)
-                  (number? usd-price))
-         (* notional usd-price))))))
-
-(defn- unified-isolated-notional-usd-value
-  "Isolated perp notional in USD, so the panel can say what the cross-only
-   leverage and maintenance figures leave out. nil when there are no isolated
-   positions -- the disclosure line is then omitted rather than reading
-   \"excludes $0.00\" -- and nil when any position's quote token has no
-   resolvable price, since a partial total would understate what is excluded."
-  [records balance-row-by-token market-by-key]
-  (let [contributions
-        (vec
-         (for [record records
-               position-row (record-positions record)
-               :when (isolated-position? position-row)]
-           (let [notional (position-notional position-row)
-                 quote-token (position-quote-token market-by-key record position-row)
-                 usd-price (token-price-usd balance-row-by-token market-by-key quote-token)]
-             (when (and (number? notional)
-                        (number? usd-price))
-               (* notional usd-price)))))]
-    (when (and (seq contributions)
-               (not (some nil? contributions)))
-      (reduce + 0 contributions))))
-
-(defn- unified-account-leverage*
-  "Cross perp notional over total collateral, which is how the venue defines
-   it: \"Unified Account Leverage = Total Cross Positions Value / Total
-   Collateral Balance.\" Isolated positions are deliberately outside the
-   numerator even though their margin comes from the same collateral pool --
-   matching the venue matters more here than a fuller lens would, because the
-   venue is what liquidates."
-  [records balance-row-by-token market-by-key]
-  (safe-div (unified-cross-notional-usd-value records balance-row-by-token market-by-key)
-            (unified-collateral-usd-value records balance-row-by-token market-by-key)))
+  (boolean (some-> (:key row) (str/starts-with? "perps-usdc"))))
 
 (defn- derive-account-equity-metrics [state]
   (let [webdata2 (:webdata2 state)
-        clearinghouse-state (:clearinghouseState webdata2)
-        margin-summary (:marginSummary clearinghouse-state)
-        cross-summary (:crossMarginSummary clearinghouse-state)
-        perps-summary (or margin-summary cross-summary {})
-        cross-summary (or cross-summary perps-summary {})
-        account-value (parse-num (:accountValue perps-summary))
-        total-raw-usd (parse-num (:totalRawUsd perps-summary))
-        total-ntl-pos (parse-num (:totalNtlPos perps-summary))
-        cross-account-value (or (parse-num (:accountValue cross-summary)) account-value)
-        cross-total-ntl-pos (or (parse-num (:totalNtlPos cross-summary)) total-ntl-pos)
-        cross-total-margin-used (parse-num (:totalMarginUsed cross-summary))
-        maintenance-margin (parse-num (:crossMaintenanceMarginUsed clearinghouse-state))
         market-by-key (get-in state [:asset-selector :market-by-key] {})
         balance-rows (derived-cache/memoized-balance-rows webdata2 (:spot state) (:account state) market-by-key (:perp-dex-clearinghouse state))
         balance-row-by-token (balance-rows-by-token balance-rows)
-        perps-row (first (filter #(= "perps-usdc" (:key %)) balance-rows))
-        perps-row-balance (parse-num (:total-balance perps-row))
+        ;; One record per dex the wallet has a snapshot on, base dex included.
+        ;; The venue folds them into a single state before deriving anything,
+        ;; and so do we: reading `[:webdata2 :clearinghouseState]` alone is the
+        ;; base dex only, which reports nothing at all for an account carrying
+        ;; its book on a HIP-3 dex.
+        records (clearinghouse-state-records state market-by-key)
+        aggregate (aggregate-clearinghouse-usd records balance-row-by-token market-by-key)
+        cross-account-value (:cross-account-value aggregate)
+        cross-total-ntl-pos (:cross-total-ntl-pos aggregate)
+        ;; Both panels show the same figure here: the venue renders
+        ;; `crossMaintenanceMarginUsed` straight through, and its tooltip says
+        ;; "the minimum portfolio value required to keep your *cross* positions
+        ;; open". Isolated positions each carry their own maintenance and
+        ;; liquidate alone; the unified panel discloses their notional
+        ;; separately rather than folding it in here.
+        maintenance-margin (:maintenance-margin aggregate)
         positions (derived-cache/memoized-positions webdata2 (:perp-dex-clearinghouse state))
-        unrealized-from-positions (let [vals (keep #(parse-num (get-in % [:position :unrealizedPnl])) positions)]
-                                    (when (seq vals)
-                                      (reduce + vals)))
-        fallback-balance (or total-raw-usd perps-row-balance)
-        cross-derived-balance (when (and (number? cross-account-value)
-                                         (number? cross-total-margin-used)
-                                         (number? cross-total-ntl-pos))
-                                (+ cross-account-value cross-total-margin-used cross-total-ntl-pos))
-        base-balance (or cross-derived-balance fallback-balance)
-        unrealized-from-summary (when (and (number? account-value) (number? fallback-balance))
-                                  (- account-value fallback-balance))
-        unrealized-pnl (or unrealized-from-positions unrealized-from-summary)
-        perps-value (cond
-                      (and (number? base-balance) (number? unrealized-pnl))
-                      (+ base-balance unrealized-pnl)
-                      (number? account-value) account-value
-                      :else nil)
+        unrealized-from-positions (let [values (keep #(parse-num (get-in % [:position :unrealizedPnl])) positions)]
+                                    (when (seq values)
+                                      (reduce + values)))
+        ;; A snapshot that lists its positions tells us the book is flat when
+        ;; that list is empty. No snapshot at all tells us nothing, and must not
+        ;; be reported as a flat book.
+        positions-known? (boolean (some #(sequential? (get-in % [:state :assetPositions]))
+                                        records))
+        unrealized-pnl (cond
+                         (some? unrealized-from-positions) unrealized-from-positions
+                         positions-known? 0
+                         :else nil)
+        ;; The venue's two definitions, which our own tooltips already promise:
+        ;; Perps is the aggregate account value, and Balance is that net of
+        ;; unrealized PNL -- "Total Net Transfers + Total Realized Profit + Total
+        ;; Net Funding Fees", the money in the account before the open book is
+        ;; marked.
+        perps-value (:account-value aggregate)
+        base-balance (when (and (number? perps-value)
+                                (number? unrealized-pnl))
+                       (- perps-value unrealized-pnl))
         spot-values (keep (fn [row]
-                            (when-not (= "perps-usdc" (:key row))
+                            (when-not (perps-balance-row? row)
                               (parse-num (:usdc-value row))))
                           balance-rows)
         spot-equity (when (seq spot-values) (reduce + spot-values))
         portfolio-value (account-projections/portfolio-usdc-value balance-rows)
-        account-value-display (derive-account-value-display portfolio-value spot-equity perps-value)
         cross-margin-ratio (safe-div maintenance-margin cross-account-value)
         cross-account-leverage (safe-div cross-total-ntl-pos cross-account-value)
         unified? (unified-account? state)
-        unified-records (when unified?
-                          (unified-clearinghouse-state-records state market-by-key))
-        ;; Unified accounts never fall back to the classic cross-only formulas.
-        ;; That fallback is what turned an all-isolated book into 0.00x / 0.00%
-        ;; / $0.00; when a unified figure cannot be derived the row shows "--"
-        ;; instead of a zero that reads as "no exposure".
-        unified-maintenance-margin (when unified?
-                                     (unified-maintenance-margin* unified-records
-                                                                  balance-row-by-token
-                                                                  market-by-key))
+        ;; The classic panel adds an Account Value row the venue does not have,
+        ;; which carries the obligation to equal the two rows beneath it. Summing
+        ;; the balance rows instead would double-count a named dex's equity and
+        ;; add its collateral token to a USD total unconverted.
+        account-value-display (if unified?
+                                (derive-account-value-display portfolio-value spot-equity perps-value)
+                                (sum-when-present [spot-equity perps-value]))
         ;; What the cross-only leverage and maintenance figures leave out. The
         ;; panel prints it beside them so an all-isolated book cannot render a
         ;; bare 0.00x that reads as "no exposure".
         unified-isolated-notional (when unified?
-                                    (unified-isolated-notional-usd-value unified-records
+                                    (unified/isolated-notional-usd-value records
                                                                          balance-row-by-token
                                                                          market-by-key))
         unified-account-ratio (if unified?
-                                (unified-account-ratio* unified-records
-                                                        balance-row-by-token
-                                                        market-by-key)
+                                (unified/account-ratio records
+                                                       balance-row-by-token
+                                                       market-by-key)
                                 (safe-div maintenance-margin portfolio-value))
         unified-account-leverage (if unified?
-                                   (unified-account-leverage* unified-records
-                                                              balance-row-by-token
-                                                              market-by-key)
+                                   (unified/account-leverage aggregate
+                                                             records
+                                                             balance-row-by-token
+                                                             market-by-key)
                                    (safe-div cross-total-ntl-pos portfolio-value))
         pnl-info (pnl-display unrealized-pnl)]
     {:spot-equity spot-equity
@@ -429,9 +125,7 @@
      :unrealized-pnl unrealized-pnl
      :cross-margin-ratio cross-margin-ratio
      :unified-account-ratio unified-account-ratio
-     :maintenance-margin (if unified?
-                           unified-maintenance-margin
-                           maintenance-margin)
+     :maintenance-margin maintenance-margin
      :cross-account-leverage cross-account-leverage
      :unified-account-leverage unified-account-leverage
      :isolated-notional unified-isolated-notional

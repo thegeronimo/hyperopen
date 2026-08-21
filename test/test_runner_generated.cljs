@@ -538,6 +538,8 @@
             [hyperopen.vaults.infrastructure.preview-cache-test]
             [hyperopen.vaults.infrastructure.routes-test]
             [hyperopen.vaults.route-runtime-module-test]
+            [hyperopen.views.account-equity-aggregate-test]
+            [hyperopen.views.account-equity-parity-test]
             [hyperopen.views.account-equity-unified-metrics-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
@@ -1403,6 +1405,8 @@
              'hyperopen.vaults.infrastructure.preview-cache-test
              'hyperopen.vaults.infrastructure.routes-test
              'hyperopen.vaults.route-runtime-module-test
+             'hyperopen.views.account-equity-aggregate-test
+             'hyperopen.views.account-equity-parity-test
              'hyperopen.views.account-equity-unified-metrics-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
