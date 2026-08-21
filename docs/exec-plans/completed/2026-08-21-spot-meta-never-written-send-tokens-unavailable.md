@@ -1,10 +1,18 @@
 # Make spot token ids resolve so Send Tokens stops showing "unavailable"
 
+**Status: closed 2026-08-21.** Shipped as commit `df3e46cb4` on
+`fix/spot-meta-send-tokens-unavailable`, merged to `main` as `133cef368`. Every
+acceptance criterion that can be checked without moving real funds is met, and
+the token ids behind the reported symptom were confirmed against live
+Hyperliquid data. One acceptance step remains unchecked and is the maintainer's
+to perform: signing one real non-USDC sub-account transfer. See
+`Outcomes & Retrospective` for why closing with it open is defensible.
+
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds. This document must be maintained in accordance with `/hyperopen/docs/PLANS.md` and the detailed writing contract at `/hyperopen/.agents/PLANS.md`.
 
 ## Purpose / Big Picture
 
-A Hyperopen user with a unified (portfolio-margin) master account opens Sub-Accounts, clicks Transfer on a sub-account, and opens the token dropdown in the "Send Tokens" dialog. They see USDC with a real balance, and every other token they hold — KHYPE, HYPE, HAR — greyed out with the word "unavailable" where the balance should be. The tokens are listed, so their balances clearly loaded, but they cannot be selected and cannot be sent.
+A Hyperopen user opens Sub-Accounts, clicks Transfer on a sub-account, and opens the token dropdown in the "Send Tokens" dialog. (The original report was framed as a unified/portfolio-margin master, inherited from the 2026-08-20 parent plan. Live data later showed the reporting master was *not* unified — the destination sub-account was the portfolio-margin one. The defect is in metadata resolution and is account-mode independent, so the framing does not change the fix.) They see USDC with a real balance, and every other token they hold — KHYPE, HYPE, HAR — greyed out with the word "unavailable" where the balance should be. The tokens are listed, so their balances clearly loaded, but they cannot be selected and cannot be sent.
 
 After this change, that same dropdown shows a real balance next to every spot token the source side holds, and each one can be selected and sent. The user verifies it by opening Sub-Accounts with a master that holds spot HYPE, clicking Transfer, and opening the token dropdown: HYPE shows a number, not the word "unavailable", and clicking it selects it.
 
@@ -90,16 +98,6 @@ Every test layer supplies `[:spot :meta]` by construction, so none of them exerc
 
 `test/hyperopen/views/subaccounts_view_test.cljs` renders the real dialog with `[:spot :meta]` absent, which should have failed. It passes because its balance fixtures carry `:token "USDH:0xabc"` and `:token "MEOW:0xdef"` — prejoined wire ids in a field where Hyperliquid returns a bare numeric index. That string satisfies clause one of `resolve-with` and short-circuits the lookup before metadata is ever consulted. This is the same "fixture invents a shape and performs the join under test" defect the parent plan recorded and fixed for two other fixture families; this third one was missed.
 
-## Milestone 5: hide zero-balance tokens behind an opt-in checkbox
-
-Live data showed the reporting master carrying four tokens at exactly zero (`KHYPE`, `USDT0`, `UENA`, `USDH`) alongside two it can actually send. None of the zero rows can be submitted — `transfer-popover` disables Send whenever the selected balance is not positive — so they were pure noise in the list. After this milestone the dropdown offers only what the user can act on, and a checkbox reading "Show N zero-balance tokens" reveals the rest.
-
-The filter lives in `visible-transfer-assets` in `/hyperopen/src/hyperopen/views/subaccounts_view/transfer_dropdowns.cljs`, with `hidden-zero-balance-count` alongside it for the label. It falls back to the unfiltered list when every balance is zero, because an empty dropdown would leave `selected-transfer-token` on its bare-symbol placeholder and a bare symbol is not a sendable wire token id. `transfer-popover` resolves its selection against the same filtered list, so the MAX label and the Send button can never describe a token the user cannot see.
-
-State is `[:account-context :subaccounts :show-zero-balances?]`, reached through the existing `:actions/set-subaccount-form-field` action, so no new action or effect contract was needed. It must be registered in both `normalize-form-field` and `normalize-form-value` in `/hyperopen/src/hyperopen/subaccounts/management.cljs`: the default branch of `normalize-form-value` stringifies, and `"false"` is truthy in ClojureScript, which would pin the list permanently open.
-
-Acceptance: opening Send Tokens on a master holding a zero-balance token shows a shorter list and a checkbox naming the count; ticking it reveals the hidden rows without closing an open dropdown; unticking hides them again; the checkbox is absent when nothing is hidden.
-
 ## Milestones
 
 ### Milestone 1: the demand path actually writes spot metadata
@@ -138,6 +136,24 @@ Change the balance fixtures in `test/hyperopen/views/subaccounts_view_test.cljs`
 
 Acceptance: the existing assertions still pass, and deleting the seeded `[:spot :meta]` from the fixture turns them red.
 
+### Milestone 4: stop offering rows that are not spot tokens
+
+Live data showed `spotClearinghouseState` returning outcome (prediction-market) positions in the same `:balances` array as real spot tokens — `o458`, `o459`, `o468`, `o469`, `o474`, `o475` on the reporting master. They carry no `token` field and appear nowhere in spotMeta's 492 entries, so they can never resolve to a wire token id and can never travel the spot `sendAsset` path.
+
+`transfer-asset-row` in `/hyperopen/src/hyperopen/views/subaccounts_view.cljs` now returns nil for a row that has no token identifier *and* that metadata cannot name. Both halves matter: a row carrying an identifier it merely cannot resolve right now stays listed and disabled, because that failure is transient, and a row missing its index but still nameable — USDC, which has a known mainnet id — stays listed too.
+
+Acceptance: an outcome row is absent from the dropdown entirely rather than present and disabled; a USDC row lacking its index still appears.
+
+### Milestone 5: hide zero-balance tokens behind an opt-in checkbox
+
+Live data showed the reporting master carrying four tokens at exactly zero (`KHYPE`, `USDT0`, `UENA`, `USDH`) alongside two it can actually send. None of the zero rows can be submitted — `transfer-popover` disables Send whenever the selected balance is not positive — so they were pure noise in the list. After this milestone the dropdown offers only what the user can act on, and a checkbox reading "Show N zero-balance tokens" reveals the rest.
+
+The filter lives in `visible-transfer-assets` in `/hyperopen/src/hyperopen/views/subaccounts_view/transfer_dropdowns.cljs`, with `hidden-zero-balance-count` alongside it for the label. It falls back to the unfiltered list when every balance is zero, because an empty dropdown would leave `selected-transfer-token` on its bare-symbol placeholder and a bare symbol is not a sendable wire token id. `transfer-popover` resolves its selection against the same filtered list, so the MAX label and the Send button can never describe a token the user cannot see.
+
+State is `[:account-context :subaccounts :show-zero-balances?]`, reached through the existing `:actions/set-subaccount-form-field` action, so no new action or effect contract was needed. It must be registered in both `normalize-form-field` and `normalize-form-value` in `/hyperopen/src/hyperopen/subaccounts/management.cljs`: the default branch of `normalize-form-value` stringifies, and `"false"` is truthy in ClojureScript, which would pin the list permanently open.
+
+Acceptance: opening Send Tokens on a master holding a zero-balance token shows a shorter list and a checkbox naming the count; ticking it reveals the hidden rows without closing an open dropdown; unticking hides them again; the checkbox is absent when nothing is hidden.
+
 ## Progress
 
 - [x] (2026-08-21) Diagnosed the defect end to end and confirmed each claim by direct file reading: the missing dependency key, the route gate, the phase latch, the fixture short-circuit, and the empty `git log -S` result proving the key never existed.
@@ -146,10 +162,10 @@ Acceptance: the existing assertions still pass, and deleting the seeded `[:spot 
 - [x] (2026-08-21) Milestone 3: converted the view-test balance fixtures to production shape and seeded real spotMeta. Falsified: nil-ing the seeded metadata turns four assertions red, two of which are pre-existing assertions that used to pass with metadata absent.
 - [x] (2026-08-21) Milestone 4 (added mid-flight): excluded outcome-position rows from the transfer token list, with a regression test built from the reporting user's live balances.
 - [x] (2026-08-21) Ran `npm run gates`: 34/34 PASS, 6,653 tests, 36,008 assertions.
-- [x] (2026-08-21) Ran the sub-accounts Playwright spec: 6 passed, 1 failed. The failure is a pre-existing layout-geometry assertion unrelated to this change (see `Surprises & Discoveries`).
+- [x] (2026-08-21) Ran the sub-accounts Playwright spec: 6 passed, 1 failed. The failure was initially recorded here as a pre-existing layout defect; it was neither, and the diagnosis is corrected in `Surprises & Discoveries`. The run had served an unstyled build.
 - [x] (2026-08-21) Milestone 5 (added on maintainer request): zero-balance tokens are hidden behind an opt-in checkbox in the Send Tokens dialog. Five unit tests plus one committed Playwright regression; verified visually in both states.
 - [x] (2026-08-21) Re-ran `npm run gates` (34/34) and the sub-accounts Playwright spec (8/8) after the CSS build was corrected.
-- [ ] Confirm one real non-USDC transfer against the live exchange — the maintainer's to perform, since it moves real funds.
+- [ ] Deferred to the maintainer, not blocking closure: sign one real non-USDC sub-account transfer against the live exchange. This cannot be automated or faked — it moves real funds — so it is deliberately left unchecked in this closed record rather than marked done.
 
 ## Surprises & Discoveries
 
@@ -170,8 +186,6 @@ Acceptance: the existing assertions still pass, and deleting the seeded `[:spot 
 
 - Observation: the phase-based idempotency guard silently converts any catalog fetch failure into a permanent one, because the phase is advanced before the request and never rolled back on error.
   Evidence: `begin-asset-selector-load` sets `[:asset-selector :phase]`; `apply-asset-selector-error` in `/hyperopen/src/hyperopen/api/projections/asset_selector.cljs` sets `:loading?`, `:error` and `:error-category` but not the phase.
-
-## Surprises & Discoveries (continued)
 
 - Observation (superseded): `subaccounts transfer opens a compact send tokens popover @regression` initially failed with `popoverWidth` 359 against a 347 limit, and reproduced on the stashed baseline, which made it look like a pre-existing UI defect. It was neither pre-existing nor a defect: the run served the build from a plain static server on port 8090 (port 8080 was held by a different worktree's dev server) and so never ran `npm run css:build`. The page was rendering completely unstyled. After building the CSS the spec passes 8/8. The lesson is that a stash-verify proves "not caused by my diff" but says nothing about whether the harness itself is sound — an environmental fault reproduces on both sides of the stash just as happily as a real bug does.
   Evidence: full-page screenshot of the unstyled render, then `npm run css:themes:generate && npm run css:build` followed by a clean 8/8 run.
@@ -244,4 +258,8 @@ On complexity: this reduced it slightly. Four production files changed, three of
 
 The lesson worth carrying: three separate test layers covered this dialog and all three seeded `[:spot :meta]` by construction, so none of them could observe that nothing in production ever wrote it. Tests that supply the output of the code path under test cannot fail when that path is missing entirely. The parent plan had already caught this exact pattern twice and retired two fixture families for it; a third survived, and the defect it hid was worse than either of the first two.
 
-Two items remain open and are the maintainer's to close: signing one real non-USDC sub-account transfer against the live exchange, and deciding the zero-balance question above.
+One item remains open: signing a real non-USDC sub-account transfer against the live exchange. The zero-balance question raised during the work was answered by the maintainer mid-flight and shipped as Milestone 5.
+
+Closing with that one item unchecked is defensible, and the reasoning is worth stating plainly rather than leaving implicit. The step cannot be automated: it moves real funds on mainnet, and no fixture, simulator, or interception can stand in for a wallet signature the exchange actually accepts. Everything upstream of the signature *is* verified — the wire token ids were resolved against live Hyperliquid data for the exact accounts in the report (`HYPE` index 150 joins to `HYPE:0x0d01dc56dcaaca66ad901c959b4011ec`), and a Playwright regression drives the real dialog through selection and submission and asserts the exchange receives `sendAsset` carrying that joined id with both dexes set to `spot`. What remains unproven is narrow: that Hyperliquid accepts a signature over a payload we have already shown to be correctly shaped. Holding the plan open indefinitely for a step only a human with funds can take would make `active/` a parking lot rather than a record of work in flight, which is exactly what `/hyperopen/docs/PLANS.md` warns against. The item is preserved unchecked here so the gap stays visible in the historical record.
+
+Two smaller process notes for whoever reads this next. First, the plan was closed structurally as well as substantively: Milestone 4 had been implemented mid-flight without ever being written up as a milestone, Milestone 5 had been appended above the `Milestones` section rather than inside it, and `Surprises & Discoveries` had sprouted a duplicate heading. All three are corrected here, because a completed plan is read by people who were not present for the work. Second, one claim in this document was wrong for several hours and is now marked superseded rather than deleted: a Playwright geometry failure was recorded as a pre-existing defect on the strength of a stash-verify, when the real cause was that the run served a build with no CSS. Leaving the wrong turn visible is more useful to the next reader than a record that only shows the conclusions.
