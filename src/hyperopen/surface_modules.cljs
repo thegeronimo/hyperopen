@@ -6,16 +6,19 @@
 (def ^:private module-name-by-id
   {:funding-modal "funding_modal"
    :spectate-mode-modal "spectate_mode_modal"
+   :pnl-share-modal "pnl_share_modal"
    :account-surfaces "account_surfaces"})
 
 (def ^:private primary-export-id-by-id
   {:funding-modal :view
    :spectate-mode-modal :view
+   :pnl-share-modal :view
    :account-surfaces :account-info-view})
 
 (def ^:private exported-paths-by-id
   {:funding-modal {:view ["hyperopen" "views" "funding_modal_module" "funding_modal_view"]}
    :spectate-mode-modal {:view ["hyperopen" "views" "spectate_mode_modal_module" "spectate_mode_modal_view"]}
+   :pnl-share-modal {:view ["hyperopen" "views" "pnl_share_modal_module" "pnl_share_modal_view"]}
    :account-surfaces {:account-info-view ["hyperopen" "views" "account_surfaces_module" "account_info_view"]
                       :account-equity-view ["hyperopen" "views" "account_surfaces_module" "account_equity_view"]
                       :account-equity-metrics ["hyperopen" "views" "account_surfaces_module" "account_equity_metrics"]

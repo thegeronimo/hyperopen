@@ -251,6 +251,17 @@
 
 (s/def ::download-spectate-watchlist-file-args (s/tuple map?))
 (s/def ::spectate-watchlist-feedback-args (s/tuple keyword? string?))
+(s/def ::pnl-share-coin (s/nilable string?))
+(s/def ::pnl-share-side #{:long :short})
+(s/def ::pnl-share-export-descriptor
+  (s/keys :req-un [::pnl-share-coin ::pnl-share-side]))
+(s/def ::export-pnl-share-card-png-args
+  (s/tuple (s/and map?
+                  #(contains? % :coin)
+                  #(contains? % :side)
+                  #(or (nil? (:coin %)) (string? (:coin %)))
+                  #(contains? #{:long :short} (:side %)))))
+(s/def ::copy-pnl-share-link-args (s/tuple (s/nilable string?)))
 
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
@@ -292,6 +303,8 @@
    :effects/unlock-agent-trading ::common/unlock-agent-trading-args
    :effects/copy-wallet-address ::common/optional-address-args
    :effects/copy-spectate-link ::common/path-and-address-args
+   :effects/export-pnl-share-card-png ::export-pnl-share-card-png-args
+   :effects/copy-pnl-share-link ::copy-pnl-share-link-args
    :effects/clear-disconnected-account-lifecycle ::common/address-args
    :effects/download-spectate-watchlist-file ::download-spectate-watchlist-file-args
    :effects/pick-spectate-watchlist-file ::common/no-args

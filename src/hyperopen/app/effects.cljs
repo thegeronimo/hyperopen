@@ -5,6 +5,7 @@
             [hyperopen.runtime.collaborators :as runtime-collaborators]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.runtime.effect-adapters.margin-rec :as margin-rec-effects]
+            [hyperopen.runtime.effect-adapters.pnl-share :as pnl-share-effects]
             [hyperopen.runtime.effect-adapters.spectate-mode :as spectate-mode-effects]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.schema.runtime-registration.portfolio :as portfolio-registration]
@@ -76,6 +77,8 @@
               :unlock-agent-trading effect-adapters/unlock-agent-trading
               :copy-wallet-address (effect-adapters/make-copy-wallet-address runtime)
               :copy-spectate-link (effect-adapters/make-copy-spectate-link runtime)}
+     :pnl-share {:export-pnl-share-card-png pnl-share-effects/export-pnl-share-card-png
+                 :copy-pnl-share-link pnl-share-effects/copy-pnl-share-link}
      :spectate-mode {:clear-disconnected-account-lifecycle effect-adapters/clear-disconnected-account-lifecycle
                      :download-spectate-watchlist-file spectate-mode-effects/download-spectate-watchlist-file
                      :pick-spectate-watchlist-file spectate-mode-effects/pick-spectate-watchlist-file

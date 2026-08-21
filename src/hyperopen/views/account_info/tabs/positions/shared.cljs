@@ -78,6 +78,31 @@
       (str value-text " " pct-text))
     "--"))
 
+(defn pnl-share-cell
+  "The PNL (ROE %) cell. For your own account the whole cell is the button that
+   opens the share card, with a small glyph after the figure -- the same
+   affordance Hyperliquid puts on this exact cell. In spectate (read-only) mode
+   it stays plain text: offering to post a stranger's position as your own
+   would be a misrepresentation."
+  [row-vm position-data read-only?]
+  (let [figure (format-pnl-inline (:pnl-num row-vm) (:pnl-percent row-vm))
+        tone (:pnl-color-class row-vm)]
+    (if read-only?
+      [:div {:class ["text-left" "font-semibold" "num" tone]} figure]
+      [:div {:class ["text-left" "font-semibold" "num" tone]}
+       [:button {:type "button"
+                 :data-role "pnl-share-trigger"
+                 :title "Share this position"
+                 :aria-label (str "Share this position, " figure)
+                 :class ["inline-flex" "items-center" "gap-1" "bg-transparent" "p-0"
+                         "font-semibold" "num" tone "whitespace-nowrap"
+                         "transition-opacity" "hover:opacity-80"
+                         "focus:outline-none" "focus-visible:underline"]
+                 :on {:click [[:actions/open-pnl-share-card position-data]]}}
+        [:span figure]
+        (shared/external-link-icon ["h-3.5" "w-3.5" "shrink-0" "text-ho-accent"]
+                                   {:stroke-width 2})]])))
+
 (def ^:private max-liquidation-display-chars 6)
 
 (defn- count-integer-digits

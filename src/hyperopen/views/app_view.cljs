@@ -186,6 +186,7 @@
         :else (trade-view/trade-view state))]
      (surface-modules/render-surface-view state :funding-modal)
      (surface-modules/render-surface-view state :spectate-mode-modal)
+     (surface-modules/render-surface-view state :pnl-share-modal)
      (agent-trading-recovery-modal/agent-trading-recovery-modal-view state)
      (order-submit-confirmation-modal/order-submit-confirmation-modal-view state)
      (notifications-view/notifications-view state)

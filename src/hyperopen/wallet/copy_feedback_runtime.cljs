@@ -98,6 +98,17 @@
                      :failure-message "Couldn't copy address"
                      :log-label "Copy wallet address failed:")))
 
+(defn copy-share-link!
+  [{:keys [url referral?] :as opts}]
+  (copy-text! (assoc opts
+                     :text url
+                     :missing-message "No link to copy"
+                     :success-message (if referral?
+                                        "Referral link copied to clipboard"
+                                        "Link copied to clipboard")
+                     :failure-message "Couldn't copy link"
+                     :log-label "Copy share link failed:")))
+
 (defn copy-spectate-link!
   [{:keys [url] :as opts}]
   (copy-text! (assoc opts

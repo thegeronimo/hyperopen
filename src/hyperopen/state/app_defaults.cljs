@@ -4,7 +4,6 @@
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.account.context :as account-context]
-            [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.api-wallets.application.ui-state :as api-wallets-ui-state]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
@@ -13,6 +12,7 @@
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.margin-rec.state :as margin-rec-state]
             [hyperopen.platform :as platform]
+            [hyperopen.pnl-share.actions :as pnl-share-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.defaults :as portfolio-optimizer-defaults]
             [hyperopen.surface-modules :as surface-modules]
@@ -474,6 +474,7 @@
                   :reduce-popover (position-reduce/default-popover-state)
                   :margin-modal (position-margin/default-modal-state)}
    :margin-rec (margin-rec-state/default-state)
+   :pnl-share (pnl-share-actions/default-pnl-share-state)
    :funding-ui {:modal (funding-actions/default-funding-modal-state)
                 :tooltip {:visible-id nil
                           :pinned-id nil}

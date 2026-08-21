@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
+            [hyperopen.pnl-share.actions :as pnl-share-actions]
             [hyperopen.referrals.actions :as referrals-actions]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.runtime.action-adapters :as action-adapters]
@@ -80,6 +81,12 @@
                     lazy-vault-action-deps)
      :funding-comparison {:load-funding-comparison-route action-adapters/load-funding-comparison-route-action}
      :staking {:load-staking-route action-adapters/load-staking-route-action}
+     :pnl-share {:open-pnl-share-card pnl-share-actions/open-pnl-share-card
+                 :close-pnl-share-card pnl-share-actions/close-pnl-share-card
+                 :set-pnl-share-option pnl-share-actions/set-pnl-share-option
+                 :save-pnl-share-card-image pnl-share-actions/save-pnl-share-card-image
+                 :copy-pnl-share-link pnl-share-actions/copy-pnl-share-link
+                 :handle-pnl-share-card-keydown pnl-share-actions/handle-pnl-share-card-keydown}
      :referrals {:load-referrals-route action-adapters/load-referrals-route-action
                  :set-referrals-active-tab referrals-actions/set-active-tab
                  :set-referrals-form-field referrals-actions/set-form-field

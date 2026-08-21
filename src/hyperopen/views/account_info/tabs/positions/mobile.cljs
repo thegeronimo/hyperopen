@@ -145,8 +145,10 @@
                                                  (:size-display row-vm)
                                                  {:value-classes ["num" "font-medium" "leading-4" "whitespace-nowrap"]})
                       (mobile-cards/summary-item "PNL (ROE %)"
-                                                 [:span {:class ["num" pnl-color-class]}
-                                                  (positions-shared/format-pnl-inline pnl-num pnl-percent)]
+                                                 (positions-shared/pnl-share-cell
+                                                  row-vm
+                                                  position-data
+                                                  read-only?)
                                                  {:value-classes ["font-medium" "leading-4" "whitespace-nowrap"]})]
       :detail-content
       [:div {:class ["space-y-3"]}

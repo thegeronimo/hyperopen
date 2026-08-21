@@ -101,8 +101,7 @@
               "--")]
            [:div.text-left.font-semibold.num (shared/format-trade-price (:entry-price row-vm))]
            [:div.text-left.font-semibold.num (:mark-price-display row-vm)]
-           [:div {:class ["text-left" "font-semibold" "num" (:pnl-color-class row-vm)]}
-            (positions-shared/format-pnl-inline (:pnl-num row-vm) (:pnl-percent row-vm))]
+           (positions-shared/pnl-share-cell row-vm position-data read-only?)
            [:div {:class ["text-left" "font-semibold" "num" "min-w-0"]}
             [:div
              (positions-shared/explainable-value-node

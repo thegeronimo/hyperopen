@@ -204,6 +204,7 @@
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-test]
             [hyperopen.platform.webauthn-test]
+            [hyperopen.pnl-share.actions-test]
             [hyperopen.portfolio.actions-test]
             [hyperopen.portfolio.application.metrics-bridge-test]
             [hyperopen.portfolio.benchmark-actions-test]
@@ -616,6 +617,9 @@
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.notifications-view-trade-confirmation-test]
+            [hyperopen.views.pnl-share.card-data-test]
+            [hyperopen.views.pnl-share.modal-test]
+            [hyperopen.views.pnl-share.templates-test]
             [hyperopen.views.portfolio-view-chart-test]
             [hyperopen.views.portfolio-view-fee-schedule-test]
             [hyperopen.views.portfolio-view-hover-freeze-test]
@@ -1072,6 +1076,7 @@
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-test
              'hyperopen.platform.webauthn-test
+             'hyperopen.pnl-share.actions-test
              'hyperopen.portfolio.actions-test
              'hyperopen.portfolio.application.metrics-bridge-test
              'hyperopen.portfolio.benchmark-actions-test
@@ -1484,6 +1489,9 @@
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.notifications-view-trade-confirmation-test
+             'hyperopen.views.pnl-share.card-data-test
+             'hyperopen.views.pnl-share.modal-test
+             'hyperopen.views.pnl-share.templates-test
              'hyperopen.views.portfolio-view-chart-test
              'hyperopen.views.portfolio-view-fee-schedule-test
              'hyperopen.views.portfolio-view-hover-freeze-test

@@ -49,6 +49,7 @@
  "src/hyperopen/views/leaderboard_view.cljs" 6
  "src/hyperopen/views/notifications_view.cljs" 3
  "src/hyperopen/views/order_submit_confirmation_modal.cljs" 35
+ "src/hyperopen/views/pnl_share/palette.cljs" 2
  "src/hyperopen/views/portfolio/chart_view.cljs" 12
  "src/hyperopen/views/portfolio/fee_schedule.cljs" 4
  "src/hyperopen/views/portfolio/header.cljs" 14

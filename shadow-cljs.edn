@@ -28,6 +28,8 @@
                                   :depends-on #{:main}}
                   :spectate_mode_modal {:entries [hyperopen.views.spectate-mode-modal-module]
                                         :depends-on #{:main}}
+                  :pnl_share_modal {:entries [hyperopen.views.pnl-share-modal-module]
+                                    :depends-on #{:main}}
                   :account_surfaces {:entries [hyperopen.views.account-surfaces-module]
                                      :depends-on #{:main}}
                   :account_positions_outcomes {:entries [hyperopen.views.account-positions-outcomes-module]
@@ -143,6 +145,8 @@
                                       :depends-on #{:main}}
                       :spectate_mode_modal {:entries [hyperopen.views.spectate-mode-modal-module]
                                             :depends-on #{:main}}
+                      :pnl_share_modal {:entries [hyperopen.views.pnl-share-modal-module]
+                                        :depends-on #{:main}}
                       :account_surfaces {:entries [hyperopen.views.account-surfaces-module]
                                          :depends-on #{:main}}
                       :account_positions_outcomes {:entries [hyperopen.views.account-positions-outcomes-module]

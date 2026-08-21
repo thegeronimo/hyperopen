@@ -37,6 +37,10 @@
                            :share-code
                            :claim-rewards})
 (s/def ::referrals-modal-args (s/tuple ::referrals-modal))
+(s/def ::pnl-share-option-key #{:template :caption :show-prices? :show-funding? :show-handle?})
+(s/def ::pnl-share-option-args (s/tuple ::pnl-share-option-key any?))
+(s/def ::pnl-share-open-args (s/tuple map?))
+(s/def ::pnl-share-keydown-args (s/tuple (s/nilable string?)))
 (s/def ::set-hyperunit-lifecycle-args (s/tuple ::state/hyperunit-lifecycle-input))
 (s/def ::set-hyperunit-lifecycle-error-args (s/tuple (s/nilable string?)))
 (s/def ::position-tpsl-open-args
@@ -653,6 +657,12 @@
    :actions/start-transfer-subaccount ::common/address-args
    :actions/cancel-transfer-subaccount ::common/no-args
    :actions/submit-transfer-subaccount ::common/address-args
+   :actions/open-pnl-share-card ::pnl-share-open-args
+   :actions/close-pnl-share-card ::common/no-args
+   :actions/set-pnl-share-option ::pnl-share-option-args
+   :actions/save-pnl-share-card-image ::common/no-args
+   :actions/copy-pnl-share-link ::common/no-args
+   :actions/handle-pnl-share-card-keydown ::pnl-share-keydown-args
    :actions/load-funding-comparison-route ::common/path-args
    :actions/load-funding-comparison ::common/no-args
    :actions/set-funding-comparison-query ::common/single-input-args

@@ -4,6 +4,7 @@
             [hyperopen.schema.runtime-registration.funding-comparison :as funding-comparison]
             [hyperopen.schema.runtime-registration.leaderboard :as leaderboard]
             [hyperopen.schema.runtime-registration.margin-rec :as margin-rec]
+            [hyperopen.schema.runtime-registration.pnl-share :as pnl-share]
             [hyperopen.schema.runtime-registration.portfolio :as portfolio]
             [hyperopen.schema.runtime-registration.referrals :as referrals]
             [hyperopen.schema.runtime-registration.spectate-mode :as spectate-mode]
@@ -33,7 +34,8 @@
    vaults/effect-binding-rows
    staking/effect-binding-rows
    funding/effect-binding-rows
-   margin-rec/effect-binding-rows))
+   margin-rec/effect-binding-rows
+   pnl-share/effect-binding-rows))
 
 (def ^:private action-binding-rows-data
   (concat-row-groups
@@ -50,7 +52,8 @@
    funding-comparison/action-binding-rows
    staking/action-binding-rows
    vaults/action-binding-rows
-   margin-rec/action-binding-rows))
+   margin-rec/action-binding-rows
+   pnl-share/action-binding-rows))
 
 (def ^:private effect-order-policy-required-action-ids-data
   (set
