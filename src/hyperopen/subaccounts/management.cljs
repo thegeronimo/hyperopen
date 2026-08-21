@@ -86,9 +86,16 @@
     :trading))
 
 (defn- effective-transfer-account
+  "Account kind a transfer actually uses.
+
+   A unified (portfolio-margin) master pools spot and perps collateral and must
+   move funds through Hyperliquid's spot `sendAsset` path, so it is always
+   spot-kind — its availability figure was already spot USDC wearing a perps
+   label. Classic masters keep the user's choice, where `:trading` means perps
+   collateral, which genuinely is USDC-only."
   [state value]
   (if (account-context/subaccounts-owner-unified? state)
-    :trading
+    :spot
     (normalize-transfer-account value)))
 
 (defn- normalize-boolean

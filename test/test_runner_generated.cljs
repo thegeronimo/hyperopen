@@ -163,6 +163,7 @@
             [hyperopen.funding.domain.named-dex-transfer-preview-test]
             [hyperopen.funding.domain.policy-preview-test]
             [hyperopen.funding.domain.policy-test]
+            [hyperopen.funding.domain.spot-tokens-test]
             [hyperopen.funding.effects-api-wrappers-test]
             [hyperopen.funding.effects.common-test]
             [hyperopen.funding.effects.facade-test]
@@ -481,6 +482,7 @@
             [hyperopen.subaccounts.effects-spectate-test]
             [hyperopen.subaccounts.effects-test]
             [hyperopen.subaccounts.owner-mode-test]
+            [hyperopen.subaccounts.spot-token-transfer-test]
             [hyperopen.subaccounts.transfer-amount-test]
             [hyperopen.system-test]
             [hyperopen.telemetry-test]
@@ -1024,6 +1026,7 @@
              'hyperopen.funding.domain.named-dex-transfer-preview-test
              'hyperopen.funding.domain.policy-preview-test
              'hyperopen.funding.domain.policy-test
+             'hyperopen.funding.domain.spot-tokens-test
              'hyperopen.funding.effects-api-wrappers-test
              'hyperopen.funding.effects.common-test
              'hyperopen.funding.effects.facade-test
@@ -1342,6 +1345,7 @@
              'hyperopen.subaccounts.effects-spectate-test
              'hyperopen.subaccounts.effects-test
              'hyperopen.subaccounts.owner-mode-test
+             'hyperopen.subaccounts.spot-token-transfer-test
              'hyperopen.subaccounts.transfer-amount-test
              'hyperopen.system-test
              'hyperopen.telemetry-test

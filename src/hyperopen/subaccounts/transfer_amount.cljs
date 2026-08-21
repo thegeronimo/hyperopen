@@ -173,6 +173,16 @@
          candidate*
          (= selected* candidate*))))
 
+(defn- owner-spot-state
+  "The master's own spot balances, which is what the Sub-Accounts page lists on
+   a deposit. `[:spot :clearinghouse-state]` holds the *active trading*
+   account's balances instead, and that can be a sub-account while the master
+   is the transfer source, so prefer the owner snapshot and fall back only when
+   it has not loaded."
+  [state]
+  (or (:spot-state (get-in state [:account-context :subaccounts :owner-snapshot]))
+      (get-in state [:spot :clearinghouse-state])))
+
 (defn- selected-balance
   [state {:keys [subaccount-address direction token]}]
   (let [spot-state* (if (= :withdraw direction)
@@ -181,10 +191,14 @@
                                        (row-address row))
                                 (spot-state row)))
                             (get-in state [:account-context :subaccounts :rows]))
-                      (get-in state [:spot :clearinghouse-state]))]
+                      (owner-spot-state state))]
     (some (fn [balance]
             (when (or (token-match? token (balance-token balance))
-                      (token-match? token (balance-symbol balance)))
+                      (token-match? token (balance-symbol balance))
+                      ;; A selected `NAME:0x<hash>` wire token id never equals a
+                      ;; balance row's own fields, which carry a numeric token
+                      ;; index and a bare coin name, so compare its symbol too.
+                      (token-match? (token-symbol token) (balance-symbol balance)))
               balance))
           (balances spot-state*))))
 

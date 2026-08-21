@@ -6,7 +6,7 @@ const subaccountAddress = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
 const spectateAddress = "0x7777777777777777777777777777777777777777";
 
 async function seedAccountSurface(page, options = {}) {
-  await page.evaluate(({ accountMode }) => {
+  await page.evaluate(({ accountMode, spotMeta }) => {
     const c = globalThis.cljs?.core;
     const store = globalThis.hyperopen?.system?.store;
 
@@ -30,6 +30,7 @@ async function seedAccountSurface(page, options = {}) {
     );
     const spot = c.js__GT_clj(
       {
+        meta: { tokens: spotMeta },
         "clearinghouse-state": {
           balances: [
             {
@@ -38,12 +39,12 @@ async function seedAccountSurface(page, options = {}) {
             },
             {
               coin: "USDH",
-              token: "USDH:0xabc",
+              token: 12,
               total: "8.28"
             },
             {
               coin: "STAR",
-              token: "STAR:0x456",
+              token: 56,
               total: "0"
             }
           ]
@@ -59,12 +60,12 @@ async function seedAccountSurface(page, options = {}) {
         },
         {
           coin: "USDH",
-          token: "USDH:0xabc",
+          token: 12,
           total: "8.28"
         },
         {
           coin: "STAR",
-          token: "STAR:0x456",
+          token: 56,
           total: "0"
         }
       ],
@@ -85,7 +86,7 @@ async function seedAccountSurface(page, options = {}) {
     if (typeof renderApp === "function") {
       renderApp(c.deref(store));
     }
-  }, { accountMode: options.accountMode ?? "classic" });
+  }, { accountMode: options.accountMode ?? "classic", spotMeta: spotMetaTokens });
 }
 
 async function seedSubaccountsState(page, options = {}) {
@@ -102,6 +103,16 @@ async function seedSubaccountsState(page, options = {}) {
         {
           coin: "USDC",
           total: "358.56"
+        },
+        {
+          coin: "USDH",
+          token: 12,
+          total: "8.28"
+        },
+        {
+          coin: "STAR",
+          token: 56,
+          total: "0"
         }
       ]
     },
@@ -114,7 +125,8 @@ async function seedSubaccountsState(page, options = {}) {
     accountMode,
     ownerSnapshot,
     selectedAddress,
-    subaccountSpotUsdc
+    subaccountSpotUsdc,
+    spotMeta
   }) => {
     const c = globalThis.cljs?.core;
     const store = globalThis.hyperopen?.system?.store;
@@ -155,7 +167,7 @@ async function seedSubaccountsState(page, options = {}) {
               },
               {
                 coin: "MEOW",
-                token: "MEOW:0xdef",
+                token: 34,
                 total: "0.02"
               }
             ]
@@ -176,6 +188,7 @@ async function seedSubaccountsState(page, options = {}) {
     );
     const spot = c.js__GT_clj(
       {
+        meta: { tokens: spotMeta },
         "clearinghouse-state": {
           balances: [
             {
@@ -184,12 +197,12 @@ async function seedSubaccountsState(page, options = {}) {
             },
             {
               coin: "USDH",
-              token: "USDH:0xabc",
+              token: 12,
               total: "8.28"
             },
             {
               coin: "STAR",
-              token: "STAR:0x456",
+              token: 56,
               total: "0"
             }
           ]
@@ -205,12 +218,12 @@ async function seedSubaccountsState(page, options = {}) {
         },
         {
           coin: "USDH",
-          token: "USDH:0xabc",
+          token: 12,
           total: "8.28"
         },
         {
           coin: "STAR",
-          token: "STAR:0x456",
+          token: 56,
           total: "0"
         }
       ],
@@ -286,11 +299,25 @@ async function seedSubaccountsState(page, options = {}) {
     accountMode: options.accountMode ?? "classic",
     ownerSnapshot,
     selectedAddress: options.selectedAddress ?? null,
-    subaccountSpotUsdc: options.subaccountSpotUsdc ?? "0"
+    subaccountSpotUsdc: options.subaccountSpotUsdc ?? "0",
+    spotMeta: spotMetaTokens
   });
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await seedAccountSurface(page, { accountMode: options.accountMode ?? "classic" });
 }
+
+// Production `spotMeta` shape: Hyperliquid returns :name, :index, and :tokenId
+// separately, and spot balance rows carry only the numeric index. The app joins
+// the two to build the `NAME:0xhash` wire token id the exchange requires, so
+// these specs must serve a real token table rather than let the live endpoint
+// answer (an un-intercepted spotMeta races the seeded state and silently
+// un-resolves every fixture token).
+const spotMetaTokens = [
+  { name: "USDC", index: 0, tokenId: "0x6d1e7cde53ba9467b783cb7c530ce054", szDecimals: 8, weiDecimals: 8 },
+  { name: "USDH", index: 12, tokenId: "0xabc", szDecimals: 2, weiDecimals: 6 },
+  { name: "MEOW", index: 34, tokenId: "0xdef", szDecimals: 0, weiDecimals: 2 },
+  { name: "STAR", index: 56, tokenId: "0x456", szDecimals: 2, weiDecimals: 6 }
+];
 
 async function interceptSubaccountsApi(page, options = {}) {
   const masterAddress = options.masterAddress ?? ownerAddress;
@@ -321,13 +348,22 @@ async function interceptSubaccountsApi(page, options = {}) {
                 },
                 {
                   coin: "MEOW",
-                  token: "MEOW:0xdef",
+                  token: 34,
                   total: "0.02"
                 }
               ]
             }
           }
         ])
+      });
+      return;
+    }
+
+    if (payload?.type === "spotMeta") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ tokens: spotMetaTokens, universe: [] })
       });
       return;
     }
@@ -555,7 +591,7 @@ test("subaccounts transfer opens a compact send tokens popover @regression", asy
   }
 });
 
-test("subaccounts transfer uses spot-only controls for unified accounts @regression", async ({ page }) => {
+test("subaccounts transfer offers every spot token for unified accounts @regression", async ({ page }) => {
   await interceptSubaccountsApi(page);
 
   await page.setViewportSize({ width: 768, height: 720 });
@@ -573,18 +609,34 @@ test("subaccounts transfer uses spot-only controls for unified accounts @regress
 
   await accountTrigger.click();
 
+  // A unified master pools spot and perps collateral, so it offers one funding
+  // source — and that source is the spot one, which is what lets it send any
+  // spot token rather than USDC alone.
   const accountMenu = page.locator(`[data-role="subaccounts-transfer-account-menu-${subaccountAddress}"]`);
   await expect(accountMenu).toBeVisible();
   await expect(accountMenu).toContainText("Spot Account");
   await expect(page.locator(`[data-role="subaccounts-transfer-account-option-${subaccountAddress}-spot"]`))
+    .toHaveCount(1);
+  await expect(page.locator(`[data-role="subaccounts-transfer-account-option-${subaccountAddress}-trading"]`))
     .toHaveCount(0);
 
   await page.locator(`[data-role="subaccounts-transfer-token-${subaccountAddress}"]`).click();
   const tokenMenu = page.locator(`[data-role="subaccounts-transfer-token-menu-${subaccountAddress}"]`);
   await expect(tokenMenu).toBeVisible();
   await expect(tokenMenu).toContainText("USDC");
-  await expect(page.locator(`[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`))
-    .toHaveCount(0);
+  await expect(tokenMenu).toContainText("USDH");
+
+  // The option carries the `NAME:0xhash` wire token id Hyperliquid needs, built
+  // by joining the balance row's numeric token index against spotMeta.
+  const usdhOption = page.locator(
+    `[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`
+  );
+  await expect(usdhOption).toHaveCount(1);
+  await usdhOption.click();
+  await expect(page.locator(`[data-role="subaccounts-transfer-token-${subaccountAddress}"]`))
+    .toContainText("USDH");
+  await expect(page.locator(`[data-role="subaccounts-transfer-max-${subaccountAddress}"]`))
+    .toContainText("MAX: 8.28 USDH");
 });
 
 test("unified subaccounts transfer submits sendAsset instead of subAccountTransfer @regression", async ({
@@ -668,6 +720,96 @@ test("unified subaccounts transfer submits sendAsset instead of subAccountTransf
   const submittedTypes = submittedRequests.map((request) => request.action.type);
   expect(submittedTypes).not.toContain("subAccountTransfer");
   expect(submittedRequests.some((request) => Object.hasOwn(request, "vaultAddress"))).toBe(false);
+});
+
+test("unified subaccounts transfer submits a non-USDC spot token with its wire token id @regression", async ({
+  page
+}) => {
+  // The reported bug: a unified (portfolio-margin) master had no way to send
+  // spot HYPE — or any non-USDC spot token — to its own sub-account, because
+  // the token list was hard-coded to USDC. This is the end-to-end proof that
+  // the selected token now reaches the exchange, carrying the `NAME:0xhash`
+  // wire token id built from the balance row's numeric index plus spotMeta.
+  const signature = `0x${"a".repeat(64)}${"b".repeat(64)}1c`;
+
+  await interceptSubaccountsApi(page);
+  await visitRoute(page, "/subAccounts");
+  await debugCall(page, "installWalletSimulator", {
+    accounts: [ownerAddress],
+    requestAccounts: [ownerAddress],
+    chainId: "0xa4b1",
+    typedDataSignature: signature
+  });
+  await debugCall(page, "installExchangeSimulator", {
+    signedActions: {
+      sendAsset: {
+        responses: [{ status: "ok", response: { type: "default" } }]
+      }
+    },
+    info: {
+      subAccounts: {
+        responses: [
+          [
+            {
+              name: "test",
+              master: ownerAddress.toLowerCase(),
+              subAccountUser: subaccountAddress.toLowerCase(),
+              clearinghouseState: { marginSummary: { accountValue: "0" } },
+              spotState: { balances: [] }
+            }
+          ]
+        ]
+      }
+    }
+  });
+  await seedSubaccountsState(page, { accountMode: "unified" });
+
+  await page.locator(`[data-role="subaccounts-transfer-${subaccountAddress}"]`).click();
+  await seedAccountSurface(page, { accountMode: "unified" });
+
+  await page.locator(`[data-role="subaccounts-transfer-token-${subaccountAddress}"]`).click();
+  await page
+    .locator(`[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`)
+    .click();
+  await expect(page.locator(`[data-role="subaccounts-transfer-token-${subaccountAddress}"]`))
+    .toContainText("USDH");
+
+  await page.locator(`[data-role="subaccounts-transfer-amount-${subaccountAddress}"]`).fill("2.5");
+  await page.locator(`[data-role="subaccounts-transfer-submit-${subaccountAddress}"]`).click();
+  await waitForIdle(page, { quietMs: 350, timeoutMs: 8_000, pollMs: 50 });
+
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await debugCall(page, "exchangeSimulatorSnapshot");
+        return (snapshot?.calls ?? [])
+          .map((call) => call?.request)
+          .filter((request) => request?.action?.type);
+      },
+      { timeout: 10_000 }
+    )
+    .toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: expect.objectContaining({
+            type: "sendAsset",
+            destination: subaccountAddress,
+            sourceDex: "spot",
+            destinationDex: "spot",
+            token: "USDH:0xabc",
+            amount: "2.5",
+            fromSubAccount: ""
+          })
+        })
+      ])
+    );
+
+  const snapshot = await debugCall(page, "exchangeSimulatorSnapshot");
+  const submittedTypes = (snapshot?.calls ?? [])
+    .map((call) => call?.request?.action?.type)
+    .filter(Boolean);
+  expect(submittedTypes).not.toContain("subAccountTransfer");
+  expect(submittedTypes).not.toContain("subAccountSpotTransfer");
 });
 
 async function seedMasterOwnerMode(page, { ownerMode, selectedAddress, masterAddress = ownerAddress }) {
