@@ -213,7 +213,18 @@
   [{:keys [address subaccount-name subaccounts deposit-max withdraw-max transfer-assets unified-account? class]}]
   (let [direction (or (:transfer-direction subaccounts) :deposit)
         withdrawing? (= :withdraw direction)
-        selected-asset (transfer-dropdowns/selected-transfer-token subaccounts transfer-assets)
+        ;; Resolve the selection against the rows the dropdown actually offers,
+        ;; so the MAX label and the Send button can never describe a token the
+        ;; user cannot see. `token-dropdown` still receives the unfiltered list,
+        ;; because it needs the full set to count what it is hiding.
+        show-zero? (true? (:show-zero-balances? subaccounts))
+        visible-assets (transfer-dropdowns/visible-transfer-assets
+                        transfer-assets
+                        show-zero?)
+        hidden-zero-count (transfer-dropdowns/hidden-zero-balance-count
+                           transfer-assets
+                           show-zero?)
+        selected-asset (transfer-dropdowns/selected-transfer-token subaccounts visible-assets)
         max-label (or (:available-display selected-asset)
                       (if withdrawing? withdraw-max deposit-max))
         selected-available (:available selected-asset)
@@ -266,6 +277,12 @@
         :children [(transfer-dropdowns/token-dropdown {:address address
                                                        :subaccounts subaccounts
                                                        :transfer-assets transfer-assets})]})]
+     ;; Offered only when it would change something: rows are hidden right now,
+     ;; or they are shown and the user needs a way back.
+     (when (or (pos? hidden-zero-count) show-zero?)
+       (transfer-dropdowns/zero-balance-toggle {:address address
+                                                :show-zero? show-zero?
+                                                :hidden-count hidden-zero-count}))
      [:div {:class ["mt-3"]}
       (transfer-field-shell
        {:class ["justify-between" "gap-3"]

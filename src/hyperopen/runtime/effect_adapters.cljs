@@ -272,18 +272,33 @@
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
 
+(defn asset-selector-markets-effect-deps
+  "Dependency map for `api-effects/fetch-asset-selector-markets!`.
+
+   Named and public so a test can assert on the real map without performing
+   network I/O: this map and the one in `hyperopen.startup.collaborators` are
+   written by hand, and they drifted — this one omitted
+   `:apply-spot-meta-success`, so every demand-path catalog load fetched
+   spotMeta and silently dropped it (the write in `fetch-asset-selector-markets!`
+   is guarded on the key being present). `[:spot :meta]` therefore stayed nil for
+   whole sessions, and everything that resolves a spot wire token id from it —
+   the Send Tokens dropdown most visibly — degraded to \"unavailable\"."
+  [store opts]
+  {:store store
+   :opts opts
+   :request-asset-selector-markets-fn api/request-asset-selector-markets!
+   :begin-asset-selector-load api-projections/begin-asset-selector-load
+   :apply-spot-meta-success api-projections/apply-spot-meta-success
+   :apply-asset-selector-success api-projections/apply-asset-selector-success
+   :apply-asset-selector-error api-projections/apply-asset-selector-error
+   :after-asset-selector-success! (fn [runtime-store _phase _market-state]
+                                    (sync-asset-selector-active-ctx-subscriptions nil runtime-store)
+                                    (ws-adapters/sync-active-outcome-market-side-streams! runtime-store))})
+
 (defn fetch-asset-selector-markets-effect
   [_ store & [opts]]
   (api-effects/fetch-asset-selector-markets!
-   {:store store
-    :opts opts
-    :request-asset-selector-markets-fn api/request-asset-selector-markets!
-    :begin-asset-selector-load api-projections/begin-asset-selector-load
-    :apply-asset-selector-success api-projections/apply-asset-selector-success
-    :apply-asset-selector-error api-projections/apply-asset-selector-error
-    :after-asset-selector-success! (fn [runtime-store _phase _market-state]
-                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store)
-                                     (ws-adapters/sync-active-outcome-market-side-streams! runtime-store))}))
+   (asset-selector-markets-effect-deps store opts)))
 
 (defn api-load-user-data-effect
   [_ store address]

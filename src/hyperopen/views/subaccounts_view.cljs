@@ -126,19 +126,33 @@
    Hyperliquid needs, never the numeric index the balance row carries; a row
    that spot metadata cannot name is still listed with its balance but marked
    `:unresolved?` so the dialog can disable it instead of signing a rejected
-   identifier."
+   identifier.
+
+   Returns nil for a row that is not a spot token at all: one that carries no
+   token identifier *and* that metadata cannot name. Hyperliquid returns outcome
+   (prediction-market) positions inside `spotClearinghouseState` alongside real
+   spot balances — coins like `o458`, with no `token` field and no `spotMeta`
+   entry. They can never travel the spot `sendAsset` path, so offering them
+   disabled with a \"refresh balances\" hint would promise a recovery that cannot
+   happen.
+
+   Both halves of that test matter. A row carrying an identifier that cannot be
+   resolved right now stays listed and disabled, because that failure really is
+   transient. And a row missing its index but still nameable — USDC, which has a
+   known mainnet id — stays listed too."
   [resolver balance]
   (when-let [coin (balance-coin balance)]
-    (let [available (or (balance-available balance) 0)
+    (let [raw-token (or (:token balance) (get balance "token"))
           token (spot-tokens/resolve-with resolver
                                           {:coin coin
-                                           :token (or (:token balance)
-                                                      (get balance "token"))})]
-      {:symbol coin
-       :token (or token coin)
-       :unresolved? (nil? token)
-       :available available
-       :available-display (format-usdc-amount available)})))
+                                           :token raw-token})]
+      (when (or (some? raw-token) (some? token))
+        (let [available (or (balance-available balance) 0)]
+          {:symbol coin
+           :token (or token coin)
+           :unresolved? (nil? token)
+           :available available
+           :available-display (format-usdc-amount available)})))))
 
 (defn- spot-transfer-assets
   [state spot-state]

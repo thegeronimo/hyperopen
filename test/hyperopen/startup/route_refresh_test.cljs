@@ -85,42 +85,62 @@
              :portfolio-ui {:chart-tab :returns}}
             nil)))))
 
-(deftest account-info-route?-test
-  (testing "routes that render the account-info panel are account-info routes"
-    (is (true? (boolean (route-refresh/account-info-route? "/trade"))))
-    (is (true? (boolean (route-refresh/account-info-route? "/portfolio"))))
-    (is (true? (boolean (route-refresh/account-info-route?
+(deftest spot-catalog-route?-test
+  (testing "routes that render spot instruments need the spot-inclusive catalog"
+    (is (true? (boolean (route-refresh/spot-catalog-route? "/trade"))))
+    (is (true? (boolean (route-refresh/spot-catalog-route? "/portfolio"))))
+    (is (true? (boolean (route-refresh/spot-catalog-route?
                          "/portfolio/trader/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")))))
-  (testing "routes without the account-info panel are not account-info routes"
-    (is (not (route-refresh/account-info-route? "/leaderboard")))
-    (is (not (route-refresh/account-info-route? "/vaults/0xabc")))
-    (is (not (route-refresh/account-info-route? "/staking")))))
+  (testing "sub-accounts needs it for Send Tokens wire token ids"
+    ;; Regression: the Send Tokens dialog resolves a spot balance's numeric token
+    ;; index to a `NAME:0x<hash>` wire token id through spotMeta. Without the
+    ;; catalog every non-USDC token rendered "unavailable" and could not be sent.
+    (is (true? (boolean (route-refresh/spot-catalog-route? "/subAccounts")))))
+  (testing "routes that render no spot instruments do not"
+    (is (not (route-refresh/spot-catalog-route? "/leaderboard")))
+    (is (not (route-refresh/spot-catalog-route? "/vaults/0xabc")))
+    (is (not (route-refresh/spot-catalog-route? "/staking")))))
 
-(deftest account-info-markets-needed?-test
-  (testing "account-info routes need the full catalog until a :full load is in flight/done"
+(deftest spot-catalog-markets-needed?-test
+  (testing "spot-catalog routes need the full catalog while spot meta is missing"
     ;; Regression: bootstrap builds a perp-only catalog, so spot open orders
     ;; (coin like \"@230\") would otherwise render as the raw provider symbol
-    ;; instead of a readable name (USDH). The account-info routes must request
-    ;; the full, spot-inclusive catalog.
-    (is (true? (route-refresh/account-info-markets-needed?
-                {:asset-selector {:phase :bootstrap}} "/trade")))
-    (is (true? (route-refresh/account-info-markets-needed?
-                {:asset-selector {:phase :bootstrap}} "/portfolio")))
-    (is (true? (route-refresh/account-info-markets-needed?
-                {:asset-selector {:phase :bootstrap}}
+    ;; instead of a readable name (USDH).
+    (is (true? (route-refresh/spot-catalog-markets-needed? {} "/trade")))
+    (is (true? (route-refresh/spot-catalog-markets-needed? {} "/portfolio")))
+    (is (true? (route-refresh/spot-catalog-markets-needed?
+                {}
                 "/portfolio/trader/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")))
-    (testing "missing phase (pre-bootstrap default) still counts as needed"
-      (is (true? (route-refresh/account-info-markets-needed? {} "/trade")))))
-  (testing "no-op once the full catalog has been requested (idempotent via phase)"
-    (is (false? (route-refresh/account-info-markets-needed?
-                 {:asset-selector {:phase :full}} "/trade")))
-    (is (false? (route-refresh/account-info-markets-needed?
-                 {:asset-selector {:phase :full}} "/portfolio"))))
-  (testing "non-account-info routes never request the full catalog from here"
-    (is (false? (route-refresh/account-info-markets-needed?
-                 {:asset-selector {:phase :bootstrap}} "/leaderboard")))
-    (is (false? (route-refresh/account-info-markets-needed?
-                 {:asset-selector {:phase :bootstrap}} "/staking")))))
+    (is (true? (route-refresh/spot-catalog-markets-needed? {} "/subAccounts"))))
+  (testing "no-op once spot metadata has loaded"
+    (is (false? (route-refresh/spot-catalog-markets-needed?
+                 {:spot {:meta {:tokens []}}} "/trade")))
+    (is (false? (route-refresh/spot-catalog-markets-needed?
+                 {:spot {:meta {:tokens []}}} "/subAccounts"))))
+  (testing "no-op while a catalog load is already in flight"
+    ;; `begin-asset-selector-load` sets :loading? in the same synchronous swap!
+    ;; as the phase, so this dedupes the route-change bucket against the
+    ;; post-render :idle bucket.
+    (is (false? (route-refresh/spot-catalog-markets-needed?
+                 {:asset-selector {:loading? true}} "/trade")))
+    (is (false? (route-refresh/spot-catalog-markets-needed?
+                 {:asset-selector {:loading? true}} "/subAccounts"))))
+  (testing "a failed load stays retryable instead of latching off"
+    ;; Regression: the gate used to read `(not= :full phase)`. The phase is
+    ;; advanced before the request and `apply-asset-selector-error` never rolls
+    ;; it back, so one rejected load (an /info rate limit, say) made every later
+    ;; demand path a permanent no-op for the rest of the page's life.
+    (is (true? (route-refresh/spot-catalog-markets-needed?
+                {:asset-selector {:phase :full :loading? false}
+                 :spot {:meta nil}}
+                "/subAccounts")))
+    (is (true? (route-refresh/spot-catalog-markets-needed?
+                {:asset-selector {:phase :full :loading? false}
+                 :spot {:meta nil}}
+                "/trade"))))
+  (testing "routes without spot instruments never request the full catalog from here"
+    (is (false? (route-refresh/spot-catalog-markets-needed? {} "/leaderboard")))
+    (is (false? (route-refresh/spot-catalog-markets-needed? {} "/staking")))))
 
 (deftest current-route-refresh-effects-loads-portfolio-vault-benchmark-support-test
   (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

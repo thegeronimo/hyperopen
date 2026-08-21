@@ -20,11 +20,20 @@
 (defn- base-state []
   {:wallet {:address owner-address}
    :webdata2 {:clearinghouseState {:marginSummary {:accountValue "999.99"}}}
-   :spot {:clearinghouse-state {:balances [{:coin "USDC"
-                                             :total "50.50"}
-                                            {:coin "USDH"
-                                             :token "USDH:0xabc"
-                                             :total "8.25"}]}}
+   ;; Production shape. A `spotClearinghouseState` balance row carries `:token`
+   ;; as a NUMERIC INDEX; the `NAME:0x<hash>` wire token id exists only in
+   ;; spotMeta, joined by index. Fixtures that put a prejoined wire id in the
+   ;; balance row let `resolve-with` short-circuit on its first clause and hid a
+   ;; production bug where `[:spot :meta]` was never populated at all.
+   :spot {:meta {:tokens [{:name "USDC" :index 0 :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"}
+                          {:name "USDH" :index 34 :tokenId "0xabc"}
+                          {:name "MEOW" :index 77 :tokenId "0xdef"}]}
+          :clearinghouse-state {:balances [{:coin "USDC"
+                                            :token 0
+                                            :total "50.50"}
+                                           {:coin "USDH"
+                                            :token 34
+                                            :total "8.25"}]}}
    :account-context
    {:subaccounts
     {:status :loaded
@@ -43,14 +52,14 @@
              :spot-state {:balances [{:coin "USDC"
                                        :total "250.25"}
                                       {:coin "MEOW"
-                                       :token "MEOW:0xdef"
+                                       :token 77
                                        :total "0.02"}]}}
             {:name "Ops"
              :master owner-address
              :sub-account-user other-subaccount-address
              :clearinghouse-state {:marginSummary {:accountValue "0"}}
              :spot-state {:balances [{:coin "MEOW"
-                                       :token "MEOW:0xdef"
+                                       :token 77
                                        :total "0.02"}]}}]
      :error nil
      :selected-address subaccount-address
@@ -427,6 +436,176 @@
     (is (nil? rename-button))
     (is (nil? transfer-button))))
 
+(deftest transfer-token-option-is-disabled-only-when-spot-metadata-is-missing-test
+  ;; Regression: this is the reported symptom. Hyperliquid names a spot token on
+  ;; the wire as `NAME:0x<hash>`, and spotMeta is the only source that joins a
+  ;; balance row's numeric token index to that id. When `[:spot :meta]` is nil
+  ;; the join fails for every token except USDC (which alone has a hard-coded
+  ;; mainnet constant to fall back on), so the dropdown listed the user's real
+  ;; HYPE balance as "unavailable" and refused to select it.
+  (let [open-token-menu (fn [state]
+                          (-> state
+                              (assoc-in [:account-context :subaccounts :transfer-direction] :withdraw)
+                              (assoc-in [:account-context :subaccounts :transfer-account] :spot)
+                              (assoc-in [:account-context :subaccounts :transfer-token-menu-open?] true)
+                              (assoc-in [:account-context :subaccounts :transferring-address]
+                                        other-subaccount-address)))
+        option-for (fn [state]
+                     (hiccup/find-by-data-role
+                      (view/subaccounts-view (open-token-menu state))
+                      (str "subaccounts-transfer-token-option-" other-subaccount-address "-MEOW:0xdef")))
+        resolved (option-for (base-state))
+        unresolved-menu (hiccup/find-by-data-role
+                         (view/subaccounts-view
+                          (open-token-menu (assoc-in (base-state) [:spot :meta] nil)))
+                         (str "subaccounts-transfer-token-menu-" other-subaccount-address))]
+    (is (some? resolved)
+        "With spotMeta loaded the balance index joins to a wire token id.")
+    (is (not (true? (get-in resolved [1 :disabled])))
+        "A resolved token must be selectable.")
+    (is (= [[:actions/set-subaccount-form-field :transfer-token "MEOW:0xdef"]]
+           (get-in resolved [1 :on :click]))
+        "Selecting it must carry the joined wire token id, never the bare index.")
+    (is (nil? (option-for (assoc-in (base-state) [:spot :meta] nil)))
+        "Without spotMeta the option cannot be keyed by a wire token id at all.")
+    (is (contains? (set (hiccup/collect-strings unresolved-menu)) "unavailable")
+        "Without spotMeta the token is listed but disabled, rather than hidden or signed with a rejected identifier.")))
+
+(deftest outcome-position-rows-are-not-offered-as-transferable-tokens-test
+  ;; Regression from live mainnet data (master 0x49208e12..., 2026-08-21):
+  ;; `spotClearinghouseState` returns outcome (prediction-market) positions in the
+  ;; same :balances array as real spot tokens. They carry NO :token field and have
+  ;; no spotMeta entry, so they can never resolve to a `NAME:0x<hash>` wire token
+  ;; id and can never travel the spot sendAsset path. Listing them disabled with a
+  ;; "refresh balances" hint promises a recovery that cannot happen; a real token
+  ;; that merely has not resolved yet must still be listed, because that IS
+  ;; transient.
+  (let [state (-> (base-state)
+                  (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
+                            [{:coin "USDC" :token 0 :total "0.00426478" :hold "0.0"}
+                             {:coin "HYPE" :token 150 :total "101.20315319" :hold "0.0"}
+                             {:coin "o458" :total "0.0" :hold "0.0"}
+                             {:coin "o459" :total "0.0" :hold "0.0"}])
+                  (assoc-in [:spot :meta :tokens]
+                            [{:name "USDC" :index 0 :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"}
+                             {:name "HYPE" :index 150 :tokenId "0x0d01dc56dcaaca66ad901c959b4011ec"}])
+                  (assoc-in [:account-context :subaccounts :transfer-direction] :deposit)
+                  (assoc-in [:account-context :subaccounts :transfer-account] :spot)
+                  (assoc-in [:account-context :subaccounts :transfer-token-menu-open?] true)
+                  (assoc-in [:account-context :subaccounts :transferring-address] subaccount-address))
+        menu (hiccup/find-by-data-role (view/subaccounts-view state)
+                                       (str "subaccounts-transfer-token-menu-" subaccount-address))
+        strings (set (hiccup/collect-strings menu))]
+    (is (contains? strings "HYPE")
+        "A real spot token resolves through spotMeta and is offered.")
+    (is (contains? strings "101.203153")
+        "It is offered with its real balance, not the word \"unavailable\".")
+    (is (not (contains? strings "o458"))
+        "Outcome positions are not spot tokens and must not be offered at all.")
+    (is (not (contains? strings "o459")))
+    (is (not (contains? strings "unavailable"))
+        "Nothing in this list is merely disabled: every offered row genuinely resolved.")
+    (is (contains? (set (hiccup/collect-strings
+                         (hiccup/find-by-data-role
+                          (view/subaccounts-view
+                           (assoc-in state
+                                     [:account-context :subaccounts :owner-snapshot :spot-state :balances]
+                                     [{:coin "USDC" :total "5.0" :hold "0"}
+                                      {:coin "o458" :total "0.0" :hold "0.0"}]))
+                          (str "subaccounts-transfer-token-menu-" subaccount-address))))
+                   "USDC")
+        "A row missing its index but still nameable (USDC has a known mainnet id) must survive the outcome-row exclusion.")))
+
+(defn- live-balance-state
+  "The reporting master's real balance mix (0x49208e12..., 2026-08-21): two
+   sendable tokens, four fully-withdrawn ones at exactly zero."
+  []
+  (-> (base-state)
+      (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
+                [{:coin "USDC" :token 0 :total "0.00426478" :hold "0.0"}
+                 {:coin "KHYPE" :token 121 :total "0.0" :hold "0.0"}
+                 {:coin "HYPE" :token 150 :total "101.20315319" :hold "0.0"}
+                 {:coin "USDT0" :token 268 :total "0.0" :hold "0.0"}
+                 {:coin "UENA" :token 338 :total "0.0" :hold "0.0"}
+                 {:coin "USDH" :token 360 :total "0.0" :hold "0.0"}])
+      (assoc-in [:spot :meta :tokens]
+                [{:name "USDC" :index 0 :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"}
+                 {:name "KHYPE" :index 121 :tokenId "0xbc8a"}
+                 {:name "HYPE" :index 150 :tokenId "0x0d01"}
+                 {:name "USDT0" :index 268 :tokenId "0x25fa"}
+                 {:name "UENA" :index 338 :tokenId "0x5934"}
+                 {:name "USDH" :index 360 :tokenId "0x54e0"}])
+      (assoc-in [:account-context :subaccounts :transfer-direction] :deposit)
+      (assoc-in [:account-context :subaccounts :transfer-account] :spot)
+      (assoc-in [:account-context :subaccounts :transfer-token-menu-open?] true)
+      (assoc-in [:account-context :subaccounts :transferring-address] subaccount-address)))
+
+(defn- token-menu-strings
+  [state]
+  (set (hiccup/collect-strings
+        (hiccup/find-by-data-role (view/subaccounts-view state)
+                                  (str "subaccounts-transfer-token-menu-" subaccount-address)))))
+
+(deftest token-dropdown-hides-zero-balance-tokens-until-the-user-asks-for-them-test
+  (let [hidden (token-menu-strings (live-balance-state))
+        shown (token-menu-strings (assoc-in (live-balance-state)
+                                            [:account-context :subaccounts :show-zero-balances?]
+                                            true))]
+    (is (contains? hidden "HYPE")
+        "A sendable balance is always offered.")
+    (is (contains? hidden "USDC"))
+    (is (not (contains? hidden "KHYPE"))
+        "A zero balance can never be sent (Send is disabled for it), so it is noise by default.")
+    (is (not (contains? hidden "USDT0")))
+    (is (not (contains? hidden "UENA")))
+    (is (not (contains? hidden "USDH")))
+    (is (every? shown ["USDC" "KHYPE" "HYPE" "USDT0" "UENA" "USDH"])
+        "Checking the box reveals every row, sendable or not.")))
+
+(deftest zero-balance-toggle-names-what-it-is-hiding-test
+  (let [view-node (view/subaccounts-view (live-balance-state))
+        label (hiccup/find-by-data-role
+               view-node (str "subaccounts-transfer-show-zero-label-" subaccount-address))
+        checkbox (hiccup/find-by-data-role
+                  view-node (str "subaccounts-transfer-show-zero-" subaccount-address))
+        checked-node (hiccup/find-by-data-role
+                      (view/subaccounts-view
+                       (assoc-in (live-balance-state)
+                                 [:account-context :subaccounts :show-zero-balances?] true))
+                      (str "subaccounts-transfer-show-zero-" subaccount-address))]
+    (is (contains? (set (hiccup/collect-strings label)) "Show 4 zero-balance tokens")
+        "Naming the count answers the question a shortened list provokes.")
+    (is (false? (get-in checkbox [1 :checked])))
+    (is (= [[:actions/set-subaccount-form-field :show-zero-balances? true]]
+           (get-in checkbox [1 :on :change])))
+    (is (true? (get-in checked-node [1 :checked])))
+    (is (= [[:actions/set-subaccount-form-field :show-zero-balances? false]]
+           (get-in checked-node [1 :on :change]))
+        "Once shown, the same control must turn them back off.")))
+
+(deftest zero-balance-toggle-is-absent-when-it-would-change-nothing-test
+  (let [all-sendable (-> (live-balance-state)
+                         (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
+                                   [{:coin "USDC" :token 0 :total "5.0" :hold "0.0"}
+                                    {:coin "HYPE" :token 150 :total "101.20315319" :hold "0.0"}]))]
+    (is (nil? (hiccup/find-by-data-role (view/subaccounts-view all-sendable)
+                                        (str "subaccounts-transfer-show-zero-" subaccount-address)))
+        "With nothing to hide the checkbox is clutter.")))
+
+(deftest all-zero-balances-still-render-rather-than-emptying-the-dropdown-test
+  ;; An empty dropdown would leave `selected-transfer-token` on its bare-symbol
+  ;; placeholder, and a bare symbol is not a sendable wire token id.
+  (let [all-zero (-> (live-balance-state)
+                     (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
+                               [{:coin "USDC" :token 0 :total "0.0" :hold "0.0"}
+                                {:coin "HYPE" :token 150 :total "0.0" :hold "0.0"}]))
+        strings (token-menu-strings all-zero)]
+    (is (contains? strings "USDC"))
+    (is (contains? strings "HYPE"))
+    (is (nil? (hiccup/find-by-data-role (view/subaccounts-view all-zero)
+                                        (str "subaccounts-transfer-show-zero-" subaccount-address)))
+        "The fallback shows everything, so the checkbox must not claim to hide rows that are on screen.")))
+
 (deftest unified-subaccounts-transfer-popover-offers-a-single-spot-option-test
   (let [view-node (view/subaccounts-view
                    (-> (base-state)
@@ -437,7 +616,7 @@
                                    :total "301.12859"
                                    :hold "0"}
                                   {:coin "USDH"
-                                   :token "USDH:0xabc"
+                                   :token 34
                                    :total "8.25"}])
                        (assoc-in [:webdata2 :clearinghouseState]
                                  {:withdrawable "0.01"

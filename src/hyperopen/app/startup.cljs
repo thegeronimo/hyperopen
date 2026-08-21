@@ -207,13 +207,14 @@
                   (not (surface-modules/surface-loading? state :account-surfaces)))
              (conj [:effects/load-surface-module :account-surfaces])
 
-             ;; The account-info panel can list spot instruments, whose readable
-             ;; names only resolve from the full (spot-inclusive) market catalog.
-             ;; Bootstrap loads perps only, so request the full catalog as a
-             ;; demand path here. Deferred on the initial route change (handled by
-             ;; the post-render :idle bucket) to keep it out of the paint window.
+             ;; Several routes render spot instruments whose readable names and
+             ;; wire token ids only resolve from the full (spot-inclusive) market
+             ;; catalog. Bootstrap loads perps only, so request the full catalog
+             ;; as a demand path here. Deferred on the initial route change
+             ;; (handled by the post-render :idle bucket) to keep it out of the
+             ;; paint window.
              (and (not defer-account-surfaces?)
-                  (route-refresh/account-info-markets-needed? state normalized-path))
+                  (route-refresh/spot-catalog-markets-needed? state normalized-path))
              (conj [:effects/fetch-asset-selector-markets {:phase :full}])
 
              account-tab-module-effect
@@ -248,10 +249,11 @@
        (conj [:effects/load-surface-module :account-surfaces])
 
        ;; Initial-load counterpart to the demand path in `route-change-effects`:
-       ;; pull the full (spot-inclusive) market catalog after first paint so the
-       ;; account-info panel can resolve spot coins (e.g. @230 -> USDH) instead of
-       ;; showing raw provider symbols. Idle-scheduled to stay off the TBT window.
-       (route-refresh/account-info-markets-needed? state normalized-path)
+       ;; pull the full (spot-inclusive) market catalog after first paint so spot
+       ;; coins resolve to readable names (e.g. @230 -> USDH) and to the
+       ;; `NAME:0x<hash>` wire token ids sub-account transfers must sign.
+       ;; Idle-scheduled to stay off the TBT window.
+       (route-refresh/spot-catalog-markets-needed? state normalized-path)
        (conj [:effects/fetch-asset-selector-markets {:phase :full}])
 
        account-tab-module-effect
