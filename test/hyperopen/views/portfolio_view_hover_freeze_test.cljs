@@ -1,5 +1,7 @@
 (ns hyperopen.views.portfolio-view-hover-freeze-test
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
+            [hyperopen.account-tab-modules :as account-tab-modules]
+            [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.chart.d3.hover-state :as chart-hover-state]
             [hyperopen.views.portfolio-view :as portfolio-view]
             [hyperopen.views.portfolio.test-support :refer [sample-state]]))
@@ -55,3 +57,28 @@
     (let [updated-view (portfolio-view/portfolio-view updated-state)]
       (is (true? (tab-pressed? updated-view "portfolio-chart-tab-pnl")))
       (is (not (true? (tab-pressed? updated-view "portfolio-chart-tab-account-value")))))))
+
+(deftest portfolio-view-repaints-account-table-when-lazy-tab-chunk-lands-during-hover-test
+  (let [route "/portfolio-hover-lazy-tab-test"
+        base-state (-> sample-state
+                       (assoc :router {:path route})
+                       (assoc :account-tab-modules (account-tab-modules/default-state)))
+        loading (account-tab-modules/mark-account-tab-module-loading base-state :open-orders)
+        loaded (account-tab-modules/mark-account-tab-module-loaded loading :open-orders)
+        calls (atom 0)]
+    (with-redefs [account-info-view/account-info-view
+                  ;; account-info-view is multi-arity and the call site dispatches
+                  ;; on arity 2, so the stub has to declare both arities.
+                  (fn
+                    ([_state]
+                     (swap! calls inc)
+                     [:div {:data-role "stub-account-info"}])
+                    ([_state _options]
+                     (swap! calls inc)
+                     [:div {:data-role "stub-account-info"}]))]
+      (portfolio-view/portfolio-view loading)
+      (is (= 1 @calls) "first render should build the account table exactly once")
+      (chart-hover-state/set-surface-hover-active! :portfolio true)
+      (portfolio-view/portfolio-view loaded)
+      (is (= 2 @calls)
+          "hover cache must not hold back an account tab chunk that just arrived"))))

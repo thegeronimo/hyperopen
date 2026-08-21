@@ -96,7 +96,11 @@
 
 (defn load-account-tab-module-effect
   [_ store tab]
-  (account-tab-modules/load-account-tab-module! store tab))
+  ;; The failure is already recorded in app-db and surfaced by the panel as a
+  ;; retryable error, so swallow the rejection here rather than letting it
+  ;; surface as an unhandled promise rejection in the console.
+  (-> (account-tab-modules/load-account-tab-module! store tab)
+      (.catch (fn [_err] nil))))
 
 (defn load-trade-chart-module-effect
   [_ store]

@@ -705,6 +705,7 @@
             [hyperopen.views.subaccounts-view-test]
             [hyperopen.views.trade-view.layout-state-test]
             [hyperopen.views.trade-view.layout-test]
+            [hyperopen.views.trade-view.lazy-tab-module-repaint-test]
             [hyperopen.views.trade-view.loading-shell-test]
             [hyperopen.views.trade-view.mobile-surface-test]
             [hyperopen.views.trade-view.render-cache-test]
@@ -1570,6 +1571,7 @@
              'hyperopen.views.subaccounts-view-test
              'hyperopen.views.trade-view.layout-state-test
              'hyperopen.views.trade-view.layout-test
+             'hyperopen.views.trade-view.lazy-tab-module-repaint-test
              'hyperopen.views.trade-view.loading-shell-test
              'hyperopen.views.trade-view.mobile-surface-test
              'hyperopen.views.trade-view.render-cache-test

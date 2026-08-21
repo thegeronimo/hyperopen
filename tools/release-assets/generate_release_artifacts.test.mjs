@@ -211,6 +211,8 @@ async function writeReleaseFixture(
   );
   const lazyRouteModuleNames = [
     "account_surfaces",
+    "account_orders",
+    "account_positions_outcomes",
     "charts_shared",
     "portfolio_route",
     "leaderboard_route",
@@ -697,6 +699,28 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     generatedPortfolio,
     /<link rel="preload" as="script" href="\/js\/trade_chart\.CHUNK\.js"/
   );
+  // Account tab chunks are prefetched (lowest browser priority, no `as`), never
+  // preloaded: a preload here would compete with first paint.
+  assert.match(
+    generatedTrade,
+    /<link rel="prefetch" href="\/js\/account_orders\.CHUNK\.js" data-hyperopen-perf="module-prefetch" \/>/
+  );
+  assert.match(
+    generatedTrade,
+    /<link rel="prefetch" href="\/js\/account_positions_outcomes\.CHUNK\.js" data-hyperopen-perf="module-prefetch" \/>/
+  );
+  assert.match(
+    generatedPortfolio,
+    /<link rel="prefetch" href="\/js\/account_orders\.CHUNK\.js" data-hyperopen-perf="module-prefetch" \/>/
+  );
+  assert.doesNotMatch(
+    generatedTrade,
+    /<link rel="preload"[^>]*href="\/js\/account_orders\.CHUNK\.js"/
+  );
+  assert.doesNotMatch(
+    generatedApi,
+    /<link rel="prefetch" href="\/js\/account_orders\.CHUNK\.js"/
+  );
 
   assert.equal(
     extractTitle(generatedTrade),
@@ -800,6 +824,8 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
   assert.equal(siteMetadata.routes.find((route) => route.id === "api")?.path, "/api");
   assert.deepEqual(result.immutableAssetPaths, [
     `/css/${result.cssFileName}`,
+    "/js/account_orders.CHUNK.js",
+    "/js/account_positions_outcomes.CHUNK.js",
     "/js/account_surfaces.CHUNK.js",
     "/js/api_wallets_route.CHUNK.js",
     "/js/charts_shared.CHUNK.js",
@@ -812,6 +838,8 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     "/js/vaults_route.CHUNK.js",
   ]);
   assert.deepEqual(result.releaseJavaScriptFiles, [
+    "account_orders.CHUNK.js",
+    "account_positions_outcomes.CHUNK.js",
     "account_surfaces.CHUNK.js",
     "api_wallets_route.CHUNK.js",
     "charts_shared.CHUNK.js",

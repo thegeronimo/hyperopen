@@ -550,8 +550,20 @@ export const ROUTE_PRELOAD_MODULE_IDS = {
   api: ["api_wallets_route"],
 };
 
-export function resolveModulePreloadHrefs(routeMetadata, moduleLoader) {
-  const moduleIds = ROUTE_PRELOAD_MODULE_IDS[routeMetadata?.id] || [];
+// Account tab bodies load lazily on first click. Warming the two hottest chunks
+// removes that fetch from the click path. These are `prefetch`, not `preload`:
+// prefetch is dispatched at the browser's lowest priority and costs no
+// main-thread time, so it cannot compete with first paint the way a preload
+// would. `as` is deliberately omitted -- the module loader later requests these
+// as scripts through its own path, and reuse here is mediated by the HTTP cache
+// (these assets are served immutable), not by the preload cache.
+export const ROUTE_PREFETCH_MODULE_IDS = {
+  trade: ["account_orders", "account_positions_outcomes"],
+  portfolio: ["account_orders", "account_positions_outcomes"],
+};
+
+function resolveModuleHrefs(routeMetadata, moduleLoader, moduleIdsByRoute, hintName) {
+  const moduleIds = moduleIdsByRoute[routeMetadata?.id] || [];
   const moduleUris = moduleLoader?.["module-uris"] || {};
   const hrefs = [];
 
@@ -559,7 +571,7 @@ export function resolveModulePreloadHrefs(routeMetadata, moduleLoader) {
     const uris = moduleUris[moduleId];
     if (!Array.isArray(uris) || uris.length === 0) {
       throw new Error(
-        `Route "${routeMetadata?.id}" preloads module "${moduleId}" but module-loader.json has no URI for it.`
+        `Route "${routeMetadata?.id}" ${hintName}s module "${moduleId}" but module-loader.json has no URI for it.`
       );
     }
 
@@ -571,6 +583,24 @@ export function resolveModulePreloadHrefs(routeMetadata, moduleLoader) {
   return hrefs;
 }
 
+export function resolveModulePreloadHrefs(routeMetadata, moduleLoader) {
+  return resolveModuleHrefs(
+    routeMetadata,
+    moduleLoader,
+    ROUTE_PRELOAD_MODULE_IDS,
+    "preload"
+  );
+}
+
+export function resolveModulePrefetchHrefs(routeMetadata, moduleLoader) {
+  return resolveModuleHrefs(
+    routeMetadata,
+    moduleLoader,
+    ROUTE_PREFETCH_MODULE_IDS,
+    "prefetch"
+  );
+}
+
 export function buildRoutePerformanceHintsMarkup(routeMetadata, moduleLoader) {
   const preconnectLinks = PRECONNECT_ORIGINS.map(
     (origin) =>
@@ -580,6 +610,10 @@ export function buildRoutePerformanceHintsMarkup(routeMetadata, moduleLoader) {
     (href) =>
       `<link rel="preload" as="script" href="${escapeHtmlAttribute(href)}" data-hyperopen-perf="module-preload" />`
   );
+  const prefetchLinks = resolveModulePrefetchHrefs(routeMetadata, moduleLoader).map(
+    (href) =>
+      `<link rel="prefetch" href="${escapeHtmlAttribute(href)}" data-hyperopen-perf="module-prefetch" />`
+  );
   const fontPreloadLinks = [
     "/fonts/InterVariable.woff2",
     "/fonts/JetBrainsMono-Regular.woff2",
@@ -588,5 +622,10 @@ export function buildRoutePerformanceHintsMarkup(routeMetadata, moduleLoader) {
       `<link rel="preload" as="font" type="font/woff2" href="${href}" crossorigin data-hyperopen-perf="font-preload" />`
   );
 
-  return [...preconnectLinks, ...fontPreloadLinks, ...preloadLinks].join("\n");
+  return [
+    ...preconnectLinks,
+    ...fontPreloadLinks,
+    ...preloadLinks,
+    ...prefetchLinks,
+  ].join("\n");
 }

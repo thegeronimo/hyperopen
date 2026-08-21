@@ -50,6 +50,11 @@
         fee-schedule-cache-key (:open? fee-schedule-model)
         hover-active? (chart-hover-state/surface-hover-active? :portfolio)
         volume-history-open? (true? (get-in state [:portfolio-ui :volume-history-open?]))
+        ;; :sections contains the whole account table, whose tabs load their code
+        ;; lazily. Without this term a chunk that lands while the chart is hovered
+        ;; would be held out of the cached sections and the tab would stay on its
+        ;; pending state.
+        account-tab-modules (:account-tab-modules state)
         cached-entry @portfolio-view-cache
         sections (when-not optimizer-route?
                    (if (and hover-active?
@@ -57,12 +62,14 @@
                             (false? (:volume-history-open? cached-entry))
                             (= route (:route cached-entry))
                             (= fee-schedule-cache-key (:fee-schedule-cache-key cached-entry))
+                            (= account-tab-modules (:account-tab-modules cached-entry))
                             (map? (:sections cached-entry)))
                      (:sections cached-entry)
                      (let [next-sections (build-portfolio-view-sections state fee-schedule-model)]
                        (reset! portfolio-view-cache {:route route
                                                     :volume-history-open? volume-history-open?
                                                     :fee-schedule-cache-key fee-schedule-cache-key
+                                                    :account-tab-modules account-tab-modules
                                                     :sections next-sections})
                        next-sections)))]
     (if optimizer-route?

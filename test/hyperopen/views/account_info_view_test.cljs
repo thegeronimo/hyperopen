@@ -144,7 +144,7 @@
       (is (contains? strings "Active (1)"))
       (is (not (contains? strings "TWAP coming soon"))))))
 
-(deftest account-info-panel-shows-loading-spinner-while-a-lazy-tab-module-is-pending-test
+(deftest account-info-panel-names-the-tab-while-a-lazy-tab-module-is-pending-test
   (with-redefs [account-tab-modules/tab-ready? (constantly false)
                 account-tab-modules/tab-loading? (fn [_state tab]
                                                    (= :positions tab))
@@ -152,10 +152,31 @@
     (let [panel (view/account-info-panel (assoc-in fixtures/sample-account-info-state
                                                    [:account-info :selected-tab]
                                                    :positions))
-          spinner (hiccup/find-first-node panel #(contains? (hiccup/node-class-set %) "animate-spin"))
+          pending (hiccup/find-by-data-role panel "account-tab-loading")
           strings (set (hiccup/collect-strings panel))]
-      (is (some? spinner))
+      (is (some? pending) "pending state must be findable by data-role")
+      (is (= "status" (get-in pending [1 :role]))
+          "pending state must be announced to assistive technology")
+      (is (= "polite" (get-in pending [1 :aria-live])))
+      (is (contains? strings "Loading Positions...")
+          "pending state must name the tab rather than showing an anonymous spinner")
       (is (not (contains? strings "No active positions"))))))
+
+(deftest account-info-panel-offers-retry-when-a-lazy-tab-module-fails-test
+  (with-redefs [account-tab-modules/tab-ready? (constantly false)
+                account-tab-modules/tab-loading? (constantly false)
+                account-tab-modules/resolved-tab-renderer (constantly nil)
+                account-tab-modules/tab-error (fn [_state _tab] "network error")]
+    (let [panel (view/account-info-panel (assoc-in fixtures/sample-account-info-state
+                                                   [:account-info :selected-tab]
+                                                   :positions))
+          failure (hiccup/find-by-data-role panel "account-tab-error")
+          retry (hiccup/find-by-data-role panel "account-tab-error-retry")]
+      (is (some? failure))
+      (is (= "alert" (get-in failure [1 :role])))
+      (is (= [[:actions/select-account-info-tab :positions]]
+             (get-in retry [1 :on :click]))
+          "retry must re-dispatch tab selection, which re-fires the module load"))))
 
 (deftest format-pnl-percentage-renders-signed-and-neutral-states-test
   (let [positive (view/format-pnl-percentage "1.234")
