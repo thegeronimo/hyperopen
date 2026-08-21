@@ -166,7 +166,7 @@
                                              :spot {}
                                              :perp-dex-clearinghouse {}})]
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Summary"))))
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Value"))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Portfolio Value"))))
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Ratio"))))
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Perps Maintenance Margin"))))
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Leverage"))))
@@ -206,7 +206,7 @@
                                              :perp-dex-clearinghouse {}})]
     (is (some? (find-first-node view-node
                                 #(contains? (direct-texts %)
-                                            "Unified Account Leverage = Total Perp Positions Value / Total Collateral Balance. Counts cross and isolated positions together, because both draw margin from the same unified collateral. Perp positions only; spot holdings are not counted as exposure here."))))))
+                                            "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance. Isolated positions are excluded: each carries its own margin and liquidates on its own."))))))
 
 (deftest classic-account-equity-renders-classic-account-value-label-test
   (let [view-node (view/account-equity-view {:account {:mode :classic}
@@ -214,7 +214,7 @@
                                              :spot {}
                                              :perp-dex-clearinghouse {}})]
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Account Value"))))
-    (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Value"))))))
+    (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Portfolio Value"))))))
 
 (deftest account-equity-view-can-hide-inline-funding-actions-test
   (let [view-node (view/account-equity-view {:account {:mode :classic}
@@ -372,7 +372,7 @@
                                              :perp-dex-clearinghouse {}})
         placeholder-node (find-first-node view-node #(contains? (direct-texts %) "--"))]
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Summary"))))
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Unified Account Value"))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Portfolio Value"))))
     (is (some? placeholder-node))
     (is (contains? (node-class-set placeholder-node) "text-trading-text-secondary"))))
 
@@ -562,8 +562,15 @@
             coins @resolver-coins]
         (is (approx= 500.0 (:portfolio-value metrics)))
         (is (approx= (/ 1.0 380.0) (:unified-account-ratio metrics)))
-        (is (approx= 3.5 (:maintenance-margin metrics)))
-        (is (approx= 0.375 (:unified-account-leverage metrics)))
+        ;; Cross only, matching the venue: base dex 0.0 + xyz 1.0. The
+        ;; isolated xyz:GOLD leg contributes nothing here and is reported
+        ;; separately as :isolated-notional.
+        (is (approx= 1.0 (:maintenance-margin metrics)))
+        ;; Cross notional 0 + 50 over 400 USDC of collateral. MEOW is not a
+        ;; perp collateral token anywhere, so it stays out of the denominator
+        ;; even though it counts toward portfolio value.
+        (is (approx= 0.125 (:unified-account-leverage metrics)))
+        (is (approx= 100.0 (:isolated-notional metrics)))
         (is (seq coins))
         (is (every? scalar-coin-value? coins))
         (is (not-any? map? coins))
