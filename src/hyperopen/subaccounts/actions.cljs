@@ -152,6 +152,11 @@
      [[:account-context :subaccounts :transfer-account-menu-open?] false]
      [[:account-context :subaccounts :transfer-token] "USDC"]
      [[:account-context :subaccounts :transfer-token-menu-open?] false]
+     ;; View preference for the Send Tokens token list, not transfer data:
+     ;; defined here so a fresh route entry starts with the short list, but
+     ;; deliberately NOT reset by start/cancel-transfer, so a user who wants to
+     ;; see dust balances does not have to re-check it for every sub-account.
+     [[:account-context :subaccounts :show-zero-balances?] false]
      [[:account-context :subaccounts :selection-loaded?] false]]
     [[[:account-context :subaccounts :status] :idle]
      [[:account-context :subaccounts :loaded-for-owner] nil]
@@ -170,6 +175,11 @@
      [[:account-context :subaccounts :transfer-account-menu-open?] false]
      [[:account-context :subaccounts :transfer-token] "USDC"]
      [[:account-context :subaccounts :transfer-token-menu-open?] false]
+     ;; View preference for the Send Tokens token list, not transfer data:
+     ;; defined here so a fresh route entry starts with the short list, but
+     ;; deliberately NOT reset by start/cancel-transfer, so a user who wants to
+     ;; see dust balances does not have to re-check it for every sub-account.
+     [[:account-context :subaccounts :show-zero-balances?] false]
      [[:account-context :subaccounts :selection-loaded?] false]]))
 
 (defn load-subaccounts-route
@@ -201,20 +211,29 @@
    rendered rows visible (sets a `:refreshing?` flag instead of clearing rows
    and forcing `:loading`) and dispatches a force-refresh load that bypasses
    the single-flight/cache dedupe key, so a stale or stuck in-flight request
-   can never block recovery."
+   can never block recovery.
+
+   Also re-requests the full market catalog when spot metadata is missing. The
+   Send Tokens dialog disables any token it cannot name on the wire and tells the
+   user to refresh balances, but `:effects/api-refresh-subaccounts` only reloads
+   clearinghouse state — it never touches `[:spot :meta]`, so without this the
+   advertised remedy is a no-op and a failed catalog load is unrecoverable
+   without a page reload."
   [state]
   (let [master-address (viewed-master-address state)]
     (if-not (seq master-address)
       [[:effects/save [:account-context :subaccounts :error]
         missing-owner-message]]
-      [[:effects/save-many [[[:account-context :subaccounts :refreshing?] true]
-                            [[:account-context :subaccounts :loaded-for-owner] master-address]
-                            [[:account-context :subaccounts :owner-mode]
-                             (owner-mode-record state master-address)]
-                            [[:account-context :subaccounts :owner-snapshot]
-                             (owner-snapshot-record state master-address)]
-                            [[:account-context :subaccounts :error] nil]]]
-       [:effects/api-refresh-subaccounts]])))
+      (cond-> [[:effects/save-many [[[:account-context :subaccounts :refreshing?] true]
+                                    [[:account-context :subaccounts :loaded-for-owner] master-address]
+                                    [[:account-context :subaccounts :owner-mode]
+                                     (owner-mode-record state master-address)]
+                                    [[:account-context :subaccounts :owner-snapshot]
+                                     (owner-snapshot-record state master-address)]
+                                    [[:account-context :subaccounts :error] nil]]]
+               [:effects/api-refresh-subaccounts]]
+        (nil? (get-in state [:spot :meta]))
+        (conj [:effects/fetch-asset-selector-markets {:phase :full}])))))
 
 (defn- spectate-read-only-effect
   [state]

@@ -71,6 +71,8 @@
       "transfertoken" :transfer-token
       "transfertokenmenuopen?" :transfer-token-menu-open?
       "transfertokenmenuopen" :transfer-token-menu-open?
+      "showzerobalances?" :show-zero-balances?
+      "showzerobalances" :show-zero-balances?
       nil)))
 
 (defn- normalize-transfer-direction
@@ -110,6 +112,7 @@
     :transfer-account (effective-transfer-account state value)
     :transfer-account-menu-open? (normalize-boolean value)
     :transfer-token-menu-open? (normalize-boolean value)
+    :show-zero-balances? (normalize-boolean value)
     (str (or value ""))))
 
 (defn set-subaccount-form-field

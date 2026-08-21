@@ -131,6 +131,7 @@
                                  [[:account-context :subaccounts :transfer-account-menu-open?] false]
                                  [[:account-context :subaccounts :transfer-token] "USDC"]
                                  [[:account-context :subaccounts :transfer-token-menu-open?] false]
+                                 [[:account-context :subaccounts :show-zero-balances?] false]
                                  [[:account-context :subaccounts :selection-loaded?] false]]]]
            effects))
     (is (= :idle (path-value effects [:account-context :subaccounts :status])))))
@@ -185,6 +186,27 @@
     (is (nil? (path-value effects [:account-context :subaccounts :rows]))
         "Refresh must not clear the rendered rows.")
     (is (= [:effects/api-refresh-subaccounts] (second effects)))))
+
+(deftest refresh-subaccounts-reloads-spot-metadata-when-missing-test
+  ;; Regression: the Send Tokens dialog disables any token it cannot name on the
+  ;; wire and tells the user to refresh balances, but
+  ;; `:effects/api-refresh-subaccounts` only reloads clearinghouse state — it
+  ;; never touches `[:spot :meta]`. Without this the advertised remedy was a
+  ;; guaranteed no-op and a failed catalog load could not be recovered from
+  ;; without a full page reload.
+  (let [state {:wallet {:address owner-address}
+               :account-context {:subaccounts {:status :loaded
+                                               :loaded-for-owner owner-address
+                                               :rows []}}}
+        missing-meta (actions/refresh-subaccounts state)
+        loaded-meta (actions/refresh-subaccounts
+                     (assoc state :spot {:meta {:tokens []}}))]
+    (is (= [:effects/fetch-asset-selector-markets {:phase :full}]
+           (last missing-meta)))
+    (is (not-any? #{:effects/fetch-asset-selector-markets} (map first loaded-meta))
+        "Once spot metadata is loaded, Refresh must not re-request the catalog.")
+    (is (= [:effects/api-refresh-subaccounts] (second loaded-meta))
+        "The ordinary refresh path is unchanged.")))
 
 (deftest refresh-subaccounts-requires-connected-owner-test
   (is (= [[:effects/save [:account-context :subaccounts :error]
@@ -271,6 +293,22 @@
          (actions/set-subaccount-form-field {} :transfer-token-menu-open? true)))
   (is (= []
          (actions/set-subaccount-form-field {} :unknown "value"))))
+
+(deftest show-zero-balances-is-stored-as-a-boolean-and-leaves-the-menu-open-test
+  ;; The default branch of `normalize-form-value` stringifies, which would store
+  ;; "false" -- truthy in CLJS -- and pin the list permanently open. And unlike
+  ;; the token/account fields, this one must NOT close the dropdown: the user
+  ;; toggles it from inside the open menu to reveal the rows it is hiding.
+  (is (= [[:effects/save-many [[[:account-context :subaccounts :show-zero-balances?] true]
+                                [[:account-context :subaccounts :error] nil]]]]
+         (actions/set-subaccount-form-field {} :show-zero-balances? true)))
+  (is (= [[:effects/save-many [[[:account-context :subaccounts :show-zero-balances?] false]
+                                [[:account-context :subaccounts :error] nil]]]]
+         (actions/set-subaccount-form-field {} :show-zero-balances? false)))
+  (is (= [[:effects/save-many [[[:account-context :subaccounts :show-zero-balances?] true]
+                                [[:account-context :subaccounts :error] nil]]]]
+         (actions/set-subaccount-form-field {} "showZeroBalances" "true"))
+      "The wire/string form normalizes the same way every other boolean field does."))
 
 (deftest unified-subaccount-transfer-account-selection-resolves-to-spot-test
   (is (= [[:effects/save-many [[[:account-context :subaccounts :transfer-account] :spot]

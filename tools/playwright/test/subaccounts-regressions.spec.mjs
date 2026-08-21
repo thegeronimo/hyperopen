@@ -639,6 +639,58 @@ test("subaccounts transfer offers every spot token for unified accounts @regress
     .toContainText("MAX: 8.28 USDH");
 });
 
+test("send tokens hides zero-balance tokens behind an opt-in checkbox @regression", async ({
+  page
+}) => {
+  await interceptSubaccountsApi(page);
+  await visitRoute(page, "/subAccounts");
+  await seedSubaccountsState(page, { accountMode: "unified" });
+
+  await page.locator(`[data-role="subaccounts-transfer-${subaccountAddress}"]`).click();
+  await seedAccountSurface(page, { accountMode: "unified" });
+  await page.locator(`[data-role="subaccounts-transfer-token-${subaccountAddress}"]`).click();
+
+  const tokenMenu = page.locator(`[data-role="subaccounts-transfer-token-menu-${subaccountAddress}"]`);
+  await expect(tokenMenu).toBeVisible();
+
+  // The seeded master holds USDC and USDH with real balances and STAR at zero.
+  // A zero balance can never be sent -- Send is disabled for it -- so it is
+  // noise until the user opts in.
+  await expect(tokenMenu).toContainText("USDC");
+  await expect(tokenMenu).toContainText("USDH");
+  await expect(tokenMenu).not.toContainText("STAR");
+
+  const toggle = page.locator(`[data-role="subaccounts-transfer-show-zero-${subaccountAddress}"]`);
+  await expect(toggle).toBeVisible();
+  await expect(toggle).not.toBeChecked();
+  await expect(
+    page.locator(`[data-role="subaccounts-transfer-show-zero-label-${subaccountAddress}"]`)
+  ).toContainText("Show 1 zero-balance token");
+
+  // The toggle sits in the dialog body, so it is reachable whether the dropdown
+  // is open or not -- and toggling it must not close an open dropdown, which is
+  // why the field leaves both menu flags alone.
+  await toggle.click();
+  await expect(tokenMenu).toBeVisible();
+  await expect(toggle).toBeChecked();
+  await expect(tokenMenu).toContainText("STAR");
+
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(tokenMenu).toBeVisible();
+  await expect(tokenMenu).not.toContainText("STAR");
+
+  // The surviving rows are still fully selectable, so filtering has not
+  // disturbed the wire token id the transfer actually signs.
+  const usdhOption = page.locator(
+    `[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`
+  );
+  await expect(usdhOption).toHaveCount(1);
+  await usdhOption.click();
+  await expect(page.locator(`[data-role="subaccounts-transfer-max-${subaccountAddress}"]`))
+    .toContainText("MAX: 8.28 USDH");
+});
+
 test("unified subaccounts transfer submits sendAsset instead of subAccountTransfer @regression", async ({
   page
 }) => {
