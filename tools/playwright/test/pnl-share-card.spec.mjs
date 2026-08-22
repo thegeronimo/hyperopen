@@ -196,6 +196,40 @@ test.describe("pnl share card", () => {
     await expect(counter).toHaveText("2/280");
   });
 
+  test("size and wallet are off by default and stay one click away @regression", async ({
+    page
+  }) => {
+    await openShareCard(page, WINNING_POSITION);
+
+    const sizeToggle = page.locator(
+      "[data-role='pnl-share-field-toggle'][data-field='show-size?']"
+    );
+    const walletToggle = page.locator(
+      "[data-role='pnl-share-field-toggle'][data-field='show-handle?']"
+    );
+
+    await expect(sizeToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(walletToggle).toHaveAttribute("aria-pressed", "false");
+
+    let texts = await cardText(page);
+    expect(texts.join(" ")).not.toContain("41.2 SOL");
+    expect(texts.join(" ")).not.toContain("0x");
+    expect(texts, "the fields that are on still are").toContain("$142.08");
+
+    await sizeToggle.click();
+    await expect(sizeToggle).toHaveAttribute("aria-pressed", "true");
+    texts = await cardText(page);
+    expect(texts.join(" ")).toContain("41.2 SOL");
+
+    // The wallet toggle flips, but this spec runs with no wallet connected, so
+    // there is no address to draw. That the card stays blank rather than
+    // printing a placeholder is the behaviour worth pinning here; the unit
+    // suite covers the address itself.
+    await walletToggle.click();
+    await expect(walletToggle).toHaveAttribute("aria-pressed", "true");
+    expect((await cardText(page)).join(" ")).not.toContain("0x");
+  });
+
   test("the real coin icon is embedded, not linked @regression", async ({ page }) => {
     await stubCoinIcons(page);
     await openShareCard(page, WINNING_POSITION);

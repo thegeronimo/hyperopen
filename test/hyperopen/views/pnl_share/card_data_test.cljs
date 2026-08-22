@@ -46,7 +46,7 @@
     (is (= "$142.08" (:entry-price-text data))
         "the card quotes prices exactly as the Positions row does")
     (is (= "$168.90" (:mark-price-text data)))
-    (is (= "41.2 SOL" (:size-text data)))
+    (is (nil? (:size-text data)) "size is off unless asked for")
     (is (nil? (:loss-pill data)))
     (is (= "UNREALIZED P&L" (:roe-label data))
         "the card must say the figure is unrealized: the position is still open")
@@ -120,20 +120,33 @@
   (is (= "hyperopen.xyz"
          (:site-label (card {} {:site-origin nil})))))
 
+(deftest size-and-wallet-are-off-until-switched-on
+  (testing "off by default"
+    (let [data (card {})]
+      (is (nil? (:size-text data)))
+      (is (nil? (:handle-text data)))))
+  (testing "and available when asked for"
+    (let [data (card {} {:options {:show-size? true :show-handle? true}})]
+      (is (= "41.2 SOL" (:size-text data)))
+      (is (= "0x1234…5678" (:handle-text data))))))
+
 (deftest toggled-off-fields-are-absent-rather-than-blank
   (let [data (card {} {:options {:show-prices? false
+                                 :show-size? false
                                  :show-funding? false
                                  :show-handle? false}})]
     (is (nil? (:entry-price-text data)))
     (is (nil? (:mark-price-text data)))
     (is (nil? (:funding-text data)))
     (is (nil? (:handle-text data)))
+    (is (nil? (:size-text data)))
     (testing "the fields that are not toggleable survive"
       (is (some? (:roe-text data)))
-      (is (some? (:size-text data))))))
+      (is (some? (:coin-label data)))
+      (is (some? (:timestamp-text data))))))
 
 (deftest handle-is-a-short-address-and-never-a-truncated-nonsense-string
-  (is (= "0x1234…5678" (:handle-text (card {}))))
+  (is (= "0x1234…5678" (:handle-text (card {} {:options {:show-handle? true}}))))
   (is (nil? (card-data/short-address "0xabc")))
   (is (nil? (card-data/short-address nil))))
 

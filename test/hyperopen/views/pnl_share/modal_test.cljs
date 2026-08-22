@@ -89,19 +89,32 @@
                                "pnl-share-template-option")]
     (is (= ["false" "true"] (mapv #(:aria-pressed (second %)) options)))))
 
+(defn- toggle-by-field
+  [tree field]
+  (->> (nodes-by-role tree "pnl-share-field-toggle")
+       (filter #(= field (:data-field (second %))))
+       first))
+
 (deftest the-field-toggles-report-and-flip-their-state
-  (let [toggles (nodes-by-role (view) "pnl-share-field-toggle")]
-    (is (= ["show-prices?" "show-funding?" "show-handle?"]
+  (let [tree (view)
+        toggles (nodes-by-role tree "pnl-share-field-toggle")]
+    (is (= ["show-prices?" "show-size?" "show-funding?" "show-handle?"]
            (mapv #(:data-field (second %)) toggles)))
-    (is (every? #(= "true" (:aria-pressed (second %))) toggles))
+    (testing "the defaults are reported honestly: size and wallet start off"
+      (is (= ["true" "false" "true" "false"]
+             (mapv #(:aria-pressed (second %)) toggles))))
     (is (= [[:actions/set-pnl-share-option :show-prices? false]]
-           (get-in (second (first toggles)) [:on :click]))))
+           (get-in (second (first toggles)) [:on :click])))
+    (testing "an off toggle offers to turn itself on"
+      (is (= [[:actions/set-pnl-share-option :show-size? true]]
+             (get-in (second (toggle-by-field tree "show-size?")) [:on :click])))
+      (is (= [[:actions/set-pnl-share-option :show-handle? true]]
+             (get-in (second (toggle-by-field tree "show-handle?")) [:on :click])))))
   (testing "a toggled-off field reports itself off and offers to turn back on"
-    (let [off (nodes-by-role (view (state {:pnl-share {:open? true
-                                                       :position position
-                                                       :options {:show-funding? false}}}))
-                             "pnl-share-field-toggle")
-          funding (second off)]
+    (let [tree (view (state {:pnl-share {:open? true
+                                         :position position
+                                         :options {:show-funding? false}}}))
+          funding (toggle-by-field tree "show-funding?")]
       (is (= "false" (:aria-pressed (second funding))))
       (is (= [[:actions/set-pnl-share-option :show-funding? true]]
              (get-in (second funding) [:on :click]))))))

@@ -33,19 +33,31 @@
     (is (= position (get by-path [:pnl-share :position])))
     (is (= "" (get by-path [:pnl-share :caption])))
     (is (= :neon-arrow (get by-path [:pnl-share :template])))
-    (is (= {:show-prices? true :show-funding? true :show-handle? true}
-           (get by-path [:pnl-share :options])))))
+    (is (= {:show-prices? true :show-size? false :show-funding? true :show-handle? false}
+           (get by-path [:pnl-share :options]))
+        "size and wallet are opt-in, not opt-out")))
+
+(deftest the-default-card-shows-no-size-and-no-wallet
+  (let [defaults (actions/default-options)]
+    (is (true? (:show-prices? defaults)))
+    (is (true? (:show-funding? defaults)))
+    (is (false? (:show-size? defaults))
+        "position size is nobody else's business by default")
+    (is (false? (:show-handle? defaults))
+        "nor is the address holding it")))
 
 (deftest opening-keeps-the-template-and-toggles-the-trader-last-chose
   (let [sticky (state {:pnl-share {:template :number-hero
                                    :options {:show-prices? false
+                                             :show-size? true
                                              :show-funding? true
                                              :show-handle? false}}})
         [_ [_ saves]] (actions/open-pnl-share-card sticky position)
         by-path (into {} saves)]
     (is (= :number-hero (get by-path [:pnl-share :template])))
-    (is (= {:show-prices? false :show-funding? true :show-handle? false}
-           (get by-path [:pnl-share :options])))))
+    (is (= {:show-prices? false :show-size? true :show-funding? true :show-handle? false}
+           (get by-path [:pnl-share :options]))
+        "a trader who turned size on keeps it on next time")))
 
 (deftest opening-fetches-the-referral-code-only-when-it-is-missing
   (testing "not in state yet: the trade route never loads it"
@@ -96,6 +108,8 @@
       "an unknown template falls back rather than corrupting state")
   (is (= [[:effects/save [:pnl-share :options :show-funding?] false]]
          (actions/set-pnl-share-option (state) :show-funding? false)))
+  (is (= [[:effects/save [:pnl-share :options :show-size?] true]]
+         (actions/set-pnl-share-option (state) :show-size? true)))
   (is (= [] (actions/set-pnl-share-option (state) :not-a-control "x"))))
 
 (deftest the-caption-is-clipped-to-the-limit-x-actually-accepts

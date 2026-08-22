@@ -84,7 +84,9 @@
       (is (= "pnl-share-card-svg" (:data-role attrs))))))
 
 (deftest both-templates-print-the-same-numbers-from-the-same-data
-  (let [data (card-data-for {})
+  ;; Size is opt-in, so switch it on here: the point of this test is that the
+  ;; two templates agree on every value they both carry.
+  (let [data (card-data-for {} {:options {:show-size? true}})
         neon (strings (card-view/card-svg (assoc data :template :neon-arrow)))
         hero (strings (card-view/card-svg (assoc data :template :number-hero)))]
     (doseq [value ["+214.6%" "$142.08" "$168.90" "41.2 SOL"]]
@@ -153,12 +155,16 @@
              "sends no CORS header: " refs))))
 
 (deftest stat-cells-skip-what-cannot-be-derived
-  (is (= [["ENTRY" "$142.08"] ["MARK" "$168.90"] ["SIZE" "41.2 SOL"] ["FUNDING" "-$18.40"]]
+  (is (= [["ENTRY" "$142.08"] ["MARK" "$168.90"] ["FUNDING" "-$18.40"]]
          (number-hero/stat-cells (card-data-for {})))
-      "no opening fill is loaded, so HELD must be absent rather than zero")
+      "no opening fill is loaded so HELD is absent, and SIZE is off by default")
+  (is (= [["ENTRY" "$142.08"] ["MARK" "$168.90"] ["SIZE" "41.2 SOL"] ["FUNDING" "-$18.40"]]
+         (number-hero/stat-cells (card-data-for {} {:options {:show-size? true}}))))
   (is (= [["SIZE" "41.2 SOL"]]
          (number-hero/stat-cells
-          (card-data-for {} {:options {:show-prices? false :show-funding? false}})))))
+          (card-data-for {} {:options {:show-size? true
+                                       :show-prices? false
+                                       :show-funding? false}})))))
 
 (deftest monospace-width-maths-is-what-the-layout-depends-on
   (is (= 0 (svg/text-width "" 32)))

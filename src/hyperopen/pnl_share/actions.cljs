@@ -25,13 +25,19 @@
   :neon-arrow)
 
 (def toggle-keys
-  #{:show-prices? :show-funding? :show-handle?})
+  #{:show-prices? :show-size? :show-funding? :show-handle?})
 
 (defn default-options
+  "What a card shows before anyone touches the controls.
+
+   Size and wallet are off: a card is a boast about a return, and neither the
+   position's size nor the address that holds it is anyone else's business by
+   default. Both stay one click away."
   []
   {:show-prices? true
+   :show-size? false
    :show-funding? true
-   :show-handle? true})
+   :show-handle? false})
 
 (defn default-pnl-share-state
   []

@@ -37,7 +37,8 @@
                            :share-code
                            :claim-rewards})
 (s/def ::referrals-modal-args (s/tuple ::referrals-modal))
-(s/def ::pnl-share-option-key #{:template :caption :show-prices? :show-funding? :show-handle?})
+(s/def ::pnl-share-option-key
+  #{:template :caption :show-prices? :show-size? :show-funding? :show-handle?})
 (s/def ::pnl-share-option-args (s/tuple ::pnl-share-option-key any?))
 (s/def ::pnl-share-open-args (s/tuple map?))
 (s/def ::pnl-share-keydown-args (s/tuple (s/nilable string?)))

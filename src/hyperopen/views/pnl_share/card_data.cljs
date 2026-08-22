@@ -8,14 +8,15 @@
    docs/agent-guides/trading-ui-policy.md forbids showing a fake zero as real
    data, so a field with no honest value is simply absent from the card."
   (:require [clojure.string :as str]
+            [hyperopen.pnl-share.actions :as pnl-share-actions]
             [hyperopen.pnl-share.naming :as naming]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.shared :as shared]))
 
 (def default-options
-  {:show-prices? true
-   :show-funding? true
-   :show-handle? true})
+  "Defined once, in the actions namespace, so the card and the controls that
+   drive it can never disagree about what is on by default."
+  (pnl-share-actions/default-options))
 
 (def default-template
   :neon-arrow)
@@ -235,7 +236,8 @@
                          (shared/format-trade-price (:entry-price row-vm)))
      :mark-price-text (when (:show-prices? options*)
                         (:mark-price-display row-vm))
-     :size-text (shared/non-blank-text (:size-display row-vm))
+     :size-text (when (:show-size? options*)
+                  (shared/non-blank-text (:size-display row-vm)))
      :held-text (format-held held-ms)
      :funding-text (when (:show-funding? options*)
                      (shared/non-blank-text (:funding-display-text row-vm)))

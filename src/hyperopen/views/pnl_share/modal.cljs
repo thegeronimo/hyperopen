@@ -16,6 +16,7 @@
 
 (def ^:private toggle-controls
   [{:key :show-prices? :label "Entry / mark price"}
+   {:key :show-size? :label "Position size"}
    {:key :show-funding? :label "Funding paid"}
    {:key :show-handle? :label "My wallet"}])
 
@@ -86,7 +87,12 @@
    (section-label "Show on card")
    (into [:div {:class ["flex" "flex-col" "gap-1"]}]
          (map (fn [{:keys [key label]}]
-                (let [on? (not (false? (get options key)))]
+                ;; Merged against the defaults rather than treated as on-unless-
+                ;; false: size and wallet default OFF, so a missing key must read
+                ;; as off, not on.
+                (let [on? (true? (get (merge (pnl-share-actions/default-options)
+                                             (or options {}))
+                                      key))]
                   [:button {:type "button"
                             :data-role "pnl-share-field-toggle"
                             :data-field (name key)
