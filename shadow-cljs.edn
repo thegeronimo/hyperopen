@@ -1,4 +1,4 @@
-{:source-paths ["src" "test" "portfolio"]
+{:source-paths ["src" "test" "portfolio" "dev"]
  
  :dependencies [[no.cjohansen/portfolio "2026.03.1"]
                 [coderafting/memsearch "0.1.1"]
@@ -6,7 +6,12 @@
                 [no.cjohansen/nexus "2025.07.1"]
                 [org.clojure/test.check "1.1.1"]]
  
- :dev-http {8080 ["resources/public"]}
+ ;; One dev server, with the coin-icon route the share card needs. The build's
+ ;; own :devtools :http-port used to duplicate this on 8080, lose the race and
+ ;; silently come up on 8081 without the route -- an app that looked fine but
+ ;; served no /api.
+ :dev-http {8080 {:root "resources/public"
+                  :handler icon-proxy/handler}}
  
   :builds
  {:app {:target :browser
@@ -64,8 +69,6 @@
                                  :depends-on #{:charts_shared}}}
         :devtools {:preloads [hyperopen.telemetry.console-preload
                               hyperopen.dev.contracts-preload]
-                   :http-root "resources/public"
-                   :http-port 8080
                    :after-load hyperopen.core/reload}}
 
   :portfolio {:target :portfolio
