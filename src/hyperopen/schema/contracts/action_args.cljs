@@ -309,6 +309,14 @@
    :actions/select-portfolio-summary-time-range ::common/keyword-or-string-args
    :actions/select-portfolio-chart-tab ::common/keyword-or-string-args
    :actions/set-portfolio-account-info-tab ::common/tab-args
+   :actions/set-portfolio-account-activity-sub-tab ::common/keyword-or-string-args
+   :actions/sort-portfolio-account-activity ::common/sort-column-args
+   :actions/set-portfolio-account-activity-page-size ::common/single-input-args
+   :actions/next-portfolio-account-activity-page ::common/max-page-args
+   :actions/prev-portfolio-account-activity-page ::common/max-page-args
+   :actions/set-portfolio-account-activity-page-input ::common/single-input-args
+   :actions/apply-portfolio-account-activity-page-input ::common/max-page-args
+   :actions/handle-portfolio-account-activity-page-input-keydown ::common/keydown-with-max-page-args
    :actions/set-portfolio-monte-carlo-control ::portfolio-monte-carlo-control-args
    :actions/rerun-portfolio-monte-carlo ::common/no-args
    :actions/set-portfolio-returns-benchmark-search ::common/single-input-args

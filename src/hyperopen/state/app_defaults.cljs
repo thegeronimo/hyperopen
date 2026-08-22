@@ -13,6 +13,7 @@
             [hyperopen.margin-rec.state :as margin-rec-state]
             [hyperopen.platform :as platform]
             [hyperopen.pnl-share.actions :as pnl-share-actions]
+            [hyperopen.portfolio.account-activity-actions :as account-activity-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.defaults :as portfolio-optimizer-defaults]
             [hyperopen.surface-modules :as surface-modules]
@@ -159,6 +160,7 @@
    :summary-time-range (default-portfolio-summary-time-range)
    :chart-tab :returns
    :account-info-tab :performance-metrics
+   :account-activity (account-activity-actions/default-account-activity-state)
    :returns-benchmark-coins ["BTC"]
    :returns-benchmark-coin "BTC"
    :returns-benchmark-search ""

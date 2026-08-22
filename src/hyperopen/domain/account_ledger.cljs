@@ -1,14 +1,20 @@
 (ns hyperopen.domain.account-ledger
-  (:require [clojure.string :as str]))
+  "Normalisation of Hyperliquid non-funding ledger deltas into Account Activity
+   rows.
+
+   Rows carry `:type-key`, the kebab-cased ledger delta type, because that is
+   what `hyperopen.domain.account-activity` routes on. Keeping only the English
+   action label -- as this namespace previously did -- makes the partition
+   unrecoverable, since several distinct types share one label.
+
+   The per-type derivation of endpoints, sign, USD value and fee lives in
+   `hyperopen.domain.account-ledger.derive`."
+  (:require [clojure.string :as str]
+            [hyperopen.domain.account-activity :as account-activity]
+            [hyperopen.domain.account-ledger.derive :as derive]))
 
 (def ^:private default-status-label
   "Completed")
-
-(def ^:private trading-account-label
-  "Trading Account")
-
-(def ^:private bridge-label
-  "Arbitrum")
 
 (defn- finite-number?
   [value]
@@ -16,39 +22,15 @@
        (not (js/isNaN value))
        (js/isFinite value)))
 
-(defn- parse-decimal
-  [value]
-  (cond
-    (finite-number? value)
-    value
-
-    (string? value)
-    (let [num (js/parseFloat value)]
-      (when (finite-number? num)
-        num))
-
-    :else nil))
-
 (defn- parse-ms
   [value]
-  (when-let [num (parse-decimal value)]
+  (when-let [num (derive/parse-decimal value)]
     (js/Math.floor num)))
-
-(defn- field
-  [m k]
-  (or (get m k)
-      (get m (name k))))
-
-(defn- non-blank-text
-  [value]
-  (let [text (some-> value str str/trim)]
-    (when (seq text)
-      text)))
 
 (defn- normalized-token
   [value]
   (some-> value
-          non-blank-text
+          derive/non-blank-text
           (str/replace #"([a-z0-9])([A-Z])" "$1-$2")
           (str/replace #"[_\s]+" "-")
           str/lower-case))
@@ -64,89 +46,21 @@
          (str/join " "))))
 
 (defn- action-label
-  [type-token]
-  (case type-token
-    "deposit" "Deposit"
-    "withdraw" "Withdrawal"
-    "vault-deposit" "Vault Deposit"
-    "vault-withdraw" "Vault Withdrawal"
-    "spot-genesis" "Genesis Distribution"
-    "internal-transfer" "Send"
-    "spot-transfer" "Send"
-    "sub-account-transfer" "Send"
-    "account-class-transfer" "Transfer"
-    "liquidation" "Liquidation"
-    "rewards-claim" "Rewards Claim"
-    (title-case-label type-token)))
+  "Display label for a ledger type.
 
-(defn- account-source-destination
-  [type-token]
-  (case type-token
-    "deposit" [bridge-label trading-account-label]
-    "withdraw" [trading-account-label bridge-label]
-    [trading-account-label trading-account-label]))
-
-(defn- positive-change-type?
-  [type-token]
-  (contains? #{"deposit"
-               "vault-withdraw"
-               "spot-genesis"
-               "rewards-claim"}
-             type-token))
-
-(defn- negative-change-type?
-  [type-token]
-  (contains? #{"withdraw"
-               "vault-deposit"
-               "internal-transfer"
-               "spot-transfer"
-               "sub-account-transfer"
-               "liquidation"}
-             type-token))
-
-(defn- signed-amount
-  [type-token amount]
-  (cond
-    (nil? amount)
-    nil
-
-    (negative-change-type? type-token)
-    (- (js/Math.abs amount))
-
-    (positive-change-type? type-token)
-    (js/Math.abs amount)
-
-    :else amount))
+   The catalog in `account-activity` is the single source of truth; an
+   unrecognised type falls back to a title-cased version of its own token so a
+   future delta type is still legible rather than blank."
+  [type-key]
+  (or (account-activity/type-label type-key)
+      (title-case-label type-key)))
 
 (defn- ledger-delta
   [row]
-  (let [delta (field row :delta)]
+  (let [delta (derive/field row :delta)]
     (if (map? delta)
       delta
       row)))
-
-(defn- amount-value
-  [delta]
-  (some parse-decimal
-        [(field delta :usdc)
-         (field delta :amount)
-         (field delta :value)
-         (field delta :qty)
-         (field delta :sz)]))
-
-(defn- asset-label
-  [delta]
-  (or (non-blank-text (field delta :token))
-      (non-blank-text (field delta :coin))
-      (non-blank-text (field delta :asset))
-      "USDC"))
-
-(defn- fee-value
-  [delta]
-  (some parse-decimal
-        [(field delta :fee)
-         (field delta :withdrawalFee)
-         (field delta :gasFee)]))
 
 (defn- strip-trailing-zeroes
   [value]
@@ -166,72 +80,100 @@
     (str (if (neg? amount) "-" "+")
          (format-number (js/Math.abs amount))
          " "
-         (or asset "USDC"))
+         (or asset derive/collateral-asset))
+    "--"))
+
+(defn- format-usd-value
+  [value]
+  (if (and (finite-number? value) (not (zero? value)))
+    (str "$" (.toLocaleString (js/Math.abs value)
+                              "en-US"
+                              #js {:minimumFractionDigits 2
+                                   :maximumFractionDigits 2}))
     "--"))
 
 (defn- format-fee
   [fee asset]
   (if (finite-number? fee)
-    (str (format-number fee) " " (or asset "USDC"))
+    (str (format-number fee) " " (or asset derive/collateral-asset))
     "--"))
 
 (defn- status-label
   [row delta]
-  (or (some-> (or (field row :status)
-                  (field delta :status))
+  (or (some-> (or (derive/field row :status)
+                  (derive/field delta :status))
               title-case-label
-              non-blank-text)
+              derive/non-blank-text)
       default-status-label))
 
 (defn- explorer-url
   [hash]
-  (when-let [hash* (non-blank-text hash)]
+  (when-let [hash* (derive/non-blank-text hash)]
     (str "https://app.hyperliquid.xyz/explorer/tx/" hash*)))
 
 (defn- ledger-row-id
-  [time-ms type-token hash asset amount]
-  (str (or (non-blank-text hash) "no-hash")
+  [time-ms type-key hash asset amount]
+  (str (or (derive/non-blank-text hash) "no-hash")
        "|"
        (or time-ms 0)
        "|"
-       (or type-token "")
+       (or type-key "")
        "|"
        (or asset "")
        "|"
        (format-number (or amount 0))))
 
 (defn normalize-ledger-row
-  [row]
-  (when (map? row)
-    (let [delta (ledger-delta row)
-          type-token (normalized-token (field delta :type))
-          time-ms (or (parse-ms (field row :time))
-                      (parse-ms (field row :timestamp)))
-          amount (amount-value delta)
-          asset (asset-label delta)
-          signed (signed-amount type-token amount)
-          hash (non-blank-text (or (field row :hash)
-                                   (field delta :hash)))
-          [source destination] (account-source-destination type-token)]
-      (when (and type-token
-                 time-ms
-                 (finite-number? signed)
-                 (seq (action-label type-token)))
-        {:id (ledger-row-id time-ms type-token hash asset signed)
-         :time-ms time-ms
-         :time time-ms
-         :status-label (status-label row delta)
-         :action-label (action-label type-token)
-         :source-label source
-         :destination-label destination
-         :asset asset
-         :amount amount
-         :signed-amount signed
-         :amount-text (format-signed-amount signed asset)
-         :fee (fee-value delta)
-         :fee-text (format-fee (fee-value delta) "USDC")
-         :hash hash
-         :explorer-url (explorer-url hash)}))))
+  "Normalise one raw ledger row into an Account Activity row.
+
+   `viewer-address` is the account whose ledger is being viewed; it decides
+   whether a two-party transfer is a credit or a debit. Without it, transfers
+   are reported as outgoing.
+
+   A row is kept whenever it has a type and a timestamp. It is NOT dropped for
+   want of a resolvable amount -- `vaultWithdraw` and `liquidation` carry their
+   value in fields the old amount probe never looked at, so requiring one made
+   those two labels unreachable by real data. Such a row renders `--` in the
+   Account Change column instead of vanishing."
+  ([row]
+   (normalize-ledger-row row nil))
+  ([row viewer-address]
+   (when (map? row)
+     (let [delta (ledger-delta row)
+           raw-type-key (normalized-token (derive/field delta :type))
+           time-ms (or (parse-ms (derive/field row :time))
+                       (parse-ms (derive/field row :timestamp)))]
+       (when (and raw-type-key time-ms)
+         (let [[type-key overrides] (derive/retype raw-type-key delta)
+               overrides* (or overrides {})
+               asset (derive/asset delta)
+               signed (derive/signed-amount type-key delta viewer-address overrides*)
+               {:keys [from-label to-label destination-address]}
+               (derive/endpoints type-key delta overrides*)
+               {:keys [fee fee-asset]} (derive/fee type-key delta)
+               usd-value (derive/usd-value type-key delta signed asset)
+               hash (derive/non-blank-text (or (derive/field row :hash)
+                                               (derive/field delta :hash)))]
+           {:id (ledger-row-id time-ms type-key hash asset signed)
+            :time-ms time-ms
+            :time time-ms
+            :type-key type-key
+            :status-label (status-label row delta)
+            :action-label (action-label type-key)
+            :asset asset
+            :from-label from-label
+            :to-label to-label
+            :destination-address destination-address
+            :amount (derive/parse-decimal (derive/field delta :amount))
+            :signed-amount signed
+            :amount-text (format-signed-amount signed asset)
+            :usd-value usd-value
+            :usd-value-text (format-usd-value usd-value)
+            :fee fee
+            :fee-asset fee-asset
+            :fee-text (format-fee fee fee-asset)
+            :hash hash
+            :explorer-url (explorer-url hash)}))))))
 
 (defn- sort-ledger-rows
   [rows]
@@ -242,22 +184,28 @@
        vec))
 
 (defn normalize-ledger-rows
-  [rows]
-  (sort-ledger-rows
-   (into []
-         (comp
-           (map normalize-ledger-row)
+  ([rows]
+   (normalize-ledger-rows rows nil))
+  ([rows viewer-address]
+   (sort-ledger-rows
+    (into []
+          (comp
+           (map #(normalize-ledger-row % viewer-address))
            (keep identity))
-         (or rows []))))
+          (or rows [])))))
 
 (defn merge-ledger-rows
-  [primary secondary]
-  (->> (concat (or primary []) (or secondary []))
-       normalize-ledger-rows
-       (reduce (fn [acc row]
-                 (if (seq (:id row))
-                   (assoc acc (:id row) row)
-                   acc))
-               {})
-       vals
-       sort-ledger-rows))
+  "Merge the REST snapshot and the live websocket mirror of the same ledger,
+   de-duplicated by row id and sorted newest first."
+  ([primary secondary]
+   (merge-ledger-rows primary secondary nil))
+  ([primary secondary viewer-address]
+   (->> (concat (or primary []) (or secondary []))
+        (#(normalize-ledger-rows % viewer-address))
+        (reduce (fn [acc row]
+                  (if (seq (:id row))
+                    (assoc acc (:id row) row)
+                    acc))
+                {})
+        vals
+        sort-ledger-rows)))

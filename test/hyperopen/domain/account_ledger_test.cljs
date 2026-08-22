@@ -1,5 +1,5 @@
 (ns hyperopen.domain.account-ledger-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.domain.account-ledger :as account-ledger]))
 
 (deftest normalize-ledger-rows-builds-main-client-history-rows-test
@@ -27,22 +27,31 @@
                 :delta {:type "spotTransfer"
                         :token "HYPE"
                         :amount "1.0"}}])]
-    (is (= ["Send"
-            "Genesis Distribution"
-            "Vault Deposit"
-            "Withdrawal"
-            "Deposit"]
-           (mapv :action-label rows)))
+    (testing "each type keeps its own label rather than collapsing to Send"
+      (is (= ["Spot Transfer"
+              "Genesis Distribution"
+              "Vault Deposit"
+              "Withdrawal"
+              "Deposit"]
+             (mapv :action-label rows))))
+    (testing "the machine-readable type is what sub-tab routing reads"
+      (is (= ["spot-transfer"
+              "spot-genesis"
+              "vault-deposit"
+              "withdraw"
+              "deposit"]
+             (mapv :type-key rows))))
     (is (= ["-1 HYPE"
             "+2.67 HYPE"
             "-10 USDC"
             "-25.5 USDC"
             "+100 USDC"]
            (mapv :amount-text rows)))
-    (is (= ["Trading Account" "Trading Account" "Trading Account" "Trading Account" "Arbitrum"]
-           (mapv :source-label rows)))
-    (is (= ["Trading Account" "Trading Account" "Trading Account" "Arbitrum" "Trading Account"]
-           (mapv :destination-label rows)))
+    (testing "endpoints name real venues instead of Trading Account for everything"
+      (is (= ["Spot" "Trading Account" "Perps" "Trading Account" "Arbitrum"]
+             (mapv :from-label rows)))
+      (is (= ["Spot" "Trading Account" "Vault" "Arbitrum" "Trading Account"]
+             (mapv :to-label rows))))
     (is (= ["--" "--" "--" "1 USDC" "--"]
            (mapv :fee-text rows)))
     (is (= (repeat 5 "Completed")
@@ -59,11 +68,21 @@
                         :usdc "1.0"}}
                {:time 1770000000001
                 :delta {:type "unknownWithoutAmount"}}
-               "not-a-row"])]
-    (is (= 1 (count rows)))
-    (is (= "Send" (:action-label (first rows))))
-    (is (= "-3 USDC" (:amount-text (first rows))))
-    (is (= "0xdirect" (:hash (first rows))))))
+               "not-a-row"])
+        by-type (into {} (map (juxt :type-key identity)) rows)]
+    (testing "a delta stated inline on the row still normalises"
+      (let [row (get by-type "internal-transfer")]
+        (is (some? row))
+        (is (= "-3 USDC" (:amount-text row)))
+        (is (= "0xdirect" (:hash row)))))
+    (testing "a row whose amount cannot be resolved is kept and shown as --"
+      ;; It used to be dropped, which is why the Vault Withdrawal and
+      ;; Liquidation labels were unreachable by real data.
+      (let [row (get by-type "unknown-without-amount")]
+        (is (some? row))
+        (is (= "--" (:amount-text row)))))
+    (testing "rows with no timestamp, and non-maps, are still rejected"
+      (is (= 2 (count rows))))))
 
 (deftest merge-ledger-rows-dedupes-rest-and-websocket-duplicates-test
   (let [rest-row {:time 1770000000000

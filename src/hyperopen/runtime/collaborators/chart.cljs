@@ -2,6 +2,7 @@
   (:require [hyperopen.chart.actions :as chart-actions]
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.orderbook.actions :as orderbook-actions]
+            [hyperopen.portfolio.account-activity-actions :as account-activity-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.montecarlo.actions :as montecarlo-actions]
             [hyperopen.trade.layout-actions :as trade-layout-actions]))
@@ -42,6 +43,22 @@
    :select-portfolio-summary-time-range portfolio-actions/select-portfolio-summary-time-range
    :select-portfolio-chart-tab portfolio-actions/select-portfolio-chart-tab
    :set-portfolio-account-info-tab portfolio-actions/set-portfolio-account-info-tab
+   :set-portfolio-account-activity-sub-tab
+   account-activity-actions/set-portfolio-account-activity-sub-tab
+   :sort-portfolio-account-activity
+   account-activity-actions/sort-portfolio-account-activity
+   :set-portfolio-account-activity-page-size
+   account-activity-actions/set-portfolio-account-activity-page-size
+   :next-portfolio-account-activity-page
+   account-activity-actions/next-portfolio-account-activity-page
+   :prev-portfolio-account-activity-page
+   account-activity-actions/prev-portfolio-account-activity-page
+   :set-portfolio-account-activity-page-input
+   account-activity-actions/set-portfolio-account-activity-page-input
+   :apply-portfolio-account-activity-page-input
+   account-activity-actions/apply-portfolio-account-activity-page-input
+   :handle-portfolio-account-activity-page-input-keydown
+   account-activity-actions/handle-portfolio-account-activity-page-input-keydown
    :set-portfolio-monte-carlo-control montecarlo-actions/set-portfolio-monte-carlo-control
    :rerun-portfolio-monte-carlo montecarlo-actions/rerun-portfolio-monte-carlo
    :set-portfolio-returns-benchmark-search portfolio-actions/set-portfolio-returns-benchmark-search

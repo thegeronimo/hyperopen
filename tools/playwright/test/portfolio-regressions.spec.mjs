@@ -77,6 +77,21 @@ const PORTFOLIO_LEDGER_FIXTURE = [
     time: 1765529064000,
     hash: "0xsend001",
     delta: { type: "internalTransfer", coin: "HYPE", amount: "1" }
+  },
+  {
+    // Incoming: the seeded wallet is this delta's destination, so the row must
+    // render as a credit. The pre-parity table hardcoded every spot transfer
+    // negative regardless of direction.
+    time: 1765529065000,
+    hash: "0xspotin001",
+    delta: {
+      type: "spotTransfer",
+      token: "HYPE",
+      amount: "5",
+      usdcValue: "212.5",
+      user: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      destination: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
   }
 ];
 const OPTIMIZER_RELOAD_SCENARIO_EDN = `{:schema-version 1
@@ -3038,7 +3053,7 @@ test("portfolio funding openers launch the funding modal on real click @regressi
   }
 });
 
-test("portfolio account activity tab renders ledger history @regression", async ({ page }) => {
+test("portfolio account activity tab renders sub-tabbed ledger history @regression", async ({ page }) => {
   await page.setViewportSize(PORTFOLIO_LEDGER_REVIEW_VIEWPORTS[0]);
   const observedLedgerRequests = [];
   await stubPortfolioLedgerRows(page, PORTFOLIO_LEDGER_FIXTURE, observedLedgerRequests);
@@ -3050,31 +3065,66 @@ test("portfolio account activity tab renders ledger history @regression", async 
   await expect.poll(() => observedLedgerRequests.length, { timeout: 10_000 })
     .toBeGreaterThan(0);
 
+  const strip = page.locator("[data-role='account-activity-sub-tab-strip']");
+  const table = page.locator("[data-role='portfolio-deposits-withdrawals-table']");
+
   for (const viewport of PORTFOLIO_LEDGER_REVIEW_VIEWPORTS) {
     await page.setViewportSize(viewport);
     await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
-    const table = page.locator("[data-role='portfolio-deposits-withdrawals-table']");
+
+    await expect(strip).toBeVisible();
+    for (const label of [
+      "All",
+      "Account Transfers",
+      "Deposits and Withdrawals",
+      "Spot Transfers",
+      "Internal Transfers",
+      "Earn",
+      "Vaults",
+      "Staking",
+      "Auctions"
+    ]) {
+      await expect(strip).toContainText(label);
+    }
+
     await expect(table).toBeVisible();
-    await expect(table).toContainText("Time");
-    await expect(table).toContainText("Status");
-    await expect(table).toContainText("Action");
-    await expect(table).toContainText("Source");
-    await expect(table).toContainText("Destination");
-    await expect(table).toContainText("Account Value Change");
-    await expect(table).toContainText("Fee");
+    for (const header of [
+      "Time",
+      "Status",
+      "Asset",
+      "Action",
+      "From",
+      "To",
+      "Destination",
+      "Account Change",
+      "USD Value",
+      "Fee"
+    ]) {
+      await expect(table).toContainText(header);
+    }
+    // The pre-parity column names must be gone.
+    await expect(table).not.toContainText("Account Value Change");
+
     await expect(table).toContainText("Deposit");
     await expect(table).toContainText("Vault Deposit");
     await expect(table).toContainText("Genesis Distribution");
-    await expect(table).toContainText("Send");
+    await expect(table).toContainText("Internal Transfer");
     await expect(table).toContainText("Arbitrum");
     await expect(table).toContainText("Trading Account");
     await expect(table).toContainText("+100 USDC");
     await expect(table).toContainText("-10 USDC");
     await expect(table).toContainText("+2670.03 HYPE");
     await expect(table).toContainText("-1 HYPE");
+    // Incoming spot transfer: a credit, valued from the payload's usdcValue.
+    await expect(table).toContainText("+5 HYPE");
+    await expect(table).toContainText("$212.50");
+
     await expect(table.locator("a[aria-label='Open transaction in Hyperliquid explorer']"))
-      .toHaveCount(4);
-    await expect(table.locator("input, select, textarea, button")).toHaveCount(0);
+      .toHaveCount(5);
+    // Every column header sorts; with five rows the pagination footer stays hidden,
+    // so no other control may appear inside the table.
+    await expect(table.locator("button")).toHaveCount(10);
+    await expect(table.locator("input, select, textarea")).toHaveCount(0);
     await expect(page.locator("[data-role='portfolio-funding-action-deposit']")).toHaveCount(0);
 
     const tableMetrics = await table.evaluate((node) => {
@@ -3097,6 +3147,36 @@ test("portfolio account activity tab renders ledger history @regression", async 
     await firstExplorerLink.focus();
     await expect(firstExplorerLink).toBeFocused();
   }
+
+  await page.setViewportSize(PORTFOLIO_LEDGER_REVIEW_VIEWPORTS[0]);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+
+  // Selecting a sub-tab filters to that type only.
+  await page.locator("[data-role='account-activity-sub-tab-vaults']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(table).toContainText("Vault Deposit");
+  await expect(table).not.toContainText("Genesis Distribution");
+  await expect(table).not.toContainText("+100 USDC");
+
+  // Spot Transfers hides the Action and Destination columns, per the reference.
+  await page.locator("[data-role='account-activity-sub-tab-spot-transfers']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(table).toContainText("+5 HYPE");
+  await expect(table).not.toContainText("Action");
+  await expect(table).not.toContainText("Destination");
+  await expect(table.locator("button")).toHaveCount(8);
+
+  // A sub-tab with no matching rows says so rather than rendering an empty grid.
+  await page.locator("[data-role='account-activity-sub-tab-staking']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(table).toContainText("No Staking");
+
+  // All is a genuine superset: every row is reachable again.
+  await page.locator("[data-role='account-activity-sub-tab-all']").click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(table).toContainText("Genesis Distribution");
+  await expect(table).toContainText("Vault Deposit");
+  await expect(table).toContainText("+5 HYPE");
 });
 
 test("portfolio fee schedule opens, switches market type, and restores focus @regression", async ({ page }) => {
