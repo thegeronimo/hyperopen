@@ -98,11 +98,13 @@
 (deftest the-field-toggles-report-and-flip-their-state
   (let [tree (view)
         toggles (nodes-by-role tree "pnl-share-field-toggle")]
-    (is (= ["show-prices?" "show-size?" "show-funding?" "show-handle?"]
-           (mapv #(:data-field (second %)) toggles)))
+    (is (= ["show-prices?" "show-funding?" "show-size?" "show-handle?"]
+           (mapv #(:data-field (second %)) toggles))
+        "on-by-default fields group above the opt-in ones")
     (testing "the defaults are reported honestly: size and wallet start off"
-      (is (= ["true" "false" "true" "false"]
-             (mapv #(:aria-pressed (second %)) toggles))))
+      (is (= ["true" "true" "false" "false"]
+             (mapv #(:aria-pressed (second %)) toggles))
+          "and that grouping means the checked boxes read as a block"))
     (is (= [[:actions/set-pnl-share-option :show-prices? false]]
            (get-in (second (first toggles)) [:on :click])))
     (testing "an off toggle offers to turn itself on"

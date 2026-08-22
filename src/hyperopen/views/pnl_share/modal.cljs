@@ -15,9 +15,13 @@
   "pnl-share-modal-title")
 
 (def ^:private toggle-controls
+  "Grouped by what a fresh card shows: the two on by default first, the two
+   opt-in ones after. Deliberately a fixed order rather than one that re-sorts
+   as boxes are ticked -- a list that reshuffles under the cursor makes the next
+   click land on something the trader did not aim at."
   [{:key :show-prices? :label "Entry / mark price"}
-   {:key :show-size? :label "Position size"}
    {:key :show-funding? :label "Funding paid"}
+   {:key :show-size? :label "Position size"}
    {:key :show-handle? :label "My wallet"}])
 
 (defn- environment
