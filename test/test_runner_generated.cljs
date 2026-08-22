@@ -125,6 +125,8 @@
             [hyperopen.core-bootstrap.wallet-actions-effects-test]
             [hyperopen.core-bootstrap.websocket-diagnostics-test]
             [hyperopen.core-public-actions-test]
+            [hyperopen.domain.account-activity-test]
+            [hyperopen.domain.account-ledger-derivation-test]
             [hyperopen.domain.account-ledger-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
@@ -204,6 +206,7 @@
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-test]
             [hyperopen.platform.webauthn-test]
+            [hyperopen.portfolio.account-activity-actions-test]
             [hyperopen.portfolio.actions-test]
             [hyperopen.portfolio.application.metrics-bridge-test]
             [hyperopen.portfolio.benchmark-actions-test]
@@ -622,6 +625,7 @@
             [hyperopen.views.portfolio-view-performance-metrics-test]
             [hyperopen.views.portfolio-view-status-test]
             [hyperopen.views.portfolio-view-test]
+            [hyperopen.views.portfolio.account-activity-test]
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.header-test]
@@ -993,6 +997,8 @@
              'hyperopen.core-bootstrap.wallet-actions-effects-test
              'hyperopen.core-bootstrap.websocket-diagnostics-test
              'hyperopen.core-public-actions-test
+             'hyperopen.domain.account-activity-test
+             'hyperopen.domain.account-ledger-derivation-test
              'hyperopen.domain.account-ledger-test
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
@@ -1072,6 +1078,7 @@
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-test
              'hyperopen.platform.webauthn-test
+             'hyperopen.portfolio.account-activity-actions-test
              'hyperopen.portfolio.actions-test
              'hyperopen.portfolio.application.metrics-bridge-test
              'hyperopen.portfolio.benchmark-actions-test
@@ -1490,6 +1497,7 @@
              'hyperopen.views.portfolio-view-performance-metrics-test
              'hyperopen.views.portfolio-view-status-test
              'hyperopen.views.portfolio-view-test
+             'hyperopen.views.portfolio.account-activity-test
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.header-test

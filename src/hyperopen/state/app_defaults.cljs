@@ -4,7 +4,6 @@
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.account.context :as account-context]
-            [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.api-wallets.application.ui-state :as api-wallets-ui-state]
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.i18n.locale :as i18n-locale]
@@ -13,6 +12,7 @@
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.margin-rec.state :as margin-rec-state]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.account-activity-actions :as account-activity-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.defaults :as portfolio-optimizer-defaults]
             [hyperopen.surface-modules :as surface-modules]
@@ -159,6 +159,7 @@
    :summary-time-range (default-portfolio-summary-time-range)
    :chart-tab :returns
    :account-info-tab :performance-metrics
+   :account-activity (account-activity-actions/default-account-activity-state)
    :returns-benchmark-coins ["BTC"]
    :returns-benchmark-coin "BTC"
    :returns-benchmark-search ""
