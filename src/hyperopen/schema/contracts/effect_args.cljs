@@ -262,6 +262,7 @@
                   #(or (nil? (:coin %)) (string? (:coin %)))
                   #(contains? #{:long :short} (:side %)))))
 (s/def ::copy-pnl-share-link-args (s/tuple (s/nilable string?)))
+(s/def ::resolve-pnl-share-icon-args (s/tuple ::common/non-empty-string))
 
 (s/def ::effect-id (s/and keyword?
                           #(= "effects" (namespace %))))
@@ -305,6 +306,7 @@
    :effects/copy-spectate-link ::common/path-and-address-args
    :effects/export-pnl-share-card-png ::export-pnl-share-card-png-args
    :effects/copy-pnl-share-link ::copy-pnl-share-link-args
+   :effects/resolve-pnl-share-icon ::resolve-pnl-share-icon-args
    :effects/clear-disconnected-account-lifecycle ::common/address-args
    :effects/download-spectate-watchlist-file ::download-spectate-watchlist-file-args
    :effects/pick-spectate-watchlist-file ::common/no-args

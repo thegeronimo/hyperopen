@@ -81,23 +81,40 @@
   [{:keys [x y1 y2 stroke]}]
   [:line {:x1 x :y1 y1 :x2 x :y2 y2 :stroke stroke :stroke-width 1}])
 
-(defn monogram-disc
-  "The coin's initial on a deterministic gradient disc. The card never fetches a
-   coin icon: the icon CDN sends no CORS header, so drawing one would taint the
-   canvas and make the PNG export throw. Colours arrive resolved from
-   hyperopen.views.pnl-share.palette -- this namespace holds no colour literals."
-  [{:keys [cx cy r letter gradient-id label-size rim letter-fill]}]
+(defn coin-disc
+  "The coin's icon on a disc, falling back to its initial on a deterministic
+   gradient when the icon could not be resolved.
+
+   The icon is embedded as a data: URI rather than referenced by URL: the card
+   is exported by rasterizing its serialized SVG through an Image element, and
+   that renders in a sandboxed document which loads no external resource -- an
+   external href there draws the broken-image placeholder, not the icon."
+  [{:keys [cx cy r letter gradient-id label-size rim letter-fill icon-data-uri clip-id]}]
   [:g
-   [:circle {:cx cx :cy cy :r r :fill (str "url(#" gradient-id ")")}]
+   (if icon-data-uri
+     [:g
+      [:defs
+       [:clipPath {:id clip-id :clipPathUnits "userSpaceOnUse"}
+        [:circle {:cx cx :cy cy :r r}]]]
+      [:image {:x (- cx r)
+               :y (- cy r)
+               :width (* r 2)
+               :height (* r 2)
+               :href icon-data-uri
+               :clip-path (str "url(#" clip-id ")")
+               :preserveAspectRatio "xMidYMid slice"
+               :aria-hidden true}]]
+     [:g
+      [:circle {:cx cx :cy cy :r r :fill (str "url(#" gradient-id ")")}]
+      (text {:x cx
+             :y (+ cy (* label-size 0.35))
+             :size label-size
+             :weight 500
+             :fill letter-fill
+             :anchor "middle"}
+            letter)])
    [:circle {:cx cx :cy cy :r r :fill "none"
-             :stroke rim :stroke-width 1}]
-   (text {:x cx
-          :y (+ cy (* label-size 0.35))
-          :size label-size
-          :weight 500
-          :fill letter-fill
-          :anchor "middle"}
-         letter)])
+             :stroke rim :stroke-width 1}]])
 
 (defn chip
   "A rounded label chip. Returns [node next-x] so a row of chips can lay itself

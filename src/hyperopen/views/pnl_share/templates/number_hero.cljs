@@ -44,7 +44,7 @@
                  timestamp-text))]))
 
 (defn- coin-row
-  [{:keys [monogram coin-label dex-label leverage-label]} colours]
+  [{:keys [monogram coin-label dex-label leverage-label icon-data-uri]} colours]
   (let [coin-x 86
         coin-end (+ coin-x (svg/text-width coin-label 21))
         [lev-chip lev-end] (when leverage-label
@@ -62,8 +62,9 @@
                                   :colour (:accent colours)}
                                  dex-label))]
     [:g
-     (svg/monogram-disc {:cx 61 :cy 214 :r 13 :letter monogram
+     (svg/coin-disc {:cx 61 :cy 214 :r 13 :letter monogram
                          :gradient-id "ho-pnl-monogram" :label-size 12
+                    :clip-id "ho-pnl-hero-coin-clip" :icon-data-uri icon-data-uri
                          :rim (:disc-rim colours) :letter-fill (:disc-letter colours)})
      (svg/text {:x coin-x :y 221 :size 21 :fill (:text-hi colours)} coin-label)
      lev-chip

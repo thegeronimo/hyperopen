@@ -31,6 +31,15 @@
         data (or (:data referrer-state) (get referrer-state "data"))]
     (or (:code data) (get data "code"))))
 
+(defn- resolved-icon-data-uri
+  "The stored icon, but only when it was resolved for the coin now on screen.
+   Without the key check, opening SOL after BTC would paint BTC's icon until the
+   new fetch landed."
+  [state position]
+  (let [stored (get-in state [:pnl-share :icon])]
+    (when (= (:key stored) (pnl-share-actions/position-icon-key position))
+      (:data-uri stored))))
+
 (defn card-for-state
   "The card data map for the currently open position, or nil when closed."
   [state {:keys [now-ms site-origin]}]
@@ -43,7 +52,8 @@
       :now-ms now-ms
       :fills (get-in state [:orders :fills])
       :template (get-in state [:pnl-share :template])
-      :options (get-in state [:pnl-share :options])})))
+      :options (get-in state [:pnl-share :options])
+      :icon-data-uri (resolved-icon-data-uri state position)})))
 
 (defn- section-label
   [text]

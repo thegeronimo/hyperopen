@@ -8,6 +8,41 @@ const HYPERUNIT_MAINNET_URL =
 const HYPERUNIT_TESTNET_URL =
   process.env.HYPERUNIT_TESTNET_URL ?? "https://api.hyperunit-testnet.xyz";
 
+// Mirrors functions/api/coin-icon/[key].js so the share card resolves real coin
+// icons in local development too. The icon host sends no CORS header, so the
+// bytes are only reachable same-origin -- see that file for the full reasoning.
+const COIN_ICON_PREFIX = "/api/coin-icon/";
+const COIN_ICON_UPSTREAM = "https://app.hyperliquid.xyz/coins/";
+const COIN_ICON_KEY_PATTERN =
+  /^[A-Za-z0-9_@.-]{1,48}(:[A-Za-z0-9_@.-]{1,48})?$/;
+
+async function serveCoinIcon(req, res) {
+  const { pathname } = new URL(req.url ?? "/", "http://localhost");
+  const raw = pathname.slice(COIN_ICON_PREFIX.length);
+  const key = raw.endsWith(".svg") ? decodeURIComponent(raw.slice(0, -4)) : null;
+
+  if (!key || !COIN_ICON_KEY_PATTERN.test(key)) {
+    res.statusCode = 404;
+    res.end("Not found");
+    return;
+  }
+
+  const upstream = await fetch(`${COIN_ICON_UPSTREAM}${encodeURI(key)}.svg`);
+  const contentType = String(upstream.headers.get("content-type") || "");
+
+  if (!upstream.ok || !contentType.includes("image/svg+xml")) {
+    res.statusCode = 404;
+    res.end("Not found");
+    return;
+  }
+
+  res.statusCode = 200;
+  res.setHeader("content-type", "image/svg+xml");
+  res.setHeader("cache-control", "public, max-age=86400");
+  res.setHeader("access-control-allow-origin", "*");
+  Readable.fromWeb(upstream.body).pipe(res);
+}
+
 const HYPERUNIT_PREFIXES = [
   { prefix: "/api/hyperunit/mainnet", upstreamBaseUrl: HYPERUNIT_MAINNET_URL },
   { prefix: "/api/hyperunit/testnet", upstreamBaseUrl: HYPERUNIT_TESTNET_URL },
@@ -58,6 +93,12 @@ async function readRequestBody(req) {
 }
 
 async function proxyRequest(req, res) {
+  const { pathname } = new URL(req.url ?? "/", "http://localhost");
+  if (pathname.startsWith(COIN_ICON_PREFIX)) {
+    await serveCoinIcon(req, res);
+    return;
+  }
+
   const targetUrl = resolveProxyTargetUrl(req.url ?? "/");
   const body = await readRequestBody(req);
   const upstreamResponse = await fetch(targetUrl, {

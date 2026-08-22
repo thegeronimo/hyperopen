@@ -78,7 +78,8 @@
               :copy-wallet-address (effect-adapters/make-copy-wallet-address runtime)
               :copy-spectate-link (effect-adapters/make-copy-spectate-link runtime)}
      :pnl-share {:export-pnl-share-card-png pnl-share-effects/export-pnl-share-card-png
-                 :copy-pnl-share-link pnl-share-effects/copy-pnl-share-link}
+                 :copy-pnl-share-link pnl-share-effects/copy-pnl-share-link
+                 :resolve-pnl-share-icon pnl-share-effects/resolve-pnl-share-icon}
      :spectate-mode {:clear-disconnected-account-lifecycle effect-adapters/clear-disconnected-account-lifecycle
                      :download-spectate-watchlist-file spectate-mode-effects/download-spectate-watchlist-file
                      :pick-spectate-watchlist-file spectate-mode-effects/pick-spectate-watchlist-file

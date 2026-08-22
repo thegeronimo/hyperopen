@@ -86,7 +86,8 @@
                  :set-pnl-share-option pnl-share-actions/set-pnl-share-option
                  :save-pnl-share-card-image pnl-share-actions/save-pnl-share-card-image
                  :copy-pnl-share-link pnl-share-actions/copy-pnl-share-link
-                 :handle-pnl-share-card-keydown pnl-share-actions/handle-pnl-share-card-keydown}
+                 :handle-pnl-share-card-keydown pnl-share-actions/handle-pnl-share-card-keydown
+                 :set-pnl-share-icon pnl-share-actions/set-pnl-share-icon}
      :referrals {:load-referrals-route action-adapters/load-referrals-route-action
                  :set-referrals-active-tab referrals-actions/set-active-tab
                  :set-referrals-form-field referrals-actions/set-form-field

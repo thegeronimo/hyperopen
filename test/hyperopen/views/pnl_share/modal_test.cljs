@@ -142,6 +142,33 @@
               "&url=" (js/encodeURIComponent "https://x.test/join/c"))
          (modal/post-url "a b" "https://x.test/join/c"))))
 
+(def ^:private icon-uri "data:image/svg+xml;base64,PHN2Zy8+")
+
+(deftest a-resolved-icon-reaches-the-card
+  (let [with-icon (state {:pnl-share {:open? true :position position
+                                      :icon {:key "SOL" :data-uri icon-uri}}})]
+    (is (= icon-uri (:icon-data-uri (modal/card-for-state with-icon env))))
+    (testing "and is drawn as an embedded image, not a URL the exporter cannot follow"
+      (let [images (->> (tree-seq vector? seq (view with-icon))
+                        (filter #(and (vector? %) (= :image (first %))))
+                        vec)]
+        (is (= 1 (count images)))
+        (is (= icon-uri (:href (second (first images)))))))))
+
+(deftest an-icon-resolved-for-a-different-coin-is-ignored
+  (let [stale (state {:pnl-share {:open? true :position position
+                                  :icon {:key "BTC" :data-uri icon-uri}}})]
+    (is (nil? (:icon-data-uri (modal/card-for-state stale env)))
+        "opening SOL after BTC must not paint BTC's icon")))
+
+(deftest without-an-icon-the-card-falls-back-to-its-monogram
+  (let [tree (view)]
+    (is (nil? (:icon-data-uri (modal/card-for-state (state) env))))
+    (is (empty? (->> (tree-seq vector? seq tree)
+                     (filter #(and (vector? %) (= :image (first %)))))))
+    (is (some #{"S"} (->> (tree-seq (some-fn vector? seq?) seq tree)
+                          (filter string?))))))
+
 (deftest the-card-data-comes-from-the-same-view-model-the-table-uses
   (let [card (modal/card-for-state (state) env)]
     (is (= "SOL" (:coin-label card)))

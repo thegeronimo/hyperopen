@@ -6,7 +6,9 @@
    in `hyperopen.pnl-share.raster`; only DOM, clock and clipboard side effects
    live here. Kept out of `hyperopen.runtime.effect-adapters` because that
    namespace already carries a size exception."
-  (:require [hyperopen.platform :as platform]
+  (:require [nexus.registry :as nxr]
+            [hyperopen.platform :as platform]
+            [hyperopen.pnl-share.icons :as icons]
             [hyperopen.pnl-share.naming :as naming]
             [hyperopen.pnl-share.raster :as raster]
             [hyperopen.runtime.state :as runtime-state]
@@ -96,6 +98,23 @@
                                      (or (some-> error .-message)
                                          "Couldn't build the image."))
                      false)))))))
+
+(defn resolve-pnl-share-icon
+  "Fetches the coin icon through the same-origin proxy and stores it as a data:
+   URI. A miss stores nil, which is what makes the card fall back to its
+   monogram disc instead of waiting forever for an icon that is not coming."
+  ([ctx store icon-key]
+   (resolve-pnl-share-icon ctx store icon-key {}))
+  ([_ store icon-key {:keys [resolve! dispatch!]}]
+   (let [resolve-fn (or resolve! icons/resolve-data-uri!)
+         dispatch (or dispatch! nxr/dispatch)]
+     (-> (resolve-fn icon-key)
+         (.then (fn [data-uri]
+                  (dispatch store nil [[:actions/set-pnl-share-icon icon-key data-uri]])
+                  data-uri))
+         (.catch (fn [_]
+                   (dispatch store nil [[:actions/set-pnl-share-icon icon-key nil]])
+                   nil))))))
 
 (defn copy-pnl-share-link
   ([ctx store code]

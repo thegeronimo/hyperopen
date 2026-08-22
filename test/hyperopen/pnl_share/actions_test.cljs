@@ -58,6 +58,30 @@
     (is (not= :effects/api-fetch-referral
               (first (last (actions/open-pnl-share-card (state {:wallet {}}) position)))))))
 
+(deftest opening-asks-for-the-coin-icon-using-the-app-wide-key-derivation
+  (testing "a base-dex coin resolves to its bare symbol"
+    (is (= [:effects/resolve-pnl-share-icon "SOL"]
+           (some #(when (= :effects/resolve-pnl-share-icon (first %)) %)
+                 (actions/open-pnl-share-card (state) position)))))
+  (testing "a HIP-3 position keeps its venue prefix, as the tables do"
+    (let [named (assoc-in position [:position :coin] "xyz:NVDA")
+          named (assoc named :dex "xyz")]
+      (is (= [:effects/resolve-pnl-share-icon "xyz:NVDA"]
+             (some #(when (= :effects/resolve-pnl-share-icon (first %)) %)
+                   (actions/open-pnl-share-card (state) named))))))
+  (testing "the derivation is the one the rest of the app uses"
+    (is (= "SOL" (actions/position-icon-key position)))
+    (is (= "BTC" (actions/position-icon-key
+                  {:dex "flx" :position {:coin "flx:BTC" :szi "1"}}))
+        "the alias table folds flx:BTC onto BTC")))
+
+(deftest a-resolved-icon-is-stored-against-the-coin-it-belongs-to
+  (is (= [[:effects/save [:pnl-share :icon] {:key "SOL" :data-uri "data:image/svg+xml;base64,AAA"}]]
+         (actions/set-pnl-share-icon (state) "SOL" "data:image/svg+xml;base64,AAA")))
+  (testing "a miss is stored too, so the card stops waiting and draws its monogram"
+    (is (= [[:effects/save [:pnl-share :icon] {:key "SOL" :data-uri nil}]]
+           (actions/set-pnl-share-icon (state) "SOL" nil)))))
+
 (deftest closing-clears-the-position-so-a-stale-card-cannot-flash-back
   (let [[[_ saves]] (actions/close-pnl-share-card (state))
         by-path (into {} saves)]

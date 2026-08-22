@@ -199,7 +199,8 @@
    things the row cannot know: who owns the account, whether a referral code has
    arrived, where the app is served from, the current time, the loaded fills,
    the chosen template and the field toggles."
-  [row-vm {:keys [owner-address referral-code site-origin now-ms fills template options]}]
+  [row-vm {:keys [owner-address referral-code site-origin now-ms fills template options
+                  icon-data-uri]}]
   (let [options* (normalize-options options)
         pnl-num (:pnl-num row-vm)
         pnl-percent (:pnl-percent row-vm)
@@ -223,6 +224,7 @@
      :dex-label (shared/non-blank-text (:dex-label row-vm))
      :monogram (or (monogram coin-label) "?")
      :monogram-key (or coin-label "")
+     :icon-data-uri (shared/non-blank-text icon-data-uri)
      :leverage-label lev-label
      :roe-text roe-text
      :roe-label (if winning? "UNREALIZED P&L" "UNREALIZED LOSS")

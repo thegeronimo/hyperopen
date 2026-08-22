@@ -41,6 +41,7 @@
 (s/def ::pnl-share-option-args (s/tuple ::pnl-share-option-key any?))
 (s/def ::pnl-share-open-args (s/tuple map?))
 (s/def ::pnl-share-keydown-args (s/tuple (s/nilable string?)))
+(s/def ::pnl-share-icon-args (s/tuple ::common/non-empty-string (s/nilable string?)))
 (s/def ::set-hyperunit-lifecycle-args (s/tuple ::state/hyperunit-lifecycle-input))
 (s/def ::set-hyperunit-lifecycle-error-args (s/tuple (s/nilable string?)))
 (s/def ::position-tpsl-open-args
@@ -663,6 +664,7 @@
    :actions/save-pnl-share-card-image ::common/no-args
    :actions/copy-pnl-share-link ::common/no-args
    :actions/handle-pnl-share-card-keydown ::pnl-share-keydown-args
+   :actions/set-pnl-share-icon ::pnl-share-icon-args
    :actions/load-funding-comparison-route ::common/path-args
    :actions/load-funding-comparison ::common/no-args
    :actions/set-funding-comparison-query ::common/single-input-args

@@ -87,6 +87,27 @@ async function rasterizeCard(page) {
   });
 }
 
+// The icon host sends no Access-Control-Allow-Origin, so the card reads icons
+// through the same-origin proxy (functions/api/coin-icon/[key].js in
+// production, tools/hyperunit-proxy in development). Stubbing that one route is
+// what lets this spec prove the whole chain -- fetch, base64, embed, rasterize
+// -- without depending on a third party being up.
+const STUB_ICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+  '<circle cx="16" cy="16" r="16" fill="#f7931a"/>' +
+  '<path d="M9 8h9a6 6 0 0 1 0 12H9z" fill="#ffffff"/></svg>';
+
+async function stubCoinIcons(page) {
+  await page.route("**/api/coin-icon/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      headers: { "access-control-allow-origin": "*" },
+      body: STUB_ICON
+    })
+  );
+}
+
 test.describe("pnl share card", () => {
   test.beforeEach(async ({ page }) => {
     await visitRoute(page, "/trade");
@@ -173,6 +194,35 @@ test.describe("pnl share card", () => {
 
     await page.locator("[data-role='pnl-share-caption']").fill("gm");
     await expect(counter).toHaveText("2/280");
+  });
+
+  test("the real coin icon is embedded, not linked @regression", async ({ page }) => {
+    await stubCoinIcons(page);
+    await openShareCard(page, WINNING_POSITION);
+
+    const image = page.locator("[data-role='pnl-share-card-svg'] image");
+    await expect(image).toHaveCount(1);
+
+    const href = await image.getAttribute("href");
+    expect(
+      href.startsWith("data:image/svg+xml;base64,"),
+      "an external href would render the broken-image placeholder once rasterized"
+    ).toBe(true);
+
+    const png = await rasterizeCard(page);
+    expect(png.head).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(png.width).toBe(2160);
+  });
+
+  test("an unreachable icon falls back to the monogram @regression", async ({ page }) => {
+    await page.route("**/api/coin-icon/**", (route) => route.fulfill({ status: 404, body: "" }));
+    await openShareCard(page, WINNING_POSITION);
+
+    await expect(page.locator("[data-role='pnl-share-card-svg'] image")).toHaveCount(0);
+    expect(await cardText(page)).toContain("S");
+
+    const png = await rasterizeCard(page);
+    expect(png.width, "a missing icon must not break the export").toBe(2160);
   });
 
   test("escape closes the modal @regression", async ({ page }) => {
