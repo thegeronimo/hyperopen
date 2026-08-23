@@ -355,6 +355,9 @@
         effective-n (:effective-n diagnostics)
         universe-size (count (:instrument-ids result))
         conditioning-status (or (:status conditioning) :ok)
+        plausibility (:covariance-plausibility diagnostics)
+        plausibility-status (or (:status plausibility) :ok)
+        implausible? (= :implausible plausibility-status)
         weight-stability-status (if sensitivity-top :caution :ok)]
     [:aside {:class ["optimizer-trust-caution-panel"
                      "min-h-0" "border-l" "border-base-300" "bg-base-100/95"]
@@ -364,10 +367,30 @@
        "How much to trust this"]]
      [:div {:class ["optimizer-diagnostics-list"]
             :data-role "portfolio-optimizer-diagnostics-panel"}
+      ;; Conditioning must never read "Healthy" while magnitude is failing: it
+      ;; is a RATIO of eigenvalues, so a scaled identity scores a perfect 1 at
+      ;; any scale. That is why 8,697.7% shipped next to "Healthy" (2026-08-23).
       (trust-row {:label "Conditioning"
-                  :status conditioning-status
-                  :value (if (= :ok conditioning-status) "Healthy" (opt-format/keyword-label conditioning-status))
-                  :subtext "Correlation matrix is checked before weights are accepted."})
+                  :status (if implausible? :caution conditioning-status)
+                  :value (cond
+                           implausible? "Not usable"
+                           (= :ok conditioning-status) "Healthy"
+                           :else (opt-format/keyword-label conditioning-status))
+                  :subtext (if implausible?
+                             "Well-conditioned, but not at a market scale — see Risk magnitude."
+                             "Correlation matrix is checked before weights are accepted.")})
+      (trust-row {:label "Risk magnitude"
+                  :status plausibility-status
+                  :value (if-let [peak (:max-volatility plausibility)]
+                           (str "Peak σ · " (opt-format/format-pct peak))
+                           "Unknown")
+                  :subtext (if implausible?
+                             (str "No asset trades at this volatility — "
+                                  (str/join ", " (map (partial display-asset-label
+                                                               (:labels-by-instrument result))
+                                                      (take 3 (:implausible-instrument-ids plausibility))))
+                                  " imply broken history, not risk.")
+                             "Every asset's estimated volatility is a market number.")})
       (trust-row {:label "History Used"
                   :status (history-window-status (:history-summary result))
                   :value (history-window-value (:history-summary result))

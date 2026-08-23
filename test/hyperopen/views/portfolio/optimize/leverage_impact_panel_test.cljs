@@ -277,3 +277,26 @@
              "portfolio-optimizer-leverage-impact-distribution-tip")]
     (is (str/includes? tip "log-scaled"))
     (is (str/includes? tip "equal multiples, not equal dollars"))))
+
+(deftest distribution-markers-stay-finite-when-outcome-factors-underflow-test
+  ;; At the volatility a poisoned covariance produces, the modeled ending
+  ;; factors underflow to 0. (js/Math.log 0) is -Infinity, which used to land
+  ;; verbatim in the SVG :x1/:cx attributes as the string "-Infinity" — the
+  ;; downstream cause of the "$0 -> $0" cells seen on 2026-08-23.
+  (let [result (fixtures/sample-solved-result
+                {:diagnostics {:gross-exposure 12}
+                 :volatility 40.0
+                 :expected-return -0.9})
+        node (panel/leverage-impact-panel result)
+        coordinates (->> (collect-nodes node vector?)
+                         (mapcat (fn [n]
+                                   [(node-attr n :x1) (node-attr n :x2)
+                                    (node-attr n :cx) (node-attr n :cy)
+                                    (node-attr n :d)]))
+                         (remove nil?)
+                         (map str))]
+    (is (some? node) "The panel must still render at extreme volatility.")
+    (is (seq coordinates))
+    (is (not-any? #(str/includes? % "Infinity") coordinates)
+        "Every marker coordinate must be a finite number.")
+    (is (not-any? #(str/includes? % "NaN") coordinates))))

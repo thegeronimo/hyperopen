@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.domain.history-series
   (:require [hyperopen.portfolio.metrics.history :as metrics-history]
-            [hyperopen.portfolio.optimizer.domain.math :as math]))
+            [hyperopen.portfolio.optimizer.domain.math :as math]
+            [hyperopen.portfolio.optimizer.domain.return-plausibility :as plausibility]))
 
 (def year-days
   365.2425)
@@ -16,39 +17,78 @@
    :sparse-policy :pairwise-interval-aggregation
    :sparse-correlation-shrinkage true})
 
-(defn return-intervals
+(defn- pair-return
+  "Simple return implied by a [previous current] row pair, or nil when either
+  close is unusable."
+  [[previous current]]
+  (let [previous-close (:close previous)
+        current-close (:close current)]
+    (when (and (math/finite-number? previous-close)
+               (math/finite-number? current-close)
+               (pos? previous-close)
+               (pos? current-close))
+      (- (/ current-close previous-close) 1))))
+
+(defn- contaminated-pairs
+  "Set of pair indices to discard because an implausible return implicates one
+  of their prices.
+
+  `simple-return-series` and `return-intervals` MUST discard exactly the same
+  pairs: `domain.returns/interval-observations` guards with
+  `(when (= (count intervals) (count series)) ...)` and, on a length mismatch,
+  silently falls through to a different expected-return estimator with no
+  warning. Both therefore call this."
+  [pairs]
+  (plausibility/contaminated-pair-indices (mapv pair-return pairs)))
+
+(defn implausible-observations
+  "[{:time-ms t :return r} ...] for every pair of `rows` whose implied return
+  breaks the plausibility bound. This is the EVIDENCE - the bars that actually
+  exceeded the bound - not the full discard set, which also covers the adjoining
+  pairs that share a suspect price. Reported so a caller can name what happened
+  instead of shortening the series silently."
   [rows]
   (->> (partition 2 1 rows)
-       (keep (fn [[previous current]]
-               (let [start-ms (:time-ms previous)
-                     end-ms (:time-ms current)
-                     dt-ms (when (and (number? start-ms)
-                                      (number? end-ms))
-                             (- end-ms start-ms))
-                     dt-days (when (number? dt-ms)
-                               (/ dt-ms metrics-history/day-ms))
-                     dt-years (when (math/finite-number? dt-days)
-                                (/ dt-days year-days))]
-                 (when (and (math/finite-number? dt-years)
-                            (pos? dt-years))
-                   {:start-ms start-ms
-                    :end-ms end-ms
-                    :dt-days dt-days
-                    :dt-years dt-years}))))
+       (keep (fn [[_ current :as pair]]
+               (let [value (pair-return pair)]
+                 (when (plausibility/implausible-return? value)
+                   {:time-ms (:time-ms current)
+                    :return value}))))
        vec))
+
+(defn return-intervals
+  [rows]
+  (let [pairs (partition 2 1 rows)
+        contaminated (contaminated-pairs pairs)]
+    (->> pairs
+         (keep-indexed (fn [idx pair]
+                         (when-not (contaminated idx) pair)))
+         (keep (fn [[previous current]]
+                 (let [start-ms (:time-ms previous)
+                       end-ms (:time-ms current)
+                       dt-ms (when (and (number? start-ms)
+                                        (number? end-ms))
+                               (- end-ms start-ms))
+                       dt-days (when (number? dt-ms)
+                                 (/ dt-ms metrics-history/day-ms))
+                       dt-years (when (math/finite-number? dt-days)
+                                  (/ dt-days year-days))]
+                   (when (and (math/finite-number? dt-years)
+                              (pos? dt-years))
+                     {:start-ms start-ms
+                      :end-ms end-ms
+                      :dt-days dt-days
+                      :dt-years dt-years}))))
+         vec)))
 
 (defn simple-return-series
   [rows]
-  (->> (partition 2 1 rows)
-       (keep (fn [[previous current]]
-               (let [previous-close (:close previous)
-                     current-close (:close current)]
-                 (when (and (math/finite-number? previous-close)
-                            (math/finite-number? current-close)
-                            (pos? previous-close)
-                            (pos? current-close))
-                   (- (/ current-close previous-close) 1)))))
-       vec))
+  (let [pairs (partition 2 1 rows)
+        contaminated (contaminated-pairs pairs)]
+    (->> pairs
+         (keep-indexed (fn [idx pair] (when-not (contaminated idx) pair)))
+         (keep pair-return)
+         vec)))
 
 (defn- expected-return-intervals?
   [intervals]

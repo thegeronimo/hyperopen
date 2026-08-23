@@ -340,8 +340,10 @@
             [hyperopen.portfolio.optimizer.domain.objectives-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test]
+            [hyperopen.portfolio.optimizer.domain.return-plausibility-test]
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-contributions-test]
+            [hyperopen.portfolio.optimizer.domain.risk-degeneracy-test]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test]
             [hyperopen.portfolio.optimizer.domain.risk-structure-diversification-edge-test]
             [hyperopen.portfolio.optimizer.domain.risk-structure-test]
@@ -1219,8 +1221,10 @@
              'hyperopen.portfolio.optimizer.domain.objectives-test
              'hyperopen.portfolio.optimizer.domain.rebalance-test
              'hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test
+             'hyperopen.portfolio.optimizer.domain.return-plausibility-test
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-contributions-test
+             'hyperopen.portfolio.optimizer.domain.risk-degeneracy-test
              'hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test
              'hyperopen.portfolio.optimizer.domain.risk-structure-diversification-edge-test
              'hyperopen.portfolio.optimizer.domain.risk-structure-test

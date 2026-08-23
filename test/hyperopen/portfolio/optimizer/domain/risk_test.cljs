@@ -428,3 +428,49 @@
                    :to :diagonal-shrink}
                   %)
               (:warnings legacy)))))
+
+;; --- annualization guards ---------------------------------------------------
+;; Four deftests above pass `:periods-per-year 1`, which neutralizes the
+;; annualizer: mutating risk.cljs to `(* periods-per-year periods-per-year
+;; (sample-covariance ...))` left the whole 6,000-test suite green. A squared
+;; factor is a 19.1x volatility error - the same order as the defect these
+;; guards exist to prevent - so the factor is pinned end to end here.
+
+(def ^:private annualization-series
+  ;; A: mean 0.02, deviations [-0.01 0 0.01] -> variance 0.0001
+  ;; B: mean 0.04, deviations [-0.02 0 0.02] -> variance 0.0004, cov 0.0002
+  {"A" [0.01 0.02 0.03]
+   "B" [0.02 0.04 0.06]})
+
+(deftest sample-covariance-annualizes-exactly-once-test
+  (let [result (risk/estimate-risk-model
+                {:risk-model {:kind :sample-covariance}
+                 :periods-per-year 365
+                 :history {:return-series-by-instrument annualization-series}})
+        covariance (:covariance result)]
+    ;; 0.0001 * 365, NOT 0.0001 * 365 * 365 (which would be 13.3225).
+    (is (near? 0.0365 (get-in covariance [0 0]) 1e-12))
+    (is (near? 0.146 (get-in covariance [1 1]) 1e-12))
+    (is (near? 0.073 (get-in covariance [0 1]) 1e-12))
+    (is (near? 0.073 (get-in covariance [1 0]) 1e-12))
+    (is (near? 0.1910497 (js/Math.sqrt (get-in covariance [0 0])) 1e-6)
+        "19.1% annualized, not 365%.")))
+
+(deftest diagonal-shrink-annualizes-exactly-once-test
+  (let [result (risk/estimate-risk-model
+                {:risk-model {:kind :diagonal-shrink :shrinkage 0.1}
+                 :periods-per-year 365
+                 :history {:return-series-by-instrument annualization-series}})
+        covariance (:covariance result)]
+    (is (near? 0.0365 (get-in covariance [0 0]) 1e-12)
+        "Shrinkage leaves the diagonal alone, so it pins the annualizer too.")
+    (is (near? 0.146 (get-in covariance [1 1]) 1e-12))
+    (is (near? (* 0.9 0.073) (get-in covariance [0 1]) 1e-12))))
+
+(deftest omitted-periods-per-year-defaults-to-daily-annualization-test
+  (let [result (risk/estimate-risk-model
+                {:risk-model {:kind :sample-covariance}
+                 :history {:return-series-by-instrument annualization-series}})]
+    (is (= 365 risk/default-periods-per-year))
+    (is (near? 0.0365 (get-in (:covariance result) [0 0]) 1e-12)
+        "An absent :periods-per-year must annualize daily, not leave the estimate per-period.")))

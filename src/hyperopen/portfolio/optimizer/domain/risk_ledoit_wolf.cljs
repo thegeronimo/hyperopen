@@ -6,8 +6,29 @@
   for the beta estimate, which cost seconds for a mid-size universe. The loop
   order below reproduces the original arithmetic exactly - same operations,
   same left-to-right row-major summation - so results are bit-identical to
-  the persistent-vector implementation; only the container types changed."
+  the persistent-vector implementation; only the container types changed.
+
+  `estimate` REPORTS the two states in which its answer is not a risk estimate;
+  it does not decide what to do about them. Choosing a replacement covariance is
+  a model-dispatch concern and lives in `domain.risk/estimate-risk-model`, which
+  already holds the alternatives. Keeping the policy out of here is also what
+  lets `risk_ledoit_wolf_test` keep asserting bit-exact parity against an inline
+  reference implementation."
   (:require [hyperopen.portfolio.optimizer.domain.math :as math]))
+
+(def saturated-shrinkage-threshold
+  "Shrinkage at or above this discards essentially all sample information and
+  returns the scaled-identity target: every asset assigned the same variance,
+  every correlation zero. Set just below 1 so a near-saturated estimate - nearly
+  as degenerate - is caught too.
+
+  Measured on 2026-08-23: clean data never reaches it. Seven real crypto perps
+  at 430/120/60/30/15/10/5/3 observations gave 0.020/0.098/0.208/0.387/0.481/
+  0.411/0.421/0.218, and synthetic clean data in the regime shrinkage exists for
+  (40 assets vs 30 observations, then vs 10) gave 0.894 and 0.806. A single
+  corrupt observation reached exactly 1 immediately. Saturation is therefore a
+  data-quality alarm, not a normal statistical outcome."
+  0.99)
 
 (defn- zero-matrix
   [size]
@@ -134,12 +155,43 @@
                                      (range n)))
                              (range n))]
         {:covariance covariance
+         :warnings (if (>= shrinkage saturated-shrinkage-threshold)
+                     [{:code :risk-shrinkage-saturated
+                       :shrinkage shrinkage
+                       :sample-count sample-count
+                       :feature-count feature-count
+                       :message (str "The covariance estimate fell back almost "
+                                     "entirely to its scaled-identity target: "
+                                     "every asset was assigned the same "
+                                     "volatility and every correlation was "
+                                     "discarded. This is what one corrupt "
+                                     "return observation does to the whole "
+                                     "book, so treat the risk numbers as "
+                                     "unreliable until the history is checked.")}]
+                     [])
          :shrinkage {:kind :ledoit-wolf
                      :target :scaled-identity
                      :shrinkage shrinkage}
          :sample-count sample-count
          :feature-count feature-count})
+      ;; The estimator cannot run. It returns the zero matrix as it always has,
+      ;; but now SAYS SO: an all-zero covariance renders as 0% portfolio
+      ;; volatility, which is a more believable lie than an inflated one.
+      ;; `domain.risk/estimate-risk-model` reads this warning and substitutes a
+      ;; pairwise sample covariance.
       {:covariance (zero-matrix feature-count)
+       :warnings (if (and (pos? feature-count)
+                          (not (rectangular-series? series)))
+                   [{:code :ragged-return-series
+                     :series-lengths (mapv count series)
+                     :feature-count feature-count
+                     :message (str "Return series have different lengths, so "
+                                   "the Ledoit-Wolf estimator could not run. "
+                                   "Risk was estimated pairwise instead, which "
+                                   "gives each asset its own volatility but no "
+                                   "diversification credit between assets of "
+                                   "unequal history.")}]
+                   [])
        :shrinkage {:kind :ledoit-wolf
                    :target :scaled-identity
                    :shrinkage 0}

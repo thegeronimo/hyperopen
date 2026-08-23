@@ -247,9 +247,15 @@
           x-min (- nu (* dist-domain-sigmas sigma))
           span (* 2 dist-domain-sigmas sigma)
           plot-w (- dist-width (* 2 dist-pad-x))
+          ;; An ending factor that underflows to 0 makes (js/Math.log 0) return
+          ;; -Infinity, which used to land verbatim in the SVG :x1/:cx
+          ;; attributes. Clamp to the plotted domain so a marker is always a
+          ;; finite coordinate; the value it labels is formatted separately.
           x-px (fn [x]
-                 (+ dist-pad-x
-                    (* plot-w (/ (- x x-min) span))))
+                 (if-not (js/isFinite x)
+                   (if (and (number? x) (pos? x)) (+ dist-pad-x plot-w) dist-pad-x)
+                   (+ dist-pad-x
+                      (max 0 (min plot-w (* plot-w (/ (- x x-min) span)))))))
           curve-y (fn [x]
                     (let [z (/ (- x nu) sigma)]
                       (- dist-baseline-y

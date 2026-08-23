@@ -214,3 +214,27 @@
     (is (= base (risk/augment-risk-result-with-assumptions
                  base {"perp:NEW" {:volatility nil :correlation-floor 0.75}}))
         "An assumption without a usable volatility is ignored.")))
+
+(deftest augment-risk-result-keeps-the-psd-repair-warning-test
+  ;; A conservative volatility assumption plus a correlation floor can push the
+  ;; matrix indefinite; repair-psd diagonally loads it back into shape. The
+  ;; sibling call site in estimate-risk-model threads that warning through,
+  ;; but this one destructured only :covariance and dropped it, so the user was
+  ;; never told their covariance had been altered.
+  (let [base {:model :diagonal-shrink
+              :instrument-ids ["perp:BTC" "perp:ETH"]
+              ;; BTC and ETH strongly ANTI-correlated (-0.9), while the floor
+              ;; asserts +0.99 from each to the new asset. No such geometry
+              ;; exists, so the matrix is indefinite and must be repaired.
+              :covariance [[0.04 -0.036]
+                           [-0.036 0.04]]
+              :warnings []}
+        augmented (risk/augment-risk-result-with-assumptions
+                   base
+                   {"perp:NEW" {:volatility 0.9 :correlation-floor 0.99}})
+        conditioning (risk/covariance-conditioning (:covariance augmented))]
+    (is (= 3 (count (:instrument-ids augmented))))
+    (is (not= :not-positive-semidefinite (:status conditioning))
+        "The matrix is repaired, so the published one is usable...")
+    (is (some #(= :psd-repair-applied (:code %)) (:warnings augmented))
+        "...and the run says the repair happened.")))

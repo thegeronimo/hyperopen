@@ -463,6 +463,10 @@
      :risk-model (:model risk-result)
      :requested-risk-model (:requested-model risk-result)
      :risk-estimation (:risk-estimation risk-result)
+     ;; The dense branch sets no :risk-estimation, so the shrinkage intensity
+     ;; previously had no channel to the UI at all: a covariance collapsed onto
+     ;; its scaled-identity target looked healthy from outside the engine.
+     :risk-shrinkage (:shrinkage risk-result)
      :pair-metadata (:pair-metadata risk-result)
      :return-decomposition-by-instrument (:decomposition-by-instrument return-result)
      :black-litterman-diagnostics (:diagnostics return-result)

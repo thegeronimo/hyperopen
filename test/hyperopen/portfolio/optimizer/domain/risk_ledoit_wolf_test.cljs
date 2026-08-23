@@ -2,7 +2,9 @@
   "Bit-exact parity between the loop-based Ledoit-Wolf estimator and the
   original persistent-vector implementation it replaced. The rewrite claims
   identical arithmetic ORDER (not just numerical closeness), so these tests
-  assert exact = on the full result, reference implementation included inline."
+  assert exact = on the whole arithmetic result, reference implementation
+  included inline. The estimator's `:warnings` are reporting rather than
+  arithmetic and are pinned by `risk-degeneracy-test`; see `arithmetic-only`."
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.portfolio.optimizer.domain.math :as math]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf :as ledoit-wolf]))
@@ -66,6 +68,19 @@
   (math/matrix-add left
                    (math/scalar-matrix -1 right)))
 
+(defn- arithmetic-only
+  "The estimator's arithmetic result, without the reporting layer.
+
+  `estimate` also returns `:warnings` describing states in which its answer is
+  not a risk estimate (saturated shrinkage, ragged series). That is reporting,
+  not arithmetic, and the reference implementation below deliberately does not
+  model it - duplicating warning prose here would pin message text in a parity
+  test and make it un-editable. The warnings are pinned instead by
+  `hyperopen.portfolio.optimizer.domain.risk-degeneracy-test`, which asserts
+  both codes and their payloads."
+  [result]
+  (dissoc result :warnings))
+
 (defn- reference-estimate
   [{:keys [series periods-per-year]}]
   (let [feature-count (count series)
@@ -123,26 +138,28 @@
 (deftest loop-estimator-is-bit-identical-to-reference-on-small-universe-test
   (let [series (synthetic-series 5 17)]
     (is (= (reference-estimate {:series series :periods-per-year 365})
-           (ledoit-wolf/estimate {:series series :periods-per-year 365})))))
+           (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
 
 (deftest loop-estimator-is-bit-identical-to-reference-on-mid-universe-test
   (let [series (synthetic-series 12 60)]
     (is (= (reference-estimate {:series series :periods-per-year 365})
-           (ledoit-wolf/estimate {:series series :periods-per-year 365})))))
+           (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
 
 (deftest loop-estimator-is-bit-identical-with-default-periods-test
   (let [series (synthetic-series 3 9)]
     (is (= (reference-estimate {:series series})
-           (ledoit-wolf/estimate {:series series})))))
+           (arithmetic-only (ledoit-wolf/estimate {:series series}))))))
 
 (deftest loop-estimator-preserves-degenerate-fallbacks-test
   (is (= (reference-estimate {:series [] :periods-per-year 365})
-         (ledoit-wolf/estimate {:series [] :periods-per-year 365})))
-  ;; ragged series fall back to the zero matrix
+         (arithmetic-only (ledoit-wolf/estimate {:series [] :periods-per-year 365}))))
+  ;; ragged series still produce the zero matrix here; estimate-risk-model
+  ;; substitutes a pairwise sample covariance on the :ragged-return-series
+  ;; warning (see risk-degeneracy-test)
   (let [ragged [[0.01 0.02 0.03] [0.01 0.02]]]
     (is (= (reference-estimate {:series ragged :periods-per-year 365})
-           (ledoit-wolf/estimate {:series ragged :periods-per-year 365}))))
+           (arithmetic-only (ledoit-wolf/estimate {:series ragged :periods-per-year 365})))))
   ;; single observation, single instrument
   (let [tiny [[0.01]]]
     (is (= (reference-estimate {:series tiny :periods-per-year 12})
-           (ledoit-wolf/estimate {:series tiny :periods-per-year 12})))))
+           (arithmetic-only (ledoit-wolf/estimate {:series tiny :periods-per-year 12}))))))

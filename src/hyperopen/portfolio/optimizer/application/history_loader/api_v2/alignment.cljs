@@ -4,7 +4,8 @@
             [hyperopen.portfolio.optimizer.application.history-loader.calendar :as calendar]
             [hyperopen.portfolio.optimizer.application.history-loader.instruments :as instruments]
             [hyperopen.portfolio.optimizer.application.history-loader.window :as history-window]
-            [hyperopen.portfolio.optimizer.domain.history-series :as history-series]))
+            [hyperopen.portfolio.optimizer.domain.history-series :as history-series]
+            [hyperopen.portfolio.optimizer.domain.return-plausibility :as plausibility]))
 
 (def default-min-observations
   2)
@@ -118,13 +119,18 @@
   (vec (:returns (aligned-return-entry api-v2-history local-id))))
 
 (defn- usable-aligned-returns?
+  "Complete, finite, AND every value a plausible return. An implausible value
+  demotes to the point-level path, where `calendar/point-return-map` drops the
+  offending timestamps - established behaviour, since multi-chunk loads already
+  demote routinely on the length check below."
   [api-v2-history local-id min-return-observations]
   (let [return-calendar (vec (:return-calendar api-v2-history))
         returns (aligned-return-values api-v2-history local-id)]
     (and (seq return-calendar)
          (= (count return-calendar) (count returns))
          (>= (count returns) min-return-observations)
-         (every? codec/finite-number? returns))))
+         (every? codec/finite-number? returns)
+         (not-any? plausibility/implausible-return? returns))))
 
 (defn- all-selected-aligned-returns-usable?
   [api-v2-history local-ids min-return-observations]
@@ -530,6 +536,7 @@
                           (keep (fn [{:keys [instrument series]}]
                                   (funding-warning instrument series))
                                 eligible)
+                          (calendar/plausibility-warnings eligible)
                           (when history-warning [history-warning])))
         price-series-by-instrument (into {}
                                          (keep (fn [{:keys [instrument-id series]}]

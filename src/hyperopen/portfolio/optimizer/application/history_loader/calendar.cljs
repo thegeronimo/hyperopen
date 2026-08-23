@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.application.history-loader.calendar
   (:require [clojure.set :as set]
-            [hyperopen.portfolio.metrics.history :as metrics-history]))
+            [hyperopen.portfolio.metrics.history :as metrics-history]
+            [hyperopen.portfolio.optimizer.domain.return-plausibility :as plausibility]))
 
 (defn row-by-time
   [rows]
@@ -23,14 +24,76 @@
        (js/isFinite value)))
 
 (defn point-return-map
-  "Map of :time-ms -> finite :return for a series' point rows."
+  "Map of :time-ms -> USABLE :return for a series' point rows.
+
+  Usable means finite AND inside the plausibility bound. This is the sole gate
+  on the point-level path, and every consumer funnels through it -
+  `point-level-return-calendar`, `returns-from-point-level`,
+  `finite-return-times`/`peel-poisoning-members`, and
+  `api-v2.alignment/point-return-count`. Tightening it here therefore removes an
+  implausible bar from the shared calendar, drops the member's observation
+  count, and lets the existing `:insufficient-return-history` exclusion fire if
+  the member falls below the bar - all without another edit.
+
+  What was dropped is NOT inferable from the result, so callers that can attach
+  an instrument id use `implausible-returns` below to report it."
   [points]
-  (into {}
+  (let [contaminated (plausibility/contaminated-return-indices
+                      (mapv :return points))]
+    (into {}
+          (keep-indexed (fn [idx {:keys [time-ms return]}]
+                          (when (and (number? time-ms)
+                                     (plausibility/usable-return? return)
+                                     (not (contaminated idx)))
+                            [time-ms return])))
+          points)))
+
+(defn implausible-returns
+  "[{:time-ms t :return r} ...] for the points `point-return-map` discards as
+  implausible. Finite-but-absent values (nil, NaN) are not included: those are
+  ordinary gaps, already handled, and reporting them would be noise."
+  [points]
+  (into []
         (keep (fn [{:keys [time-ms return]}]
                 (when (and (number? time-ms)
-                           (finite-number? return))
-                  [time-ms return])))
+                           (plausibility/implausible-return? return))
+                  {:time-ms time-ms
+                   :return return})))
         points))
+
+(defn extreme-returns
+  "[{:time-ms t :return r} ...] for points KEPT but past the advisory bound."
+  [points]
+  (into []
+        (keep (fn [{:keys [time-ms return]}]
+                (when (and (number? time-ms)
+                           (plausibility/extreme-return? return))
+                  {:time-ms time-ms
+                   :return return})))
+        points))
+
+(defn plausibility-warnings
+  "One warning per observation the plausibility bound discarded or flagged,
+  naming the asset, the timestamp and the value.
+
+  `point-return-map` above already dropped these, so without this the run would
+  silently estimate risk from a shortened series - the same anonymous drop the
+  calendar-poisoning work replaced with per-member warnings.
+
+  Takes alignment's eligible rows ({:instrument-id .. :series {:points ..}})."
+  [eligible]
+  (mapcat (fn [{:keys [instrument-id series]}]
+            (let [points (:points series)]
+              (concat
+               (map #(plausibility/rejected-observation-warning instrument-id
+                                                                (:time-ms %)
+                                                                (:return %))
+                    (implausible-returns points))
+               (map #(plausibility/extreme-observation-warning instrument-id
+                                                               (:time-ms %)
+                                                               (:return %))
+                    (extreme-returns points)))))
+          eligible))
 
 (defn point-level-return-calendar
   "The subset of `calendar` timestamps at which EVERY member carries a finite

@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.domain.risk
   (:require [hyperopen.portfolio.optimizer.domain.math :as math]
+            [hyperopen.portfolio.optimizer.domain.return-plausibility :as plausibility]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf :as risk-ledoit-wolf]
             [hyperopen.portfolio.optimizer.domain.risk-mixed-frequency :as mixed-frequency]))
 
@@ -135,6 +136,41 @@
             (recur (inc sweep))
             (mutable-diagonal mutable)))))))
 
+(defn covariance-plausibility
+  "Absolute magnitude check over the covariance DIAGONAL, reported alongside
+  `covariance-conditioning`.
+
+  Conditioning cannot answer this question, by construction: it is a ratio of
+  eigenvalues, so a scaled identity - the exact matrix a saturated Ledoit-Wolf
+  shrinkage produces - scores a perfect condition number of 1 and reports :ok no
+  matter how large its entries are. That is why a book reporting 8,697.7%
+  annualized volatility sat next to the word `Healthy` on 2026-08-23.
+
+  `instrument-ids` is positional with the matrix and may be nil; when supplied,
+  the offending assets are named so the rail can point at them."
+  ([covariance]
+   (covariance-plausibility covariance nil))
+  ([covariance instrument-ids]
+   (let [n (count covariance)
+         vols (mapv (fn [idx]
+                      (let [variance (get-in covariance [idx idx])]
+                        (when (and (math/finite-number? variance)
+                                   (not (neg? variance)))
+                          (js/Math.sqrt variance))))
+                    (range n))
+         finite-vols (filterv math/finite-number? vols)
+         max-volatility (when (seq finite-vols) (apply max finite-vols))
+         implausible-idxs (filterv #(plausibility/implausible-volatility?
+                                     (nth vols % nil))
+                                   (range n))]
+     {:max-volatility max-volatility
+      :bound plausibility/implausible-volatility-bound
+      :implausible-instrument-ids (mapv #(nth instrument-ids % %) implausible-idxs)
+      :status (cond
+                (empty? finite-vols) :unknown
+                (seq implausible-idxs) :implausible
+                :else :ok)})))
+
 (defn covariance-conditioning
   [covariance]
   (let [eigenvalues (filter math/finite-number? (symmetric-eigenvalues covariance))
@@ -254,15 +290,31 @@
                                  (risk-ledoit-wolf/estimate
                                   {:series series
                                    :periods-per-year periods-per-year*}))
+            ;; The Ledoit-Wolf estimator reports that it could not run on ragged
+            ;; series; deciding what to use instead is this function's job. The
+            ;; pairwise sample covariance gets every DIAGONAL right (each series
+            ;; against itself) and zeroes only the unequal-length off-diagonals,
+            ;; so it understates diversification - conservative, and honest.
+            ;; Publishing its all-zero matrix instead reported 0% volatility for
+            ;; a real book, which is the more believable failure.
+            ledoit-wolf-unavailable? (boolean
+                                      (some #(= :ragged-return-series (:code %))
+                                            (:warnings ledoit-wolf-result)))
             covariance (case model-kind
                          :diagonal-shrink (diagonal-shrink @sample shrinkage)
-                         :ledoit-wolf-dense (:covariance ledoit-wolf-result)
+                         :ledoit-wolf-dense (if ledoit-wolf-unavailable?
+                                              @sample
+                                              (:covariance ledoit-wolf-result))
                          :sample-covariance @sample
                          @sample)]
         (cond-> {:model model-kind
                  :instrument-ids instrument-ids
                  :covariance covariance
-                 :warnings warnings*}
+                 ;; concat, never merge: `select-keys` below runs through
+                 ;; `merge`, so folding :warnings into it would OVERWRITE the
+                 ;; cadence and :risk-model-renamed warnings in warnings*.
+                 :warnings (vec (concat warnings*
+                                        (:warnings ledoit-wolf-result)))}
           (= :ledoit-wolf-dense model-kind)
           (merge (select-keys ledoit-wolf-result
                               [:shrinkage :sample-count :feature-count]))
@@ -341,7 +393,14 @@
                                              (or (get-in base-cov [r c]) 0))))
                                        (range n))))
                              (range n))
-            {repaired :covariance} (repair-psd covariance)]
-        (assoc risk-result
-               :instrument-ids ids
-               :covariance repaired)))))
+            ;; Keep the repair warning. The sibling call site in
+            ;; `estimate-risk-model` threads it through; this one used to
+            ;; destructure only :covariance, so a matrix that a history
+            ;; assumption pushed indefinite was diagonally loaded back into
+            ;; shape and the user was never told.
+            {repaired :covariance psd-warning :warning} (repair-psd covariance)]
+        (cond-> (assoc risk-result
+                       :instrument-ids ids
+                       :covariance repaired)
+          psd-warning
+          (update :warnings #(vec (concat (or % []) [psd-warning]))))))))

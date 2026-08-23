@@ -122,7 +122,14 @@
                     :max-weight (apply max (map abs-num target-weights))
                     :turnover (turnover current-weights target-weights)
                     :binding-constraints (binding-constraints opts)
-                    :covariance-conditioning (risk/covariance-conditioning covariance)})
+                    :covariance-conditioning (risk/covariance-conditioning covariance)
+                    ;; Conditioning is an eigenvalue RATIO and so cannot see
+                    ;; magnitude: a scaled identity scores a perfect 1 however
+                    ;; large its entries are. The plausibility check is the only
+                    ;; one that can reject a 7,200% volatility.
+                    :covariance-plausibility (risk/covariance-plausibility
+                                              covariance
+                                              (:instrument-ids opts))})
       (seq expected-returns)
       (assoc :weight-sensitivity-by-instrument
              (weight-sensitivity-by-instrument
