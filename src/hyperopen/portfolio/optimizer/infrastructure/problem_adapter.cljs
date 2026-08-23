@@ -197,9 +197,24 @@
                        :l1-constraints []
                        :lower-bounds (vec (repeat var-count 0))
                        :upper-bounds (vec (repeat var-count nil)))
-       :decode (partial decode-split-weights n)})
+       :decode (partial decode-split-weights n)
+       :var-count var-count})
     {:problem problem
-     :decode identity}))
+     :decode identity
+     :var-count nil}))
+
+(defn adapt-linear
+  "The linear term in the adapted variable layout, for a `var-count` that
+  adapt-problem already reported.
+
+  A frontier sweep varies only :linear between its points, so this is the one
+  piece infrastructure.osqp has to recompute per solve once it has cached the
+  matrices. Splitting the linear term is O(var-count); splitting the quadratic
+  is O(var-count^2), which is what the cache exists to skip."
+  [problem var-count]
+  (if var-count
+    (split-linear (:linear problem) var-count)
+    (:linear problem)))
 
 (defn objective-value
   [problem weights]

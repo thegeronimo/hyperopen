@@ -21,6 +21,25 @@
      :sequential-equal-risk (equal-risk-solve/solve problem solve-problem on-progress)
      (solve-problem problem))))
 
+(defn transportable-solver-results
+  "Drops the dense quadratic from each result's attached :problem before the
+  results are put on the wire.
+
+  solve-plan attaches the whole problem so target-selection can re-validate the
+  returned weights against the constraints that produced them. That re-check
+  reads :instrument-ids, the bounds, the equality/inequality/L1 rows and
+  :return-tilt -- never :quadratic. But :quadratic is the covariance, and the
+  frontier sweep attaches the SAME matrix to every point, so a 100-asset run
+  serialized one 100x100 matrix forty times: 8.28 MB of a 8.41 MB result
+  payload, structured-cloned across the worker boundary and written to
+  IndexedDB, for a value nothing downstream reads."
+  [solver-results]
+  (mapv (fn [result]
+          (if (map? (:problem result))
+            (update result :problem dissoc :quadratic)
+            result))
+        solver-results))
+
 (defn solve-plan
   [solver-plan solve-problem]
   (mapv (fn [problem]

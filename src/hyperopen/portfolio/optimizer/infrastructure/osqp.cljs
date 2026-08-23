@@ -77,16 +77,68 @@
                          (:upper-bounds problem))]
     (vec (concat equality-rows inequality-rows bound-rows))))
 
-(defn- options
+(def ^:private static-cache-limit
+  ;; A run plans at most a constrained and an unconstrained sweep, so two
+  ;; entries cover it. The worker is torn down and recreated per run
+  ;; (infrastructure/run_bridge.cljs), so nothing here outlives a run.
+  2)
+
+(defonce ^:private static-cache
+  ;; P, A, l and u are rebuilt identically for every solve in a frontier sweep
+  ;; -- measured at one distinct P and two distinct A across 56 solves -- and
+  ;; building them is most of the cost of a working OSQP solve: dense->csc
+  ;; walks the whole dense matrix with get-in, and `rows` allocates a full
+  ;; unit-row per bound. Only the linear term actually varies between points.
+  (atom []))
+
+(defn- structural-key
+  "Everything that determines P, A, l and u. A sweep varies only :linear and
+  :return-tilt, and neither reaches any of them.
+
+  Compared by value, but the expensive members -- the covariance and the bound
+  vectors -- are the same objects across a sweep, so the equality check
+  short-circuits on identity. The constraint rows are rebuilt per point but are
+  small, so walking them is far cheaper than rebuilding the matrices."
   [problem]
-  (let [rows (rows problem)]
-    #js {:P (dense->csc (problem-adapter/add-diagonal-epsilon (:quadratic problem))
-                        {:upper-triangle? true})
-         :A (dense->csc (mapv :coefficients rows)
-                        {:upper-triangle? false})
-         :q (float64-array (:linear problem))
-         :l (float64-array (mapv :lower rows))
-         :u (float64-array (mapv :upper rows))}))
+  [(:quadratic problem)
+   (:instrument-ids problem)
+   (:lower-bounds problem)
+   (:upper-bounds problem)
+   (:equalities problem)
+   (:inequalities problem)
+   (:l1-constraints problem)])
+
+(defn- build-static-parts
+  [problem]
+  (let [{adapted :problem decode :decode var-count :var-count}
+        (problem-adapter/adapt-problem problem)
+        constraint-rows (rows adapted)]
+    {:P (dense->csc (problem-adapter/add-diagonal-epsilon (:quadratic adapted))
+                    {:upper-triangle? true})
+     :A (dense->csc (mapv :coefficients constraint-rows)
+                    {:upper-triangle? false})
+     :l (float64-array (mapv :lower constraint-rows))
+     :u (float64-array (mapv :upper constraint-rows))
+     :decode decode
+     :var-count var-count}))
+
+(defn static-parts
+  "Cached P/A/l/u plus the decode fn and variable layout for `problem`.
+  Public so a test can assert the cached result is identical to a freshly
+  built one."
+  [problem]
+  (let [cache-key (structural-key problem)]
+    (or (some (fn [[k v]] (when (= k cache-key) v)) @static-cache)
+        (let [built (build-static-parts problem)]
+          (swap! static-cache
+                 (fn [entries]
+                   (vec (take static-cache-limit (cons [cache-key built] entries)))))
+          built))))
+
+(defn build-static-parts-uncached
+  "Escape hatch for tests that need an unmemoized baseline to compare against."
+  [problem]
+  (build-static-parts problem))
 
 (defn- settings
   []
@@ -124,8 +176,13 @@
 
 (defn- solve-on-shared-module
   [problem]
-  (let [{adapted-problem :problem decode :decode} (problem-adapter/adapt-problem problem)]
-    (-> (.setup OSQP (options adapted-problem) (settings))
+  (let [{:keys [P A l u decode var-count]} (static-parts problem)
+        options #js {:P P
+                     :A A
+                     :q (float64-array (problem-adapter/adapt-linear problem var-count))
+                     :l l
+                     :u u}]
+    (-> (.setup OSQP options (settings))
         (.then (fn [^js solver]
                  (try
                    (let [solution (.solve solver)]

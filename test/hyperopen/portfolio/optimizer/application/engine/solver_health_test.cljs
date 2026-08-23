@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.engine :as engine]
+            [hyperopen.portfolio.optimizer.application.engine.solve :as solve]
             [hyperopen.portfolio.optimizer.application.engine.solver-health :as solver-health]
             [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 

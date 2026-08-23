@@ -89,13 +89,22 @@
     (> instrument-count 30) 24
     :else nil))
 
-(defn- display-frontier-objective
+(defn display-frontier-objective
+  "Applies the size tier as a CEILING, not a default.
+
+  This used to return the objective untouched whenever :frontier-points was
+  already set, which meant the tier was skipped in exactly the case it exists
+  for: refinement sets :frontier-points (up to 80 at :maximum), so a large
+  universe asked for the most points precisely when it could afford the fewest.
+  At N=100 that planned 80 display solves on top of 80 selection solves against
+  a solver that exhausts its heap after 36."
   [objective instrument-count]
-  (if (some? (:frontier-points objective))
-    objective
-    (if-let [point-count (display-frontier-point-count instrument-count)]
-      (assoc objective :frontier-points point-count)
-      objective)))
+  (if-let [point-count (display-frontier-point-count instrument-count)]
+    (assoc objective
+           :frontier-points (if-let [requested (:frontier-points objective)]
+                              (min requested point-count)
+                              point-count))
+    objective))
 
 (defn build-plans
   [{:keys [request instrument-ids expected-returns covariance solver-plan return-tilts]}]

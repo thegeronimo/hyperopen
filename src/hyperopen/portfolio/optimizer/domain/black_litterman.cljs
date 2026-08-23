@@ -164,14 +164,13 @@
                 tau-sigma (math/scalar-matrix tau* covariance)
                 tau-sigma-inv (math/inverse tau-sigma)
                 omega-inv (math/inverse (omega tau-sigma views* p))
+                ;; P'omega^-1 appears in both the precision and the mean term.
+                ;; It was evaluated twice from identical inputs.
+                pt-omega-inv (math/mat-mul pt omega-inv)
                 left (math/matrix-add tau-sigma-inv
-                                      (math/mat-mul
-                                       (math/mat-mul pt omega-inv)
-                                       p))
+                                      (math/mat-mul pt-omega-inv p))
                 right (math/vec-add (math/mat-vec tau-sigma-inv pi)
-                                    (math/mat-vec
-                                     (math/mat-mul pt omega-inv)
-                                     q))
+                                    (math/mat-vec pt-omega-inv q))
                 posterior (math/mat-vec (math/inverse left) right)]
             {:model :black-litterman
              :instrument-ids instrument-ids

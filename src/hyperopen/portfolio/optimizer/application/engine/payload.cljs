@@ -6,6 +6,7 @@
             [hyperopen.portfolio.optimizer.application.engine.inverse-volatility-payload
              :as inverse-volatility-payload]
             [hyperopen.portfolio.optimizer.application.engine.solver-health :as solver-health]
+            [hyperopen.portfolio.optimizer.application.engine.solve :as solve]
             [hyperopen.portfolio.optimizer.contracts.constants :as contracts-constants]
             [hyperopen.portfolio.optimizer.application.engine.target-selection :as target-selection]
             [hyperopen.portfolio.optimizer.application.instrument-labels :as instrument-labels]
@@ -445,7 +446,7 @@
      :history-summary (history-summary request)
      :solver {:strategy (:strategy solver-plan)
               :objective-kind (get-in solver-plan [:problems 0 :objective-kind])}
-     :solver-results solver-results
+     :solver-results (solve/transportable-solver-results solver-results)
      :frontier (:frontier default-frontier)
      :frontier-summary (:frontier-summary default-frontier)
      :frontiers (into {}
