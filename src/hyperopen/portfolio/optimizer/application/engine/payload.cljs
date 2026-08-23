@@ -5,6 +5,7 @@
              :as equal-risk-payload]
             [hyperopen.portfolio.optimizer.application.engine.inverse-volatility-payload
              :as inverse-volatility-payload]
+            [hyperopen.portfolio.optimizer.application.engine.solver-health :as solver-health]
             [hyperopen.portfolio.optimizer.contracts.constants :as contracts-constants]
             [hyperopen.portfolio.optimizer.application.engine.target-selection :as target-selection]
             [hyperopen.portfolio.optimizer.application.instrument-labels :as instrument-labels]
@@ -306,7 +307,8 @@
    display-frontiers
    encoded
    current-weights*
-   current-portfolio-analysis]
+   current-portfolio-analysis
+   display-frontier-results]
   (let [instrument-ids (:instrument-ids risk-result)
         default-frontier (or (:unconstrained display-frontiers)
                              (:constrained display-frontiers)
@@ -392,6 +394,8 @@
                     (concat (:warnings request)
                             (:warnings encoded)
                             (:warnings solver-plan)
+                            (solver-health/warnings solver-results
+                                                    display-frontier-results)
                             (:warnings risk-result)
                             (:warnings return-result)
                             (:warnings default-frontier)
@@ -522,5 +526,6 @@
                         display-frontiers
                         encoded
                         current-weights
-                        current-portfolio-analysis))
+                        current-portfolio-analysis
+                        display-frontier-results))
       selection)))

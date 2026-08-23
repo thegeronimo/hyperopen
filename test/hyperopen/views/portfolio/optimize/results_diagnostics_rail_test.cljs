@@ -82,3 +82,30 @@
            :limiting-instrument-id "perp:IMX"
            :limiting-reason :ends-earlier}))
       "fresh windows keep the plain limiter subtext"))
+
+(deftest solver-fallback-warning-renders-with-plain-copy-test
+  ;; The fallback used to be entirely silent, so an OSQP that never ran (a CSP
+  ;; without 'wasm-unsafe-eval' blocks WebAssembly outright) looked like a
+  ;; healthy but slow run. It must now render, and it must not leak the raw
+  ;; kebab code as the headline.
+  (let [rows (vec (rail/warning-rows
+                   {}
+                   [{:code :solver-fallback-used
+                     :message "Every solve in this run (56) fell back."}]))
+        text (str/join " " (collect-strings (first rows)))]
+    (is (= 1 (count rows)))
+    (is (str/includes? text "Backup solver used"))
+    (is (not (str/includes? text "solver-fallback-used")))
+    (is (str/includes? text "fell back"))))
+
+(deftest solver-fallback-warning-reaches-the-mounted-rail-test
+  ;; warning-rows in isolation is not proof the panel shows it: the warnings
+  ;; block is gated on (seq (:warnings result)) inside the mounted rail, so
+  ;; assert through the real entry point.
+  (let [text (str/join " " (collect-strings
+                            (rail/trust-diagnostics-rail
+                             {:instrument-ids ["perp:BTC" "perp:ETH"]
+                              :warnings [{:code :solver-fallback-used
+                                          :message "Every solve fell back."}]})))]
+    (is (str/includes? text "Backup solver used"))
+    (is (str/includes? text "Every solve fell back."))))

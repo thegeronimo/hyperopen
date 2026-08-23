@@ -89,7 +89,11 @@
    :already-resting "Already resting"
    ;; A held instrument the allocator expressed no target for (out-of-universe spot,
    ;; dropped for missing history) — it is held as-is, never staged as a sell-to-zero.
-   :excluded-from-optimization "Excluded from optimization — held"})
+   :excluded-from-optimization "Excluded from optimization — held"
+   ;; The run completed on the backup JavaScript solver because the primary
+   ;; WebAssembly one failed. Weights are still constraint-validated, so this
+   ;; reads as a slowdown to investigate, not a wrong answer.
+   :solver-fallback-used "Backup solver used"})
 
 (defn keyword-label
   ([value]

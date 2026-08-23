@@ -246,6 +246,7 @@
             [hyperopen.portfolio.optimizer.application.engine-warning-labels-test]
             [hyperopen.portfolio.optimizer.application.engine.equal-risk-payload-diversification-edge-test]
             [hyperopen.portfolio.optimizer.application.engine.equal-risk-solve-test]
+            [hyperopen.portfolio.optimizer.application.engine.solver-health-test]
             [hyperopen.portfolio.optimizer.application.execution-amend-test]
             [hyperopen.portfolio.optimizer.application.execution-amend-view-model-test]
             [hyperopen.portfolio.optimizer.application.execution-carryover-test]
@@ -1122,6 +1123,7 @@
              'hyperopen.portfolio.optimizer.application.engine-warning-labels-test
              'hyperopen.portfolio.optimizer.application.engine.equal-risk-payload-diversification-edge-test
              'hyperopen.portfolio.optimizer.application.engine.equal-risk-solve-test
+             'hyperopen.portfolio.optimizer.application.engine.solver-health-test
              'hyperopen.portfolio.optimizer.application.execution-amend-test
              'hyperopen.portfolio.optimizer.application.execution-amend-view-model-test
              'hyperopen.portfolio.optimizer.application.execution-carryover-test

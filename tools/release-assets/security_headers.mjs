@@ -96,8 +96,19 @@ export function buildContentSecurityPolicy() {
   appendDirective(directives, "base-uri", ["'self'"]);
   appendDirective(directives, "form-action", ["'self'"]);
   appendDirective(directives, "object-src", ["'none'"]);
+  // 'wasm-unsafe-eval' admits WebAssembly compilation and nothing else: it does
+  // not permit eval() or any other string-to-JS execution, so the same-origin
+  // script-execution control this policy exists for is unchanged. Without it the
+  // bundled OSQP solver -- an Emscripten WASM build inside osqp.min.js -- throws
+  // a CSP CompileError, and infrastructure/osqp.cljs catches it into
+  // fallback.cljs, which silently re-solves with pure-JS quadprog and still
+  // reports :status :solved. The run looks correct and is roughly ten times
+  // slower. It has to live in this policy rather than a worker-specific one:
+  // the "/*" rule below applies these headers to /js/*.js as well, and a
+  // dedicated worker takes its CSP from its own script response.
   appendDirective(directives, "script-src", [
     "'self'",
+    "'wasm-unsafe-eval'",
     THEME_PRELOAD_SCRIPT_HASH,
     "https://static.cloudflareinsights.com",
   ]);
