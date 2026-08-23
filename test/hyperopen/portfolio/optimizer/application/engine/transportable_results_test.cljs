@@ -52,3 +52,27 @@
     (is (every? #(nil? (get-in % [:problem :quadratic])) solver-results))
     (is (every? #(seq (get-in % [:problem :instrument-ids])) solver-results)
         "the rest of the problem still travels")))
+
+(deftest payload-strip-does-not-drop-the-risk-integrity-signals-test
+  ;; Merge guard. The volatility-integrity work on main publishes :risk-shrinkage
+  ;; and a covariance-plausibility diagnostic through the same solved payload
+  ;; that this namespace's strip and the solver-health warning splice both edit.
+  ;; A saturated covariance collapses to a scaled identity that reads "Healthy"
+  ;; on conditioning alone, so these are the only channels by which that
+  ;; degeneracy can surface -- losing one to a payload edit would restore the
+  ;; exact silence that fix removed.
+  (let [result (engine/run-optimization
+                (fixtures/sample-engine-request)
+                {:solve-problem (fn [problem]
+                                  (let [n (count (:instrument-ids problem))]
+                                    {:status :solved
+                                     :solver :osqp
+                                     :weights (vec (repeat n (/ 1.0 n)))}))})]
+    (is (= :solved (:status result)))
+    (is (contains? result :risk-shrinkage)
+        "the shrinkage intensity must still reach the UI")
+    (is (contains? (:diagnostics result) :covariance-plausibility)
+        "the absolute-magnitude diagnostic must still reach the UI")
+    (is (contains? result :warnings)
+        "the warnings channel the risk model reports saturation on must survive")))
+
