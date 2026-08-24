@@ -14,7 +14,9 @@
                   :handler icon-proxy/handler}}
  
   :builds
- {:app {:target :browser
+ {:app {:js-options {:resolve {"osqp" {:target :file
+                                       :file "vendor/osqp/osqp_patched.mjs"}}}
+        :target :browser
         :output-dir "resources/public/js"
         :asset-path "/js"
         :module-hash-names true
@@ -71,7 +73,9 @@
                               hyperopen.dev.contracts-preload]
                    :after-load hyperopen.core/reload}}
 
-  :portfolio {:target :portfolio
+  :portfolio {:js-options {:resolve {"osqp" {:target :file
+                                             :file "vendor/osqp/osqp_patched.mjs"}}}
+              :target :portfolio
               :runner-ns hyperopen.workbench.runner
               :ns-regexp "-scenes$"
               :output-dir "resources/public/js"
@@ -96,21 +100,27 @@
                                                         :value {:viewport/width 1440
                                                                 :viewport/height 900}}]}}
 
-  :portfolio-worker {:target :browser
+  :portfolio-worker {:js-options {:resolve {"osqp" {:target :file
+                                                    :file "vendor/osqp/osqp_patched.mjs"}}}
+                     :target :browser
                      :output-dir "resources/public/js"
                      :asset-path "/js"
                      :modules {:portfolio_worker {:init-fn hyperopen.portfolio.worker/init
                                                   :web-worker true}}
                      :compiler-options {:optimizations :advanced}}
 
-  :portfolio-optimizer-worker {:target :browser
+  :portfolio-optimizer-worker {:js-options {:resolve {"osqp" {:target :file
+                                                              :file "vendor/osqp/osqp_patched.mjs"}}}
+                               :target :browser
                                :output-dir "resources/public/js"
                                :asset-path "/js"
                                :modules {:portfolio_optimizer_worker {:init-fn hyperopen.portfolio.optimizer.worker/init
                                                                        :web-worker true}}
                                :compiler-options {:optimizations :advanced}}
 
-  :vault-detail-worker {:target :browser
+  :vault-detail-worker {:js-options {:resolve {"osqp" {:target :file
+                                                       :file "vendor/osqp/osqp_patched.mjs"}}}
+                        :target :browser
                         :output-dir "resources/public/js"
                         :asset-path "/js"
                         :modules {:vault_detail_worker {:init-fn hyperopen.vaults.detail.worker/init
@@ -122,14 +132,20 @@
          :main test-runner/-main
          :compiler-options {:source-map true}
          :js-options {:resolve {"lightweight-charts" {:target :file
-                                                      :file "test/shims/lightweight_charts_stub.cjs"}}}}
+                                                      :file "test/shims/lightweight_charts_stub.cjs"}
+                                "osqp" {:target :file
+                                        :file "vendor/osqp/osqp_patched.mjs"}}}}
 
-  :ws-test {:target :node-test
+  :ws-test {:js-options {:resolve {"osqp" {:target :file
+                                           :file "vendor/osqp/osqp_patched.mjs"}}}
+            :target :node-test
             :output-to "out/ws-test.js"
             :compiler-options {:source-map true}
             :ns-regexp "^(hyperopen\\.websocket\\..*-test|hyperopen\\.wallet\\.address-watcher-test|hyperopen\\.startup\\.runtime-test)$"}
   
-  :release {:target :browser
+  :release {:js-options {:resolve {"osqp" {:target :file
+                                           :file "vendor/osqp/osqp_patched.mjs"}}}
+            :target :browser
             :output-dir "resources/public/js"
             :asset-path "/js"
             :module-hash-names true

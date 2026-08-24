@@ -366,6 +366,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.history-api-v2-client-test]
             [hyperopen.portfolio.optimizer.infrastructure.history-client-fallback-test]
             [hyperopen.portfolio.optimizer.infrastructure.history-client-test]
+            [hyperopen.portfolio.optimizer.infrastructure.osqp-heap-test]
             [hyperopen.portfolio.optimizer.infrastructure.osqp-static-cache-test]
             [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
             [hyperopen.portfolio.optimizer.infrastructure.prior-data-test]
@@ -1247,6 +1248,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.history-api-v2-client-test
              'hyperopen.portfolio.optimizer.infrastructure.history-client-fallback-test
              'hyperopen.portfolio.optimizer.infrastructure.history-client-test
+             'hyperopen.portfolio.optimizer.infrastructure.osqp-heap-test
              'hyperopen.portfolio.optimizer.infrastructure.osqp-static-cache-test
              'hyperopen.portfolio.optimizer.infrastructure.persistence-test
              'hyperopen.portfolio.optimizer.infrastructure.prior-data-test

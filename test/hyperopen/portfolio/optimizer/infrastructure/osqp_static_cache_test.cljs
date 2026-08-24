@@ -32,7 +32,7 @@
 (defn- typed->vec [a] (vec (array-seq a)))
 
 (defn- csc->vecs
-  [csc]
+  [^js csc]
   {:data (typed->vec (.-data csc))
    :row-indices (typed->vec (.-row_indices csc))
    :column-pointers (typed->vec (.-column_pointers csc))})

@@ -142,6 +142,22 @@
 
 (defn- settings
   []
+  ;; Two settings are NOT usable here, both because of defects in the `osqp`
+  ;; wrapper rather than in OSQP itself.
+  ;;
+  ;; :eps_prim_inf is silently dropped -- the wrapper passes :eps_dual_inf twice
+  ;; into the sixth and seventh slots of its _create_settings call, so whatever
+  ;; you set for :eps_prim_inf never reaches the solver. Harmless while both are
+  ;; left at their shared 1.0e-4 default, which is why it has never mattered;
+  ;; setting one without the other would be a silent no-op.
+  ;;
+  ;; :adaptive_rho_interval is not in the wrapper's settings list at all, so
+  ;; OSQP's default of 0 applies, which means "choose the interval from elapsed
+  ;; time". That makes solve counts and, occasionally, solutions vary run to run
+  ;; on identical input. Measured: one point of a 36-point sweep at N=100 lands
+  ;; on either of two answers 7.7e-3 apart depending on machine timing. It is
+  ;; pre-existing and unrelated to the vendored heap fix, but it is the reason
+  ;; any solver comparison here has to allow for run-to-run drift.
   #js {:verbose false
        :eps_abs 0.00000001
        :eps_rel 0.00000001
