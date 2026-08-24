@@ -189,9 +189,60 @@
              (update-existing-in view [:weights] stringify-instrument-keyed-map))
            views))))
 
+(defn normalize-boundary-node
+  "`normalize-wire-values` and `normalize-instrument-keyed-maps` in a single
+  post-order walk instead of two.
+
+  This runs on every message crossing the worker boundary in both directions,
+  including every progress tick, so it was walking a whole engine payload twice
+  per message for two rules that never interact.
+
+  Output-identical to `(-> value normalize-wire-values
+  normalize-instrument-keyed-maps)`, and the reason is stronger than the two
+  key sets happening to be disjoint today -- the rules commute outright.
+  `keyword-value` changes a value only when it is a string or a keyword, and
+  both walks leave scalars alone; `stringify-instrument-keyed-map` changes a
+  value only when it is a map, and `keyword-value` leaves maps alone. So
+  applying both at a node in either order, before or after the recursion,
+  lands in the same place. Nothing here depends on the key sets, and a future
+  key landing in both would not break it.
+
+  What the equivalence DOES depend on is that this stays post-order: the child
+  is fully normalized before either key rule is applied to it. A pre-order
+  variant -- apply the key rules, then recurse -- is genuinely wrong, and
+  measurably so: it diverges on nested instrument-keyed maps, because
+  stringifying a parent's keys before its children are normalized loses the
+  inner rewrite. instrument_keyed_codec_test pins that.
+
+  Public so the equivalence can be asserted directly against the two-pass
+  composition. Asserting it through `normalize-worker-boundary` would drag in
+  `normalize-black-litterman-view-weights`, which is a root-level step, not
+  part of the walk."
+  [value]
+  (cond
+    (map? value)
+    (into {}
+          (map (fn [[key item]]
+                 (let [normalized (normalize-boundary-node item)
+                       enumerated (if (contains? enum-value-keys key)
+                                    (keyword-value normalized)
+                                    normalized)]
+                   [key (if (and (contains? instrument-keyed-map-keys key)
+                                 (map? enumerated))
+                          (stringify-instrument-keyed-map enumerated)
+                          enumerated)])))
+          value)
+
+    (vector? value)
+    (mapv normalize-boundary-node value)
+
+    (seq? value)
+    (doall (map normalize-boundary-node value))
+
+    :else value))
+
 (defn normalize-worker-boundary
   [value]
   (-> value
-      normalize-wire-values
-      normalize-instrument-keyed-maps
+      normalize-boundary-node
       normalize-black-litterman-view-weights))
