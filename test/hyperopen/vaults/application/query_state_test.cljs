@@ -21,7 +21,8 @@
          (query-state/parse-vault-list-query ""))))
 
 (deftest parse-vault-detail-query-normalizes-shareable-detail-state-test
-  (is (= {:snapshot-range :six-month
+  (is (= {:detail-custom-range nil
+          :snapshot-range :six-month
           :detail-chart-series :returns
           :detail-returns-benchmark-coins ["BTC" "ETH"]
           :detail-tab :vault-performance
@@ -31,7 +32,8 @@
           "?range=6m&chart=returns&bench=BTC&bench=ETH&bench=BTC&tab=vaultPerformance&activity=tradeHistory&side=long"))))
 
 (deftest parse-vault-detail-query-supports-cleared-benchmarks-test
-  (is (= {:detail-returns-benchmark-coins []}
+  (is (= {:detail-custom-range nil
+          :detail-returns-benchmark-coins []}
          (query-state/parse-vault-detail-query "?bench="))))
 
 (deftest apply-vault-query-state-merges-list-and-detail-fields-test

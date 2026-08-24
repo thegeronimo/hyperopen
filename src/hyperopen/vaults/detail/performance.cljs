@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.detail.performance
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.views.portfolio.vm.summary :as vm-summary]
             [hyperopen.vaults.detail.metrics-bridge :as metrics-bridge]))
@@ -93,13 +94,14 @@
 
 (defn- summary-window-cutoff-ms
   [snapshot-range end-time-ms]
-  (when (number? end-time-ms)
-    (case snapshot-range
-      :three-month (with-utc-months-offset end-time-ms -3)
-      :six-month (with-utc-months-offset end-time-ms -6)
-      :one-year (with-utc-years-offset end-time-ms -1)
-      :two-year (with-utc-years-offset end-time-ms -2)
-      nil)))
+  (or (custom-range/cutoff-ms snapshot-range)
+      (when (number? end-time-ms)
+        (case snapshot-range
+          :three-month (with-utc-months-offset end-time-ms -3)
+          :six-month (with-utc-months-offset end-time-ms -6)
+          :one-year (with-utc-years-offset end-time-ms -1)
+          :two-year (with-utc-years-offset end-time-ms -2)
+          nil))))
 
 (defn- normalized-history-rows
   [rows]
@@ -132,8 +134,15 @@
 
 (defn- derived-portfolio-summary
   [all-time-summary snapshot-range]
-  (let [account-rows (normalized-history-rows (:accountValueHistory all-time-summary))
-        pnl-rows (normalized-history-rows (:pnlHistory all-time-summary))
+  ;; The custom end bound is applied by clipping the source rows, so
+  ;; `end-time-ms` below already reads the custom window end and the existing
+  ;; cutoff machinery handles the start exactly as it does for a preset.
+  (let [account-rows (custom-range/clip-pairs-to-end
+                      (normalized-history-rows (:accountValueHistory all-time-summary))
+                      snapshot-range)
+        pnl-rows (custom-range/clip-pairs-to-end
+                  (normalized-history-rows (:pnlHistory all-time-summary))
+                  snapshot-range)
         end-time-ms (or (some-> account-rows last first)
                         (some-> pnl-rows last first))
         cutoff-ms (summary-window-cutoff-ms snapshot-range end-time-ms)]
@@ -141,7 +150,11 @@
       (let [account-window (history-window-rows account-rows cutoff-ms)
             pnl-window (history-window-rows pnl-rows cutoff-ms)
             pnl-window* (rebase-history-rows pnl-window)]
-        (when (or (seq account-window)
+        ;; A CUSTOM window with no samples must still resolve to an entry: nil
+        ;; sends `portfolio-summary` down its fallback chain and the vault would
+        ;; plot its last 30 days under a custom label. Empty is honest.
+        (when (or (custom-range/active? snapshot-range)
+                  (seq account-window)
                   (seq pnl-window*))
           (assoc all-time-summary
                  :accountValueHistory account-window

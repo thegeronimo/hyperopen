@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail-view
-  (:require [hyperopen.views.vaults.detail.activity :as activity]
+  (:require [hyperopen.vaults.application.detail-commands :as detail-commands]
+            [hyperopen.views.vaults.detail.activity :as activity]
             [hyperopen.views.vaults.detail.chart-view :as chart]
             [hyperopen.views.chart.d3.hover-state :as chart-hover-state]
             [hyperopen.views.vaults.detail.hero :as hero]
@@ -52,13 +53,22 @@
   [state]
   (let [route (get-in state [:router :path])
         hover-active? (chart-hover-state/surface-hover-active? :vaults)
+        ;; The custom range changes on every pointer sample of a strip drag.
+        ;; Without it in the cache key, a drag that begins while the chart still
+        ;; reports hover would replay the cached VM and the chart would sit
+        ;; frozen for the whole gesture.
+        custom-range-cache-key [(get-in state detail-commands/vault-detail-custom-range-path)
+                                (get-in state detail-commands/vault-detail-range-strip-path)
+                                (get-in state detail-commands/vault-detail-range-drag-path)]
         cached-entry @vault-detail-view-cache
         vm (if (and hover-active?
                     (= route (:route cached-entry))
+                    (= custom-range-cache-key (:custom-range-cache-key cached-entry))
                     (map? (:vm cached-entry)))
              (:vm cached-entry)
              (let [next-vm (detail-vm/vault-detail-vm state)]
                (reset! vault-detail-view-cache {:route route
+                                               :custom-range-cache-key custom-range-cache-key
                                                :vm next-vm})
                next-vm))
         {:keys [kind

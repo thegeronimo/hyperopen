@@ -3,8 +3,11 @@
             [hyperopen.domain.trading :as trading]
             [hyperopen.portfolio.application.metrics-bridge :as vm-metrics-bridge]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
+            [hyperopen.views.chart.range-strip-model :as range-strip-model]
             [hyperopen.views.portfolio.vm.chart :as vm-chart]
+            [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.views.portfolio.vm.equity :as vm-equity]
             [hyperopen.views.portfolio.vm.montecarlo :as vm-montecarlo]
             [hyperopen.views.portfolio.vm.performance :as vm-performance]
@@ -348,9 +351,63 @@
         summary-scope (portfolio-actions/normalize-summary-scope
                        (get-in state [:portfolio-ui :summary-scope]
                                portfolio-actions/default-summary-scope))
-        summary-time-range (portfolio-actions/normalize-summary-time-range
-                            (get-in state [:portfolio-ui :summary-time-range]
-                                    portfolio-actions/default-summary-time-range))
+        preset-time-range (let [normalized (portfolio-actions/normalize-summary-time-range
+                                            (get-in state [:portfolio-ui :summary-time-range]
+                                                    portfolio-actions/default-summary-time-range))]
+                            (if (keyword? normalized)
+                              normalized
+                              portfolio-actions/default-summary-time-range))
+        custom-range (portfolio-actions/summary-custom-range state)
+        ;; The data pipeline reads the custom window when one is applied. The
+        ;; preset underneath is deliberately left alone, so clearing the custom
+        ;; range restores it without anything having to be remembered.
+        summary-time-range (or custom-range preset-time-range)
+        strip-target (portfolio-actions/summary-range-strip-target state)
+        strip-drag-mode (portfolio-actions/summary-range-drag-mode state)
+        strip-rows (vm-history/normalized-history-rows
+                    (vm-history/account-value-history-rows
+                     (get summary-by-key
+                          (vm-summary/all-time-summary-key summary-scope))))
+        build-strip (fn [target]
+                      (range-strip-model/build-model
+                       {:rows strip-rows
+                        :range custom-range
+                        :strip-open? (= strip-target target)
+                        :drag-mode strip-drag-mode}))
+        ;; One range, two places it can be edited from. The chart card and the
+        ;; tearsheet each render their own strip, and only the one that was
+        ;; opened is visible — but both read the same window, so they can never
+        ;; disagree.
+        range-strip (build-strip :chart)
+        metrics-range-strip (build-strip :metrics)
+        ;; Seed Custom... with the window already on screen so the strip opens
+        ;; showing what the trader is looking at rather than jumping somewhere.
+        strip-domain (:domain range-strip)
+        ;; Re-opening the strip on a window that is ALREADY custom must seed with
+        ;; that window verbatim. Recomputing the end from the data domain would
+        ;; silently stretch the selection to today the moment the trader
+        ;; re-opened the editor on a range they had just set.
+        custom-seed-to (or (:to custom-range) (:to strip-domain))
+        custom-seed-from (or (:from custom-range)
+                             (vm-history/summary-window-cutoff-ms summary-time-range
+                                                                  (:to strip-domain))
+                             (:from strip-domain))
+        custom-selector (fn [target]
+                          {:active? (boolean custom-range)
+                           :open? (= strip-target target)
+                           :open-action :actions/open-portfolio-summary-custom-range
+                           :open-args [target custom-seed-from custom-seed-to]
+                           :clear-action :actions/select-portfolio-summary-time-range
+                           :clear-args [preset-time-range]})
+        ;; Tooltip timestamps switch between clock-time and date on `:day`. That
+        ;; decision must follow the window ACTUALLY shown, not the preset sitting
+        ;; underneath it: with 24H selected and a six-month custom window, every
+        ;; tooltip would otherwise render as a bare clock time.
+        tooltip-range (or (custom-range/span-preset custom-range) preset-time-range)
+        range-label (if custom-range
+                      (or (:span-label range-strip)
+                          (selector-option-label summary-time-range-options preset-time-range))
+                      (selector-option-label summary-time-range-options preset-time-range))
         summary-context (selected-summary-context summary-by-key summary-scope summary-time-range)
         summary-entry (:entry summary-context)
         selected-key (:requested-key summary-context)
@@ -412,6 +469,8 @@
                                                 performance-metrics)
      :performance-metrics performance-metrics
      :chart chart
+     :range-strip range-strip
+     :metrics-range-strip metrics-range-strip
      :monte-carlo {:strategy-cumulative-rows (:strategy-cumulative-rows benchmark-context)
                    :strategy-source-version (:strategy-source-version benchmark-context)
                    :start-equity total-equity
@@ -421,14 +480,21 @@
                                  :label (selector-option-label summary-scope-options summary-scope)
                                  :open? (boolean (get-in state [:portfolio-ui :summary-scope-dropdown-open?]))
                                  :options summary-scope-options}
-                 :summary-time-range {:value summary-time-range
-                                      :label (selector-option-label summary-time-range-options summary-time-range)
+                 :summary-time-range {:value preset-time-range
+                                      :tooltip-range tooltip-range
+                                      :label range-label
                                       :open? (boolean (get-in state [:portfolio-ui :summary-time-range-dropdown-open?]))
-                                      :options summary-time-range-options}
-                 :performance-metrics-time-range {:value summary-time-range
-                                                  :label (selector-option-label summary-time-range-options summary-time-range)
+                                      :options summary-time-range-options
+                                      :custom (custom-selector :chart)}
+                 ;; The tearsheet reads the SAME window, so it shows the same
+                 ;; label, offers the same Custom... row, and reveals its own
+                 ;; strip in place rather than sending the trader back up to the
+                 ;; chart card to find one.
+                 :performance-metrics-time-range {:value preset-time-range
+                                                  :label range-label
                                                   :open? (boolean (get-in state [:portfolio-ui :performance-metrics-time-range-dropdown-open?]))
-                                                  :options summary-time-range-options}
+                                                  :options summary-time-range-options
+                                                  :custom (custom-selector :metrics)}
                  :returns-benchmark returns-benchmark-selector}
      :summary {:selected-key selected-key
                :requested-key (:requested-key summary-context)

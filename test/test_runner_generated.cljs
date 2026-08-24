@@ -211,6 +211,9 @@
             [hyperopen.portfolio.actions-test]
             [hyperopen.portfolio.application.metrics-bridge-test]
             [hyperopen.portfolio.benchmark-actions-test]
+            [hyperopen.portfolio.custom-range-actions-test]
+            [hyperopen.portfolio.custom-range-query-state-test]
+            [hyperopen.portfolio.custom-range-test]
             [hyperopen.portfolio.fee-context-test]
             [hyperopen.portfolio.fee-schedule-test]
             [hyperopen.portfolio.metrics.builder-test]
@@ -538,6 +541,7 @@
             [hyperopen.vaults.application.transfer-commands-test]
             [hyperopen.vaults.application.transfer-state-test]
             [hyperopen.vaults.application.ui-state-test]
+            [hyperopen.vaults.custom-range-actions-test]
             [hyperopen.vaults.detail.activity-test]
             [hyperopen.vaults.detail.benchmarks-test]
             [hyperopen.vaults.detail.metrics-bridge-test]
@@ -611,6 +615,7 @@
             [hyperopen.views.autocorrelation-plot-test]
             [hyperopen.views.chart.d3.model-test]
             [hyperopen.views.chart.d3.runtime-test]
+            [hyperopen.views.chart.range-strip-model-test]
             [hyperopen.views.chart.tooltip-core-test]
             [hyperopen.views.degen.illustrations-test]
             [hyperopen.views.degen.order-form-test]
@@ -709,6 +714,7 @@
             [hyperopen.views.portfolio.vm.chart-math-test]
             [hyperopen.views.portfolio.vm.chart-tooltip-test]
             [hyperopen.views.portfolio.vm.current-trader-benchmark-test]
+            [hyperopen.views.portfolio.vm.custom-range-window-test]
             [hyperopen.views.portfolio.vm.equity-helpers-test]
             [hyperopen.views.portfolio.vm.history-helpers-test]
             [hyperopen.views.portfolio.vm.history-test]
@@ -1098,6 +1104,9 @@
              'hyperopen.portfolio.actions-test
              'hyperopen.portfolio.application.metrics-bridge-test
              'hyperopen.portfolio.benchmark-actions-test
+             'hyperopen.portfolio.custom-range-actions-test
+             'hyperopen.portfolio.custom-range-query-state-test
+             'hyperopen.portfolio.custom-range-test
              'hyperopen.portfolio.fee-context-test
              'hyperopen.portfolio.fee-schedule-test
              'hyperopen.portfolio.metrics.builder-test
@@ -1425,6 +1434,7 @@
              'hyperopen.vaults.application.transfer-commands-test
              'hyperopen.vaults.application.transfer-state-test
              'hyperopen.vaults.application.ui-state-test
+             'hyperopen.vaults.custom-range-actions-test
              'hyperopen.vaults.detail.activity-test
              'hyperopen.vaults.detail.benchmarks-test
              'hyperopen.vaults.detail.metrics-bridge-test
@@ -1498,6 +1508,7 @@
              'hyperopen.views.autocorrelation-plot-test
              'hyperopen.views.chart.d3.model-test
              'hyperopen.views.chart.d3.runtime-test
+             'hyperopen.views.chart.range-strip-model-test
              'hyperopen.views.chart.tooltip-core-test
              'hyperopen.views.degen.illustrations-test
              'hyperopen.views.degen.order-form-test
@@ -1596,6 +1607,7 @@
              'hyperopen.views.portfolio.vm.chart-math-test
              'hyperopen.views.portfolio.vm.chart-tooltip-test
              'hyperopen.views.portfolio.vm.current-trader-benchmark-test
+             'hyperopen.views.portfolio.vm.custom-range-window-test
              'hyperopen.views.portfolio.vm.equity-helpers-test
              'hyperopen.views.portfolio.vm.history-helpers-test
              'hyperopen.views.portfolio.vm.history-test

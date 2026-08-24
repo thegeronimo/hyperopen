@@ -185,6 +185,24 @@
 (s/def ::margin-rec-batch-toggle-args
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)))
+;; --- custom chart range (design 1c) ---------------------------------------------------------
+;; The pointer slots carry raw :event/clientX, :event.currentTarget/bounds and
+;; :event/pointer-buttons placeholders at dispatch-validation time (placeholders
+;; resolve after this check), so every one of them must accept `any?` — the same
+;; reason ::portfolio-optimizer-exposure-point-args is all-`any?`. The domain
+;; slots are baked literals but stay `any?` for symmetry with the pair they
+;; travel with.
+(s/def ::chart-range-open-args
+  ;; [target seed-from-ms seed-to-ms] — which panel should show the strip
+  ;; (:chart / :metrics) plus the window currently on screen.
+  (s/tuple any? any? any?))
+(s/def ::chart-range-drag-start-args
+  ;; [client-x bounds domain-from-ms domain-to-ms]
+  (s/tuple any? any? any? any?))
+(s/def ::chart-range-drag-move-args
+  ;; [client-x bounds buttons domain-from-ms domain-to-ms]
+  (s/tuple any? any? any? any? any?))
+
 (def action-args-spec-by-id
   {:actions/init-websockets ::common/no-args
    :actions/margin-rec-sync ::margin-rec-now-args
@@ -307,6 +325,16 @@
    :actions/select-portfolio-fee-schedule-market-type ::common/keyword-or-string-args
    :actions/handle-portfolio-fee-schedule-keydown ::common/key-args
    :actions/select-portfolio-summary-time-range ::common/keyword-or-string-args
+   :actions/open-portfolio-summary-custom-range ::chart-range-open-args
+   :actions/close-portfolio-summary-custom-range ::common/no-args
+   :actions/start-portfolio-summary-custom-range-drag ::chart-range-drag-start-args
+   :actions/update-portfolio-summary-custom-range-drag ::chart-range-drag-move-args
+   :actions/end-portfolio-summary-custom-range-drag ::common/no-args
+   :actions/open-vault-detail-custom-range ::chart-range-open-args
+   :actions/close-vault-detail-custom-range ::common/no-args
+   :actions/start-vault-detail-custom-range-drag ::chart-range-drag-start-args
+   :actions/update-vault-detail-custom-range-drag ::chart-range-drag-move-args
+   :actions/end-vault-detail-custom-range-drag ::common/no-args
    :actions/select-portfolio-chart-tab ::common/keyword-or-string-args
    :actions/set-portfolio-account-info-tab ::common/tab-args
    :actions/set-portfolio-account-activity-sub-tab ::common/keyword-or-string-args

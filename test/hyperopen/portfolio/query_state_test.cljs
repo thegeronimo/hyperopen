@@ -3,7 +3,8 @@
             [hyperopen.portfolio.query-state :as query-state]))
 
 (deftest parse-portfolio-query-normalizes-route-params-test
-  (is (= {:summary-time-range :three-month
+  (is (= {:summary-custom-range nil
+          :summary-time-range :three-month
           :summary-scope :perps
           :chart-tab :pnl
           :returns-benchmark-coins ["BTC"
@@ -15,7 +16,8 @@
           "?range=3m&scope=perp&chart=pnl&bench=BTC&bench=ETH&bench=BTC&bench=vault%3A0x1234567890abcdef1234567890abcdef12345678&bench=Trader%3A0xABCDEFabcdefABCDEFabcdefABCDEFabcdef1234&tab=positions"))))
 
 (deftest parse-portfolio-query-supports-cleared-benchmarks-test
-  (is (= {:returns-benchmark-coins []}
+  (is (= {:summary-custom-range nil
+          :returns-benchmark-coins []}
          (query-state/parse-portfolio-query "?bench="))))
 
 (deftest apply-portfolio-query-state-merges-only-recognized-view-state-test

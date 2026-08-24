@@ -32,6 +32,11 @@
    :close-vault-detail-activity-filter vault-actions/close-vault-detail-activity-filter
    :set-vault-detail-activity-direction-filter vault-actions/set-vault-detail-activity-direction-filter
    :set-vault-detail-chart-series vault-actions/set-vault-detail-chart-series
+   :open-vault-detail-custom-range vault-actions/open-vault-detail-custom-range
+   :close-vault-detail-custom-range vault-actions/close-vault-detail-custom-range
+   :start-vault-detail-custom-range-drag vault-actions/start-vault-detail-custom-range-drag
+   :update-vault-detail-custom-range-drag vault-actions/update-vault-detail-custom-range-drag
+   :end-vault-detail-custom-range-drag vault-actions/end-vault-detail-custom-range-drag
    :set-vault-detail-returns-benchmark-search vault-actions/set-vault-detail-returns-benchmark-search
    :set-vault-detail-returns-benchmark-suggestions-open
    vault-actions/set-vault-detail-returns-benchmark-suggestions-open

@@ -40,6 +40,39 @@
     :heavy-effect-ids #{:effects/fetch-candle-snapshot
                         :effects/api-fetch-trader-portfolio-benchmark}}
 
+   ;; Pointer-up is the only point in a strip drag that pays for the gesture:
+   ;; the URL gains the shareable bounds and benchmarks refetch at a resolution
+   ;; that covers the new span. The per-sample drag actions are projection-only
+   ;; and deliberately have no policy.
+   ;; Opening the editor applies the day-snapped seed, which switches the
+   ;; benchmark candle request to the all-time interval — so it publishes and
+   ;; refetches just like a drag does.
+   :actions/open-portfolio-summary-custom-range
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/api-fetch-trader-portfolio-benchmark
+                        :effects/fetch-candle-snapshot}}
+
+   :actions/open-vault-detail-custom-range
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
+   :actions/end-portfolio-summary-custom-range-drag
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/api-fetch-trader-portfolio-benchmark
+                        :effects/fetch-candle-snapshot}}
+
+   :actions/end-vault-detail-custom-range-drag
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? true
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
    :actions/select-portfolio-chart-tab
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

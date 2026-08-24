@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.application.detail-commands
   (:require [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.montecarlo.actions :as mc-actions]
             [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.detail.activity :as activity-model]
@@ -87,8 +88,13 @@
   ([snapshot-range benchmark-coins]
    (vault-detail-returns-benchmark-fetch-effects snapshot-range benchmark-coins nil))
   ([snapshot-range benchmark-coins detail-route-vault-address]
-   (let [{:keys [interval bars]} (portfolio-actions/returns-benchmark-candle-request
-                                  (ui-state/normalize-vault-snapshot-range snapshot-range))
+   ;; A custom range must NOT go through `normalize-vault-snapshot-range`: that
+   ;; normalizer only recognizes presets and silently collapses anything else to
+   ;; the default, which would fetch a 30-day candle window for a two-year custom
+   ;; span and leave the benchmark line stopping short of the chart.
+   (let [range* (or (custom-range/normalize snapshot-range)
+                    (ui-state/normalize-vault-snapshot-range snapshot-range))
+         {:keys [interval bars]} (portfolio-actions/returns-benchmark-candle-request range*)
          detail-route-vault-address* (identity/normalize-vault-address detail-route-vault-address)]
      (->> (portfolio-actions/normalize-portfolio-returns-benchmark-coins benchmark-coins)
           (remove (fn [coin]
@@ -220,11 +226,144 @@
                         [vault-detail-activity-filter-open-path false]]]
    replace-shareable-route-query-effect])
 
+;; --- custom chart range (design 1c: drag the context strip) --------------------------------
+;;
+;; The custom window lives in its OWN key rather than in [:vaults-ui :snapshot-range].
+;; That preset key is shared with the vault LIST page and is persisted with
+;; `(name snapshot-range)`, so writing a map into it would both leak a chart-only
+;; window onto the list and throw on the next persist.
+
+(def vault-detail-custom-range-path
+  [:vaults-ui :detail-custom-range])
+
+(def vault-detail-range-strip-path
+  "Which panel currently shows the range strip: `:chart`, `:metrics`, or nil.
+  See the portfolio twin for why this is a target and not a boolean."
+  [:vaults-ui :detail-range-strip])
+
+(def ^:private vault-detail-range-strip-targets
+  #{:chart :metrics})
+
+(defn normalize-vault-detail-range-strip-target
+  [value]
+  (when (contains? vault-detail-range-strip-targets value)
+    value))
+
+(def vault-detail-range-drag-path
+  [:vaults-ui :detail-range-drag])
+
+(defn vault-detail-custom-range
+  [state]
+  (custom-range/normalize (get-in state vault-detail-custom-range-path)))
+
+(defn vault-detail-range-drag-mode
+  [state]
+  (get-in state vault-detail-range-drag-path))
+
+(defn vault-detail-range-strip-target
+  [state]
+  (normalize-vault-detail-range-strip-target (get-in state vault-detail-range-strip-path)))
+
+(defn effective-vault-detail-range
+  "Range value the vault detail data pipeline should use: the custom window when
+  one is applied, otherwise the shared preset."
+  [state]
+  (or (vault-detail-custom-range state)
+      (ui-state/normalize-vault-snapshot-range (get-in state [:vaults-ui :snapshot-range]))))
+
+(defn- custom-range-projection
+  "Range writes always close BOTH timeframe menus. The chart and the tearsheet
+  each own one, and either can open the strip — closing only the chart's leaves
+  the tearsheet menu hanging open over its own strip."
+  [path-values]
+  [:effects/save-many
+   (into (vec path-values)
+         [[[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
+          [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]])])
+
+(defn open-vault-detail-custom-range
+  "Custom... — reveal the strip seeded with the window on screen.
+
+  Publishes the window and refetches: the seed is day-snapped, and a custom range
+  reads its benchmark candles at the all-time interval rather than the preset's,
+  so opening the editor genuinely changes what has to be fetched."
+  [deps state target seed-from seed-to]
+  (let [seed (custom-range/normalize {:from seed-from :to seed-to})
+        target* (or (normalize-vault-detail-range-strip-target target) :chart)
+        projection (custom-range-projection
+                    (cond-> [[vault-detail-range-strip-path target*]
+                             [vault-detail-range-drag-path nil]]
+                      seed (conj [vault-detail-custom-range-path seed])))]
+    (if (and seed (vault-detail-benchmark-fetch-enabled? deps state))
+      (into [projection replace-shareable-route-query-effect]
+            (vault-detail-returns-benchmark-fetch-effects
+             seed
+             (selected-vault-detail-returns-benchmark-coins state)
+             (current-route-vault-address deps state)))
+      (if seed
+        [projection replace-shareable-route-query-effect]
+        [projection]))))
+
+(defn close-vault-detail-custom-range
+  [_state]
+  [(custom-range-projection [[vault-detail-range-strip-path nil]
+                             [vault-detail-range-drag-path nil]])])
+
+(defn start-vault-detail-custom-range-drag
+  [state client-x bounds domain-from domain-to]
+  (if-let [{:keys [mode range]}
+           (custom-range/drag-begin {:client-x client-x
+                                     :bounds bounds
+                                     :domain (custom-range/normalize {:from domain-from
+                                                                      :to domain-to})
+                                     :range (vault-detail-custom-range state)})]
+    [(custom-range-projection [[vault-detail-range-strip-path
+                                (or (vault-detail-range-strip-target state) :chart)]
+                               [vault-detail-range-drag-path mode]
+                               [vault-detail-custom-range-path range]])]
+    []))
+
+(defn update-vault-detail-custom-range-drag
+  "One pointer sample. Projection-only: a fetch or a URL rewrite here would fire
+  dozens of times per gesture."
+  [state client-x bounds buttons domain-from domain-to]
+  (if-let [{:keys [mode range]}
+           (custom-range/drag-move {:mode (vault-detail-range-drag-mode state)
+                                    :client-x client-x
+                                    :bounds bounds
+                                    :buttons buttons
+                                    :domain (custom-range/normalize {:from domain-from
+                                                                     :to domain-to})
+                                    :range (vault-detail-custom-range state)})]
+    [(custom-range-projection [[vault-detail-range-drag-path mode]
+                               [vault-detail-custom-range-path range]])]
+    []))
+
+(defn end-vault-detail-custom-range-drag
+  "Pointer-up is the only point that pays for the gesture: the URL gains the
+  shareable bounds and benchmarks refetch at a resolution covering the new span."
+  [deps state]
+  (if (vault-detail-range-drag-mode state)
+    (let [range (vault-detail-custom-range state)
+          fetch-effects (if (and range
+                                 (vault-detail-benchmark-fetch-enabled? deps state))
+                          (vault-detail-returns-benchmark-fetch-effects
+                           range
+                           (selected-vault-detail-returns-benchmark-coins state)
+                           (current-route-vault-address deps state))
+                          [])]
+      (into [(custom-range-projection [[vault-detail-range-drag-path nil]])
+             replace-shareable-route-query-effect]
+            fetch-effects))
+    []))
+
 (defn set-vault-detail-chart-series
   [deps state series]
   (let [series* (ui-state/normalize-vault-detail-chart-series series)
-        snapshot-range (ui-state/normalize-vault-snapshot-range
-                        (get-in state [:vaults-ui :snapshot-range]))
+        ;; Effective, not preset: the chart section derives the candle interval
+        ;; from the window on screen, so fetching at the preset's interval while
+        ;; a custom window is applied stores bars nobody reads.
+        snapshot-range (effective-vault-detail-range state)
         detail-route-vault-address (current-route-vault-address deps state)
         projection-effect [:effects/save-many
                            [[[:vaults-ui :detail-chart-series] series*]]]
@@ -260,8 +399,8 @@
 (defn select-vault-detail-returns-benchmark
   [deps state benchmark]
   (if-let [coin (portfolio-actions/normalize-portfolio-returns-benchmark-coin benchmark)]
-    (let [snapshot-range (ui-state/normalize-vault-snapshot-range
-                          (get-in state [:vaults-ui :snapshot-range]))
+    ;; Effective, not preset — see set-vault-detail-chart-series.
+    (let [snapshot-range (effective-vault-detail-range state)
           detail-route-vault-address (current-route-vault-address deps state)
           selected-coins (selected-vault-detail-returns-benchmark-coins state)
           already-selected? (contains? (set selected-coins) coin)

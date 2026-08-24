@@ -1,6 +1,8 @@
 (ns hyperopen.vaults.application.query-state
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.custom-range :as custom-range]
+            [hyperopen.vaults.application.detail-commands :as detail-commands]
             [hyperopen.portfolio.query-state :as portfolio-query-state]
             [hyperopen.vaults.application.ui-state :as ui-state]))
 
@@ -8,7 +10,9 @@
   #{"range" "q" "roles" "closed" "sort" "page" "pageSize"})
 
 (def detail-owned-query-keys
-  #{"range" "chart" "bench" "tab" "activity" "side"})
+  ;; "from"/"to" carry the custom chart range; see the portfolio twin for why
+  ;; they are always written rather than only when a custom window is applied.
+  #{"range" "chart" "bench" "tab" "activity" "side" "from" "to"})
 
 (def ^:private role-filter-keys
   [:leading :deposited :others])
@@ -151,11 +155,17 @@
       (assoc :user-vaults-page-size (ui-state/normalize-vault-user-page-size
                                      (param-value params "pageSize"))))))
 
+(defn- parse-custom-range
+  [params]
+  (custom-range/normalize {:from (custom-range/parse-iso (param-value params "from"))
+                           :to (custom-range/parse-iso (param-value params "to"))}))
+
 (defn parse-vault-detail-query
   [query]
   (let [params (search-params query)
         bench-values (param-values params "bench")]
-    (cond-> {}
+    ;; Always reported, nil included — see the portfolio twin.
+    (cond-> {:detail-custom-range (parse-custom-range params)}
       (param-present? params "range")
       (assoc :snapshot-range (vault-range-value (param-value params "range")))
 
@@ -218,6 +228,14 @@
       (contains? query-state* :detail-chart-series)
       (assoc-in [:vaults-ui :detail-chart-series] (:detail-chart-series query-state*))
 
+      (contains? query-state* :detail-custom-range)
+      (assoc-in detail-commands/vault-detail-custom-range-path
+                (:detail-custom-range query-state*))
+
+      ;; A shared link that pins a window should not also open the editor.
+      (contains? query-state* :detail-custom-range)
+      (assoc-in detail-commands/vault-detail-range-strip-path nil)
+
       (contains? query-state* :detail-returns-benchmark-coins)
       (assoc-in [:vaults-ui :detail-returns-benchmark-coins]
                 (:detail-returns-benchmark-coins query-state*))
@@ -262,6 +280,7 @@
   [state]
   {:snapshot-range (ui-state/normalize-vault-snapshot-range
                     (get-in state [:vaults-ui :snapshot-range]))
+   :detail-custom-range (detail-commands/vault-detail-custom-range state)
    :detail-chart-series (ui-state/normalize-vault-detail-chart-series
                          (get-in state [:vaults-ui :detail-chart-series]))
    :detail-returns-benchmark-coins (selected-detail-benchmark-coins state)
@@ -314,11 +333,15 @@
   (let [{:keys [snapshot-range
                 detail-chart-series
                 detail-returns-benchmark-coins
+                detail-custom-range
                 detail-tab
                 detail-activity-tab
                 detail-activity-direction-filter]} (vault-detail-query-state state)]
-    (into [["range" (vault-range-token snapshot-range)]
-           ["chart" (name detail-chart-series)]]
+    (into (cond-> [["range" (vault-range-token snapshot-range)]
+                   ["chart" (name detail-chart-series)]]
+            detail-custom-range
+            (conj ["from" (custom-range/format-iso (:from detail-custom-range))]
+                  ["to" (custom-range/format-iso (:to detail-custom-range))]))
           (concat (benchmark-query-params detail-returns-benchmark-coins)
                   [["tab" (name detail-tab)]
                    ["activity" (name detail-activity-tab)]

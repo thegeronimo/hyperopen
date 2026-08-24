@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.vm.history
   (:require [clojure.string :as str]
             [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.metrics.parsing :as parsing]))
 
 (def ^:private supported-benchmark-time-ranges
@@ -19,18 +20,23 @@
     (.getTime date)))
 
 (defn summary-window-cutoff-ms
+  "Start bound for a range value.
+
+  A custom range carries its own start, so it short-circuits the preset
+  arithmetic and does not depend on `last-ms` at all."
   [time-range last-ms]
-  (when (and last-ms (number? last-ms))
-    (case time-range
-      :day (- last-ms (* 24 60 60 1000))
-      :week (- last-ms (* 7 24 60 60 1000))
-      :month (- last-ms (* 30 24 60 60 1000))
-      :three-month (with-utc-months-offset last-ms -3)
-      :six-month (with-utc-months-offset last-ms -6)
-      :one-year (with-utc-years-offset last-ms -1)
-      :two-year (with-utc-years-offset last-ms -2)
-      :all-time nil
-      nil)))
+  (or (custom-range/cutoff-ms time-range)
+      (when (and last-ms (number? last-ms))
+        (case time-range
+          :day (- last-ms (* 24 60 60 1000))
+          :week (- last-ms (* 7 24 60 60 1000))
+          :month (- last-ms (* 30 24 60 60 1000))
+          :three-month (with-utc-months-offset last-ms -3)
+          :six-month (with-utc-months-offset last-ms -6)
+          :one-year (with-utc-years-offset last-ms -1)
+          :two-year (with-utc-years-offset last-ms -2)
+          :all-time nil
+          nil))))
 
 (defn history-point-value
   [row]
@@ -79,19 +85,26 @@
     rows))
 
 (defn benchmark-time-range
+  "Resolve the range whose benchmark window should be used.
+
+  A custom range is returned as-is: it already names an explicit window, so
+  letting the `effective-key` bucket override it would rebase benchmarks against
+  the bucket's window instead of the one on screen."
   [requested-summary-time-range effective-key]
-  (let [requested-range (portfolio-actions/normalize-summary-time-range requested-summary-time-range)]
-    (if-let [effective-range (cond
-                               (contains? supported-benchmark-time-ranges effective-key)
-                               effective-key
-                               (and (keyword? effective-key)
-                                    (str/starts-with? (name effective-key) "perp-"))
-                               (let [unscoped-key (keyword (subs (name effective-key) 5))]
-                                 (when (contains? supported-benchmark-time-ranges unscoped-key)
-                                   unscoped-key))
-                               :else nil)]
-      effective-range
-      requested-range)))
+  (if-let [custom (custom-range/normalize requested-summary-time-range)]
+    custom
+    (let [requested-range (portfolio-actions/normalize-summary-time-range requested-summary-time-range)]
+      (if-let [effective-range (cond
+                                 (contains? supported-benchmark-time-ranges effective-key)
+                                 effective-key
+                                 (and (keyword? effective-key)
+                                      (str/starts-with? (name effective-key) "perp-"))
+                                 (let [unscoped-key (keyword (subs (name effective-key) 5))]
+                                   (when (contains? supported-benchmark-time-ranges unscoped-key)
+                                     unscoped-key))
+                                 :else nil)]
+        effective-range
+        requested-range))))
 
 (defn market-benchmark-anchor-time-ms
   [summary-time-range strategy-time-points]

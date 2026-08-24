@@ -41,6 +41,14 @@
    :handle-portfolio-fee-schedule-keydown
    portfolio-actions/handle-portfolio-fee-schedule-keydown
    :select-portfolio-summary-time-range portfolio-actions/select-portfolio-summary-time-range
+   :open-portfolio-summary-custom-range portfolio-actions/open-portfolio-summary-custom-range
+   :close-portfolio-summary-custom-range portfolio-actions/close-portfolio-summary-custom-range
+   :start-portfolio-summary-custom-range-drag
+   portfolio-actions/start-portfolio-summary-custom-range-drag
+   :update-portfolio-summary-custom-range-drag
+   portfolio-actions/update-portfolio-summary-custom-range-drag
+   :end-portfolio-summary-custom-range-drag
+   portfolio-actions/end-portfolio-summary-custom-range-drag
    :select-portfolio-chart-tab portfolio-actions/select-portfolio-chart-tab
    :set-portfolio-account-info-tab portfolio-actions/set-portfolio-account-info-tab
    :set-portfolio-account-activity-sub-tab

@@ -3,6 +3,7 @@
             [hyperopen.ui.fonts :as fonts]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
+            [hyperopen.views.chart.range-strip :as range-strip]
             [hyperopen.views.vaults.detail.chart-tooltip :as chart-tooltip]))
 
 (defn- format-chart-axis-value
@@ -109,12 +110,17 @@
      (when (= option-token selected-token)
        [:span {:aria-hidden true} "ON"])]))
 
-(defn chart-timeframe-menu [{:keys [timeframe-options
-                                    selected-timeframe
-                                    data-role-prefix
-                                    open?
-                                    toggle-action
-                                    close-action]}]
+(defn chart-timeframe-menu
+  "Range chip. `custom` is optional and only the CHART instance passes it — the
+  performance-metrics panel reuses this component but has no strip under it, so
+  giving it a Custom... row there would open a strip the user cannot see."
+  [{:keys [timeframe-options
+           selected-timeframe
+           data-role-prefix
+           open?
+           toggle-action
+           close-action
+           custom]}]
   (let [selected-token (or (timeframe-token selected-timeframe)
                            (timeframe-token (some-> timeframe-options first :value))
                            "day")
@@ -122,7 +128,9 @@
         role-prefix (or data-role-prefix "vault-detail-timeframe")
         toggle-action* (or toggle-action :actions/toggle-vault-detail-chart-timeframe-dropdown)
         close-action* (or close-action :actions/close-vault-detail-chart-timeframe-dropdown)]
-    [:div {:class ["relative"]
+    ;; flex row: the trigger is a block-level flex button, so a sibling clear
+    ;; control would otherwise wrap onto its own line under the chip.
+    [:div {:class ["relative" "flex" "items-center"]
            :data-role (str role-prefix "-menu")}
      (when open?
        [:button {:type "button"
@@ -146,6 +154,10 @@
                        "px-2.5"
                        "text-xs"
                        "text-trading-text"
+                       ;; A custom span is far longer than "30D"; without this it
+                       ;; wraps the chip onto three lines in the tearsheet header,
+                       ;; whose column is narrower than the chart card's.
+                       "whitespace-nowrap"
                        "transition-colors"
                        "hover:bg-[#0d252f]"
                        "focus:outline-none"
@@ -156,7 +168,9 @@
                :data-role (str role-prefix "-trigger")
                :on {:click [[toggle-action*]]}}
       [:span "Range "]
-      [:span selected-label]
+      [:span (if (:active? custom)
+               (or (:label custom) selected-label)
+               selected-label)]
       [:svg {:class ["h-3.5"
                      "w-3.5"
                      "text-ho-text-muted"
@@ -170,6 +184,24 @@
        [:path {:fill-rule "evenodd"
                :clip-rule "evenodd"
                :d "M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"}]]]
+     (when (:active? custom)
+       [:button {:type "button"
+                 :class ["relative"
+                         "z-[21]"
+                         "ml-1"
+                         "inline-flex"
+                         "h-8"
+                         "w-8"
+                         "items-center"
+                         "justify-center"
+                         "rounded-md"
+                         "text-xs"
+                         "text-ho-accent-bright"
+                         "hover:bg-ho-accent-soft"]
+                 :aria-label "Clear custom range"
+                 :data-role (str role-prefix "-clear")
+                 :on {:click [(into [(:clear-action custom)] (:clear-args custom))]}}
+        "x"])
      [:div {:class ["ui-dropdown-panel"
                     "absolute"
                     "right-0"
@@ -189,7 +221,33 @@
       (for [{:keys [value] :as option} timeframe-options
             :let [option-token (or (timeframe-token value) "day")]]
         ^{:key (str role-prefix "-option-" option-token)}
-        (timeframe-option-button option selected-token role-prefix))]]))
+        (timeframe-option-button option selected-token role-prefix))
+      (when (:open-action custom)
+        [:button {:replicant/key (str role-prefix "-option-custom")
+                  :type "button"
+                  :role "menuitemradio"
+                  :aria-checked (boolean (:active? custom))
+                  :class (into ["mt-1"
+                                "flex"
+                                "w-full"
+                                "items-center"
+                                "justify-between"
+                                "min-h-12"
+                                "sm:min-h-0"
+                                "rounded-md"
+                                "border-t"
+                                "border-ho-border-accent"
+                                "px-2.5"
+                                "py-1.5"
+                                "text-xs"
+                                "transition-colors"]
+                               (if (or (:active? custom) (:open? custom))
+                                 ["bg-ho-accent-soft" "text-ho-accent-bright"]
+                                 ["text-ho-text-muted" "hover:text-trading-text"]))
+                  :data-role (str role-prefix "-option-custom")
+                  :on {:click [(into [(:open-action custom)] (:open-args custom))]}}
+         [:span "Custom\u2026"]
+         [:span {:aria-hidden true} "\u2316"]])]]))
 
 (defn- hex-color->rgba [hex alpha]
   (let [hex* (if (and (string? hex)
@@ -386,9 +444,13 @@
 
 (defn- vault-d3-spec
   [chart]
-  (let [base-spec {:surface :vaults
+  ;; `:tooltip-timeframe` is the window on screen; `:selected-timeframe` is the
+  ;; preset the menu labels itself with. The tooltip's timestamp format has to
+  ;; follow the former.
+  (let [tooltip-timeframe (or (:tooltip-timeframe chart) (:selected-timeframe chart))
+        base-spec {:surface :vaults
                    :axis-kind (:axis-kind chart)
-                   :time-range (:selected-timeframe chart)
+                   :time-range tooltip-timeframe
                    :points (:points chart)
                    :series (:series chart)
                    :y-ticks (:y-ticks chart)
@@ -396,7 +458,7 @@
     (assoc base-spec
            :update-key (chart-d3-runtime/spec-update-key base-spec)
            :build-tooltip (fn [hover series]
-                            (chart-tooltip/build-chart-hover-tooltip (:selected-timeframe chart)
+                            (chart-tooltip/build-chart-hover-tooltip tooltip-timeframe
                                                                      (:selected-series chart)
                                                                      hover
                                                                      series)))))
@@ -431,6 +493,7 @@
                               :toggle-action :actions/toggle-vault-detail-chart-timeframe-dropdown
                               :close-action :actions/close-vault-detail-chart-timeframe-dropdown
                               :selected-timeframe (:selected-timeframe chart)
+                              :custom (:custom-range chart)
                               :data-role-prefix "vault-detail-chart-timeframe"})]]
      [:div {:class ["space-y-2"]}
       [:div {:class ["relative" "mt-3" "h-[260px]"]}
@@ -469,4 +532,15 @@
                :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]
       (chart-legend series)
       (when (= selected-series :returns)
-        (returns-benchmark-chip-rail returns-benchmark*))]]))
+        (returns-benchmark-chip-rail returns-benchmark*))
+      ;; Always rendered (it hides itself): the sibling above is nil-able, and a
+      ;; nil hole between keyed siblings is the shape that throws inside
+      ;; Replicant's renderer and latches it as permanently rendering.
+      (range-strip/range-strip
+       {:model (:range-strip chart)
+        :label "Vault"
+        :data-role-prefix "vault-detail-chart-range-strip"
+        :actions {:start-action :actions/start-vault-detail-custom-range-drag
+                  :update-action :actions/update-vault-detail-custom-range-drag
+                  :end-action :actions/end-vault-detail-custom-range-drag
+                  :done-action :actions/close-vault-detail-custom-range}})]]))

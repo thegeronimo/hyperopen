@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
             [hyperopen.platform :as platform]))
 
@@ -129,14 +130,21 @@
       default-summary-scope)))
 
 (defn normalize-summary-time-range
+  "Coerce a range value to a supported preset.
+
+  A custom `{:from :to}` range passes straight through: downstream the range is
+  polymorphic (preset keyword OR custom range) so that the windowing helpers can
+  read the custom bounds instead of preset arithmetic. Collapsing it to a preset
+  here would silently show the wrong window."
   ([value]
    (normalize-summary-time-range value default-summary-time-range))
   ([value fallback]
-   (let [token (normalize-keyword-like value)
-         normalized (get summary-time-range-aliases token token)]
-     (if (contains? summary-time-range-options normalized)
-       normalized
-       fallback))))
+   (or (custom-range/normalize value)
+       (let [token (normalize-keyword-like value)
+             normalized (get summary-time-range-aliases token token)]
+         (if (contains? summary-time-range-options normalized)
+           normalized
+           fallback)))))
 
 (defn normalize-portfolio-chart-tab
   [value]
@@ -299,11 +307,24 @@
       coin)))
 
 (defn returns-benchmark-candle-request
+  "Candle interval + bar count to fetch for a range value.
+
+  A custom range always borrows the ALL-TIME request. Sizing the request to the
+  custom SPAN looks tempting but is wrong: candles are fetched as the newest N
+  bars ending NOW, with no end bound, so a span-sized request only reaches back
+  ~1.3x the span. A custom window sitting further in the past than that would
+  come back with no overlapping candles at all — and the benchmark would either
+  vanish or, worse, silently rebase to the oldest candle actually returned and
+  report plausible-but-wrong alpha. The all-time request (1d x 5000 = ~13.7y)
+  covers any window a real account can have."
   [summary-time-range]
-  (get returns-benchmark-candle-request-by-summary-time-range
-       (normalize-summary-time-range summary-time-range)
-       {:interval :1h
-        :bars 800}))
+  (let [range* (normalize-summary-time-range summary-time-range)]
+    (get returns-benchmark-candle-request-by-summary-time-range
+         (if (custom-range/active? range*)
+           :all-time
+           range*)
+         {:interval :1h
+          :bars 800})))
 
 (defn- returns-benchmark-fetch-effects
   [summary-time-range benchmark-coins]
@@ -534,14 +555,160 @@
                                      (normalize-summary-scope scope)]])
    replace-shareable-route-query-effect])
 
+;; --- custom chart range (design 1c: drag the context strip) --------------------------------
+;;
+;; The custom window is stored BESIDE the preset, never on top of it. Two things
+;; fall out of that: the preset keyword stays a keyword everywhere it is
+;; persisted or rendered, and clearing the custom range restores the previous
+;; preset with nothing to remember.
+
+(def summary-custom-range-path
+  [:portfolio-ui :summary-custom-range])
+
+(def summary-range-strip-path
+  "Which panel currently shows the range strip: `:chart`, `:metrics`, or nil.
+
+  A target rather than a boolean because the chart card and the tearsheet share
+  ONE custom range but sit in different places on the page. Opening `Custom...`
+  from the tearsheet has to reveal the strip THERE — a single boolean would put
+  it under the chart, possibly scrolled off screen, and look like nothing
+  happened."
+  [:portfolio-ui :summary-range-strip])
+
+(def ^:private summary-range-strip-targets
+  #{:chart :metrics})
+
+(defn normalize-summary-range-strip-target
+  [value]
+  (when (contains? summary-range-strip-targets value)
+    value))
+
+(def summary-range-drag-path
+  [:portfolio-ui :summary-range-drag])
+
+(defn summary-custom-range
+  "Normalized custom range applied to the portfolio chart, or nil."
+  [state]
+  (custom-range/normalize (get-in state summary-custom-range-path)))
+
+(defn summary-range-drag-mode
+  [state]
+  (get-in state summary-range-drag-path))
+
+(defn summary-range-strip-target
+  "Panel currently showing the strip, or nil."
+  [state]
+  (normalize-summary-range-strip-target (get-in state summary-range-strip-path)))
+
+(defn effective-summary-time-range
+  "Range value the data pipeline should use: the custom window when one is
+  applied, otherwise the selected preset. Handing the custom map itself
+  downstream is deliberate — the windowing helpers read its bounds, and the view
+  caches compare it by value, so a drag invalidates them on its own."
+  [state]
+  (or (summary-custom-range state)
+      (normalize-summary-time-range (get-in state [:portfolio-ui :summary-time-range]
+                                            default-summary-time-range))))
+
+(defn- custom-range-projection
+  [path-values]
+  (selector-projection-effect nil path-values))
+
+(defn open-portfolio-summary-custom-range
+  "Custom... — reveal the strip seeded with the window already on screen, so the
+  first drag adjusts what the trader is looking at rather than jumping.
+
+  This DOES change the applied range even though the seed reproduces what is on
+  screen: the seed is day-snapped, and a custom range reads its benchmark candles
+  at the all-time interval rather than the preset's. So it has to publish the
+  window to the URL and refetch, exactly like a drag does — otherwise the chip
+  and chart would show a custom window that the URL never mentions and whose
+  benchmark candles were never fetched."
+  [state target seed-from seed-to]
+  (let [seed (custom-range/normalize {:from seed-from :to seed-to})
+        target* (or (normalize-summary-range-strip-target target) :chart)
+        projection (custom-range-projection
+                    (cond-> [[summary-range-strip-path target*]
+                             [summary-range-drag-path nil]]
+                      seed (conj [summary-custom-range-path seed])))]
+    (if seed
+      (into [projection replace-shareable-route-query-effect]
+            (concat (returns-benchmark-fetch-effects seed
+                                                     (selected-returns-benchmark-coins state))
+                    (ensure-portfolio-trader-benchmark-effects state)))
+      [projection])))
+
+(defn close-portfolio-summary-custom-range
+  "Done — collapse the strip. The range itself was committed on pointer-up."
+  [_state]
+  [(custom-range-projection [[summary-range-strip-path nil]
+                             [summary-range-drag-path nil]])])
+
+(defn start-portfolio-summary-custom-range-drag
+  [state client-x bounds domain-from domain-to]
+  (if-let [{:keys [mode range]}
+           (custom-range/drag-begin {:client-x client-x
+                                     :bounds bounds
+                                     :domain (custom-range/normalize {:from domain-from
+                                                                      :to domain-to})
+                                     :range (summary-custom-range state)})]
+    [(custom-range-projection [[summary-range-strip-path
+                                (or (summary-range-strip-target state) :chart)]
+                               [summary-range-drag-path mode]
+                               [summary-custom-range-path range]])]
+    []))
+
+(defn update-portfolio-summary-custom-range-drag
+  "One pointer sample. Projection-only on purpose: this runs at pointer rate, so
+  a URL rewrite or a candle fetch here would fire dozens of times per gesture."
+  [state client-x bounds buttons domain-from domain-to]
+  (if-let [{:keys [mode range]}
+           (custom-range/drag-move {:mode (summary-range-drag-mode state)
+                                    :client-x client-x
+                                    :bounds bounds
+                                    :buttons buttons
+                                    :domain (custom-range/normalize {:from domain-from
+                                                                     :to domain-to})
+                                    :range (summary-custom-range state)})]
+    [(custom-range-projection [[summary-range-drag-path mode]
+                               [summary-custom-range-path range]])]
+    []))
+
+(defn end-portfolio-summary-custom-range-drag
+  "Pointer-up ends the gesture and is the only point that pays for it: the URL
+  gains the shareable bounds and benchmarks refetch at a resolution that covers
+  the new span. A pointer-up with no drag in flight is a plain click and costs
+  nothing."
+  [state]
+  (if (summary-range-drag-mode state)
+    (let [range (summary-custom-range state)
+          benchmark-coins (selected-returns-benchmark-coins state)
+          fetch-effects (if range
+                          (concat (returns-benchmark-fetch-effects range benchmark-coins)
+                                  (ensure-portfolio-trader-benchmark-effects state))
+                          [])]
+      (into [(custom-range-projection [[summary-range-drag-path nil]])
+             replace-shareable-route-query-effect]
+            fetch-effects))
+    []))
+
 (defn select-portfolio-summary-time-range
+  "Pick a preset. This also clears any custom range and collapses the strip,
+  which is what makes the chip's clear affordance work: the preset was never
+  overwritten, so dropping the custom window restores it."
   [state time-range]
-  (let [time-range* (normalize-summary-time-range time-range)
+  (let [normalized (normalize-summary-time-range time-range)
+        ;; Presets only. A custom range would survive `normalize-summary-time-range`
+        ;; as a map and then throw in `(name ...)` below.
+        time-range* (if (keyword? normalized) normalized default-summary-time-range)
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (concat (returns-benchmark-fetch-effects time-range* benchmark-coins)
                               (ensure-portfolio-trader-benchmark-effects state))]
     (into [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
-                                             time-range*]])
+                                             time-range*]
+                                            [summary-custom-range-path nil]
+                                            [summary-range-strip-path nil]
+                                            [summary-range-drag-path nil]])
            [:effects/local-storage-set
             portfolio-summary-time-range-storage-key
             (name time-range*)]
@@ -557,9 +724,11 @@
 (defn select-portfolio-chart-tab
   [state chart-tab]
   (let [chart-tab* (normalize-portfolio-chart-tab chart-tab)
-        summary-time-range (normalize-summary-time-range
-                            (get-in state [:portfolio-ui :summary-time-range]
-                                    default-summary-time-range))
+        ;; Effective, not preset: the view model reads candles at the interval
+        ;; derived from the window actually on screen, so fetching at the
+        ;; preset's interval while a custom window is applied stores bars nobody
+        ;; ever reads and the benchmark never appears.
+        summary-time-range (effective-summary-time-range state)
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (if (= chart-tab* :returns)
                         (concat (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
@@ -599,9 +768,9 @@
 (defn select-portfolio-returns-benchmark
   [state benchmark]
   (if-let [coin (normalize-portfolio-returns-benchmark-coin benchmark)]
-    (let [summary-time-range (normalize-summary-time-range
-                              (get-in state [:portfolio-ui :summary-time-range]
-                                      default-summary-time-range))
+    ;; Effective, not preset — a benchmark added while a custom window is applied
+    ;; must be fetched at the interval the view model will read it at.
+    (let [summary-time-range (effective-summary-time-range state)
           selected-coins (selected-returns-benchmark-coins state)
           already-selected? (contains? (set selected-coins) coin)
           next-coins (if already-selected?

@@ -119,6 +119,21 @@
   [state series]
   (detail-commands/set-vault-detail-chart-series (detail-command-deps) state series))
 
+(defn open-vault-detail-custom-range
+  [state target seed-from seed-to]
+  (detail-commands/open-vault-detail-custom-range (detail-command-deps)
+                                                  state
+                                                  target
+                                                  seed-from
+                                                  seed-to))
+(def close-vault-detail-custom-range detail-commands/close-vault-detail-custom-range)
+(def start-vault-detail-custom-range-drag detail-commands/start-vault-detail-custom-range-drag)
+(def update-vault-detail-custom-range-drag detail-commands/update-vault-detail-custom-range-drag)
+
+(defn end-vault-detail-custom-range-drag
+  [state]
+  (detail-commands/end-vault-detail-custom-range-drag (detail-command-deps) state))
+
 (defn set-vault-detail-activity-tab
   [state tab]
   (detail-commands/set-vault-detail-activity-tab (detail-command-deps) state tab))

@@ -1,7 +1,11 @@
 (ns hyperopen.views.vaults.detail-vm.chart-section
-  (:require [hyperopen.vaults.detail.benchmarks :as benchmarks-model]
+  (:require [hyperopen.portfolio.custom-range :as custom-range]
+            [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.vaults.detail.benchmarks :as benchmarks-model]
             [hyperopen.vaults.detail.performance :as performance-model]
             [hyperopen.vaults.detail.types :as detail-types]
+            [hyperopen.views.chart.range-strip-model :as range-strip-model]
+            [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.views.vaults.detail.chart :as chart-model]
             [hyperopen.views.vaults.detail-vm.cache :as cache]
             [hyperopen.views.vaults.detail-vm.montecarlo :as montecarlo]
@@ -90,8 +94,23 @@
      :benchmark-source-version-map (cache/benchmark-source-version-map benchmark-cumulative-rows-by-coin
                                                                        selected-benchmark-coins)}))
 
+(defn- strip-rows
+  "All-time account-value series as `{:time-ms :value}`, which is the context the
+  range strip always shows regardless of the window currently selected."
+  [summary]
+  (->> (or (:accountValueHistory summary) [])
+       (keep (fn [row]
+               (let [time-ms (portfolio-metrics/history-point-time-ms row)
+                     value (portfolio-metrics/history-point-value row)]
+                 (when (and (number? time-ms)
+                            (number? value))
+                   {:time-ms time-ms
+                    :value value}))))
+       vec))
+
 (defn build-vault-detail-chart-section
-  [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context vault-label]
+  [state snapshot-range activity-tab chart-series details-base viewer-details metrics-context
+   vault-label range-ui]
   (let [details (merge (or details-base {})
                        (or viewer-details {}))
         summary (cache/cached-portfolio-summary details-base viewer-details snapshot-range)
@@ -146,6 +165,38 @@
         ;; The vault MC tab has no range control of its own, so it always
         ;; resamples the vault's all-time realized returns (not the chart
         ;; range-windowed series) to maximize bootstrap samples.
+        ;; The strip is context, not the selection: it always plots the vault's
+        ;; whole history so a drag can reach any window, including one wider than
+        ;; the preset currently applied.
+        strip-source-rows (strip-rows (performance-model/portfolio-summary details :all-time))
+        build-strip (fn [target]
+                      (range-strip-model/build-model
+                       {:rows strip-source-rows
+                        :range (:custom range-ui)
+                        :strip-open? (= (:strip-target range-ui) target)
+                        :drag-mode (:drag-mode range-ui)}))
+        ;; One range, two places it can be edited from: the chart card and the
+        ;; tearsheet each render their own strip, and only the one that was
+        ;; opened is visible. Both read the same window, so they cannot disagree.
+        range-strip (build-strip :chart)
+        metrics-range-strip (build-strip :metrics)
+        strip-domain (:domain range-strip)
+        ;; Re-opening the strip on an already-custom window seeds with that
+        ;; window verbatim; recomputing the end from the domain would stretch the
+        ;; selection to today behind the trader's back.
+        custom-seed-to (or (:to (:custom range-ui)) (:to strip-domain))
+        custom-seed-from (or (:from (:custom range-ui))
+                             (vm-history/summary-window-cutoff-ms snapshot-range
+                                                                  (:to strip-domain))
+                             (:from strip-domain))
+        custom-selector (fn [target]
+                          {:active? (boolean (:custom range-ui))
+                           :open? (= (:strip-target range-ui) target)
+                           :label (:span-label range-strip)
+                           :open-action :actions/open-vault-detail-custom-range
+                           :open-args [target custom-seed-from custom-seed-to]
+                           :clear-action :actions/set-vaults-snapshot-range
+                           :clear-args [(:preset range-ui)]})
         monte-carlo (when (= activity-tab :monte-carlo)
                       (let [mc-summary (performance-model/portfolio-summary details :all-time)
                             mc-rows (performance-model/cumulative-rows
@@ -167,8 +218,16 @@
      :performance-metrics (assoc performance-metrics
                                  :vault-label vault-label
                                  :timeframe-options chart-timeframe-options
-                                 :selected-timeframe snapshot-range
+                                 ;; The PRESET keyword, which is what highlights
+                                 ;; the ON row and what the panel gates its whole
+                                 ;; chip on. The CUSTOM window travels separately
+                                 ;; in `:custom-range` below, so the chip can label
+                                 ;; itself with the window actually in force.
+                                 :selected-timeframe (:preset range-ui)
+                                 :custom-range (custom-selector :metrics)
+                                 :range-strip metrics-range-strip
                                  :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?])))
+     :range-strip range-strip
      :chart {:axis-kind (case selected-series
                           :pnl :pnl
                           :returns :returns
@@ -182,7 +241,16 @@
                             :label "PNL"}]
              :timeframe-options chart-timeframe-options
              :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?]))
-             :selected-timeframe snapshot-range
+             ;; The MENU shows the preset; the data pipeline above already ran on
+             ;; the effective window. Handing the menu a custom range map would
+             ;; make `timeframe-token` return nil and mislabel the chip.
+             :selected-timeframe (:preset range-ui)
+             ;; The window on screen, for the tooltip's timestamp format. The
+             ;; menu label above needs the preset; the tooltip needs the truth.
+             :tooltip-timeframe (or (custom-range/span-preset (:custom range-ui))
+                                    (:preset range-ui))
+             :custom-range (custom-selector :chart)
+             :range-strip range-strip
              :selected-series selected-series
              :returns-benchmark returns-benchmark-selector
              :strategy-window returns-history-context

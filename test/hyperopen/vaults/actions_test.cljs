@@ -100,6 +100,9 @@
   (is (= []
          (actions/toggle-vaults-filter {:vaults-ui {:filter-leading? true}} :unknown)))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :all-time]
+                               [[:vaults-ui :detail-custom-range] nil]
+                               [[:vaults-ui :detail-range-strip] nil]
+                               [[:vaults-ui :detail-range-drag] nil]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
@@ -107,6 +110,9 @@
           replace-shareable-route-query-effect]
          (actions/set-vaults-snapshot-range {} "allTime")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :three-month]
+                               [[:vaults-ui :detail-custom-range] nil]
+                               [[:vaults-ui :detail-range-strip] nil]
+                               [[:vaults-ui :detail-range-drag] nil]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]
@@ -114,6 +120,9 @@
           replace-shareable-route-query-effect]
          (actions/set-vaults-snapshot-range {} "3m")))
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
+                               [[:vaults-ui :detail-custom-range] nil]
+                               [[:vaults-ui :detail-range-strip] nil]
+                               [[:vaults-ui :detail-range-drag] nil]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]

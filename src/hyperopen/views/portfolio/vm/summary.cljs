@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.vm.summary
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.metrics.history :as portfolio-history]
             [hyperopen.views.portfolio.vm.history :as vm-history]))
 
@@ -70,10 +71,18 @@
     base-key))
 
 (defn- base-summary-key
+  "Bucket key a range value asks for.
+
+  A custom range deliberately resolves to `:custom`, a key that never exists in
+  `summary-by-key`. That forces `selected-summary-context` down the DERIVED
+  branch, which is the only one that applies the custom bounds. Letting it fall
+  through to `:month` here is the single most likely silent failure in this
+  feature: the chart would quietly show 30 days with no error anywhere."
   [time-range]
-  (if (base-summary-range-set time-range)
-    time-range
-    :month))
+  (cond
+    (custom-range/active? time-range) :custom
+    (base-summary-range-set time-range) time-range
+    :else :month))
 
 (defn- aliased-summary-key
   [token]
@@ -128,28 +137,79 @@
 
 (defn- derived-summary-cutoff-ms
   [summary-time-range end-time-ms]
-  (when (derivable-summary-ranges summary-time-range)
+  (when (or (custom-range/active? summary-time-range)
+            (derivable-summary-ranges summary-time-range))
     (vm-history/summary-window-cutoff-ms summary-time-range end-time-ms)))
+
+(defn- summary-first-time-ms
+  [summary]
+  (let [starts (keep (fn [rows]
+                       (some-> (vm-history/normalized-history-rows rows)
+                               first
+                               :time-ms))
+                     [(vm-history/account-value-history-rows summary)
+                      (vm-history/pnl-history-rows summary)])]
+    (when (seq starts)
+      (apply min starts))))
+
+(defn- custom-source-key
+  "Finest bucket that still reaches back past the custom window's start.
+
+  Deriving every custom range from all-time would silently coarsen short
+  windows: all-time is sampled daily, while `:week` and `:month` carry much
+  denser samples and are fetched directly rather than derived. Walking
+  `base-summary-range-order` finest-first picks the densest bucket that actually
+  covers `:from`, and falls back to all-time when none does."
+  [summary-by-key scope range]
+  (let [from (custom-range/cutoff-ms range)]
+    (or (when from
+          (some (fn [base-key]
+                  (let [key* (scoped-summary-key scope base-key)]
+                    (when-let [entry (get summary-by-key key*)]
+                      (let [first-ms (summary-first-time-ms entry)]
+                        (when (and (number? first-ms)
+                                   (<= first-ms from))
+                          key*)))))
+                base-summary-range-order))
+        (scope-all-time-key scope))))
 
 (defn derived-summary-entry
   [summary-by-key scope summary-time-range]
-  (when-let [base-summary (get summary-by-key (scope-all-time-key scope))]
-    (let [account-rows (vm-history/normalized-history-rows
-                        (vm-history/account-value-history-rows base-summary))
-          pnl-rows (vm-history/normalized-history-rows
-                    (vm-history/pnl-history-rows base-summary))
-          end-time-ms (or (some-> account-rows last :time-ms)
-                          (some-> pnl-rows last :time-ms))
-          cutoff-ms (derived-summary-cutoff-ms summary-time-range end-time-ms)]
-      (when (number? cutoff-ms)
-        (let [account-window (vm-history/history-window-rows account-rows cutoff-ms)
-              pnl-window (vm-history/history-window-rows pnl-rows cutoff-ms)
-              base-pnl (some-> pnl-window first :value)
-              pnl-window* (vm-history/rebase-history-rows pnl-window (or base-pnl 0))]
-          (when (or (seq account-window)
-                    (seq pnl-window*))
-            {:accountValueHistory account-window
-             :pnlHistory pnl-window*}))))))
+  (let [source-key (if (custom-range/active? summary-time-range)
+                     (custom-source-key summary-by-key scope summary-time-range)
+                     (scope-all-time-key scope))]
+    (when-let [base-summary (get summary-by-key source-key)]
+      (let [;; The end bound is applied HERE, by clipping the source, so that
+            ;; `end-time-ms` below already reads the custom end. Every consumer
+            ;; downstream takes the window end off the last sample, which is why
+            ;; no end-bound parameter has to be threaded through any of them.
+            account-rows (custom-range/clip-rows-to-end
+                          (vm-history/normalized-history-rows
+                           (vm-history/account-value-history-rows base-summary))
+                          summary-time-range)
+            pnl-rows (custom-range/clip-rows-to-end
+                      (vm-history/normalized-history-rows
+                       (vm-history/pnl-history-rows base-summary))
+                      summary-time-range)
+            end-time-ms (or (some-> account-rows last :time-ms)
+                            (some-> pnl-rows last :time-ms))
+            cutoff-ms (derived-summary-cutoff-ms summary-time-range end-time-ms)]
+        (when (number? cutoff-ms)
+          (let [account-window (vm-history/history-window-rows account-rows cutoff-ms)
+                pnl-window (vm-history/history-window-rows pnl-rows cutoff-ms)
+                base-pnl (some-> pnl-window first :value)
+                pnl-window* (vm-history/rebase-history-rows pnl-window (or base-pnl 0))]
+            ;; A CUSTOM window that contains no samples must still resolve to an
+            ;; entry, empty though it is. Returning nil drops the caller into the
+            ;; fallback chain, which for a custom range starts at all-time — so a
+            ;; shared link naming a window outside this account's history would
+            ;; quietly plot the account's ENTIRE history under a custom label.
+            ;; An empty window is honest; the wrong window is not.
+            (when (or (custom-range/active? summary-time-range)
+                      (seq account-window)
+                      (seq pnl-window*))
+              {:accountValueHistory account-window
+               :pnlHistory pnl-window*})))))))
 
 (defn- aligned-summary-points
   [summary]
@@ -160,8 +220,15 @@
   (some-> points last :time-ms))
 
 (defn- summary-time-range-token
+  "The range value the returns path should reason about.
+
+  A custom range is returned WHOLE rather than collapsed to a token: the token
+  is fed straight back into `summary-window-cutoff-ms` below, so losing the
+  bounds here would null the cutoff and silently rebase benchmarks against the
+  wrong anchor."
   [time-range]
-  (base-summary-key time-range))
+  (or (custom-range/normalize time-range)
+      (base-summary-key time-range)))
 
 (defn- bounded-returns-window
   [points cutoff-ms]
@@ -221,9 +288,11 @@
                                (seq all-time-points)
                                (or (nil? selected-end-time-ms)
                                    (>= all-time-end-time-ms selected-end-time-ms)))
-         source-points (if all-time-usable?
-                         all-time-points
-                         selected-points)
+         source-points (custom-range/clip-rows-to-end
+                        (if all-time-usable?
+                          all-time-points
+                          selected-points)
+                        time-range)
          effective-range (if all-time-usable?
                            requested-range
                            (vm-history/benchmark-time-range requested-range

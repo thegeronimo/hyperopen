@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail-vm
   (:require [hyperopen.account.context :as account-context]
+            [hyperopen.vaults.application.detail-commands :as detail-commands]
             [hyperopen.vaults.application.ui-state :as vault-ui-state]
             [hyperopen.vaults.detail.transfer :as transfer-model]
             [hyperopen.vaults.domain.identity :as vault-identity]
@@ -42,6 +43,11 @@
                        (get-in state [:vaults-ui :detail-chart-series]))
          snapshot-range (vault-ui-state/normalize-vault-snapshot-range
                          (get-in state [:vaults-ui :snapshot-range]))
+         detail-custom-range (detail-commands/vault-detail-custom-range state)
+         ;; The data pipeline reads the custom window when one is applied; the
+         ;; shared preset key is left alone so the vault LIST keeps its own
+         ;; meaning and clearing restores what was selected.
+         effective-range (or detail-custom-range snapshot-range)
          detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
          details-base (get-in state [:vaults :details-by-address vault-address])
          viewer-details (detail-context/viewer-details-by-address state vault-address viewer-address)
@@ -67,14 +73,19 @@
                                                           :webdata webdata})
          wallet-address (vault-identity/normalize-vault-address (get-in state [:wallet :address]))
          agent-ready? (= :ready (get-in state [:wallet :agent :status]))
-         chart-section (chart-section/build-vault-detail-chart-section state
-                                                                       snapshot-range
-                                                                       activity-tab
-                                                                       chart-series
-                                                                       details-base
-                                                                       viewer-details
-                                                                       metrics-context
-                                                                       vault-comparison-label)
+         chart-section (chart-section/build-vault-detail-chart-section
+                        state
+                        effective-range
+                        activity-tab
+                        chart-series
+                        details-base
+                        viewer-details
+                        metrics-context
+                        vault-comparison-label
+                        {:preset snapshot-range
+                         :custom detail-custom-range
+                         :strip-target (detail-commands/vault-detail-range-strip-target state)
+                         :drag-mode (detail-commands/vault-detail-range-drag-mode state)})
          activity-section (activity-section/build-vault-detail-activity-section state
                                                                                 details
                                                                                 webdata

@@ -306,6 +306,9 @@
 
 (deftest select-portfolio-summary-time-range-normalizes-and-closes-dropdowns-test
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :three-month]
+                               [[:portfolio-ui :summary-custom-range] nil]
+                               [[:portfolio-ui :summary-range-strip] nil]
+                               [[:portfolio-ui :summary-range-drag] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]
@@ -313,6 +316,9 @@
           replace-shareable-route-query-effect]
          (actions/select-portfolio-summary-time-range {} "3M")))
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :all-time]
+                               [[:portfolio-ui :summary-custom-range] nil]
+                               [[:portfolio-ui :summary-range-strip] nil]
+                               [[:portfolio-ui :summary-range-drag] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]
@@ -320,6 +326,9 @@
           replace-shareable-route-query-effect]
          (actions/select-portfolio-summary-time-range {} "allTime")))
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :one-year]
+                               [[:portfolio-ui :summary-custom-range] nil]
+                               [[:portfolio-ui :summary-range-strip] nil]
+                               [[:portfolio-ui :summary-range-drag] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]

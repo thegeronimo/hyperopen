@@ -82,4 +82,167 @@
       animation: none;
     }
   }
+
+  /* --- Custom range context strip (design 1c: drag on the chart) ------------- */
+
+  .ho-range-strip {
+    /* Above the tearsheet's loading veil (z-10). Recomputing metrics must never
+       make the control that triggered the recompute unusable — without this a
+       drag blocks itself the moment the first sample lands. */
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px 12px 10px;
+    border: 1px solid rgb(var(--ho-border) / 0.9);
+    border-radius: var(--ho-radius-lg, 10px);
+    background: rgb(var(--ho-bg-deep) / 0.55);
+  }
+
+  .ho-range-strip--dragging {
+    border-color: rgb(var(--ho-accent) / 0.55);
+  }
+
+  .ho-range-strip__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ho-range-strip__hint {
+    font-size: 0.75rem;
+    color: rgb(var(--ho-text-dim));
+  }
+
+  .ho-range-strip__hint--active {
+    color: rgb(var(--ho-accent));
+  }
+
+  .ho-range-strip__head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ho-range-strip__draft {
+    font-size: 0.75rem;
+    color: rgb(var(--ho-accent));
+  }
+
+  .ho-range-strip__done {
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 10px;
+    border: 1px solid rgb(var(--ho-border));
+    border-radius: var(--ho-radius-sm, 6px);
+    font-size: 0.75rem;
+    color: rgb(var(--ho-text-secondary));
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+
+  .ho-range-strip__done:hover {
+    color: rgb(var(--ho-text));
+    border-color: rgb(var(--ho-accent) / 0.6);
+  }
+
+  .ho-range-strip__track {
+    position: relative;
+    height: 56px;
+    border-radius: var(--ho-radius-sm, 6px);
+    background: rgb(var(--ho-bg-deep));
+    overflow: hidden;
+    cursor: crosshair;
+    /* Without this a touch drag scrolls the page instead of moving the range. */
+    touch-action: none;
+    user-select: none;
+  }
+
+  .ho-range-strip__spark {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ho-range-strip__spark-line {
+    stroke: rgb(var(--ho-text-dim) / 0.85);
+    stroke-width: 1.1;
+  }
+
+  .ho-range-strip__spark-line--selected {
+    stroke: rgb(var(--ho-accent));
+    stroke-width: 1.5;
+  }
+
+  .ho-range-strip__selection {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgb(var(--ho-accent) / 0.13);
+    border-left: 1px solid rgb(var(--ho-accent) / 0.5);
+    border-right: 1px solid rgb(var(--ho-accent) / 0.5);
+    pointer-events: none;
+  }
+
+  .ho-range-strip__handle {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    width: 10px;
+    margin-left: -5px;
+    border-radius: 3px;
+    background: rgb(var(--ho-accent));
+    cursor: ew-resize;
+  }
+
+  /* The visible handle is 10px, but the action grabs an edge anywhere within
+     14px of it. This invisible extension makes the ew-resize cursor appear over
+     exactly the region where grabbing actually works, instead of a narrower
+     strip that under-promises the target.
+
+     Letting the handle receive pointer events does NOT steal the press: the
+     listeners live on the track and pointer events bubble, so `currentTarget`
+     — and therefore the measured rect — is still the track. */
+  .ho-range-strip__handle::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -9px;
+    right: -9px;
+    cursor: ew-resize;
+  }
+
+  /* Hold ew-resize for the whole gesture. Without this the cursor flickers back
+     to the track's crosshair the moment the pointer slips off the handle it is
+     dragging. */
+  .ho-range-strip--dragging .ho-range-strip__track,
+  .ho-range-strip--dragging .ho-range-strip__selection {
+    cursor: ew-resize;
+  }
+
+  @media (pointer: coarse) {
+    .ho-range-strip__handle {
+      width: 14px;
+      margin-left: -7px;
+    }
+
+    .ho-range-strip__handle::before {
+      left: -7px;
+      right: -7px;
+    }
+  }
+
+  .ho-range-strip__scale {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: rgb(var(--ho-text-dim));
+  }
 }

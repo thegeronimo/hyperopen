@@ -1,9 +1,13 @@
 (ns hyperopen.portfolio.query-state
   (:require [clojure.string :as str]
-            [hyperopen.portfolio.actions :as portfolio-actions]))
+            [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.portfolio.custom-range :as custom-range]))
 
 (def owned-query-keys
-  #{"range" "scope" "chart" "bench" "tab"})
+  ;; "from"/"to" carry the custom chart range. They are ALWAYS written (empty
+  ;; when no custom range is applied, exactly like "bench"), so that navigating
+  ;; back to a URL without a custom window actually clears one.
+  #{"range" "scope" "chart" "bench" "tab" "from" "to"})
 
 (def ^:private range-token-by-key
   {:day "24h"
@@ -89,11 +93,20 @@
     (map (fn [coin] ["bench" coin]) coins)
     [["bench" ""]]))
 
+(defn- parse-custom-range
+  [params]
+  (custom-range/normalize {:from (custom-range/parse-iso (param-value params "from"))
+                           :to (custom-range/parse-iso (param-value params "to"))}))
+
 (defn parse-portfolio-query
   [query]
   (let [params (search-params query)
         bench-values (param-values params "bench")]
-    (cond-> {}
+    ;; The custom range is ALWAYS reported, nil included. `from`/`to` are only
+    ;; written to the URL while a custom window is live, so their absence has to
+    ;; mean "clear it" — otherwise navigating back to a preset URL would leave a
+    ;; stale custom window applied.
+    (cond-> {:summary-custom-range (parse-custom-range params)}
       (some? (param-value params "range"))
       (assoc :summary-time-range (parse-range-value (param-value params "range")))
 
@@ -120,6 +133,14 @@
     (cond-> state
       (contains? query-state* :summary-time-range)
       (assoc-in [:portfolio-ui :summary-time-range] (:summary-time-range query-state*))
+
+      (contains? query-state* :summary-custom-range)
+      (assoc-in portfolio-actions/summary-custom-range-path
+                (:summary-custom-range query-state*))
+
+      ;; A shared link that pins a window should not also open the editor.
+      (contains? query-state* :summary-custom-range)
+      (assoc-in portfolio-actions/summary-range-strip-path nil)
 
       (contains? query-state* :summary-scope)
       (assoc-in [:portfolio-ui :summary-scope] (:summary-scope query-state*))
@@ -148,6 +169,7 @@
      :chart-tab (portfolio-actions/normalize-portfolio-chart-tab
                  (get-in state [:portfolio-ui :chart-tab]))
      :returns-benchmark-coins benchmark-coins
+     :summary-custom-range (portfolio-actions/summary-custom-range state)
      :account-info-tab (portfolio-actions/normalize-portfolio-account-info-tab
                         (get-in state [:portfolio-ui :account-info-tab]))}))
 
@@ -157,9 +179,13 @@
                 summary-scope
                 chart-tab
                 returns-benchmark-coins
+                summary-custom-range
                 account-info-tab]} (portfolio-query-state state)]
-    (into [["range" (range-token summary-time-range)]
-           ["scope" (name summary-scope)]
-           ["chart" (name chart-tab)]]
+    (into (cond-> [["range" (range-token summary-time-range)]
+                   ["scope" (name summary-scope)]
+                   ["chart" (name chart-tab)]]
+            summary-custom-range
+            (conj ["from" (custom-range/format-iso (:from summary-custom-range))]
+                  ["to" (custom-range/format-iso (:to summary-custom-range))]))
           (concat (benchmark-query-params returns-benchmark-coins)
                   [["tab" (name account-info-tab)]]))))

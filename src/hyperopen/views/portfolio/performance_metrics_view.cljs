@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.performance-metrics-view
   (:require [clojure.string :as string]
+            [hyperopen.views.chart.range-strip :as chart-range-strip]
             [hyperopen.views.portfolio.format :as portfolio-format]
             [hyperopen.views.portfolio.low-confidence :as low-confidence]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
@@ -100,10 +101,19 @@
                 (metric-value-present? kind (benchmark-row-value row coin)))
               benchmark-columns))))
 
+(def ^:private default-metric-column-width
+  "220px")
+
+(def ^:private custom-range-metric-column-width
+  "Room for a custom span in the header chip — see the vault twin for why the
+  column has to be widened explicitly rather than content-sized."
+  "320px")
+
 (defn- performance-metrics-grid-style
-  [benchmark-column-count]
+  [benchmark-column-count metric-column-width]
   {:grid-template-columns (string/join " "
-                                       (concat ["220px"]
+                                       (concat [(or metric-column-width
+                                                    default-metric-column-width)]
                                                (repeat benchmark-column-count "132px")
                                                ["132px"]))})
 
@@ -151,7 +161,8 @@
                                     {:status (:portfolio-status row)
                                      :data-role (str "portfolio-performance-metric-" (name key) "-portfolio-value")})]))
 
-(defn performance-metrics-card [{:keys [loading?
+(defn performance-metrics-card [{:keys [range-strip
+                                        loading?
                                         benchmark-selected?
                                         benchmark-label
                                         benchmark-columns
@@ -162,7 +173,10 @@
                                                                :benchmark-selected? benchmark-selected?
                                                                :benchmark-label benchmark-label
                                                                :benchmark-coin benchmark-coin})
-        grid-style (performance-metrics-grid-style (count benchmark-columns*))
+        grid-style (performance-metrics-grid-style
+                    (count benchmark-columns*)
+                    (when (:active? (:custom time-range-selector))
+                      custom-range-metric-column-width))
         visible-groups (->> (or groups [])
                             (keep (fn [{:keys [rows] :as group}]
                                     (let [rows* (->> (or rows [])
@@ -229,6 +243,18 @@
                :data-role "portfolio-performance-metrics-portfolio-label"}
         "Portfolio"]]
       [:div {:class ["space-y-2.5" "px-4" "py-3"]}
+       ;; The tearsheet edits the same window as the chart, so Custom... here
+       ;; reveals a strip HERE rather than one on a card the trader may have
+       ;; scrolled past. Always rendered (it hides itself) to keep it out of the
+       ;; nil-hole shape that freezes Replicant's renderer.
+       (chart-range-strip/range-strip
+        {:model range-strip
+         :label "Portfolio metrics"
+         :data-role-prefix "portfolio-performance-metrics-range-strip"
+         :actions {:start-action :actions/start-portfolio-summary-custom-range-drag
+                   :update-action :actions/update-portfolio-summary-custom-range-drag
+                   :end-action :actions/end-portfolio-summary-custom-range-drag
+                   :done-action :actions/close-portfolio-summary-custom-range}})
        (low-confidence/estimated-metrics-banner visible-reasons)
        (for [[idx {:keys [id rows]}] (map-indexed vector visible-groups)]
          ^{:key (str "portfolio-performance-metrics-group-" (name id))}

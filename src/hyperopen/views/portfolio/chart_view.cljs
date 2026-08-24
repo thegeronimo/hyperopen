@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.chart-view
   (:require [clojure.string :as string]
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
+            [hyperopen.views.chart.range-strip :as range-strip]
             [hyperopen.views.portfolio.format :as portfolio-format]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
             [hyperopen.views.portfolio.vm.chart-tooltip :as chart-tooltip]))
@@ -239,14 +240,18 @@
                                                                      hover
                                                                      series)))))
 
-(defn chart-card [{:keys [chart selectors]}]
+(defn chart-card [{:keys [chart selectors range-strip]}]
   (let [{:keys [tabs selected-tab axis-kind y-ticks series]} chart
         returns-benchmark (:returns-benchmark selectors)
         returns-benchmark* (add-benchmark-chip-colors returns-benchmark series)
         y-axis-width (portfolio-format/y-axis-gutter-width axis-kind y-ticks)
         plot-left (+ y-axis-width 10)
-        d3-spec (portfolio-d3-spec {:chart chart
-                                    :summary-time-range (get-in selectors [:summary-time-range :value])})]
+        d3-spec (portfolio-d3-spec
+                 {:chart chart
+                  ;; The window on screen, not the preset underneath it — the
+                  ;; tooltip formatter keys its timestamp format off this.
+                  :summary-time-range (or (get-in selectors [:summary-time-range :tooltip-range])
+                                          (get-in selectors [:summary-time-range :value]))})]
     (summary-cards/section-card
      "portfolio-chart-card"
      [:div {:class ["flex" "items-center" "gap-2" "border-b" "border-base-300" "px-3" "py-2"]}
@@ -309,4 +314,15 @@
                :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]
       (chart-legend series)
       (when (= selected-tab :returns)
-        (returns-benchmark-chip-rail returns-benchmark*))])))
+        (returns-benchmark-chip-rail returns-benchmark*))
+      ;; Always rendered (it hides itself) rather than wrapped in a `when`: the
+      ;; two siblings above are already nil-able, and a nil hole between keyed
+      ;; siblings is the shape that throws inside Replicant's renderer.
+      (range-strip/range-strip
+       {:model range-strip
+        :label "Portfolio"
+        :data-role-prefix "portfolio-chart-range-strip"
+        :actions {:start-action :actions/start-portfolio-summary-custom-range-drag
+                  :update-action :actions/update-portfolio-summary-custom-range-drag
+                  :end-action :actions/end-portfolio-summary-custom-range-drag
+                  :done-action :actions/close-portfolio-summary-custom-range}})])))

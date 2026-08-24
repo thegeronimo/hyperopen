@@ -20,6 +20,8 @@
     :actions/load-vault-detail
     :actions/set-vaults-snapshot-range
     :actions/set-vault-detail-chart-series
+    :actions/end-vault-detail-custom-range-drag
+    :actions/open-vault-detail-custom-range
     :actions/set-vault-detail-returns-benchmark-suggestions-open
     :actions/select-vault-detail-returns-benchmark
     :actions/submit-vault-transfer})
@@ -51,6 +53,11 @@
    [:actions/close-vault-detail-activity-filter :close-vault-detail-activity-filter]
    [:actions/set-vault-detail-activity-direction-filter :set-vault-detail-activity-direction-filter]
    [:actions/set-vault-detail-chart-series :set-vault-detail-chart-series]
+   [:actions/open-vault-detail-custom-range :open-vault-detail-custom-range]
+   [:actions/close-vault-detail-custom-range :close-vault-detail-custom-range]
+   [:actions/start-vault-detail-custom-range-drag :start-vault-detail-custom-range-drag]
+   [:actions/update-vault-detail-custom-range-drag :update-vault-detail-custom-range-drag]
+   [:actions/end-vault-detail-custom-range-drag :end-vault-detail-custom-range-drag]
    [:actions/set-vault-detail-returns-benchmark-search :set-vault-detail-returns-benchmark-search]
    [:actions/set-vault-detail-returns-benchmark-suggestions-open :set-vault-detail-returns-benchmark-suggestions-open]
    [:actions/select-vault-detail-returns-benchmark :select-vault-detail-returns-benchmark]

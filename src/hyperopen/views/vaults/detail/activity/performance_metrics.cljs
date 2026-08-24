@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.activity.performance-metrics
   (:require [clojure.string :as str]
+            [hyperopen.views.chart.range-strip :as range-strip]
             [hyperopen.views.ui.performance-metrics-tooltip :as metrics-tooltip]
             [hyperopen.views.vaults.detail.chart-view :as chart]
             [hyperopen.views.vaults.detail.format :as vf]))
@@ -216,10 +217,25 @@
                 (metric-value-present? kind (benchmark-row-value row coin)))
               benchmark-columns))))
 
+(def ^:private default-metric-column-width
+  "220px")
+
+(def ^:private custom-range-metric-column-width
+  "Room for a custom span in the header chip.
+
+  \"Range Mar 3 '24 – Jun 12 '25\" plus its caret and clear control is far wider
+  than \"Range 30D\", and the chip cannot wrap or shrink without turning into
+  three lines. The header and the metric rows are SEPARATE grid containers that
+  only line up because they share this literal track list, so the column cannot
+  be content-sized either — it has to be widened explicitly. There is spare width
+  to the right, so the benchmark columns simply shift over."
+  "320px")
+
 (defn- performance-metrics-grid-style
-  [benchmark-column-count]
+  [benchmark-column-count metric-column-width]
   {:grid-template-columns (str/join " "
-                                    (concat ["220px"]
+                                    (concat [(or metric-column-width
+                                                 default-metric-column-width)]
                                             (repeat benchmark-column-count "132px")
                                             ["132px"]))})
 
@@ -282,12 +298,17 @@
                                         groups
                                         timeframe-options
                                         timeframe-menu-open?
-                                        selected-timeframe]}]
+                                        selected-timeframe
+                                        custom-range
+                                        range-strip]}]
   (let [benchmark-columns* (resolved-benchmark-metric-columns {:benchmark-columns benchmark-columns
                                                                :benchmark-selected? benchmark-selected?
                                                                :benchmark-label benchmark-label
                                                                :benchmark-coin benchmark-coin})
-        grid-style (performance-metrics-grid-style (count benchmark-columns*))
+        grid-style (performance-metrics-grid-style
+                    (count benchmark-columns*)
+                    (when (:active? custom-range)
+                      custom-range-metric-column-width))
         visible-groups (->> (or groups [])
                             (keep (fn [{:keys [rows] :as group}]
                                     (let [rows* (->> (or rows [])
@@ -349,6 +370,11 @@
                                        :toggle-action :actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
                                        :close-action :actions/close-vault-detail-performance-metrics-timeframe-dropdown
                                        :selected-timeframe selected-timeframe
+                                       ;; The tearsheet reads the same window as
+                                       ;; the chart, so it labels itself with the
+                                       ;; custom span and offers the same
+                                       ;; Custom... row.
+                                       :custom custom-range
                                        :data-role-prefix "vault-detail-performance-metrics-timeframe"}))]
        (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
          ^{:key (str "vault-detail-performance-metrics-benchmark-label-" coin)}
@@ -362,6 +388,17 @@
         (or (non-blank-text vault-label)
             "Vault")]]
       [:div {:class ["space-y-2.5" "px-4" "py-3"]}
+       ;; Custom... here reveals a strip HERE, not one on the chart card the
+       ;; trader may have scrolled past. Always rendered (it hides itself) to
+       ;; stay out of the nil-hole shape that freezes Replicant's renderer.
+       (range-strip/range-strip
+        {:model range-strip
+         :label "Vault metrics"
+         :data-role-prefix "vault-detail-performance-metrics-range-strip"
+         :actions {:start-action :actions/start-vault-detail-custom-range-drag
+                   :update-action :actions/update-vault-detail-custom-range-drag
+                   :end-action :actions/end-vault-detail-custom-range-drag
+                   :done-action :actions/close-vault-detail-custom-range}})
        (estimated-metrics-banner visible-reasons)
        (for [[idx {:keys [id rows]}] (map-indexed vector visible-groups)]
          ^{:key (str "vault-detail-performance-metrics-group-" (name id))}

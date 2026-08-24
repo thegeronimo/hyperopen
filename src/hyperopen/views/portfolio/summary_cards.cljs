@@ -2,11 +2,17 @@
   (:require [hyperopen.views.portfolio.format :as portfolio-format]))
 
 (defn summary-selector
-  [{:keys [label open? options value]}
+  "Range/scope chip.
+
+  `custom` is optional and only the chart-side range selector passes it. When a
+  custom range is live the chip shows its span and grows a clear control; the
+  clear dispatches a plain preset selection, because the preset was never
+  overwritten and selecting it again is exactly what \"restore what I had\" means."
+  [{:keys [label open? options value custom]}
    toggle-action
    select-action
    data-role]
-  [:div {:class ["relative"]
+  [:div {:class ["relative" "flex" "items-center"]
          :data-role data-role}
    [:button {:type "button"
              :class ["flex"
@@ -33,6 +39,22 @@
              :stroke-linejoin "round"
              :stroke-width 2
              :d "M19 9l-7 7-7-7"}]]]
+   (when (:active? custom)
+     [:button {:type "button"
+               :class ["ml-0.5"
+                       "inline-flex"
+                       "h-5"
+                       "w-5"
+                       "items-center"
+                       "justify-center"
+                       "rounded"
+                       "text-xs"
+                       "text-trading-green"
+                       "hover:bg-base-200"]
+               :aria-label "Clear custom range"
+               :data-role (str data-role "-clear")
+               :on {:click [(into [(:clear-action custom)] (:clear-args custom))]}}
+      "x"])
    [:div {:class (into ["absolute"
                         "right-0"
                         "top-full"
@@ -65,7 +87,29 @@
                 :aria-pressed (= option-value value)
                 :data-role (str data-role "-option-" (name option-value))
                 :on {:click [[select-action option-value]]}}
-       option-label])]])
+       option-label])
+    (when (:open-action custom)
+      [:button {:replicant/key (str data-role "-option-custom")
+                :type "button"
+                :class (into ["flex"
+                              "w-full"
+                              "items-center"
+                              "justify-between"
+                              "border-t"
+                              "border-base-300"
+                              "px-3"
+                              "py-2"
+                              "text-left"
+                              "text-xs"
+                              "hover:bg-base-200"]
+                             (if (or (:active? custom) (:open? custom))
+                               ["text-trading-text" "bg-base-200"]
+                               ["text-trading-text-secondary"]))
+                :aria-pressed (boolean (:active? custom))
+                :data-role (str data-role "-option-custom")
+                :on {:click [(into [(:open-action custom)] (:open-args custom))]}}
+       [:span "Custom\u2026"]
+       [:span {:class ["text-trading-text-secondary"]} "\u2316"]])]])
 
 (defn section-card [data-role & children]
   (into [:div {:class ["rounded-xl"

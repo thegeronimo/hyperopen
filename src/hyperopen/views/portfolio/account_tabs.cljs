@@ -48,7 +48,8 @@
                                  :render (fn [_]
                                            (performance-metrics-view/performance-metrics-card
                                             (assoc (:performance-metrics view-model)
-                                                   :time-range-selector (get-in view-model [:selectors :performance-metrics-time-range]))))}]
+                                                   :time-range-selector (get-in view-model [:selectors :performance-metrics-time-range])
+                                                   :range-strip (:metrics-range-strip view-model))))}]
                          (not trader-portfolio-route?)
                          (into [{:id :deposits-withdrawals
                                  :label "Account Activity"

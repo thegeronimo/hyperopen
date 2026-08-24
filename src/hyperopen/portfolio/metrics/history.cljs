@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.metrics.history
-  (:require [hyperopen.portfolio.metrics.normalization :as normalization]))
+  (:require [hyperopen.portfolio.custom-range :as custom-range]
+            [hyperopen.portfolio.metrics.normalization :as normalization]))
 
 (def day-ms normalization/day-ms)
 (def ms-per-year (* 365.2425 24 60 60 1000))
@@ -46,19 +47,22 @@
     (.getTime date)))
 
 (defn summary-window-cutoff-ms
+  "Start bound for a range value. A custom range carries its own start, so it
+  short-circuits the preset arithmetic and ignores `last-ms`."
   [time-range last-ms]
-  (when (and (number? last-ms)
-             (finite-number? last-ms))
-    (case time-range
-      :day (- last-ms day-ms)
-      :week (- last-ms (* 7 day-ms))
-      :month (- last-ms (* 30 day-ms))
-      :three-month (with-utc-months-offset last-ms -3)
-      :six-month (with-utc-months-offset last-ms -6)
-      :one-year (with-utc-years-offset last-ms -1)
-      :two-year (with-utc-years-offset last-ms -2)
-      :all-time nil
-      nil)))
+  (or (custom-range/cutoff-ms time-range)
+      (when (and (number? last-ms)
+                 (finite-number? last-ms))
+        (case time-range
+          :day (- last-ms day-ms)
+          :week (- last-ms (* 7 day-ms))
+          :month (- last-ms (* 30 day-ms))
+          :three-month (with-utc-months-offset last-ms -3)
+          :six-month (with-utc-months-offset last-ms -6)
+          :one-year (with-utc-years-offset last-ms -1)
+          :two-year (with-utc-years-offset last-ms -2)
+          :all-time nil
+          nil))))
 
 (defn- implied-cash-flow
   [previous current]
@@ -194,7 +198,10 @@
 
 (defn bounded-summary-context
   [summary time-range]
-  (let [points (anchored-account-pnl-points summary)
+  ;; Clipping the points to the custom end here is what lets `last-time-ms`
+  ;; below read the custom window end instead of the newest sample.
+  (let [points (custom-range/clip-rows-to-end (anchored-account-pnl-points summary)
+                                              time-range)
         last-time-ms (some-> points last :time-ms)
         cutoff-ms (when (and (number? last-time-ms)
                              (not= time-range :all-time))

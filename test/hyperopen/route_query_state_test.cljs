@@ -72,7 +72,9 @@
              "?market=ETH"))))
 
 (deftest apply-route-query-state-restores-portfolio-before-local-preferences-win-test
-  (is (= {:portfolio-ui {:summary-time-range :three-month
+  (is (= {:portfolio-ui {:summary-custom-range nil
+                         :summary-range-strip nil
+                         :summary-time-range :three-month
                          :summary-scope :perps
                          :chart-tab :pnl
                          :returns-benchmark-coins ["BTC" "ETH"]
@@ -129,7 +131,9 @@
           {:vaults-ui {}}
           "/vaults"
           "?range=7d&q=lp&roles=leading,others&closed=1&sort=apr:asc&page=5&pageSize=50")))
-  (is (= {:vaults-ui {:snapshot-range :all-time
+  (is (= {:vaults-ui {:detail-custom-range nil
+                      :detail-range-strip nil
+                      :snapshot-range :all-time
                       :detail-chart-series :account-value
                       :detail-returns-benchmark-coins ["ETH"]
                       :detail-returns-benchmark-coin "ETH"

@@ -51,6 +51,8 @@
 
 (def effect-order-policy-required-action-ids
   #{:actions/select-portfolio-summary-time-range
+    :actions/end-portfolio-summary-custom-range-drag
+    :actions/open-portfolio-summary-custom-range
     :actions/select-portfolio-chart-tab
     :actions/set-portfolio-returns-benchmark-suggestions-open
     :actions/select-portfolio-returns-benchmark
@@ -77,6 +79,14 @@
    [:actions/select-portfolio-fee-schedule-market-type :select-portfolio-fee-schedule-market-type]
    [:actions/handle-portfolio-fee-schedule-keydown :handle-portfolio-fee-schedule-keydown]
    [:actions/select-portfolio-summary-time-range :select-portfolio-summary-time-range]
+   [:actions/open-portfolio-summary-custom-range :open-portfolio-summary-custom-range]
+   [:actions/close-portfolio-summary-custom-range :close-portfolio-summary-custom-range]
+   [:actions/start-portfolio-summary-custom-range-drag
+    :start-portfolio-summary-custom-range-drag]
+   [:actions/update-portfolio-summary-custom-range-drag
+    :update-portfolio-summary-custom-range-drag]
+   [:actions/end-portfolio-summary-custom-range-drag
+    :end-portfolio-summary-custom-range-drag]
    [:actions/select-portfolio-chart-tab :select-portfolio-chart-tab]
    [:actions/set-portfolio-account-info-tab :set-portfolio-account-info-tab]
    [:actions/set-portfolio-account-activity-sub-tab :set-portfolio-account-activity-sub-tab]

@@ -16,6 +16,9 @@
 
 (deftest select-portfolio-summary-time-range-fetches-selected-benchmark-candles-test
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :week]
+                               [[:portfolio-ui :summary-custom-range] nil]
+                               [[:portfolio-ui :summary-range-strip] nil]
+                               [[:portfolio-ui :summary-range-drag] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]
@@ -33,6 +36,9 @@
                           :returns-benchmark-coin "DOGE"}}
           :week)))
   (is (= [[:effects/save-many [[[:portfolio-ui :summary-time-range] :week]
+                               [[:portfolio-ui :summary-custom-range] nil]
+                               [[:portfolio-ui :summary-range-strip] nil]
+                               [[:portfolio-ui :summary-range-drag] nil]
                                [[:portfolio-ui :summary-scope-dropdown-open?] false]
                                [[:portfolio-ui :summary-time-range-dropdown-open?] false]
                                [[:portfolio-ui :performance-metrics-time-range-dropdown-open?] false]]]

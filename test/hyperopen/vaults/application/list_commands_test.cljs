@@ -8,6 +8,9 @@
 
 (deftest set-vaults-snapshot-range-persists-preference-and-fetches-benchmarks-on-detail-route-test
   (is (= [[:effects/save-many [[[:vaults-ui :snapshot-range] :week]
+                               [[:vaults-ui :detail-custom-range] nil]
+                               [[:vaults-ui :detail-range-strip] nil]
+                               [[:vaults-ui :detail-range-drag] nil]
                                [[:vaults-ui :user-vaults-page] 1]
                                [[:vaults-ui :detail-chart-timeframe-dropdown-open?] false]
                                [[:vaults-ui :detail-performance-metrics-timeframe-dropdown-open?] false]]]

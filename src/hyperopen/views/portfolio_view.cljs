@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio-view
   (:require [hyperopen.account.context :as account-context]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.account-info-view :as account-info-view]
@@ -55,6 +56,13 @@
         ;; would be held out of the cached sections and the tab would stay on its
         ;; pending state.
         account-tab-modules (:account-tab-modules state)
+        ;; The custom range changes on every pointer sample of a strip drag.
+        ;; Without it in the cache key, a drag that begins while the chart still
+        ;; reports hover would replay cached sections and the chart would sit
+        ;; frozen for the whole gesture.
+        custom-range-cache-key [(get-in state portfolio-actions/summary-custom-range-path)
+                                (get-in state portfolio-actions/summary-range-strip-path)
+                                (get-in state portfolio-actions/summary-range-drag-path)]
         cached-entry @portfolio-view-cache
         sections (when-not optimizer-route?
                    (if (and hover-active?
@@ -63,6 +71,7 @@
                             (= route (:route cached-entry))
                             (= fee-schedule-cache-key (:fee-schedule-cache-key cached-entry))
                             (= account-tab-modules (:account-tab-modules cached-entry))
+                            (= custom-range-cache-key (:custom-range-cache-key cached-entry))
                             (map? (:sections cached-entry)))
                      (:sections cached-entry)
                      (let [next-sections (build-portfolio-view-sections state fee-schedule-model)]
@@ -70,6 +79,7 @@
                                                     :volume-history-open? volume-history-open?
                                                     :fee-schedule-cache-key fee-schedule-cache-key
                                                     :account-tab-modules account-tab-modules
+                                                    :custom-range-cache-key custom-range-cache-key
                                                     :sections next-sections})
                        next-sections)))]
     (if optimizer-route?
