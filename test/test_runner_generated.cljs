@@ -344,6 +344,7 @@
             [hyperopen.portfolio.optimizer.domain.return-plausibility-test]
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-contributions-test]
+            [hyperopen.portfolio.optimizer.domain.risk-covariance-parity-test]
             [hyperopen.portfolio.optimizer.domain.risk-degeneracy-test]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test]
             [hyperopen.portfolio.optimizer.domain.risk-structure-diversification-edge-test]
@@ -1227,6 +1228,7 @@
              'hyperopen.portfolio.optimizer.domain.return-plausibility-test
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-contributions-test
+             'hyperopen.portfolio.optimizer.domain.risk-covariance-parity-test
              'hyperopen.portfolio.optimizer.domain.risk-degeneracy-test
              'hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf-test
              'hyperopen.portfolio.optimizer.domain.risk-structure-diversification-edge-test

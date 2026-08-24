@@ -13,6 +13,7 @@
   includes the cases where a Gauss-Jordan port silently diverges: pivot ties,
   forced row swaps, the exact singularity threshold, and non-finite holes."
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.bit-parity :as bit-parity]
             [hyperopen.portfolio.optimizer.domain.math :as math]))
 
 ;; ---------------------------------------------------------------------------
@@ -63,9 +64,19 @@
 
 (defn- parity!
   [label matrix]
-  (is (= (outcome reference-inverse matrix)
-         (outcome math/inverse matrix))
-      (str "inverse diverged from the pre-port reference on " label)))
+  (let [expected (outcome reference-inverse matrix)
+        actual (outcome math/inverse matrix)]
+    ;; bit=, not =, on the :result side. Every non-finite fixture below happens
+    ;; to throw today rather than return a NaN-bearing inverse, but that is a
+    ;; property of these particular matrices, not of the function -- and under
+    ;; plain `=` a future fixture that did return NaN would fail while the two
+    ;; implementations agreed. See the bit-parity namespace.
+    (is (and (= (:threw expected) (:threw actual))
+             (bit-parity/bit= (:result expected) (:result actual)))
+        (str "inverse diverged from the pre-port reference on " label ": "
+             (or (bit-parity/first-difference (:result expected) (:result actual))
+                 (str "threw " (pr-str (:threw expected))
+                      " vs " (pr-str (:threw actual))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Deterministic fixtures
