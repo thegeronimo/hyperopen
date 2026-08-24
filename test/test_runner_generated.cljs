@@ -337,6 +337,7 @@
             [hyperopen.portfolio.optimizer.domain.history-assumption-proxy-test]
             [hyperopen.portfolio.optimizer.domain.history-assumptions-test]
             [hyperopen.portfolio.optimizer.domain.leverage-risk-test]
+            [hyperopen.portfolio.optimizer.domain.math-test]
             [hyperopen.portfolio.optimizer.domain.objectives-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test]
@@ -1219,6 +1220,7 @@
              'hyperopen.portfolio.optimizer.domain.history-assumption-proxy-test
              'hyperopen.portfolio.optimizer.domain.history-assumptions-test
              'hyperopen.portfolio.optimizer.domain.leverage-risk-test
+             'hyperopen.portfolio.optimizer.domain.math-test
              'hyperopen.portfolio.optimizer.domain.objectives-test
              'hyperopen.portfolio.optimizer.domain.rebalance-test
              'hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test
