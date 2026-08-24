@@ -1,6 +1,6 @@
 ---
 owner: worker
-status: active
+status: completed
 created: 2026-08-24
 surface: portfolio + vaults chart range
 ---
@@ -87,8 +87,9 @@ derivable preset ranges.
 - [x] Verified in a real browser on both surfaces (screenshots in the session).
 - [x] Adversarial review round (4 lenses x refutation): 26 findings raised,
       12 confirmed and fixed, 14 refuted.
-- [ ] Keyboard nudging of the strip handles (see Decision Log).
-- [ ] Land: move this plan to `docs/exec-plans/completed/`.
+- [x] Keyboard nudging of the strip handles — **deferred** by the maintainer and
+      carried in `docs/exec-plans/tech-debt-tracker.md` so it is not lost.
+- [x] Land: merged into `main` and moved to `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
@@ -141,9 +142,13 @@ derivable preset ranges.
   grabs happens in the pure action from the pointer fraction, not via per-handle
   DOM listeners, so every sample of a gesture is measured against the same rect.
   Mixing rects between pointer-down and pointer-move is what makes a brush drift.
-- **Keyboard nudging is deliberately not in this pass.** The preset menu remains
-  fully keyboard-operable and the feature is additive, so this is a gap rather
-  than a regression; it is tracked as an open Progress item.
+- **Keyboard nudging is deliberately not in this pass, and was then deferred.**
+  All eight presets remain fully keyboard-operable, so nothing regressed — but
+  that argues it is not a *regression*, not that it is not a *gap*: the
+  custom-range capability itself is pointer-only, which WCAG 2.1 SC 2.1.1
+  (Keyboard) flags. The maintainer reviewed this and chose to defer it rather
+  than block the landing, so it moved to `docs/exec-plans/tech-debt-tracker.md`
+  with concrete retirement criteria instead of being dropped.
 
 - **Custom range is one value, not draft+committed.** Drag writes it directly
   (state-only, no effects) so the chart follows live; only pointer-up / Done
