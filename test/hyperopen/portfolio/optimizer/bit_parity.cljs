@@ -23,12 +23,22 @@
 
 (defn bit=
   "True when `expected` and `actual` are the same shape and every number in
-  them is bit-identical. Walks nested sequentials; falls back to `=` for
-  anything that is not a number or a sequential."
+  them is bit-identical. Walks nested maps and sequentials; falls back to `=`
+  for anything else.
+
+  Map KEYS are compared with ordinary `=`, not bitwise. Numeric map keys are
+  vanishingly rare in these payloads and a NaN key could not be looked up
+  anyway. Sets fall through to `=` for the same reason -- membership is decided
+  by hash, so a set is the wrong place to be asserting bit-level identity."
   [expected actual]
   (cond
     (and (number? expected) (number? actual))
     (js/Object.is expected actual)
+
+    (and (map? expected) (map? actual))
+    (and (= (set (keys expected)) (set (keys actual)))
+         (every? (fn [key] (bit= (get expected key) (get actual key)))
+                 (keys expected)))
 
     (and (sequential? expected) (sequential? actual))
     (and (= (count expected) (count actual))
@@ -51,6 +61,16 @@
   ([expected actual] (first-difference expected actual []))
   ([expected actual path]
    (cond
+     (and (map? expected) (map? actual))
+     (if (not= (set (keys expected)) (set (keys actual)))
+       (str "keys " (pr-str (sort (map str (keys expected))))
+            " vs " (pr-str (sort (map str (keys actual))))
+            (describe path))
+       (some (fn [key]
+               (first-difference (get expected key) (get actual key)
+                                 (conj path key)))
+             (keys expected)))
+
      (and (sequential? expected) (sequential? actual))
      (if (not= (count expected) (count actual))
        (str "length " (count expected) " vs " (count actual) (describe path))

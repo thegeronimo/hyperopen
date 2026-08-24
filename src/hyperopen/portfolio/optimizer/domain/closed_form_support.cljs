@@ -46,6 +46,18 @@
                covariance)))
 
 (defn- within-bounds?
+  "Every weight inside its bounds, where a missing bound means unbounded.
+
+  Each bound vector is padded with nils rather than passed through as-is.
+  `map` over three collections stops at the shortest, so a bounds vector
+  shorter than the weight vector used to truncate the whole check -- including
+  the OTHER side's bounds, which might well have covered those positions. A
+  short `:lower-bounds` therefore disabled the upper-bound check on the tail,
+  and post-validation is the entire safety argument for accepting a
+  closed-form portfolio without re-solving it.
+
+  Padding with nil is what makes an absent bound mean unbounded rather than
+  violated: `finite-number?` is false for nil, so the position passes."
   [weights lower-bounds upper-bounds]
   (let [tol (:constraint-match tolerances)]
     (every? identity
@@ -55,8 +67,8 @@
                         (or (not (finite-number? upper))
                             (<= weight (+ upper tol)))))
                  weights
-                 (or lower-bounds (repeat nil))
-                 (or upper-bounds (repeat nil))))))
+                 (concat lower-bounds (repeat nil))
+                 (concat upper-bounds (repeat nil))))))
 
 (defn- abs-sum
   [values]

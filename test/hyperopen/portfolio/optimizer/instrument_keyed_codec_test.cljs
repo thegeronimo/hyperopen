@@ -122,3 +122,34 @@
            (get-in normalized [:return-model :kind])))
     (is (= {"perp:BTC" 1}
            (get-in normalized [:return-model :views 0 :weights])))))
+
+(deftest worker-boundary-normalization-is-total-over-malformed-views-test
+  ;; normalize-worker-boundary runs on EVERY message arriving from the
+  ;; optimizer worker, inside the message listener. The Black-Litterman step
+  ;; mapv's over [:return-model :views] without checking it is a sequence, so a
+  ;; malformed payload took the listener down rather than producing a result --
+  ;; and a string, being seqable in ClojureScript, was silently shredded into a
+  ;; vector of characters instead.
+  (is (= {:return-model {:views 0.4}}
+         (codec/normalize-worker-boundary {:return-model {:views 0.4}}))
+      "a scalar :views must pass through untouched rather than throw")
+  (is (= {:return-model {:views "abc"}}
+         (codec/normalize-worker-boundary {:return-model {:views "abc"}}))
+      "a string :views must pass through untouched rather than become [\\a \\b \\c]")
+  (is (= {:return-model {:views {:not "a sequence"}}}
+         (codec/normalize-worker-boundary {:return-model {:views {:not "a sequence"}}}))
+      "a map :views must pass through untouched")
+  (is (= {:return-model {:views true}}
+         (codec/normalize-worker-boundary {:return-model {:views true}}))
+      "a boolean :views must pass through untouched"))
+
+(deftest worker-boundary-normalization-still-rewrites-well-formed-views-test
+  ;; The totality fix must not stop the step doing its job on real payloads.
+  (is (= {:return-model {:views [{:weights {"perp:BTC" 0.5 "perp:ETH" -0.5}}]}}
+         (codec/normalize-worker-boundary
+          {:return-model {:views [{:weights {:perp:BTC 0.5 :perp:ETH -0.5}}]}})))
+  (is (= {:return-model {:views []}}
+         (codec/normalize-worker-boundary {:return-model {:views []}})))
+  (is (= {:return-model {:views [{:confidence 0.3}]}}
+         (codec/normalize-worker-boundary {:return-model {:views [{:confidence 0.3}]}}))
+      "a view without :weights is left alone"))

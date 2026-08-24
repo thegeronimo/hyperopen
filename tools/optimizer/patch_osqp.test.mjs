@@ -151,3 +151,21 @@ test("every shadow-cljs build resolves osqp to the vendored copy", () => {
       `:file "vendor/osqp/osqp_patched.mjs"}}} to each.`,
   );
 });
+
+test("the vendored copy passes eps_prim_inf to the solver", () => {
+  // The published package passes `eps_dual_inf` into both the sixth and
+  // seventh slots of `_create_settings`, so `eps_prim_inf` is silently
+  // dropped. Harmless while both sit at their shared 1e-4 default, which is
+  // why it went unnoticed, but it makes the setting a no-op for anyone who
+  // later reaches for it.
+  assert.match(
+    vendored(),
+    /c\.eps_abs,c\.eps_rel,c\.eps_prim_inf,c\.eps_dual_inf,c\.alpha/,
+    "the vendored copy no longer passes eps_prim_inf in the sixth settings slot",
+  );
+  assert.doesNotMatch(
+    readUpstream(),
+    /c\.eps_abs,c\.eps_rel,c\.eps_prim_inf,c\.eps_dual_inf/,
+    "upstream osqp appears to pass eps_prim_inf correctly now -- drop this edit",
+  );
+});

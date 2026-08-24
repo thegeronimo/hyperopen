@@ -27,31 +27,42 @@
 //
 // WHAT THE PATCH CHANGES
 //
-// Four edits, all mechanical: `o()` takes a collector array and pushes the
-// three pointers it allocates; `setup()` passes one collector to both `o()`
-// calls and stores it on `_state`; `cleanup()` frees everything in it, after
-// `_osqp_cleanup` and `_cleanup_data` have already torn down the workspace that
-// referenced them. No numerics are touched.
+// Four edits for the leak, all mechanical: `o()` takes a collector array and
+// pushes the three pointers it allocates; `setup()` passes one collector to
+// both `o()` calls and stores it on `_state`; `cleanup()` frees everything in
+// it, after `_osqp_cleanup` and `_cleanup_data` have already torn down the
+// workspace that referenced them. No numerics are touched.
 //
-// WHY IT IS VENDORED, AND WHY IT SITS NEXT TO ITS ONE CONSUMER
+// One further edit for an unrelated defect in the same package: `setup()`
+// passed `eps_dual_inf` into both the sixth and seventh slots of
+// `_create_settings`, so `eps_prim_inf` was silently dropped. That one is a
+// no-op at our current settings -- we set neither tolerance, so both take the
+// same 1e-4 default -- and exists to stop the setting being a silent no-op if
+// it is ever wanted.
+//
+// WHY IT IS VENDORED, AND WHY IT IS WIRED IN THROUGH :js-options
 //
 // Rewriting node_modules from a lifecycle hook was the alternative. It loses on
 // `npm run build`, which a fresh CI checkout runs with no hook we could hang the
 // rewrite off, and it makes the state of an install invisible.
 //
-// Given a committed artifact, the remaining question is how the build finds it.
-// A `:js-options {:resolve {"osqp" ...}}` in shadow-cljs.edn is the documented
-// route and there is precedent for it in this repo, but it is per-build and the
-// optimizer is compiled by eight of them, so one omission silently reinstates
-// the leak. A top-level `:js-options` does NOT cover this -- it was tried, and
-// `portfolio-optimizer-worker` still resolved the published package with no
-// warning. A relative require from the single namespace that consumes it cannot
-// be got wrong by any build, which is why the file lives beside `osqp.cljs`
-// rather than in a top-level `vendor/`.
+// Given a committed artifact, the remaining question is how the build finds it,
+// and the obvious answer is wrong in a way that only shows up in production. A
+// relative require of this file from osqp.cljs cannot be forgotten by any build
+// and compiles clean -- but it routes the file through Closure's `closure-js`
+// pipeline instead of shadow-cljs's `shadow-js` pipeline, and `:advanced` then
+// renames the Emscripten glue. Measured in the release bundle built that way:
+// `_malloc`, `HEAPF64` and the `asm.j` WASM export accessor go from 7, 7 and 1
+// occurrences to zero. It works in development and throws in production.
 //
-// `patch_osqp.test.mjs` re-runs this transform against the installed package and
-// fails if the committed file has drifted, so bumping `osqp` cannot silently
-// reinstate the leak either.
+// So the wiring is `:js-options {:resolve {"osqp" ...}}`, which keeps the file
+// on the npm path where Closure leaves it alone. That is per-build, and the
+// optimizer is compiled by eight builds, so one omission silently reinstates
+// the leak -- and a top-level `:js-options` does NOT cover them, which was
+// tried: `portfolio-optimizer-worker` still resolved the published package,
+// with no warning. `patch_osqp.test.mjs` therefore asserts that EVERY build
+// resolves to this file, and re-runs this transform against the installed
+// package so bumping `osqp` cannot leave a stale copy behind either.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -103,6 +114,28 @@ export const edits = [
     name: "the collector is reachable from _state",
     from: "pointer_to_u:S,l:R,u:s,num_variables:F}",
     to: "pointer_to_u:S,l:R,u:s,num_variables:F,csc_array_pointers:$csc}",
+  },
+  {
+    // A second defect in the same package, unrelated to the leak. `setup()`
+    // passes `eps_dual_inf` into BOTH the sixth and seventh parameters of
+    // `_create_settings`, so `eps_prim_inf` never reaches the solver at all.
+    //
+    // The sixth slot is `eps_prim_inf`: it is where the package's own
+    // `SettingsConfig` interface puts it, where OSQP's `OSQPSettings` struct
+    // puts it, and -- measured -- where a value behaves like a primal
+    // infeasibility tolerance. On a primal-infeasible problem, patching this
+    // slot and then loosening `eps_prim_inf` from 1e-15 to 1e-1 detects the
+    // infeasibility 2.7x sooner, while leaving the slot unpatched makes the
+    // same change do nothing (0.82x, inside noise). A feasible problem is
+    // unaffected either way, which rules out the slot being `alpha`.
+    //
+    // No behaviour change today: `osqp.cljs/settings` sets neither tolerance,
+    // so both come from `SettingsDefault` where both are 1e-4 and the value
+    // landing in slot six is identical before and after. This makes the
+    // setting usable rather than changing what it currently does.
+    name: "setup() passes eps_prim_inf rather than eps_dual_inf twice",
+    from: "c.eps_abs,c.eps_rel,c.eps_dual_inf,c.eps_dual_inf,c.alpha",
+    to: "c.eps_abs,c.eps_rel,c.eps_prim_inf,c.eps_dual_inf,c.alpha",
   },
   {
     // Appended after the existing frees on purpose: the arrays are still

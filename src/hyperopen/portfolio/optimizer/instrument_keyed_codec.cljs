@@ -180,14 +180,30 @@
     (update-in value path f)))
 
 (defn- normalize-black-litterman-view-weights
+  "Stringifies the instrument-keyed `:weights` map inside each Black-Litterman
+  view.
+
+  Total by construction, which matters more here than the rewrite does: this
+  runs inside the worker's message listener on every inbound message, so
+  throwing on a payload it does not recognise takes the listener down rather
+  than producing a result. `mapv` over a non-sequence used to do exactly that
+  for a scalar `:views`, and -- worse, because it was silent -- shredded a
+  string `:views` into a vector of characters, since strings are seqable in
+  ClojureScript.
+
+  The rest of the boundary normalization already works this way: every walk in
+  this namespace ends in `:else value`, normalizing what it recognises and
+  passing through what it does not. This is the one step that did not."
   [value]
   (update-existing-in
    value
    [:return-model :views]
    (fn [views]
-     (mapv (fn [view]
-             (update-existing-in view [:weights] stringify-instrument-keyed-map))
-           views))))
+     (if (sequential? views)
+       (mapv (fn [view]
+               (update-existing-in view [:weights] stringify-instrument-keyed-map))
+             views)
+       views))))
 
 (defn normalize-boundary-node
   "`normalize-wire-values` and `normalize-instrument-keyed-maps` in a single

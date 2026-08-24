@@ -318,6 +318,7 @@
             [hyperopen.portfolio.optimizer.application.view-model.exposure-test]
             [hyperopen.portfolio.optimizer.application.view-model.volatility-intuition-test]
             [hyperopen.portfolio.optimizer.application.view-model.workspace-loading-test]
+            [hyperopen.portfolio.optimizer.bit-parity-test]
             [hyperopen.portfolio.optimizer.black-litterman-actions-test]
             [hyperopen.portfolio.optimizer.black-litterman-view-edits-test]
             [hyperopen.portfolio.optimizer.coercion-test]
@@ -327,6 +328,7 @@
             [hyperopen.portfolio.optimizer.current-portfolio-constraint-actions-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
+            [hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test]
             [hyperopen.portfolio.optimizer.domain.closed-form-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
             [hyperopen.portfolio.optimizer.domain.diagnostics-test]
@@ -1203,6 +1205,7 @@
              'hyperopen.portfolio.optimizer.application.view-model.exposure-test
              'hyperopen.portfolio.optimizer.application.view-model.volatility-intuition-test
              'hyperopen.portfolio.optimizer.application.view-model.workspace-loading-test
+             'hyperopen.portfolio.optimizer.bit-parity-test
              'hyperopen.portfolio.optimizer.black-litterman-actions-test
              'hyperopen.portfolio.optimizer.black-litterman-view-edits-test
              'hyperopen.portfolio.optimizer.coercion-test
@@ -1212,6 +1215,7 @@
              'hyperopen.portfolio.optimizer.current-portfolio-constraint-actions-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
+             'hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test
              'hyperopen.portfolio.optimizer.domain.closed-form-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
              'hyperopen.portfolio.optimizer.domain.diagnostics-test

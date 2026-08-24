@@ -31,24 +31,11 @@
       codec/normalize-wire-values
       codec/normalize-instrument-keyed-maps))
 
-(defn- same?
-  "Structural equality that also holds for NaN. Payloads legitimately carry NaN
-  -- a degenerate covariance cell reaches the boundary as one -- and `=` calls
-  two NaNs different, so a plain `=` oracle fails comparing a walk to itself."
-  [expected actual]
-  (cond
-    (and (map? expected) (map? actual))
-    (and (= (set (keys expected)) (set (keys actual)))
-         (every? (fn [k] (same? (get expected k) (get actual k))) (keys expected)))
-
-    (and (sequential? expected) (sequential? actual))
-    (and (= (count expected) (count actual))
-         (every? true? (map same? expected actual)))
-
-    (and (number? expected) (number? actual))
-    (bit-parity/bit= expected actual)
-
-    :else (= expected actual)))
+(def ^:private same?
+  "NaN-aware structural equality. Payloads legitimately carry NaN -- a
+  degenerate covariance cell reaches the boundary as one -- and `=` calls two
+  NaNs different, so a plain `=` oracle fails comparing a walk to itself."
+  bit-parity/bit=)
 
 (defn- equivalent!
   [label value]

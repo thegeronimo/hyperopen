@@ -2,10 +2,19 @@
   "Bit-exact parity between the loop-based Ledoit-Wolf estimator and the
   original persistent-vector implementation it replaced. The rewrite claims
   identical arithmetic ORDER (not just numerical closeness), so these tests
-  assert exact = on the whole arithmetic result, reference implementation
-  included inline. The estimator's `:warnings` are reporting rather than
-  arithmetic and are pinned by `risk-degeneracy-test`; see `arithmetic-only`."
+  assert bit-level identity on the whole arithmetic result, reference
+  implementation included inline. The estimator's `:warnings` are reporting
+  rather than arithmetic and are pinned by `risk-degeneracy-test`; see
+  `arithmetic-only`.
+
+  Comparison goes through `bit-parity/bit=` rather than `=`, because `=` is
+  unsound in both directions for exactly this job: it reports two NaNs as
+  different, so a fixture whose correct answer contains NaN fails even when
+  the two implementations agree perfectly, and it reports 0.0 and -0.0 as the
+  same, so a port that flipped a zero's sign would pass while `1/x` flipped
+  from Infinity to -Infinity downstream."
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.portfolio.optimizer.bit-parity :as bit-parity]
             [hyperopen.portfolio.optimizer.domain.math :as math]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf :as ledoit-wolf]))
 
@@ -135,31 +144,55 @@
                 (range t)))
         (range n)))
 
+(defn- parity?
+  [expected actual]
+  (or (bit-parity/bit= expected actual)
+      ;; `is` prints both sides, which is no help when they render identically.
+      (do (println "  bit-parity divergence:"
+                   (bit-parity/first-difference expected actual))
+          false)))
+
 (deftest loop-estimator-is-bit-identical-to-reference-on-small-universe-test
   (let [series (synthetic-series 5 17)]
-    (is (= (reference-estimate {:series series :periods-per-year 365})
-           (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
+    (is (parity? (reference-estimate {:series series :periods-per-year 365})
+                 (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
 
 (deftest loop-estimator-is-bit-identical-to-reference-on-mid-universe-test
   (let [series (synthetic-series 12 60)]
-    (is (= (reference-estimate {:series series :periods-per-year 365})
-           (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
+    (is (parity? (reference-estimate {:series series :periods-per-year 365})
+                 (arithmetic-only (ledoit-wolf/estimate {:series series :periods-per-year 365}))))))
 
 (deftest loop-estimator-is-bit-identical-with-default-periods-test
   (let [series (synthetic-series 3 9)]
-    (is (= (reference-estimate {:series series})
-           (arithmetic-only (ledoit-wolf/estimate {:series series}))))))
+    (is (parity? (reference-estimate {:series series})
+                 (arithmetic-only (ledoit-wolf/estimate {:series series}))))))
 
 (deftest loop-estimator-preserves-degenerate-fallbacks-test
-  (is (= (reference-estimate {:series [] :periods-per-year 365})
-         (arithmetic-only (ledoit-wolf/estimate {:series [] :periods-per-year 365}))))
+  (is (parity? (reference-estimate {:series [] :periods-per-year 365})
+               (arithmetic-only (ledoit-wolf/estimate {:series [] :periods-per-year 365}))))
   ;; ragged series still produce the zero matrix here; estimate-risk-model
   ;; substitutes a pairwise sample covariance on the :ragged-return-series
   ;; warning (see risk-degeneracy-test)
   (let [ragged [[0.01 0.02 0.03] [0.01 0.02]]]
-    (is (= (reference-estimate {:series ragged :periods-per-year 365})
-           (arithmetic-only (ledoit-wolf/estimate {:series ragged :periods-per-year 365})))))
+    (is (parity? (reference-estimate {:series ragged :periods-per-year 365})
+                 (arithmetic-only (ledoit-wolf/estimate {:series ragged :periods-per-year 365})))))
   ;; single observation, single instrument
   (let [tiny [[0.01]]]
-    (is (= (reference-estimate {:series tiny :periods-per-year 12})
-           (arithmetic-only (ledoit-wolf/estimate {:series tiny :periods-per-year 12}))))))
+    (is (parity? (reference-estimate {:series tiny :periods-per-year 12})
+                 (arithmetic-only (ledoit-wolf/estimate {:series tiny :periods-per-year 12}))))))
+
+(deftest loop-estimator-is-bit-identical-on-non-finite-observations-test
+  ;; The fixture that makes the comparator load-bearing. A NaN observation
+  ;; propagates into the covariance -- `math/mean` filters it out of the mean
+  ;; but the centering and the accumulation keep it -- so the correct answer
+  ;; contains NaN, and this assertion is red under plain `=` even though both
+  ;; implementations agree exactly. If the suite is ever moved back onto `=`,
+  ;; this test says so immediately instead of the hole staying latent.
+  (let [with-nan [[js/NaN 0.01 0.02] [0.01 0.02 0.03] [0.03 0.01 0.02]]]
+    (is (parity? (reference-estimate {:series with-nan :periods-per-year 365})
+                 (arithmetic-only (ledoit-wolf/estimate {:series with-nan
+                                                         :periods-per-year 365})))))
+  (let [with-infinity [[js/Infinity 0.01 0.02] [0.01 0.02 0.03] [0.03 0.01 0.02]]]
+    (is (parity? (reference-estimate {:series with-infinity :periods-per-year 365})
+                 (arithmetic-only (ledoit-wolf/estimate {:series with-infinity
+                                                         :periods-per-year 365}))))))
