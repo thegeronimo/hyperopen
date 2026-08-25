@@ -44,6 +44,7 @@
                        :document? (exists? js/document)
                        :request-animation-frame! platform/request-animation-frame!
                        :emit-fn telemetry/emit!
+                       :telemetry-enabled? telemetry/dev-enabled?
                        :now-ms-fn platform/now-ms}
     :watchers-deps
     {:store store

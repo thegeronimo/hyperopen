@@ -166,3 +166,48 @@
                         :install-store-state-validation! (fn [store]
                                                            (swap! validation-calls conj store))}})
     (is (= [:store-id] @validation-calls))))
+
+(deftest install-render-loop-skips-the-root-diff-when-telemetry-is-disabled-test
+  ;; `changed-root-keys` is a second structural walk of the whole store on every
+  ;; write, and its only consumer is the render-flush telemetry event that a
+  ;; release build discards. Production wires `:telemetry-enabled?` to
+  ;; `telemetry/dev-enabled?` so the walk is skipped entirely.
+  (let [store (atom {:count 0
+                     :router {:path "/trade"}})
+        scheduled-frame-callbacks (atom [])
+        emitted-events (atom [])
+        diff-calls (atom 0)
+        now-values (atom [100 112])
+        now-ms-fn (fn []
+                    (let [value (first @now-values)]
+                      (swap! now-values subvec 1)
+                      value))]
+    (runtime-bootstrap/install-render-loop!
+     {:store store
+      :render-watch-key ::render-telemetry-disabled
+      :set-dispatch! (fn [_] nil)
+      :dispatch! (fn [& _] nil)
+      :render! (fn [_] nil)
+      :document? true
+      :request-animation-frame! (fn [cb]
+                                  (swap! scheduled-frame-callbacks conj cb)
+                                  :frame-id)
+      :emit-fn (fn [event payload]
+                 (swap! emitted-events conj [event payload]))
+      :telemetry-enabled? (fn []
+                            (swap! diff-calls inc)
+                            false)
+      :now-ms-fn now-ms-fn})
+    (swap! store assoc :count 1)
+    (swap! store assoc-in [:router :path] "/portfolio")
+    (is (= 2 @diff-calls)
+        "the guard is consulted once per store write")
+    (is (= 1 (count @scheduled-frame-callbacks))
+        "renders are still rAF-coalesced")
+    ((first @scheduled-frame-callbacks) 0)
+    (is (= [[:ui/app-render-flush
+             {:changed-root-keys []
+              :changed-root-key-count 0
+              :render-duration-ms 12}]]
+           @emitted-events)
+        "the frame still renders and still reports its duration; only the per-write root diff is skipped")))
