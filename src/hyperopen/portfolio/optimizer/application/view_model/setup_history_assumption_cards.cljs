@@ -357,7 +357,11 @@
          required-ids (universe/assumption-required-ids state readiness universe)
          usable-ids (when-let [eligible (get-in readiness
                                                 [:request :history :eligible-instruments])]
-                      (request-builder/usable-proxy-id-set eligible assumptions))
+                      (request-builder/usable-proxy-id-set
+                       eligible
+                       assumptions
+                       (get-in readiness [:request :history
+                                          :off-calendar-instrument-ids])))
          reference-instruments (get-in draft [:proxy-reference-instruments])
          resolve-proxy-label (proxy-label-resolver state universe reference-instruments)
          load-in-progress? (exposure/history-load-in-progress? state load-state)

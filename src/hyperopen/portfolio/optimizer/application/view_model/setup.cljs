@@ -69,6 +69,9 @@
   ;; :excluded-from-alignment is a disclosure that an asset was left out of the
   ;; shared estimate; the ACTIONABLE follow-up (configure a proxy/conservative
   ;; assumption) already surfaces as its own caution, so this stays a note.
+  ;; :sparse-native-history and :optimizer-history-api-legacy-fallback are both
+  ;; disclosures about HOW an asset was sourced and estimated. Nothing is wrong
+  ;; and there is no user action, so neither may read as a caution.
   #{:proxy-history-used
     :vault-derived-history-used
     :funding-history-missing
@@ -77,7 +80,9 @@
     :missing-current-portfolio-prior
     :stale-history
     :insufficient-common-history
-    :excluded-from-alignment})
+    :excluded-from-alignment
+    :sparse-native-history
+    :optimizer-history-api-legacy-fallback})
 
 (defn- warning-severity
   "Rank a warning group so the panel can render blocking issues, cautions, and

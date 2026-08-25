@@ -211,6 +211,10 @@
    :needs-assumptions "Needs assumptions"
    :using-proxy "Using proxy"
    :conservative "Conservative"
+   ;; Long history, published far apart. Deliberately NOT "Thin history": the
+   ;; asset has plenty of history, it is just sampled coarsely, and conflating
+   ;; the two is the bug this badge exists to end.
+   :sparse-history "Sparse history"
    ;; The configured "return/risk modeled from a basket of similar assets"
    ;; stance. Named for its RESULT ("Modeled") rather than its mechanism
    ;; ("proxy") so it never collides with the unconfigured "Needs proxy" cue -
@@ -227,7 +231,13 @@
         "assets you picked, since its own history is too short.")
    :conservative
    (str "Treated cautiously: high assumed volatility, no diversification "
-        "credit, and a tight allocation cap.")})
+        "credit, and a tight allocation cap.")
+   :sparse-history
+   (str "Its own history spans a year or more but the venue publishes it far "
+        "apart. Return and risk are estimated from its own samples with the "
+        "mixed-frequency model, and it is kept out of the shared daily window "
+        "so it cannot shorten the other assets' estimate - its allocation is "
+        "capped.")})
 
 (def workflow-assumption-badges
   "Badge states the universe rows actually PAINT: actionable gaps, configured
@@ -235,7 +245,7 @@
   workflow (user feedback 2026-07-05). Plain Ready stays data-role-only so the
   list never reads like an error log (owner decision, 2026-07)."
   #{:needs-proxy :no-history :needs-assumptions :conservative :proxy-behavior
-    :short-history})
+    :short-history :sparse-history})
 
 (defn native-history-observations
   "Native history row count for an instrument. The readiness arity is the honest
@@ -264,6 +274,32 @@
                             :served-observations-by-instrument instrument-id])
          (native-history-observations state instrument)))))
 
+(defn native-history-cadence
+  "Cadence summary for an instrument's native series, or nil. Carries
+  `:off-calendar? true` when alignment moved the member off the shared daily
+  calendar. This is what separates \"31 rows because it is a new listing\" from
+  \"31 rows because the venue publishes this one every two weeks\" - a distinction
+  a bare row count cannot express."
+  [readiness instrument]
+  (get-in readiness [:request :history :cadence-by-instrument
+                     (:instrument-id instrument)]))
+
+(defn- sparse-long-history?
+  "Sampled far apart but genuinely reaching back. Such an asset is estimated by
+  the mixed-frequency path from its own samples and must NOT be judged against
+  the daily-row bar - 31 samples spread over a year is not `short history`.
+
+  Requires `:off-calendar?`, not merely `:sparse?`. Cadence is computed for EVERY
+  eligible member, so a sparse member that still shares the daily calendar would
+  otherwise take this branch and be shown the badge tooltip's promise that it is
+  \"kept out of the shared daily window\" - a claim that would be false for it."
+  [cadence]
+  (boolean
+   (and (:sparse? cadence)
+        (:off-calendar? cadence)
+        (>= (or (:elapsed-days cadence) 0)
+            history-assumptions/short-history-min-observations))))
+
 (defn assumption-required-ids
   "Ids whose native history is below the assumption-required threshold (their
   covariance cannot be defensibly estimated AND their short calendar would
@@ -279,12 +315,18 @@
                                                state readiness instrument)]
                                    [(:instrument-id instrument) n])))
                          universe)
-         max-obs (reduce max 0 (vals obs-by-id))]
+         max-obs (reduce max 0 (vals obs-by-id))
+         ;; Mirrors setup-readiness: a member the mixed-frequency path already
+         ;; estimates natively must not also be told it needs a proxy.
+         off-calendar-ids (set (get-in readiness
+                                       [:request :history
+                                        :off-calendar-instrument-ids]))]
      (if (< max-obs history-assumptions/short-history-min-observations)
        #{}
        (into #{}
              (keep (fn [[id n]]
-                     (when (< n history-assumptions/assumption-required-max-observations)
+                     (when (and (not (contains? off-calendar-ids id))
+                                (< n history-assumptions/assumption-required-max-observations))
                        id)))
              obs-by-id)))))
 
@@ -303,15 +345,25 @@
      (:insufficient :shared-gap) :short
      (:queued :loading :pending) :pending
      ;; :sufficient / :stale -> adequate unless the native history is below the bar.
-     (let [observations (native-history-observations state readiness instrument)]
-       (if (and observations
-                (< observations history-assumptions/short-history-min-observations))
+     (let [observations (native-history-observations state readiness instrument)
+           cadence (native-history-cadence readiness instrument)]
+       (cond
+         ;; Checked BEFORE the row-count bar: a sparse member's row count is a
+         ;; sample count, not a day count, so comparing it to a ~1-year daily
+         ;; threshold is a category error (it is what produced the false
+         ;; "31 days of native history - too short to model on its own").
+         (sparse-long-history? cadence) :sparse
+
+         (and observations
+              (< observations history-assumptions/short-history-min-observations))
          :short
-         :ok)))))
+
+         :else :ok)))))
 
 (def ^:private adequacy-badges
   {:none :no-history
    :short :short-history
+   :sparse :sparse-history
    :ok :ready})
 
 (defn- assumption-badge

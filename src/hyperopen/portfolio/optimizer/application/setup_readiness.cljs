@@ -220,6 +220,13 @@
       (= :excluded-from-alignment code)
       (str assets (if (= 1 n) " is" " are") " left out of the shared history estimate")
 
+      (= :sparse-native-history code)
+      (str assets (if (= 1 n) " is" " are")
+           " estimated from their own sparse samples, outside the shared daily window")
+
+      (= :optimizer-history-api-legacy-fallback code)
+      (str assets (if (= 1 n) " is" " are") " served from Hyperliquid directly")
+
       :else
       (str assets " · " (str/replace (name code) "-" " ")))))
 
@@ -291,6 +298,19 @@
 
       :vault-derived-history-used
       (str label ": row uses vault return-index history, not market candles.")
+
+      ;; Long history, published far apart (a downsampled vault window). Says how
+      ;; it IS estimated - it is not a defect and must not read like one.
+      :sparse-native-history
+      (str label ": " (:observations warning) " samples across "
+           (js/Math.round (or (:elapsed-days warning) 0))
+           " days - estimated from its own samples, outside the shared daily window.")
+
+      ;; Without this the code fell through to the raw-keyword branch below and
+      ;; printed "optimizer-history-api-legacy-fallback" at the user.
+      :optimizer-history-api-legacy-fallback
+      (str label ": served from Hyperliquid directly because the optimizer "
+           "history service has no record for it.")
 
       :funding-history-missing
       (str label ": funding history is missing; price history availability is separate.")
@@ -397,7 +417,13 @@
   [request draft]
   {:usable-proxy-ids (request-builder/usable-proxy-id-set
                       (get-in request [:history :eligible-instruments])
-                      (:history-assumptions draft))
+                      (:history-assumptions draft)
+                      ;; MUST match request-builder's set exactly: this ctx feeds
+                      ;; first-missing-proxy-field, so a stale set makes readiness
+                      ;; call a proxy anchor usable that the engine rejected, and
+                      ;; the user gets "needs more history-assumption details"
+                      ;; instead of the name of the unusable proxy.
+                      (get-in request [:history :off-calendar-instrument-ids]))
    :max-asset-weight (get-in request [:constraints :max-asset-weight])})
 
 (defn- history-assumption-warnings
@@ -442,7 +468,11 @@
         max-obs (reduce max 0 (vals obs-by-id))
         return-required? (history-assumptions/return-required-for-objective?
                           (get-in request [:objective :kind]))
-        assumptions (:history-assumptions draft)]
+        assumptions (:history-assumptions draft)
+        ;; Off-calendar sparse members are already estimated natively by the
+        ;; mixed-frequency path. Demanding an assumption for them would block the
+        ;; run for an asset the engine is happily modeling.
+        off-calendar-ids (set (get-in request [:history :off-calendar-instrument-ids]))]
     (if (< max-obs history-assumptions/short-history-min-observations)
       []
       (->> requested-universe
@@ -452,6 +482,7 @@
                          entry (get assumptions id)]
                      (when (and id
                                 obs
+                                (not (contains? off-calendar-ids id))
                                 (< obs history-assumptions/assumption-required-max-observations)
                                 (not (history-assumptions/assumption-complete?
                                       entry

@@ -180,20 +180,46 @@
       (update :max-short-weight merge-cap))))
 
 (defn- sparse-cap-warning
-  [{:keys [instrument-id interval-count max-weight reason]}]
+  [{:keys [instrument-id interval-count max-weight reason off-calendar?]}]
   {:code :sparse-history-weight-cap-applied
    :instrument-id instrument-id
    :interval-count interval-count
    :max-weight max-weight
-   :message (if (= :missing-native-history-metadata reason)
+   :message (cond
+              (= :missing-native-history-metadata reason)
               (str "sparse history weight cap applied at "
                    (js/Math.round (* 100 max-weight))
                    "% because native cadence metadata is unavailable.")
+
+              off-calendar?
+              (str "sparse history weight cap applied at "
+                   (js/Math.round (* 100 max-weight))
+                   "% because its samples are too far apart to join the shared "
+                   "daily window.")
+
+              :else
               (str "sparse history weight cap applied at "
                    (js/Math.round (* 100 max-weight))
                    "% based on "
                    interval-count
                    " native intervals."))})
+
+(defn- sparse-max-weight
+  "Cap for one sparse member. `sparse-safety-max-weight`'s ladder terminates in
+  nil at >= 60 intervals, which is correct for an on-calendar member (it shares
+  the dense window, so its covariance is measured against everyone) but wrong for
+  an OFF-CALENDAR one: that member's covariance comes from pairwise interval
+  aggregation, and `risk-mixed-frequency/pair-estimate` returns exactly 0 for any
+  pair with fewer than 2 shared intervals. Uncapped plus apparently-uncorrelated
+  is what a max-Sharpe objective concentrates into, so an off-calendar member
+  always carries at least the unknown-cadence cap."
+  [{:keys [reason interval-count off-calendar?]}]
+  (if (= :missing-native-history-metadata reason)
+    unknown-sparse-history-max-weight
+    (let [ladder (sparse-safety-max-weight interval-count)]
+      (if (and off-calendar? (not (number? ladder)))
+        unknown-sparse-history-max-weight
+        ladder))))
 
 (defn- runtime-sparse-caps
   [history universe]
@@ -202,16 +228,13 @@
                (let [instrument-id (instrument-id instrument)
                      cadence (cadence-for history instrument)
                      max-weight (when (:sparse? cadence)
-                                  (if (= :missing-native-history-metadata
-                                         (:reason cadence))
-                                    unknown-sparse-history-max-weight
-                                    (sparse-safety-max-weight
-                                     (:interval-count cadence))))]
+                                  (sparse-max-weight cadence))]
                  (when (number? max-weight)
                    {:instrument-id instrument-id
                     :interval-count (:interval-count cadence)
                     :max-weight max-weight
-                    :reason (:reason cadence)}))))
+                    :reason (:reason cadence)
+                    :off-calendar? (boolean (:off-calendar? cadence))}))))
        vec))
 
 (defn- locked?
