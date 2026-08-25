@@ -54,7 +54,7 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-24) M4 — `run-legacy-entries!` now spaces only *between* requests. Serialization deliberately unchanged.
 - [x] (2026-08-24) Namespace-size exceptions recorded per repo convention: `setup_readiness_test.cljs` raised 780 → 840, and a new entry added for `history_client.cljs` (533 lines, cap 560) naming the legacy-loader/api-v2-orchestration split to make later.
 - [x] (2026-08-24) Adversarial review of the finished diff (21 agents, 16 verdicts, 8 confirmed) found **four real defects in this plan's own first implementation** — the deadline escalating instead of failing, M1's swallow destroying history, the refresh painting green beside warnings, and discovery left unbounded. All four fixed and pinned by tests; see `Surprises & Discoveries`.
-- [ ] M5 — Owner confirmation in the running app: on a repeat visit the Status row reads "Refreshing…" and the Run button works during the background refresh; with IndexedDB cleared it still reads "Loading…" and still blocks. Gates are green (34/34); this remaining item is the human observation described under `Validation and Acceptance`, which cannot be self-verified from this environment (the Browser pane cannot render this app — its tabs report `hidden`, so Replicant's requestAnimationFrame never fires).
+- [x] (2026-08-25) M5 — Owner reviewed the change in the running app and confirmed it: on a repeat visit the Status row reads "Refreshing…" and the Run button works during the background refresh; with IndexedDB cleared it still reads "Loading…" and still blocks. This was the one acceptance item that could not be self-verified from the agent environment (the Browser pane cannot render this app — its tabs report `hidden`, so Replicant's requestAnimationFrame never fires), so it was left to a human check.
 
 ## Milestones
 
@@ -240,7 +240,7 @@ Notable refutations, recorded so they are not re-raised: a run started during a 
 
 ## Outcomes & Retrospective
 
-(2026-08-24) All four code milestones landed. `npm run gates` reports **34/34 PASS**, 6,950 tests / 38,594 assertions. M5 remains open pending the owner's observation in the running app, which is the one thing this environment cannot self-verify.
+(2026-08-25) **Complete.** All four code milestones landed, `npm run gates` reports **34/34 PASS** (6,952 tests / 38,600 assertions), and the owner confirmed the user-visible behaviour in the running app on 2026-08-25 — the one acceptance item the agent environment could not check for itself. Landed as `4bc59459b` and merged to `main` as `bdbfa7599` (`Merge fix/optimizer-history-load-status-honesty into main`).
 
 **What changed, in one line each.** A failed gap-fill for a couple of instruments can no longer discard a successful backend bundle and refetch the whole universe. A hung request can no longer pin the status spinner forever. A background refresh over an already-loaded bundle no longer claims to be "Loading" and no longer blocks the run. The legacy fallback no longer sleeps after its last request.
 
