@@ -3,7 +3,8 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.utils.interval :as utils-interval]))
 
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
@@ -326,11 +327,76 @@
          {:interval :1h
           :bars 800})))
 
+(def ^:dynamic *now-ms*
+  "Clock seam. Only the candle-coverage check below reads it; tests bind it so
+  the actions in this namespace stay deterministic."
+  platform/now-ms)
+
+(defn- stored-candle-rows
+  "Rows out of a `[:candles coin interval]` slot, whichever shape it is in.
+
+  A slot is a bare vector of rows normally, and a map carrying `:rows` alongside
+  `:error`/`:error-category` once a fetch has failed against it."
+  [slot]
+  (cond
+    (vector? slot) slot
+    (sequential? slot) (vec slot)
+    (map? slot) (let [rows (or (:rows slot) (:data slot) (:candles slot))]
+                  (if (sequential? rows) (vec rows) []))
+    :else []))
+
+(defn- candle-row-time-ms
+  [row]
+  (cond
+    (map? row) (let [t (or (:t row) (:time row) (get row "t") (get row "time"))]
+                 (when (number? t) t))
+    (sequential? row) (let [t (first row)]
+                        (when (number? t) t))
+    :else nil))
+
+(defn candle-slot-covers-window?
+  "True when the candles already stored for `coin` at `interval` cover the window
+  a fresh request would ask for, and are recent enough to be worth reusing.
+
+  Presence alone is deliberately NOT the test. The all-time preset and the
+  two-year preset both resolve to the `:1d` interval and therefore share one
+  store slot while asking for very different spans, so a presence-only guard
+  would silently draw a two-year benchmark inside an all-time window and report
+  plausible-but-wrong alpha. Coverage is judged on both ends: the oldest stored
+  bar must reach back to the start of the requested window, and the newest must
+  be current to within a couple of bars (the newest bar is the one still
+  forming, so it legitimately trails `now` by up to one interval)."
+  [state coin interval bars]
+  (let [rows (stored-candle-rows (get-in state [:candles coin interval]))
+        interval-ms (utils-interval/interval-to-milliseconds interval)
+        oldest (candle-row-time-ms (first rows))
+        newest (candle-row-time-ms (peek rows))]
+    (boolean
+     (and (seq rows)
+          (number? interval-ms)
+          (pos? interval-ms)
+          (number? oldest)
+          (number? newest)
+          (let [now (*now-ms*)
+                window-start (- now (* bars interval-ms))]
+            (and (<= oldest (+ window-start interval-ms))
+                 (>= newest (- now (* 2 interval-ms)))))))))
+
 (defn- returns-benchmark-fetch-effects
-  [summary-time-range benchmark-coins]
+  "Candle fetches a range/benchmark change needs, skipping what the store already
+  covers.
+
+  This helper used to take only the range and the coin list, so it structurally
+  could not consult the store and every preset change went to the network even
+  when the answer was already in memory. Its siblings
+  `trader-benchmark-portfolio-fetch-effects` and
+  `vault-benchmark-details-fetch-effects` have always guarded this way."
+  [state summary-time-range benchmark-coins]
   (let [{:keys [interval bars]} (returns-benchmark-candle-request summary-time-range)]
     (->> (normalize-portfolio-returns-benchmark-coins benchmark-coins)
          (keep fetchable-benchmark-coin)
+         (remove (fn [coin]
+                   (candle-slot-covers-window? state coin interval bars)))
          (mapv (fn [coin]
                  [:effects/fetch-candle-snapshot
                   :coin coin
@@ -633,7 +699,8 @@
                       seed (conj [summary-custom-range-path seed])))]
     (if seed
       (into [projection replace-shareable-route-query-effect]
-            (concat (returns-benchmark-fetch-effects seed
+            (concat (returns-benchmark-fetch-effects state
+                                                     seed
                                                      (selected-returns-benchmark-coins state))
                     (ensure-portfolio-trader-benchmark-effects state)))
       [projection])))
@@ -684,7 +751,7 @@
     (let [range (summary-custom-range state)
           benchmark-coins (selected-returns-benchmark-coins state)
           fetch-effects (if range
-                          (concat (returns-benchmark-fetch-effects range benchmark-coins)
+                          (concat (returns-benchmark-fetch-effects state range benchmark-coins)
                                   (ensure-portfolio-trader-benchmark-effects state))
                           [])]
       (into [(custom-range-projection [[summary-range-drag-path nil]])
@@ -702,8 +769,17 @@
         ;; as a map and then throw in `(name ...)` below.
         time-range* (if (keyword? normalized) normalized default-summary-time-range)
         benchmark-coins (selected-returns-benchmark-coins state)
-        fetch-effects (concat (returns-benchmark-fetch-effects time-range* benchmark-coins)
-                              (ensure-portfolio-trader-benchmark-effects state))]
+        ;; Benchmarks are only drawn on the Returns tab. `select-portfolio-chart-tab`
+        ;; already guards the identical call this way and re-emits the fetch when
+        ;; the trader comes back to Returns, so nothing is lost by not paying for
+        ;; candles the Account Value and PNL tabs never plot.
+        returns-tab? (= :returns
+                        (normalize-portfolio-chart-tab
+                         (get-in state [:portfolio-ui :chart-tab] default-chart-tab)))
+        fetch-effects (if returns-tab?
+                        (concat (returns-benchmark-fetch-effects state time-range* benchmark-coins)
+                                (ensure-portfolio-trader-benchmark-effects state))
+                        [])]
     (into [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
                                              time-range*]
                                             [summary-custom-range-path nil]
@@ -731,7 +807,7 @@
         summary-time-range (effective-summary-time-range state)
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (if (= chart-tab* :returns)
-                        (concat (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
+                        (concat (returns-benchmark-fetch-effects state summary-time-range benchmark-coins)
                                 (ensure-portfolio-trader-benchmark-effects state))
                         [])]
     (into [[:effects/save-many
@@ -783,7 +859,7 @@
                               [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]
           candle-effects (if already-selected?
                            []
-                           (returns-benchmark-fetch-effects summary-time-range [coin]))
+                           (returns-benchmark-fetch-effects state summary-time-range [coin]))
           benchmark-detail-effects (if already-selected?
                                      []
                                      (if-let [vault-address (vault-benchmark-address coin)]

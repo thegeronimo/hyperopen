@@ -400,3 +400,73 @@
          (actions/returns-benchmark-candle-request "not-a-range")))
   (is (= {:interval :1d :bars 5000}
          (actions/returns-benchmark-candle-request :all-time))))
+
+;; --- candle reuse ------------------------------------------------------------
+
+(def ^:private fixed-now-ms
+  1756080000000)
+
+(defn- hour-rows
+  "`count` hourly candle rows ending `end-ms`."
+  [count end-ms]
+  (let [hour (* 60 60 1000)]
+    (mapv (fn [idx]
+            {:t (- end-ms (* hour (- count 1 idx)))
+             :c "100"})
+          (range count))))
+
+(defn- fetch-effects
+  [state]
+  (->> (actions/select-portfolio-summary-time-range state :month)
+       (filterv (fn [effect]
+                  (= :effects/fetch-candle-snapshot (first effect))))))
+
+(deftest select-time-range-skips-the-fetch-when-the-store-already-covers-the-window-test
+  ;; 30D resolves to :1h x 800 bars. A slot holding 800 hourly bars ending now
+  ;; covers exactly that window, so switching back to 30D should cost nothing.
+  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+    (let [base {:portfolio-ui {:chart-tab :returns
+                               :returns-benchmark-coins ["BTC"]}}
+          covered (assoc-in base [:candles "BTC" :1h] (hour-rows 800 fixed-now-ms))
+          too-short (assoc-in base [:candles "BTC" :1h] (hour-rows 100 fixed-now-ms))
+          stale (assoc-in base [:candles "BTC" :1h]
+                          (hour-rows 800 (- fixed-now-ms (* 6 60 60 1000))))]
+      (is (= [[:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+             (fetch-effects base))
+          "an empty slot still fetches")
+      (is (= [] (fetch-effects covered))
+          "a slot that already covers the window does not go to the network")
+      (is (= [[:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+             (fetch-effects too-short))
+          "presence is not enough -- a slot that does not reach back far enough refetches")
+      (is (= [[:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+             (fetch-effects stale))
+          "a slot whose newest bar is hours old refetches"))))
+
+(deftest candle-slot-coverage-distinguishes-two-year-from-all-time-in-the-shared-1d-slot-test
+  ;; :two-year and :all-time both resolve to the :1d interval and therefore share
+  ;; one store slot while asking for 900 and 5000 bars. A presence-only guard
+  ;; would draw a two-year benchmark inside an all-time window.
+  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+    (let [day (* 24 60 60 1000)
+          two-year-rows (mapv (fn [idx]
+                                {:t (- fixed-now-ms (* day (- 900 1 idx)))
+                                 :c "100"})
+                              (range 900))
+          state (assoc-in {} [:candles "BTC" :1d] two-year-rows)]
+      (is (true? (actions/candle-slot-covers-window? state "BTC" :1d 900))
+          "the two-year window is covered")
+      (is (false? (actions/candle-slot-covers-window? state "BTC" :1d 5000))
+          "the all-time window is not, even though the slot is populated"))))
+
+(deftest select-time-range-does-not-fetch-benchmark-candles-off-the-returns-tab-test
+  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+    (let [with-tab (fn [tab]
+                     {:portfolio-ui {:chart-tab tab
+                                     :returns-benchmark-coins ["BTC"]}})]
+      (is (= [[:effects/fetch-candle-snapshot :coin "BTC" :interval :1h :bars 800]]
+             (fetch-effects (with-tab :returns))))
+      (is (= [] (fetch-effects (with-tab :account-value)))
+          "Account Value plots no benchmark")
+      (is (= [] (fetch-effects (with-tab :pnl)))
+          "and neither does PNL"))))
