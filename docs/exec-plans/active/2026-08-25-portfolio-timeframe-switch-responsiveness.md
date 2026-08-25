@@ -33,7 +33,7 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-25 01:05Z) Baseline gate matrix recorded: `npm run gates` 34/34 PASS, 6943 tests / 38572 assertions, 2m53s. Any red after this point is a regression introduced by this plan.
 - [x] (2026-08-25 01:25Z) Milestone 1 — correctness defects GREEN. `apply-candle-snapshot-error` normalizes a warm slot to the map shape the store already supports instead of throwing; `install-render-loop!` gained a `:telemetry-enabled?` dep (wired to `telemetry/dev-enabled?` in `app/bootstrap.cljs`) that skips the per-write root-key diff in release builds. Suite: 6198 tests / 35112 assertions, 0 failures (baseline 6195/35104 + 3 new tests / 8 new assertions).
 - [x] (2026-08-25 02:10Z) Milestone 2 — perceived performance GREEN. Status banner is now an always-present FIXED live region (no in-flow mount/unmount, so no ~86px double shift) with `backdrop-blur-sm` removed; new `.ho-spinner` utility animates `transform` only and replaced the DaisyUI SMIL-mask spinner at both call sites; `performance-metrics-model` waits for benchmark rows before posting, so the empty-benchmark worker job and the vanish/reappear of six metric rows are gone; worker replies are correlated by `:id` and the applied signature is recorded, driving a new `:stale?` flag rendered as an "Updating…" chip. Suite: 6204 tests / 35133 assertions, 0 failures.
-- [ ] Milestone 3 — ambient main-thread load (narrow benchmark cache key, stable chart render hook, stop bypassing the open-orders request cache).
+- [x] (2026-08-25 03:05Z) Milestone 3 — ambient main-thread load GREEN. `benchmark-computation-context` now keys on the `[coin interval]` candle slots it actually reads instead of the identity of the whole `:candles` map; `on-render` is memoized per chart host behind an explicit `:tooltip-key` so Replicant's by-value `unchanged?` can succeed for the chart host and its ancestors; the fill-driven open-orders refresh stopped hardcoding `:force-refresh? true`, which restores the 2.5s response cache and single-flight de-duplication for it while order mutations opt in explicitly. Suite: 6208 tests / 35144 assertions, 0 failures.
 - [ ] Milestone 4 — network waste (state-aware benchmark fetch, fetch only on the Returns tab).
 - [ ] Milestone 5 — full gate matrix green and browser verification of the user-visible acceptance list.
 
@@ -71,6 +71,9 @@ Local scratch refs (non-authoritative):
 - Observation (refuted theory, recorded so nobody re-chases it): a `nil` child does not shift its siblings in Replicant and does not remount them. Replicant's `update-children` has dedicated branches for a `nil` on either side that keep a positional placeholder in the virtual DOM, so the banner mounts once and unmounts once rather than restarting on every render.
   Evidence: `replicant/core.cljc` in the `no.cjohansen/replicant` 2025.06.21 artifact, `update-children`, the `(and new-nil? old-nil?)` and `new-nil?` branches.
 
+- Observation: the existing regression test guarding the portfolio view-model caches was passing vacuously. It read the caches as `@#'vm/benchmark-computation-context-cache`, which derefs the Var and yields the ATOM rather than the atom's value, so `(:context ...)` was `nil` on both sides of every `identical?` assertion and the test could not fail. Found while adding the candle-slot cache coverage, because the new test used the same idiom and its negative assertion — "a write to the slot the benchmark DOES read must still invalidate" — failed against `nil` vs `nil`.
+  Evidence: a temporary `js/console.log` of `(:candle-slots @#'vm/benchmark-computation-context-cache)` printed `nil` after three `portfolio-vm` calls; switching to `@vm/benchmark-computation-context-cache` (the atoms are public `defonce`s) made both the new assertions and the pre-existing ones meaningful. The old test now also asserts the caches are populated at all before comparing them.
+
 ## Decision Log
 
 - Decision: fix the perceived-performance symptoms and the ambient per-render cost, but do not attempt to route-scope the order-book and trades WebSocket subscriptions in this plan.
@@ -99,6 +102,10 @@ Local scratch refs (non-authoritative):
 
 - Decision: move the background-status banner to a fixed bottom-left region rather than reserving permanent in-flow space for it.
   Rationale: reserving space removes the shift but costs roughly 86px of the page forever, on a view whose whole complaint is about the chart and tearsheet being hard to read. The banner reports ambient background sync, not a blocking state, so a corner status card is the honest treatment. It sits opposite the existing global toast region (`notifications_view` uses bottom-right) so the two cannot collide, and one z-band below it so toasts win if they ever do.
+  Date/Author: 2026-08-25, Claude.
+
+- Decision: keep the explanatory comments and raise three namespace-size exceptions rather than trimming the "why" out of the code, but only after cutting every comment that merely repeated another one.
+  Rationale: this codebase's own convention is long causal comments at the site of a subtle decision, and every one of these changes is subtle in exactly the way that invites reintroduction. The duplicate copy in `order/effects.cljs` was reduced to a pointer and the vault chart comment removed entirely, since `spec-update-key` now carries the canonical explanation; what remains is load-bearing. Each raised entry names this work and the split that should retire it.
   Date/Author: 2026-08-25, Claude.
 
 ## Outcomes & Retrospective

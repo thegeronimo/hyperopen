@@ -271,6 +271,7 @@
            resolve-current-address
            refresh-spot?
            force-base-open-orders-refresh?
+           force-open-orders-request?
            refresh-dex-open-orders-when-stream-live?
            gate-perp-dex-by-stream?
            skip-perp-dex-when-subscribed-and-ready?
@@ -297,7 +298,15 @@
                                          ""))]
       (when (or force-base-open-orders-refresh?
                 (not open-orders-live?))
-        (call-when-fn! refresh-open-orders! store address nil {:priority :high}))
+        ;; `:force-refresh?` bypasses the response cache AND single-flight. An
+        ;; order the user just placed or cancelled must show immediately, so
+        ;; that path opts in. A fill arriving on the `openOrders` stream -- which
+        ;; is subscribed and lossless and already carries the authoritative list
+        ;; -- does not, and forcing it there was re-downloading a half-megabyte
+        ;; snapshot up to several times a second.
+        (call-when-fn! refresh-open-orders! store address nil
+                       {:priority :high
+                        :force-refresh? (true? force-open-orders-request?)}))
       (when refresh-spot?
         (call-when-fn! refresh-spot-clearinghouse!
                        store
@@ -354,7 +363,8 @@
                                               store
                                               address
                                               dex
-                                              {:priority :low}))
+                                              {:priority :low
+                                               :force-refresh? (true? force-open-orders-request?)}))
                              (when (or (not gate-perp-dex-by-stream?)
                                        (not skip-perp-dex-rest-refresh?))
                                (call-when-fn! refresh-perp-dex-clearinghouse!
@@ -371,6 +381,8 @@
    (assoc deps
           :refresh-spot? (surface-policy/spot-refresh-surface-active? @store)
           :force-base-open-orders-refresh? (not (false? (:force-base-open-orders-refresh? deps)))
+          ;; Deliberately NOT forced: see the call site in run-post-event-refresh!.
+          :force-open-orders-request? false
           :gate-perp-dex-by-stream? true
           :skip-perp-dex-when-subscribed-and-ready? true
           :require-perp-dex-snapshot-ready-when-stream-usable? false
@@ -383,6 +395,8 @@
    (run-post-event-refresh!
    (assoc deps
           :refresh-spot? (true? refresh-spot?)
+          ;; The user just changed their orders; they must see it immediately.
+          :force-open-orders-request? true
           :refresh-dex-open-orders-when-stream-live? true
           :gate-perp-dex-by-stream? true
           :skip-perp-dex-when-subscribed-and-ready? true

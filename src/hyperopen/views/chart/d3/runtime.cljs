@@ -120,8 +120,13 @@
   (hover-state/set-surface-hover-active! (get-in (current-spec runtime) [:surface]) active?))
 
 (defn spec-update-key
+  "Everything about a spec that can change what the chart draws or reports.
+
+  `:build-tooltip` is deliberately absent — it is a fresh closure every render
+  and would defeat the key. Callers publish `:tooltip-key` instead: the VALUES
+  that closure depends on which no other key here already covers."
   [spec]
-  (select-keys spec [:surface :axis-kind :time-range :points :series :y-ticks :theme]))
+  (select-keys spec [:surface :axis-kind :time-range :points :series :y-ticks :theme :tooltip-key]))
 
 (defn- resolved-update-key
   [spec]
@@ -685,7 +690,10 @@
         (.disconnect resize-observer)))
     (clear-node! (:host runtime))))
 
-(defn on-render
+(defonce ^:private on-render-handlers
+  (atom {}))
+
+(defn- make-on-render
   [spec]
   (fn [{:keys [:replicant/life-cycle :replicant/node :replicant/memory :replicant/remember]}]
     (case life-cycle
@@ -709,3 +717,29 @@
       (cleanup-runtime! (:runtime memory))
 
       nil)))
+
+(defn on-render
+  "Replicant life-cycle hook for a chart host, memoized per host identity.
+
+  Replicant folds `:replicant/on-render` into the by-value comparison it uses to
+  decide a subtree is unchanged, so a fresh closure per render guaranteed that
+  comparison failed for the chart host and every ancestor above it — re-diffing
+  the chart card on every store write, websocket pushes included. Handing back
+  the identical object lets the comparison succeed. The handler closes over
+  nothing but `spec` (per-node state arrives via `:replicant/node`/`:memory`), so
+  sharing one across hosts rendering the same spec is safe."
+  [spec]
+  (let [handler-key [(:surface spec) (get-in spec [:theme :data-role-prefix])]
+        update-key (resolved-update-key spec)
+        cached (get @on-render-handlers handler-key)]
+    (if (and cached (= update-key (:update-key cached)))
+      (:handler cached)
+      (let [handler (make-on-render spec)]
+        (swap! on-render-handlers assoc handler-key {:update-key update-key
+                                                     :handler handler})
+        handler))))
+
+(defn reset-on-render-handlers!
+  "Test seam: drop the memoized hooks so one test's spec cannot leak into the next."
+  []
+  (reset! on-render-handlers {}))

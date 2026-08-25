@@ -454,6 +454,7 @@
                    :points (:points chart)
                    :series (:series chart)
                    :y-ticks (:y-ticks chart)
+                   :tooltip-key (:selected-series chart) ; see `spec-update-key`
                    :theme vault-chart-d3-theme}]
     (assoc base-spec
            :update-key (chart-d3-runtime/spec-update-key base-spec)
