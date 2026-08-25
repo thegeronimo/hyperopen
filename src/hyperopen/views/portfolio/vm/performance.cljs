@@ -171,15 +171,23 @@
         loading? (if worker
                    (boolean (get-in state [:portfolio-ui :metrics-loading?]))
                    false)
-        ;; True when the numbers on screen were computed for a window the trader
-        ;; is no longer looking at. They stay visible on purpose — blanking is
-        ;; what produced the churn this work set out to remove — but the view
-        ;; labels them rather than presenting last window's Sharpe under this
-        ;; window's heading with no indication.
+        ;; True when the numbers on screen answer a DIFFERENT QUESTION than the
+        ;; one currently selected — a different window, or a different benchmark
+        ;; set. They stay visible on purpose (blanking is the churn this work
+        ;; removed); the label is what keeps that honest.
+        ;;
+        ;; Deliberately not the whole signature. The rest of it is data
+        ;; freshness: `strategy-source-version` and the per-coin benchmark
+        ;; versions move whenever live data refreshes, which on an active account
+        ;; is constantly, and keying on those made the badge blink on and off
+        ;; every few hundred milliseconds while nothing the trader chose had
+        ;; changed. "A few seconds behind" is not stale; "answers the wrong
+        ;; window" is.
+        question-of (juxt :summary-time-range :selected-benchmark-coins)
         stale? (boolean (and worker
                              (some? metrics-result)
-                             (not= request-signature
-                                   (get-in state [:portfolio-ui :metrics-result-signature]))))
+                             (not= (question-of request-signature)
+                                   (question-of (get-in state [:portfolio-ui :metrics-result-signature])))))
         portfolio-values (or (:portfolio-values metrics-result) {})
         benchmark-values-by-coin-result (or (:benchmark-values-by-coin metrics-result) {})
         benchmark-columns (mapv (fn [coin]

@@ -134,7 +134,7 @@
                                          :options [{:value :two-year :label "2Y"}]}}))
         stale-badge (fn [view]
                       (hiccup/find-by-data-role view "portfolio-performance-metrics-stale-badge"))
-        hidden? (fn [node] (contains? (set (get-in node [1 :class])) "hidden"))]
+        hidden? (fn [node] (contains? (set (get-in node [1 :class])) "invisible"))]
     (is (= "Updating…" (first (hiccup/collect-strings (stale-badge (render true))))))
     (is (not (hidden? (stale-badge (render true))))
         "the badge is visible while the numbers belong to another window")
@@ -142,7 +142,7 @@
     ;; reflow the header, which is exactly the class of movement being removed.
     (is (some? (stale-badge (render false))))
     (is (hidden? (stale-badge (render false)))
-        "and hidden once the numbers match the window on screen")
+        "and hidden -- but still occupying its space, so toggling it cannot reflow the header row -- once the numbers match the window on screen")
     (is (nil? (hiccup/find-by-data-role (render true)
                                         "portfolio-performance-metrics-loading-overlay"))
         "a stale recompute must not raise the blocking overlay")))

@@ -74,6 +74,9 @@ Local scratch refs (non-authoritative):
 - Observation: the existing regression test guarding the portfolio view-model caches was passing vacuously. It read the caches as `@#'vm/benchmark-computation-context-cache`, which derefs the Var and yields the ATOM rather than the atom's value, so `(:context ...)` was `nil` on both sides of every `identical?` assertion and the test could not fail. Found while adding the candle-slot cache coverage, because the new test used the same idiom and its negative assertion — "a write to the slot the benchmark DOES read must still invalidate" — failed against `nil` vs `nil`.
   Evidence: a temporary `js/console.log` of `(:candle-slots @#'vm/benchmark-computation-context-cache)` printed `nil` after three `portfolio-vm` calls; switching to `@vm/benchmark-computation-context-cache` (the atoms are public `defonce`s) made both the new assertions and the pre-existing ones meaningful. The old test now also asserts the caches are populated at all before comparing them.
 
+- Observation: labelling the tearsheet stale on the WHOLE request signature made the badge blink. The signature carries `strategy-source-version` and the per-coin benchmark versions, which move on every live data refresh, so on an active account the chip toggled every few hundred milliseconds while nothing the trader had chosen changed — and because it was a `display:none` toggle inside a flex row, each toggle reflowed the tearsheet header.
+  Evidence: first browser verification run reported 26 layout-shift entries in 7 s totalling 0.024, every attributed entry naming `portfolio-performance-metrics-time-range-selector`. Narrowing the rule to the window and the benchmark selection, and reserving the chip's space with `invisible` instead of `hidden`, took the same measurement to 0.001–0.018 with no entry attributed to the tearsheet header or the status banner.
+
 ## Decision Log
 
 - Decision: fix the perceived-performance symptoms and the ambient per-render cost, but do not attempt to route-scope the order-book and trades WebSocket subscriptions in this plan.
@@ -110,6 +113,10 @@ Local scratch refs (non-authoritative):
 
 - Decision: extract the candle-coverage rule into `src/hyperopen/portfolio/candle_coverage.cljs` instead of raising the `portfolio/actions.cljs` size exception by 76 lines.
   Rationale: unlike the earlier ratchets in this plan, this was genuinely new logic rather than explanation, and `portfolio.actions` is a documented stable public seam that was already sitting exactly at its cap. Coverage is a cohesive, independently testable concern with its own clock seam, so it earns a namespace. The seam file still absorbed +15 lines for the guard call and the Returns-tab gate, which is what its exception was raised by.
+  Date/Author: 2026-08-25, Claude.
+
+- Decision: `:stale?` compares only the window and the selected benchmarks, not the full request signature.
+  Rationale: "a few seconds behind" is not stale; "answers a different question" is. The freshness components of the signature exist to trigger recomputation, which is a different job from telling the trader the numbers in front of them belong to another window.
   Date/Author: 2026-08-25, Claude.
 
 ## Outcomes & Retrospective

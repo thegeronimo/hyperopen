@@ -234,10 +234,10 @@
            ;; that trade. Always rendered (it hides itself) so the surrounding
            ;; flex row never reflows when it toggles.
            [:span {:class (into ["ho-spinner" "ho-spinner-sm" "text-trading-text-secondary"]
-                                (when-not stale? ["hidden"]))
+                                (when-not stale? ["invisible"]))
                    :aria-hidden true}]
            [:span {:class (into ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
-                                (when-not stale? ["hidden"]))
+                                (when-not stale? ["invisible"]))
                    :data-role "portfolio-performance-metrics-stale-badge"}
             "Updating…"]
            [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]}
