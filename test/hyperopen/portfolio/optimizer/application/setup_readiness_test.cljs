@@ -773,3 +773,59 @@
            (setup-readiness/warning-code-summary :proxy-history-used 8)))
     (is (= "1 asset uses substitute history"
            (setup-readiness/warning-code-summary :proxy-history-used 1)))))
+
+(deftest build-readiness-allows-running-while-refreshing-a-loaded-bundle-test
+  ;; The stale-while-revalidate cache hydrates the wallet's last bundle and
+  ;; deliberately leaves history-load-state alone, so a repeat visit runs a
+  ;; background refresh over data that is already complete. Before 2026-08-24
+  ;; that refresh reported :history-loading and set runnable? false for its whole
+  ;; duration. :loaded-at-ms is what separates it from a cold load.
+  (let [readiness (setup-readiness/build-readiness
+                   (optimizer-state
+                    {:portfolio
+                     {:optimizer
+                      {:history-load-state {:status :loading
+                                            :request-signature
+                                            {:universe [{:instrument-id "perp:BTC"
+                                                         :market-type :perp
+                                                         :coin "BTC"}
+                                                        {:instrument-id "perp:ETH"
+                                                         :market-type :perp
+                                                         :coin "ETH"}]}}
+                       :history-data
+                       {:loaded-at-ms 1700000000000
+                        :candle-history-by-coin
+                        {"BTC" [{:time 1000 :close "100"}
+                                {:time 2000 :close "110"}]
+                         "ETH" [{:time 1000 :close "2000"}
+                                {:time 2000 :close "2200"}]}
+                        :funding-history-by-coin {}}}}}))]
+    (is (true? (:refreshing? readiness)))
+    (is (not= :history-loading (:reason readiness)))
+    (is (true? (:runnable? readiness)))
+    (is (= :ready (:status readiness)))))
+
+(deftest build-readiness-refreshing-still-blocks-an-asset-with-no-history-test
+  ;; Running during a refresh must never mean running with a missing asset.
+  ;; incomplete-history? is the guard that keeps that true: DOGE is requested but
+  ;; has no candles, so it drops out of the built request and the mismatch blocks.
+  (let [readiness (setup-readiness/build-readiness
+                   (optimizer-state
+                    {:portfolio
+                     {:optimizer
+                      {:draft {:universe [{:instrument-id "perp:BTC"
+                                           :market-type :perp
+                                           :coin "BTC"}
+                                          {:instrument-id "perp:DOGE"
+                                           :market-type :perp
+                                           :coin "DOGE"}]}
+                       :history-load-state {:status :loading}
+                       :history-data
+                       {:loaded-at-ms 1700000000000
+                        :candle-history-by-coin
+                        {"BTC" [{:time 1000 :close "100"}
+                                {:time 2000 :close "110"}]}
+                        :funding-history-by-coin {}}}}}))]
+    (is (true? (:refreshing? readiness)))
+    (is (false? (:runnable? readiness)))
+    (is (= :blocked (:status readiness)))))

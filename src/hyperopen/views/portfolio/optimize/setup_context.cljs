@@ -40,7 +40,9 @@
   "Status value for the Run summary: the same run-verdict the footer pill
   renders, so the rail and the run bar can never disagree about \"ready\".
   Runnable states carry a green check and plain text; blocked gets the red
-  alert, loading a spinner."
+  alert, loading a spinner. :refreshing is RUNNABLE — a background reload over a
+  bundle that already landed — so it spins in a dimmer tone than :loading and
+  must never render the blocked treatment."
   [{:keys [level label]}]
   [:span {:class ["inline-flex" "min-w-0" "items-center" "justify-end" "gap-1.5"]
           :data-role "portfolio-optimizer-run-summary-status"
@@ -48,6 +50,7 @@
    (case level
      :blocked (lucide-icon lucide-circle-alert ["text-error"])
      :loading (lucide-icon lucide-loader-circle ["animate-spin" "text-trading-muted"])
+     :refreshing (lucide-icon lucide-loader-circle ["animate-spin" "text-trading-muted/50"])
      (lucide-icon lucide-circle-check ["text-success"]))
    [:span {:class ["truncate"]} label]])
 

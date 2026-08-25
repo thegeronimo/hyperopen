@@ -561,12 +561,38 @@
                     "History assumptions needed")
       "Optimizer inputs are not ready to run.")))
 
+(defn history-refreshing?
+  "True when a history load is in flight OVER a bundle that already landed.
+
+  `:loaded-at-ms` is stamped on `history-data` by apply-history-success, and it
+  also rides along on a bundle hydrated from the per-wallet IndexedDB cache
+  (history-cache/persisted-history-keys includes it). So its presence is exactly
+  the question \"is there already a usable bundle behind this fetch?\" — absent
+  before the first load ever completes, present for every refresh afterwards.
+
+  This is the distinction the stale-while-revalidate cache always assumed
+  readiness was making. history-cache/hydrate-history-cache deliberately leaves
+  `history-load-state` alone, on the stated grounds that \"readiness/cards judge
+  usability from the hydrated data itself\" — but until 2026-08-24 readiness
+  judged only the load state, so a repeat visit showed a blocking \"Loading…\"
+  over data that was already complete and on screen."
+  [state]
+  (boolean
+   (and (= :loading (get-in state contracts/history-load-state-status-path))
+        (get-in state (conj contracts/history-data-path :loaded-at-ms)))))
+
 (defn build-readiness
   [state]
   (let [draft (get-in state contracts/draft-path)
         requested-universe (vec (or (:universe draft) []))
-        history-loading? (= :loading
-                            (get-in state contracts/history-load-state-status-path))]
+        ;; Only a COLD load blocks. A refresh over an existing bundle does not:
+        ;; the bundle is usable, and a newly added asset is still blocked by
+        ;; incomplete-history? below, which compares the requested universe
+        ;; against the ids the request could actually serve. See
+        ;; docs/exec-plans/active/2026-08-24-optimizer-history-load-status-honesty.md.
+        history-loading? (and (= :loading
+                                 (get-in state contracts/history-load-state-status-path))
+                              (not (history-refreshing? state)))]
     (if (empty? requested-universe)
       {:status :blocked
        :reason :missing-universe
@@ -611,6 +637,10 @@
                    (or incomplete? risk-history-incomplete?) :incomplete-history
                    :else nil)
          :runnable? (boolean runnable?)
+         ;; Non-blocking: a refresh is running over a bundle that already
+         ;; landed. Carried on readiness so the view-model can name the state
+         ;; without re-reading the store.
+         :refreshing? (history-refreshing? state)
          :request request
          :blocking-warnings blocking-warnings
          :warnings (vec (:warnings request))}))))

@@ -29,11 +29,22 @@
 
 (defn- history-load-copy
   [history-load-state readiness]
-  (case (:status history-load-state)
-    :loading "Loading optimizer history for the selected assets."
-    :succeeded "Optimizer history is loaded for the selected assets."
-    :failed "History load failed. Existing history, if any, is retained."
-    (readiness-copy readiness)))
+  (if (and (= :loading (:status history-load-state))
+           (:refreshing? readiness)
+           ;; Only when nothing is actually blocked. Adding an asset also
+           ;; refreshes, and there "Optimizer history is loaded" would sit above
+           ;; an "Action needed" verdict blaming the user for the very history
+           ;; still in flight.
+           (not= :blocked (:status readiness)))
+    ;; Keeps the Data health panel consistent with the rail's Status row, which
+    ;; reads "Refreshing…" for this state — claiming "Loading" beside a usable
+    ;; bundle is the confusion this whole change removes.
+    "Optimizer history is loaded; a background refresh is running."
+    (case (:status history-load-state)
+      :loading "Loading optimizer history for the selected assets."
+      :succeeded "Optimizer history is loaded for the selected assets."
+      :failed "History load failed. Existing history, if any, is retained."
+      (readiness-copy readiness))))
 
 (defn- warning-group-action
   "Remediation for a warning group, so warnings tell the user what to do next
@@ -164,17 +175,32 @@
   [readiness history-load-state warnings]
   ;; Only blocking/caution groups count as issues — informational notes are
   ;; folded away and must not inflate the verdict into looking actionable.
-  (let [issue-count (count (remove #(= :info (:severity %)) warnings))]
+  (let [issue-count (count (remove #(= :info (:severity %)) warnings))
+        ;; A load running over a bundle that already landed is a REFRESH, not a
+        ;; cold load: the data on screen is usable and the run is allowed. Both
+        ;; arms of this check have to agree, because the second one reads the
+        ;; store path directly — narrowing only build-readiness would leave this
+        ;; arm true and the spinner would never go away.
+        refreshing? (boolean (:refreshing? readiness))]
     (cond
       (or (contains? #{:history-loading :holdings-loading} (:reason readiness))
-          (= :loading (:status history-load-state)))
+          (and (= :loading (:status history-load-state))
+               (not refreshing?)))
       {:level :loading :label "Loading…" :issue-count issue-count}
 
       (= :blocked (:status readiness))
       {:level :blocked :label "Action needed" :issue-count issue-count}
 
+      ;; Cautions outrank the refresh notice deliberately. A warning is
+      ;; actionable and persists; a refresh is transient and needs no response.
+      ;; Reporting :refreshing here instead would let the CTA paint its green
+      ;; ready tone beside visible warning cards, which is exactly the
+      ;; contradiction run-verdict's docstring below forbids.
       (some #(= :caution (:severity %)) warnings)
       {:level :caution :label "Ready with cautions" :issue-count issue-count}
+
+      refreshing?
+      {:level :refreshing :label "Refreshing…" :issue-count issue-count}
 
       :else
       {:level :ready :label "Ready to run" :issue-count issue-count})))
@@ -203,6 +229,13 @@
 
       (= :blocked level)
       {:level :blocked :label "Action needed" :warning-count warning-count}
+
+      ;; Runnable, so never blocked. readiness-status only reports :refreshing
+      ;; when nothing needs review, so this can never preempt the amber warning
+      ;; label below — but the warning-count guard makes that independent of
+      ;; that ordering rather than reliant on it.
+      (and (= :refreshing level) (zero? warning-count))
+      {:level :refreshing :label "Refreshing…" :warning-count 0}
 
       (pos? warning-count)
       {:level :caution

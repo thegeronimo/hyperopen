@@ -392,3 +392,23 @@
                      loaded)]
       (is (= :caution (:level cautioned)))
       (is (= "Ready with 1 warning" (:label cautioned))))))
+
+(deftest run-verdict-reports-refreshing-not-loading-over-a-loaded-bundle-test
+  ;; The rail Status row read a blocking "Loading…" for the whole background
+  ;; refresh on every repeat visit, over a bundle that was already on screen.
+  ;; readiness-status gates on a two-armed `or`, and the SECOND arm reads the
+  ;; load-state directly — so this also pins that narrowing build-readiness alone
+  ;; is not enough: with :refreshing? set, {:status :loading} must not win.
+  (let [refreshing {:status :ready
+                    :runnable? true
+                    :refreshing? true
+                    :blocking-warnings []
+                    :warnings []}
+        verdict (view-model/run-verdict refreshing {:status :loading})]
+    (is (= :refreshing (:level verdict)))
+    (is (= "Refreshing…" (:label verdict))))
+  ;; A cold load — nothing usable behind it — is unchanged.
+  (let [cold (view-model/run-verdict {:reason :history-loading}
+                                     {:status :loading})]
+    (is (= :loading (:level cold)))
+    (is (= "Loading…" (:label cold)))))

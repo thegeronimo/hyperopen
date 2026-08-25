@@ -88,20 +88,99 @@
       (aset err "contractVersion" (:contract-version body))
       (throw err))))
 
+(def default-request-timeout-ms
+  "Upper bound on a single optimizer-history HTTP request.
+
+  Without one, `history-load-state` has no path out of `:loading`: it only
+  leaves that status when the fetch promise settles (history-workflow's
+  apply-history-success / apply-history-error), so a request that never settles
+  leaves the Run summary spinning until the page is reloaded, with no error
+  shown and no way to retry.
+
+  60s is deliberately an order of magnitude above the largest real bundle on
+  record — docs/exec-plans/tech-debt-tracker.md measured 6.2s for a 51-asset
+  spectate universe — so this can never fire on a slow-but-progressing request.
+  It exists only to bound a hang. Override via the :request-timeout-ms key of
+  the :optimizer-history-api config."
+  60000)
+
+(defn- timeout-error
+  [timeout-ms]
+  (let [err (js/Error. (str "Optimizer history API request timed out after "
+                            timeout-ms
+                            "ms."))]
+    (aset err "status" :timeout)
+    err))
+
+(defn timeout-error?
+  "True for the deadline rejection produced by with-request-timeout!.
+
+  The total-failure legacy fallback in infrastructure.history-client must NOT
+  treat this like an ordinary backend failure. Its normal reading of a rejection
+  is \"the optimizer history API is unavailable, serve the whole universe from
+  the old /info endpoints instead\" — but that loader is the slowest path in the
+  system (one request per coin plus a ~18-page funding pagination per perp, all
+  serial) and it carries no deadline of its own. Falling back on a timeout would
+  turn a bounded wait into an unbounded one, which is precisely what this
+  deadline exists to prevent."
+  [err]
+  (boolean (and (instance? js/Error err)
+                (= :timeout (aget err "status")))))
+
+(defn- make-abort-controller
+  []
+  (when (exists? js/AbortController)
+    (js/AbortController.)))
+
+(defn- with-request-timeout!
+  "Race `run!` against a deadline. `run!` receives an AbortSignal (or nil when
+  the runtime has no AbortController) so the in-flight request is actually
+  cancelled rather than merely abandoned. A non-positive or non-numeric
+  timeout disables the deadline entirely."
+  [timeout-ms run!]
+  (if-not (and (number? timeout-ms) (pos? timeout-ms))
+    (run! nil)
+    (let [controller (make-abort-controller)
+          timer (atom nil)]
+      (-> (js/Promise.race
+           #js [(run! (some-> controller .-signal))
+                (js/Promise.
+                 (fn [_resolve reject]
+                   (reset! timer
+                           (js/setTimeout
+                            (fn []
+                              (some-> controller .abort)
+                              (reject (timeout-error timeout-ms)))
+                            timeout-ms))))])
+          (.finally (fn []
+                      (when-let [id @timer]
+                        (js/clearTimeout id))))))))
+
 (defn- request-json!
-  [fetch-fn url init normalizer]
-  (let [fetch-fn* (or fetch-fn js/fetch)]
-    (-> (fetch-fn* url (clj->js init))
-        (.then (partial parsed-response! normalizer))
-        (.then (fn [{:keys [response body]}]
-                 (if (and response
-                          (some? (.-ok response))
-                          (false? (.-ok response)))
-                   (js/Promise.reject (error-from-response response body))
-                   (validate-contract! body)))))))
+  ([fetch-fn url init normalizer]
+   (request-json! fetch-fn url init normalizer nil))
+  ([fetch-fn url init normalizer timeout-ms]
+   (let [fetch-fn* (or fetch-fn js/fetch)]
+     (with-request-timeout!
+       timeout-ms
+       (fn [signal]
+         ;; The signal is attached to the already-converted JS init map rather
+         ;; than threaded through clj->js, which would try to walk the
+         ;; AbortSignal object.
+         (let [init-js (clj->js init)]
+           (when signal
+             (aset init-js "signal" signal))
+           (-> (fetch-fn* url init-js)
+               (.then (partial parsed-response! normalizer))
+               (.then (fn [{:keys [response body]}]
+                        (if (and response
+                                 (some? (.-ok response))
+                                 (false? (.-ok response)))
+                          (js/Promise.reject (error-from-response response body))
+                          (validate-contract! body)))))))))))
 
 (defn request-instruments!
-  [{:keys [fetch-fn base-url request-id]}]
+  [{:keys [fetch-fn base-url request-id request-timeout-ms]}]
   (let [rid (request-id-value request-id)
         headers (cond-> {}
                   rid (assoc "x-request-id" rid))]
@@ -110,7 +189,13 @@
                         "/v1/optimizer/instruments")
                    {:method "GET"
                     :headers headers}
-                   api-v2/normalize-api-map)))
+                   api-v2/normalize-api-map
+                   ;; Discovery carries the same deadline as the bundle request.
+                   ;; It resolves the canonical backend instrument ids, and
+                   ;; without them nothing qualifies for the api-v2 path at all —
+                   ;; so a hung discovery quietly drops every later load onto the
+                   ;; slow legacy loader. Bounding it keeps that failure visible.
+                   (or request-timeout-ms default-request-timeout-ms))))
 
 (defn- api-instrument-row
   [instrument]
@@ -186,7 +271,7 @@
        :warnings (vec (mapcat :warnings bodies))})))
 
 (defn- request-history-bundle-chunk!
-  [{:keys [fetch-fn base-url request-id]} body-base instruments]
+  [{:keys [fetch-fn base-url request-id request-timeout-ms]} body-base instruments]
   (let [rid (request-id-value request-id)]
     (request-json! fetch-fn
                    (str (normalize-base-url base-url)
@@ -196,7 +281,10 @@
                                rid (assoc "x-request-id" rid))
                     :body (js/JSON.stringify
                            (clj->js (assoc body-base :instruments instruments)))}
-                   api-v2/normalize-history-body)))
+                   api-v2/normalize-history-body
+                   ;; Absent means "use the default"; a non-positive value
+                   ;; disables the deadline (see with-request-timeout!).
+                   (or request-timeout-ms default-request-timeout-ms))))
 
 (defn- report-chunk-progress!
   [on-chunk-progress progress total-chunks total-instruments]

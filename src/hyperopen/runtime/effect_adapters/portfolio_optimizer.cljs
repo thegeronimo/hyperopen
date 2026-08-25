@@ -353,7 +353,8 @@
         (-> (history-api-v2-client/request-instruments!
              {:fetch-fn fetch-fn
               :base-url (:base-url config)
-              :request-id request-id})
+              :request-id request-id
+              :request-timeout-ms (:request-timeout-ms config)})
             (.then (fn [body]
                      (let [discovery (assoc (history-api-v2/normalize-discovery body)
                                             :loaded-at-ms (now-ms-fn)
