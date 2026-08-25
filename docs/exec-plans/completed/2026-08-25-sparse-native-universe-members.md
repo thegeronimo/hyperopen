@@ -71,7 +71,9 @@ Local scratch refs (non-authoritative):
       partition only) and prove the shared calendar is unchanged.
 - [x] (2026-08-25) Milestone 5: feed the estimator (part B) and export the new keys.
 - [x] (2026-08-25) Milestone 6: freshness re-stamp in `request_builder.cljs`.
-- [x] (2026-08-25) Milestone 7: proxy-anchor exclusion at both `usable-proxy-id-set` call sites.
+- [x] (2026-08-25) Milestone 7: proxy-anchor exclusion at all three `usable-proxy-id-set`
+      call sites (the third, `setup_readiness/assumption-validation-ctx`, was missed on the
+      first pass and found by the adversarial review).
 - [x] (2026-08-25) Milestone 8: readiness gates and warning copy.
 - [x] (2026-08-25) Milestone 9: adequacy, badges and labels in the view model.
 - [x] (2026-08-25) Milestone 10: full gates green.
@@ -79,9 +81,23 @@ Local scratch refs (non-authoritative):
       let-binding order, regression risk, test quality) with every finding independently
       refutation-checked. Nine candidate findings, three real; all three fixed. Final
       gates 34/34, 6965 tests, 38628 assertions.
-- [ ] Milestone 11 (remaining): Playwright browser QA of the queue spec on a fresh page
-      load, and a manual pass on the running app with the real Growi HF vault. Not yet
-      run in this session.
+- [x] (2026-08-25) Merged. The branch landed as `d6f8c0e86` and merged to `main` as
+      `7eb5eefb3` (`Merge fix/optimizer-sparse-vault-off-calendar-lane into main`). `main`
+      had advanced three commits during the work, so this is a real merge; the only
+      conflict was `dev/namespace_size_exceptions.edn`, resolved by taking both sides.
+      Re-running the gates on the MERGED tree caught what neither side's own green run
+      could: `setup_readiness.cljs` came out at 677 lines, over its 650 cap, because main
+      added 34 lines and this branch added 35 and neither exceeded it alone. Cap raised to
+      700 in the merge with a reason naming both contributions. Merged-tree gates: 34/34,
+      6974 tests, 38656 assertions.
+- [x] (2026-08-25) Milestone 11 — Owner confirmed the change by manual QA in the running
+      app and reported it fine. This was the one acceptance item the agent environment
+      cannot self-verify: the Browser pane cannot render this app at all, because its tabs
+      report `hidden` so Replicant's requestAnimationFrame never fires. Recorded precisely:
+      the owner's pass was MANUAL, and the Playwright spec
+      `optimizer-history-assumptions-queue.spec.mjs` was NOT run in this session, so
+      committed deterministic browser coverage for the sparse-vault path is still owed.
+      See `Outcomes & Retrospective`.
 
 ## Surprises & Discoveries
 
@@ -299,10 +315,16 @@ Local scratch refs (non-authoritative):
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 10 are complete and the full gate matrix is green: `npm run gates`
-reports 34/34 PASS with 6965 tests and 38628 assertions, against a pre-change baseline of
-6943 tests and 38572 assertions - so this change added 22 tests and 56 assertions and broke
-nothing. A late addition proved the most dangerous remaining hazard is absent: the sparse
+(2026-08-25) **Complete.** All eleven milestones landed. The branch committed as
+`d6f8c0e86` and merged to `main` as `7eb5eefb3`; `npm run gates` on the merged tree reports
+**34/34 PASS** (6974 tests / 38656 assertions), and the owner confirmed the user-visible
+behaviour by manual QA in the running app on 2026-08-25 - the one acceptance item this
+environment cannot check for itself, since the Browser pane cannot render this app at all.
+
+On the branch alone the gates reported 34/34 with 6965 tests and 38628 assertions, against
+a pre-change baseline of 6943 tests and 38572 assertions - so this change added 22 tests and
+56 assertions and broke nothing. A late addition proved the most dangerous remaining hazard
+is absent: the sparse
 member's own DIAGONAL variance is positive and finite. `pair-estimate` returns covariance
 exactly 0 for any pair with fewer than 2 shared intervals and has no diagonal special case,
 so a lane member whose own variance collapsed to zero would have looked risk-free and a
@@ -327,12 +349,21 @@ in one new 96-line namespace (`sparse_lane.cljs`) plus one new partition predica
 alignment, and it deletes no existing behaviour: a universe with no lane member produces
 a byte-identical `:history` map, which Milestone 7's signature test asserts.
 
-What remains: Milestone 11 (browser QA) has not been run in this session. Four follow-ups
-are recorded in the Decision Log as explicit deferrals - the deepest-window swap, the
-pairwise covariance-zero fill, the legacy-path collapse, and `/v1/optimizer/vaults`
-discovery. The last of these is the real long-term fix and would make most of this
-machinery unnecessary for vaults specifically, though the lane remains correct for any
-sparse instrument.
+What remains, carried forward rather than closed with the plan. Five items, one of them new:
+
+The owner's browser QA was a manual pass, so the sparse-vault path has no committed
+deterministic browser coverage. Per the repo's own routing rule - Playwright for anything
+that should be committed, asserted, repeated, reviewed, or run in CI - a spec exercising a
+vault in the History-assumptions queue is genuinely owed, and this plan closing does not
+discharge it. It should seed vault state through
+`tools/playwright/support/optimizer_state.mjs` only, because
+`tools/optimizer/check-contract-paths.mjs` bans raw optimizer paths in specs.
+
+The other four are the explicit deferrals recorded in the Decision Log: the deepest-window
+swap, the pairwise covariance-zero fill, the legacy-path collapse, and
+`/v1/optimizer/vaults` discovery. The last of these is the real long-term fix and would make
+most of this machinery unnecessary for vaults specifically, though the lane remains correct
+for any sparse instrument.
 
 Lesson learned: the naive fix (day-align the timestamps) was intuitive, small, and wrong -
 it would have silently collapsed the shared estimation window for every other asset in the
