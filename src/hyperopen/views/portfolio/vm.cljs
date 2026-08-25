@@ -278,12 +278,18 @@
                                                      (:strategy-source-version benchmark-context)
                                                      (:benchmark-source-version-map benchmark-context))
         metrics-result (get-in state [:portfolio-ui :metrics-result])
+        ;; Part of the key because it is what `:stale?` is derived from. It
+        ;; moves in lockstep with `metrics-result` today (both are written by
+        ;; the same swap!), but keying on it explicitly means a future change to
+        ;; either one cannot silently freeze the stale badge.
+        metrics-result-signature (get-in state [:portfolio-ui :metrics-result-signature])
         loading? (boolean (get-in state [:portfolio-ui :metrics-loading?]))
         cache @performance-metrics-model-cache]
     (if (and (map? cache)
              (= request-signature (:request-signature cache))
              (= benchmark-labels (:benchmark-labels cache))
              (identical? metrics-result (:metrics-result cache))
+             (= metrics-result-signature (:metrics-result-signature cache))
              (= loading? (:loading? cache)))
       (:model cache)
       (let [model (binding [vm-performance/*metrics-worker* metrics-worker
@@ -299,6 +305,7 @@
         (reset! performance-metrics-model-cache {:request-signature request-signature
                                                  :benchmark-labels benchmark-labels
                                                  :metrics-result metrics-result
+                                                 :metrics-result-signature metrics-result-signature
                                                  :loading? loading?
                                                  :model model})
         model))))

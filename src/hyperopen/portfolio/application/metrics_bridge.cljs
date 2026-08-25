@@ -59,6 +59,40 @@
                                                    (normalize-worker-metric-values metric-values)]))
                                            benchmark-values-by-coin))))
 
+(declare last-metrics-request)
+
+(defn request-id
+  "Correlation token for one worker round trip.
+
+  The worker already reads `(.-id data)` off the incoming message and copies it
+  onto its reply (see `hyperopen.portfolio.worker`); nothing ever set it, so
+  every reply was applied to the store unconditionally no matter which request
+  it answered. A signature map cannot be sent directly — `postMessage`
+  structured-clones its argument and a ClojureScript collection is not
+  cloneable — so the token is the signature's hash rendered as a string. Equal
+  signatures always produce equal hashes, which is the only property the
+  correlation check needs."
+  [request-signature]
+  (when (some? request-signature)
+    (str (hash request-signature))))
+
+(defn apply-worker-metrics-result
+  "Fold one worker reply into the store, ignoring replies that answer a request
+  we have already superseded. Records the signature the result was computed for
+  so the view model can tell the trader when the numbers on screen belong to a
+  window that is no longer selected."
+  [state id payload]
+  (let [{:keys [signature]} @last-metrics-request
+        expected-id (request-id signature)]
+    (if (and (some? expected-id)
+             (some? id)
+             (not= id expected-id))
+      state
+      (-> state
+          (assoc-in [:portfolio-ui :metrics-result] payload)
+          (assoc-in [:portfolio-ui :metrics-result-signature] signature)
+          (assoc-in [:portfolio-ui :metrics-loading?] false)))))
+
 (defonce ^:dynamic metrics-worker
   (delay
    (when (exists? js/Worker)
@@ -67,13 +101,11 @@
                           (fn [^js e]
                             (let [data (.-data e)
                                   type (.-type data)
+                                  id (.-id data)
                                   payload-js (.-payload data)]
                               (when (= type "metrics-result")
                                 (let [payload (normalize-worker-metrics-result payload-js)]
-                                  (swap! system/store (fn [s]
-                                                        (-> s
-                                                            (assoc-in [:portfolio-ui :metrics-result] payload)
-                                                            (assoc-in [:portfolio-ui :metrics-loading?] false)))))))))
+                                  (swap! system/store apply-worker-metrics-result id payload))))))
        worker))))
 
 (defonce last-metrics-request (atom nil))
@@ -94,7 +126,8 @@
     (when (nil? (get-in @system/store [:portfolio-ui :metrics-result]))
       (swap! system/store assoc-in [:portfolio-ui :metrics-loading?] true))
     (when-let [worker (current-worker metrics-worker)]
-      (.postMessage worker #js {:type "compute-metrics"
+      (.postMessage worker #js {:id (request-id request-signature)
+                                :type "compute-metrics"
                                 :payload (clj->js request-data)}))))
 
 (defn metrics-request-signature

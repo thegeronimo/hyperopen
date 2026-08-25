@@ -1678,3 +1678,55 @@
 .ts-choice-option-wrap:last-child:focus-within .ts-choice-tooltip {
   transform: translateY(0);
 }
+
+/*
+ * Loading indicator.
+ *
+ * DaisyUI's `.loading-spinner` is NOT a CSS animation: it is
+ * `background-color: currentColor` plus a `mask-image` data URI whose motion
+ * comes from an SMIL `<animateTransform>` element inside the SVG. There is no
+ * `@keyframes` rule and no `animation` property in it at all, which is why
+ * `getAnimations()` on such an element returns an empty array. An SVG consumed
+ * as a mask resource is re-rasterised from the main thread, so that spinner
+ * freezes for exactly as long as the main thread is blocked -- it is a direct
+ * readout of jank rather than a distraction from it.
+ *
+ * This one animates `transform` only, which the browser can promote to the
+ * compositor, so it keeps turning through a blocked main thread. Same technique
+ * as `.hx-spin` above; this is the general-purpose sizing-aware version.
+ */
+.ho-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ho-spinner-rotate 800ms linear infinite;
+  will-change: transform;
+}
+
+.ho-spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.ho-spinner-lg {
+  width: 38px;
+  height: 38px;
+  border-width: 3px;
+}
+
+@keyframes ho-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ho-spinner {
+    animation-duration: 2400ms;
+  }
+}

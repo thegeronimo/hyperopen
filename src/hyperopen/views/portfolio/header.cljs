@@ -186,40 +186,66 @@
         ^{:key label}
         (action-button (assoc item :focus-request focus-request)))]]))
 
-(defn background-status-banner [{:keys [visible? title detail items]}]
-  (when visible?
-    [:div {:class ["rounded-xl"
-                   "border"
-                   "px-4"
-                   "py-3"
-                   "backdrop-blur-sm"]
-           :style {:border-color "rgba(46, 91, 98, 0.9)"
-                   :background "linear-gradient(135deg, rgba(8, 24, 30, 0.96) 0%, rgba(9, 35, 42, 0.96) 54%, rgba(14, 44, 37, 0.92) 100%)"}
-           :data-role "portfolio-background-status"
-           :role "status"
-           :aria-live "polite"}
-     [:div {:class ["flex" "flex-col" "gap-3" "xl:flex-row" "xl:items-center" "xl:justify-between"]}
-      [:div {:class ["flex" "items-start" "gap-3"]}
-       [:span {:class ["mt-0.5" "loading" "loading-spinner" "loading-sm" "text-trading-green"]
-               :aria-hidden true}]
-       [:div {:class ["space-y-1"]}
-        [:div {:class ["text-sm" "font-medium" "text-trading-text"]}
-         title]
-        [:div {:class ["text-sm" "leading-5" "text-trading-text-secondary"]}
-         detail]]]
-      [:div {:class ["flex" "flex-wrap" "gap-2"]}
-       (for [{:keys [id label]} items]
-         ^{:key (str "portfolio-background-status-item-" (name id))}
-         [:span {:class ["rounded-full"
-                         "border"
-                         "px-2.5"
-                         "py-1"
-                         "text-xs"
-                         "font-medium"
-                         "uppercase"
-                         "tracking-[0.18em]"]
-                 :style {:border-color "rgba(72, 113, 119, 0.88)"
-                         :background-color "rgba(12, 29, 35, 0.92)"
-                         :color "#9fb6bc"}
-                 :data-role (str "portfolio-background-status-item-" (name id))}
-          label])]]]))
+(defn background-status-banner
+  "Ambient \"still syncing\" status for the portfolio page.
+
+  This region is deliberately FIXED rather than an in-flow sibling. It used to
+  be `(when visible? ...)` inside the page's `space-y-4` column, which meant
+  every appearance and disappearance translated the summary grid, the chart card
+  and the whole performance-metrics tearsheet down by roughly 86px and back.
+  During a timeframe switch that happens twice in under a second, and because
+  the tearsheet renders its own range selector far down the page, the control the
+  trader just clicked moved out from under the cursor and returned. That layout
+  shift was the single loudest symptom of the \"switching timeframes is janky\"
+  report, and no CPU profile would ever have shown it.
+
+  The outer region is always present (so the live region exists before content
+  is inserted into it, which is what makes the announcement work) and is fixed,
+  so whether it has content or not the flow above and below is identical.
+  `backdrop-blur-sm` is gone on purpose: a backdrop filter forces the compositor
+  to read back and re-blur whatever is behind it on every frame the spinner
+  paints, which is precisely the frames where the main thread is already busy."
+  [{:keys [visible? title detail items]}]
+  [:div {:class ["pointer-events-none"
+                 "fixed"
+                 "left-3"
+                 "bottom-16"
+                 "z-[270]"
+                 "w-[min(24rem,calc(100vw-1.5rem))]"]
+         :role "status"
+         :aria-live "polite"
+         :data-role "portfolio-background-status-region"}
+   (when visible?
+     [:div {:class ["rounded-xl"
+                    "border"
+                    "px-4"
+                    "py-3"
+                    "shadow-lg"]
+            :style {:border-color "rgba(46, 91, 98, 0.9)"
+                    :background "linear-gradient(135deg, rgba(8, 24, 30, 0.96) 0%, rgba(9, 35, 42, 0.96) 54%, rgba(14, 44, 37, 0.92) 100%)"}
+            :data-role "portfolio-background-status"}
+      [:div {:class ["flex" "flex-col" "gap-3"]}
+       [:div {:class ["flex" "items-start" "gap-3"]}
+        [:span {:class ["mt-0.5" "ho-spinner" "ho-spinner-sm" "text-trading-green"]
+                :aria-hidden true}]
+        [:div {:class ["space-y-1"]}
+         [:div {:class ["text-sm" "font-medium" "text-trading-text"]}
+          title]
+         [:div {:class ["text-sm" "leading-5" "text-trading-text-secondary"]}
+          detail]]]
+       [:div {:class ["flex" "flex-wrap" "gap-2"]}
+        (for [{:keys [id label]} items]
+          ^{:key (str "portfolio-background-status-item-" (name id))}
+          [:span {:class ["rounded-full"
+                          "border"
+                          "px-2.5"
+                          "py-1"
+                          "text-xs"
+                          "font-medium"
+                          "uppercase"
+                          "tracking-[0.18em]"]
+                  :style {:border-color "rgba(72, 113, 119, 0.88)"
+                          :background-color "rgba(12, 29, 35, 0.92)"
+                          :color "#9fb6bc"}
+                  :data-role (str "portfolio-background-status-item-" (name id))}
+           label])]]])])

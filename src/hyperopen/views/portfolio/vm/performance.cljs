@@ -141,16 +141,29 @@
                                                        strategy-source-version
                                                        benchmark-source-version-map)
         worker (current-worker *metrics-worker*)
+        ;; The candle store is keyed by INTERVAL and every preset resolves to a
+        ;; different one, so on the first render after a range switch the new
+        ;; interval's slot is still empty and every selected benchmark has zero
+        ;; rows. Posting then produced a full worker job whose benchmark side
+        ;; was `[]`; the reply was applied, `benchmark-min?` failed, and the six
+        ;; benchmark-relative metrics plus their whole labelled group vanished
+        ;; from the tearsheet and reappeared ~700ms later when the real candles
+        ;; landed. Waiting costs nothing — the previous result stays on screen,
+        ;; now labelled stale — and it halves the worker jobs per switch.
+        benchmark-rows-ready? (every? (fn [coin]
+                                        (seq (get benchmark-cumulative-rows-by-coin coin)))
+                                      selected-benchmark-coins)
         request-signature-changed? (not= request-signature
                                         (:signature @*last-metrics-request*))
+        post-request? (and worker
+                           request-signature-changed?
+                           benchmark-rows-ready?)
         request-data (when (or (nil? worker)
-                               request-signature-changed?)
+                               post-request?)
                        (*build-metrics-request-data* strategy-cumulative-rows
                                                      benchmark-cumulative-rows-by-coin
                                                      selected-benchmark-coins))
-        _ (when (and worker
-                     request-signature-changed?
-                     request-data)
+        _ (when (and post-request? request-data)
             (*request-metrics-computation!* request-data request-signature))
         metrics-result (if worker
                          (get-in state [:portfolio-ui :metrics-result])
@@ -158,6 +171,15 @@
         loading? (if worker
                    (boolean (get-in state [:portfolio-ui :metrics-loading?]))
                    false)
+        ;; True when the numbers on screen were computed for a window the trader
+        ;; is no longer looking at. They stay visible on purpose — blanking is
+        ;; what produced the churn this work set out to remove — but the view
+        ;; labels them rather than presenting last window's Sharpe under this
+        ;; window's heading with no indication.
+        stale? (boolean (and worker
+                             (some? metrics-result)
+                             (not= request-signature
+                                   (get-in state [:portfolio-ui :metrics-result-signature]))))
         portfolio-values (or (:portfolio-values metrics-result) {})
         benchmark-values-by-coin-result (or (:benchmark-values-by-coin metrics-result) {})
         benchmark-columns (mapv (fn [coin]
@@ -178,6 +200,7 @@
                  benchmark-columns)
         benchmark-label (:label primary-benchmark-column)]
     {:loading? loading?
+     :stale? stale?
      :benchmark-selected? (boolean (seq benchmark-columns))
      :benchmark-coin benchmark-coin
      :benchmark-label benchmark-label

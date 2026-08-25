@@ -116,3 +116,33 @@
     (is (= "polite" (get-in overlay [1 :aria-live])))
     (is (contains? overlay-text "Calculating performance metrics"))
     (is (contains? overlay-text "Returns stay visible while the remaining analytics finish in the background."))))
+
+(deftest performance-metrics-card-labels-stale-numbers-instead-of-blanking-them-test
+  ;; During a timeframe switch the previous window's numbers stay on screen —
+  ;; blanking them is the content churn this work removed. The chip is what
+  ;; keeps that honest: without it the old Sharpe sits under the new range label
+  ;; with nothing saying which window it belongs to.
+  (let [render (fn [stale?]
+                 (performance-metrics-view/performance-metrics-card
+                  {:loading? false
+                   :stale? stale?
+                   :benchmark-selected? false
+                   :groups []
+                   :time-range-selector {:value :two-year
+                                         :label "2Y"
+                                         :open? false
+                                         :options [{:value :two-year :label "2Y"}]}}))
+        stale-badge (fn [view]
+                      (hiccup/find-by-data-role view "portfolio-performance-metrics-stale-badge"))
+        hidden? (fn [node] (contains? (set (get-in node [1 :class])) "hidden"))]
+    (is (= "Updating…" (first (hiccup/collect-strings (stale-badge (render true))))))
+    (is (not (hidden? (stale-badge (render true))))
+        "the badge is visible while the numbers belong to another window")
+    ;; Always rendered, never a nil hole: toggling presence in a flex row would
+    ;; reflow the header, which is exactly the class of movement being removed.
+    (is (some? (stale-badge (render false))))
+    (is (hidden? (stale-badge (render false)))
+        "and hidden once the numbers match the window on screen")
+    (is (nil? (hiccup/find-by-data-role (render true)
+                                        "portfolio-performance-metrics-loading-overlay"))
+        "a stale recompute must not raise the blocking overlay")))
