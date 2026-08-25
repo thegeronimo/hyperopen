@@ -31,10 +31,16 @@
             :request-id (fn [] "rid-1")})
           (.then
            (fn [body]
+             ;; Discovery carries the same deadline as the bundle request, so
+             ;; its init now includes an AbortSignal. Compare the addressing
+             ;; fields, then pin the signal separately.
              (is (= [["https://history.test/v1/optimizer/instruments"
                       {"method" "GET"
                        "headers" {"x-request-id" "rid-1"}}]]
-                    @calls))
+                    (mapv (fn [[url init]] [url (dissoc init "signal")])
+                          @calls)))
+             (is (some? (get-in (vec @calls) [0 1 "signal"]))
+                 "discovery must be bounded by a deadline")
              (is (= "optimizer-history-api-v2" (:contract-version body)))
              (is (= "hl:perp:BTC"
                     (get-in body [:instruments 0 :instrument-id])))
@@ -364,3 +370,58 @@
                  "Per-instrument series stay served in an error bundle.")
              (done)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest request-history-bundle-rejects-when-the-request-exceeds-its-timeout-test
+  ;; Without a deadline, history-load-state has no path out of :loading — it only
+  ;; moves on the fetch promise settling — so a hung request leaves the optimizer's
+  ;; Run summary spinning until the page is reloaded. Pre-change this test hangs
+  ;; and the async runner times it out.
+  (async done
+    (let [aborted? (atom false)]
+      (-> (client/request-history-bundle!
+           {:base-url "https://history.test"
+            :request-timeout-ms 10
+            :fetch-fn (fn [_url init]
+                        (when-let [signal (aget init "signal")]
+                          (.addEventListener signal
+                                             "abort"
+                                             (fn [] (reset! aborted? true))))
+                        ;; Never settles.
+                        (js/Promise. (fn [_resolve _reject])))}
+           {:universe [{:instrument-id "perp:BTC"
+                        :optimizer-history/instrument-id "hl:perp:BTC"}]
+            :bars 30
+            :interval :1d})
+          (.then (fn [_bundle]
+                   (is false "expected the timed-out request to reject")
+                   (done)))
+          (.catch (fn [err]
+                    (is (= :timeout (aget err "status")))
+                    (is (re-find #"timed out" (.-message err)))
+                    ;; The in-flight request is cancelled, not merely abandoned.
+                    (is (true? @aborted?))
+                    (done)))))))
+
+(deftest request-history-bundle-without-a-timeout-does-not-abort-test
+  ;; A non-positive timeout disables the deadline; the request must still work
+  ;; and must not attach an abort signal that something else could trip.
+  (async done
+    (-> (client/request-history-bundle!
+         {:base-url "https://history.test"
+          :request-timeout-ms 0
+          :fetch-fn (fn [_url init]
+                      (is (nil? (aget init "signal")))
+                      (js/Promise.resolve
+                       (json-response 200
+                                      {:contract_version "optimizer-history-api-v2"
+                                       :status "ok"
+                                       :series_by_instrument {}
+                                       :warnings []})))}
+         {:universe [{:instrument-id "perp:BTC"
+                      :optimizer-history/instrument-id "hl:perp:BTC"}]
+          :bars 30
+          :interval :1d})
+        (.then (fn [bundle]
+                 (is (= :ok (:status bundle)))
+                 (done)))
+        (.catch (async-support/unexpected-error done)))))

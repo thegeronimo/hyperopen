@@ -22,6 +22,7 @@
             :proxy-policy :approved-proxy-allowed
             :include-aligned-returns? true
             :fallback-to-legacy? true
-            :legacy-fallback-request-spacing-ms 200}
+            :legacy-fallback-request-spacing-ms 200
+            :request-timeout-ms 60000}
            (:optimizer-history-api cfg)))
     (is (= 50 (get-in cfg [:diagnostics :timeline-limit])))))

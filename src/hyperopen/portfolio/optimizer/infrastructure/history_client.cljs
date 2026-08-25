@@ -100,17 +100,33 @@
                (assoc entry :value value)))))
 
 (defn- run-legacy-entries!
+  "Run the legacy /info requests one at a time, spacing consecutive requests by
+  `spacing-ms`.
+
+  The serialization is deliberate and is pinned by
+  `request-history-bundle-throttles-legacy-info-requests-test`: parallel /info
+  requests have previously produced a 429 backoff storm (see the optimizer entry
+  in docs/exec-plans/tech-debt-tracker.md). Do not make this concurrent without
+  a rate-limit measurement.
+
+  The spacing separates one request from the NEXT one, so the final entry does
+  not sleep — that sleep delayed the resolved bundle by a full interval (200ms
+  in production) while no further request was waiting on it."
   [entries spacing-ms]
-  (reduce (fn [promise entry]
-            (-> promise
-                (.then (fn [results]
-                         (-> (run-legacy-entry! entry)
-                             (.then (fn [result]
-                                      (-> (sleep-ms spacing-ms)
-                                          (.then (fn []
-                                                   (conj results result)))))))))))
-          (js/Promise.resolve [])
-          (vec entries)))
+  (let [entries (vec entries)
+        last-index (dec (count entries))]
+    (reduce-kv (fn [promise index entry]
+                 (-> promise
+                     (.then (fn [results]
+                              (-> (run-legacy-entry! entry)
+                                  (.then (fn [result]
+                                           (if (= index last-index)
+                                             (conj results result)
+                                             (-> (sleep-ms spacing-ms)
+                                                 (.then (fn []
+                                                          (conj results result))))))))))))
+               (js/Promise.resolve [])
+               entries)))
 
 (defn- assoc-legacy-result
   [bundle {:keys [bucket key value]}]
@@ -278,15 +294,98 @@
    :aligned-returns-by-instrument {}
    :warnings []})
 
+(defn- targeted-fallback-failed-warning
+  [fallback-universe err]
+  (cond-> {:code :optimizer-history-targeted-fallback-failed
+           :message (str "Legacy history could not be loaded for "
+                         (count fallback-universe)
+                         (if (= 1 (count fallback-universe))
+                           " asset; "
+                           " assets; ")
+                         "the optimizer history API results for the rest were kept.")
+           :instrument-ids (mapv instruments/normalize-instrument-id fallback-universe)
+           :count (count fallback-universe)}
+    (some-> err .-message) (assoc :error-message (.-message err))))
+
+(def ^:private no-legacy-escalation-flag
+  "hyperopenOptimizerNoLegacyEscalation")
+
+(defn- no-escalation-error
+  "Re-raise a gap-fill failure as a load failure that must NOT be retried
+  through the whole-universe legacy loader. `apply-history-error` leaves
+  `history-data` untouched, so the user keeps the history already on screen and
+  gets the existing \"History load failed. Existing history, if any, is
+  retained.\" copy plus its Refresh history action."
+  [err]
+  (let [e (js/Error. (or (some-> err .-message)
+                         "Optimizer history gap-fill failed."))]
+    (aset e no-legacy-escalation-flag true)
+    (when-let [status (when (instance? js/Error err) (aget err "status"))]
+      (aset e "status" status))
+    e))
+
+(defn- escalate-to-legacy?
+  [err]
+  (and (not (history-api-v2-client/timeout-error? err))
+       (not (and (instance? js/Error err)
+                 (true? (aget err no-legacy-escalation-flag))))))
+
+(defn- api-serves-instrument?
+  [api-bundle instrument]
+  (boolean
+   (seq (get-in api-bundle
+                [:api-v2-history
+                 :series-by-instrument
+                 (instruments/normalize-instrument-id instrument)
+                 :points]))))
+
+(defn- api-serves-every-fallback?
+  "True when the API response alone already carries usable points for every
+  instrument the gap-fill was going to cover — i.e. the fallback was a top-up
+  (funding, a flagged-but-usable series), not the only source of an asset's
+  history. Only then is discarding the gap-fill's failure lossless."
+  [api-bundle fallback-universe]
+  (every? #(api-serves-instrument? api-bundle %) fallback-universe))
+
 (defn- maybe-request-targeted-legacy-fallback!
   [{:keys [optimizer-history-api] :as deps} request api-bundle fallback-universe]
   (if (and (not= false (:allow-legacy-fallback? request))
            (:fallback-to-legacy? optimizer-history-api)
            (seq fallback-universe))
-    (request-targeted-legacy-fallback! deps
-                                       request
-                                       api-bundle
-                                       fallback-universe)
+    (-> (request-targeted-legacy-fallback! deps
+                                           request
+                                           api-bundle
+                                           fallback-universe)
+        ;; A targeted gap-fill covers the few instruments the API could not serve.
+        ;; It must degrade ONLY those instruments. Before 2026-08-24 a rejection here
+        ;; propagated to the total-failure handler in request-api-v2-history-bundle!,
+        ;; which is meant for "the backend request itself failed" — so one transient
+        ;; /info error, for one instrument, discarded a fully successful backend
+        ;; bundle and refetched the WHOLE universe through the serial legacy loader
+        ;; (one candle request per coin, one funding request per perp, each funding
+        ;; request itself paginating ~18 times). Resolving with the API bundle plus a
+        ;; warning keeps that escalation impossible.
+        (.catch (fn [err]
+                  (if (api-serves-every-fallback? api-bundle fallback-universe)
+                    ;; Lossless: the API already serves every instrument the
+                    ;; gap-fill covered, so degrade with a warning.
+                    (js/Promise.resolve
+                     (update api-bundle
+                             :warnings
+                             #(conj (vec %)
+                                    (targeted-fallback-failed-warning fallback-universe
+                                                                      err))))
+                    ;; NOT lossless: the gap-fill was the only source of history
+                    ;; for at least one instrument. Resolving here would hand
+                    ;; apply-history-success a bundle with no
+                    ;; :candle-history-by-coin / :funding-history-by-coin /
+                    ;; :vault-details-by-address at all, and that assoc-in
+                    ;; REPLACES history-data wholesale — destroying candles a
+                    ;; previous load had fetched and persisting the degraded
+                    ;; bundle to the per-wallet IndexedDB cache. Fail the load
+                    ;; instead, without escalating to the whole-universe legacy
+                    ;; loader.
+                    (js/Promise.reject (no-escalation-error err))))))
     (js/Promise.resolve api-bundle)))
 
 (defn- fallback-backed-by-api-count
@@ -395,6 +494,7 @@
               :request-id request-id
               :proxy-policy (:proxy-policy optimizer-history-api)
               :include-aligned-returns? (:include-aligned-returns? optimizer-history-api)
+              :request-timeout-ms (:request-timeout-ms optimizer-history-api)
               :on-chunk-progress (partial report-api-loading! on-progress)}
              api-request)
           (.then (fn [body]
@@ -414,7 +514,12 @@
                     (legacy-fallback-universe request (:api-v2-history api-bundle)))))
           (.catch (fn [err]
                     (if (and (not= false (:allow-legacy-fallback? request))
-                             (:fallback-to-legacy? optimizer-history-api))
+                             (:fallback-to-legacy? optimizer-history-api)
+                             ;; A deadline breach, and a gap-fill failure that
+                             ;; would have cost real history, must terminate the
+                             ;; load rather than escalate it into the slowest
+                             ;; path in the system.
+                             (escalate-to-legacy? err))
                       (do
                         (report-api-failed! on-progress api-request (:universe request))
                         (-> (request-legacy-history-bundle! deps request)

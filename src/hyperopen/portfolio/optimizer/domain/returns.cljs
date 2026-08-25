@@ -40,8 +40,19 @@
       :missing))
 
 (defn- sorted-instrument-ids
+  "The expected-return universe. Must be the SAME union `domain.risk` uses
+  (risk/sorted-instrument-ids), not the calendar-sampled map alone: an
+  off-calendar sparse member has no `:return-series-by-instrument` entry by
+  design, and `engine.context/expected-return-vector` coerces a missing expected
+  return to 0 with no warning - a silent, invisible error. Identical to the old
+  key set on every dense universe, because `:raw-price-series-by-instrument` is
+  built from the same eligible members."
   [history]
-  (sort (keys (:return-series-by-instrument history))))
+  (->> [(keys (:return-series-by-instrument history))
+        (keys (:raw-price-series-by-instrument history))]
+       (apply concat)
+       set
+       sort))
 
 (defn- ew-mean
   [values alpha]

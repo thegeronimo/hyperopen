@@ -206,10 +206,15 @@
              store)
             (.then
              (fn [discovery]
+               ;; The configured :request-timeout-ms reaches the discovery
+               ;; request, so its init now carries an AbortSignal.
                (is (= [["https://history.test/v1/optimizer/instruments"
                         {"method" "GET"
                          "headers" {"x-request-id" "rid-discovery"}}]]
-                      @calls))
+                      (mapv (fn [[url init]] [url (dissoc init "signal")])
+                            @calls)))
+               (is (some? (get-in (vec @calls) [0 1 "signal"]))
+                   "discovery must be bounded by a deadline")
                (is (= :ok (:status discovery)))
                (is (= "hl:perp:BTC"
                       (get-in @store

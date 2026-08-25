@@ -65,6 +65,12 @@
       (and ready? (= :caution (:level verdict)))
       {:ready? true :tone :caution :label (:label verdict)}
 
+      ;; A background reload over an already-loaded bundle. The run is allowed,
+      ;; so this stays ready-toned; the label just tells the truth about the
+      ;; fetch still in flight instead of claiming a settled "Ready to run".
+      (and ready? (= :refreshing (:level verdict)))
+      {:ready? true :tone :ready :label (:label verdict)}
+
       ready?
       {:ready? true :tone :ready :label "Ready to run"}
 

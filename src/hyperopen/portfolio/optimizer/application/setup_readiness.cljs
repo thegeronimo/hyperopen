@@ -220,6 +220,13 @@
       (= :excluded-from-alignment code)
       (str assets (if (= 1 n) " is" " are") " left out of the shared history estimate")
 
+      (= :sparse-native-history code)
+      (str assets (if (= 1 n) " is" " are")
+           " estimated from their own sparse samples, outside the shared daily window")
+
+      (= :optimizer-history-api-legacy-fallback code)
+      (str assets (if (= 1 n) " is" " are") " served from Hyperliquid directly")
+
       :else
       (str assets " · " (str/replace (name code) "-" " ")))))
 
@@ -291,6 +298,19 @@
 
       :vault-derived-history-used
       (str label ": row uses vault return-index history, not market candles.")
+
+      ;; Long history, published far apart (a downsampled vault window). Says how
+      ;; it IS estimated - it is not a defect and must not read like one.
+      :sparse-native-history
+      (str label ": " (:observations warning) " samples across "
+           (js/Math.round (or (:elapsed-days warning) 0))
+           " days - estimated from its own samples, outside the shared daily window.")
+
+      ;; Without this the code fell through to the raw-keyword branch below and
+      ;; printed "optimizer-history-api-legacy-fallback" at the user.
+      :optimizer-history-api-legacy-fallback
+      (str label ": served from Hyperliquid directly because the optimizer "
+           "history service has no record for it.")
 
       :funding-history-missing
       (str label ": funding history is missing; price history availability is separate.")
@@ -397,7 +417,13 @@
   [request draft]
   {:usable-proxy-ids (request-builder/usable-proxy-id-set
                       (get-in request [:history :eligible-instruments])
-                      (:history-assumptions draft))
+                      (:history-assumptions draft)
+                      ;; MUST match request-builder's set exactly: this ctx feeds
+                      ;; first-missing-proxy-field, so a stale set makes readiness
+                      ;; call a proxy anchor usable that the engine rejected, and
+                      ;; the user gets "needs more history-assumption details"
+                      ;; instead of the name of the unusable proxy.
+                      (get-in request [:history :off-calendar-instrument-ids]))
    :max-asset-weight (get-in request [:constraints :max-asset-weight])})
 
 (defn- history-assumption-warnings
@@ -442,7 +468,11 @@
         max-obs (reduce max 0 (vals obs-by-id))
         return-required? (history-assumptions/return-required-for-objective?
                           (get-in request [:objective :kind]))
-        assumptions (:history-assumptions draft)]
+        assumptions (:history-assumptions draft)
+        ;; Off-calendar sparse members are already estimated natively by the
+        ;; mixed-frequency path. Demanding an assumption for them would block the
+        ;; run for an asset the engine is happily modeling.
+        off-calendar-ids (set (get-in request [:history :off-calendar-instrument-ids]))]
     (if (< max-obs history-assumptions/short-history-min-observations)
       []
       (->> requested-universe
@@ -452,6 +482,7 @@
                          entry (get assumptions id)]
                      (when (and id
                                 obs
+                                (not (contains? off-calendar-ids id))
                                 (< obs history-assumptions/assumption-required-max-observations)
                                 (not (history-assumptions/assumption-complete?
                                       entry
@@ -561,12 +592,38 @@
                     "History assumptions needed")
       "Optimizer inputs are not ready to run.")))
 
+(defn history-refreshing?
+  "True when a history load is in flight OVER a bundle that already landed.
+
+  `:loaded-at-ms` is stamped on `history-data` by apply-history-success, and it
+  also rides along on a bundle hydrated from the per-wallet IndexedDB cache
+  (history-cache/persisted-history-keys includes it). So its presence is exactly
+  the question \"is there already a usable bundle behind this fetch?\" — absent
+  before the first load ever completes, present for every refresh afterwards.
+
+  This is the distinction the stale-while-revalidate cache always assumed
+  readiness was making. history-cache/hydrate-history-cache deliberately leaves
+  `history-load-state` alone, on the stated grounds that \"readiness/cards judge
+  usability from the hydrated data itself\" — but until 2026-08-24 readiness
+  judged only the load state, so a repeat visit showed a blocking \"Loading…\"
+  over data that was already complete and on screen."
+  [state]
+  (boolean
+   (and (= :loading (get-in state contracts/history-load-state-status-path))
+        (get-in state (conj contracts/history-data-path :loaded-at-ms)))))
+
 (defn build-readiness
   [state]
   (let [draft (get-in state contracts/draft-path)
         requested-universe (vec (or (:universe draft) []))
-        history-loading? (= :loading
-                            (get-in state contracts/history-load-state-status-path))]
+        ;; Only a COLD load blocks. A refresh over an existing bundle does not:
+        ;; the bundle is usable, and a newly added asset is still blocked by
+        ;; incomplete-history? below, which compares the requested universe
+        ;; against the ids the request could actually serve. See
+        ;; docs/exec-plans/active/2026-08-24-optimizer-history-load-status-honesty.md.
+        history-loading? (and (= :loading
+                                 (get-in state contracts/history-load-state-status-path))
+                              (not (history-refreshing? state)))]
     (if (empty? requested-universe)
       {:status :blocked
        :reason :missing-universe
@@ -611,6 +668,10 @@
                    (or incomplete? risk-history-incomplete?) :incomplete-history
                    :else nil)
          :runnable? (boolean runnable?)
+         ;; Non-blocking: a refresh is running over a bundle that already
+         ;; landed. Carried on readiness so the view-model can name the state
+         ;; without re-reading the store.
+         :refreshing? (history-refreshing? state)
          :request request
          :blocking-warnings blocking-warnings
          :warnings (vec (:warnings request))}))))

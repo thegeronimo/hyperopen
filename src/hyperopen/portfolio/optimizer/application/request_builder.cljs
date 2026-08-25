@@ -247,12 +247,20 @@
 (defn usable-proxy-id-set
   "Assets allowed to serve as proxies: their realized history reached the risk
   model (aligned eligible) and they do not lean on a history assumption
-  themselves (a synthetic row cannot anchor another synthetic row)."
-  [eligible-universe assumptions]
-  (->> eligible-universe
-       (keep :instrument-id)
-       (remove #(some? (:behavior (get assumptions %))))
-       set))
+  themselves (a synthetic row cannot anchor another synthetic row).
+
+  Off-calendar sparse members are eligible but carry NO shared-calendar return
+  series, so `proxy-regression-series` would read nil returns and silently drop
+  the regression while the proxy still validated. They cannot anchor anything."
+  ([eligible-universe assumptions]
+   (usable-proxy-id-set eligible-universe assumptions nil))
+  ([eligible-universe assumptions off-calendar-ids]
+   (let [off-calendar (set off-calendar-ids)]
+     (->> eligible-universe
+          (keep :instrument-id)
+          (remove #(some? (:behavior (get assumptions %))))
+          (remove off-calendar)
+          set))))
 
 (defn- validated-proxy-ids
   "The structurally complete proxy ids whose every selected proxy has usable
@@ -536,7 +544,15 @@
                     (vreset! align-history-memo (assoc memo* inputs value))
                     value))]
     (assoc aligned
-           :freshness (calendar/freshness (:calendar aligned)
+           ;; Alignment's own :freshness is recomputed here because as-of-ms is
+           ;; not an alignment input (it would bust the memo every tick). Fall
+           ;; back to :freshness-calendar when the shared calendar is empty: a
+           ;; universe whose only members ride the off-calendar sparse lane has no
+           ;; shared calendar, and calendar/freshness reports stale? true for an
+           ;; empty one, so current data would read as permanently stale.
+           :freshness (calendar/freshness (if (seq (:calendar aligned))
+                                            (:calendar aligned)
+                                            (:freshness-calendar aligned))
                                           as-of-ms
                                           stale-after-ms))))
 
@@ -609,7 +625,9 @@
                       :funding-periods-per-year funding-periods-per-year}
         history (align-history (assoc align-inputs :universe alignment-universe))
         eligible-universe (:eligible-instruments history)
-        usable-proxy-ids (usable-proxy-id-set eligible-universe draft-assumptions)
+        usable-proxy-ids (usable-proxy-id-set eligible-universe
+                                              draft-assumptions
+                                              (:off-calendar-instrument-ids history))
         proxy-engine-ids (validated-proxy-ids proxy-candidate-ids
                                               draft-assumptions
                                               usable-proxy-ids)

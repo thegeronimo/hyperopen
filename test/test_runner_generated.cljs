@@ -267,6 +267,8 @@
             [hyperopen.portfolio.optimizer.application.history-loader-api-v2-split-test]
             [hyperopen.portfolio.optimizer.application.history-loader-api-v2-test]
             [hyperopen.portfolio.optimizer.application.history-loader-calendar-peel-test]
+            [hyperopen.portfolio.optimizer.application.history-loader-sparse-lane-test]
+            [hyperopen.portfolio.optimizer.application.history-loader-sparse-vault-test]
             [hyperopen.portfolio.optimizer.application.history-loader-test]
             [hyperopen.portfolio.optimizer.application.history-loader-vaults-test]
             [hyperopen.portfolio.optimizer.application.history-merge-test]
@@ -312,6 +314,7 @@
             [hyperopen.portfolio.optimizer.application.view-model-results-test]
             [hyperopen.portfolio.optimizer.application.view-model-scenario-library-test]
             [hyperopen.portfolio.optimizer.application.view-model-setup-boundary-test]
+            [hyperopen.portfolio.optimizer.application.view-model-sparse-adequacy-test]
             [hyperopen.portfolio.optimizer.application.view-model-test]
             [hyperopen.portfolio.optimizer.application.view-model.equal-risk-results-test]
             [hyperopen.portfolio.optimizer.application.view-model.equal-risk-structure-diversification-edge-test]
@@ -333,6 +336,7 @@
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
             [hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test]
             [hyperopen.portfolio.optimizer.domain.closed-form-test]
+            [hyperopen.portfolio.optimizer.domain.constraints-sparse-off-calendar-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
             [hyperopen.portfolio.optimizer.domain.diagnostics-test]
             [hyperopen.portfolio.optimizer.domain.equal-risk-test]
@@ -347,6 +351,7 @@
             [hyperopen.portfolio.optimizer.domain.rebalance-test]
             [hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test]
             [hyperopen.portfolio.optimizer.domain.return-plausibility-test]
+            [hyperopen.portfolio.optimizer.domain.returns-sparse-member-test]
             [hyperopen.portfolio.optimizer.domain.returns-test]
             [hyperopen.portfolio.optimizer.domain.risk-contributions-test]
             [hyperopen.portfolio.optimizer.domain.risk-covariance-parity-test]
@@ -1160,6 +1165,8 @@
              'hyperopen.portfolio.optimizer.application.history-loader-api-v2-split-test
              'hyperopen.portfolio.optimizer.application.history-loader-api-v2-test
              'hyperopen.portfolio.optimizer.application.history-loader-calendar-peel-test
+             'hyperopen.portfolio.optimizer.application.history-loader-sparse-lane-test
+             'hyperopen.portfolio.optimizer.application.history-loader-sparse-vault-test
              'hyperopen.portfolio.optimizer.application.history-loader-test
              'hyperopen.portfolio.optimizer.application.history-loader-vaults-test
              'hyperopen.portfolio.optimizer.application.history-merge-test
@@ -1205,6 +1212,7 @@
              'hyperopen.portfolio.optimizer.application.view-model-results-test
              'hyperopen.portfolio.optimizer.application.view-model-scenario-library-test
              'hyperopen.portfolio.optimizer.application.view-model-setup-boundary-test
+             'hyperopen.portfolio.optimizer.application.view-model-sparse-adequacy-test
              'hyperopen.portfolio.optimizer.application.view-model-test
              'hyperopen.portfolio.optimizer.application.view-model.equal-risk-results-test
              'hyperopen.portfolio.optimizer.application.view-model.equal-risk-structure-diversification-edge-test
@@ -1226,6 +1234,7 @@
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
              'hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test
              'hyperopen.portfolio.optimizer.domain.closed-form-test
+             'hyperopen.portfolio.optimizer.domain.constraints-sparse-off-calendar-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
              'hyperopen.portfolio.optimizer.domain.diagnostics-test
              'hyperopen.portfolio.optimizer.domain.equal-risk-test
@@ -1240,6 +1249,7 @@
              'hyperopen.portfolio.optimizer.domain.rebalance-test
              'hyperopen.portfolio.optimizer.domain.rebalance-twap-venue-model-test
              'hyperopen.portfolio.optimizer.domain.return-plausibility-test
+             'hyperopen.portfolio.optimizer.domain.returns-sparse-member-test
              'hyperopen.portfolio.optimizer.domain.returns-test
              'hyperopen.portfolio.optimizer.domain.risk-contributions-test
              'hyperopen.portfolio.optimizer.domain.risk-covariance-parity-test

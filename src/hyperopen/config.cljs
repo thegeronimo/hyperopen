@@ -29,7 +29,12 @@
                            :proxy-policy :approved-proxy-allowed
                            :include-aligned-returns? true
                            :fallback-to-legacy? true
-                           :legacy-fallback-request-spacing-ms 200}
+                           :legacy-fallback-request-spacing-ms 200
+                           ;; Bounds a hung request so the optimizer's Loading
+                           ;; status always has a terminal state. Far above the
+                           ;; largest measured bundle (6.2s at 51 assets), so it
+                           ;; never fires on a merely slow response.
+                           :request-timeout-ms 60000}
    :diagnostics {:timeline-limit 50}
    :messages {:agent-storage-mode-reset "Trading persistence updated. Enable Trading again."
               :agent-protection-mode-reset "Trading session protection updated. Enable Trading again."}})
