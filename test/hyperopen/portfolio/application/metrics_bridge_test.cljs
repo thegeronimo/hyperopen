@@ -94,7 +94,10 @@
     (with-redefs [system/store store
                   metrics-bridge/metrics-worker fake-worker]
       (metrics-bridge/request-metrics-computation! {:seed 1} signature-a)
-      (is (= {:type "compute-metrics"
+      ;; `:id` is the correlation token the worker already echoes back. Without
+      ;; it every reply was applied no matter which request it answered.
+      (is (= {:id (metrics-bridge/request-id signature-a)
+              :type "compute-metrics"
               :payload {:seed 1}}
              @posted-message))
       (is (= signature-a (:signature @metrics-bridge/last-metrics-request)))
@@ -103,10 +106,56 @@
       (metrics-bridge/request-metrics-computation! {:seed 2} signature-a)
       (is (nil? @posted-message))
       (metrics-bridge/request-metrics-computation! {:seed 3} signature-b)
-      (is (= {:type "compute-metrics"
+      (is (= {:id (metrics-bridge/request-id signature-b)
+              :type "compute-metrics"
               :payload {:seed 3}}
              @posted-message))
+      (is (not= (metrics-bridge/request-id signature-a)
+                (metrics-bridge/request-id signature-b))
+          "different requests must be distinguishable")
       (is (= signature-b (:signature @metrics-bridge/last-metrics-request))))))
+
+(deftest apply-worker-metrics-result-ignores-a-superseded-reply-test
+  (let [signature-a {:summary-time-range :month
+                     :selected-benchmark-coins ["BTC"]
+                     :strategy-source-version 1
+                     :benchmark-source-versions [["BTC" 11]]}
+        signature-b {:summary-time-range :two-year
+                     :selected-benchmark-coins ["BTC"]
+                     :strategy-source-version 1
+                     :benchmark-source-versions [["BTC" 22]]}
+        state {:portfolio-ui {}}]
+    (with-redefs [metrics-bridge/last-metrics-request (atom {:signature signature-b})]
+      (let [ignored (metrics-bridge/apply-worker-metrics-result
+                     state
+                     (metrics-bridge/request-id signature-a)
+                     {:portfolio-values {:sharpe 1}})
+            applied (metrics-bridge/apply-worker-metrics-result
+                     state
+                     (metrics-bridge/request-id signature-b)
+                     {:portfolio-values {:sharpe 2}})]
+        (is (= state ignored)
+            "a reply answering the 30D request is dropped once 2Y has been requested")
+        (is (= {:portfolio-values {:sharpe 2}}
+               (get-in applied [:portfolio-ui :metrics-result])))
+        (is (= signature-b (get-in applied [:portfolio-ui :metrics-result-signature]))
+            "the applied signature is recorded so the view model can label stale numbers")
+        (is (false? (get-in applied [:portfolio-ui :metrics-loading?])))))))
+
+(deftest apply-worker-metrics-result-accepts-an-untagged-reply-test
+  ;; Defensive: a reply with no id (an older worker build served from cache)
+  ;; still applies rather than wedging the tearsheet on stale numbers forever.
+  (let [signature {:summary-time-range :month
+                   :selected-benchmark-coins []
+                   :strategy-source-version 1
+                   :benchmark-source-versions []}]
+    (with-redefs [metrics-bridge/last-metrics-request (atom {:signature signature})]
+      (let [applied (metrics-bridge/apply-worker-metrics-result
+                     {:portfolio-ui {}}
+                     nil
+                     {:portfolio-values {:sharpe 3}})]
+        (is (= {:portfolio-values {:sharpe 3}}
+               (get-in applied [:portfolio-ui :metrics-result])))))))
 
 (deftest request-metrics-computation-keeps-existing-metrics-visible-test
   (let [store (atom {:portfolio-ui {:metrics-loading? false

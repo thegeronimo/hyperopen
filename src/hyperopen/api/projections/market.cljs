@@ -99,11 +99,33 @@
     (assoc-in state path merged-rows)))
 
 (defn apply-candle-snapshot-error
+  "Record a failed candle fetch WITHOUT destroying the rows already stored.
+
+  `apply-candle-snapshot-success` stores a plain vector at `[:candles coin
+  interval]`. Appending `:error` to that path and calling `assoc-in` therefore
+  resolves to `(assoc <vector> :error ...)`, which throws — and it throws inside
+  the `swap!` that runs in the fetch's `.catch`, so a failure against an
+  already-warm slot recorded nothing, cleared no pending flag, and left the
+  caller's loading affordance up until some later fetch happened to succeed.
+
+  The store already supports an entry being either a bare row vector or a map
+  carrying a rows key alongside `:error`/`:error-category` — every reader
+  (`candle-rows` here, `candle-rows-present?` in websocket/migration_flags,
+  `benchmark-candle-rows` in the portfolio view model) handles both, and the
+  websocket writer clears the error keys on success. So normalize to the map
+  shape rather than assuming the slot is empty."
   [state coin interval err]
-  (let [{:keys [message category]} (normalized-error err)]
-    (-> state
-        (assoc-in [:candles coin interval :error] message)
-        (assoc-in [:candles coin interval :error-category] category))))
+  (let [{:keys [message category]} (normalized-error err)
+        path [:candles coin interval]
+        existing (get-in state path)
+        entry (if (map? existing)
+                existing
+                {:rows (candle-rows existing)})]
+    (assoc-in state
+              path
+              (assoc entry
+                     :error message
+                     :error-category category))))
 
 (defn begin-spot-balances-load
   [state]

@@ -81,8 +81,36 @@
                                   :label "Performance metrics"}]})
         benchmark-item (hiccup/find-by-data-role visible-banner "portfolio-background-status-item-benchmark-history")
         metrics-item (hiccup/find-by-data-role visible-banner "portfolio-background-status-item-performance-metrics")]
-    (is (nil? hidden-banner))
+    ;; The region is ALWAYS present: it is a fixed, out-of-flow live region, so
+    ;; the page above and below it is laid out identically whether there is
+    ;; anything to report or not. Returning nil here used to make the banner an
+    ;; in-flow sibling that shifted the whole page ~86px on the way in and back
+    ;; again on the way out, twice per timeframe switch.
+    (is (some? (hiccup/find-by-data-role hidden-banner "portfolio-background-status-region"))
+        "the live region exists before any content is inserted into it")
+    (is (nil? (hiccup/find-by-data-role hidden-banner "portfolio-background-status"))
+        "but it holds no card while there is nothing to report")
+    (is (contains? (set (into ["fixed"] (get-in hidden-banner [1 :class]))) "fixed")
+        "and it is out of normal flow, so toggling it cannot move anything")
+    (is (some? (hiccup/find-by-data-role visible-banner "portfolio-background-status")))
     (is (contains? (set (hiccup/collect-strings visible-banner))
                    "Portfolio analytics are still syncing"))
     (is (= "Benchmark history" (first (hiccup/collect-strings benchmark-item))))
     (is (= "Performance metrics" (first (hiccup/collect-strings metrics-item))))))
+
+(deftest background-status-banner-spinner-is-compositor-driven-test
+  ;; DaisyUI's `loading loading-spinner` animates via SMIL inside a mask-image,
+  ;; which has no compositor path and therefore freezes for exactly as long as
+  ;; the main thread is blocked. `.ho-spinner` animates `transform` only.
+  (let [visible-banner (header/background-status-banner
+                        {:visible? true
+                         :title "Syncing"
+                         :detail "Detail"
+                         :items []})
+        classes (set (mapcat (fn [node]
+                               (when (and (vector? node) (map? (second node)))
+                                 (get-in node [1 :class])))
+                             (tree-seq coll? seq visible-banner)))]
+    (is (contains? classes "ho-spinner"))
+    (is (not (contains? classes "loading-spinner"))
+        "the SMIL mask spinner must not come back")))

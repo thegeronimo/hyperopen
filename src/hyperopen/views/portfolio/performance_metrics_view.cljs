@@ -163,6 +163,7 @@
 
 (defn performance-metrics-card [{:keys [range-strip
                                         loading?
+                                        stale?
                                         benchmark-selected?
                                         benchmark-label
                                         benchmark-columns
@@ -194,7 +195,7 @@
               :role "status"
               :aria-live "polite"}
         [:div {:class ["flex" "max-w-[240px]" "flex-col" "items-center" "gap-2.5" "px-4" "text-center"]}
-         [:span {:class ["loading" "loading-spinner" "loading-lg"]
+         [:span {:class ["ho-spinner" "ho-spinner-lg"]
                  :aria-hidden true}]
          [:span {:class ["text-sm" "font-medium" "text-trading-text"]}
           "Calculating performance metrics"]
@@ -226,6 +227,19 @@
          "Metric"]
         (when (map? time-range-selector)
           [:div {:class ["flex" "items-center" "gap-1.5"]}
+           ;; The numbers below stay on screen while the new window is
+           ;; computed — blanking them is the churn this work removed. Without
+           ;; this chip they would sit under the NEW range label with nothing
+           ;; saying they belong to the old one, which is the dishonest half of
+           ;; that trade. Always rendered (it hides itself) so the surrounding
+           ;; flex row never reflows when it toggles.
+           [:span {:class (into ["ho-spinner" "ho-spinner-sm" "text-trading-text-secondary"]
+                                (when-not stale? ["invisible"]))
+                   :aria-hidden true}]
+           [:span {:class (into ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
+                                (when-not stale? ["invisible"]))
+                   :data-role "portfolio-performance-metrics-stale-badge"}
+            "Updating…"]
            [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]}
             "Range"]
            (summary-cards/summary-selector time-range-selector

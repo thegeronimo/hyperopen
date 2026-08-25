@@ -200,3 +200,146 @@
           (is (= [{:coin "SPY" :label "SPY (SPOT)"}
                   {:coin "QQQ" :label "QQQ (SPOT)"}]
                  (:benchmark-columns model))))))))
+
+(deftest performance-metrics-model-waits-for-benchmark-rows-before-posting-a-worker-job-test
+  ;; A timeframe switch changes the candle INTERVAL, so the new interval's store
+  ;; slot is empty on the first render after the click. Posting then produced a
+  ;; worker job whose benchmark side was `[]`; its reply was applied, and the
+  ;; six benchmark-relative metrics plus their labelled group vanished from the
+  ;; tearsheet and reappeared once the real candles landed. The model must wait.
+  (let [strategy-cumulative-rows [[1 0] [2 11] [3 19]]
+        selected-benchmark-coins ["BTC"]
+        summary-time-range :two-year
+        empty-context {:strategy-cumulative-rows strategy-cumulative-rows
+                       :benchmark-cumulative-rows-by-coin {"BTC" []}
+                       :strategy-source-version 101
+                       :benchmark-source-version-map {"BTC" 0}}
+        ready-context {:strategy-cumulative-rows strategy-cumulative-rows
+                       :benchmark-cumulative-rows-by-coin {"BTC" [[1 0] [2 4] [3 8]]}
+                       :strategy-source-version 101
+                       :benchmark-source-version-map {"BTC" 201}}
+        state {:portfolio-ui {:metrics-loading? false
+                              :metrics-result {:portfolio-values {:metric-status {}
+                                                                  :metric-reason {}}}}}
+        benchmark-selector {:selected-coins selected-benchmark-coins
+                            :label-by-coin {"BTC" "BTC"}}
+        dispatched (atom [])]
+    (binding [vm-performance/*metrics-worker* (delay #js {:postMessage (fn [_] nil)})
+              vm-performance/*last-metrics-request* (atom nil)
+              vm-performance/*build-metrics-request-data* (fn [_strategy by-coin coins]
+                                                            {:benchmark-requests
+                                                             (mapv (fn [coin]
+                                                                     {:coin coin
+                                                                      :request {:strategy-cumulative-rows
+                                                                                (get by-coin coin [])}})
+                                                                   coins)})
+              vm-performance/*request-metrics-computation!* (fn [request-data signature]
+                                                              (swap! dispatched conj [request-data signature]))]
+      (with-redefs [portfolio-metrics/metric-rows (fn [_] [])]
+        (let [waiting (vm-performance/performance-metrics-model state
+                                                                summary-time-range
+                                                                benchmark-selector
+                                                                empty-context)]
+          (is (= [] @dispatched)
+              "no job is posted while the benchmark series is still empty")
+          (is (true? (:stale? waiting))
+              "and the numbers still on screen are labelled as belonging to another window"))
+        (let [_ (vm-performance/performance-metrics-model state
+                                                          summary-time-range
+                                                          benchmark-selector
+                                                          ready-context)]
+          (is (= 1 (count @dispatched))
+              "exactly one job is posted, once the candles have landed")
+          (is (= [[[1 0] [2 4] [3 8]]]
+                 (mapv (comp :strategy-cumulative-rows :request)
+                       (:benchmark-requests (ffirst @dispatched))))
+              "and it carries the real benchmark series, never an empty one"))))))
+
+(deftest performance-metrics-model-clears-stale-once-the-applied-signature-matches-test
+  (let [strategy-cumulative-rows [[1 0] [2 11]]
+        selected-benchmark-coins ["BTC"]
+        summary-time-range :two-year
+        benchmark-context {:strategy-cumulative-rows strategy-cumulative-rows
+                           :benchmark-cumulative-rows-by-coin {"BTC" [[1 0] [2 4]]}
+                           :strategy-source-version 101
+                           :benchmark-source-version-map {"BTC" 201}}
+        request-signature (vm-metrics-bridge/metrics-request-signature summary-time-range
+                                                                       selected-benchmark-coins
+                                                                       101
+                                                                       {"BTC" 201})
+        state {:portfolio-ui {:metrics-loading? false
+                              :metrics-result {:portfolio-values {:metric-status {}
+                                                                  :metric-reason {}}}
+                              :metrics-result-signature request-signature}}
+        benchmark-selector {:selected-coins selected-benchmark-coins
+                            :label-by-coin {"BTC" "BTC"}}]
+    (binding [vm-performance/*metrics-worker* (delay #js {:postMessage (fn [_] nil)})
+              vm-performance/*last-metrics-request* (atom {:signature request-signature})
+              vm-performance/*build-metrics-request-data* (fn [& _] {})
+              vm-performance/*request-metrics-computation!* (fn [& _] nil)]
+      (with-redefs [portfolio-metrics/metric-rows (fn [_] [])]
+        (let [model (vm-performance/performance-metrics-model state
+                                                              summary-time-range
+                                                              benchmark-selector
+                                                              benchmark-context)]
+          (is (false? (:stale? model))
+              "numbers computed for the window on screen are not labelled stale"))))))
+
+(deftest performance-metrics-model-stale-tracks-the-question-not-data-freshness-test
+  ;; `:stale?` must mean "these numbers answer a different question", not "these
+  ;; numbers are a few seconds old". Keying it on the whole request signature made
+  ;; the badge blink on and off every few hundred milliseconds on an active
+  ;; account, because `strategy-source-version` and the per-coin benchmark
+  ;; versions move on every live data refresh while nothing the trader chose has
+  ;; changed. Measured in a real browser: 26 layout-shift entries in 7 s, all
+  ;; attributed to the badge toggling inside the tearsheet header row.
+  (let [coins ["BTC"]
+        context (fn [strategy-version benchmark-version]
+                  {:strategy-cumulative-rows [[1 0] [2 11]]
+                   :benchmark-cumulative-rows-by-coin {"BTC" [[1 0] [2 4]]}
+                   :strategy-source-version strategy-version
+                   :benchmark-source-version-map {"BTC" benchmark-version}})
+        applied (vm-metrics-bridge/metrics-request-signature :two-year coins 101 {"BTC" 201})
+        state {:portfolio-ui {:metrics-loading? false
+                              :metrics-result {:portfolio-values {:metric-status {}
+                                                                  :metric-reason {}}}
+                              :metrics-result-signature applied}}
+        selector {:selected-coins coins :label-by-coin {"BTC" "BTC"}}
+        stale-for (fn [range strategy-version benchmark-version]
+                    (binding [vm-performance/*metrics-worker* (delay #js {:postMessage (fn [_] nil)})
+                              vm-performance/*last-metrics-request* (atom {:signature applied})
+                              vm-performance/*build-metrics-request-data* (fn [& _] {})
+                              vm-performance/*request-metrics-computation!* (fn [& _] nil)]
+                      (with-redefs [portfolio-metrics/metric-rows (fn [_] [])]
+                        (:stale? (vm-performance/performance-metrics-model
+                                  state range selector
+                                  (context strategy-version benchmark-version))))))]
+    (is (false? (stale-for :two-year 101 201))
+        "same window, same data — not stale")
+    (is (false? (stale-for :two-year 999 888))
+        "same window, fresher data — still not stale, and the badge must not blink")
+    (is (true? (stale-for :month 101 201))
+        "a different window IS stale")))
+
+(deftest performance-metrics-model-stale-tracks-benchmark-selection-test
+  (let [applied (vm-metrics-bridge/metrics-request-signature :two-year ["BTC"] 101 {"BTC" 201})
+        state {:portfolio-ui {:metrics-loading? false
+                              :metrics-result {:portfolio-values {:metric-status {}
+                                                                  :metric-reason {}}}
+                              :metrics-result-signature applied}}
+        context {:strategy-cumulative-rows [[1 0] [2 11]]
+                 :benchmark-cumulative-rows-by-coin {"BTC" [[1 0] [2 4]]
+                                                     "ETH" [[1 0] [2 3]]}
+                 :strategy-source-version 101
+                 :benchmark-source-version-map {"BTC" 201 "ETH" 202}}]
+    (binding [vm-performance/*metrics-worker* (delay #js {:postMessage (fn [_] nil)})
+              vm-performance/*last-metrics-request* (atom {:signature applied})
+              vm-performance/*build-metrics-request-data* (fn [& _] {})
+              vm-performance/*request-metrics-computation!* (fn [& _] nil)]
+      (with-redefs [portfolio-metrics/metric-rows (fn [_] [])]
+        (is (true? (:stale? (vm-performance/performance-metrics-model
+                             state :two-year
+                             {:selected-coins ["BTC" "ETH"]
+                              :label-by-coin {"BTC" "BTC" "ETH" "ETH"}}
+                             context)))
+            "adding a benchmark changes the question, so the numbers are stale")))))

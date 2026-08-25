@@ -84,8 +84,10 @@
 
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
+  ;; `:force-refresh?` is the caller's call, not a default here -- see the same
+  ;; helper in `websocket/user_runtime/refresh.cljs` for why.
   (-> (api/request-frontend-open-orders! address
-                                         (cond-> (merge {:force-refresh? true} (or opts {}))
+                                         (cond-> (or opts {})
                                            (and dex (not= dex "")) (assoc :dex dex)))
       (.then (apply-open-orders-success-for-active-address store address dex))
       (.catch (apply-open-orders-error-for-active-address store address))))

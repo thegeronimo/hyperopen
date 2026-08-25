@@ -26,8 +26,10 @@
            document?
            request-animation-frame!
            emit-fn
-           now-ms-fn]
-    :or {now-ms-fn platform/now-ms}}]
+           now-ms-fn
+           telemetry-enabled?]
+    :or {now-ms-fn platform/now-ms
+         telemetry-enabled? (constantly true)}}]
   (set-dispatch! #(dispatch! store %1 %2))
   (when (if (some? document?)
           document?
@@ -48,6 +50,16 @@
                                         (set/union (set (keys old-state))
                                                    (set (keys new-state))))
                                 #{}))
+          ;; `changed-root-keys` is a SECOND structural walk of the store on
+          ;; every write (the `not=` gate below is the first), and its only
+          ;; consumer is the telemetry event emitted after the frame. In a
+          ;; release build `telemetry/emit!` discards everything it is handed,
+          ;; so paying for that walk on every websocket push — which on a busy
+          ;; account is several times a second — buys nothing. Compute it only
+          ;; when something will actually keep it.
+          diff-root-keys? (fn []
+                            (and (fn? emit-fn)
+                                 (boolean (telemetry-enabled?))))
           emit-render-flush! (fn [changed-root-keys* render-duration-ms]
                                (when (fn? emit-fn)
                                  (emit-fn :ui/app-render-flush
@@ -60,7 +72,8 @@
                  (fn [_ _ old-state new-state]
                    (when (not= old-state new-state)
                      (reset! pending-state new-state)
-                     (swap! pending-root-keys into (changed-root-keys old-state new-state))
+                     (when (diff-root-keys?)
+                       (swap! pending-root-keys into (changed-root-keys old-state new-state)))
                      (when-not @frame-pending?
                        (reset! frame-pending? true)
                        (request-frame!

@@ -103,8 +103,9 @@
                                            (swap! refresh-perp-dex-calls conj [refresh-address refresh-dex opts]))})
       (js/setTimeout
        (fn []
-         (is (= [[address nil {:priority :high}]]
-                @refresh-open-orders-calls))
+         (is (= [[address nil {:priority :high :force-refresh? false}]]
+                @refresh-open-orders-calls)
+             "a fill-driven refresh stays cache-eligible; the openOrders stream already carries the list")
          (is (= [] @refresh-default-clearinghouse-calls))
          (is (= [[address {:priority :high
                            :force-refresh? true}]]
@@ -146,8 +147,9 @@
                                 (swap! refresh-open-orders-calls conj [refresh-address refresh-dex opts]))})
       (js/setTimeout
        (fn []
-         (is (= [[address nil {:priority :high}]]
-                @refresh-open-orders-calls))
+         (is (= [[address nil {:priority :high :force-refresh? false}]]
+                @refresh-open-orders-calls)
+             "a fill-driven refresh stays cache-eligible; the openOrders stream already carries the list")
          (done))
        0))))
 
@@ -231,8 +233,9 @@
                                            (swap! refresh-perp-dex-calls conj [refresh-address refresh-dex opts]))})
       (js/setTimeout
        (fn []
-         (is (= [[address dex {:priority :low}]]
-                @refresh-open-orders-calls))
+         (is (= [[address dex {:priority :low :force-refresh? true}]]
+                @refresh-open-orders-calls)
+             "an order the user just placed or cancelled must bypass the response cache")
          (is (= [] @refresh-default-clearinghouse-calls))
          ;; A healthy subscription alone is not enough for the order path; until the
          ;; local per-dex snapshot is seeded, keep the REST backstop.

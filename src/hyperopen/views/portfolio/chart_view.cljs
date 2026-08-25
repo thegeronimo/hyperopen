@@ -231,6 +231,12 @@
                    :points (:points chart)
                    :series (:series chart)
                    :y-ticks (:y-ticks chart)
+                   ;; The values `:build-tooltip` below closes over that no other
+                   ;; key already covers. `:time-range` covers the timestamp
+                   ;; format; the selected tab decides which metric the tooltip
+                   ;; names, and :pnl and :account-value share an `:axis-kind`,
+                   ;; so it would otherwise be invisible to the update key.
+                   :tooltip-key (:selected-tab chart)
                    :theme (portfolio-chart-d3-theme)}]
     (assoc base-spec
            :update-key (chart-d3-runtime/spec-update-key base-spec)

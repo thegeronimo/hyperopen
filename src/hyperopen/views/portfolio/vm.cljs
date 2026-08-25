@@ -12,6 +12,7 @@
             [hyperopen.views.portfolio.vm.montecarlo :as vm-montecarlo]
             [hyperopen.views.portfolio.vm.performance :as vm-performance]
             [hyperopen.views.portfolio.vm.summary :as vm-summary]
+            [hyperopen.views.portfolio.vm.utils :as vm-utils]
             [hyperopen.views.portfolio.vm.volume :as vm-volume]
             [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.account-info.projections :as projections]))
@@ -150,7 +151,8 @@
   (atom nil))
 
 (def ^:private benchmark-computation-context-cache-version
-  2)
+  ;; Bumped with the cache-key shape change from `:candles` to `:candle-slots`.
+  3)
 
 (defn- summary-entry-source-version
   [summary-entry]
@@ -220,7 +222,13 @@
                                                                  summary-time-range)
         selected-benchmark-coins (vec (or (:selected-coins returns-benchmark-selector)
                                           []))
-        candles (get state :candles)
+        ;; Only the slots this pipeline reads, not the whole `:candles` map —
+        ;; see `vm-utils/benchmark-candle-slots`.
+        candle-slots (vm-utils/benchmark-candle-slots
+                      state
+                      selected-benchmark-coins
+                      (:interval (portfolio-actions/returns-benchmark-candle-request
+                                  summary-time-range)))
         merged-index-rows (get-in state [:vaults :merged-index-rows])
         benchmark-details-by-address (get-in state [:vaults :benchmark-details-by-address])
         details-by-address (get-in state [:vaults :details-by-address])
@@ -234,7 +242,7 @@
              (= summary-time-range (:summary-time-range cache))
              (= selected-benchmark-coins (:selected-benchmark-coins cache))
              (= current-address (:current-address cache))
-             (identical? candles (:candles cache))
+             (vm-utils/identical-slots? candle-slots (:candle-slots cache))
              (identical? merged-index-rows (:merged-index-rows cache))
              (identical? benchmark-details-by-address (:benchmark-details-by-address cache))
              (identical? details-by-address (:details-by-address cache))
@@ -251,7 +259,7 @@
                                                      :summary-time-range summary-time-range
                                                      :selected-benchmark-coins selected-benchmark-coins
                                                      :current-address current-address
-                                                     :candles candles
+                                                     :candle-slots candle-slots
                                                      :merged-index-rows merged-index-rows
                                                      :benchmark-details-by-address benchmark-details-by-address
                                                      :details-by-address details-by-address
@@ -278,12 +286,18 @@
                                                      (:strategy-source-version benchmark-context)
                                                      (:benchmark-source-version-map benchmark-context))
         metrics-result (get-in state [:portfolio-ui :metrics-result])
+        ;; Part of the key because it is what `:stale?` is derived from. It
+        ;; moves in lockstep with `metrics-result` today (both are written by
+        ;; the same swap!), but keying on it explicitly means a future change to
+        ;; either one cannot silently freeze the stale badge.
+        metrics-result-signature (get-in state [:portfolio-ui :metrics-result-signature])
         loading? (boolean (get-in state [:portfolio-ui :metrics-loading?]))
         cache @performance-metrics-model-cache]
     (if (and (map? cache)
              (= request-signature (:request-signature cache))
              (= benchmark-labels (:benchmark-labels cache))
              (identical? metrics-result (:metrics-result cache))
+             (= metrics-result-signature (:metrics-result-signature cache))
              (= loading? (:loading? cache)))
       (:model cache)
       (let [model (binding [vm-performance/*metrics-worker* metrics-worker
@@ -299,6 +313,7 @@
         (reset! performance-metrics-model-cache {:request-signature request-signature
                                                  :benchmark-labels benchmark-labels
                                                  :metrics-result metrics-result
+                                                 :metrics-result-signature metrics-result-signature
                                                  :loading? loading?
                                                  :model model})
         model))))

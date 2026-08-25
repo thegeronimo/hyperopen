@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.actions
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.portfolio.candle-coverage :as candle-coverage]
             [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
             [hyperopen.platform :as platform]))
@@ -157,6 +158,11 @@
     (if (contains? chart-tab-options normalized)
       normalized
       default-chart-tab)))
+
+(defn- returns-chart-tab?
+  [state]
+  (= :returns (normalize-portfolio-chart-tab
+               (get-in state [:portfolio-ui :chart-tab] default-chart-tab))))
 
 (defn normalize-portfolio-account-info-tab
   [value]
@@ -327,10 +333,14 @@
           :bars 800})))
 
 (defn- returns-benchmark-fetch-effects
-  [summary-time-range benchmark-coins]
+  "Candle fetches a range/benchmark change needs, skipping slots the store
+  already covers (see `hyperopen.portfolio.candle-coverage`)."
+  [state summary-time-range benchmark-coins]
   (let [{:keys [interval bars]} (returns-benchmark-candle-request summary-time-range)]
     (->> (normalize-portfolio-returns-benchmark-coins benchmark-coins)
          (keep fetchable-benchmark-coin)
+         (remove (fn [coin]
+                   (candle-coverage/covers-window? state coin interval bars)))
          (mapv (fn [coin]
                  [:effects/fetch-candle-snapshot
                   :coin coin
@@ -633,7 +643,8 @@
                       seed (conj [summary-custom-range-path seed])))]
     (if seed
       (into [projection replace-shareable-route-query-effect]
-            (concat (returns-benchmark-fetch-effects seed
+            (concat (returns-benchmark-fetch-effects state
+                                                     seed
                                                      (selected-returns-benchmark-coins state))
                     (ensure-portfolio-trader-benchmark-effects state)))
       [projection])))
@@ -684,7 +695,7 @@
     (let [range (summary-custom-range state)
           benchmark-coins (selected-returns-benchmark-coins state)
           fetch-effects (if range
-                          (concat (returns-benchmark-fetch-effects range benchmark-coins)
+                          (concat (returns-benchmark-fetch-effects state range benchmark-coins)
                                   (ensure-portfolio-trader-benchmark-effects state))
                           [])]
       (into [(custom-range-projection [[summary-range-drag-path nil]])
@@ -702,8 +713,12 @@
         ;; as a map and then throw in `(name ...)` below.
         time-range* (if (keyword? normalized) normalized default-summary-time-range)
         benchmark-coins (selected-returns-benchmark-coins state)
-        fetch-effects (concat (returns-benchmark-fetch-effects time-range* benchmark-coins)
-                              (ensure-portfolio-trader-benchmark-effects state))]
+        ;; Benchmarks draw on the Returns tab only; `select-portfolio-chart-tab`
+        ;; guards the identical call and re-emits it on the way back.
+        fetch-effects (if (returns-chart-tab? state)
+                        (concat (returns-benchmark-fetch-effects state time-range* benchmark-coins)
+                                (ensure-portfolio-trader-benchmark-effects state))
+                        [])]
     (into [(selector-projection-effect nil [[[:portfolio-ui :summary-time-range]
                                              time-range*]
                                             [summary-custom-range-path nil]
@@ -731,7 +746,7 @@
         summary-time-range (effective-summary-time-range state)
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (if (= chart-tab* :returns)
-                        (concat (returns-benchmark-fetch-effects summary-time-range benchmark-coins)
+                        (concat (returns-benchmark-fetch-effects state summary-time-range benchmark-coins)
                                 (ensure-portfolio-trader-benchmark-effects state))
                         [])]
     (into [[:effects/save-many
@@ -783,7 +798,7 @@
                               [[:portfolio-ui :returns-benchmark-suggestions-open?] false]]]
           candle-effects (if already-selected?
                            []
-                           (returns-benchmark-fetch-effects summary-time-range [coin]))
+                           (returns-benchmark-fetch-effects state summary-time-range [coin]))
           benchmark-detail-effects (if already-selected?
                                      []
                                      (if-let [vault-address (vault-benchmark-address coin)]

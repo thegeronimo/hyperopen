@@ -241,10 +241,11 @@
                                            (swap! perp-dex-calls conj [refresh-address refresh-dex opts]))})
       (js/setTimeout
        (fn []
-         (is (= [[address nil {:priority :high}]
-                 [address "dex-a" {:priority :low}]
-                 [address "dex-b" {:priority :low}]]
-                @open-orders-calls))
+         (is (= [[address nil {:priority :high :force-refresh? true}]
+                 [address "dex-a" {:priority :low :force-refresh? true}]
+                 [address "dex-b" {:priority :low :force-refresh? true}]]
+                @open-orders-calls)
+             "order mutations bypass the response cache")
          (is (= [[address {:priority :high}]]
                 @default-clearinghouse-calls))
          (is (= [[address "dex-a" {:priority :low}]
@@ -282,9 +283,10 @@
                                            (swap! perp-dex-calls conj [refresh-address refresh-dex opts]))})
       (js/setTimeout
        (fn []
-         (is (= [[address "dex-a" {:priority :low}]
-                 [address "dex-b" {:priority :low}]]
-                @open-orders-calls))
+         (is (= [[address "dex-a" {:priority :low :force-refresh? true}]
+                 [address "dex-b" {:priority :low :force-refresh? true}]]
+                @open-orders-calls)
+             "order mutations bypass the response cache")
          (is (= [[address {:priority :high}]]
                 @default-clearinghouse-calls))
          (is (= [[address "dex-a" {:priority :low}]
@@ -329,9 +331,10 @@
                                      (swap! spot-calls conj [refresh-address opts]))
       :refresh-perp-dex-clearinghouse! (fn [_store refresh-address refresh-dex opts]
                                          (swap! perp-dex-calls conj [refresh-address refresh-dex opts]))})
-    (is (= [[address nil {:priority :high}]
-            [address dex {:priority :low}]]
-           @open-orders-calls))
+    (is (= [[address nil {:priority :high :force-refresh? false}]
+            [address dex {:priority :low :force-refresh? false}]]
+           @open-orders-calls)
+        "fill-driven refreshes stay cache-eligible so a burst of fills cannot storm /info")
     (is (= [[address {:priority :high}]]
            @default-clearinghouse-calls))
     (is (= [[address {:priority :high

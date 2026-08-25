@@ -299,3 +299,45 @@
       (finally
         (aset js/globalThis "ResizeObserver" original-resize-observer)
         (restore!)))))
+
+(deftest on-render-returns-the-identical-handler-while-the-spec-is-unchanged-test
+  ;; Replicant decides a subtree is unchanged by comparing the new hiccup to the
+  ;; old BY VALUE, and it explicitly folds :replicant/on-render into that
+  ;; comparison. A fresh closure per render therefore guaranteed the comparison
+  ;; failed for the chart host and every ancestor containing it, so the chart
+  ;; card was re-diffed and this hook re-invoked on every store write -- including
+  ;; the websocket pushes that have nothing to do with the chart.
+  (runtime/reset-on-render-handlers!)
+  (let [spec (chart-spec)
+        handler-a (runtime/on-render spec)
+        handler-b (runtime/on-render (chart-spec))]
+    (is (identical? handler-a handler-b)
+        "an equal spec yields the identical function object, so Replicant can short-circuit")
+    (let [changed (runtime/on-render (chart-spec {:time-range :two-year}))]
+      (is (not (identical? handler-a changed))
+          "a spec change still produces a new handler, so the chart still redraws"))
+    (runtime/reset-on-render-handlers!)
+    (is (not (identical? handler-a (runtime/on-render (chart-spec))))
+        "the test seam actually clears the memo")))
+
+(deftest on-render-handler-tracks-the-tooltip-key-test
+  ;; :build-tooltip is a closure, so it cannot be part of the update key. Callers
+  ;; publish :tooltip-key instead. Without it a spec whose only change was which
+  ;; metric the tooltip names would hand back a handler closed over the previous
+  ;; formatter -- and the runtime would short-circuit the redraw too.
+  (runtime/reset-on-render-handlers!)
+  (let [handler-a (runtime/on-render (chart-spec {:tooltip-key :returns}))
+        handler-b (runtime/on-render (chart-spec {:tooltip-key :pnl}))]
+    (is (contains? (runtime/spec-update-key {:tooltip-key :returns}) :tooltip-key)
+        ":tooltip-key is part of the update key")
+    (is (not (identical? handler-a handler-b))
+        "changing only the tooltip key produces a new handler"))
+  (runtime/reset-on-render-handlers!))
+
+(deftest on-render-keeps-separate-handlers-per-chart-host-test
+  (runtime/reset-on-render-handlers!)
+  (let [portfolio-handler (runtime/on-render (chart-spec))
+        vault-handler (runtime/on-render (chart-spec {:surface :vaults}))]
+    (is (not (identical? portfolio-handler vault-handler))
+        "two surfaces rendering at once must not hand each other their specs"))
+  (runtime/reset-on-render-handlers!))

@@ -33,9 +33,17 @@
 
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
+  ;; No `:force-refresh? true` default here on purpose. A forced request is
+  ;; routed past BOTH the 2.5s response cache and the single-flight
+  ;; de-duplicator (see `api/info_client/flow.cljs`), so defaulting it on meant
+  ;; a stream of incoming fills re-downloaded the whole open-orders snapshot up
+  ;; to several times a second -- for a market-making account that is a
+  ;; half-megabyte, 1,600-order payload the `openOrders` websocket topic had
+  ;; just delivered, and it eventually earns an HTTP 429. Callers that genuinely
+  ;; need to bypass the cache (an order the user just placed or cancelled) pass
+  ;; `:force-refresh? true` themselves.
   (-> (api/request-frontend-open-orders! address
-                                         (cond-> (merge {:force-refresh? true}
-                                                        (or opts {}))
+                                         (cond-> (or opts {})
                                            (and dex (not= dex "")) (assoc :dex dex)))
       (.then (fn [payload]
                (when (common/requested-address-active? store address)

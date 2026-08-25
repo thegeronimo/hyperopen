@@ -91,3 +91,41 @@
         next-state (market/apply-default-clearinghouse-success state data)]
     (is (= data (get-in next-state [:webdata2 :clearinghouseState])))
     (is (= [{:coin "PURR"}] (get-in next-state [:webdata2 :spotAssetCtxs])))))
+
+(deftest candle-snapshot-error-on-a-warm-slot-records-without-throwing-test
+  ;; Regression: the success path stores a plain VECTOR of rows, so the error
+  ;; path's `(assoc-in state [:candles coin interval :error] ...)` resolved to
+  ;; associating a keyword key into a vector and threw. It threw inside the
+  ;; `swap!` that runs in the fetch's `.catch`, so a failed refresh of an
+  ;; already-populated slot recorded nothing and cleared no pending flag.
+  (let [warm (market/apply-candle-snapshot-success {:candles {}}
+                                                   "BTC"
+                                                   :1d
+                                                   [{:t 1000 :c "101"}
+                                                    {:t 2000 :c "102"}])
+        failed (market/apply-candle-snapshot-error warm "BTC" :1d (js/Error. "boom"))
+        entry (get-in failed [:candles "BTC" :1d])]
+    (is (map? entry)
+        "a slot carrying an error normalizes to the map shape every reader already handles")
+    (is (= [{:t 1000 :c "101"}
+            {:t 2000 :c "102"}]
+           (:rows entry))
+        "the rows already fetched survive the failure")
+    (is (= "Error: boom" (:error entry)))
+    (is (= :unexpected (:error-category entry)))))
+
+(deftest candle-snapshot-success-after-an-error-clears-the-error-and-keeps-rows-test
+  (let [warm (market/apply-candle-snapshot-success {:candles {}}
+                                                   "BTC"
+                                                   :1d
+                                                   [{:t 1000 :c "101"}])
+        failed (market/apply-candle-snapshot-error warm "BTC" :1d (js/Error. "boom"))
+        recovered (market/apply-candle-snapshot-success failed
+                                                        "BTC"
+                                                        :1d
+                                                        [{:t 2000 :c "102"}])
+        entry (get-in recovered [:candles "BTC" :1d])]
+    (is (= [{:t 1000 :c "101"}
+            {:t 2000 :c "102"}]
+           entry)
+        "a later success replaces the error map with a plain row vector, merging what was already stored")))
