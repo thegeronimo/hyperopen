@@ -35,7 +35,8 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-25 02:10Z) Milestone 2 — perceived performance GREEN. Status banner is now an always-present FIXED live region (no in-flow mount/unmount, so no ~86px double shift) with `backdrop-blur-sm` removed; new `.ho-spinner` utility animates `transform` only and replaced the DaisyUI SMIL-mask spinner at both call sites; `performance-metrics-model` waits for benchmark rows before posting, so the empty-benchmark worker job and the vanish/reappear of six metric rows are gone; worker replies are correlated by `:id` and the applied signature is recorded, driving a new `:stale?` flag rendered as an "Updating…" chip. Suite: 6204 tests / 35133 assertions, 0 failures.
 - [x] (2026-08-25 03:05Z) Milestone 3 — ambient main-thread load GREEN. `benchmark-computation-context` now keys on the `[coin interval]` candle slots it actually reads instead of the identity of the whole `:candles` map; `on-render` is memoized per chart host behind an explicit `:tooltip-key` so Replicant's by-value `unchanged?` can succeed for the chart host and its ancestors; the fill-driven open-orders refresh stopped hardcoding `:force-refresh? true`, which restores the 2.5s response cache and single-flight de-duplication for it while order mutations opt in explicitly. Suite: 6208 tests / 35144 assertions, 0 failures.
 - [x] (2026-08-25 03:40Z) Milestone 4 — network waste GREEN. `returns-benchmark-fetch-effects` now takes `state` (all five call sites already had it) and skips any coin whose stored `[coin interval]` slot both reaches back to the start of the requested window and is current to within two bars; a new public `candle-slot-covers-window?` carries that rule, and a `*now-ms*` dynamic seam keeps the action deterministic under test. `select-portfolio-summary-time-range` now gates the fetch on the Returns tab, matching the guard `select-portfolio-chart-tab` already had. Suite: 6211 tests / 35153 assertions, 0 failures. The coverage rule itself lives in a new `hyperopen.portfolio.candle-coverage` namespace rather than inside the already-at-cap actions seam.
-- [ ] Milestone 5 — full gate matrix green and browser verification of the user-visible acceptance list.
+- [x] (2026-08-25 04:30Z) Milestone 5 — validation GREEN. `npm run gates` 34/34 PASS (6961 tests / 38626 assertions, baseline 6943 / 38572). Browser verification against a local build of this branch served on :8090, with a before/after A/B against the baseline commit `ba4b89bc7` rebuilt in place. Results in Outcomes & Retrospective.
+- [ ] Maintainer review of the diff, then commit/PR. Deferred follow-ups are listed in Outcomes & Retrospective and are intentionally NOT part of this plan.
 
 ## Surprises & Discoveries
 
@@ -121,7 +122,52 @@ Local scratch refs (non-authoritative):
 
 ## Outcomes & Retrospective
 
-To be completed at the end of Milestone 5.
+All four milestones landed and the full gate matrix is green: `npm run gates` 34/34 PASS, 6961 tests / 38626 assertions, against a recorded pre-work baseline of 34/34, 6943 / 38572. Eighteen tests and fifty-four assertions were added; no existing test was weakened, and the three test files whose assertions changed were pinning contracts this work deliberately inverted.
+
+### Measured before/after
+
+Verification ran Playwright against a local build of this branch served from `resources/public` on port 8090, then repeated every measurement against the baseline commit `ba4b89bc7` rebuilt in place, so the two numbers come from the same harness, machine and account.
+
+Content churn, switching 2Y to 1Y from a settled state where both windows have benchmark data. This is the transition that exercises the empty-benchmark worker job:
+
+    BEFORE  rows 66 -> 59 -> 66   groups 10 -> 9 -> 10   first dip at +652ms
+    AFTER   rows 66 -> 66 -> 66   groups 10 -> 10 -> 10  nothing ever disappeared
+
+Seven metric rows and an entire labelled group vanished and came back on the baseline. On this branch they never move.
+
+Layout shift across the 30D to 2Y switch, cumulative over the transition:
+
+    BEFORE  0.04775 over 24 entries
+    AFTER   0.00111 over 17 entries  (a second run measured 0.01764; live data makes this noisy)
+
+More important than the totals is attribution. Before the first browser run, the largest attributed sources were the tearsheet header row; after the two follow-up fixes recorded in Surprises & Discoveries, no entry is attributed to the status banner or the tearsheet header, and every remaining entry is under 0.0002 and comes from the account table updating on live data.
+
+The loading indicator is now driven by the animation timeline: `getAnimations()` on a `.ho-spinner` returns one animation named `ho-spinner-rotate`, where the same call on DaisyUI's `.loading-spinner` returns an empty array because its motion is SMIL inside a mask image with no compositor path.
+
+Network, switching 30D to 2Y and then back and forth:
+
+    switch to 2Y      exactly one candleSnapshot, BTC at :1d, span 1,296,000 minutes (900 days), at +485ms
+    back to 30D       zero requests   (slot still covers the window)
+    forward to 2Y     zero requests   (slot still covers the window)
+
+No page errors in any run.
+
+### Complexity
+
+Net complexity went down slightly. Two mechanisms were removed rather than added: the special-cased `:force-refresh?` default that existed to defeat the caching layer sitting directly beneath it, and one of the two worker jobs per switch. Three things were extracted to where they belong — `hyperopen.portfolio.candle-coverage`, and the `.ho-spinner` and `:tooltip-key` seams — and each of those replaced logic that was previously implicit or duplicated. The genuinely new concepts are two: a request-correlation token (using plumbing the worker already had) and a `:stale?` flag. Both exist because the previous behaviour was silently wrong rather than merely slow.
+
+### Deliberately not done
+
+Four things surfaced during the investigation, are real, and are not in this plan. Each is recorded so the next contributor does not have to rediscover it.
+
+The order-book and trades websocket subscriptions are established once at startup by `subscribe-to-asset` and are never re-established on route entry, so they run on `/portfolio` where nothing draws them. Scoping them to the trading route needs subscribe-on-navigation plumbing that does not exist, and getting it wrong breaks the order book on the primary trading surface. This is the single largest remaining lever on this page.
+
+Collapsing the 3M, 6M, 1Y and 2Y presets onto one daily candle interval would make four of five coarse presets need no network at all, because they would share the `:1d` slot the coverage guard now reuses. It visibly changes the resolution of the benchmark line on three presets, which is a product decision needing owner sign-off.
+
+Custom ranges still fetch the full `1d x 5000` series on every drag-end. The endpoint honours an `endTime` bound — measured at 101 rows / 14,331 bytes / 0.26s — so the docstring justifying the over-fetch rests on a premise that is false against this API.
+
+Inside the metrics worker, `compute-performance-metrics` re-sorts the same already-sorted series many times and one of its three runs has roughly 95% of its output discarded. At the real series sizes this is single-digit milliseconds, which is why it is not here.
+
 
 ## Context and Orientation
 
