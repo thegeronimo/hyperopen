@@ -36,7 +36,7 @@ Local scratch refs (non-authoritative):
 - [x] (2026-08-25 03:05Z) Milestone 3 — ambient main-thread load GREEN. `benchmark-computation-context` now keys on the `[coin interval]` candle slots it actually reads instead of the identity of the whole `:candles` map; `on-render` is memoized per chart host behind an explicit `:tooltip-key` so Replicant's by-value `unchanged?` can succeed for the chart host and its ancestors; the fill-driven open-orders refresh stopped hardcoding `:force-refresh? true`, which restores the 2.5s response cache and single-flight de-duplication for it while order mutations opt in explicitly. Suite: 6208 tests / 35144 assertions, 0 failures.
 - [x] (2026-08-25 03:40Z) Milestone 4 — network waste GREEN. `returns-benchmark-fetch-effects` now takes `state` (all five call sites already had it) and skips any coin whose stored `[coin interval]` slot both reaches back to the start of the requested window and is current to within two bars; a new public `candle-slot-covers-window?` carries that rule, and a `*now-ms*` dynamic seam keeps the action deterministic under test. `select-portfolio-summary-time-range` now gates the fetch on the Returns tab, matching the guard `select-portfolio-chart-tab` already had. Suite: 6211 tests / 35153 assertions, 0 failures. The coverage rule itself lives in a new `hyperopen.portfolio.candle-coverage` namespace rather than inside the already-at-cap actions seam.
 - [x] (2026-08-25 04:30Z) Milestone 5 — validation GREEN. `npm run gates` 34/34 PASS (6961 tests / 38626 assertions, baseline 6943 / 38572). Browser verification against a local build of this branch served on :8090, with a before/after A/B against the baseline commit `ba4b89bc7` rebuilt in place. Results in Outcomes & Retrospective.
-- [ ] Maintainer review of the diff, then commit/PR. Deferred follow-ups are listed in Outcomes & Retrospective and are intentionally NOT part of this plan.
+- [x] (2026-08-25 05:10Z) Maintainer verified the behaviour manually and accepted the plan as complete. Plan moved to `docs/exec-plans/completed/`. Deferred follow-ups are listed in Outcomes & Retrospective and are intentionally NOT part of this plan; open them as GitHub issues if they are to be picked up.
 
 ## Surprises & Discoveries
 
@@ -121,6 +121,8 @@ Local scratch refs (non-authoritative):
   Date/Author: 2026-08-25, Claude.
 
 ## Outcomes & Retrospective
+
+Accepted by the maintainer on 2026-08-25 after manual verification of the running application, and moved to `docs/exec-plans/completed/` on the same day. What follows is the record as it stood at acceptance.
 
 All four milestones landed and the full gate matrix is green: `npm run gates` 34/34 PASS, 6961 tests / 38626 assertions, against a recorded pre-work baseline of 34/34, 6943 / 38572. Eighteen tests and fifty-four assertions were added; no existing test was weakened, and the three test files whose assertions changed were pinning contracts this work deliberately inverted.
 
