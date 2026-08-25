@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.benchmark-actions-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.actions :as actions]))
+            [hyperopen.portfolio.actions :as actions]
+            [hyperopen.portfolio.candle-coverage :as candle-coverage]))
 
 (def ^:private replace-shareable-route-query-effect
   [:effects/replace-shareable-route-query])
@@ -424,7 +425,7 @@
 (deftest select-time-range-skips-the-fetch-when-the-store-already-covers-the-window-test
   ;; 30D resolves to :1h x 800 bars. A slot holding 800 hourly bars ending now
   ;; covers exactly that window, so switching back to 30D should cost nothing.
-  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+  (binding [candle-coverage/*now-ms* (constantly fixed-now-ms)]
     (let [base {:portfolio-ui {:chart-tab :returns
                                :returns-benchmark-coins ["BTC"]}}
           covered (assoc-in base [:candles "BTC" :1h] (hour-rows 800 fixed-now-ms))
@@ -447,20 +448,20 @@
   ;; :two-year and :all-time both resolve to the :1d interval and therefore share
   ;; one store slot while asking for 900 and 5000 bars. A presence-only guard
   ;; would draw a two-year benchmark inside an all-time window.
-  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+  (binding [candle-coverage/*now-ms* (constantly fixed-now-ms)]
     (let [day (* 24 60 60 1000)
           two-year-rows (mapv (fn [idx]
                                 {:t (- fixed-now-ms (* day (- 900 1 idx)))
                                  :c "100"})
                               (range 900))
           state (assoc-in {} [:candles "BTC" :1d] two-year-rows)]
-      (is (true? (actions/candle-slot-covers-window? state "BTC" :1d 900))
+      (is (true? (candle-coverage/covers-window? state "BTC" :1d 900))
           "the two-year window is covered")
-      (is (false? (actions/candle-slot-covers-window? state "BTC" :1d 5000))
+      (is (false? (candle-coverage/covers-window? state "BTC" :1d 5000))
           "the all-time window is not, even though the slot is populated"))))
 
 (deftest select-time-range-does-not-fetch-benchmark-candles-off-the-returns-tab-test
-  (binding [actions/*now-ms* (constantly fixed-now-ms)]
+  (binding [candle-coverage/*now-ms* (constantly fixed-now-ms)]
     (let [with-tab (fn [tab]
                      {:portfolio-ui {:chart-tab tab
                                      :returns-benchmark-coins ["BTC"]}})]
