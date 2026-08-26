@@ -245,8 +245,84 @@
           (println "No string keys found in literal :style maps.")
           0)))))
 
+;; Replicant fragment guard.
+;;
+;; This repo's Replicant has no fragment tag. `[:<> a b]` is treated as an
+;; element whose tag name is the literal string "<>", so the render reaches
+;; document.createElement("<>"), throws, and takes the surrounding subtree with
+;; it. Nothing else in the suite catches this: view tests assert on hiccup DATA
+;; and never run the renderer, so a fragment passes every cljs test and only
+;; fails in a browser.
+;;
+;; Scanned across all of src, not just src/hyperopen/views: view functions also
+;; live outside that tree (hyperopen.wallet.core is one), and a views-only glob
+;; would have missed a real occurrence.
+(def ^:private fragment-tag :<>)
+
+(defn- fragment-violations-in-forms
+  [file-path forms]
+  (let [violations (transient [])]
+    (letfn [(walk [x]
+              (cond
+                (map? x)
+                (doseq [[k v] x]
+                  (walk k)
+                  (walk v))
+
+                (or (vector? x) (list? x) (set? x) (seq? x))
+                (do
+                  (when (and (vector? x) (= fragment-tag (first x)))
+                    (conj! violations
+                           {:file-path file-path
+                            :line (or (:row (meta x)) 1)
+                            :literal (str fragment-tag)}))
+                  (doseq [item x]
+                    (walk item)))
+
+                :else
+                nil))]
+      (doseq [form forms]
+        (walk form))
+      (persistent! violations))))
+
+(defn fragment-violations-in-text
+  [file-path ^String text]
+  ;; Parsed, not grepped, so ":<>" inside a comment or a string literal is not a
+  ;; violation. Location metadata rides on the vector itself.
+  (fragment-violations-in-forms file-path
+                                (edamame/parse-string-all text parse-opts)))
+
+(defn fragment-violations-in-file
+  [file-path]
+  (fragment-violations-in-text file-path (slurp file-path)))
+
+(defn check-hiccup-fragments!
+  []
+  (if-not (.exists src-dir)
+    (do
+      (println "No src directory found; skipping hiccup fragment check.")
+      0)
+    (let [violations (->> (candidate-cljs-files src-dir ":<>")
+                          (mapcat fragment-violations-in-file)
+                          sort-violations
+                          vec)]
+      (if (seq violations)
+        (do
+          (binding [*out* *err*]
+            (println "Found Replicant fragment tags in hiccup:")
+            (doseq [{:keys [file-path line]} violations]
+              (println (str (relative-path root file-path) ":" line " [:<>")))
+            (println "This repo's Replicant has no fragment tag: :<> reaches document.createElement(\"<>\"), which throws and kills the surrounding subtree at runtime.")
+            (println "View tests inspect hiccup data and never run the renderer, so nothing else catches this.")
+            (println "Splice the children into the parent with `into`, or wrap them in a real element."))
+          1)
+        (do
+          (println "No Replicant fragment tags found in hiccup.")
+          0)))))
+
 (defn check-hiccup-attrs!
   []
   (let [class-status (check-class-attrs!)
-        style-status (check-style-map-string-keys!)]
-    (if (zero? (+ class-status style-status)) 0 1)))
+        style-status (check-style-map-string-keys!)
+        fragment-status (check-hiccup-fragments!)]
+    (if (zero? (+ class-status style-status fragment-status)) 0 1)))

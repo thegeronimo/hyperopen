@@ -4,6 +4,7 @@
             [hyperopen.workbench.support.layout :as layout]
             [hyperopen.workbench.support.state :as ws]
             [hyperopen.views.footer.build-badge :as build-badge]
+            [hyperopen.views.footer.links :as footer-links]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.order.toast-payloads :as toast-payloads]
@@ -327,6 +328,25 @@
     (shell-reducers)
     [:div {:class ["min-h-[540px]" "pb-24"]}
      (footer-view/footer-view @store)])))
+
+(portfolio/defscene footer-utility-links-populated
+  []
+  ;; The footer's text links are configured data and the only producer ships an
+  ;; empty vector, so this branch never renders in the running app. It still had
+  ;; to be exercised for real: it used a fragment tag ([:<>]), which this repo's
+  ;; Replicant renders as an element literally named "<>", and
+  ;; document.createElement("<>") throws and kills the surrounding subtree.
+  ;; Hiccup-data tests never run the renderer and cannot see that, so this scene
+  ;; mounts the populated branch through Replicant itself.
+  (let [now-ms (.now js/Date)]
+    (layout/page-shell
+     [:div {:class ["p-6"]
+            :data-role "footer-links-scene"}
+      (footer-links/render
+       {:links [{:label "Docs" :href "/docs"}
+                {:label "Status" :href "/status"}]
+        :build (:build (first (build-fixtures now-ms)))
+        :now-ms now-ms})])))
 
 (portfolio/defscene condensed-build-badge-states
   []
