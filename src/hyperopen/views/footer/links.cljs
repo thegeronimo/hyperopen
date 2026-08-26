@@ -72,20 +72,26 @@
 
 (defn render
   [{:keys [links build now-ms]}]
-  [:div {:class footer-utility-link-classes
-         :data-role "footer-utility-links"}
-   (when (seq links)
-     [:<>
-      [:div {:class footer-text-link-classes
-             :data-role "footer-text-links"}
-       (for [{:keys [label href]} links]
-         ^{:key label}
-         [:a {:class footer-link-classes
-              :href href}
-          label])]
-      [:span {:class ["h-3" "w-px" "bg-base-content/15"]
-              :data-role "footer-links-divider"
-              :aria-hidden true}]])
-   (build-badge/render {:build build
-                        :now-ms now-ms})
-   (render-social-icons)])
+  ;; The text links and their divider are spliced straight into this flex row
+  ;; rather than wrapped. A fragment tag ([:<>]) is NOT supported by this repo's
+  ;; Replicant — it reaches createElement as the literal tag "<>" and throws,
+  ;; taking the whole footer subtree with it — and a [:span] wrapper would make
+  ;; the pair a single flex child, collapsing the gap-4 rhythm between the links,
+  ;; the divider and the build badge.
+  (into [:div {:class footer-utility-link-classes
+               :data-role "footer-utility-links"}]
+        (concat
+         (when (seq links)
+           [[:div {:class footer-text-link-classes
+                   :data-role "footer-text-links"}
+             (for [{:keys [label href]} links]
+               ^{:key label}
+               [:a {:class footer-link-classes
+                    :href href}
+                label])]
+            [:span {:class ["h-3" "w-px" "bg-base-content/15"]
+                    :data-role "footer-links-divider"
+                    :aria-hidden true}]])
+         [(build-badge/render {:build build
+                               :now-ms now-ms})
+          (render-social-icons)])))

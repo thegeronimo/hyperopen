@@ -165,6 +165,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :history-prefetch]
                (queued-prefetch-state [eth-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
@@ -181,6 +185,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :history-prefetch]
                (queued-prefetch-state [purr-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
@@ -194,7 +202,9 @@
   (is (= [[:effects/save-many
            [[[:portfolio-ui :optimizer :draft-add-asset-open?] true]
             [[:portfolio-ui :optimizer :universe-search-query] ""]
-            [[:portfolio-ui :optimizer :universe-search-active-index] 0]]]]
+            [[:portfolio-ui :optimizer :universe-search-active-index] 0]
+            [[:portfolio-ui :optimizer :universe-search-type-filter] :all]
+            [[:portfolio-ui :optimizer :universe-search-quote-filter] :all]]]]
          (actions/set-portfolio-optimizer-draft-add-asset-open
           {:portfolio-ui {:optimizer {:universe-search-query "eth"
                                       :universe-search-active-index 2}}}
@@ -202,7 +212,9 @@
   (is (= [[:effects/save-many
            [[[:portfolio-ui :optimizer :draft-add-asset-open?] false]
             [[:portfolio-ui :optimizer :universe-search-query] ""]
-            [[:portfolio-ui :optimizer :universe-search-active-index] 0]]]]
+            [[:portfolio-ui :optimizer :universe-search-active-index] 0]
+            [[:portfolio-ui :optimizer :universe-search-type-filter] :all]
+            [[:portfolio-ui :optimizer :universe-search-quote-filter] :all]]]]
          (actions/set-portfolio-optimizer-draft-add-asset-open
           {:portfolio-ui {:optimizer {:universe-search-query "eth"
                                       :universe-search-active-index 2}}}
@@ -240,6 +252,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio-ui :optimizer :draft-add-asset-open?]
                false]
               [[:portfolio :optimizer :draft :metadata :dirty?]
@@ -422,6 +438,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :history-prefetch]
                (queued-prefetch-state [eth-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
@@ -462,6 +482,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :history-prefetch]
                (queued-prefetch-state [vault-instrument])]
               [[:portfolio :optimizer :draft :metadata :dirty?]
@@ -497,6 +521,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :draft :metadata :dirty?]
                true]]]]
            (actions/add-portfolio-optimizer-universe-instrument

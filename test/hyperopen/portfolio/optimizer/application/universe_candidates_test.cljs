@@ -283,3 +283,46 @@
            (universe-candidates/active-index
             {:portfolio-ui {:optimizer {:universe-search-active-index 7}}}
             [])))))
+
+(defn- perp-market
+  [coin volume]
+  {:key (str "perp:" coin)
+   :market-type :perp
+   :coin coin
+   :symbol (str coin "-USDC")
+   :base coin
+   :quote "USDC"
+   :volume24h volume})
+
+(deftest candidate-limit-is-opts-scoped-so-shared-pickers-stay-bounded-test
+  ;; The six-cap is the ONLY bound on the proxy typeahead and on the results-page
+  ;; "Add to universe" popover, and that popover queries with a blank string
+  ;; against the whole catalog. It must stay the default; only callers that can
+  ;; render a long list opt out.
+  (let [markets (mapv #(perp-market (str "PUMP" %) (- 100 %)) (range 12))
+        state (state-with-markets markets)]
+    (is (= 6 (count (universe-candidates/candidate-markets state [] "pump")))
+        "the default cap is unchanged for every existing caller")
+    (is (= 6 (count (universe-candidates/candidate-markets state [] "pump" {})))
+        "an opts map without :limit still gets the default")
+    (is (= 12 (count (universe-candidates/candidate-markets
+                      state [] "pump" {:limit 200})))
+        "a caller that can render a long list gets every match")
+    (is (= 3 (count (universe-candidates/candidate-markets
+                     state [] "pump" {:limit 3}))))))
+
+(deftest candidate-markets-excludes-market-types-the-universe-cannot-take-test
+  ;; Outcome (prediction) markets are concatenated into [:asset-selector :markets]
+  ;; upstream and market->universe-instrument refuses them, so "+ add" on one is a
+  ;; silent no-op. The old six-cap hid them; a full result list would not.
+  (let [state (state-with-markets
+               [(perp-market "PUMP" 100)
+                {:key "outcome:PUMP-2026"
+                 :market-type :outcome
+                 :coin "PUMP-2026"
+                 :symbol "PUMP-2026"
+                 :quote "USDH"
+                 :volume24h 500}])]
+    (is (= ["perp:PUMP"]
+           (market-keys (universe-candidates/candidate-markets
+                         state [] "pump" {:limit 200}))))))

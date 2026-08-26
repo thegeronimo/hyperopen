@@ -228,6 +228,8 @@
    :list-sort :updated-desc
    :universe-search-query ""
    :universe-search-active-index 0
+   :universe-search-type-filter :all
+   :universe-search-quote-filter :all
    :proxy-search-queries {}
    :objective-menu-open? false
    :scenario-menu-open? false

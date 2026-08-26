@@ -86,6 +86,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/load-portfolio-optimizer-history}}
 
+   :actions/add-portfolio-optimizer-universe-matches
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/load-portfolio-optimizer-history}}
+
    :actions/add-portfolio-optimizer-universe-instrument-and-run
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

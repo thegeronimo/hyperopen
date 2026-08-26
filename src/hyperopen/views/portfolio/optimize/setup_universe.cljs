@@ -1,7 +1,9 @@
 (ns hyperopen.views.portfolio.optimize.setup-universe
   (:require [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.view-model :as optimizer-view-model]
-            [hyperopen.portfolio.optimizer.application.view-model.universe :as universe-vm]))
+            [hyperopen.portfolio.optimizer.application.view-model.universe :as universe-vm]
+            [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
+            [hyperopen.views.portfolio.optimize.setup-universe-search :as universe-search-view]))
 
 ;; Sentence-case 14px, matching setup-controls/section-title-class — see the
 ;; type-ladder note there.
@@ -209,30 +211,6 @@
                                instrument-id]]}}
        "x"]]])
 
-(defn- market-row
-  [{:keys [market-key market-type active? label name]} idx]
-    [:div {:class ["optimizer-universe-candidate-row"
-                   "grid" "items-center" "gap-2" "border-b" "border-base-300" "cursor-pointer" "px-2"
-                   "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
-           :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
-           :id (str "portfolio-optimizer-universe-candidate-" idx)
-           :role "option"
-           :aria-selected (if active? "true" "false")
-           :data-active (when active? "true")
-           :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
-     [:span {:class ["truncate" "font-mono" "text-[0.8125rem]" "font-semibold"]}
-      label]
-     [:span {:class ["truncate" "text-[0.8125rem]" "text-trading-muted"]}
-      name]
-     (market-type-tags market-type)
-     [:button {:type "button"
-               :class ["optimizer-universe-add-button"
-                       "text-right" "font-mono" "text-[0.75rem]" "font-semibold"
-                       "text-warning" "hover:text-warning"]
-               :data-role (str "portfolio-optimizer-universe-add-" market-key)
-               :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
-      "+ add"]])
-
 (defn- selected-table-header
   [show-type?]
   [:div {:class ["optimizer-universe-selected-header"
@@ -248,20 +226,6 @@
      [:span {:class ["text-center"]} "Type"])
    [:span {:class ["text-center"]} "Side"]
    [:span {:class ["sr-only"]} "Remove"]])
-
-(defn- candidate-table-header
-  []
-  [:div {:class ["optimizer-universe-candidate-header"
-                 "grid" "items-center" "gap-2" "border-b" "border-base-300"
-                 "bg-base-200/40" "px-2" "py-1.5" "font-mono"
-                 "text-[0.625rem]" "font-semibold" "uppercase"
-                 "tracking-[0.12em]" "text-trading-muted/70"]
-         :data-role "portfolio-optimizer-universe-candidate-header"
-         :role "presentation"}
-   [:span "Asset"]
-   [:span "Name"]
-   [:span "Type"]
-   [:span {:class ["sr-only"]} "Add"]])
 
 (defn- holdings-loading-block
   "Modeless inline loading state for the auto-seed window: the machine is
@@ -367,19 +331,24 @@
   ([state draft]
    (universe-section state draft nil))
   ([state draft opts]
-   (let [{:keys [universe
+   (let [model (optimizer-view-model/universe-section-model
+                state
+                draft
+                ;; The Universe panel is the one surface that can render a long
+                ;; result list — it has a scroll container, facets and a footer.
+                ;; The draft add-asset popover and the proxy typeahead share this
+                ;; projection and keep the small default cap.
+                (merge {:group-results? true}
+                       opts
+                       {:candidate-options
+                        (merge {:limit universe-search/panel-candidate-limit}
+                               (:candidate-options opts))}))
+         {:keys [universe
                  readiness
-                 history-load-state
-                 history-status-by-id
                  selected-rows
-                 search-query
-                 searching?
-                 markets
-                 candidate-rows
-                 active-index
-                 market-keys
+                 search-shown-count
                  universe-source
-                 no-importable-holdings?]} (optimizer-view-model/universe-section-model state draft opts)
+                 no-importable-holdings?]} model
          holdings-source? (= :holdings (:kind universe-source))
          holdings-loading? (= :holdings-loading (:reason readiness))
          ;; While the auto-seed is pending, "My holdings" is the source in
@@ -427,65 +396,10 @@
        "Custom"]]
      (universe-source-line universe-source)
      [:div {:class ["sr-only"]} "Manual Add"]
-     [:div {:class ["mt-3" "relative"]}
-      [:div {:class ["optimizer-universe-search-shell"
-                     "flex" "items-center" "gap-1.5" "border" "px-2"
-                     "portfolio-optimizer-universe-search-shell"
-                     (if searching?
-                       "border-warning/70"
-                       "border-base-300")
-                     "bg-transparent"]
-              :data-role "portfolio-optimizer-universe-search-shell"
-              :data-searching (when searching? "true")}
-       [:span {:class ["optimizer-universe-search-affordance"
-                       "portfolio-optimizer-universe-search-affordance"
-                       "font-mono" "text-[0.75rem]" "text-trading-muted"]
-               :data-role "portfolio-optimizer-universe-search-icon"}
-        "⌕"]
-       [:input {:type "search"
-                :class (into input-class ["optimizer-universe-search-field"
-                                          "portfolio-optimizer-universe-search-field"
-                                          "border-0" "bg-transparent" "px-0" "focus:border-0"])
-                :placeholder "Search ticker, name, or vault (e.g. TIA, AVAX, Solana, HLP...)"
-                :data-role "portfolio-optimizer-universe-search-input"
-                :aria-controls "portfolio-optimizer-universe-search-results"
-                :aria-activedescendant (when (and searching? (seq markets))
-                                         (str "portfolio-optimizer-universe-candidate-" active-index))
-                :value search-query
-                :on {:input [[:actions/set-portfolio-optimizer-universe-search-query
-                              [:event.target/value]]]
-                     :keydown [[:actions/handle-portfolio-optimizer-universe-search-keydown
-                                [:event/key]
-                                market-keys]]}}]
-       (when searching?
-         [:button {:type "button"
-                   :class ["optimizer-universe-search-affordance"
-                           "optimizer-universe-search-clear"
-                           "portfolio-optimizer-universe-search-affordance"
-                           "font-mono" "text-xs" "text-trading-muted" "hover:text-warning"]
-                   :aria-label "Clear universe search"
-                   :data-role "portfolio-optimizer-universe-search-clear"
-                   :on {:click [[:actions/set-portfolio-optimizer-universe-search-query ""]]}}
-          "x"])
-       [:span {:class ["optimizer-universe-search-add-hint"
-                       "portfolio-optimizer-universe-search-add-hint"
-                       "border" "border-base-300"
-                       "font-mono" "text-[0.625rem]" "text-trading-muted"]
-               :data-role "portfolio-optimizer-universe-search-add-hint"}
-        "↵ add"]]
-      (when searching?
-        (if (seq candidate-rows)
-          (into [:div {:class ["mt-1" "border" "border-base-300" "bg-base-200/80"
-                               "shadow-[0_12px_32px_rgba(0,0,0,0.45)]"]
-                       :id "portfolio-optimizer-universe-search-results"
-                       :role "listbox"
-                       :data-role "portfolio-optimizer-universe-search-results"}]
-                (cons (candidate-table-header)
-                      (map-indexed (fn [idx row] (market-row row idx)) candidate-rows)))
-          [:p {:class ["mt-1" "border" "border-base-300" "bg-base-200/70" "p-2"
-                       "text-xs" "text-trading-muted"]
-               :data-role "portfolio-optimizer-universe-search-results-empty"}
-           "No matching unused instruments found."]))]
+     (universe-search-view/search-block
+      model
+      {:count-label universe-search/group-count-label
+       :add-all-label (universe-search/add-all-label search-shown-count)})
      (selected-table selected-rows universe holdings-loading? no-importable-holdings?)
      ;; Prose help, not log output: sans-serif — monospace stays reserved for
      ;; numbers and identifiers per the setup type ladder.

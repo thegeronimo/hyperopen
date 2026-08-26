@@ -155,6 +155,15 @@
 (def set-portfolio-optimizer-universe-search-query
   universe/set-portfolio-optimizer-universe-search-query)
 
+(def set-portfolio-optimizer-universe-search-type-filter
+  universe/set-portfolio-optimizer-universe-search-type-filter)
+
+(def set-portfolio-optimizer-universe-search-quote-filter
+  universe/set-portfolio-optimizer-universe-search-quote-filter)
+
+(def add-portfolio-optimizer-universe-matches
+  universe/add-portfolio-optimizer-universe-matches)
+
 (def set-portfolio-optimizer-draft-add-asset-open
   universe/set-portfolio-optimizer-draft-add-asset-open)
 

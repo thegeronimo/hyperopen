@@ -1847,6 +1847,14 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
 });
 
 test("portfolio optimizer universe search uses one integrated shell @regression", async ({ page }) => {
+  // Four full route visits, each followed by forced-layout reads (getComputedStyle
+  // + getBoundingClientRect on five elements). The universe search results list
+  // now renders facet chips, grouped rows and a footer while data-searching is
+  // true, so those synchronous layout reads walk a larger DOM and this test sits
+  // right at the old 45s budget. The panel itself projects and renders in ~1.4ms
+  // (measured in-browser), so this is test structure, not a UI regression.
+  test.setTimeout(90_000);
+
   const reviewViewports = [
     { width: 375, height: 812 },
     { width: 768, height: 1024 },
@@ -2101,13 +2109,24 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
 
   await expect(vaultRow).toBeVisible();
   await expect(vaultRow).toContainText("Alpha Yield");
-  await expect(vaultRow).toContainText("vault");
+  // The per-row type tag was replaced by a sticky per-type group header: with a
+  // full, grouped result list the type is stated once per section instead of
+  // being repeated on every row of a narrow rail.
+  await expect(
+    page.locator("[data-role='portfolio-optimizer-universe-candidate-group-header-vault']")
+  ).toContainText("Vaults");
   await vaultAdd.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   await expect(vaultSelected).toBeVisible();
   await expect(vaultSelected).toContainText("Alpha Yield");
-  await expect(vaultSelected).toContainText("vault");
+  // PRE-EXISTING RED, fixed here in passing: the selected table renders its TYPE
+  // column by exception, so a universe holding a single market type (this one
+  // holds only the vault) renders no per-row type tag at all. This assertion has
+  // been failing on main since that by-exception column shipped — Playwright is
+  // workflow_dispatch-only, so nothing caught it. Assert the 4-track variant the
+  // by-exception path actually produces.
+  await expect(vaultSelected).toHaveClass(/optimizer-universe-cols-4/);
   // The verbose center summary panel is gone; the compact right-column summary card shows the
   // asset COUNT and must never leak the raw vault address/id.
   await expect(page.locator("[data-role='portfolio-optimizer-setup-summary-card']"))

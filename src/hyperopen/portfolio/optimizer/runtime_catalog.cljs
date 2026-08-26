@@ -145,6 +145,15 @@
     actions/hydrate-portfolio-optimizer-view-library
     :set-portfolio-optimizer-universe-search-query
     actions/set-portfolio-optimizer-universe-search-query
+
+    :set-portfolio-optimizer-universe-search-type-filter
+    actions/set-portfolio-optimizer-universe-search-type-filter
+
+    :set-portfolio-optimizer-universe-search-quote-filter
+    actions/set-portfolio-optimizer-universe-search-quote-filter
+
+    :add-portfolio-optimizer-universe-matches
+    actions/add-portfolio-optimizer-universe-matches
     :set-portfolio-optimizer-draft-add-asset-open
     actions/set-portfolio-optimizer-draft-add-asset-open
     :handle-portfolio-optimizer-universe-search-keydown

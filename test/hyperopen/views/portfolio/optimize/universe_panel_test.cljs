@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.universe-panel-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.views.portfolio-view :as portfolio-view]))
 
 (defn- node-children
@@ -20,6 +21,13 @@
     (some #(find-first-node % pred) node)
 
     :else nil))
+
+(defn- rendered-text
+  "The view's text as the DOM would concatenate it. The candidate symbol is
+  rendered as a lead span plus a quote pill (plus highlight segments), so the
+  full symbol exists as text content but no longer as one string node."
+  [node]
+  (str/join (collect-strings node)))
 
 (defn- collect-strings
   [node]
@@ -115,8 +123,10 @@
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node
                               "portfolio-optimizer-universe-selected-header")))
+    ;; The flat candidate table header was replaced by per-type sticky group
+    ;; headers, so a full result list stays readable while it scrolls.
     (is (some? (node-by-role view-node
-                              "portfolio-optimizer-universe-candidate-header")))
+                              "portfolio-optimizer-universe-candidate-group-header-perp")))
     (is (= "eth"
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-universe-search-input")
@@ -144,14 +154,15 @@
                             "portfolio-optimizer-universe-add-perp:BTC")))
     (is (contains? strings "Manual Add"))
     (is (contains? strings "Asset"))
-    (is (contains? strings "Type"))
+    (is (contains? strings "Perps"))
     ;; The dedicated History column header was dropped: all-clear rows left it
     ;; empty, so the by-exception chip now renders inline on the row instead.
     (is (not (contains? strings "History")))
-    (is (contains? strings "Name"))
     (is (not (contains? strings "Liquidity")))
     (is (not (contains? strings "medium")))
-    (is (contains? strings "ETH-USDC"))
+    ;; Symbols are never truncated now: the quote token is its own pill and the
+    ;; separator stays on the lead, so the row still reads as the whole symbol.
+    (is (str/includes? (rendered-text view-node) "ETH-USDC"))
     (is (contains? strings "History starts loading after assets are included."))))
 
 (deftest portfolio-optimizer-search-results-use-active-keyboard-row-test
@@ -245,10 +256,12 @@
                                                   :base "HYPE"
                                                   :quote "USDC"}}}})
         strings (set (collect-strings view-node))]
-    (is (contains? strings "HYPE-USDC"))
-    (is (contains? strings "HYPE/USDC"))
-    (is (contains? strings "HYPE/USDH"))
-    (is (contains? strings "Hyperliquid"))
+    (is (str/includes? (rendered-text view-node) "HYPE-USDC"))
+    (is (str/includes? (rendered-text view-node) "HYPE/USDC"))
+    (is (str/includes? (rendered-text view-node) "HYPE/USDH"))
+    ;; The matched substring is wrapped for highlighting, so "Hyperliquid"
+    ;; renders as "Hype" + "rliquid" for this query.
+    (is (str/includes? (rendered-text view-node) "Hyperliquid"))
     (is (not (contains? strings "@107")))
     (is (not (contains? strings "@232")))))
 

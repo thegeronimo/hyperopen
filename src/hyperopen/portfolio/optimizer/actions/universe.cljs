@@ -5,6 +5,7 @@
             [hyperopen.portfolio.optimizer.application.history-loader.api-v2 :as history-api-v2]
             [hyperopen.portfolio.optimizer.application.history-prefetch :as history-prefetch]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
             [hyperopen.portfolio.optimizer.black-litterman-actions.views :as black-litterman-views]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
@@ -12,13 +13,43 @@
             [hyperopen.portfolio.optimizer.universe-keyboard :as universe-keyboard]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
+;; Search state resets as a UNIT. The query, the keyboard cursor and both facets
+;; are reset together at every site that clears the search, because the draft
+;; add-asset popover shares these paths and renders no filter chips — a facet
+;; left set there would silently hide rows with nothing on screen to explain it.
+(defn- cleared-search-path-values
+  []
+  [[contracts/ui-universe-search-query-path ""]
+   [contracts/ui-universe-search-active-index-path 0]
+   [contracts/ui-universe-search-type-filter-path :all]
+   [contracts/ui-universe-search-quote-filter-path :all]])
+
 (defn set-portfolio-optimizer-universe-search-query
   [_state query]
+  (let [query* (or (some-> query str) "")]
+    [[:effects/save-many
+      (if (seq query*)
+        ;; Typing keeps the facets: narrowing a query under an active chip is the
+        ;; point of the chip. Only an emptied field is a full reset.
+        [[contracts/ui-universe-search-query-path query*]
+         [contracts/ui-universe-search-active-index-path 0]]
+        (cleared-search-path-values))]]))
+
+(defn set-portfolio-optimizer-universe-search-type-filter
+  [_state value]
   [[:effects/save-many
-    [[contracts/ui-universe-search-query-path
-      (or (some-> query str) "")]
-     [contracts/ui-universe-search-active-index-path
-      0]]]])
+    [[contracts/ui-universe-search-type-filter-path
+      (universe-search/normalize-type-filter value)]
+     ;; Any facet change re-orders the list, so the cursor must return to the top
+     ;; or it points at a row that is no longer there.
+     [contracts/ui-universe-search-active-index-path 0]]]])
+
+(defn set-portfolio-optimizer-universe-search-quote-filter
+  [_state value]
+  [[:effects/save-many
+    [[contracts/ui-universe-search-quote-filter-path
+      (universe-search/normalize-quote-filter value)]
+     [contracts/ui-universe-search-active-index-path 0]]]])
 
 (defn- draft-add-asset-closed-path-value
   []
@@ -26,8 +57,7 @@
 
 (defn- reset-search-path-values
   []
-  [[contracts/ui-universe-search-query-path ""]
-   [contracts/ui-universe-search-active-index-path 0]])
+  (cleared-search-path-values))
 
 (defn set-portfolio-optimizer-draft-add-asset-open
   [_state open?]
@@ -198,12 +228,43 @@
                            state
                            [instrument])
             path-values (with-prefetch-path-value
-                          [[contracts/draft-universe-path (conj universe instrument)]
-                           ;; Hand-adding an asset makes the set a custom universe,
-                           ;; not a mirror of holdings; the source line follows.
-                           [contracts/draft-universe-source-path {:kind :custom}]
-                           [contracts/ui-universe-search-query-path ""]
-                           [contracts/ui-universe-search-active-index-path 0]]
+                          (into [[contracts/draft-universe-path (conj universe instrument)]
+                                 ;; Hand-adding an asset makes the set a custom universe,
+                                 ;; not a mirror of holdings; the source line follows.
+                                 [contracts/draft-universe-source-path {:kind :custom}]]
+                                (cleared-search-path-values))
+                          prefetch-plan)]
+        (with-prefetch-effect
+          (common/save-draft-path-values path-values)
+          prefetch-plan))
+      [])))
+
+(defn add-portfolio-optimizer-universe-matches
+  "Add the currently visible search matches to the universe in one step.
+
+  Emits a single prefetch effect for the whole batch rather than one per
+  instrument, so it satisfies the same effect-order policy as the single add
+  (:allow-duplicate-heavy-effects? false) instead of needing a relaxed one."
+  [state market-keys]
+  (let [universe (common/draft-universe state)
+        instruments (->> (or market-keys [])
+                         (keep common/non-blank-text)
+                         (take universe-search/add-all-limit)
+                         (keep #(some->> (universe-candidates/resolve-market state %)
+                                         (with-history-discovery state)
+                                         common/market->universe-instrument))
+                         (remove #(common/instrument-present? universe
+                                                              (:instrument-id %)))
+                         common/dedupe-instruments
+                         vec)]
+    (if (seq instruments)
+      (let [universe* (into universe instruments)
+            prefetch-plan (history-prefetch/enqueue-missing-instruments state
+                                                                        instruments)
+            path-values (with-prefetch-path-value
+                          (into [[contracts/draft-universe-path universe*]
+                                 [contracts/draft-universe-source-path {:kind :custom}]]
+                                (cleared-search-path-values))
                           prefetch-plan)]
         (with-prefetch-effect
           (common/save-draft-path-values path-values)
