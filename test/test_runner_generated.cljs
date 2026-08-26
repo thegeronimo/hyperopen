@@ -302,6 +302,7 @@
             [hyperopen.portfolio.optimizer.application.universe-candidates-cache-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test]
+            [hyperopen.portfolio.optimizer.application.universe-search-test]
             [hyperopen.portfolio.optimizer.application.view-library-test]
             [hyperopen.portfolio.optimizer.application.view-model-error-contract-test]
             [hyperopen.portfolio.optimizer.application.view-model-facade-test]
@@ -406,6 +407,7 @@
             [hyperopen.portfolio.optimizer.universe-exclusion-actions-test]
             [hyperopen.portfolio.optimizer.universe-from-holdings-actions-test]
             [hyperopen.portfolio.optimizer.universe-keyboard-test]
+            [hyperopen.portfolio.optimizer.universe-search-actions-test]
             [hyperopen.portfolio.optimizer.view-library-actions-test]
             [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
@@ -697,6 +699,7 @@
             [hyperopen.views.portfolio.optimize.setup-layout-test]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel-test]
             [hyperopen.views.portfolio.optimize.setup-universe-layout-test]
+            [hyperopen.views.portfolio.optimize.setup-universe-search-layout-test]
             [hyperopen.views.portfolio.optimize.setup-use-my-views-cards-test]
             [hyperopen.views.portfolio.optimize.setup-use-my-views-workspace-test]
             [hyperopen.views.portfolio.optimize.setup-view-inverse-volatility-test]
@@ -1200,6 +1203,7 @@
              'hyperopen.portfolio.optimizer.application.universe-candidates-cache-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test
+             'hyperopen.portfolio.optimizer.application.universe-search-test
              'hyperopen.portfolio.optimizer.application.view-library-test
              'hyperopen.portfolio.optimizer.application.view-model-error-contract-test
              'hyperopen.portfolio.optimizer.application.view-model-facade-test
@@ -1304,6 +1308,7 @@
              'hyperopen.portfolio.optimizer.universe-exclusion-actions-test
              'hyperopen.portfolio.optimizer.universe-from-holdings-actions-test
              'hyperopen.portfolio.optimizer.universe-keyboard-test
+             'hyperopen.portfolio.optimizer.universe-search-actions-test
              'hyperopen.portfolio.optimizer.view-library-actions-test
              'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
@@ -1595,6 +1600,7 @@
              'hyperopen.views.portfolio.optimize.setup-layout-test
              'hyperopen.views.portfolio.optimize.setup-readiness-panel-test
              'hyperopen.views.portfolio.optimize.setup-universe-layout-test
+             'hyperopen.views.portfolio.optimize.setup-universe-search-layout-test
              'hyperopen.views.portfolio.optimize.setup-use-my-views-cards-test
              'hyperopen.views.portfolio.optimize.setup-use-my-views-workspace-test
              'hyperopen.views.portfolio.optimize.setup-view-inverse-volatility-test

@@ -95,9 +95,138 @@
     grid-template-columns: 18px minmax(0, 1fr) 56px 20px;
   }
 
+  /* Candidate rows are now symbol-first with an elastic identity column. The
+     old 66px asset track plus `truncate` was the reason PUMP-USDC, PUMP/USDE and
+     PUMP/USDH all rendered as "PUMP-US…" and read as the same row. The identity
+     cell takes whatever is left, the liquidity meta and the add affordance are
+     the only fixed tracks. */
   .portfolio-optimizer .optimizer-universe-candidate-header,
   .portfolio-optimizer .optimizer-universe-candidate-row {
-    grid-template-columns: 66px minmax(0, 1fr) 58px 44px;
+    grid-template-columns: minmax(0, 1fr) 52px 44px;
+  }
+
+  /* The symbol wraps instead of clipping. It is the one string the trader scans
+     for, so it is never the thing that gets cut. */
+  .portfolio-optimizer .optimizer-universe-candidate-symbol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    overflow-wrap: anywhere;
+  }
+
+  /* Quote token as its own tinted pill, so the three PUMP pairs are
+     distinguishable at a glance. rounded-* is reset to 2px inside the optimizer
+     surface, so the radius is set here explicitly. */
+  .portfolio-optimizer .optimizer-universe-quote-pill {
+    padding: 2px 4px;
+    border: 1px solid
+      color-mix(in srgb, var(--optimizer-info) 42%, transparent);
+    border-radius: 2px;
+    color: var(--optimizer-info);
+    background-color: color-mix(in srgb, var(--optimizer-info) 10%, transparent);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* The matched substring. A filled <mark> would fight the accent wash already
+     used for the active row and the active chip, so this is a weight/colour
+     shift on the accent instead. */
+  .portfolio-optimizer .optimizer-universe-match {
+    color: var(--optimizer-accent);
+    font-weight: 700;
+  }
+
+  /* Facet chips. */
+  .portfolio-optimizer .optimizer-universe-facet-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-color: var(--optimizer-border);
+    border-radius: 2px;
+    background-color: transparent;
+    color: var(--optimizer-text-2);
+    cursor: pointer;
+  }
+
+  .portfolio-optimizer .optimizer-universe-facet-chip:hover {
+    border-color: color-mix(in srgb, var(--optimizer-accent) 55%, transparent);
+    color: var(--optimizer-text);
+  }
+
+  .portfolio-optimizer .optimizer-universe-facet-chip-active {
+    border-color: color-mix(in srgb, var(--optimizer-accent) 55%, transparent);
+    background-color: color-mix(in srgb, var(--optimizer-accent) 14%, transparent);
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer .optimizer-universe-facet-chip-count {
+    color: color-mix(in srgb, currentcolor 65%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer .optimizer-universe-facet-legend {
+    color: var(--optimizer-text-3);
+  }
+
+  /* The scroll container. Capped responsively rather than at a flat pixel
+     height: this list is nested inside the left control rail, which is itself a
+     sticky internally-scrolling container at >=1280px, so a fixed 334px cap
+     degrades badly on a short viewport. */
+  .portfolio-optimizer .optimizer-universe-results-scroll {
+    max-height: min(334px, 42vh);
+    scrollbar-gutter: stable;
+  }
+
+  /* Sticky group headers need an OPAQUE background or the rows scroll through
+     them. --optimizer-surface-2 is the same choice the sticky table head in
+     results.css makes for the same reason. */
+  .portfolio-optimizer .optimizer-universe-candidate-group-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 1px solid var(--optimizer-border);
+    background-color: var(--optimizer-surface-2);
+    color: var(--optimizer-text-2);
+  }
+
+  .portfolio-optimizer
+    .optimizer-universe-candidate-group-header[data-kind="perp"] {
+    color: var(--optimizer-accent);
+  }
+
+  .portfolio-optimizer
+    .optimizer-universe-candidate-group-header[data-kind="spot"] {
+    color: var(--optimizer-info);
+  }
+
+  .portfolio-optimizer
+    .optimizer-universe-candidate-group-header[data-kind="vault"] {
+    color: var(--optimizer-target);
+  }
+
+  .portfolio-optimizer .optimizer-universe-candidate-group-count {
+    color: color-mix(in srgb, currentcolor 60%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer .optimizer-universe-candidate-meta {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-optimizer .optimizer-universe-results-footer {
+    border-top: 1px solid var(--optimizer-border);
+    background-color: var(--optimizer-surface-2);
+  }
+
+  .portfolio-optimizer .optimizer-universe-results-hints {
+    border-top: 1px solid var(--optimizer-border);
+    background-color: var(--optimizer-surface);
+    color: color-mix(in srgb, var(--optimizer-text-2) 70%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.5625rem;
+    letter-spacing: 0.04em;
   }
 
   .portfolio-optimizer .optimizer-universe-candidate-row[data-active="true"] {

@@ -92,6 +92,8 @@
 (def ui-diagnostics-tab-path paths/ui-diagnostics-tab-path)
 (def ui-universe-search-query-path paths/ui-universe-search-query-path)
 (def ui-universe-search-active-index-path paths/ui-universe-search-active-index-path)
+(def ui-universe-search-type-filter-path paths/ui-universe-search-type-filter-path)
+(def ui-universe-search-quote-filter-path paths/ui-universe-search-quote-filter-path)
 (def ui-proxy-search-queries-path paths/ui-proxy-search-queries-path)
 (def ui-history-assumption-active-path paths/ui-history-assumption-active-path)
 (def ui-draft-add-asset-open-path paths/ui-draft-add-asset-open-path)

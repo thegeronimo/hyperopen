@@ -109,6 +109,7 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/submit-transfer-subaccount", defaultPolicy false ["effects/api-transfer-subaccount"])
   ,("actions/select-portfolio-chart-tab", defaultPolicy true ["effects/api-fetch-trader-portfolio-benchmark", "effects/fetch-candle-snapshot"])
   ,("actions/add-portfolio-optimizer-universe-instrument", defaultPolicy false ["effects/load-portfolio-optimizer-history"])
+  ,("actions/add-portfolio-optimizer-universe-matches", defaultPolicy false ["effects/load-portfolio-optimizer-history"])
   ,("actions/add-portfolio-optimizer-universe-instrument-and-run", defaultPolicy false ["effects/run-portfolio-optimizer-pipeline"])
   ,("actions/auto-recompute-stale-portfolio-optimizer-scenario", defaultPolicy false ["effects/run-portfolio-optimizer-pipeline"])
   ,("actions/set-portfolio-optimizer-universe-from-current", defaultPolicy false ["effects/load-portfolio-optimizer-history"])

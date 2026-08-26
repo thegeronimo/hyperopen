@@ -56,6 +56,7 @@
     :actions/select-portfolio-chart-tab
     :actions/set-portfolio-returns-benchmark-suggestions-open
     :actions/select-portfolio-returns-benchmark
+    :actions/add-portfolio-optimizer-universe-matches
     :actions/add-portfolio-optimizer-universe-instrument
     :actions/add-portfolio-optimizer-universe-instrument-and-run
     :actions/set-portfolio-optimizer-universe-from-current
@@ -234,6 +235,12 @@
     :hydrate-portfolio-optimizer-view-library]
    [:actions/set-portfolio-optimizer-universe-search-query
     :set-portfolio-optimizer-universe-search-query]
+   [:actions/set-portfolio-optimizer-universe-search-type-filter
+    :set-portfolio-optimizer-universe-search-type-filter]
+   [:actions/set-portfolio-optimizer-universe-search-quote-filter
+    :set-portfolio-optimizer-universe-search-quote-filter]
+   [:actions/add-portfolio-optimizer-universe-matches
+    :add-portfolio-optimizer-universe-matches]
    [:actions/set-portfolio-optimizer-draft-add-asset-open
     :set-portfolio-optimizer-draft-add-asset-open]
    [:actions/handle-portfolio-optimizer-universe-search-keydown

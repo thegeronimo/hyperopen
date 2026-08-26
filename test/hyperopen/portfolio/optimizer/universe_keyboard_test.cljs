@@ -50,6 +50,10 @@
                ""]
               [[:portfolio-ui :optimizer :universe-search-active-index]
                0]
+              [[:portfolio-ui :optimizer :universe-search-type-filter]
+               :all]
+              [[:portfolio-ui :optimizer :universe-search-quote-filter]
+               :all]
               [[:portfolio :optimizer :history-prefetch]
                {:queue [eth-instrument]
                 :active-instrument-id nil

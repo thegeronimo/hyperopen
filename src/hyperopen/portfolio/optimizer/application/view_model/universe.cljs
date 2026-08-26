@@ -3,6 +3,7 @@
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
             [hyperopen.portfolio.optimizer.coercion :as coercion]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]
@@ -544,7 +545,8 @@
                         history-load-state
                         history-status-by-id
                         candidate-options
-                        include-blank-candidates?]}]
+                        include-blank-candidates?
+                        group-results?]}]
    (let [universe (vec (or (:universe draft) []))
          history-load-state* (or history-load-state
                                  (get-in state contracts/history-load-state-path)
@@ -558,12 +560,25 @@
          searching? (boolean (seq (normalized-text search-query)))
          query-candidates? (or searching?
                                include-blank-candidates?)
-         markets (if query-candidates?
-                   (universe-candidates/candidate-markets state
-                                                          universe
-                                                          search-query
-                                                          candidate-options)
-                   [])
+         query-markets (if query-candidates?
+                         (universe-candidates/candidate-markets state
+                                                                universe
+                                                                search-query
+                                                                candidate-options)
+                         [])
+         type-filter (universe-search/normalize-type-filter
+                      (get-in state contracts/ui-universe-search-type-filter-path))
+         quote-filter (universe-search/normalize-quote-filter
+                       (get-in state contracts/ui-universe-search-quote-filter-path))
+         ;; `markets` is the RENDER-ORDERED, facet-filtered vector; active-index,
+         ;; market-keys and candidate-rows all derive from it so the cursor, the
+         ;; keydown handler's positional lookup and the row ids cannot drift.
+         total-match-count (or (:total-match-count (meta query-markets))
+                               (count query-markets))
+         markets (universe-search/filter-markets query-markets
+                                                 type-filter
+                                                 quote-filter
+                                                 (boolean group-results?))
          active-index (universe-candidates/active-index state markets)
          market-keys (if query-candidates?
                        (mapv :key markets)
@@ -583,7 +598,17 @@
                                                   %
                                                   assumption-context)
                              universe)
-         candidate-rows (mapv #(candidate-row-model %1 %2 active-index)
+         candidate-rows (mapv (fn [market idx]
+                                (let [row (candidate-row-model market idx active-index)]
+                                  (merge row
+                                         ;; The flat render index travels WITH the
+                                         ;; row so grouping cannot desynchronize the
+                                         ;; DOM ids, the aria-activedescendant target
+                                         ;; and the positional market-keys lookup.
+                                         {:index idx}
+                                         (universe-search/row-search-fields
+                                          row
+                                          search-query))))
                               markets
                               (range))]
      {:state state
@@ -599,6 +624,26 @@
       :candidate-rows candidate-rows
       :active-index active-index
       :market-keys market-keys
+      ;; Design-1a search projection: facets, grouped render order and the counts
+      ;; that make the truncation visible instead of silent.
+      :search-type-filter type-filter
+      :search-quote-filter quote-filter
+      :search-type-chips (universe-search/type-chips query-markets type-filter)
+      :search-quote-chips (universe-search/quote-chips query-markets
+                                                       type-filter
+                                                       quote-filter)
+      :search-groups (universe-search/groups candidate-rows)
+      ;; From candidate-markets' metadata: the returned vector is already capped,
+      ;; so counting it would re-hide the truncation.
+      :search-match-count total-match-count
+      :search-shown-count (count markets)
+      ;; Counts the same set the chips describe, so the hit line can never
+      ;; contradict them; only the footer names both numbers.
+      :search-match-label (universe-search/match-label (count query-markets))
+      :search-footer-label (universe-search/footer-label (count markets)
+                                                         total-match-count)
+      :search-filtered? (or (not= :all type-filter)
+                            (not= :all quote-filter))
       ;; Where the current universe came from. :holdings carries the omission
       ;; accounting recorded at load time; a non-empty universe with no recorded
       ;; source (legacy drafts) reads as :custom.

@@ -89,6 +89,13 @@
 (def ui-universe-search-query-path (conj optimizer-ui-path :universe-search-query))
 (def ui-universe-search-active-index-path
   (conj optimizer-ui-path :universe-search-active-index))
+;; Universe search facets. :all, or a market-type keyword / quote token string.
+;; Shared with the draft add-asset popover the same way the query is, and reset
+;; alongside it so a filter can never sit invisibly on a surface with no chips.
+(def ui-universe-search-type-filter-path
+  (conj optimizer-ui-path :universe-search-type-filter))
+(def ui-universe-search-quote-filter-path
+  (conj optimizer-ui-path :universe-search-quote-filter))
 ;; Per-thin-asset proxy search query: {thin-instrument-id query-string}. Each
 ;; proxy card's catalog typeahead reads/writes its own entry.
 (def ui-proxy-search-queries-path
@@ -214,6 +221,8 @@
    :optimizer-ui/diagnostics-tab ui-diagnostics-tab-path
    :optimizer-ui/universe-search-query ui-universe-search-query-path
    :optimizer-ui/universe-search-active-index ui-universe-search-active-index-path
+   :optimizer-ui/universe-search-type-filter ui-universe-search-type-filter-path
+   :optimizer-ui/universe-search-quote-filter ui-universe-search-quote-filter-path
    :optimizer-ui/draft-add-asset-open ui-draft-add-asset-open-path
    :optimizer-ui/selected-risk-instrument ui-selected-risk-instrument-path
    :optimizer-ui/objective-menu-open ui-objective-menu-open-path

@@ -116,7 +116,13 @@
            (get-in search-input [1 :placeholder])))
     (is (some? vault-row))
     (is (contains? strings "Alpha Yield"))
-    (is (contains? strings "vault"))
+    ;; The per-row type tag was replaced by a sticky group header: with a full,
+    ;; grouped result list the type is stated once per section instead of
+    ;; repeated on every row of a narrow rail.
+    (is (some? (node-by-role
+                view-node
+                "portfolio-optimizer-universe-candidate-group-header-vault")))
+    (is (contains? strings "Vaults"))
     (is (= [[:actions/add-portfolio-optimizer-universe-instrument
              (str "vault:" vault-address)]]
            (click-actions vault-row)))

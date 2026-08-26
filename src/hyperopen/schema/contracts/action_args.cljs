@@ -428,6 +428,11 @@
    :actions/hydrate-portfolio-optimizer-history-assumption-library ::common/no-args
    :actions/hydrate-portfolio-optimizer-view-library ::common/no-args
    :actions/set-portfolio-optimizer-universe-search-query ::common/single-input-args
+   :actions/set-portfolio-optimizer-universe-search-type-filter
+   ::common/keyword-or-string-args
+   :actions/set-portfolio-optimizer-universe-search-quote-filter
+   ::common/keyword-or-string-args
+   :actions/add-portfolio-optimizer-universe-matches ::common/single-input-args
    :actions/set-portfolio-optimizer-draft-add-asset-open ::common/boolean-args
    :actions/handle-portfolio-optimizer-universe-search-keydown
    ::portfolio-optimizer-universe-search-keydown-args
