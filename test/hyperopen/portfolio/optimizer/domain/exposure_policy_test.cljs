@@ -1,6 +1,8 @@
 (ns hyperopen.portfolio.optimizer.domain.exposure-policy-test
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.portfolio.optimizer.domain.exposure-policy :as policy]))
+            [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
+            [hyperopen.portfolio.optimizer.domain.exposure-policy :as policy]
+            [hyperopen.portfolio.optimizer.domain.objectives :as objectives]))
 
 (def ^:private default-constraints
   ;; Mirrors defaults/default-draft :constraints for the keys this namespace touches:
@@ -190,7 +192,7 @@
         (is (= 1.5 (:gross-target out)))))))
 
 (deftest presets-apply-and-are-detected-test
-  (testing "each preset applies its partial and clears the gross floor"
+  (testing "a ceiling-only preset applies its partial and clears the gross floor"
     (let [out (policy/apply-preset {:gross-min 1.5 :gross-max 1.5} :balanced)]
       (is (not (contains? out :gross-min)))
       (is (= 2.0 (:gross-max out)))
@@ -279,3 +281,150 @@
     (let [{:keys [points]} (policy/band-wedge {:gross-target 2.0 :gross-band 0.5
                                                :net-target 1.0 :net-band-pct 0.0})]
       (is (every? #(= (ffirst points) (first %)) points)))))
+
+;; --- Conservative carries its own gross FLOOR -------------------------------
+;;
+;; Conservative pins net at 0.0 and caps gross at 1.0x. A zero net with only a
+;; gross CEILING does not forbid w = 0, so under the default objective
+;; (:minimum-variance, per defaults.cljs) the preset had ALWAYS silently
+;; returned an all-cash book - the cash-collapse gate in domain.objectives just
+;; made it visible. Giving it :gross-min 1.0 turns "1x gross, market neutral"
+;; into an instruction rather than a ceiling. The other three presets pin a
+;; NON-ZERO net (1.0 / 1.0 / 1.5), which already forbids cash.
+
+(deftest conservative-preset-ships-a-gross-floor-at-its-own-gross-figure-test
+  (let [out (policy/apply-preset {:gross-min 3.0 :gross-max 3.0} :conservative)]
+    (is (= 1.0 (:gross-min out)) "the preset's own floor overwrites a stale one")
+    (is (= 1.0 (:gross-max out)))
+    (is (= 0.0 (:net-min out)))
+    (is (= 0.0 (:net-max out)))
+    (is (= 0.25 (:max-asset-weight out))))
+  (is (= :conservative (policy/active-preset (policy/apply-preset {} :conservative)))
+      "the floor is part of the match, so the chip still reads Conservative")
+  (is (= :custom (policy/active-preset (dissoc (policy/apply-preset {} :conservative)
+                                               :gross-min)))
+      "a Conservative-shaped policy with the floor stripped is no longer Conservative")
+  (is (= 1.0 (:gross-target (policy/constraints->policy
+                             (policy/apply-preset {} :conservative))))
+      "gross-min = gross-max keeps the pad marker exactly where it was")
+  (is (= 0.0 (:gross-band (policy/constraints->policy
+                           (policy/apply-preset {} :conservative))))))
+
+;; --- A zero-width gross band is a PIN, and a pin survives the pad ------------
+;;
+;; :conservative's gross band is exactly zero (gross-min = gross-max = 1.0), so
+;; the old "dissoc :gross-min whenever the band is zero" rule let ANY pad
+;; interaction - a click, a drag, even a no-op one - delete the floor the preset
+;; had just installed, dropping Minimum risk straight back into the all-cash
+;; collapse the floor exists to prevent. policy->constraints now keeps a floor
+;; that was ALREADY pinned and moves it with the target, exactly as it moves a
+;; positive band's floor.
+
+(deftest conservative-gross-pin-survives-a-no-op-pad-round-trip-test
+  (let [conservative (policy/apply-preset {} :conservative)
+        {:keys [gross-target net-target]} (policy/constraints->policy conservative)
+        round-trip (policy/apply-point conservative {:gross-target gross-target
+                                                     :net-target net-target})]
+    (is (= 1.0 (:gross-min round-trip))
+        "a no-op drag must not delete the preset's gross floor")
+    (is (= 1.0 (:gross-max round-trip)))
+    (is (= :conservative (policy/active-preset round-trip))
+        "and the chip must still read Conservative, never flip to Custom"))
+  (testing "a net-band edit is the same zero-gross-band round trip"
+    (let [out (policy/apply-band (policy/apply-preset {} :conservative) :net 0.05)]
+      (is (= 1.0 (:gross-min out)))
+      (is (= 1.0 (:gross-max out)))
+      (is (= 0.05 (:net-band-pct out)))))
+  (testing "the pin travels with the target instead of vanishing mid-drag"
+    (let [out (policy/apply-point (policy/apply-preset {} :conservative)
+                                  {:gross-target 2.0 :net-target 0.0})]
+      (is (= 2.0 (:gross-min out)) "gross stays pinned, at the new target")
+      (is (= 2.0 (:gross-max out)))
+      (is (= :custom (policy/active-preset out))
+          "moved off the preset's 1.0x, so the chip is honestly Custom"))))
+
+(deftest ceiling-only-preset-stays-floorless-through-the-same-round-trip-test
+  (let [balanced (policy/apply-preset {} :balanced)
+        {:keys [gross-target net-target]} (policy/constraints->policy balanced)
+        round-trip (policy/apply-point balanced {:gross-target gross-target
+                                                 :net-target net-target})]
+    (is (not (contains? round-trip :gross-min))
+        "no floor to preserve ⇒ a zero band still means ceiling-only")
+    (is (= 2.0 (:gross-max round-trip)))
+    (is (= :balanced (policy/active-preset round-trip)))
+    (is (not (contains? (policy/apply-band balanced :net 0.1) :gross-min))
+        "and a band edit does not conjure one either")))
+
+(deftest gross-band-widened-from-conservative-yields-a-coherent-pair-test
+  (let [out (policy/apply-band (policy/apply-preset {} :conservative) :gross 0.25)]
+    (is (= 0.75 (:gross-min out)) "the floor drops half a band below the 1.0x target")
+    (is (= 1.25 (:gross-max out)) "and the ceiling rises half a band above it")
+    (is (< (:gross-min out) (:gross-max out)))
+    (is (= {:gross-target 1.0 :gross-band 0.25}
+           (select-keys (policy/constraints->policy out) [:gross-target :gross-band]))
+        "which reads back as the same target with a wider band")
+    (testing "collapsing that POSITIVE band back to zero is still how 'no floor' is said"
+      (let [collapsed (policy/apply-band out :gross 0.0)]
+        (is (not (contains? collapsed :gross-min)))
+        (is (= 1.0 (:gross-max collapsed)))))))
+
+(deftest a-deliberately-cleared-gross-floor-stays-cleared-test
+  ;; `set-portfolio-optimizer-constraint` writes nil for the clearable :gross-min
+  ;; (the save-many effect can only assoc), so a cleared floor reaches this
+  ;; namespace as a PRESENT nil - which must not read as a pin.
+  (let [cleared (assoc (policy/apply-preset {} :conservative) :gross-min nil)
+        out (policy/apply-point cleared {:gross-target 1.0 :net-target 0.0})]
+    (is (not (contains? out :gross-min)) "a nil floor is not a pin; the key is dropped")
+    (is (= 1.0 (:gross-max out)))))
+
+(def ^:private sided-universe
+  ;; Fully SIDED: every :position-side is set, so gross-floor-signs returns a
+  ;; full sign vector and the floor is actually encodable.
+  [{:instrument-id "perp:A" :market-type :perp :shortable? true :position-side :long}
+   {:instrument-id "perp:B" :market-type :perp :shortable? true :position-side :long}
+   {:instrument-id "perp:C" :market-type :perp :shortable? true :position-side :short}
+   {:instrument-id "perp:D" :market-type :perp :shortable? true :position-side :short}])
+
+(defn- engine-constraints
+  "The draft -> engine key rename `application.request-builder/normalize-constraints`
+  performs before the solver sees a request: :gross-max -> :gross-leverage,
+  :gross-min -> :gross-floor, :net-min/:net-max -> :net-exposure {:min :max}.
+  Mirrored here so this test exercises the shipped preset values end to end
+  without reaching across into the application layer."
+  [draft]
+  (cond-> {:long-only? false
+           :include-spot? false
+           :max-asset-weight (:max-asset-weight draft)
+           :net-band-pct (:net-band-pct draft)
+           :net-exposure {:min (:net-min draft) :max (:net-max draft)}}
+    (contains? draft :gross-max) (assoc :gross-leverage (:gross-max draft))
+    (contains? draft :gross-min) (assoc :gross-floor (:gross-min draft))))
+
+(defn- preset-plan
+  [draft]
+  (objectives/build-solver-plan
+   {:objective {:kind :minimum-variance}
+    :instrument-ids ["perp:A" "perp:B" "perp:C" "perp:D"]
+    :expected-returns [0.10 0.12 0.08 0.09]
+    :covariance [[0.04 0.001 0.001 0.001]
+                 [0.001 0.05 0.001 0.001]
+                 [0.001 0.001 0.06 0.001]
+                 [0.001 0.001 0.001 0.07]]
+    :encoded-constraints (constraints/encode-constraints
+                          {:universe sided-universe
+                           :constraints (engine-constraints draft)})}))
+
+(deftest conservative-preset-no-longer-collapses-minimum-risk-to-cash-test
+  (let [draft (policy/apply-preset {} :conservative)
+        plan (preset-plan draft)]
+    (is (= :ok (:status plan)))
+    (is (not= :objective-collapses-to-cash (:reason plan)))
+    (is (some #(and (= :gross-floor (:code %)) (= 1.0 (:lower %)))
+              (get-in plan [:problems 0 :inequalities]))
+        "the floor reaches the solver as a signed-linear row"))
+  ;; The regression anchor: the SAME preset without its floor is the shape that
+  ;; had always answered with cash.
+  (let [ceiling-only (dissoc (policy/apply-preset {} :conservative) :gross-min)
+        plan (preset-plan ceiling-only)]
+    (is (= :infeasible (:status plan)))
+    (is (= :objective-collapses-to-cash (:reason plan)))))

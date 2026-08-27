@@ -390,11 +390,15 @@
   [0 2.5 5 10 20])
 
 (defn- net-band-row
-  "The percentage net band control: a 0–50% slider, direct numeric entry up to
-  100%, quick presets, and an approximate absolute preview at the configured
-  gross target (the solver always uses realized gross)."
-  [{:keys [net-band-pct net-band-abs-preview gross-max level net-editable?]}]
+  "The percentage net band control: a slider stopping at the model's
+  :net-band-pct-slider-max, numeric entry to 100%, presets, and an absolute
+  preview. A band ABOVE the slider ceiling is reachable — numeric entry and the
+  infeasible panel's Widen-net-band fix write up to max-net-band-pct."
+  [{:keys [net-band-pct net-band-abs-preview gross-max level net-editable?
+           net-band-pct-slider-max]}]
   (let [pct-value (* 100 (or net-band-pct 0))
+        slider-max-pct (* 100 (or net-band-pct-slider-max 0.5))
+        pinned? (> pct-value slider-max-pct)
         role "portfolio-optimizer-exposure-net-band"
         editable? (not (false? net-editable?))]
     [:div {:class ["optimizer-exposure-map__band-group"]
@@ -403,12 +407,17 @@
       [:span {:class controls/eyebrow-class} "Net band"]
       [:input (cond-> {:type "range"
                        :min 0
-                       :max 50
+                       :max slider-max-pct
                        :step 0.5
-                       :value (str pct-value)
+                       ;; The browser sanitizes a range value past its own :max, so render
+                       ;; the PINNED number (vdom == DOM); field/label/aria-valuetext keep
+                       ;; the TRUE percent, and only a real drag ever replaces the band.
+                       :value (str (min pct-value slider-max-pct))
+                       :aria-valuetext (str (fmt-band-pct net-band-pct) " of gross")
                        :class ["optimizer-exposure-band" "w-full" "accent-warning"]
                        :aria-label "Net band, percent of gross"
                        :data-role role
+                       :data-pinned (str pinned?)
                        :disabled (not editable?)}
                 editable?
                 (assoc :on {:input [[:actions/set-portfolio-optimizer-exposure-band
@@ -417,13 +426,11 @@
               :data-role (str role "-value")}
        (str "± " (fmt-band-pct net-band-pct) " of gross")]]
      [:div {:class ["flex" "items-center" "gap-2" "pl-1"]}
-      ;; type="text" + inputmode="decimal", not the native number input: the
-      ;; codebase-wide convention (setup_controls.cljs number-input/percent-input)
-      ;; avoids type="number" because its controlled-value re-render fights
-      ;; mid-typing decimals, and its native spinner/scroll-wheel styling isn't
-      ;; themeable. Bounds are enforced server-side by clamp-net-band-pct, so
-      ;; dropping min/max/step (browser-native, number-input-only hints) loses
-      ;; nothing.
+      ;; type="text" + inputmode="decimal", the codebase-wide convention
+      ;; (setup_controls.cljs number-input/percent-input): type="number" fights
+      ;; mid-typing decimals on a controlled re-render and its spinner isn't
+      ;; themeable. clamp-net-band-pct enforces the bounds, so dropping
+      ;; min/max/step (number-input-only hints) loses nothing.
       [:input (cond-> {:type "text"
                        :inputmode "decimal"
                        :value (str pct-value)
@@ -449,6 +456,12 @@
                                              :net-pct p level]]})}
                     (str p "%")]))
             net-band-preset-pcts)]
+     (when pinned?
+       [:p {:class ["pl-1" "font-mono" "text-[0.625rem]" "text-warning"]
+            :data-role (str role "-pinned")}
+        (str "Band is " (fmt-band-pct net-band-pct) ", past the slider's "
+             (fmt-band-pct net-band-pct-slider-max) " ceiling — moving the pinned "
+             "slider replaces it. Type to keep a wider band.")])
      (when (and (number? net-band-pct) (pos? net-band-pct)
                 (number? gross-max) (pos? gross-max))
        [:p {:class ["pl-1" "font-mono" "text-[0.625rem]" "text-trading-muted"]
@@ -460,7 +473,7 @@
   "Both band-tightness controls, for the Fine-tune drawer: the gross band stays
   an absolute leverage half-width; the net band is a percentage of gross."
   [{:keys [gross-band net-band-pct net-band-abs-preview max-band zoom echo
-           net-editable?]}]
+           net-editable? net-band-pct-slider-max]}]
   [:div {:class ["optimizer-exposure-map__bands"]}
    (band-slider {:label "Gross band" :axis :gross :value gross-band
                  :max-band max-band
@@ -468,6 +481,7 @@
                  :role "portfolio-optimizer-exposure-gross-band"})
    (net-band-row {:net-band-pct net-band-pct
                   :net-band-abs-preview net-band-abs-preview
+                  :net-band-pct-slider-max net-band-pct-slider-max
                   :gross-max (:gross-max echo)
                   :net-editable? net-editable?
                   :level (:level zoom)})])

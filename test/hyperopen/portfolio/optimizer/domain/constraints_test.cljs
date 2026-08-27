@@ -1,6 +1,9 @@
 (ns hyperopen.portfolio.optimizer.domain.constraints-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.portfolio.optimizer.domain.constraints :as constraints]))
+            [hyperopen.portfolio.optimizer.contracts :as contracts]
+            [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
+            [hyperopen.portfolio.optimizer.domain.exposure-reachability
+             :as reachability]))
 
 (defn- sparse-cadence
   [interval-count]
@@ -443,3 +446,36 @@
     ;; ... but a 10% band widens the reachable net by pct·capacity, so the
     ;; presolve no longer rejects it outright.
     (is (= :ok (:status banded)))))
+
+;; `gross-floor-spec` returns nil the moment one member's bounds straddle zero,
+;; dropping the requested floor for the WHOLE book. No request the app can BUILD
+;; reaches that arm - contracts.migrations stamps :position-side on every
+;; universe instrument and request_builder migrates before it encodes - which is
+;; why the encoded result no longer publishes a "floor set but silently dropped"
+;; distinction for the banners to disagree about. This test pins the guarantee
+;; that makes the arm unreachable, so a migration that stopped stamping sides
+;; fails here rather than silently re-opening it.
+
+(deftest migrated-universes-always-encode-a-signed-box-test
+  (let [draft {:schema-version 1
+               :universe [{:instrument-id "perp:A" :market-type :perp}
+                          {:instrument-id "perp:B" :market-type :perp
+                           :shortable? true :position-side :short}
+                          {:instrument-id "perp:C" :market-type :perp
+                           :position-side "long"}]}
+        migrated (contracts/migrate-draft draft)
+        encoded (constraints/encode-constraints
+                 {:universe (:universe migrated)
+                  :constraints {:long-only? false
+                                :gross-leverage 2.0
+                                :gross-floor 0.5
+                                :max-asset-weight 1.0}})]
+    (is (every? #(contains? % :position-side) (:universe migrated))
+        "migrate-draft stamps a side on EVERY universe instrument")
+    (is (some? (reachability/gross-floor-signs (:lower-bounds encoded)
+                                               (:upper-bounds encoded)))
+        "so no encoded box straddles zero, and no floor is ever dropped")
+    (is (= {:min 0.5 :signs [1 -1 1]} (:gross-floor encoded))
+        "the requested floor survives encoding for a migrated universe")
+    ;; sum of max(|lower|, |upper|): the largest gross the boxes can reach.
+    (is (= 3.0 (:gross-capacity encoded)))))

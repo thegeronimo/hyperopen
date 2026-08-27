@@ -335,13 +335,17 @@
             [hyperopen.portfolio.optimizer.current-portfolio-constraint-actions-test]
             [hyperopen.portfolio.optimizer.defaults-test]
             [hyperopen.portfolio.optimizer.domain.black-litterman-test]
+            [hyperopen.portfolio.optimizer.domain.cash-collapse-test]
             [hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test]
             [hyperopen.portfolio.optimizer.domain.closed-form-test]
             [hyperopen.portfolio.optimizer.domain.constraints-sparse-off-calendar-test]
             [hyperopen.portfolio.optimizer.domain.constraints-test]
             [hyperopen.portfolio.optimizer.domain.diagnostics-test]
+            [hyperopen.portfolio.optimizer.domain.encoded-rows-test]
             [hyperopen.portfolio.optimizer.domain.equal-risk-test]
+            [hyperopen.portfolio.optimizer.domain.exposure-feasibility-test]
             [hyperopen.portfolio.optimizer.domain.exposure-policy-test]
+            [hyperopen.portfolio.optimizer.domain.exposure-reachability-test]
             [hyperopen.portfolio.optimizer.domain.frontier-overlays-test]
             [hyperopen.portfolio.optimizer.domain.frontier-test]
             [hyperopen.portfolio.optimizer.domain.history-assumption-proxy-test]
@@ -380,6 +384,7 @@
             [hyperopen.portfolio.optimizer.infrastructure.history-client-fallback-test]
             [hyperopen.portfolio.optimizer.infrastructure.history-client-test]
             [hyperopen.portfolio.optimizer.infrastructure.osqp-heap-test]
+            [hyperopen.portfolio.optimizer.infrastructure.osqp-solution-classification-test]
             [hyperopen.portfolio.optimizer.infrastructure.osqp-static-cache-test]
             [hyperopen.portfolio.optimizer.infrastructure.persistence-test]
             [hyperopen.portfolio.optimizer.infrastructure.prior-data-test]
@@ -672,6 +677,8 @@
             [hyperopen.views.portfolio.optimize.frontier-chart-model-test]
             [hyperopen.views.portfolio.optimize.frontier-chart-toolbar-test]
             [hyperopen.views.portfolio.optimize.frontier-overlay-markers-test]
+            [hyperopen.views.portfolio.optimize.infeasible-panel-remediation-test]
+            [hyperopen.views.portfolio.optimize.infeasible-panel-test]
             [hyperopen.views.portfolio.optimize.inputs-tab-test]
             [hyperopen.views.portfolio.optimize.leverage-impact-panel-test]
             [hyperopen.views.portfolio.optimize.optimization-progress-panel-test]
@@ -694,6 +701,7 @@
             [hyperopen.views.portfolio.optimize.scenario-picker-test]
             [hyperopen.views.portfolio.optimize.setup-actions-test]
             [hyperopen.views.portfolio.optimize.setup-context-test]
+            [hyperopen.views.portfolio.optimize.setup-exposure-map-test]
             [hyperopen.views.portfolio.optimize.setup-history-assumptions-io-panel-test]
             [hyperopen.views.portfolio.optimize.setup-history-assumptions-test]
             [hyperopen.views.portfolio.optimize.setup-layout-test]
@@ -1236,13 +1244,17 @@
              'hyperopen.portfolio.optimizer.current-portfolio-constraint-actions-test
              'hyperopen.portfolio.optimizer.defaults-test
              'hyperopen.portfolio.optimizer.domain.black-litterman-test
+             'hyperopen.portfolio.optimizer.domain.cash-collapse-test
              'hyperopen.portfolio.optimizer.domain.closed-form-support-bounds-test
              'hyperopen.portfolio.optimizer.domain.closed-form-test
              'hyperopen.portfolio.optimizer.domain.constraints-sparse-off-calendar-test
              'hyperopen.portfolio.optimizer.domain.constraints-test
              'hyperopen.portfolio.optimizer.domain.diagnostics-test
+             'hyperopen.portfolio.optimizer.domain.encoded-rows-test
              'hyperopen.portfolio.optimizer.domain.equal-risk-test
+             'hyperopen.portfolio.optimizer.domain.exposure-feasibility-test
              'hyperopen.portfolio.optimizer.domain.exposure-policy-test
+             'hyperopen.portfolio.optimizer.domain.exposure-reachability-test
              'hyperopen.portfolio.optimizer.domain.frontier-overlays-test
              'hyperopen.portfolio.optimizer.domain.frontier-test
              'hyperopen.portfolio.optimizer.domain.history-assumption-proxy-test
@@ -1281,6 +1293,7 @@
              'hyperopen.portfolio.optimizer.infrastructure.history-client-fallback-test
              'hyperopen.portfolio.optimizer.infrastructure.history-client-test
              'hyperopen.portfolio.optimizer.infrastructure.osqp-heap-test
+             'hyperopen.portfolio.optimizer.infrastructure.osqp-solution-classification-test
              'hyperopen.portfolio.optimizer.infrastructure.osqp-static-cache-test
              'hyperopen.portfolio.optimizer.infrastructure.persistence-test
              'hyperopen.portfolio.optimizer.infrastructure.prior-data-test
@@ -1573,6 +1586,8 @@
              'hyperopen.views.portfolio.optimize.frontier-chart-model-test
              'hyperopen.views.portfolio.optimize.frontier-chart-toolbar-test
              'hyperopen.views.portfolio.optimize.frontier-overlay-markers-test
+             'hyperopen.views.portfolio.optimize.infeasible-panel-remediation-test
+             'hyperopen.views.portfolio.optimize.infeasible-panel-test
              'hyperopen.views.portfolio.optimize.inputs-tab-test
              'hyperopen.views.portfolio.optimize.leverage-impact-panel-test
              'hyperopen.views.portfolio.optimize.optimization-progress-panel-test
@@ -1595,6 +1610,7 @@
              'hyperopen.views.portfolio.optimize.scenario-picker-test
              'hyperopen.views.portfolio.optimize.setup-actions-test
              'hyperopen.views.portfolio.optimize.setup-context-test
+             'hyperopen.views.portfolio.optimize.setup-exposure-map-test
              'hyperopen.views.portfolio.optimize.setup-history-assumptions-io-panel-test
              'hyperopen.views.portfolio.optimize.setup-history-assumptions-test
              'hyperopen.views.portfolio.optimize.setup-layout-test

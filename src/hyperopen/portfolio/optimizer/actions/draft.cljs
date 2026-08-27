@@ -495,9 +495,12 @@
 (defn set-portfolio-optimizer-constraint
   [_state constraint-key value]
   (let [constraint-key* (common/normalize-keyword-like constraint-key)
-        clear? (and (nil? value)
-                    (contains? draft-options/clearable-numeric-constraint-keys
-                               constraint-key*))
+        ;; Blanking a clearable field clears it: those rows dispatch
+        ;; :event.target/value, so an emptied input sends "" and never nil.
+        clear? (and (contains? draft-options/clearable-numeric-constraint-keys
+                               constraint-key*)
+                    (or (nil? value)
+                        (and (string? value) (str/blank? value))))
         value* (cond
                  clear?
                  nil
