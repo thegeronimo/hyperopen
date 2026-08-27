@@ -4,8 +4,20 @@
 
 (def enum-value-keys
   #{:behavior
+    ;; Presolve/solver violation payloads (domain.exposure-reachability,
+    ;; infrastructure.osqp). Each of these is a keyword the infeasible banner
+    ;; BRANCHES on -- :direction picks the whole remediation list, and
+    ;; :constraint-code picks the highlighted control. Without an entry here
+    ;; clj->worker-boundary stringifies the value on the way out of the worker
+    ;; and nothing re-keywordizes it on the way in, so every equality test
+    ;; against it is silently false and the "What you can do" block vanishes in
+    ;; production while unit tests on the raw map still pass.
+    :binding-side
     :code
+    :constraint-code
     :default-order-type
+    :direction
+    :driver
     :fee-mode
     :funding-source
     :instrument-type

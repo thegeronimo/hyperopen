@@ -10,12 +10,14 @@
   representation; it always round-trips back to the canonical keys before the request builder
   renames them for the solver, so nothing here changes solver behavior.
 
-  Honest nil-floor semantics: `gross-min` is absent by default (no leverage floor). A zero gross
-  band therefore means 'cap leverage at the target, no floor' and DISSOCs `:gross-min`; a
-  positive gross band means 'keep leverage within +/- of the target' and writes a floor. The
-  request builder keys gross-floor on `(contains? constraints :gross-min)`, so callers must write
-  the WHOLE constraints map this namespace returns (it dissocs the key) rather than assoc'ing a
-  nil value, which would wrongly register a nil floor.")
+  Honest nil-floor semantics: `gross-min` is absent by default (no leverage floor). A positive
+  gross band means 'keep leverage within +/- of the target' and writes a floor. A zero gross band
+  means 'cap leverage at the target, no floor' and DISSOCs `:gross-min` — UNLESS the policy being
+  edited already PINNED gross (gross-min = gross-max), which is the degenerate band 'hold exactly
+  this leverage' is made of (:conservative ships one); a pin survives editing and travels with
+  the target. The request builder keys gross-floor on `(contains? constraints :gross-min)`, so
+  callers must write the WHOLE constraints map this namespace returns (it dissocs the key) rather
+  than assoc'ing a nil value, which would wrongly register a nil floor.")
 
 ;; --- Axis scales (display domain for the pad) --------------------------------------------
 ;;
@@ -183,10 +185,19 @@
 
 ;; --- Reverse: exposure policy -> canonical constraints ------------------------------------
 
+(defn- pinned-gross?
+  "True when `constraints` already express gross as a PIN rather than a ceiling: a finite
+  :gross-min under a zero-width gross band (gross-min = gross-max). The explicit nil a
+  deliberate CLEAR writes is not finite, so a cleared floor never reads as a pin."
+  [constraints]
+  (and (finite-number? (:gross-min constraints))
+       (<= (:gross-band (constraints->policy constraints)) band-eps)))
+
 (defn policy->constraints
   "Return `constraints` with gross/net bounds recomputed from `policy`. Writes gross-max,
-  net-min, net-max, net-band-pct always; writes gross-min only when the gross band is positive,
-  otherwise DISSOCs it to preserve the no-floor default. Any pre-existing net min/max SPREAD
+  net-min, net-max, net-band-pct always; writes gross-min when the gross band is positive OR the
+  incoming policy already pinned gross, otherwise DISSOCs it to preserve the no-floor default
+  (see the `floored?` comment below). Any pre-existing net min/max SPREAD
   (set through the advanced raw fields) is preserved around the moved target, so the pad never
   silently collapses an advanced absolute range. Returns a full constraints map so callers
   persist it whole."
@@ -199,14 +210,26 @@
         spread (if (and (finite-number? nmin) (finite-number? nmax) (> nmax nmin))
                  (- nmax nmin)
                  0.0)
-        half (/ spread 2)]
+        half (/ spread 2)
+        ;; A positive band always writes a floor. A ZERO band keeps one only when the incoming
+        ;; policy was already PINNED (gross-min = gross-max): a pin IS the degenerate band, so
+        ;; its floor tracks the moved target exactly as a positive band's floor does. Keying the
+        ;; dissoc on band width alone (the original rule) meant :conservative — which ships
+        ;; {:gross-min 1.0 :gross-max 1.0} precisely so Minimum risk cannot answer all-cash —
+        ;; lost that floor to any pad click, drag or band edit, including a no-op one. Comparing
+        ;; the OLD floor against the NEW target instead would spare only motionless drags: a
+        ;; gesture that moves out and back kills the pin on its first sample and can never
+        ;; restore it. Clearing still works by both routes that mean it — the advanced
+        ;; :gross-min field writes nil (not finite ⇒ not a pin ⇒ dissoc'd here), and collapsing
+        ;; a POSITIVE gross band to zero on the slider is not a pin either, so it still clears.
+        floored? (or (> gb band-eps) (pinned-gross? constraints))]
     (cond-> (assoc constraints
                    :gross-max (round4 (+ gt gb))
                    :net-min (round4 (- nt half))
                    :net-max (round4 (+ nt half))
                    :net-band-pct (clamp-net-band-pct net-band-pct))
-      (> gb band-eps) (assoc :gross-min (round4 (max 0.0 (- gt gb))))
-      (<= gb band-eps) (dissoc :gross-min))))
+      floored? (assoc :gross-min (round4 (max 0.0 (- gt gb))))
+      (not floored?) (dissoc :gross-min))))
 
 ;; --- Pure transforms applied by the action handlers --------------------------------------
 
@@ -234,13 +257,22 @@
 
 ;; --- Named presets ------------------------------------------------------------------------
 ;;
-;; Each preset is a partial constraint map merged over the current constraints. All presets are
-;; ceiling-only on gross (no floor), so applying one dissocs :gross-min. Values are starting
-;; points a trader can then nudge; see the ExecPlan Decision Log for the rationale.
+;; Each preset is a partial constraint map merged over the current constraints. A preset is
+;; ceiling-only on gross UNLESS it names its own :gross-min; applying one that does not still
+;; dissocs :gross-min. Values are starting points a trader can then nudge; see the ExecPlan
+;; Decision Log for the rationale.
+;;
+;; Why :conservative alone carries a floor. Its net is pinned at 0.0, and a zero net with only a
+;; gross CEILING does not forbid w = 0 - so under the default objective (:minimum-variance) cash
+;; is feasible AND globally optimal at zero variance, and Conservative had always silently
+;; returned an all-cash book (domain.objectives' cash-collapse gate simply made that visible).
+;; The floor equals the preset's own advertised gross figure, which turns "1x gross, market
+;; neutral" into an instruction rather than a ceiling. The other three presets pin a NON-ZERO
+;; net (1.0 / 1.0 / 1.5), which already forbids cash, so they stay ceiling-only.
 
 (def presets
-  {:conservative {:gross-max 1.0 :net-min 0.0 :net-max 0.0 :net-band-pct 0.0
-                  :max-asset-weight 0.25}
+  {:conservative {:gross-max 1.0 :gross-min 1.0 :net-min 0.0 :net-max 0.0
+                  :net-band-pct 0.0 :max-asset-weight 0.25}
    :balanced     {:gross-max 2.0 :net-min 1.0 :net-max 1.0 :net-band-pct 0.0
                   :max-asset-weight 0.5}
    :high-gross   {:gross-max 3.0 :net-min 1.0 :net-max 1.0 :net-band-pct 0.0
@@ -258,20 +290,28 @@
    :custom "Custom"})
 
 (defn apply-preset
-  "Merge the named preset over `constraints`, clearing any gross floor (presets are ceiling-only)."
+  "Merge the named preset over `constraints`. A preset that names its own :gross-min applies it;
+  every other preset is ceiling-only and CLEARS any floor the trader had (a stale floor from a
+  previous policy would silently outlive the preset that replaced it)."
   [constraints preset-key]
   (if-let [partial (get presets preset-key)]
-    (dissoc (merge constraints partial) :gross-min)
+    (let [merged (merge constraints partial)]
+      (if (contains? partial :gross-min)
+        merged
+        (dissoc merged :gross-min)))
     constraints))
 
 (defn active-preset
-  "Return the preset key whose gross/net/cap values match `constraints` (with no gross floor),
-  else :custom."
+  "Return the preset key whose gross/net/cap values match `constraints`, else :custom. The gross
+  FLOOR is part of the match: a preset that ships one is only active while it is present, and a
+  ceiling-only preset is only active while there is none."
   [constraints]
   (or (some (fn [k]
-              (let [{:keys [gross-max net-min net-max net-band-pct max-asset-weight]}
+              (let [{:keys [gross-min gross-max net-min net-max net-band-pct max-asset-weight]}
                     (get presets k)]
-                (when (and (nil? (:gross-min constraints))
+                (when (and (if (some? gross-min)
+                             (approx= (:gross-min constraints) gross-min)
+                             (nil? (:gross-min constraints)))
                            (approx= (:gross-max constraints) gross-max)
                            (approx= (:net-min constraints) net-min)
                            (approx= (:net-max constraints) net-max)

@@ -476,6 +476,26 @@
                                            current-weights*
                                            target-weights)})))
 
+(defn- with-display-symbols
+  "Labels each presolve violation's :binding-capacity rows with the universe's
+  display symbol. The infeasible banner renders without the universe, so an
+  unlabelled row falls back to the instrument id's tail -- \"@142\" for a spot
+  member, a raw address for a vault. `human-warning-label` drops a label that is
+  just the id again, leaving the panel's own fallback in charge."
+  [labels plan]
+  (letfn [(label-row [row]
+            (if-let [label (human-warning-label (:instrument-id row)
+                                                (get labels (:instrument-id row)))]
+              (assoc row :display-symbol label)
+              row))
+          (label-violation [violation]
+            (cond-> violation
+              (sequential? (:binding-capacity violation))
+              (update :binding-capacity #(mapv label-row %))))]
+    (cond-> plan
+      (sequential? (get-in plan [:details :violations]))
+      (update-in [:details :violations] #(mapv label-violation %)))))
+
 (defn infeasible-payload
   [request risk-result return-result solver-plan]
   (let [labels-by-instrument* (labels-by-instrument
@@ -489,9 +509,9 @@
                             (:warnings solver-plan)
                             (:warnings risk-result)
                             (:warnings return-result))))]
-    (assoc solver-plan
-           :scenario-id (:scenario-id request)
-           :warnings warnings*)))
+    (-> (with-display-symbols labels-by-instrument* solver-plan)
+        (assoc :scenario-id (:scenario-id request)
+               :warnings warnings*))))
 
 (defn result-from-solver-results
   [request

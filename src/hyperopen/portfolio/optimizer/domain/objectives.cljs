@@ -1,6 +1,8 @@
 (ns hyperopen.portfolio.optimizer.domain.objectives
   (:require [hyperopen.portfolio.optimizer.coercion :as coercion]
+            [hyperopen.portfolio.optimizer.domain.cash-collapse :as cash-collapse]
             [hyperopen.portfolio.optimizer.domain.closed-form :as closed-form]
+            [hyperopen.portfolio.optimizer.domain.encoded-rows :as rows]
             [hyperopen.portfolio.optimizer.domain.equal-risk-plan :as equal-risk-plan]
             [hyperopen.portfolio.optimizer.domain.inverse-volatility-plan
              :as inverse-volatility-plan]))
@@ -38,10 +40,6 @@
 (def default-return-tilts
   (log-spaced-return-tilts default-frontier-point-count))
 
-(defn- ones
-  [n]
-  (vec (repeat n 1)))
-
 (def ^:private finite-number? coercion/finite-number?)
 
 (defn- linear-vector
@@ -60,110 +58,6 @@
                  (* (- end start)
                     (/ idx (dec point-count*)))))
             (range point-count*)))))
-
-(defn- equality-constraints
-  [encoded-constraints n]
-  (let [net-exposure (:net-exposure encoded-constraints)
-        net-target (:net-target encoded-constraints)]
-    (cond
-      (finite-number? net-target)
-      [{:code :net-exposure
-        :coefficients (ones n)
-        :target net-target}]
-
-      ;; An active percentage net band replaces the exact-net equality with the
-      ;; coupled band inequalities below (q = 0 keeps the equality unchanged).
-      (some? (:net-band-spec encoded-constraints))
-      []
-
-      (and (map? net-exposure)
-           (= (:min net-exposure) (:max net-exposure))
-           (finite-number? (:min net-exposure)))
-      [{:code :net-exposure
-        :coefficients (ones n)
-        :target (:min net-exposure)}]
-
-      :else [])))
-
-(defn- net-inequalities
-  [encoded-constraints n]
-  (let [net-exposure (:net-exposure encoded-constraints)]
-    (if (and (map? net-exposure)
-             (nil? (:net-band-spec encoded-constraints))
-             (not= (:min net-exposure) (:max net-exposure)))
-      (vec (concat
-            (when (finite-number? (:min net-exposure))
-              [{:code :net-exposure
-                :coefficients (ones n)
-                :lower (:min net-exposure)}])
-            (when (finite-number? (:max net-exposure))
-              [{:code :net-exposure
-                :coefficients (ones n)
-                :upper (:max net-exposure)}])))
-      [])))
-
-(defn- net-band-inequalities
-  "The percentage-of-gross net band as signed-linear rows in weight space:
-     net(w) − q·gross(w) ≤ net-max   →  sum((1 − q·sign_i)·w_i) ≤ net-max
-     net(w) + q·gross(w) ≥ net-min   →  sum((1 + q·sign_i)·w_i) ≥ net-min
-   Realized gross rides the same single-signed representation as the gross
-   floor (sum(sign_i·w_i) = sum|w_i| on the fixed-sign box), so the tolerance
-   scales with the portfolio the solver actually picks — never the gross
-   target. Empty when no band spec is encoded."
-  [encoded-constraints]
-  (let [{:keys [pct signs] :as spec} (:net-band-spec encoded-constraints)]
-    (if-not spec
-      []
-      (vec (concat
-            (when (finite-number? (:max spec))
-              [{:code :net-band
-                :coefficients (mapv #(- 1 (* pct %)) signs)
-                :upper (:max spec)}])
-            (when (finite-number? (:min spec))
-              [{:code :net-band
-                :coefficients (mapv #(+ 1 (* pct %)) signs)
-                :lower (:min spec)}]))))))
-
-(defn- target-return-inequality
-  [expected-returns objective]
-  (when (and (= :target-return (:kind objective))
-             (finite-number? (:target-return objective)))
-    {:code :target-return
-     :coefficients expected-returns
-     :lower (:target-return objective)}))
-
-(defn- gross-floor-inequality
-  "A gross-leverage FLOOR as a signed-linear inequality in weight space:
-   sum(sign_i * w_i) >= G. Because each asset is single-signed (its bounds keep
-   w_i on one side of zero), sum(sign_i * w_i) equals true gross sum|w_i|, so this
-   is a convex linear lower bound. It rides the generic :inequalities channel
-   (NOT the L1 split-variable :gross-exposure channel, where a >= bound is
-   unenforceable because both split legs could inflate). nil when no floor is set
-   or the universe is not single-signed (see constraints/gross-floor-spec)."
-  [encoded-constraints]
-  (let [floor (:gross-floor encoded-constraints)]
-    (when (and (map? floor)
-               (finite-number? (:min floor))
-               (sequential? (:signs floor)))
-      {:code :gross-floor
-       :coefficients (:signs floor)
-       :lower (:min floor)})))
-
-(defn- l1-constraints
-  [encoded-constraints]
-  (let [max-gross (get-in encoded-constraints [:gross-exposure :max])
-        max-turnover (:max-turnover encoded-constraints)]
-    (cond-> []
-      (finite-number? max-gross)
-      (conj {:code :gross-exposure
-             :max max-gross
-             :requires-split-variables? true})
-
-      (finite-number? max-turnover)
-      (conj {:code :turnover
-             :max (* 2 max-turnover)
-             :current-weights (:current-weights encoded-constraints)
-             :requires-split-variables? true}))))
 
 (defn- greedy-return
   [expected-returns lower-bounds upper-bounds target-net direction]
@@ -298,20 +192,20 @@
            encoded-constraints
            return-tilt]}]
   (let [n (count instrument-ids)
-        target-return (target-return-inequality expected-returns objective)]
+        target-return (rows/target-return-inequality expected-returns objective)]
     {:kind :quadratic-program
      :objective-kind (:kind objective)
      :instrument-ids instrument-ids
      :quadratic covariance
      :linear (linear-vector expected-returns return-tilt)
      :return-tilt (or return-tilt 0)
-     :equalities (equality-constraints encoded-constraints n)
-     :inequalities (vec (concat (net-inequalities encoded-constraints n)
-                                (net-band-inequalities encoded-constraints)
-                                (when-let [floor (gross-floor-inequality encoded-constraints)]
+     :equalities (rows/equality-constraints encoded-constraints n)
+     :inequalities (vec (concat (rows/net-inequalities encoded-constraints n)
+                                (rows/net-band-inequalities encoded-constraints)
+                                (when-let [floor (rows/gross-floor-inequality encoded-constraints)]
                                   [floor])
                                 (when target-return [target-return])))
-     :l1-constraints (l1-constraints encoded-constraints)
+     :l1-constraints (rows/l1-constraints encoded-constraints)
      :lower-bounds (:lower-bounds encoded-constraints)
      :upper-bounds (:upper-bounds encoded-constraints)
      :locked-weights (:locked-weights encoded-constraints)
@@ -329,7 +223,7 @@
   [{:keys [objective instrument-ids expected-returns covariance encoded-constraints]}
    eligibility]
   (let [n (count instrument-ids)
-        target-return (target-return-inequality expected-returns objective)]
+        target-return (rows/target-return-inequality expected-returns objective)]
     {:kind :closed-form-portfolio
      :objective-kind (:kind objective)
      :objective objective
@@ -341,13 +235,13 @@
      :return-tilt 0
      ;; The QP-equivalent constraint encoding lets existing solver-result
      ;; validation in target selection check closed-form weights unchanged.
-     :equalities (equality-constraints encoded-constraints n)
-     :inequalities (vec (concat (net-inequalities encoded-constraints n)
-                                (net-band-inequalities encoded-constraints)
-                                (when-let [floor (gross-floor-inequality encoded-constraints)]
+     :equalities (rows/equality-constraints encoded-constraints n)
+     :inequalities (vec (concat (rows/net-inequalities encoded-constraints n)
+                                (rows/net-band-inequalities encoded-constraints)
+                                (when-let [floor (rows/gross-floor-inequality encoded-constraints)]
                                   [floor])
                                 (when target-return [target-return])))
-     :l1-constraints (l1-constraints encoded-constraints)
+     :l1-constraints (rows/l1-constraints encoded-constraints)
      :lower-bounds (unbounded-bound-vector (:lower-bounds encoded-constraints)
                                            n
                                            js/Number.NEGATIVE_INFINITY)
@@ -378,6 +272,42 @@
          :reason :target-return-above-feasible-maximum
          :details {:target-return (:target-return objective)
                    :max-return max-return}}))))
+(def net-row-objective-kinds
+  "Objective kinds whose planned problems actually CARRY the encoded net rows.
+
+  Read off the plan builders, not assumed: `direct-problem` and
+  `closed-form-problem` - and therefore `frontier-plan`,
+  `target-return-frontier-plan`, `build-display-frontier-plan` and every
+  closed-form fast path (`closed-form/closed-form-objective-kinds` is this same
+  set) - concat `net-inequalities` + `net-band-inequalities` into :inequalities
+  and `equality-constraints` into :equalities.
+
+  The omissions are deliberate: equal-risk-plan/subproblem-template says
+  \"Stored net rows are deliberately omitted for Equal Risk\", its plan-problem
+  builds :inequalities from the gross floor ALONE, and inverse-volatility-plan
+  reuses that template. request_builder never strips the net keys and
+  actions.exposure/preserve-net-policy deliberately KEEPS them, so the stored
+  band is always present and always ignored - which is why a net-derived
+  presolve code must not speak for those two."
+  #{:minimum-variance :target-return :max-sharpe :target-volatility})
+
+(defn- conditional-presolve-plan
+  "Promotes `encode-constraints`' :conditional-violations to a presolve rejection
+  for the objective kinds that encode net rows.
+
+  encode-constraints is objective-agnostic, so the joint reachability check
+  cannot set :status there: it is derived from NET constraints, which Equal Risk
+  and Risk-weighted sizing never encode. As a status it made the DEFAULT draft
+  net pin (:net-min 1.0 / :net-max 1.0, defaults.cljs) plus any gross band
+  dragged on the pad reject both objectives on requests they solve correctly - a
+  false positive, the one failure mode this presolve may never have."
+  [{:keys [objective encoded-constraints]}]
+  (let [conditional (:conditional-violations encoded-constraints)]
+    (when (and (seq conditional)
+               (contains? net-row-objective-kinds (:kind objective)))
+      {:status :infeasible
+       :reason :constraint-presolve
+       :details {:violations (vec conditional)}})))
 
 (defn- frontier-return-tilts
   [objective return-tilts]
@@ -475,15 +405,31 @@
 ;; one falls back to the QP/frontier plan below. See domain.closed-form.
 (defn build-solver-plan
   [{:keys [objective encoded-constraints] :as opts}]
-  (let [target-return-failure (target-return-infeasible opts)]
+  (let [target-return-failure (target-return-infeasible opts)
+        conditional-failure (conditional-presolve-plan opts)
+        cash-collapse-failure (cash-collapse/collapse-to-cash-plan opts)]
     (cond
       (= :infeasible (:status encoded-constraints))
       {:status :infeasible
        :reason :constraint-presolve
        :details {:violations (:violations encoded-constraints)}}
 
+      ;; Same :reason as the hard branch on purpose: to every consumer this IS a
+      ;; constraint presolve rejection. Only WHICH objectives it applies to
+      ;; differs, and that is decided here rather than in encode-constraints.
+      conditional-failure
+      conditional-failure
+
       target-return-failure
       target-return-failure
+
+      ;; BEFORE closed-form-plan on purpose: a zero net pin still satisfies
+      ;; core-eligibility (net-target 0 is not nil), and the GMV formula then
+      ;; returns (0/a)·u = the all-cash vector, which passes post-validation
+      ;; against constraints that are all ceilings. The fast path would answer
+      ;; the degenerate problem just as wrongly as the QP.
+      cash-collapse-failure
+      cash-collapse-failure
 
       :else
       (or

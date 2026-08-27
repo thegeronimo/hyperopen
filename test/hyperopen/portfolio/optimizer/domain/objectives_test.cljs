@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.domain.objectives-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [deftest is]]
             [hyperopen.portfolio.optimizer.domain.closed-form :as closed-form]
             [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
             [hyperopen.portfolio.optimizer.domain.objectives :as objectives]))
@@ -198,12 +199,18 @@
     (is (= (:violations encoded) (get-in plan [:details :violations])))))
 
 (deftest solver-plan-encodes-turnover-as-l1-constraint-with-current-weights-test
+  ;; The net pin is what keeps this a solvable request at all: a signed Minimum
+  ;; risk book whose only controls are ceilings has an all-cash optimum and is
+  ;; now rejected as :objective-collapses-to-cash before any problem is built.
+  ;; A 0.4 current book under a 0.25 turnover cap can still reach cash (the row
+  ;; is sum|w - w0| <= 2*max-turnover), so turnover alone would not save it.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
                   :current-weights {"A" 0.3
                                     "B" -0.1}
                   :constraints {:long-only? false
+                                :net-exposure {:min 1.0 :max 1.0}
                                 :max-turnover 0.25}})
         plan (objectives/build-solver-plan
               {:objective {:kind :minimum-variance}
@@ -361,12 +368,15 @@
     (is (= :quadratic-program (get-in plan [:problems 0 :kind])))))
 
 (deftest solver-plan-omits-turnover-l1-constraint-when-cap-disabled-test
+  ;; Net pin as above: without it this signed Minimum risk request collapses to
+  ;; cash and never reaches problem building.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
                   :current-weights {"A" 0.3
                                     "B" -0.1}
                   :constraints {:long-only? false
+                                :net-exposure {:min 1.0 :max 1.0}
                                 :max-turnover nil}})
         plan (objectives/build-solver-plan
               {:objective {:kind :minimum-variance}
@@ -439,96 +449,80 @@
     (is (nil? (get-in plan [:problems 0 :linear])))
     ;; Equal-risk never builds a display-frontier plan (no sweep to draw).
     (is (nil? (objectives/build-display-frontier-plan opts)))))
+;; --- the joint reachability code is objective-CONDITIONAL -------------------
+;;
+;; encode-constraints is objective-agnostic, so it publishes the joint net/gross
+;; reachability code on :conditional-violations and leaves :status alone. The
+;; code is derived from NET rows, and equal-risk-plan/subproblem-template omits
+;; those deliberately ("Stored net rows are deliberately omitted for Equal Risk")
+;; with inverse-volatility-plan reusing the same template. Setting :status from
+;; it rejected both objectives on the DEFAULT draft net pin plus any gross band
+;; dragged on the exposure pad - requests they solve correctly.
 
-(defn- net-band-encoded
-  [{:keys [pct net-min net-max]}]
+(def ^:private net-pin-ids
+  ["perp:L0" "perp:L1" "perp:L2" "perp:L3" "perp:L4" "perp:L5"])
+
+(def ^:private net-pin-covariance
+  (mapv (fn [row]
+          (mapv (fn [col]
+                  (if (= row col)
+                    (+ 0.04 (* 0.005 row))
+                    0.002))
+                (range 6)))
+        (range 6)))
+
+(def ^:private net-pin-encoded
+  ;; :net-min 1.0 / :net-max 1.0 is what defaults.cljs ships; the 1.5-2.5 gross
+  ;; band is one pad drag. On an all-long book gross = net, so a 1.5x floor
+  ;; against a 1.0x net pin genuinely is unreachable - for the objectives that
+  ;; encode the net rows.
   (constraints/encode-constraints
-   {:universe [{:instrument-id "A" :market-type :perp :position-side :long}
-               {:instrument-id "B" :market-type :perp :position-side :short}]
+   {:universe (mapv (fn [idx]
+                      {:instrument-id (str "perp:L" idx)
+                       :market-type :perp
+                       :shortable? true
+                       :position-side :long})
+                    (range 6))
     :constraints {:long-only? false
-                  :gross-leverage 20.0
-                  :net-band-pct pct
-                  :net-exposure {:min net-min :max net-max}
-                  :max-asset-weight 20.0}}))
+                  :include-spot? false
+                  :max-asset-weight 0.5
+                  :gross-floor 1.5
+                  :gross-leverage 2.5
+                  :net-exposure {:min 1.0 :max 1.0}
+                  :net-band-pct 0.0}}))
 
-(defn- net-band-problem
-  [encoded]
-  (get-in (objectives/build-solver-plan
-           {:objective {:kind :minimum-variance}
-            :instrument-ids ["A" "B"]
-            :expected-returns [0.1 0.1]
-            :covariance [[1 0] [0 1]]
-            :encoded-constraints encoded})
-          [:problems 0]))
+(defn- net-pin-plan
+  [objective-kind]
+  (objectives/build-solver-plan
+   {:objective {:kind objective-kind}
+    :instrument-ids net-pin-ids
+    :expected-returns [0.1 0.12 0.09 0.15 0.11 0.13]
+    :covariance net-pin-covariance
+    :encoded-constraints net-pin-encoded}))
 
-(defn- row-satisfied?
-  [{:keys [coefficients lower upper]} weights]
-  (let [v (reduce + 0 (map * coefficients weights))]
-    (and (or (nil? lower) (>= v (- lower 1e-9)))
-         (or (nil? upper) (<= v (+ upper 1e-9))))))
+(deftest joint-reachability-rides-a-key-that-never-sets-encoded-status-test
+  (is (= :ok (:status net-pin-encoded)))
+  (is (= [] (:violations net-pin-encoded)))
+  (is (= [:net-unreachable-given-sides]
+         (mapv :code (:conditional-violations net-pin-encoded)))))
 
-(defn- net-band-rows-allow?
-  [problem weights]
-  (every? #(row-satisfied? % weights)
-          (filter #(= :net-band (:code %)) (:inequalities problem))))
+(deftest joint-reachability-leaves-the-net-ignoring-objectives-alone-test
+  (let [equal-risk (net-pin-plan :equal-risk)
+        inverse-vol (net-pin-plan :inverse-volatility)]
+    (is (= :ok (:status equal-risk)))
+    (is (= :sequential-equal-risk (:strategy equal-risk)))
+    (is (= :ok (:status inverse-vol)))
+    (is (= :inverse-volatility (:strategy inverse-vol)))))
 
-(deftest net-band-pct-replaces-net-equality-with-coupled-rows-test
-  (let [problem (net-band-problem (net-band-encoded {:pct 0.05 :net-min 0.0 :net-max 0.0}))
-        band-rows (filterv #(= :net-band (:code %)) (:inequalities problem))]
-    (is (empty? (:equalities problem))
-        "an active percentage band must not pin net to the exact target")
-    (is (= 2 (count band-rows)) "one upper and one lower coupled row")
-    ;; signs [1 -1], q = 0.05: upper row (1−q·s) = [0.95 1.05] ≤ 0;
-    ;; lower row (1+q·s) = [1.05 0.95] ≥ 0.
-    (is (= [[0.95 1.05] [1.05 0.95]] (mapv :coefficients band-rows)))))
-
-(deftest net-band-pct-scales-with-realized-gross-not-the-target-test
-  ;; Zero net target, 5% band. The SAME rows must allow ±0.75x net at 15x
-  ;; realized gross but only ±0.10x at 2x realized gross.
-  (let [problem (net-band-problem (net-band-encoded {:pct 0.05 :net-min 0.0 :net-max 0.0}))]
-    (is (net-band-rows-allow? problem [7.875 -7.125])
-        "gross 15, net +0.75 = 5% of realized gross: allowed")
-    (is (not (net-band-rows-allow? problem [7.95 -7.05]))
-        "gross 15, net +0.90 > 5% of realized gross: rejected")
-    (is (net-band-rows-allow? problem [1.05 -0.95])
-        "gross 2, net +0.10 = 5% of realized gross: allowed")
-    (is (not (net-band-rows-allow? problem [1.125 -0.875]))
-        "gross 2, net +0.25 would need a fixed 0.75x band — the tolerance must
-         scale DOWN with the smaller realized gross")
-    (is (net-band-rows-allow? problem [7.875 -7.125]))
-    (is (not (net-band-rows-allow? problem [1.375 -0.625]))
-        "two portfolios in one solve each get their own permitted deviation")))
-
-(deftest net-band-pct-zero-keeps-the-exact-net-equality-test
-  (let [problem (net-band-problem (net-band-encoded {:pct 0.0 :net-min 1.0 :net-max 1.0}))]
-    (is (= [{:code :net-exposure :coefficients [1 1] :target 1.0}]
-           (:equalities problem))
-        "0% reproduces the previous absolute 0.00x band (net equality)")
-    (is (not-any? #(= :net-band (:code %)) (:inequalities problem)))))
-
-(deftest net-band-pct-nonzero-target-shifts-the-band-test
-  ;; Net target +1.00x, 10% band, realized gross 10 ⇒ permitted net 0.00–2.00x.
-  (let [problem (net-band-problem (net-band-encoded {:pct 0.1 :net-min 1.0 :net-max 1.0}))]
-    (is (net-band-rows-allow? problem [6.0 -4.0]) "gross 10, net +2.0: upper edge")
-    (is (net-band-rows-allow? problem [5.0 -5.0]) "gross 10, net 0.0: lower edge")
-    (is (not (net-band-rows-allow? problem [6.1 -3.9])) "net +2.2 is out")
-    (is (not (net-band-rows-allow? problem [4.9 -5.1])) "net −0.2 is out")))
-
-(deftest net-band-pct-full-band-adds-no-restriction-test
-  ;; q = 100% with a zero target: |net| ≤ gross is structurally true for any
-  ;; single-signed portfolio, so every such portfolio satisfies the rows.
-  (let [problem (net-band-problem (net-band-encoded {:pct 1.0 :net-min 0.0 :net-max 0.0}))]
-    (is (net-band-rows-allow? problem [10.0 0.0]) "fully long (net/gross +100%)")
-    (is (net-band-rows-allow? problem [0.0 -10.0]) "fully short (net/gross −100%)")
-    (is (net-band-rows-allow? problem [3.0 -7.0]))))
-
-(deftest net-band-pct-disqualifies-closed-form-test
-  (let [encoded (net-band-encoded {:pct 0.05 :net-min 1.0 :net-max 1.0})
-        plan (objectives/build-solver-plan
-              {:objective {:kind :minimum-variance}
-               :instrument-ids ["A" "B"]
-               :expected-returns [0.1 0.1]
-               :covariance [[1 0] [0 1]]
-               :encoded-constraints encoded})]
-    (is (= :single-qp (:strategy plan))
-        "the coupled band rows cannot ride the closed-form equality core")))
+(deftest joint-reachability-still-blocks-every-net-encoding-objective-test
+  (is (= #{:minimum-variance :target-return :max-sharpe :target-volatility}
+         objectives/net-row-objective-kinds)
+      "the promoted set is exactly the kinds whose problems carry net rows")
+  (doseq [kind objectives/net-row-objective-kinds]
+    (let [plan (net-pin-plan kind)
+          label (str kind)]
+      (is (= :infeasible (:status plan)) label)
+      (is (= :constraint-presolve (:reason plan)) label)
+      (is (= [:net-unreachable-given-sides]
+             (mapv :code (get-in plan [:details :violations])))
+          label))))

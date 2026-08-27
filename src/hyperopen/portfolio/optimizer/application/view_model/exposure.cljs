@@ -61,12 +61,14 @@
        :on-policy? (and gross-ok? net-ok?)})))
 
 (defn- gross-highlighted?
+  ;; `some` calls the set as a predicate, so an absent :highlighted-controls
+  ;; would invoke nil rather than read as "nothing highlighted".
   [highlighted-controls]
-  (boolean (some highlighted-controls [:gross-min :gross-max])))
+  (boolean (some (or highlighted-controls #{}) [:gross-min :gross-max])))
 
 (defn- net-highlighted?
   [highlighted-controls]
-  (boolean (some highlighted-controls [:net-min :net-max])))
+  (boolean (some (or highlighted-controls #{}) [:net-min :net-max])))
 
 (defn- net-direction
   [net-target]

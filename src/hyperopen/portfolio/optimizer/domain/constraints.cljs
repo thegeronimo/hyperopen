@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.domain.constraints
   (:require [hyperopen.portfolio.optimizer.coercion :as coercion]
             [hyperopen.portfolio.optimizer.domain.exposure-policy :as exposure-policy]
+            [hyperopen.portfolio.optimizer.domain.exposure-reachability :as reachability]
             [hyperopen.portfolio.optimizer.domain.history-series :as history-series]))
 
 (def default-max-asset-weight
@@ -380,96 +381,31 @@
                   :weight weight})))
        vec))
 
-(defn- gross-floor-signs
-  "Per-asset gross sign (+1 long-side, -1 short-side) when every encoded bound
-   pair is single-signed. Returns nil when any asset straddles zero (lower < 0
-   and upper > 0): on a two-sided bound, gross = sum |w_i| is NOT a linear
-   function of the weights, so a gross floor would be non-convex/unsound and must
-   be dropped. Seed-from-current pins every asset's :position-side, so every
-   bound is single-signed and this returns a full sign vector."
-  [lower-bounds upper-bounds]
-  (reduce (fn [signs [lower upper]]
-            (cond
-              (and (number? lower) (>= lower 0)) (conj signs 1)
-              (and (number? upper) (<= upper 0)) (conj signs -1)
-              :else (reduced nil)))
-          []
-          (map vector lower-bounds upper-bounds)))
-
-(defn- gross-floor-spec
-  "Encoded gross floor {:min G :signs [...]} when a finite :gross-floor is
-   requested AND every asset is single-signed; nil otherwise (floor dropped). The
-   signed coefficients turn the floor into the convex linear inequality
-   sum(sign_i * w_i) >= G, which equals true gross only on the fixed-sign region
-   each asset's bounds carve out."
-  [constraints signs]
-  (let [floor (:gross-floor constraints)]
-    (when (and (finite-number? floor) signs)
-      {:min floor :signs signs})))
-
-(defn- net-band-pct-value
-  "The active net-band percentage (decimal fraction of realized gross), or nil
-   when unset/zero. Values above 1 add nothing beyond |net| ≤ gross; cap there."
-  [constraints]
-  (let [pct (:net-band-pct constraints)]
-    (when (and (finite-number? pct) (pos? pct))
-      (min pct 1.0))))
-
-(defn- net-band-spec
-  "Encoded percentage net band {:pct q :signs [...] :min nmin :max nmax}: the
-   solver permits net-min − q·gross(w) ≤ net(w) ≤ net-max + q·gross(w) using the
-   SAME signed-linear gross representation as the gross floor (realized gross,
-   never the gross target). Requires every asset single-signed — with mixed-sign
-   bounds gross is not linear and the coupled rows would be unsound — and a
-   finite net bound to widen. nil (band not applied; the exact net bounds stay
-   in force, which is strictly conservative) otherwise."
-  [constraints signs]
-  (let [pct (net-band-pct-value constraints)
-        net-exposure (:net-exposure constraints)
-        nmin (:min net-exposure)
-        nmax (:max net-exposure)]
-    (when (and pct
-               signs
-               (not (:long-only? constraints))
-               (or (finite-number? nmin) (finite-number? nmax)))
-      (cond-> {:pct pct :signs signs}
-        (finite-number? nmin) (assoc :min nmin)
-        (finite-number? nmax) (assoc :max nmax)))))
-
-(defn- net-band-warnings
-  "Explains a requested-but-unapplied percentage net band: with mixed-sign
-   bounds the tolerance cannot be encoded, so the solver holds the exact net
-   target instead (never a violation of the band, but tighter than asked)."
-  [constraints signs]
-  (if (and (net-band-pct-value constraints)
-           (nil? signs)
-           (not (:long-only? constraints)))
-    [{:code :net-band-requires-fixed-sides
-      :message (str "The net band (% of gross) needs every asset assigned to a "
-                    "long or short side; holding the exact net target instead.")}]
-    []))
-
-(defn- gross-capacity
-  "Largest gross the box bounds can physically reach: sum of per-asset
-   max(|lower|, |upper|)."
-  [lower-bounds upper-bounds]
-  (reduce + 0
-          (map (fn [lower upper]
-                 (max (if (number? lower) (js/Math.abs lower) 0)
-                      (if (number? upper) (js/Math.abs upper) 0)))
-               lower-bounds
-               upper-bounds)))
-
 (defn- violations
-  [lower-bounds upper-bounds bounds constraints floor-spec band-spec]
+  "{:hard [...] :conditional [...]}.
+
+  :hard are the SINGLE-constraint codes. Every one of them is unconditionally
+  true of the request, so they set :status :infeasible for every objective.
+
+  :conditional carries the joint net/gross reachability code. It is derived from
+  the NET rows, and two objectives deliberately never encode net rows at all
+  (equal_risk_plan/subproblem-template and inverse_volatility_plan build their
+  region from the signed-gross target and the box only). Setting :status from it
+  therefore blocked Equal Risk and Risk-weighted sizing on the DEFAULT draft net
+  pin plus any gross band - a false positive on a request those objectives solve
+  fine. domain.objectives promotes it to :infeasible only for the objective
+  kinds that actually emit net rows; nothing else may read it as a status."
+  [{:keys [ids lower-bounds upper-bounds bounds constraints floor-spec band-spec
+           signs]}]
   (let [target-net* (target-net constraints)
         net-limits (finite-net-limits constraints)
+        capacity (reachability/gross-capacity lower-bounds upper-bounds)
         ;; A percentage net band widens the reachable net range by pct·gross;
         ;; feasibility checks use the widest case (pct·capacity) so a band that
         ;; makes the target reachable is not flagged infeasible, and the minimum
         ;; gross the target forces shrinks to |target|/(1+pct).
         band-pct (or (:pct band-spec) 0.0)
-        band-slack (* band-pct (gross-capacity lower-bounds upper-bounds))
+        band-slack (* band-pct capacity)
         net-min (when (finite-number? (:min net-limits))
                   (- (:min net-limits) band-slack))
         net-max (when (finite-number? (:max net-limits))
@@ -480,65 +416,98 @@
         min-required-gross (when-let [g (minimum-required-gross net-limits)]
                              (/ g (+ 1.0 band-pct)))
         locked-weights (vec (keep :locked-validation bounds))
-        locked-gross* (locked-gross locked-weights)]
-    (vec (concat
-          (invalid-cap-violations constraints)
-          (when (and (number? target-net*)
-                     (> sum-lower target-net*))
-            [{:code :sum-lower-above-target
-              :sum-lower sum-lower
-              :target-net target-net*}])
-          (when (and (number? target-net*)
-                     (< sum-upper target-net*))
-            [{:code :sum-upper-below-target
-              :sum-upper sum-upper
-              :target-net target-net*}])
-          (when (and (not (number? target-net*))
-                     (finite-number? net-max)
-                     (> sum-lower net-max))
-            [{:code :sum-lower-above-net-max
-              :sum-lower sum-lower
-              :net-max net-max}])
-          (when (and (not (number? target-net*))
-                     (finite-number? net-min)
-                     (< sum-upper net-min))
-            [{:code :sum-upper-below-net-min
-              :sum-upper sum-upper
-              :net-min net-min}])
-          (when (and (contains? constraints :gross-leverage)
-                     (not (finite-number? gross-max)))
-            [{:code :invalid-gross-max
-              :gross-max gross-max}])
-          (when (and (finite-number? gross-max)
-                     (neg? gross-max))
-            [{:code :gross-max-negative
-              :gross-max gross-max}])
-          (when (and (finite-number? gross-max)
-                     (finite-number? min-required-gross)
-                     (< gross-max min-required-gross))
-            [{:code :gross-below-required-net
-              :gross-max gross-max
-              :minimum-required-gross min-required-gross
-              :net-min net-min
-              :net-max net-max}])
-          (when (and (finite-number? gross-max)
-                     (> locked-gross* gross-max))
-            [{:code :locked-gross-above-gross-max
-              :locked-gross locked-gross*
-              :gross-max gross-max}])
-          (when (and floor-spec
-                     (finite-number? gross-max)
-                     (> (:min floor-spec) gross-max))
-            [{:code :gross-floor-above-gross-max
-              :gross-floor (:min floor-spec)
-              :gross-max gross-max}])
-          (when (and floor-spec
-                     (> (:min floor-spec)
-                        (gross-capacity lower-bounds upper-bounds)))
-            [{:code :gross-floor-exceeds-capacity
-              :gross-floor (:min floor-spec)
-              :gross-capacity (gross-capacity lower-bounds upper-bounds)}])
-          (locked-short-violations locked-weights)))))
+        locked-gross* (locked-gross locked-weights)
+        base (vec (concat
+                  (invalid-cap-violations constraints)
+                  (when (and (number? target-net*)
+                             (> sum-lower target-net*))
+                    [{:code :sum-lower-above-target
+                      :sum-lower sum-lower
+                      :target-net target-net*}])
+                  (when (and (number? target-net*)
+                             (< sum-upper target-net*))
+                    [{:code :sum-upper-below-target
+                      :sum-upper sum-upper
+                      :target-net target-net*}])
+                  (when (and (not (number? target-net*))
+                             (finite-number? net-max)
+                             (> sum-lower net-max))
+                    [{:code :sum-lower-above-net-max
+                      :sum-lower sum-lower
+                      :net-max net-max}])
+                  (when (and (not (number? target-net*))
+                             (finite-number? net-min)
+                             (< sum-upper net-min))
+                    [{:code :sum-upper-below-net-min
+                      :sum-upper sum-upper
+                      :net-min net-min}])
+                  (when (and (contains? constraints :gross-leverage)
+                             (not (finite-number? gross-max)))
+                    [{:code :invalid-gross-max
+                      :gross-max gross-max}])
+                  (when (and (finite-number? gross-max)
+                             (neg? gross-max))
+                    [{:code :gross-max-negative
+                      :gross-max gross-max}])
+                  (when (and (finite-number? gross-max)
+                             (finite-number? min-required-gross)
+                             (< gross-max min-required-gross))
+                    [{:code :gross-below-required-net
+                      :gross-max gross-max
+                      :minimum-required-gross min-required-gross
+                      :net-min net-min
+                      :net-max net-max}])
+                  (when (and (finite-number? gross-max)
+                             (> locked-gross* gross-max))
+                    [{:code :locked-gross-above-gross-max
+                      :locked-gross locked-gross*
+                      :gross-max gross-max}])
+                  (when (and floor-spec
+                             (finite-number? gross-max)
+                             (> (:min floor-spec) gross-max))
+                    [{:code :gross-floor-above-gross-max
+                      :gross-floor (:min floor-spec)
+                      :gross-max gross-max}])
+                  (when (and floor-spec
+                             (> (:min floor-spec) capacity))
+                    [{:code :gross-floor-exceeds-capacity
+                      :gross-floor (:min floor-spec)
+                      :gross-capacity capacity}])
+                  (locked-short-violations locked-weights)))]
+    ;; Every code above is a coarser SINGLE-constraint test, and each one
+    ;; provably co-fires with the joint net/gross reachability check below (a
+    ;; box sum outside the net band is already outside the reachable net
+    ;; interval; an empty gross window makes that interval meaningless). Emitting
+    ;; both would double-report one problem and break callers that assert the
+    ;; whole vector, so the joint check speaks only when nothing else does.
+    {:hard base
+     :conditional (if (seq base)
+                    []
+                    (reachability/violations
+                     {:instrument-ids ids
+                      :lower-bounds lower-bounds
+                      :upper-bounds upper-bounds
+                      :net-limits net-limits
+                      :net-band-pct band-pct
+                      ;; The ENCODED floor, never (:gross-floor constraints): a
+                      ;; requested floor is dropped outright for a universe with
+                      ;; a straddling asset and never reaches the solver, so
+                      ;; assuming it holds would manufacture false infeasibles
+                      ;; on two-sided books.
+                      :gross-floor (:min floor-spec)
+                      :gross-max gross-max
+                      :gross-capacity capacity
+                      ;; Remediation steering only (see reachability/violations):
+                      ;; which controls a panel can offer without shipping a
+                      ;; button that provably cannot move this check. The band
+                      ;; flag is the CAPABILITY, not the stored pct: the default
+                      ;; draft ships :net-band-pct 0.0, so reading the encoded
+                      ;; spec hid "widen the net band" from every trader who had
+                      ;; not already set one.
+                      :long-only? (boolean (:long-only? constraints))
+                      :net-band-encodable? (reachability/net-band-encodable?
+                                            constraints
+                                            signs)}))}))
 
 (defn- apply-runtime-caps
   [constraints sparse-caps]
@@ -572,12 +541,20 @@
                      universe)
         lower-bounds (mapv :lower bounds)
         upper-bounds (mapv :upper bounds)
-        signs (gross-floor-signs lower-bounds upper-bounds)
-        floor-spec (gross-floor-spec constraints signs)
-        band-spec (net-band-spec constraints signs)
-        violations* (violations lower-bounds upper-bounds bounds constraints
-                                floor-spec band-spec)]
-    {:status (if (seq violations*) :infeasible :ok)
+        signs (reachability/gross-floor-signs lower-bounds upper-bounds)
+        floor-spec (reachability/gross-floor-spec constraints signs)
+        band-spec (reachability/net-band-spec constraints signs)
+        {hard-violations :hard
+         conditional-violations :conditional} (violations
+                                               {:ids ids
+                                                :lower-bounds lower-bounds
+                                                :upper-bounds upper-bounds
+                                                :bounds bounds
+                                                :constraints constraints
+                                                :floor-spec floor-spec
+                                                :band-spec band-spec
+                                                :signs signs})]
+    {:status (if (seq hard-violations) :infeasible :ok)
      :long-only? (:long-only? constraints)
      :net-target (target-net constraints)
      :instrument-ids ids
@@ -586,11 +563,21 @@
      :upper-bounds upper-bounds
      :locked-weights (vec (keep :locked bounds))
      :gross-exposure {:max (:gross-leverage constraints)}
+     ;; A requested floor is dropped whole when a member's bounds straddle zero,
+     ;; which no request the app can BUILD does: migrate-draft stamps a side on
+     ;; every universe instrument before request_builder encodes it (see
+     ;; reachability/gross-floor-signs). The "floor set but silently dropped"
+     ;; distinction the cash-collapse gate used to publish four extra keys for is
+     ;; therefore unreachable, and carrying it only gave the banner a second,
+     ;; contradictory story to tell.
      :gross-floor floor-spec
+     ;; Largest gross the per-asset boxes can physically reach; a suggested
+     ;; floor above it is unreachable no matter what the ceilings say.
+     :gross-capacity (reachability/gross-capacity lower-bounds upper-bounds)
      :net-exposure (:net-exposure constraints)
      ;; Percentage-of-realized-gross net tolerance (see net-band-spec).
      :net-band-spec band-spec
-     :net-band-warnings (net-band-warnings constraints signs)
+     :net-band-warnings (reachability/net-band-warnings constraints signs)
      ;; Canonical gross/net TARGETS (exposure-policy midpoints) for objectives
      ;; that hit exposures exactly rather than treating band edges as limits.
      ;; Derived HERE, not on the request, so draft signatures stay unchanged.
@@ -598,7 +585,9 @@
      :side-metadata (side-metadata constraints universe)
      :max-turnover (:max-turnover constraints)
      :rebalance-tolerance (:rebalance-tolerance constraints)
-     :violations violations*}))
+     :violations hard-violations
+     ;; NOT part of :status. See `violations` above.
+     :conditional-violations conditional-violations}))
 
 (defn encode-constraints
   [{:keys [universe current-weights constraints history]}]

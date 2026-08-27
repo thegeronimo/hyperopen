@@ -62,3 +62,52 @@
     (is (= {"perp:BTC" {:max-delta 0.01}}
            (get-in normalized
                    [:payload :diagnostics :weight-sensitivity-by-instrument])))))
+
+;; Presolve and solver diagnostics are produced INSIDE the optimizer worker, so
+;; every keyword value in them is stringified by clj->worker-boundary on the way
+;; out and only comes back as a keyword if its key is in enum-value-keys. The
+;; infeasible banner branches on these values -- :direction picks the whole
+;; remediation list, :constraint-code picks the highlighted control -- so a
+;; missing key is a silent, test-invisible loss of the whole "What you can do"
+;; block in production.
+(def ^:private infeasible-payload
+  {:status :infeasible
+   :reason :constraint-presolve
+   :details {:violations
+             [{:code :net-unreachable-given-sides
+               :constraint-code :gross-exposure
+               :direction :net-above-band
+               :binding-side :short
+               :driver :gross-floor-vs-short-capacity
+               :long-only? false
+               :net-band-encodable? true
+               :gross-floor-encodable? true
+               :reachable-net {:min 3.835 :max 4.005}
+               :reachable-net-display {:min 3.84 :max 4.0}
+               :binding-capacity [{:instrument-id "spot:@142"
+                                   :display-symbol "PURR"
+                                   :capacity 0.05}]
+               :message "A 4.00x gross floor with only 0.08x of short capacity."}
+              {:code :solver-boundary-row-violation
+               :constraint-code :turnover
+               :message "turnover left its bounds by 2.93e+01."}]}})
+
+(deftest normalize-worker-boundary-keywordizes-diagnostic-enum-values-test
+  (let [delivered (wire/normalize-worker-boundary
+                   (js->clj (wire/clj->worker-boundary infeasible-payload)
+                            :keywordize-keys true))
+        [reachability boundary-row] (get-in delivered [:details :violations])]
+    (is (= :infeasible (:status delivered)))
+    (is (= :constraint-presolve (:reason delivered)))
+    (is (= :net-unreachable-given-sides (:code reachability)))
+    (is (= :gross-exposure (:constraint-code reachability)))
+    (is (= :net-above-band (:direction reachability)))
+    (is (= :short (:binding-side reachability)))
+    (is (= :gross-floor-vs-short-capacity (:driver reachability)))
+    (is (= :solver-boundary-row-violation (:code boundary-row)))
+    (is (= :turnover (:constraint-code boundary-row)))
+    ;; Booleans, numbers, nested intervals and instrument ids are untouched.
+    (is (= false (:long-only? reachability)))
+    (is (= {:min 3.84 :max 4.0} (:reachable-net-display reachability)))
+    (is (= [{:instrument-id "spot:@142" :display-symbol "PURR" :capacity 0.05}]
+           (:binding-capacity reachability)))))
