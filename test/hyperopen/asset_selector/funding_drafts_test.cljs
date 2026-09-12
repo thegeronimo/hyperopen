@@ -32,6 +32,61 @@
                                                 market-pin-id
                                                 true)))))
 
+(deftest funding-tooltip-anchor-is-normalized-retained-and-cleared-with-the-last-open-state-test
+  (let [pin-id (funding-policy/funding-tooltip-pin-id "BTC")
+        raw-anchor {:left 104
+                    :right 176
+                    :top 58
+                    :bottom 82
+                    :width 72
+                    :height 24
+                    :viewport-width 1280
+                    :viewport-height 720}
+        anchor {:left 104
+                :right 176
+                :top 58
+                :viewport-width 1280
+                :viewport-height 720}
+        both-open-state {:active-asset "BTC"
+                         :funding-ui {:tooltip {:visible-id pin-id
+                                                :pinned-id pin-id
+                                                :anchor anchor}}}
+        pinned-closed-state {:active-asset "BTC"
+                             :funding-ui {:tooltip {:visible-id pin-id
+                                                    :pinned-id nil
+                                                    :anchor anchor}}}]
+    (is (= [[:effects/save-many [[[:funding-ui :tooltip :pinned-id] pin-id]
+                                 [[:funding-ui :tooltip :anchor] anchor]]]]
+           (actions/set-funding-tooltip-pinned {:active-asset "BTC"}
+                                               pin-id
+                                               true
+                                               raw-anchor)))
+    (is (= [[:effects/save-many [[[:funding-ui :tooltip :visible-id] pin-id]
+                                 [[:funding-ui :tooltip :anchor] anchor]]]
+            [:effects/sync-active-asset-funding-predictability "BTC"]]
+           (actions/set-funding-tooltip-visible {:active-asset "BTC"}
+                                                pin-id
+                                                true
+                                                raw-anchor)))
+    ;; Legacy callers retain the original three-argument result and do not
+    ;; fabricate an anchor.
+    (is (= [[:effects/save [:funding-ui :tooltip :pinned-id] pin-id]]
+           (actions/set-funding-tooltip-pinned {:active-asset "BTC"}
+                                               pin-id
+                                               true)))
+    (is (= [[:effects/save [:funding-ui :tooltip :pinned-id] pin-id]]
+           (actions/set-funding-tooltip-pinned {:active-asset "BTC"}
+                                               pin-id
+                                               true
+                                               {:left 104 :right 176 :top 58})))
+    ;; Scrolling/dismissing closes the pinned state first but keeps the anchor
+    ;; for the still-visible tooltip; the final close clears it atomically.
+    (is (= [[:effects/save [:funding-ui :tooltip :pinned-id] nil]]
+           (actions/set-funding-tooltip-pinned both-open-state pin-id false)))
+    (is (= [[:effects/save-many [[[:funding-ui :tooltip :visible-id] nil]
+                                 [[:funding-ui :tooltip :anchor] nil]]]]
+           (actions/set-funding-tooltip-visible pinned-closed-state pin-id false)))))
+
 (deftest funding-tooltip-close-clears-active-hypothetical-draft-only-when-fully-closed-test
   (let [btc-pin-id (funding-policy/funding-tooltip-pin-id "BTC")]
     (is (= [[:effects/save-many [[[:funding-ui :tooltip :visible-id] nil]

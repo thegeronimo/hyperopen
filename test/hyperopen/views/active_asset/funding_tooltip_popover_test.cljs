@@ -38,8 +38,8 @@
                        :pinned? true})
         closed-trigger (support/find-first-node closed-tooltip #(= :button (first %)))
         open-trigger (support/find-first-node open-tooltip #(= :button (first %)))]
-    (is (= [[:actions/set-funding-tooltip-pinned pin-id true]
-            [:actions/set-funding-tooltip-visible pin-id true]]
+    (is (= [[:actions/set-funding-tooltip-pinned pin-id true [:event.currentTarget/bounds]]
+            [:actions/set-funding-tooltip-visible pin-id true [:event.currentTarget/bounds]]]
            (get-in closed-trigger [1 :on :click])))
     (is (= [[:actions/set-funding-tooltip-pinned pin-id false]
             [:actions/set-funding-tooltip-visible pin-id false]]
@@ -67,6 +67,8 @@
         open-panel (support/find-node-by-role open-tooltip "active-asset-funding-tooltip")]
     (is (= :button (first closed-trigger)))
     (is (= :button (first open-trigger)))
+    (is (= "false" (get-in closed-trigger [1 :aria-expanded])))
+    (is (= "true" (get-in open-trigger [1 :aria-expanded])))
     (is (nil? closed-panel))
     (is (= :div (first open-panel)))))
 

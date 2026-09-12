@@ -3,6 +3,7 @@
             [hyperopen.views.active-asset.funding-tooltip :as funding-tooltip]
             [hyperopen.views.active-asset.icon-button :as icon-button]
             [hyperopen.views.active-asset.outcome-tooltip :as outcome-tooltip]
+            [hyperopen.views.active-asset.statistics :as statistics]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.trade.order-form-controls :as order-form-controls]))
 
@@ -10,7 +11,7 @@
   1024)
 
 (def active-asset-grid-template
-  "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]")
+  "md:grid-cols-[minmax(max-content,1.4fr)_minmax(max-content,0.9fr)_minmax(max-content,0.9fr)_minmax(max-content,1.1fr)_minmax(max-content,1.1fr)_minmax(max-content,1.2fr)_minmax(max-content,1.6fr)]")
 
 (defn- viewport-width-px []
   (let [width (some-> js/globalThis .-innerWidth)]
@@ -94,8 +95,7 @@
   [{:keys [funding-rate
            funding-tooltip-open?
            funding-tooltip-model
-           funding-tooltip-id
-           funding-tooltip-pinned?]}
+           funding-tooltip-id funding-tooltip-pinned? funding-tooltip-anchor]}
    {:keys [trigger-classes underlined? mobile-sheet?]}]
   (if (number? funding-rate)
     (let [trigger [:span {:class (into ["cursor-help"
@@ -128,7 +128,8 @@
           :position "bottom"
           :open? funding-tooltip-open?
           :pin-id funding-tooltip-id
-          :pinned? funding-tooltip-pinned?})))
+          :pinned? funding-tooltip-pinned?
+          :anchor funding-tooltip-anchor :viewport-layer? true})))
     [:span {:class ["num" "text-trading-text-secondary"]} "Loading..."]))
 
 (defn- mobile-detail-item
@@ -290,8 +291,7 @@
            open-interest-usd
            is-spot]
     :as row-vm}]
-  [:div {:class ["asset-strip-row" "relative"
-                 "hidden"
+  [:div {:class ["asset-strip-row" "relative" "hidden" "min-w-full" "w-max"
                  "grid-cols-7"
                  "items-center"
                  "gap-2"
@@ -305,44 +305,44 @@
                               dropdown-visible?
                               missing-icons
                               loaded-icons)]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
+   (statistics/desktop-stat-cell
     (data-column "Mark"
                  (if (some? mark)
                    (fmt/format-trade-price mark mark-raw)
                    "Loading...")
                  {:underlined true
-                  :numeric? true})]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
+                  :numeric? true}))
+   (statistics/desktop-stat-cell
     (data-column "Oracle"
                  (if (and (not is-spot) (some? oracle))
                    (fmt/format-trade-price oracle oracle-raw)
                    (if is-spot "—" "Loading..."))
                  {:underlined true
-                  :numeric? true})]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
+                  :numeric? true}))
+   (statistics/desktop-stat-cell
     (data-column "24h Change"
                  (if (some? change-24h) nil "Loading...")
                  {:change? (some? change-24h)
                   :change-value change-24h
                   :change-pct change-24h-pct
                   :change-raw nil
-                  :numeric? true})]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
+                  :numeric? true}))
+   (statistics/desktop-stat-cell
     (data-column "24h Volume"
                  (if (some? volume-24h)
                    (fmt/format-large-currency volume-24h)
                    "Loading...")
-                 {:numeric? true})]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
+                 {:numeric? true}))
+   (statistics/desktop-stat-cell
     (data-column "Open Interest"
                  (cond
                    is-spot "—"
                    (some? open-interest-usd) (fmt/format-large-currency open-interest-usd)
                    :else "Loading...")
                  {:underlined true
-                  :numeric? true})]
-   [:div {:class ["asset-stat-cell" "flex" "justify-center"]}
-    (desktop-funding-cell row-vm)]])
+                  :numeric? true}))
+   (statistics/desktop-stat-cell
+    (desktop-funding-cell row-vm))])
 
 (defn- outcome-open-interest-column
   [{:keys [open-interest-usd open-interest-tooltip]}]
@@ -445,11 +445,11 @@
   ([row-vm]
    (active-asset-row-from-vm row-vm nil))
   ([row-vm opts]
-   [:div
+    [:div
     (render-visible-branch #(mobile-active-asset-row row-vm opts)
                            #(if (:is-outcome row-vm)
                               (desktop-outcome-active-asset-row row-vm opts)
-                              (desktop-active-asset-row row-vm)))]))
+                              (statistics/desktop-statistics-scroll-region (desktop-active-asset-row row-vm) (:funding-tooltip-id row-vm))))]))
 
 (defn active-asset-row [ctx-data market dropdown-state full-state]
   (active-asset-row-from-vm

@@ -1,6 +1,6 @@
 {
   "id": "mobile-position-margin-presentation",
-  "title": "Mobile position margin sheet presentation",
+  "title": "Mobile spectate position controls stay read-only",
   "route": "/trade",
   "severity": "high",
   "tags": [
@@ -51,7 +51,6 @@
     {
       "type": "wait_for_oracle",
       "name": "first-position",
-      "saveAs": "firstPosition",
       "timeoutMs": 8000,
       "pollMs": 150,
       "expect": {
@@ -59,23 +58,21 @@
       }
     },
     {
-      "type": "dispatch",
-      "action": [
-        ":actions/open-position-margin-modal",
-        {
-          "$ref": "firstPosition.positionData"
-        },
-        {
-          "left": 16,
-          "right": 414,
-          "top": 820,
-          "bottom": 860,
-          "width": 398,
-          "height": 40,
-          "viewport-width": 430,
-          "viewport-height": 932
-        }
-      ]
+      "type": "wait_for_eval",
+      "expression": "(() => { const visible = (element) => { const style = getComputedStyle(element); const rect = element.getBoundingClientRect(); return style.display !== \"none\" && style.visibility !== \"hidden\" && rect.width > 0 && rect.height > 0; }; return { visiblePositionCardPresent: [...document.querySelectorAll(\"[data-role^='mobile-position-card-']\")].some(visible) }; })()",
+      "timeoutMs": 4000,
+      "pollMs": 100,
+      "expect": {
+        "visiblePositionCardPresent": true
+      }
+    },
+    {
+      "type": "eval",
+      "allowUnsafeEval": true,
+      "expression": "(() => { const visible = (element) => { const style = getComputedStyle(element); const rect = element.getBoundingClientRect(); return style.display !== \"none\" && style.visibility !== \"hidden\" && rect.width > 0 && rect.height > 0; }; const card = [...document.querySelectorAll(\"[data-role^='mobile-position-card-']\")].find(visible); const toggle = card?.querySelector(\"button\"); if (!toggle) { return { clicked: false }; } toggle.click(); return { clicked: true }; })()",
+      "expect": {
+        "clicked": true
+      }
     },
     {
       "type": "wait_for_idle",
@@ -85,14 +82,27 @@
       }
     },
     {
+      "type": "wait_for_eval",
+      "expression": "(() => { const visible = (element) => { const style = getComputedStyle(element); const rect = element.getBoundingClientRect(); return style.display !== \"none\" && style.visibility !== \"hidden\" && rect.width > 0 && rect.height > 0; }; const card = [...document.querySelectorAll(\"[data-role^='mobile-position-card-']\")].find(visible); return { expandedPositionCardPresent: card?.querySelector(\"button\")?.getAttribute(\"aria-expanded\") === \"true\", visibleMobileMarginTriggerCount: [...document.querySelectorAll(\"button[data-position-margin-trigger='true']\")].filter(visible).length, marginSheetCount: document.querySelectorAll(\"[data-role='position-margin-mobile-sheet-layer']\").length }; })()",
+      "timeoutMs": 4000,
+      "pollMs": 100,
+      "expect": {
+        "expandedPositionCardPresent": true,
+        "visibleMobileMarginTriggerCount": 0,
+        "marginSheetCount": 0
+      }
+    },
+    {
       "type": "oracle",
       "name": "position-overlay",
       "args": {
         "surface": "margin"
       },
       "expect": {
-        "open": true,
-        "presentationMode": "mobile-sheet"
+        "open": false,
+        "surfaceCount": 0,
+        "mobileSheetLayerCount": 0,
+        "presentationMode": "closed"
       }
     },
     {

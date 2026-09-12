@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { BrowserInspectionService } from "./service.mjs";
+import { loadConfig } from "./config.mjs";
+import { baselinePath, findingFingerprint, loadNightlyBaseline, saveNightlyBaseline } from "./nightly_baseline.mjs";
 import { runDesignReview } from "./design_review_runner.mjs";
 import {
   buildNightlyScenarios,
@@ -132,7 +134,8 @@ function mergeRouteCoverage(actualCoverage, expectedCoverage = []) {
 }
 
 function coverageGapKey(entry) {
-  return `${entry.route}::${entry.viewport}`;
+  return JSON.stringify([entry.route, entry.viewport, entry.attempted, entry.expectedAttempts,
+    [...(entry.missingSpectateAddresses || [])].sort()]);
 }
 
 function coverageContractGapsFor(summary, expectedRouteCoverage) {
@@ -184,30 +187,6 @@ function toTsv(rows) {
   return rows.map((row) => row.join("\t")).join("\n");
 }
 
-async function readJson(filePath, fallback = null) {
-  try {
-    const raw = await fs.readFile(filePath, "utf8");
-    return JSON.parse(raw);
-  } catch (_error) {
-    return fallback;
-  }
-}
-
-async function listRunIdsByPrefix(rootDir, prefix) {
-  const entries = await fs.readdir(rootDir, { withFileTypes: true }).catch(() => []);
-  return entries
-    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix))
-    .map((entry) => entry.name)
-    .sort();
-}
-
-async function findPreviousNightlyRun(artifactRoot, currentRunDir) {
-  const runIds = await listRunIdsByPrefix(artifactRoot, "nightly-ui-qa-");
-  const current = path.basename(currentRunDir);
-  const previous = runIds.filter((runId) => runId !== current).at(-1);
-  return previous ? path.join(artifactRoot, previous) : null;
-}
-
 async function gitBranch(repoRoot) {
   const { stdout } = await execFileAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     cwd: repoRoot
@@ -235,21 +214,24 @@ export function classifyNightlyFailures(summary, previousSummary, expectedRouteC
     if (!["critical", "high"].includes(result.severity || "high")) {
       return false;
     }
-    return previousResults.get(scenarioKey(result))?.state !== "product-regression";
+    const previous = previousResults.get(scenarioKey(result));
+    return !previous || findingFingerprint(previous) !== findingFingerprint(result);
   });
 
   const newAutomationGaps = results.filter((result) => {
     if (result.state !== "automation-gap") {
       return false;
     }
-    return previousResults.get(scenarioKey(result))?.state !== "automation-gap";
+    const previous = previousResults.get(scenarioKey(result));
+    return !previous || findingFingerprint(previous) !== findingFingerprint(result);
   });
 
   const persistentAutomationGaps = results.filter((result) => {
     if (result.state !== "automation-gap") {
       return false;
     }
-    return previousResults.get(scenarioKey(result))?.state === "automation-gap";
+    const previous = previousResults.get(scenarioKey(result));
+    return previous && findingFingerprint(previous) === findingFingerprint(result);
   });
 
   const manualExceptions = results.filter((result) => result.state === "manual-exception");
@@ -299,6 +281,7 @@ export function classifyNightlyFailures(summary, previousSummary, expectedRouteC
         ? "Nightly scenario bundle completed without failing scenarios."
         : `Nightly scenario bundle finished with state ${summary.state}.`,
     stateCounts,
+    productRegressions: results.filter((result) => result.state === "product-regression" && ["critical", "high"].includes(result.severity || "high")),
     newProductRegressions,
     newAutomationGaps,
     persistentAutomationGaps,
@@ -385,6 +368,13 @@ async function createBdIssue({ title, description, type, priority, cwd, dryRun }
   }
 }
 
+async function listBdIssues(repoRoot) {
+  const { stdout } = await execFileAsync("bd", ["list", "--all", "--limit", "0", "--json"], { cwd: repoRoot });
+  const issues = JSON.parse(stdout);
+  if (!Array.isArray(issues)) throw new Error("Invalid bd issue listing");
+  return issues;
+}
+
 export async function fileNightlyIssues({
   classification,
   repoRoot,
@@ -392,11 +382,37 @@ export async function fileNightlyIssues({
   runId,
   reportPath,
   previousRunDir,
-  dryRun
+  dryRun,
+  listIssues = listBdIssues,
+  createIssue = createBdIssue
 }) {
   const issues = [];
+  const productRegressions = classification.productRegressions || classification.newProductRegressions || [];
+  const automationGaps = [...(classification.newAutomationGaps || []), ...(classification.persistentAutomationGaps || [])];
+  const coverageGaps = classification.coverageContractGaps || classification.newCoverageContractGaps || [];
+  const candidates = [
+    ...productRegressions, ...automationGaps, ...coverageGaps
+  ];
+  if (candidates.length === 0) return issues;
+  let existing;
+  try {
+    existing = dryRun ? [] : await listIssues(repoRoot);
+  } catch (error) {
+    return [{ error: `Issue deduplication lookup failed; no issues created: ${error.message}` }];
+  }
+  async function createOnce(options, result) {
+    const fingerprint = findingFingerprint(result);
+    const marker = `Nightly finding fingerprint: ${fingerprint}`;
+    const match = existing.find((issue) => issue.description?.includes(marker) ||
+      (!issue.description?.includes("Nightly finding fingerprint:") && issue.title === options.title &&
+       (!result.message || issue.description?.includes(`Message: ${result.message}`))));
+    if (match) return { id: match.id, title: match.title, status: match.status, existing: true, fingerprint };
+    const created = await createIssue({ ...options, description: `${options.description}\n${marker}` });
+    if (created.id) existing.push({ ...created, title: options.title, description: `${options.description}\n${marker}` });
+    return { ...created, fingerprint };
+  }
 
-  for (const result of classification.newProductRegressions || []) {
+  for (const result of productRegressions) {
     const description =
       `Nightly UI QA detected a new ${result.severity} product regression.\n\n` +
       `Scenario: ${result.scenarioId}\n` +
@@ -410,18 +426,18 @@ export async function fileNightlyIssues({
       `Previous nightly: ${previousRunDir || "none"}`;
 
     issues.push(
-      await createBdIssue({
+      await createOnce({
         title: `Nightly UI regression: ${result.scenarioId} (${result.viewport})`,
         description,
         type: "bug",
         priority: result.severity === "critical" ? 1 : 2,
         cwd: repoRoot,
         dryRun
-      })
+      }, result)
     );
   }
 
-  for (const result of classification.newAutomationGaps || []) {
+  for (const result of automationGaps) {
     const description =
       `Nightly UI QA detected a new automation gap.\n\n` +
       `Scenario: ${result.scenarioId}\n` +
@@ -435,19 +451,19 @@ export async function fileNightlyIssues({
       `Previous nightly: ${previousRunDir || "none"}`;
 
     issues.push(
-      await createBdIssue({
+      await createOnce({
         title: `Nightly UI automation gap: ${result.scenarioId} (${result.viewport})`,
         description,
         type: "task",
         priority: 2,
         cwd: repoRoot,
         dryRun
-      })
+      }, result)
     );
   }
 
-  if ((classification.newCoverageContractGaps || []).length > 0) {
-    const gapLines = classification.newCoverageContractGaps
+  if (coverageGaps.length > 0) {
+    const gapLines = coverageGaps
       .map((gap) => {
         const missingAddresses =
           gap.missingSpectateAddresses.length > 0
@@ -465,21 +481,21 @@ export async function fileNightlyIssues({
       `Previous nightly: ${previousRunDir || "none"}`;
 
     issues.push(
-      await createBdIssue({
+      await createOnce({
         title: "Nightly UI coverage contract gap",
         description,
         type: "task",
         priority: 2,
         cwd: repoRoot,
         dryRun
-      })
+      }, { scenarioId: "coverage-contract", viewport: "all", state: "automation-gap", message: gapLines })
     );
   }
 
   return issues;
 }
 
-function renderReport({
+export function renderReport({
   overallState,
   summary,
   designReview,
@@ -488,6 +504,7 @@ function renderReport({
   reportDate,
   reportPath,
   previousRunDir,
+  comparisonSource,
   filedIssues
 }) {
   const counts = classification.stateCounts;
@@ -565,10 +582,10 @@ function renderReport({
               return `- DRY RUN: ${issue.title}`;
             }
             if (issue?.id) {
-              return `- ${issue.id}: ${issue.title || issue.name || "created"}`;
+              return `- ${issue.existing ? `EXISTING (${issue.status || "tracked"}; not created): ` : ""}${issue.id}: ${issue.title || issue.name || "created"}`;
             }
             if (issue?.error) {
-              return `- Failed to create issue for ${issue.title}: ${issue.error}`;
+              return `- Issue filing failed${issue.title ? ` for ${issue.title}` : ""}: ${issue.error}`;
             }
             return `- ${JSON.stringify(issue)}`;
           })
@@ -599,6 +616,7 @@ function renderReport({
 - Branch: \`${branch}\`
 - Artifacts: \`${summary.runDir}\`
 - Previous nightly: \`${previousRunDir || "none"}\`
+- Comparison source: \`${comparisonSource || "none"}\` (resolved before run-directory retention).
 - Report path: \`${reportPath}\`
 
 ## Scenario counts
@@ -659,6 +677,10 @@ async function main() {
     );
   }
 
+  const config = await loadConfig();
+  const comparison = dryRun ? { summary: null, source: "none", sourcePath: null } :
+    await loadNightlyBaseline(config.artifactRoot, { withSource: true });
+  const previousSummary = comparison.summary;
   const service = await BrowserInspectionService.create();
   const nightlyScenarios = await buildNightlyScenarios({
     scenarioDir: service.config.scenarioDir
@@ -713,10 +735,7 @@ async function main() {
     localUrl: args["local-url"] || null
   });
 
-  const previousRunDir = await findPreviousNightlyRun(service.config.artifactRoot, summary.runDir);
-  const previousSummary = previousRunDir
-    ? await readJson(path.join(previousRunDir, "summary.json"), null)
-    : null;
+  const previousRunDir = previousSummary?.runDir || null;
   const { classification, overallState } = buildNightlyOutcome({
     summary,
     previousSummary,
@@ -736,6 +755,9 @@ async function main() {
     inspectedAddresses: classification.inspectedAddresses,
     previousRunDir,
     currentRunId: summary.runId,
+    comparisonBaselinePath: baselinePath(service.config.artifactRoot),
+    comparisonSource: comparison.source,
+    comparisonSourcePath: comparison.sourcePath,
     currentRunDir: summary.runDir,
     designReviewRunId: designReview.runId,
     designReviewRunDir: designReview.runDir,
@@ -783,9 +805,12 @@ async function main() {
       reportDate,
       reportPath,
       previousRunDir,
+      comparisonSource: comparison.source,
       filedIssues
     })
   );
+
+  await saveNightlyBaseline(service.config.artifactRoot, summary);
 
   process.stdout.write(
     `${JSON.stringify(

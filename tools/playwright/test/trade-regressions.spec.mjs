@@ -3344,6 +3344,7 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
   };
   const livePositionValue = Number(livePosition.positionValue).toFixed(2);
 
+  await page.setViewportSize({ width: 1440, height: 900 });
   await seedAssetSelectorMarketsCache(page);
   await visitRoute(page, "/trade/BTC");
   await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
@@ -3353,14 +3354,78 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
 
   const tooltipTrigger = page.locator('[data-role="active-asset-funding-trigger"]');
   await expect(tooltipTrigger).toHaveCount(1);
-  await tooltipTrigger.click({ force: true });
+  await tooltipTrigger.scrollIntoViewIfNeeded();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toBeVisible();
+  await tooltipTrigger.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toHaveAttribute("aria-expanded", "true");
 
   const tooltip = page.locator('[data-role="active-asset-funding-tooltip"]');
   const positionSection = tooltip.locator('[data-role="active-asset-funding-position-section"]');
+  await expect(tooltip).toBeVisible();
+  const readTooltipLayering = () => tooltip.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const hit = document.elementFromPoint(x, y);
+
+    return {
+      fullyWithinViewport:
+        rect.left >= 0 &&
+        rect.top >= 0 &&
+        rect.right <= window.innerWidth &&
+        rect.bottom <= window.innerHeight,
+      centerHitBelongsToTooltip: Boolean(hit && element.contains(hit)),
+      centerHitRole: hit?.getAttribute("data-role") ?? null,
+      position: getComputedStyle(element).position,
+      zIndex: getComputedStyle(element).zIndex,
+      style: {
+        left: element.style.left,
+        top: element.style.top,
+        width: element.style.width
+      }
+    };
+  });
+  const layering = await readTooltipLayering();
+  expect(layering.position).toBe("fixed");
+  expect(layering.style.left).not.toBe("");
+  expect(layering.style.top).not.toBe("");
+  expect(layering.style.width).not.toBe("");
+  expect(layering.fullyWithinViewport).toBe(true);
+  expect(layering.centerHitBelongsToTooltip, JSON.stringify(layering)).toBe(true);
   await expect(positionSection).toHaveAttribute("data-position-mode", "live");
   await expect(tooltip.getByRole("heading", { name: "Your Position" })).toBeVisible();
   await expect(tooltip.getByRole("button", { name: "Edit estimate" })).toBeVisible();
+
+  await page.setViewportSize({ width: 1023, height: 900 });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltip).toHaveCount(0);
+  await expect(page.locator('[data-role="trade-mobile-asset-summary"]')).toBeVisible();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await tooltipTrigger.scrollIntoViewIfNeeded();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await tooltipTrigger.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toHaveAttribute("aria-expanded", "true");
+  await expect(tooltip).toBeVisible();
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toHaveAttribute("aria-expanded", "false");
+  await expect(tooltip).toBeHidden();
+
+  await tooltipTrigger.scrollIntoViewIfNeeded();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await tooltipTrigger.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toHaveAttribute("aria-expanded", "true");
+  await expect(tooltip).toBeVisible();
+  const reopenedLayering = await readTooltipLayering();
+  expect(reopenedLayering.fullyWithinViewport).toBe(true);
+  expect(reopenedLayering.centerHitBelongsToTooltip, JSON.stringify(reopenedLayering)).toBe(true);
 
   await tooltip.getByRole("button", { name: "Edit estimate" }).click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
@@ -3387,6 +3452,28 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
     async () => (await next24hPayment.textContent())?.trim() ?? "",
     { timeout: 5_000 }
   ).not.toBe(next24hBefore);
+
+  const statisticsScroll = page.locator('[data-role="active-asset-statistics-scroll"]');
+  const scrolled = await statisticsScroll.evaluate((element) => {
+    const previous = element.scrollLeft;
+    const next = previous > 0 ? 0 : element.scrollWidth - element.clientWidth;
+    element.scrollLeft = next;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return element.scrollLeft !== previous;
+  });
+  expect(scrolled).toBe(true);
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltipTrigger).toHaveAttribute("aria-expanded", "false");
+  await expect(tooltip).toBeHidden();
+
+  await tooltipTrigger.scrollIntoViewIfNeeded();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await tooltipTrigger.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+  await expect(tooltip).toBeVisible();
+  const reanchoredLayering = await readTooltipLayering();
+  expect(reanchoredLayering.fullyWithinViewport).toBe(true);
+  expect(reanchoredLayering.centerHitBelongsToTooltip, JSON.stringify(reanchoredLayering)).toBe(true);
 });
 
 test.describe("funding tooltip mobile presentation @mobile", () => {

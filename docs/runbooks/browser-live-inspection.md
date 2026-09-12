@@ -87,6 +87,19 @@ Nightly wrapper runs additionally create `/hyperopen/tmp/browser-inspection/nigh
 - `failure-classification.json`
 - per-scenario `scenarios/*.json` and `scenarios/*.md`
 
+Nightly comparison keeps a compact `nightly-baseline.json` at the artifact root,
+outside the run directories subject to retention. The wrapper loads it before
+browser initialization can prune old runs, migrating a newer retained summary
+when available. `run-meta.json` records `comparisonSource` (`durable-baseline`,
+`retained-run`, or `none`) and its path; the report records the same source.
+The baseline contains scenario result fields, not screenshots or browser payloads.
+
+Issue filing compares stable finding fingerprints with all local `bd` records,
+including closed records. Matching records are reported as `EXISTING` with their
+status, without another create. A tracker lookup failure is recorded explicitly;
+persistent findings retry lookup and filing on the next run. These local tracker
+records remain optional scratch, not the public work-tracking source of truth.
+
 ## Safety and Redaction
 
 Redaction is enabled by default for:

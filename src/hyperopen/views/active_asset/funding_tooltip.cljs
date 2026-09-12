@@ -2,7 +2,9 @@
   (:require [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.autocorrelation-plot :as autocorrelation-plot]
             [hyperopen.views.funding-rate-plot :as funding-rate-plot]
-            [hyperopen.views.active-asset.funding-tooltip-mobile :as funding-tooltip-mobile]))
+            [hyperopen.views.active-asset.funding-tooltip-mobile :as funding-tooltip-mobile]
+            [hyperopen.views.ui.anchored-popover :as anchored-popover]
+            [hyperopen.views.active-asset.funding-tooltip-runtime :as tooltip-runtime]))
 
 (defn signed-percentage-text [value decimals]
   (if (number? value)
@@ -95,8 +97,8 @@
   [pin-id pinned?]
   (if pinned?
     (tooltip-dismiss-actions pin-id)
-    [[:actions/set-funding-tooltip-pinned pin-id true]
-     [:actions/set-funding-tooltip-visible pin-id true]]))
+    [[:actions/set-funding-tooltip-pinned pin-id true [:event.currentTarget/bounds]]
+     [:actions/set-funding-tooltip-visible pin-id true [:event.currentTarget/bounds]]]))
 
 (defn- hypothetical-position-inputs
   [{:keys [hypothetical-size-input
@@ -429,17 +431,18 @@
    (predictability-section model)]))
 
 (defn funding-tooltip-popover
-  [{:keys [trigger body position open? pin-id pinned?]}]
+  [{:keys [trigger body position open? pin-id pinned? anchor viewport-layer?]}]
   (let [placement-classes (case (or position "top")
                             "top" ["bottom-full" "left-1/2" "transform" "-translate-x-1/2" "mb-2"]
                             "bottom" ["top-full" "left-1/2" "transform" "-translate-x-1/2" "mt-2"]
                             "left" ["right-full" "top-1/2" "transform" "-translate-y-1/2" "mr-2"]
                             "right" ["left-full" "top-1/2" "transform" "-translate-y-1/2" "ml-2"])
         open?* (boolean open?)
+        fixed-layer? (and viewport-layer? (anchored-popover/complete-anchor? anchor))
         dismiss-actions (tooltip-dismiss-actions pin-id)
         trigger-click-actions (tooltip-trigger-click-actions pin-id pinned?)]
     [:div {:class ["relative" "inline-flex"]
-           :on {:mouseenter [[:actions/set-funding-tooltip-visible pin-id true]]
+           :on {:mouseenter [[:actions/set-funding-tooltip-visible pin-id true [:event.currentTarget/bounds]]]
                 :mouseleave [[:actions/set-funding-tooltip-visible pin-id false]]}}
      (when pinned?
        [:div {:class ["fixed"
@@ -461,23 +464,29 @@
                        "focus:ring-0"
                        "focus:ring-offset-0"]
                :data-role "active-asset-funding-trigger"
-               :aria-expanded open?*
+               :aria-expanded (if open?* "true" "false")
                :aria-haspopup "dialog"
                :aria-pressed (boolean pinned?)
                :on {:click trigger-click-actions
-                    :focus [[:actions/set-funding-tooltip-visible pin-id true]]
+                    :focus [[:actions/set-funding-tooltip-visible pin-id true [:event.currentTarget/bounds]]]
                     :blur [[:actions/set-funding-tooltip-visible pin-id false]]}}
       trigger]
      (when open?*
-       [:div {:class (into ["absolute"
+       [:div {:class (into [(if fixed-layer? "fixed" "absolute")
                             "z-[140]"
                             "transition-opacity"
                             "duration-200"
                             "pointer-events-auto"]
-                           placement-classes)
+                           (if fixed-layer?
+                             ["max-h-[calc(100vh-1.5rem)]" "overflow-y-auto"]
+                             placement-classes))
               :data-role "active-asset-funding-tooltip"
-              :style {:min-width "max-content"
-                      :max-width "22rem"}}
+              :style (merge {:min-width "max-content" :max-width "22rem"}
+                            (when fixed-layer?
+                              (anchored-popover/anchored-popover-layout-style
+                               {:anchor anchor :preferred-width-px 288 :estimated-height-px 560})))
+              :replicant/on-render (when fixed-layer?
+                                    (tooltip-runtime/close-on-resize pin-id))}
         body])]))
 
 (defn funding-tooltip-mobile-sheet

@@ -192,7 +192,8 @@
            (s/nilable ::numberish)
            any?))
 (s/def ::tooltip-toggle-args
-  (s/tuple ::non-empty-string ::booleanish))
+  (s/or :toggle (s/tuple ::non-empty-string ::booleanish)
+        :toggle-with-anchor (s/tuple ::non-empty-string ::booleanish any?)))
 (s/def ::tab-args (s/tuple ::tab))
 (s/def ::asset-selector-shortcut-market-keys
   (s/and vector?

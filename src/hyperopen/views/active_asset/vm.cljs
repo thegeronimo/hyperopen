@@ -243,7 +243,7 @@
 
 (defn- funding-tooltip-ui-state
   [state]
-  {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id])})
+  {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id :anchor])})
 
 (defn- funding-tooltip-open?
   [tooltip-ui coins]
@@ -422,6 +422,7 @@
      :funding-tooltip-model funding-tooltip-model
      :funding-tooltip-id funding-tooltip-id
      :funding-tooltip-pinned? funding-tooltip-pinned?
+     :funding-tooltip-anchor (when funding-tooltip-open? (:anchor funding-tooltip-ui))
      :is-spot (= :spot (:market-type market))
      :is-outcome outcome?
      :open-interest-tooltip (when outcome?

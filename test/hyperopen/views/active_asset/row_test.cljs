@@ -69,8 +69,13 @@
                 :symbol "SOL-USD"
                 :base "SOL"
                 :market-type :perp}
-        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})]
-    (is (support/contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.6fr)]"))))
+        view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}})
+        statistics-scroll (support/find-node-by-role view-node "active-asset-statistics-scroll")
+        statistic-cell (support/find-node-by-role view-node "active-asset-stat-cell")]
+    (is (support/contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(max-content,0.9fr)_minmax(max-content,0.9fr)_minmax(max-content,1.1fr)_minmax(max-content,1.1fr)_minmax(max-content,1.2fr)_minmax(max-content,1.6fr)]"))
+    (is (= "Market statistics" (get-in statistics-scroll [1 :aria-label])))
+    (is (= 0 (get-in statistics-scroll [1 :tabindex])))
+    (is (some? statistic-cell))))
 
 (deftest active-asset-row-renders-dex-and-leverage-chips-test
   (let [ctx-data {:coin "XYZ100-USDC"

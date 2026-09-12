@@ -113,50 +113,88 @@
                (not (contains? active-tooltip-ids next-pinned-id)))
       (apply dissoc by-coin active-coins))))
 
+(def ^:private tooltip-anchor-keys
+  [:left :right :top :viewport-width :viewport-height])
+
+(defn- normalized-tooltip-anchor
+  [anchor]
+  (let [anchor* (select-keys (if (map? anchor) anchor {}) tooltip-anchor-keys)]
+    (when (every? #(let [value (get anchor* %)]
+                     (and (number? value) (js/isFinite value)))
+                  tooltip-anchor-keys)
+      anchor*)))
+
+(defn- tooltip-save-effect
+  [path value next-by-coin anchor-changed? next-anchor]
+  (let [updates (cond-> [[path value]]
+                  next-by-coin (conj [[:funding-ui :hypothetical-position-by-coin] next-by-coin])
+                  anchor-changed? (conj [[:funding-ui :tooltip :anchor] next-anchor]))]
+    (if (= 1 (count updates))
+      [:effects/save path value]
+      [:effects/save-many updates])))
+
 (defn set-funding-tooltip-visible
-  [state tooltip-id visible?]
-  (let [tooltip-id* (some-> tooltip-id str str/trim)
-        current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
-        current-pinned-id (get-in state [:funding-ui :tooltip :pinned-id])
-        tooltip-id->coin (active-tooltip-id->coin state)
-        next-visible-id (cond
-                          (and (true? visible?) (seq tooltip-id*)) tooltip-id*
-                          (= current-visible-id tooltip-id*) nil
-                          :else current-visible-id)
-        next-by-coin (cleared-active-funding-drafts state
-                                                    next-visible-id
-                                                    current-pinned-id)
-        sync-coin (get tooltip-id->coin next-visible-id)]
-    (if (and (= current-visible-id next-visible-id)
-             (nil? next-by-coin))
-      []
-      (cond-> [(if next-by-coin
-                 [:effects/save-many [[[:funding-ui :tooltip :visible-id] next-visible-id]
-                                      [[:funding-ui :hypothetical-position-by-coin] next-by-coin]]]
-                 [:effects/save [:funding-ui :tooltip :visible-id] next-visible-id])]
-        (and (true? visible?)
-             (seq sync-coin))
-        (conj [:effects/sync-active-asset-funding-predictability sync-coin])))))
+  ([state tooltip-id visible?]
+   (set-funding-tooltip-visible state tooltip-id visible? nil))
+  ([state tooltip-id visible? anchor]
+   (let [tooltip-id* (some-> tooltip-id str str/trim)
+         current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
+         current-pinned-id (get-in state [:funding-ui :tooltip :pinned-id])
+         current-anchor (get-in state [:funding-ui :tooltip :anchor])
+         next-visible-id (cond
+                           (and (true? visible?) (seq tooltip-id*)) tooltip-id*
+                           (= current-visible-id tooltip-id*) nil
+                           :else current-visible-id)
+         next-anchor (cond
+                       (and (true? visible?) (normalized-tooltip-anchor anchor))
+                       (normalized-tooltip-anchor anchor)
+
+                       (or (seq next-visible-id) (seq current-pinned-id)) current-anchor
+                       :else nil)
+         next-by-coin (cleared-active-funding-drafts state next-visible-id current-pinned-id)
+         sync-coin (get (active-tooltip-id->coin state) next-visible-id)
+         anchor-changed? (not= current-anchor next-anchor)]
+     (if (and (= current-visible-id next-visible-id)
+              (nil? next-by-coin)
+              (not anchor-changed?))
+       []
+       (cond-> [(tooltip-save-effect [:funding-ui :tooltip :visible-id]
+                                     next-visible-id
+                                     next-by-coin
+                                     anchor-changed?
+                                     next-anchor)]
+         (and (true? visible?) (seq sync-coin))
+         (conj [:effects/sync-active-asset-funding-predictability sync-coin]))))))
 
 (defn set-funding-tooltip-pinned
-  [state tooltip-id pinned?]
-  (let [tooltip-id* (some-> tooltip-id str str/trim)
-        current-pinned-id (get-in state [:funding-ui :tooltip :pinned-id])
-        current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
-        next-pinned-id (cond
-                         (and (true? pinned?) (seq tooltip-id*)) tooltip-id*
-                         (= current-pinned-id tooltip-id*) nil
-                         :else current-pinned-id)
-        next-by-coin (cleared-active-funding-drafts state
-                                                    current-visible-id
-                                                    next-pinned-id)]
-    (if (and (= current-pinned-id next-pinned-id)
-             (nil? next-by-coin))
-      []
-      [(if next-by-coin
-         [:effects/save-many [[[:funding-ui :tooltip :pinned-id] next-pinned-id]
-                              [[:funding-ui :hypothetical-position-by-coin] next-by-coin]]]
-         [:effects/save [:funding-ui :tooltip :pinned-id] next-pinned-id])])))
+  ([state tooltip-id pinned?]
+   (set-funding-tooltip-pinned state tooltip-id pinned? nil))
+  ([state tooltip-id pinned? anchor]
+   (let [tooltip-id* (some-> tooltip-id str str/trim)
+         current-pinned-id (get-in state [:funding-ui :tooltip :pinned-id])
+         current-visible-id (get-in state [:funding-ui :tooltip :visible-id])
+         current-anchor (get-in state [:funding-ui :tooltip :anchor])
+         next-pinned-id (cond
+                          (and (true? pinned?) (seq tooltip-id*)) tooltip-id*
+                          (= current-pinned-id tooltip-id*) nil
+                          :else current-pinned-id)
+         next-anchor (cond
+                       (and (true? pinned?) (normalized-tooltip-anchor anchor))
+                       (normalized-tooltip-anchor anchor)
+
+                       (or (seq current-visible-id) (seq next-pinned-id)) current-anchor
+                       :else nil)
+         next-by-coin (cleared-active-funding-drafts state current-visible-id next-pinned-id)
+         anchor-changed? (not= current-anchor next-anchor)]
+     (if (and (= current-pinned-id next-pinned-id)
+              (nil? next-by-coin)
+              (not anchor-changed?))
+       []
+       [(tooltip-save-effect [:funding-ui :tooltip :pinned-id]
+                             next-pinned-id
+                             next-by-coin
+                             anchor-changed?
+                             next-anchor)]))))
 
 (defn enter-funding-hypothetical-position
   [state coin mark entry]

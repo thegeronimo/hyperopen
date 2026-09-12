@@ -57,7 +57,37 @@
     {
       "type": "eval",
       "allowUnsafeEval": true,
-      "expression": "(() => { const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!trigger) { return { clicked: false, reason: \"missing-trigger\" }; } trigger.click(); return { clicked: true, ariaExpanded: trigger.getAttribute(\"aria-expanded\") }; })()",
+      "expression": "(() => { const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!trigger) { return { scrolledIntoView: false, reason: \"missing-trigger\" }; } trigger.scrollIntoView({ block: \"nearest\", inline: \"nearest\" }); return { scrolledIntoView: true }; })()",
+      "expect": {
+        "scrolledIntoView": true
+      }
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "eval",
+      "allowUnsafeEval": true,
+      "expression": "(() => { const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!trigger) { return { focused: false, reason: \"missing-trigger\" }; } trigger.focus(); return { focused: document.activeElement === trigger }; })()",
+      "expect": {
+        "focused": true
+      }
+    },
+    {
+      "type": "wait_for_idle",
+      "options": {
+        "quietMs": 200,
+        "timeoutMs": 4000
+      }
+    },
+    {
+      "type": "eval",
+      "allowUnsafeEval": true,
+      "expression": "(() => { const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!trigger) { return { clicked: false, reason: \"missing-trigger\" }; } trigger.click(); return { clicked: true }; })()",
       "expect": {
         "clicked": true
       }
@@ -72,17 +102,22 @@
     {
       "type": "eval",
       "saveAs": "tooltipGeometry",
-      "expression": "(() => { const panel = document.querySelector(\"[data-role='active-asset-funding-tooltip']\"); const orderbook = document.querySelector(\"[data-parity-id='trade-orderbook-panel']\"); const account = document.querySelector(\"[data-parity-id='trade-account-tables-panel']\"); const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); if (!panel || !orderbook || !account || !trigger) { return { panelPresent: Boolean(panel), orderbookPresent: Boolean(orderbook), accountPresent: Boolean(account), triggerPresent: Boolean(trigger) }; } const rect = (node) => { const box = node.getBoundingClientRect(); return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height }; }; const overlaps = (left, right) => left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top; const panelRect = rect(panel); const orderbookRect = rect(orderbook); const accountRect = rect(account); const samplePoint = (x, y) => { const element = document.elementFromPoint(x, y); const topDataRole = element?.closest(\"[data-role]\")?.getAttribute(\"data-role\") || null; const insidePanel = Boolean(element && panel.contains(element)); return { x, y, withinViewport: x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight, topDataRole, topOwnerRole: insidePanel ? \"active-asset-funding-tooltip\" : topDataRole, insidePanel }; }; const clamp = (value, lower, upper) => Math.max(lower, Math.min(upper, value)); const centerSample = samplePoint(clamp(panelRect.left + panelRect.width / 2, 1, window.innerWidth - 1), clamp(panelRect.top + panelRect.height / 2, 1, window.innerHeight - 1)); const rightOverlap = overlaps(panelRect, orderbookRect); const bottomOverlap = overlaps(panelRect, accountRect); const rightSample = rightOverlap ? samplePoint(clamp(Math.max(orderbookRect.left + 8, panelRect.left + 8), 1, window.innerWidth - 1), clamp(panelRect.top + Math.min(panelRect.height / 2, 24), 1, window.innerHeight - 1)) : null; const bottomSample = bottomOverlap ? samplePoint(clamp(panelRect.left + Math.min(panelRect.width / 2, 24), 1, window.innerWidth - 1), clamp(Math.max(accountRect.top + 8, panelRect.top + 8), 1, window.innerHeight - 1)) : null; return { panelPresent: true, triggerPressed: trigger.getAttribute(\"aria-pressed\"), panelRect, orderbookRect, accountRect, centerSample, rightOverlap, rightSample, bottomOverlap, bottomSample }; })()",
+      "expression": "(() => { const panel = document.querySelector(\"[data-role='active-asset-funding-tooltip']\"); const trigger = document.querySelector(\"[data-role='active-asset-funding-trigger']\"); const targets = { chart: document.querySelector(\"[data-parity-id='chart-panel']\"), orderbook: document.querySelector(\"[data-parity-id='trade-orderbook-panel']\"), account: document.querySelector(\"[data-parity-id='trade-account-tables-panel']\") }; if (!panel || !trigger || Object.values(targets).some((node) => !node)) { return { panelPresent: Boolean(panel), triggerPresent: Boolean(trigger), chartPresent: Boolean(targets.chart), orderbookPresent: Boolean(targets.orderbook), accountPresent: Boolean(targets.account) }; } const rect = (node) => { const box = node.getBoundingClientRect(); return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height }; }; const clamp = (value, lower, upper) => Math.max(lower, Math.min(upper, value)); const panelRect = rect(panel); const samplePoint = (x, y) => { const element = document.elementFromPoint(x, y); const topDataRole = element?.closest(\"[data-role]\")?.getAttribute(\"data-role\") || null; const insidePanel = Boolean(element && panel.contains(element)); return { x, y, withinViewport: x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight, topDataRole, topOwnerRole: insidePanel ? \"active-asset-funding-tooltip\" : topDataRole, insidePanel }; }; const intersectionSample = (targetRect) => { const left = Math.max(panelRect.left, targetRect.left); const right = Math.min(panelRect.right, targetRect.right); const top = Math.max(panelRect.top, targetRect.top); const bottom = Math.min(panelRect.bottom, targetRect.bottom); return left < right && top < bottom ? samplePoint((left + right) / 2, (top + bottom) / 2) : null; }; const overlapSamples = Object.fromEntries(Object.entries(targets).map(([name, node]) => { const targetRect = rect(node); const sample = intersectionSample(targetRect); return [name, { rect: targetRect, overlaps: Boolean(sample), sample }]; })); const ownsTooltip = (sample) => Boolean(sample && sample.insidePanel && sample.topOwnerRole === \"active-asset-funding-tooltip\"); const centerSample = samplePoint(clamp(panelRect.left + panelRect.width / 2, 1, window.innerWidth - 1), clamp(panelRect.top + panelRect.height / 2, 1, window.innerHeight - 1)); return { panelPresent: true, triggerPressed: trigger.getAttribute(\"aria-pressed\"), triggerExpanded: trigger.getAttribute(\"aria-expanded\"), panelPosition: getComputedStyle(panel).position, panelWithinViewport: panelRect.left >= 0 && panelRect.top >= 0 && panelRect.right <= window.innerWidth && panelRect.bottom <= window.innerHeight, panelRect, centerSample, chartOverlap: overlapSamples.chart.overlaps, intersectionOwners: Object.fromEntries(Object.entries(overlapSamples).map(([name, { sample }]) => [name, sample ? ownsTooltip(sample) : true])), overlapSamples }; })()",
       "expect": {
         "panelPresent": true,
         "triggerPressed": "true",
+        "triggerExpanded": "true",
+        "panelPosition": "fixed",
+        "panelWithinViewport": true,
         "centerSample": {
-          "insidePanel": true
-        },
-        "rightOverlap": true,
-        "rightSample": {
           "insidePanel": true,
           "topOwnerRole": "active-asset-funding-tooltip"
+        },
+        "chartOverlap": true,
+        "intersectionOwners": {
+          "chart": true,
+          "orderbook": true,
+          "account": true
         }
       }
     },
