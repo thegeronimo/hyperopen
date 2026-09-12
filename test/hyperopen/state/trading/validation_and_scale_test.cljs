@@ -82,11 +82,14 @@
                            :size "0.5"
                            :type :twap
                            :twap {:hours 0 :minutes 30 :randomize false})
+          exact-floor-state (assoc-in support/base-state
+                                      [:orderbooks "BTC" :asks]
+                                      [{:px "100"}])
           at-floor (assoc too-small :size "1")
           valid (assoc too-small :size "10")]
       (is (= #{:twap/order-notional-too-small}
              (validation-codes (trading/validate-order-form support/base-state too-small))))
-      (is (empty? (trading/validate-order-form support/base-state at-floor)))
+      (is (empty? (trading/validate-order-form exact-floor-state at-floor)))
       (is (empty? (trading/validate-order-form support/base-state valid))))))
 
 (deftest spot-affordability-skips-unified-portfolio-margin-test
