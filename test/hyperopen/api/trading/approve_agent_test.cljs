@@ -47,6 +47,44 @@
              (set! signing/sign-approve-agent-action! original-sign)
              (restore-fetch!)))))))
 
+(deftest approve-agent-signs-with-wallet-active-chain-id-test
+  (async done
+    (let [signed-action (atom nil)
+          fetch-call (atom nil)
+          original-sign signing/sign-approve-agent-action!
+          restore-fetch! (support/install-fetch-stub!
+                          (fn [url opts]
+                            (reset! fetch-call [url opts])
+                            (js/Promise.resolve #js {:ok true})))
+          action {:type "approveAgent"
+                  :agentAddress "0x9999999999999999999999999999999999999999"
+                  :nonce 1700000005555
+                  :hyperliquidChain "Mainnet"
+                  :signatureChainId "0xa4b1"}]
+      (set! signing/sign-approve-agent-action!
+            (fn [_address action*]
+              (reset! signed-action action*)
+              (js/Promise.resolve
+               (clj->js {:r "0x1"
+                         :s "0x2"
+                         :v 27}))))
+      (-> (trading/approve-agent! (atom {:wallet {:chain-id "0x1"}})
+                                  support/owner-address
+                                  action)
+          (.then (fn [_]
+                   (let [[_ fetch-opts] @fetch-call
+                         parsed-body (support/fetch-body->map fetch-opts)]
+                     (is (= "0x1" (:signatureChainId @signed-action)))
+                     (is (= "0x1" (get-in parsed-body [:action :signatureChainId])))
+                     (done))))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))
+          (.finally
+           (fn []
+             (set! signing/sign-approve-agent-action! original-sign)
+             (restore-fetch!)))))))
+
 (deftest approve-agent-rejects-when-trading-crypto-module-load-fails-test
   (async done
     (with-redefs [trading-crypto-modules/load-trading-crypto-module!
