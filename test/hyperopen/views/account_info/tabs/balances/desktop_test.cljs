@@ -102,6 +102,19 @@
     (is (= [[:actions/select-asset "USDC"]]
            (get-in coin-cell [1 :on :click])))))
 
+(deftest balance-row-coin-cell-selects-spot-market-coin-over-bare-token-test
+  ;; "HYPE" is also the perp coin; the row must open the spot market it holds.
+  (let [row-node (balances-tab/balance-row (assoc fixtures/sample-balance-row
+                                                  :coin "HYPE"
+                                                  :selection-coin "HYPE"
+                                                  :market-coin "@107"))
+        coin-cell (first (vec (hiccup/node-children row-node)))]
+    (is (= [[:actions/select-asset "@107"]]
+           (get-in coin-cell [1 :on :click])))
+    (is (contains? (hiccup/direct-texts
+                    (hiccup/find-first-node coin-cell #(contains? (hiccup/direct-texts %) "HYPE")))
+                   "HYPE"))))
+
 (deftest balance-row-renders-unified-transfer-disabled-label-test
   (let [row-node (balances-tab/balance-row (assoc fixtures/sample-balance-row
                                                   :coin "USDC"

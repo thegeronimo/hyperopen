@@ -19,6 +19,7 @@
   row is already counted."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.asset-selector.markets :as markets]
             [hyperopen.staking.account-scope :as account-scope]
             [hyperopen.staking.unstaking :as unstaking]))
 
@@ -34,18 +35,20 @@
              str/upper-case)))
 
 (defn- synthetic-hype-row
-  [amount]
-  {:key "staking-unstaking-hype"
-   :selection-coin hype-coin
-   :coin hype-coin
-   :total-balance 0
-   :available-balance 0
-   :usdc-value nil
-   :pnl-value nil
-   :pnl-pct nil
-   :amount-decimals nil
-   :unstaking-hype amount
-   :staking-only? true})
+  [amount market-coin]
+  (cond-> {:key "staking-unstaking-hype"
+           :selection-coin hype-coin
+           :coin hype-coin
+           :total-balance 0
+           :available-balance 0
+           :usdc-value nil
+           :pnl-value nil
+           :pnl-pct nil
+           :amount-decimals nil
+           :unstaking-hype amount
+           :staking-only? true}
+    ;; Unstaked HYPE lands in spot, so the row opens the spot market, not the perp.
+    (seq market-coin) (assoc :market-coin market-coin)))
 
 (defn with-unstaking-hype
   "Annotate the HYPE row with in-flight unstaking, synthesizing the row when the
@@ -68,4 +71,8 @@
                                                (when (hype-row? row) index))
                                              rows*))]
              (assoc-in rows* [idx :unstaking-hype] amount)
-             (conj rows* (synthetic-hype-row amount)))))))))
+             (conj rows* (synthetic-hype-row
+                          amount
+                          (:coin (markets/resolve-spot-market-by-coin
+                                  (get-in state [:asset-selector :market-by-key])
+                                  hype-coin)))))))))))

@@ -30,6 +30,7 @@
    (balance-row row {}))
   ([{:keys [coin
             selection-coin
+            market-coin
             total-balance
             available-balance
             usdc-value
@@ -44,7 +45,7 @@
     {:keys [read-only?]}]
    (let [coin-style (when-not (balances-shared/usdc-balance-row? {:coin coin})
                       {:color "rgb(151, 252, 228)"})
-         selectable-coin (or selection-coin coin)
+         selectable-coin (or market-coin selection-coin coin)
          {:keys [base-label prefix-label]} (balances-shared/balance-coin-display {:coin coin
                                                                                   :selection-coin selection-coin})
          send-enabled?* (and (not read-only?)
