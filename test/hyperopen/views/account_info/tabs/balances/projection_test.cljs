@@ -397,3 +397,29 @@
     (is (contains? coins "HYPE"))
     (is (not (contains? coins "USDE")))
     (is (not (contains? coins "USDC (Perps)")))))
+
+(deftest build-balance-rows-tags-spot-rows-with-spot-market-coin-not-perp-test
+  (let [market-by-key {"perp:HYPE" {:key "perp:HYPE"
+                                    :coin "HYPE"
+                                    :market-type :perp}
+                       "spot:@107" {:key "spot:@107"
+                                    :coin "@107"
+                                    :symbol "HYPE/USDC"
+                                    :base "HYPE"
+                                    :quote "USDC"
+                                    :market-type :spot}}
+        rows (projections/build-balance-rows
+              {:clearinghouseState {:marginSummary {:accountValue "0"
+                                                    :totalMarginUsed "0"}}
+               :spotAssetCtxs []}
+              {:meta {:tokens [{:index 0 :name "USDC" :weiDecimals 8}
+                               {:index 150 :name "HYPE" :weiDecimals 8}]
+                      :universe []}
+               :clearinghouse-state {:balances [{:coin "USDC" :token 0 :hold "0" :total "5"}
+                                                {:coin "HYPE" :token 150 :hold "0" :total "2"}]}}
+              nil
+              market-by-key)
+        by-coin (into {} (map (juxt :selection-coin identity)) rows)]
+    (is (= "@107" (:market-coin (get by-coin "HYPE"))))
+    (is (= "HYPE" (:selection-coin (get by-coin "HYPE"))))
+    (is (nil? (:market-coin (get by-coin "USDC"))))))

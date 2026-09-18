@@ -463,7 +463,13 @@
                                                     coin)
                                        contract-id (when-not (= coin "USDC")
                                                      (or (extract-balance-contract-id balance)
-                                                         (extract-balance-contract-id token-meta)))]
+                                                         (extract-balance-contract-id token-meta)))
+                                       ;; The bare token ("HYPE") is also the perp coin, so
+                                       ;; selecting it opens the perp. Carry the spot market's
+                                       ;; own coin ("@107") for market selection.
+                                       market-coin (when-not (= coin "USDC")
+                                                     (:coin (markets/resolve-spot-market-by-coin
+                                                             market-by-key coin)))]
                                    (cond-> {:key (str "spot-" (or token-idx coin))
                                             :selection-coin coin
                                             :coin coin-label
@@ -475,6 +481,9 @@
                                             :pnl-pct pnl-pct
                                             :amount-decimals decimals
                                             :contract-id contract-id}
+                                     (seq market-coin)
+                                     (assoc :market-coin market-coin)
+
                                      (= coin "USDC")
                                      (assoc :transfer-dex ""
                                             :transfer-to-perp? true)))))

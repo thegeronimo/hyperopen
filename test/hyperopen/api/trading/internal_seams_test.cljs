@@ -167,10 +167,16 @@
             :hyperliquid-chain "Mainnet"}
            (@#'hyperopen.api.trading/resolve-user-signing-context
             (atom {:wallet {}}))))
-    (is (= {:signature-chain-id "0xa4b1"
+    ;; Rabby rejects typed data whose domain chainId differs from the wallet's
+    ;; active chain, so any wallet chain is used as-is.
+    (is (= {:signature-chain-id "0x1"
             :hyperliquid-chain "Mainnet"}
            (@#'hyperopen.api.trading/resolve-user-signing-context
             (atom {:wallet {:chain-id "0x1"}}))))
+    (is (= {:signature-chain-id "0x2105"
+            :hyperliquid-chain "Mainnet"}
+           (@#'hyperopen.api.trading/resolve-user-signing-context
+            (atom {:wallet {:chain-id 8453}}))))
     (is (= {:signature-chain-id "0x66eee"
             :hyperliquid-chain "Testnet"}
            (@#'hyperopen.api.trading/resolve-user-signing-context
