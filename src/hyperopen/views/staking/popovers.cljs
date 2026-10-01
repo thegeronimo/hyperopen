@@ -154,7 +154,7 @@
                       "shadow-[0_24px_58px_rgba(0,0,0,0.55)]"
                       "space-y-3"]
               :style panel-style
-              :tab-index 0
+              :tabindex 0
               :role "dialog"
               :aria-modal true :data-role "staking-action-popover"
               :replicant/on-render action-popover-focus-on-render

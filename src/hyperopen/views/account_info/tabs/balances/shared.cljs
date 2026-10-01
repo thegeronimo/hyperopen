@@ -105,7 +105,7 @@
                                      ["top-full" "border-t-gray-800"])]
         [:div {:class ["group" "relative" "inline-flex" "min-h-6" "items-center" "justify-start"]}
          [:span {:class ["cursor-help" "rounded" "underline" "decoration-dashed" "underline-offset-2" "focus-visible:outline-none" "focus-visible:ring-2" "focus-visible:ring-trading-green/70" "focus-visible:ring-offset-1" "focus-visible:ring-offset-base-100"]
-                 :tab-index 0}
+                 :tabindex 0}
           value-text]
          [:div {:class (into ["pointer-events-none" "absolute" "left-1/2" "-translate-x-1/2" "z-[120]" "opacity-0" "transition-opacity" "duration-200" "group-hover:opacity-100" "group-focus-within:opacity-100"]
                              panel-position-classes)}

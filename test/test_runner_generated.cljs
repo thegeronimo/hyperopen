@@ -688,7 +688,6 @@
             [hyperopen.views.funding-comparison.vm-test]
             [hyperopen.views.funding-modal-accessibility-test]
             [hyperopen.views.funding-modal-test]
-            [hyperopen.views.funding-modal.tabindex-attribute-test]
             [hyperopen.views.funding-modal.transfer-evm-view-test]
             [hyperopen.views.funding-modal.transfer-form-states-test]
             [hyperopen.views.funding-modal.transfer-qa-fixes-test]
@@ -1660,7 +1659,6 @@
              'hyperopen.views.funding-comparison.vm-test
              'hyperopen.views.funding-modal-accessibility-test
              'hyperopen.views.funding-modal-test
-             'hyperopen.views.funding-modal.tabindex-attribute-test
              'hyperopen.views.funding-modal.transfer-evm-view-test
              'hyperopen.views.funding-modal.transfer-form-states-test
              'hyperopen.views.funding-modal.transfer-qa-fixes-test

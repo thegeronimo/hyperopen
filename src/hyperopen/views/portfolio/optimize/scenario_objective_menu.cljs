@@ -234,7 +234,7 @@
                          "focus:ring-offset-0"]
                  :data-role "portfolio-optimizer-objective-menu"
                  :role "region"
-                 :tab-index -1
+                 :tabindex -1
                  :replicant/on-render objective-menu-mount-focus!
                  :aria-label "Change objective"
                  :on {:keydown [[:actions/handle-portfolio-optimizer-objective-menu-keydown

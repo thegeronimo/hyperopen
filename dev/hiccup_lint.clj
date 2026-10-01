@@ -320,9 +320,87 @@
           (println "No Replicant fragment tags found in hiccup.")
           0)))))
 
+;; Misspelled DOM attribute guard.
+;;
+;; Replicant passes `(name attr)` straight to setAttribute: there is no
+;; React-style kebab/camel translation. `:tab-index 0` therefore writes an
+;; unknown `tab-index="0"` attribute and the element stays unfocusable. Like
+;; fragments, this is invisible to view tests, which read back whatever key the
+;; view used.
+(def misspelled-attrs
+  {:tab-index :tabindex})
+
+(defn- misspelled-attr-violations-in-forms
+  [file-path forms]
+  (let [violations (transient [])]
+    (letfn [(walk [x]
+              (cond
+                (map? x)
+                (doseq [[k v] x]
+                  (when (contains? misspelled-attrs k)
+                    (conj! violations
+                           {:file-path file-path
+                            :line (or (:row (meta x)) 1)
+                            :literal (str k)}))
+                  (walk k)
+                  (walk v))
+
+                (or (vector? x) (list? x) (set? x) (seq? x))
+                (do
+                  ;; `(assoc attrs :tab-index -1)` builds the map at runtime.
+                  (when (seq? x)
+                    (doseq [item x]
+                      (when (contains? misspelled-attrs item)
+                        (conj! violations
+                               {:file-path file-path
+                                :line (or (:row (meta x)) 1)
+                                :literal (str item)}))))
+                  (doseq [item x]
+                    (walk item)))
+
+                :else
+                nil))]
+      (doseq [form forms]
+        (walk form))
+      (persistent! violations))))
+
+(defn misspelled-attr-violations-in-text
+  [file-path ^String text]
+  (misspelled-attr-violations-in-forms file-path
+                                       (edamame/parse-string-all text parse-opts)))
+
+(defn misspelled-attr-violations-in-file
+  [file-path]
+  (misspelled-attr-violations-in-text file-path (slurp file-path)))
+
+(defn check-misspelled-attrs!
+  []
+  (if-not (.exists src-dir)
+    (do
+      (println "No src directory found; skipping attribute spelling check.")
+      0)
+    (let [violations (->> (keys misspelled-attrs)
+                          (mapcat #(candidate-cljs-files src-dir (str %)))
+                          distinct
+                          (mapcat misspelled-attr-violations-in-file)
+                          sort-violations
+                          vec)]
+      (if (seq violations)
+        (do
+          (binding [*out* *err*]
+            (println "Found attribute keys Replicant would write verbatim as unknown DOM attributes:")
+            (doseq [{:keys [file-path line literal]} violations]
+              (println (str (relative-path root file-path) ":" line " " literal
+                            " -> " (get misspelled-attrs (keyword (subs literal 1)))))))
+          1)
+        (do
+          (println "No misspelled DOM attribute keys found.")
+          0)))))
+
 (defn check-hiccup-attrs!
   []
   (let [class-status (check-class-attrs!)
         style-status (check-style-map-string-keys!)
-        fragment-status (check-hiccup-fragments!)]
-    (if (zero? (+ class-status style-status fragment-status)) 0 1)))
+        fragment-status (check-hiccup-fragments!)
+        attr-status (check-misspelled-attrs!)]
+    (if (zero? (+ class-status style-status fragment-status attr-status)) 0 1)))

@@ -238,7 +238,7 @@
                        "focus-visible:ring-trading-green/70"
                        "focus-visible:ring-offset-1"
                        "focus-visible:ring-offset-base-100"]
-               :tab-index 0}
+               :tabindex 0}
         label]
        [:span {:class ["pointer-events-none"
                        "absolute"
