@@ -168,10 +168,13 @@
 (deftest hyperevm-note-and-move-block-reason-test
   (let [note-classes (fn [content] (class-set (by-role content "balances-hyperevm-note")))
         blocked (fn [content] (by-role content "balances-hyperevm-moves-blocked"))]
-    (testing "shown with HyperEVM rows, with no block for the connected master"
+    (testing "hidden for the connected master once read: nothing to say"
       (let [content (panel)]
-        (is (contains? (note-classes content) "lg:block"))
-        (is (contains? (class-set (blocked content)) "hidden"))))
+        (is (contains? (note-classes content) "hidden"))
+        (is (not (contains? (note-classes content) "lg:block")))
+        (is (contains? (class-set (blocked content)) "hidden"))
+        (is (not (str/includes? (str/join " " (hiccup/collect-strings content)) "chain 999"))
+            "no static explainer under the table")))
     (testing "hidden for an account with nothing on HyperEVM"
       (let [content (panel (fixture/with-evm-entry state (assoc fixture/evm-entry
                                                                 :native-wei "0"
@@ -212,7 +215,7 @@
              {:from :hyperevm :to :spot :asset 150}]]
            (click-actions to-spot)))
     (is (some? (by-role card "balance-row-gas-reserve-note")))
-    (is (contains? (class-set (by-role content "balances-hyperevm-note-mobile")) "lg:hidden"))))
+    (is (contains? (class-set (by-role content "balances-hyperevm-note-mobile")) "hidden"))))
 
 (deftest unpriced-hyperevm-token-shows-no-dollar-figure-test
   (let [unpriced (-> state

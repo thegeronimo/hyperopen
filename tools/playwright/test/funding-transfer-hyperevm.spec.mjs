@@ -391,7 +391,8 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   await expect(role(page, "balances-moves-hyperevm-150")).toHaveCount(0);
   await expect(role(page, "balances-moves-spot-1")).toBeVisible();
   await role(page, "balances-location-filter-all").click();
-  await expect(table).toContainText("HyperEVM balances are read on chain 999.");
+  await expect(table).not.toContainText("HyperEVM balances are read on chain 999.");
+  await expect(role(page, "balances-hyperevm-note")).toBeHidden();
   expect(await noHorizontalOverflow(page)).toBe(true);
 
   // A disabled move keeps focus and shows its reason only while focused:

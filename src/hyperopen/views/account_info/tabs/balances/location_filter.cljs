@@ -95,15 +95,9 @@
     :no-match no-match-message
     (or (status-message cause) "No HyperEVM balances.")))
 
-(def note-text
-  "HyperEVM balances are read on chain 999.")
-
-(def note-detail
-  "Only tokens linked between HyperCore and HyperEVM are shown and can be moved.")
-
 (defn- note-line
   [data-role text]
-  [:span {:class (cond-> ["ml-1"]
+  [:span {:class (cond-> ["mr-1"]
                    (nil? text) (conj "hidden"))
           :data-role data-role}
    (or text "")])
@@ -111,27 +105,28 @@
 (defn hyperevm-note
   "The note under the table: `surface` `:desktop` (under the rows, 1024 px
    and up), `:mobile` (above the cards, below 1024 px) or `:any`. Always
-   rendered, hidden by class unless `visible?`. `:status-line` says a first
-   HyperEVM read is pending or failed; `:blocked-message` says why HyperEVM
-   moves are unavailable for this account, if they are."
+   rendered, hidden by class unless `visible?` and it has something to say:
+   `:status-line` says a first HyperEVM read is pending or failed;
+   `:blocked-message` says why HyperEVM moves are unavailable for this
+   account, if they are."
   [surface visible? {:keys [blocked-message status-line]}]
-  (let [mobile? (= :mobile surface)]
+  (let [mobile? (= :mobile surface)
+        status-line (when visible? status-line)
+        blocked-message (when visible? blocked-message)
+        shown? (boolean (or status-line blocked-message))]
     [:div {:class (into ["shrink-0" "border-ho-border-accent-muted" "px-4" "text-xs"
                          "leading-4" "text-ho-text-muted"]
                         (cond
-                          (not visible?) ["hidden"]
+                          (not shown?) ["hidden"]
                           mobile? ["lg:hidden" "border-b" "py-2"]
                           (= :desktop surface) ["hidden" "lg:block" "border-t" "py-2.5"]
                           :else ["border-t" "py-2.5"]))
            :data-role (if mobile? "balances-hyperevm-note-mobile" "balances-hyperevm-note")}
-     [:span note-text]
-     ;; One line on a phone: the detail joins from 640 px.
-     [:span {:class ["ml-1" "hidden" "sm:inline"]} note-detail]
      (note-line (if mobile? "balances-hyperevm-status-mobile" "balances-hyperevm-status")
-                (when visible? status-line))
-     [:span {:class (into ["ml-1" "text-ho-warn"]
-                          (when-not (and visible? blocked-message) ["hidden"]))
+                status-line)
+     [:span {:class (into ["text-ho-warn"]
+                          (when-not blocked-message ["hidden"]))
              :data-role (if mobile?
                           "balances-hyperevm-moves-blocked-mobile"
                           "balances-hyperevm-moves-blocked")}
-      (or (when visible? blocked-message) "")]]))
+      (or blocked-message "")]]))
