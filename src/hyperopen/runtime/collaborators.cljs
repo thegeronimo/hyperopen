@@ -7,12 +7,14 @@
             [hyperopen.runtime.collaborators.asset-selector :as asset-selector-collaborators]
             [hyperopen.runtime.collaborators.chart :as chart-collaborators]
             [hyperopen.runtime.collaborators.funding-comparison :as funding-comparison-collaborators]
+            [hyperopen.runtime.collaborators.hyperevm :as hyperevm-collaborators]
             [hyperopen.runtime.collaborators.leaderboard :as leaderboard-collaborators]
             [hyperopen.runtime.collaborators.margin-rec :as margin-rec-collaborators]
             [hyperopen.runtime.collaborators.order :as order-collaborators]
             [hyperopen.runtime.collaborators.spectate-mode :as spectate-mode-collaborators]
             [hyperopen.runtime.collaborators.staking :as staking-collaborators]
             [hyperopen.runtime.collaborators.wallet :as wallet-collaborators]
+            [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.staking.effects :as staking-effects]))
 
 (defn- merge-nested
@@ -49,7 +51,12 @@
           :api-submit-funding-transfer funding-effects/api-submit-funding-transfer!
           :api-submit-funding-repay funding-effects/api-submit-funding-repay!
           :api-submit-funding-withdraw funding-effects/api-submit-funding-withdraw!
-          :api-submit-funding-deposit funding-effects/api-submit-funding-deposit!}}
+          :api-submit-funding-deposit funding-effects/api-submit-funding-deposit!
+          :fetch-hyperevm-balances hyperevm-effect-adapters/fetch-hyperevm-balances-effect
+          :fetch-hyperevm-core-bridge-balance hyperevm-effect-adapters/fetch-hyperevm-core-bridge-balance-effect
+          :fetch-hyperevm-core-account-status hyperevm-effect-adapters/fetch-hyperevm-core-account-status-effect
+          :fetch-hyperevm-in-flight-receipt hyperevm-effect-adapters/fetch-hyperevm-in-flight-receipt-effect
+          :wallet-watch-asset hyperevm-effect-adapters/wallet-watch-asset-effect}}
    effect-overrides))
 
 (defn runtime-action-deps
@@ -65,5 +72,6 @@
     :funding-comparison (funding-comparison-collaborators/action-deps)
     :staking (staking-collaborators/action-deps)
     :orders (order-collaborators/action-deps)
-    :margin-rec (margin-rec-collaborators/action-deps)}
+    :margin-rec (margin-rec-collaborators/action-deps)
+    :hyperevm (hyperevm-collaborators/action-deps)}
    action-overrides))

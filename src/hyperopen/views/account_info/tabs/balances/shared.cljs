@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.projections :as projections]
-            [hyperopen.views.account-info.shared :as shared]))
+            [hyperopen.views.account-info.shared :as shared]
+            [hyperopen.views.ui.location-chip :as location-chip]))
 
 (def ^:private unified-available-balance-tooltip-suffix
   " is available to withdraw or transfer. Some perps may have a larger available to trade amount, which can be seen in the order form for that asset.")
@@ -55,13 +56,19 @@
    "underline-offset-2"
    "whitespace-nowrap"])
 
+(def ^:private balances-option-keys
+  [:mobile-expanded-card
+   :read-only?
+   :read-only-message
+   :location-filter
+   :hyperevm-status
+   :hyperevm-moves-blocked-message])
+
 (defn normalize-balances-options
   [options]
   (cond
     (and (map? options)
-         (or (contains? options :mobile-expanded-card)
-             (contains? options :read-only?)
-             (contains? options :read-only-message)))
+         (some #(contains? options %) balances-option-keys))
     (merge {:mobile-expanded-card {}}
            options)
 
@@ -149,6 +156,41 @@
                              (str "Open contract " display-contract-id " in Hyperliquid Explorer")
                              ["text-trading-green"])])))
 
+(defn evm-contract-node
+  "The Contract cell of a HyperEVM row: \"Native\" for HYPE, else the ERC-20
+   address, abbreviated, linking to the HyperEVM explorer."
+  [{:keys [evm-native? evm-contract evm-contract-url]}]
+  (if evm-native?
+    [:span {:class ["inline-flex" "min-h-6" "items-center" "text-trading-text-secondary"]
+            :data-role "balance-row-evm-contract"}
+     "Native"]
+    (when-let [display-contract (abbreviate-contract-id evm-contract)]
+      [:span {:class ["inline-flex" "min-w-0" "min-h-6" "items-center" "gap-1"
+                      "whitespace-nowrap" "text-trading-text"]
+              :data-role "balance-row-evm-contract"}
+       [:span {:class ["truncate"]} display-contract]
+       (when evm-contract-url
+         (external-link-button evm-contract-url
+                               (str "Open contract " display-contract " in the HyperEVM explorer")
+                               ["text-trading-green"]))])))
+
+(defn gas-reserve-note
+  "Under a HyperEVM HYPE row's available balance: the HYPE a move to
+   HyperCore leaves behind for gas, or nil."
+  [{:keys [gas-reserve-text]}]
+  (when gas-reserve-text
+    [:div {:class ["mt-0.5" "text-xs" "font-normal" "text-ho-text-muted"]
+           :data-role "balance-row-gas-reserve-note"}
+     (str gas-reserve-text " kept for gas")]))
+
+(defn balance-usd-value-text
+  "The USD Value cell. A HyperEVM token with no price shows \"--\" rather
+   than a confident $0.00."
+  [{:keys [location usdc-value]}]
+  (if (and (= :hyperevm location) (nil? usdc-value))
+    "--"
+    (str "$" (shared/format-currency usdc-value))))
+
 (defn balance-pnl-node
   [{:keys [coin selection-coin pnl-value pnl-pct contract-id]}]
   (if-let [pnl-text (shared/format-pnl-text pnl-value pnl-pct)]
@@ -201,12 +243,13 @@
            (fmt/format-fixed-number unstaking-hype 8))
          " unstaking")))
 
-(defn balance-coin-node [{:keys [base-label prefix-label]}]
+(defn balance-coin-node [{:keys [base-label prefix-label location-chip]}]
   [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
    [:span {:class ["truncate"]} base-label]
    (when prefix-label
      [:span {:class shared/position-chip-classes}
-      prefix-label])])
+      prefix-label])
+   (location-chip/location-chip location-chip)])
 
 (defn unstaking-chip
   "Sits under the available balance rather than beside the coin name: the coin
@@ -238,19 +281,54 @@
     "PNL (ROE %)" (shared/parse-num (:pnl-value row))
     0))
 
+(defn- location-sort-rank [row]
+  (if (= :hyperevm (:location row)) 1 0))
+
+(defn- coin-sort-group
+  "What the Coin sort groups a row under. Every USDC row is one group: the
+   HyperCore ones are labelled \"USDC (Perps)\" / \"USDC (Spot)\" and the
+   HyperEVM one \"USDC\", so comparing labels alone would list HyperEVM
+   first."
+  [row]
+  (let [coin (or (:coin row) "")]
+    (if (usdc-balance-row? row) "USDC" coin)))
+
+(defn- directed-compare [direction a b]
+  (if (= direction :desc)
+    (compare b a)
+    (compare a b)))
+
 (defn- compare-balance-rows [column direction row-a row-b]
-  (let [value-a (balance-sort-value column row-a)
-        value-b (balance-sort-value column row-b)
-        primary-cmp (if (= direction :desc)
-                      (compare value-b value-a)
-                      (compare value-a value-b))]
+  (let [coin-column? (= "Coin" column)
+        primary-cmp (if coin-column?
+                      (directed-compare direction
+                                        (coin-sort-group row-a)
+                                        (coin-sort-group row-b))
+                      (directed-compare direction
+                                        (balance-sort-value column row-a)
+                                        (balance-sort-value column row-b)))]
     (if (zero? primary-cmp)
-      (let [coin-cmp (compare (or (:coin row-a) "")
-                              (or (:coin row-b) ""))]
-        (if (zero? coin-cmp)
-          (compare (or (:key row-a) "")
-                   (or (:key row-b) ""))
-          coin-cmp))
+      (let [coin-a (or (:coin row-a) "")
+            coin-b (or (:coin row-b) "")
+            coin-cmp (compare coin-a coin-b)
+            ;; A token held on both ledgers lists HyperCore first, whatever
+            ;; the direction; the keys alone would put \"hyperevm-150\"
+            ;; before \"spot-150\".
+            location-cmp (compare (location-sort-rank row-a)
+                                  (location-sort-rank row-b))
+            key-cmp (compare (or (:key row-a) "")
+                             (or (:key row-b) ""))]
+        (if coin-column?
+          ;; One Coin group: HyperCore first, then the labels in the
+          ;; sort's direction (as the Coin sort ordered them before).
+          (cond
+            (not (zero? location-cmp)) location-cmp
+            (not (zero? coin-cmp)) (directed-compare direction coin-a coin-b)
+            :else key-cmp)
+          (cond
+            (not (zero? coin-cmp)) coin-cmp
+            (not (zero? location-cmp)) location-cmp
+            :else key-cmp)))
       primary-cmp)))
 
 (defn sort-balances-by-column [rows column direction]
@@ -287,9 +365,11 @@
            (filterv #(balance-matches-coin-search? % query))))))
 
 (defn send-enabled?
-  [{:keys [key selection-coin coin available-balance]}]
+  "HyperCore Send moves a HyperCore balance, so a HyperEVM row never offers it."
+  [{:keys [key selection-coin coin available-balance location]}]
   (let [row-key (some-> key str str/trim)]
-    (and (seq (shared/non-blank-text (or selection-coin coin)))
+    (and (not= :hyperevm location)
+         (seq (shared/non-blank-text (or selection-coin coin)))
          (number? (shared/parse-num available-balance))
          (pos? (shared/parse-num available-balance))
          (not (#{"perps-usdc" "unified-usdc-fallback"} row-key)))))
@@ -324,10 +404,12 @@
    label])
 
 (defn transfer-enabled?
-  "Spot <-> perps transfers only apply to USDC rows. Unified rows are handled
-  separately via `:transfer-disabled?`."
-  [{:keys [coin transfer-disabled?]}]
+  "Spot <-> perps transfers only apply to HyperCore USDC rows. Unified rows are
+  handled separately via `:transfer-disabled?`; a HyperEVM USDC row moves
+  through its own targets."
+  [{:keys [coin transfer-disabled? location]}]
   (and (not transfer-disabled?)
+       (not= :hyperevm location)
        (usdc-balance-row? {:coin coin})))
 
 (defn balance-row-transfer-to-perp?

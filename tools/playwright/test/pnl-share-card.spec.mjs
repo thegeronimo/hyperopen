@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
 // End-to-end coverage for the PnL share card.

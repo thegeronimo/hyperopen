@@ -261,9 +261,9 @@
                             (is (false? @fetch-called?))
                             (is (= {:status "ok"}
                                    (js->clj body :keywordize-keys true)))
-                            (is (= [{:paths [[:signedActions "scheduleCancel"]
+                            (is (= [{:paths [[:signedActions :scheduleCancel]
                                              [:signedActions :default]]
-                                     :matchedPath [:signedActions "scheduleCancel"]
+                                     :matchedPath [:signedActions :scheduleCancel]
                                      :request {:action action
                                                :nonce 1700000007777
                                                :signature signature}
@@ -293,7 +293,7 @@
           {:keys [action]} (commands/build-order-action command-context form)
           signature {:r "0x1" :s "0x2" :v 27}]
       (trading/set-debug-exchange-simulator!
-       {:signedActions {"order" {:responses [{:status "ok"}]}}})
+       {:signedActions {:order {:responses [{:status "ok"}]}}})
       (-> (@#'hyperopen.api.trading/post-signed-action! action 1700000007777 signature)
           (.then (fn [_resp]
                    (let [call (first (:calls (trading/debug-exchange-simulator-snapshot)))]
@@ -318,7 +318,7 @@
           {:keys [action]} (commands/build-twap-action command-context form)
           signature {:r "0x1" :s "0x2" :v 27}]
       (trading/set-debug-exchange-simulator!
-       {:signedActions {"twapOrder" {:responses [{:status "ok"}]}}})
+       {:signedActions {:twapOrder {:responses [{:status "ok"}]}}})
       (-> (@#'hyperopen.api.trading/post-signed-action! action 1700000007777 signature)
           (.then (fn [_resp]
                    (let [call (first (:calls (trading/debug-exchange-simulator-snapshot)))]
@@ -412,3 +412,49 @@
                     (cleanup!)
                     (is false (str "Unexpected error: " err))
                     (done)))))))
+
+(deftest user-signing-on-hyperevm-stays-mainnet-test
+  ;; A HyperEVM -> Core transfer leaves the wallet on chain 999. Later
+  ;; user-signed actions (sendAsset, usdClassTransfer) sign with that chain,
+  ;; which Hyperliquid accepts, and must still target Mainnet.
+  (with-redefs [agent-session/default-signature-chain-id-for-environment
+                (fn [is-mainnet]
+                  (if is-mainnet
+                    "0xa4b1"
+                    "0x66eee"))]
+    (doseq [chain-id ["0x3e7" "0x03E7" 999 "999"]]
+      (is (= {:signature-chain-id "0x3e7"
+              :hyperliquid-chain "Mainnet"}
+             (@#'hyperopen.api.trading/resolve-user-signing-context
+              (atom {:wallet {:chain-id chain-id}})))
+          (str chain-id)))))
+
+(deftest keywordized-per-type-queues-answer-signed-actions-without-a-live-post-test
+  ;; `installExchangeSimulator` keywordizes its config, so a `sendAsset`
+  ;; queue arrives as `{:signedActions {:sendAsset ...}}`. The signed-action
+  ;; lookup must match it; before the fix it looked up the string type, never
+  ;; matched, and fell through to a live POST to the exchange.
+  (async done
+    (let [fetch-called? (atom false)
+          restore-fetch! (support/install-fetch-stub!
+                          (fn [_url _opts]
+                            (reset! fetch-called? true)
+                            (js/Promise.resolve #js {:status 500})))
+          action {:type "sendAsset" :amount "1"}
+          signature {:r "0x1" :s "0x2" :v 27}]
+      (trading/set-debug-exchange-simulator!
+       (js->clj #js {:signedActions #js {:sendAsset #js {:responses #js [#js {:status "ok"}]}}}
+                :keywordize-keys true))
+      (-> (@#'hyperopen.api.trading/post-signed-action! action 1700000007777 signature)
+          (.then (fn [resp] (.json resp)))
+          (.then (fn [body]
+                   (is (false? @fetch-called?))
+                   (is (= {:status "ok"} (js->clj body :keywordize-keys true)))
+                   (is (= [:signedActions :sendAsset]
+                          (:matchedPath (first (:calls (trading/debug-exchange-simulator-snapshot))))))))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))))
+          (.finally (fn []
+                      (trading/clear-debug-exchange-simulator!)
+                      (restore-fetch!)
+                      (done)))))))

@@ -72,6 +72,7 @@
         (check-path state [:perp-dex-clearinghouse] empty-map-like? "empty map or nil")
         (check-path state [:perp-dex-clearinghouse-error] nil? "nil")
         (check-path state [:perp-dex-clearinghouse-error-category] nil? "nil")
+        (check-path state [:hyperevm :balances :by-address] empty-map-like? "empty map or nil")
         (check-path state [:portfolio :summary-by-key] empty-map-like? "empty map or nil")
         (check-path state [:portfolio :user-fees] empty-coll-like? "empty or nil")
         (check-path state [:portfolio :ledger-updates] empty-coll-like? "empty or nil")

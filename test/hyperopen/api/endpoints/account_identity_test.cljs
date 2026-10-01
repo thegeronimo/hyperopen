@@ -32,6 +32,30 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
+(deftest request-user-role-posts-user-role-with-a-long-ttl-test
+  (async done
+    (let [calls (atom [])
+          post-info! (api-stubs/post-info-stub calls {:role "missing"})]
+      (-> (account/request-user-role! post-info!
+                                      "0xABCDEF0000000000000000000000000000000001"
+                                      {:priority :low})
+          (.then (fn [response]
+                   (is (= {:role "missing"} response))
+                   (let [[body opts] (first @calls)]
+                     (is (= {"type" "userRole"
+                             "user" "0xABCDEF0000000000000000000000000000000001"}
+                            body))
+                     (is (= {:priority :low
+                             :dedupe-key [:user-role "0xabcdef0000000000000000000000000000000001"]
+                             :cache-ttl-ms 60000}
+                            opts)))
+                   (account/request-user-role! post-info! nil {})))
+          (.then (fn [response]
+                   (is (nil? response) "no address, no request")
+                   (is (= 1 (count @calls)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
 (deftest request-extra-agents-supports-payload-shape-variants-test
   (async done
     (let [address "0x1234567890abcdef1234567890abcdef12345678"

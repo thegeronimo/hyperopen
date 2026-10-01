@@ -4,7 +4,7 @@
 // history-bundle network request is still held open — the background refresh
 // replaces the data when it lands, but the user never stares at "Loading
 // history…" for data their browser already has.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
   keyword,

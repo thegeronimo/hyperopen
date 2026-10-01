@@ -22,6 +22,7 @@
    :account-surfaces {:account-info-view ["hyperopen" "views" "account_surfaces_module" "account_info_view"]
                       :account-equity-view ["hyperopen" "views" "account_surfaces_module" "account_equity_view"]
                       :account-equity-metrics ["hyperopen" "views" "account_surfaces_module" "account_equity_metrics"]
+                      :hyperevm-line-model ["hyperopen" "views" "account_surfaces_module" "hyperevm_line_model"]
                       :funding-actions-view ["hyperopen" "views" "account_surfaces_module" "funding_actions_view"]}})
 
 (defonce ^:private resolved-surface-exports (atom {}))

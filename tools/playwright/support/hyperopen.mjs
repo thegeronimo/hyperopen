@@ -1,4 +1,9 @@
 import { expect } from "@playwright/test";
+import {
+  emptyHyperEvmFixture,
+  hyperEvmRpcController,
+  routeHyperEvmRpc
+} from "./hyperevm_fixtures.mjs";
 
 const requiredDebugBridgeMethods = Object.freeze([
   "dispatch",
@@ -285,6 +290,16 @@ export async function visitRoute(page, route, options = {}) {
   const initialUrl = path === "/trade" ? `${path}${search}` : "/trade";
 
   trackDebugBridgeEvents(page);
+  // Every page gets a page-level mocked HyperEVM RPC (and so a controller a
+  // spec can read) before its first navigation. A spec that routed its own
+  // fixture first keeps it; `options.hyperEvmFixture` swaps it. Pages that
+  // never come through here are still answered by the context-level mock of
+  // the shared guard (`guarded_test.mjs`).
+  if (options.hyperEvmFixture) {
+    await routeHyperEvmRpc(page, options.hyperEvmFixture);
+  } else if (!hyperEvmRpcController(page)) {
+    await routeHyperEvmRpc(page, emptyHyperEvmFixture());
+  }
   let lastDebugBridgeError = null;
   for (let attempt = 0; attempt <= pageLoadRetryCount; attempt += 1) {
     try {

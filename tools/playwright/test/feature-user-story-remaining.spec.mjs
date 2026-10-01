@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
 const OWNER_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";

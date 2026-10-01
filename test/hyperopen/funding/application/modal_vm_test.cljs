@@ -225,3 +225,24 @@
             (str "contract failed for " name))
         (is (= expected-kind (get-in view-model [:content :kind]))
             (str "unexpected content kind for " name))))))
+
+(deftest funding-modal-view-model-routes-transfer-content-by-hyperevm-run-phase-test
+  (doseq [[phase kind] [[nil :transfer/form]
+                        [:running :transfer/progress]
+                        [:pending :transfer/pending]
+                        [:failed :transfer/failed]
+                        [:succeeded :transfer/success]]]
+    (let [state (support/base-state {:modal {:mode :transfer
+                                             :transfer-from :hyperevm
+                                             :transfer-to :spot
+                                             :amount-input ""
+                                             :transfer-evm (when phase
+                                                             {:phase phase
+                                                              :steps [{:id :send
+                                                                       :label "Send"
+                                                                       :status :active}]})}})
+          view-model (modal-vm/funding-modal-view-model (support/base-deps) state)]
+      (is (= kind (get-in view-model [:content :kind])) (str phase))
+      (is (= "Transfer" (:title view-model)))
+      (is (contracts/funding-modal-vm-valid? view-model) (str phase)))))
+

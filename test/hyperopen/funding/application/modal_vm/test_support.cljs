@@ -4,7 +4,8 @@
             [hyperopen.funding.application.modal-vm.async :as async]
             [hyperopen.funding.application.modal-vm.context :as context]
             [hyperopen.funding.application.modal-vm.lifecycle :as lifecycle]
-            [hyperopen.funding.application.modal-vm.presentation :as presentation]))
+            [hyperopen.funding.application.modal-vm.presentation :as presentation]
+            [hyperopen.funding.application.modal-vm.transfer :as transfer]))
 
 (defn non-blank-text
   [value]
@@ -103,7 +104,12 @@
            :format-usdc-input str
            :deposit-quick-amounts [5 10 25]
            :deposit-min-usdc 5
-           :withdraw-min-usdc 5}
+           :withdraw-min-usdc 5
+           :hyperevm-linked-tokens (fn [_state] [])
+           :hyperevm-entry (fn [_state _address] nil)
+           :hyperevm-moves-blocked-message (fn [_state] nil)
+           :token-price-usd (fn [_state _token] nil)
+           :wallet-chain-id (fn [_state] nil)}
           overrides)))
 
 (defn deposit-asset
@@ -229,7 +235,8 @@
        (context/with-preview-context deps)
        (async/with-async-context deps)
        (lifecycle/with-lifecycle-context deps)
-       (amounts/with-amount-context deps))))
+       (amounts/with-amount-context deps)
+       (transfer/with-transfer-context deps))))
 
 (defn build-presented-context
   ([]

@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.core.compat :as compat]
+            [hyperopen.funding.actions :as funding-actions]
             [hyperopen.order.actions :as order-actions]))
 
 (deftest core-compat-exposes-public-action-aliases-test
@@ -22,59 +23,12 @@
            (compat/refresh-asset-markets state)))
     (is (= [[:effects/api-load-user-data "0xabc"]]
            (compat/load-user-data state "0xabc")))
+    ;; Merged over the modal defaults, which modal-state-test pins literally,
+    ;; so a new default key is checked once there rather than in every opener.
     (is (= [[:effects/load-surface-module :funding-modal]
             [:effects/save [:funding-ui :modal]
-             {:open? true
-              :mode :legacy
-              :legacy-kind :history
-              :anchor nil
-              :opener-data-role nil
-              :focus-return-data-role nil
-              :focus-return-token 0
-              :deposit-step :asset-select
-              :deposit-search-input ""
-              :withdraw-step :asset-select
-              :withdraw-search-input ""
-              :deposit-selected-asset-key nil
-              :deposit-generated-address nil
-              :deposit-generated-signatures nil
-              :deposit-generated-asset-key nil
-              :send-token nil
-              :send-symbol nil
-              :send-prefix-label nil
-              :send-max-amount nil
-              :send-max-display nil
-              :send-max-input ""
-              :withdraw-selected-asset-key :usdc
-              :withdraw-generated-address nil
-              :amount-input ""
-              :to-perp? true
-              :transfer-dex ""
-              :transfer-destination-address ""
-              :transfer-from-subaccount ""
-              :destination-input ""
-              :hyperunit-lifecycle {:direction nil
-                                    :asset-key nil
-                                    :operation-id nil
-                                    :state nil
-                                    :status nil
-                                    :source-tx-confirmations nil
-                                    :destination-tx-confirmations nil
-                                    :position-in-withdraw-queue nil
-                                    :destination-tx-hash nil
-                                    :state-next-at nil
-                                    :last-updated-ms nil
-                                    :error nil}
-              :hyperunit-fee-estimate {:status :idle
-                                       :by-chain {}
-                                       :requested-at-ms nil
-                                       :updated-at-ms nil
-                                       :error nil}
-              :hyperunit-withdrawal-queue {:status :idle
-                                           :by-chain {}
-                                           :requested-at-ms nil
-                                           :updated-at-ms nil
-                                           :error nil}
-              :submitting? false
-              :error nil}]]
+             (merge (funding-actions/default-funding-modal-state)
+                    {:open? true
+                     :mode :legacy
+                     :legacy-kind :history})]]
            (compat/set-funding-modal state :history)))))

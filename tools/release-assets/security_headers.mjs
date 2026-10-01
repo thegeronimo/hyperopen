@@ -43,6 +43,10 @@ const DOCUMENT_CONNECT_SRC = [
   "wss://api.hyperliquid.xyz",
   "https://stats-data.hyperliquid.xyz",
   "https://app.hyperliquid.xyz",
+  // HyperEVM JSON-RPC (https://rpc.hyperliquid.xyz/evm): balance, gas-price
+  // and receipt reads made by the page itself. Wallet-submitted transactions
+  // go through the wallet's own RPC and never hit this directive.
+  "https://rpc.hyperliquid.xyz",
   "https://api.hyperunit.xyz",
   "https://api.hyperunit-testnet.xyz",
   "https://app.across.to",

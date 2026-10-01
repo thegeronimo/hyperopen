@@ -21,22 +21,53 @@
            preview-message
            mode
            deposit-step-amount-entry?
-           withdraw-step-amount-entry?]}]
+           withdraw-step-amount-entry?
+           transfer-blocked]}]
   (or error
       (when (and (not preview-ok?)
                  (seq preview-message)
+                 ;; A blocked Transfer explains itself in its own card.
+                 (not (and (= mode :transfer) transfer-blocked))
                  (or (not= mode :deposit)
                      deposit-step-amount-entry?)
                  (or (not= mode :withdraw)
                      withdraw-step-amount-entry?))
         preview-message)))
 
+(def ^:private blank-amount-message
+  "The legacy Perps <-> Spot preview's answer to an empty amount."
+  "Enter a valid amount.")
+
+(defn- transfer-message
+  "The Transfer form's own message: why the draft can't be submitted (or
+   the last submit error), rendered in the form next to its submit. nil
+   outside Transfer mode and while a HyperEVM run shows (its views explain
+   themselves), so a finished move never shows the draft checked against
+   balances the move itself just changed.
+
+   An amount not typed yet is not an error on any route: the legacy
+   preview's \"Enter a valid amount.\" for a blank field is left out here
+   (the preview itself is unchanged), as the HyperEVM routes already say
+   nothing, so a freshly opened form shows no red error and no
+   `aria-invalid`."
+  [{:keys [mode transfer-evm error amount-input] :as ctx}]
+  (when (and (= mode :transfer) (nil? transfer-evm))
+    (let [message (status-message ctx)]
+      (when-not (and (nil? error)
+                     (str/blank? (str amount-input))
+                     (= blank-amount-message message))
+        message))))
+
 (defn- show-status-message?
-  [{:keys [legacy? deposit? withdraw? withdraw-step-amount-entry?]} status-message]
+  "The shell's red status line. Transfer renders its message in the form
+   (`transfer-message`), above its sticky submit, so the shell never shows
+   one there."
+  [{:keys [legacy? deposit? withdraw? withdraw-step-amount-entry? mode]} status-message]
   (boolean
    (and (seq status-message)
         (not legacy?)
         (not deposit?)
+        (not= mode :transfer)
         (or (not withdraw?)
             withdraw-step-amount-entry?))))
 
@@ -46,12 +77,16 @@
            withdraw?
            deposit-step-amount-entry?
            withdraw-step-amount-entry?
-           preview-ok?]}]
+           preview-ok?
+           mode
+           transfer-evm]}]
   (or submitting?
       (and deposit?
            (not deposit-step-amount-entry?))
       (and withdraw?
            (not withdraw-step-amount-entry?))
+      ;; A HyperEVM run owns the modal until it ends; never resubmit from it.
+      (and (= mode :transfer) (some? transfer-evm))
       (not preview-ok?)))
 
 (defn- title
@@ -78,7 +113,7 @@
     (case mode
       :deposit "Deposit"
       :send "Send Tokens"
-      :transfer "Perps <-> Spot"
+      :transfer "Transfer"
       :withdraw "Withdraw"
       :legacy (str/capitalize (name legacy-kind))
       "Funding")))
@@ -109,14 +144,15 @@
         (or preview-message "Enter a valid amount")))))
 
 (defn- submit-label
-  [{:keys [submitting? mode]}]
-  (if submitting?
-    "Submitting..."
-    (case mode
-      :send "Send"
-      :transfer "Transfer"
-      :withdraw "Withdraw"
-      "Confirm")))
+  [{:keys [submitting? mode transfer-submit-label]}]
+  (cond
+    (and (= mode :transfer) (seq transfer-submit-label)) transfer-submit-label
+    submitting? "Submitting..."
+    :else (case mode
+            :send "Send"
+            :transfer "Transfer"
+            :withdraw "Withdraw"
+            "Confirm")))
 
 (defn- deposit-unsupported-detail
   [selected-deposit-flow-kind]
@@ -160,14 +196,15 @@
            selected-deposit-asset
            selected-deposit-flow-kind
            selected-deposit-implemented?
-           selected-withdraw-asset]}]
+           selected-withdraw-asset
+           transfer-content-kind]}]
   (case mode
     :deposit (deposit-content-kind deposit-step
                                    selected-deposit-asset
                                    selected-deposit-flow-kind
                                    selected-deposit-implemented?)
     :send :send/form
-    :transfer :transfer/form
+    :transfer (or transfer-content-kind :transfer/form)
     :withdraw (if (and (= withdraw-step :amount-entry)
                        selected-withdraw-asset)
                 :withdraw/detail
@@ -190,6 +227,7 @@
     (assoc ctx
            :status-message status-message
            :show-status-message? (show-status-message? ctx status-message)
+           :transfer-message (transfer-message ctx)
            :submit-disabled? submit-disabled?
            :title (title ctx)
            :deposit-submit-label (deposit-submit-label ctx)

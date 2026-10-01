@@ -49,6 +49,24 @@
   `hyperopen.funding.application.modal-vm-test`,
   `hyperopen.funding.application.lifecycle-polling-test`,
   `hyperopen.funding.application.submit-effects-test`,
+  `hyperopen.funding.application.submit-effects-transfer-guard-test`,
+  `hyperopen.funding.application.submit-effects-gas-topup-test`,
+  `hyperopen.funding.application.submit-effects-hyperevm-test`,
+  `hyperopen.funding.application.hyperevm-submit-test`,
+  `hyperopen.funding.application.hyperevm-submit-failures-test`,
+  `hyperopen.funding.application.hyperevm-transfer-followup-test`,
+  `hyperopen.funding.application.hyperevm-transfer-outcomes-test`,
+  `hyperopen.funding.effects.hyperevm-runtime-test`,
+  `hyperopen.funding.domain.transfer-run-test`,
+  `hyperopen.funding.infrastructure.wallet-rpc-test`,
+  `hyperopen.funding.application.transfer-commands-test`,
+  `hyperopen.funding.application.transfer-capacity-refresh-test`,
+  `hyperopen.funding.application.modal-vm.transfer-test`,
+  `hyperopen.funding.domain.transfer-route-test`,
+  `hyperopen.funding.domain.evm-transfer-amounts-test`,
+  `hyperopen.funding.domain.evm-transfer-preview-test`,
+  `hyperopen.funding.domain.transfer-invariants-test`,
+  `hyperopen.funding.domain.transfer-dispatch-test`,
   `hyperopen.funding.infrastructure.hyperunit-client-test`,
   `hyperopen.funding.infrastructure.route-clients-test`,
   `hyperopen.funding.history-cache-test`
@@ -59,10 +77,18 @@
 
 - New modal default, normalization rule, or modal command:
   `hyperopen.funding.application.modal-state` or `hyperopen.funding.application.modal-commands`
+  (transfer-mode commands: `hyperopen.funding.application.transfer-commands`)
 - New funding preview, lifecycle rule, or asset policy:
   `hyperopen.funding.domain.*`
 - New deposit, withdraw, or transfer orchestration:
   `hyperopen.funding.application.*`
+  (HyperEVM -> Core wallet transactions: `hyperopen.funding.application.hyperevm-submit`;
+  the effects and runs of Transfer routes that touch HyperEVM:
+  `hyperopen.funding.application.hyperevm-transfer-effects` and `hyperevm-run-state`;
+  their real collaborators: `hyperopen.funding.effects.hyperevm-runtime`.
+  HyperEVM transactions are built in `hyperopen.hyperevm.domain.txs`, and every
+  modal write from a HyperEVM run must go through `hyperevm-run-state/update-run!`,
+  which drops writes from a flow the modal no longer shows.)
 - New Hyperunit, wallet, or route transport integration:
   `hyperopen.funding.infrastructure.*`
 - New stable action or effect entrypoint:

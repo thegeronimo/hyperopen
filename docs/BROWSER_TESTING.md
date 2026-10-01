@@ -1,7 +1,7 @@
 ---
 owner: platform
 status: canonical
-last_reviewed: 2026-06-22
+last_reviewed: 2026-10-01
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -69,8 +69,11 @@ The committed Playwright suite covers these stable local flows:
 - order submit and cancel gating with the built-in simulators
 - mobile account-surface selection to the `Positions` tab
 - mobile position-margin presentation as a bottom sheet
+- HyperCore <-> HyperEVM transfers in `/hyperopen/tools/playwright/test/funding-transfer-hyperevm.spec.mjs` (`@regression`), against the wallet and exchange simulators, a mocked HyperEVM RPC and fixed HyperCore account reads: the exact Spot -> HyperEVM `sendAsset`, the HyperEVM -> Spot wallet logs (switch, chain-pinned `eth_sendTransaction`, USDC approve then deposit), the gas top-up, receipt rate limits and the pending timeout, wallet refusals (4902, 4200, rejection, a chain change between transactions), subaccount and spectate read-only states, the Balances HyperEVM rows and filter, the Portfolio funds strip, the `/trade` HyperEVM line, and keyboard-only runs with focus on each view's heading
 
 These tests intentionally reuse the existing `HYPEROPEN_DEBUG` bridge, simulator helpers, and `data-parity-id` or `data-role` anchors instead of adding a second browser-only app API.
+
+Every spec imports `test` and `expect` from `/hyperopen/tools/playwright/support/guarded_test.mjs`, never from `@playwright/test` directly; `npm run test:playwright-support` fails a spec that does. Its automatic `hyperEvmRpcGuard` fixture answers the public HyperEVM RPC (`rpc.hyperliquid.xyz`) from an empty mock for the test's context and every context the test opens, so the app's HyperEVM balance poller never reaches the live RPC, and it fails the test at teardown if any request to that host was not answered by a mock. A spec that needs HyperEVM balances routes its own fixture with `routeHyperEvmRpc(page, fixture)` from `/hyperopen/tools/playwright/support/hyperevm_fixtures.mjs`.
 
 The interactive suite runs against the dev app build because the bridge only exists in `goog.DEBUG` mode. The release-only SEO smoke stays separate so it can validate the generated `out/release-public` artifact, route metadata, and deployment-style cache headers without breaking bridge-based tests.
 

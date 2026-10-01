@@ -77,6 +77,10 @@
   [post-info! address opts]
   (portfolio/request-user-fees! post-info! address opts))
 
+(defn request-user-role!
+  [post-info! address opts]
+  (portfolio/request-user-role! post-info! address opts))
+
 (defn request-referral!
   [post-info! address opts]
   (referrals/request-referral! post-info! address opts))

@@ -105,6 +105,7 @@
            desktop-secondary-panels-ready?
            equity-metrics
            hide-account-equity?
+           hyperevm-line-model
            order-form-panel-state]}
    {:keys [render-account-equity-panel-state render-order-form-panel]}]
   [:div {:class (:order-entry-panel-classes layout)
@@ -117,7 +118,9 @@
       (when (and desktop-layout?
                  (:order-entry-panel-visible? layout))
         (if desktop-secondary-panels-ready?
-          (or (render-account-equity-panel-state account-equity-panel-state equity-metrics {})
+          (or (render-account-equity-panel-state account-equity-panel-state
+                                                 equity-metrics
+                                                 {:hyperevm-line hyperevm-line-model})
               (desktop-secondary-panel-placeholder "Account Equity"
                                                    "trade-desktop-account-equity-placeholder"))
           (desktop-secondary-panel-placeholder "Account Equity"
@@ -154,11 +157,11 @@
                                              :fill-height? true)))]])
 
 (defn render-mobile-account-summary
-  [state {:keys [layout]} {:keys [equity-metrics]} {:keys [mobile-account-surface]}]
+  [state {:keys [layout]} {:keys [equity-metrics hyperevm-line-model]} {:keys [mobile-account-surface]}]
   (when (:mobile-account-summary-visible? layout)
     [:div {:class (:mobile-account-summary-classes layout)
            :data-parity-id "trade-mobile-account-summary-panel"}
-     (mobile-account-surface state equity-metrics)]))
+     (mobile-account-surface state equity-metrics hyperevm-line-model)]))
 
 (defn render-trade-grid
   [state

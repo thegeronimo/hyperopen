@@ -71,6 +71,9 @@
     (and (map? response) (contains? response :body))
     (:body response)
 
+    (map? response)
+    (dissoc response :delay-ms :delayMs)
+
     :else
     response))
 
@@ -102,7 +105,7 @@
   [paths]
   (some (fn [path]
           (when (and (= :signedActions (first path))
-                     (= "scheduleCancel" (str (second path))))
+                     (= "scheduleCancel" (some-> (second path) name)))
             path))
         paths))
 
@@ -137,6 +140,23 @@
          :text (fn []
                  (js/Promise.resolve (js/JSON.stringify (clj->js payload))))}))
 
+(defn- response-delay-ms
+  "A response's `delayMs` (or `:delay-ms`): how long the simulated exchange
+   holds it before answering, so a browser test can act while a request is
+   still in flight."
+  [response]
+  (let [delay-ms (when (map? response)
+                   (or (:delay-ms response) (:delayMs response)))]
+    (when (and (number? delay-ms) (pos? delay-ms))
+      delay-ms)))
+
+(defn- settle-after
+  [delay-ms settle]
+  (if delay-ms
+    (js/Promise. (fn [resolve reject]
+                   (js/setTimeout #(-> (settle) (.then resolve reject)) delay-ms)))
+    (settle)))
+
 (defn simulated-fetch-response
   ([paths]
    (simulated-fetch-response paths nil))
@@ -145,7 +165,10 @@
      (let [{:keys [path response defaulted?]} (first-response! paths)]
        (record-response-call! paths path response defaulted? request)
        (when response
-         (if-let [reject-message (or (:reject-message response)
-                                     (:rejectMessage response))]
-           (js/Promise.reject (js/Error. (str reject-message)))
-           (js/Promise.resolve (response-like response))))))))
+         (settle-after
+          (response-delay-ms response)
+          (fn []
+            (if-let [reject-message (or (:reject-message response)
+                                        (:rejectMessage response))]
+              (js/Promise.reject (js/Error. (str reject-message)))
+              (js/Promise.resolve (response-like response))))))))))

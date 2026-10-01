@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
 const SUPPORT_ADDRESS = "0x1111111111111111111111111111111111111111";

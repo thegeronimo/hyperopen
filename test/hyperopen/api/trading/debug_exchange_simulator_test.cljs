@@ -265,3 +265,46 @@
         (.finally (fn []
                     (simulator/clear!)
                     (done))))))
+
+(deftest schedule-cancel-default-also-answers-a-keyword-path-test
+  ;; `post-signed-action!` looks per-type queues up by keyword (the config
+  ;; arrives keywordized), so the scheduleCancel default must match one.
+  (async done
+    (let [paths [[:signedActions :scheduleCancel]
+                 [:signedActions :default]]]
+      (simulator/install! {:signedActions {:default []}})
+      (-> (simulator/simulated-fetch-response paths)
+          (.then read-json)
+          (.then (fn [body]
+                   (is (= {:status "ok"} body))
+                   (is (= [:signedActions :scheduleCancel]
+                          (:matchedPath (first (:calls (simulator/snapshot))))))))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))))
+          (.finally (fn []
+                      (simulator/clear!)
+                      (done)))))))
+
+(deftest a-delayed-response-is-held-and-answers-without-its-delay-key-test
+  ;; `delayMs` holds a response, so a browser test can act while the request
+  ;; is still in flight; the call is recorded at once and the payload the app
+  ;; reads carries no `delayMs`.
+  (async done
+    (let [started-at (js/Date.now)
+          settled? (atom false)]
+      (simulator/install!
+       {:signedActions {:default {:responses [{:status "ok" :delayMs 60}]}}})
+      (let [pending (simulator/simulated-fetch-response [[:signedActions :default]])]
+        (is (= 1 (count (:calls (simulator/snapshot)))))
+        (.then pending (fn [_] (reset! settled? true)))
+        (js/setTimeout #(is (false? @settled?) "still held after 10 ms") 10)
+        (-> pending
+            (.then read-json)
+            (.then (fn [body]
+                     (is (= {:status "ok"} body))
+                     (is (>= (- (js/Date.now) started-at) 50))))
+            (.catch (fn [err]
+                      (is false (str "Unexpected error: " err))))
+            (.finally (fn []
+                        (simulator/clear!)
+                        (done))))))))

@@ -235,6 +235,27 @@
     (is (= {} (get-in state [:perp-dex-fee-config-by-name])))
     (is (nil? (get-in state [:portfolio :user-fees])))))
 
+(deftest default-app-state-seeds-hyperevm-and-balances-location-filter-test
+  (let [state (app-defaults/default-app-state
+               {:websocket-health {}
+                :default-agent-state {}
+                :default-order-form {}
+                :default-order-form-ui {}
+                :default-order-form-runtime {}
+                :default-trade-history {}
+                :default-funding-history {}
+                :default-order-history {}})]
+    (is (= {:balances {:by-address {}}
+            :bridge {:evm-system-units {} :evm-system-read-at-ms {} :core->evm-sent-at-ms {}
+                     :core-system-balances {} :token-health {} :health-requested-at-ms nil}
+            :in-flight {}
+            :fast-poll-until-ms nil
+            :wallet-capabilities {}
+            :core-account {}
+            :backoff {:strikes 0 :until-ms nil}}
+           (:hyperevm state)))
+    (is (= :all (get-in state [:account-info :balances-location-filter])))))
+
 (deftest default-app-state-sources-api-wallet-ui-defaults-from-the-application-owner-test
   (let [state (app-defaults/default-app-state
                {:websocket-health {}

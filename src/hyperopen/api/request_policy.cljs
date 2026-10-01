@@ -24,6 +24,7 @@
    :clearinghouse-state 5000
    :spot-clearinghouse-state 15000
    :user-abstraction 60000
+   :user-role 60000
    :portfolio 8000
    :user-fees 15000
    :user-non-funding-ledger 5000

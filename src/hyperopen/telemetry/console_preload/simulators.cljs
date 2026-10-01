@@ -1,9 +1,11 @@
 (ns hyperopen.telemetry.console-preload.simulators
   (:require [clojure.string :as str]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.hyperevm.infrastructure.balance-poller :as hyperevm-balance-poller]
             [hyperopen.runtime.validation :as runtime-validation]
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.telemetry.console-preload.wallet-evm :as wallet-evm]
             [hyperopen.wallet.core :as wallet-core]
             [hyperopen.websocket.client :as ws-client]))
 
@@ -46,18 +48,20 @@
   [config]
   (let [config* (simulator-config-map config)
         accounts (normalize-string-vector (aliased-config-value config* [:accounts]))]
-    {:accounts accounts
-     :request-accounts (normalize-string-vector
-                        (or (aliased-config-value config* [:request-accounts :requestAccounts])
-                            (aliased-config-value config* [:accounts])))
-     :chain-id (or (aliased-config-value config* [:chain-id :chainId])
-                   "0xa4b1")
-     :accounts-error (normalize-optional-message config* [:accounts-error :accountsError])
-     :request-accounts-error (normalize-optional-message config* [:request-accounts-error :requestAccountsError])
-     :typed-data-signature (or (aliased-config-value config* [:typed-data-signature :typedDataSignature])
-                               default-simulated-typed-data-signature)
-     :typed-data-error (normalize-optional-message config* [:typed-data-error :typedDataError])
-     :switch-chain-error (normalize-optional-message config* [:switch-chain-error :switchChainError])}))
+    (merge
+     {:accounts accounts
+      :request-accounts (normalize-string-vector
+                         (or (aliased-config-value config* [:request-accounts :requestAccounts])
+                             (aliased-config-value config* [:accounts])))
+      :chain-id (or (aliased-config-value config* [:chain-id :chainId])
+                    "0xa4b1")
+      :accounts-error (normalize-optional-message config* [:accounts-error :accountsError])
+      :request-accounts-error (normalize-optional-message config* [:request-accounts-error :requestAccountsError])
+      :typed-data-signature (or (aliased-config-value config* [:typed-data-signature :typedDataSignature])
+                                default-simulated-typed-data-signature)
+      :typed-data-error (normalize-optional-message config* [:typed-data-error :typedDataError])
+      :switch-chain-error (normalize-optional-message config* [:switch-chain-error :switchChainError])}
+     (wallet-evm/normalize-config config*))))
 
 (defn- listener-counts
   [listeners]
@@ -68,10 +72,18 @@
 
 (defn- wallet-simulator-state-snapshot
   []
-  (let [{:keys [config listeners]} @wallet-simulator-state]
-    {:installed (boolean @wallet-simulator-state)
-     :config config
-     :listenerCounts (listener-counts listeners)}))
+  (let [{:keys [config listeners evm]} @wallet-simulator-state]
+    (merge {:installed (boolean @wallet-simulator-state)
+            :config config
+            :listenerCounts (listener-counts listeners)}
+           (wallet-evm/snapshot evm))))
+
+(defn wallet-simulator-snapshot
+  "The installed wallet simulator's config and its request log (every
+   EIP-1193 request in order, plus the transactions it sent, the chains it
+   added and the assets it was asked to watch)."
+  []
+  (clj->js (wallet-simulator-state-snapshot)))
 
 (defn- restore-global-provider!
   [provider]
@@ -171,18 +183,48 @@
     (promise-reject message)
     (promise-resolve (:typed-data-signature config))))
 
+(defn- move-to-chain!
+  "The wallet is now on `chain-id`: `eth_chainId` answers it and listeners
+   hear `chainChanged`."
+  [provider chain-id]
+  (swap! wallet-simulator-state #(some-> % (assoc-in [:config :chain-id] chain-id)))
+  ((aget provider "__emit") "chainChanged" chain-id))
+
 (defn- handle-switch-chain-request
   [provider params config]
   (if-let [message (:switch-chain-error config)]
     (promise-reject message)
-    (let [chain-id (next-chain-id params config)]
-      (swap! wallet-simulator-state assoc-in [:config :chain-id] chain-id)
-      ((aget provider "__emit") "chainChanged" chain-id)
-      (promise-resolve nil))))
+    (let [chain-id (next-chain-id params config)
+          {:keys [error]} (wallet-evm/switch-chain (:evm @wallet-simulator-state) config chain-id)]
+      (if error
+        (js/Promise.reject (wallet-evm/js-error error))
+        (do
+          (move-to-chain! provider chain-id)
+          (promise-resolve nil))))))
+
+(defn- run-evm-request!
+  "Apply a `wallet-evm` step to the simulator's EVM state and answer with
+   its result, or reject with its EIP-1193 error. A step that answers a
+   `:chain-id` moves the wallet to that chain right after."
+  [provider step]
+  (let [{:keys [state result error chain-id]} (step (:evm @wallet-simulator-state))]
+    ;; A provider kept past `clear-wallet-simulator!` must not reinstall it.
+    (swap! wallet-simulator-state #(some-> % (assoc :evm state)))
+    (when chain-id
+      (move-to-chain! provider chain-id))
+    (if error
+      (js/Promise.reject (wallet-evm/js-error error))
+      (promise-resolve (if (or (map? result) (vector? result)) (clj->js result) result)))))
+
+(defn- record-request!
+  [method params]
+  (when @wallet-simulator-state
+    (swap! wallet-simulator-state update :evm wallet-evm/record-request method params)))
 
 (defn- dispatch-wallet-request
   [provider fallback-config request]
   (let [{:keys [method params]} (js->clj request :keywordize-keys true)
+        _ (record-request! method params)
         config (simulator-config fallback-config)]
     (case method
       "eth_accounts" (handle-accounts-request config)
@@ -190,7 +232,12 @@
       "eth_chainId" (promise-resolve (:chain-id config))
       ("eth_signTypedData_v4" "eth_signTypedData") (handle-typed-data-request config)
       "wallet_switchEthereumChain" (handle-switch-chain-request provider params config)
-      (promise-resolve nil))))
+      "wallet_addEthereumChain" (run-evm-request! provider #(wallet-evm/add-chain % params))
+      "wallet_watchAsset" (run-evm-request! provider #(wallet-evm/watch-asset % config params))
+      "eth_sendTransaction" (run-evm-request!
+                             provider
+                             #(wallet-evm/send-transaction % config (:chain-id config) params))
+      (run-evm-request! provider #(wallet-evm/unknown-method % method params)))))
 
 (defn- add-listener!
   [listeners event handler]
@@ -248,6 +295,7 @@
   [config listeners provider previous-state]
   (reset! wallet-simulator-state
           {:config config
+           :evm (wallet-evm/initial-state (:chain-id config))
            :listeners listeners
            :provider provider
            :previous-global-provider (:previous-global-provider previous-state)
@@ -280,10 +328,14 @@
     (clj->js (wallet-simulator-state-snapshot))))
 
 (defn emit-wallet-simulator!
+  "Emit a provider event. `chainChanged` also moves the wallet, so
+   `eth_chainId` answers the new chain, as a real wallet does."
   [event payload]
   (if-let [provider (:provider @wallet-simulator-state)]
     (do
-      ((aget provider "__emit") event payload)
+      (if (= "chainChanged" event)
+        (move-to-chain! provider (str payload))
+        ((aget provider "__emit") event payload))
       (clj->js (wallet-simulator-state-snapshot)))
     (throw (js/Error. "Wallet simulator is not installed."))))
 
@@ -301,6 +353,12 @@
   []
   (trading-api/clear-debug-exchange-simulator!)
   true)
+
+(defn set-hyperevm-poller-enabled!
+  "Turn the background HyperEVM balance poller on or off, so browser tests
+   decide when HyperEVM reads happen. `qaReset` turns it back on."
+  [enabled?]
+  (clj->js {:enabled (hyperevm-balance-poller/set-enabled! (true? enabled?))}))
 
 (defn seed-funding-tooltip-fixture!
   ([] (seed-funding-tooltip-fixture! nil))
@@ -367,6 +425,7 @@
   (set-wallet-connected-handler-mode! "passthrough")
   (clear-wallet-simulator!)
   (clear-exchange-simulator!)
+  (hyperevm-balance-poller/set-enabled! true)
   (telemetry/clear-events!)
   (ws-client/clear-flight-recording!)
   #js {:ok true})

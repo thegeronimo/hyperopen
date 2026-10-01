@@ -1,5 +1,6 @@
 (ns hyperopen.views.trade-view
-  (:require [hyperopen.surface-modules :as surface-modules]
+  (:require [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
+            [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
@@ -117,10 +118,14 @@
            :websocket-ui (:websocket-ui state))))
 
 (defn- account-info-view-state
+  ;; HyperEVM enters as a projected slice, never the raw :hyperevm subtree:
+  ;; every balance poll rewrites timestamps, status and gas price there, and
+  ;; the panel must repaint only when a Balances row would change.
   [state]
   (cond-> (merge (select-view-state state account-info-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
-                 (ui-voice-state state))
+                 (ui-voice-state state)
+                 (hyperevm-panel-slice/balances-panel-slice state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
@@ -175,6 +180,8 @@
 (defonce ^:private frozen-account-info-view-state* (atom nil))
 
 (defonce ^:private frozen-account-equity-view-state* (atom nil))
+
+(defonce ^:private frozen-hyperevm-line-model* (atom nil))
 
 (defonce ^:private frozen-orderbook-view-state* (atom nil))
 
@@ -238,6 +245,16 @@
     (memoized-account-equity-metrics metrics-fn
                                      view-state)))
 
+(defn- hyperevm-line-model
+  "The Account Equity panel's HyperEVM line, computed from the FULL state:
+   the panel's own slice has no identity, wallet or HyperEVM keys (and the
+   Balances slice drops the gas price). The model holds only what the line
+   shows, so it compares equal across polls that change nothing and the
+   memoized panel does not repaint."
+  [state]
+  (when-let [model-fn (account-surface-export :hyperevm-line-model)]
+    (model-fn state)))
+
 (defn- trade-chart-panel-content-state
   [view-state]
   (memoized-trade-chart-panel-content trade-modules/render-trade-chart-view
@@ -296,11 +313,12 @@
           :loading (and active-asset (nil? orderbook-data))}
          (ui-voice-state state)))
 
-(defn- mobile-account-surface [state equity-metrics]
+(defn- mobile-account-surface [state equity-metrics hyperevm-line-model]
   (let [account-equity-panel (render-account-equity-panel state
                                                           equity-metrics
                                                           {:fill-height? false
-                                                           :show-funding-actions? false})
+                                                           :show-funding-actions? false
+                                                           :hyperevm-line hyperevm-line-model})
         funding-actions-view (account-surface-export :funding-actions-view)]
     (if (and account-equity-panel
              (fn? funding-actions-view))
@@ -369,6 +387,12 @@
         equity-metrics (when (and (:show-equity-surface? layout)
                                   desktop-secondary-panels-ready?*)
                          (render-account-equity-metrics-state account-equity-panel-state))
+        hyperevm-line-model* (when (and (:show-equity-surface? layout)
+                                        desktop-secondary-panels-ready?*)
+                               (selector-scroll-snapshot
+                                frozen-hyperevm-line-model*
+                                freeze-heavy-panels?
+                                #(hyperevm-line-model state)))
         orderbook-panel-state (selector-scroll-snapshot
                                frozen-orderbook-view-state*
                                freeze-heavy-panels?
@@ -390,6 +414,7 @@
      :account-info-panel-state account-info-panel-state
      :account-equity-panel-state account-equity-panel-state
      :equity-metrics equity-metrics
+     :hyperevm-line-model hyperevm-line-model*
      :orderbook-panel-state orderbook-panel-state
      :order-form-panel-state order-form-panel-state
      :mobile-orderbook-panel-state (when-not desktop-layout?

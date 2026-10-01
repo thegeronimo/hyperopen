@@ -6,6 +6,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api-wallets.application.ui-state :as api-wallets-ui-state]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.hyperevm.domain.balances :as hyperevm-balances]
             [hyperopen.i18n.locale :as i18n-locale]
             [hyperopen.order.cancel-visible-confirmation :as cancel-visible-confirmation]
             [hyperopen.order.submit-confirmation :as submit-confirmation]
@@ -409,6 +410,7 @@
                           :positions nil
                           :trade-history nil}
    :hide-small-balances? false
+   :balances-location-filter :all
    :balances-coin-search ""
    :balances-sort {:column nil :direction :asc}
    :positions-sort {:column nil :direction :asc}
@@ -477,6 +479,7 @@
                   :margin-modal (position-margin/default-modal-state)}
    :margin-rec (margin-rec-state/default-state)
    :pnl-share (pnl-share-actions/default-pnl-share-state)
+   :hyperevm (hyperevm-balances/default-state)
    :funding-ui {:modal (funding-actions/default-funding-modal-state)
                 :tooltip {:visible-id nil
                           :pinned-id nil}
