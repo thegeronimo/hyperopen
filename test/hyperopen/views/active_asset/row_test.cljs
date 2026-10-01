@@ -73,6 +73,7 @@
         statistics-scroll (support/find-node-by-role view-node "active-asset-statistics-scroll")
         statistic-cell (support/find-node-by-role view-node "active-asset-stat-cell")]
     (is (support/contains-class? view-node "md:grid-cols-[minmax(max-content,1.4fr)_minmax(max-content,0.9fr)_minmax(max-content,0.9fr)_minmax(max-content,1.1fr)_minmax(max-content,1.1fr)_minmax(max-content,1.2fr)_minmax(max-content,1.6fr)]"))
+    (is (and (support/contains-class? view-node "min-w-min") (not (support/contains-class? view-node "w-max"))))
     (is (= "Market statistics" (get-in statistics-scroll [1 :aria-label])))
     (is (= 0 (get-in statistics-scroll [1 :tabindex])))
     (is (some? statistic-cell))))
