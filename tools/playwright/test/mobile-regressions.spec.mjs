@@ -494,12 +494,24 @@ test("trade market statistics stay readable across governed viewport widths @reg
 
         if (viewport.width === 1280) {
           const geometry = await statsScroll.evaluate((scroll) => {
+            const row = scroll.querySelector(".asset-strip-row");
+            const previousWidth = row.style.width;
+            row.style.width = "min-content";
+            const contentWidth = row.getBoundingClientRect().width;
+            row.style.width = previousWidth;
             scroll.scrollLeft = scroll.scrollWidth;
             return {
               clientWidth: scroll.clientWidth,
-              scrollWidth: scroll.scrollWidth
+              scrollWidth: scroll.scrollWidth,
+              contentWidth
             };
           });
+
+          // The strip may only overflow by what its content actually needs;
+          // fr columns must not inflate it past that (no phantom scrollbar).
+          expect(geometry.scrollWidth).toBeLessThanOrEqual(
+            Math.ceil(Math.max(geometry.clientWidth, geometry.contentWidth)) + 1
+          );
           const [scrollBox, fundingBox] = await Promise.all([
             statsScroll.boundingBox(),
             stats.nth(5).boundingBox()

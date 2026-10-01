@@ -291,7 +291,7 @@
            open-interest-usd
            is-spot]
     :as row-vm}]
-  [:div {:class ["asset-strip-row" "relative" "hidden" "min-w-full" "w-max"
+  [:div {:class ["asset-strip-row" "relative" "hidden" "w-full" "min-w-min"
                  "grid-cols-7"
                  "items-center"
                  "gap-2"
