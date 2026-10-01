@@ -234,6 +234,9 @@
       (assoc-in [:perp-dex-clearinghouse] {})
       (assoc-in [:perp-dex-clearinghouse-error] nil)
       (assoc-in [:perp-dex-clearinghouse-error-category] nil)
+      ;; HyperEVM balances are per address; in-flight transactions are not
+      ;; and must survive account switches.
+      (assoc-in [:hyperevm :balances :by-address] {})
       (update :portfolio assoc
               :summary-by-key {} :user-fees nil :ledger-updates []
               :loading? false :user-fees-loading? false :user-fees-loading-for-address nil :ledger-loading? false

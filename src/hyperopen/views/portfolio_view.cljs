@@ -8,6 +8,7 @@
             [hyperopen.views.portfolio.account-tabs :as account-tabs]
             [hyperopen.views.portfolio.chart-view :as chart-view]
             [hyperopen.views.portfolio.fee-schedule :as fee-schedule-view]
+            [hyperopen.views.portfolio.funds-locations :as funds-locations]
             [hyperopen.views.portfolio.header :as portfolio-header]
             [hyperopen.views.portfolio.optimize.view :as optimize-view]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
@@ -26,6 +27,9 @@
                (portfolio-header/portfolio-inspection-header state)
                (portfolio-header/header-actions state))
      :background-status (portfolio-header/background-status-banner (:background-status view-model*))
+     ;; Always a node (hidden by class with no account shown), never nil.
+     :funds-locations (funds-locations/funds-locations-strip
+                       (funds-locations/funds-locations-model state (:summary view-model*)))
      :summary-grid
      [:div {:class ["grid"
                     "grid-cols-1"
@@ -106,6 +110,7 @@
               :data-parity-id "portfolio-root"}]
        [(:header sections)
         (:background-status sections)
+        (:funds-locations sections)
         (:summary-grid sections)
         (:account-table sections)
         (:volume-history-popover sections)

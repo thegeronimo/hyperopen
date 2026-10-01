@@ -1,6 +1,7 @@
 (ns hyperopen.telemetry.console-preload.simulators-test
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.api.trading :as trading-api]
+            [hyperopen.hyperevm.infrastructure.balance-poller :as hyperevm-balance-poller]
             [hyperopen.runtime.validation :as runtime-validation]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.telemetry.console-preload.simulators :as simulators]
@@ -362,3 +363,17 @@
           (is (false? (:installed (@#'simulators/wallet-simulator-state-snapshot))))))
       (finally
         (cleanup-simulator-state! browser-state)))))
+
+(deftest hyperevm-poller-kill-switch-and-qa-reset-test
+  (try
+    (is (= {:enabled false}
+           (js->clj (simulators/set-hyperevm-poller-enabled! false) :keywordize-keys true)))
+    (is (false? (hyperevm-balance-poller/enabled?)))
+    (with-redefs [runtime-validation/clear-debug-action-effect-traces! (fn [] nil)
+                  telemetry/clear-events! (fn [] nil)
+                  ws-client/clear-flight-recording! (fn [] nil)
+                  trading-api/clear-debug-exchange-simulator! (fn [] nil)]
+      (simulators/qa-reset!))
+    (is (true? (hyperevm-balance-poller/enabled?)) "qaReset turns the poller back on")
+    (finally
+      (hyperevm-balance-poller/set-enabled! true))))

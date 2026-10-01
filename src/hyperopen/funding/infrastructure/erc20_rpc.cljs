@@ -1,48 +1,31 @@
 (ns hyperopen.funding.infrastructure.erc20-rpc
-  (:require [clojure.string :as str]))
+  "ERC-20 calls through a wallet provider. The calldata comes from the one
+   hand-rolled encoder, `hyperopen.hyperevm.domain.abi`. These encoders throw
+   on an invalid address or amount (the abi functions return nil), so a
+   caller never sends a transaction without its calldata."
+  (:require [clojure.string :as str]
+            [hyperopen.hyperevm.domain.abi :as abi]))
 
-(defn- normalize-address
-  [value]
-  (let [text (some-> value str str/trim str/lower-case)]
-    (when (and (string? text)
-               (re-matches #"^0x[0-9a-f]{40}$" text))
-      text)))
-
-(defn- left-pad-hex
-  [hex-value width]
-  (let [value (or hex-value "")
-        value-len (count value)]
-    (if (>= value-len width)
-      value
-      (str (apply str (repeat (- width value-len) "0")) value))))
+(defn- required-call-data
+  [call-data label]
+  (or call-data
+      (throw (js/Error. (str "Invalid ERC-20 " label " call data.")))))
 
 (defn encode-erc20-transfer-call-data
   [to-address amount-units]
-  (let [to* (normalize-address to-address)
-        to-param (left-pad-hex (subs to* 2) 64)
-        amount-param (left-pad-hex (.toString amount-units 16) 64)]
-    (str "0xa9059cbb" to-param amount-param)))
+  (required-call-data (abi/encode-transfer to-address amount-units) "transfer"))
 
 (defn encode-erc20-approve-call-data
   [spender-address amount-units]
-  (let [spender* (normalize-address spender-address)
-        spender-param (left-pad-hex (subs spender* 2) 64)
-        amount-param (left-pad-hex (.toString amount-units 16) 64)]
-    (str "0x095ea7b3" spender-param amount-param)))
+  (required-call-data (abi/encode-approve spender-address amount-units) "approve"))
 
 (defn encode-erc20-balance-of-call-data
   [owner-address]
-  (let [owner* (normalize-address owner-address)
-        owner-param (left-pad-hex (subs owner* 2) 64)]
-    (str "0x70a08231" owner-param)))
+  (required-call-data (abi/encode-balance-of owner-address) "balanceOf"))
 
 (defn encode-erc20-allowance-call-data
   [owner-address spender-address]
-  (let [owner* (normalize-address owner-address)
-        spender* (normalize-address spender-address)
-        owner-param (left-pad-hex (subs owner* 2) 64)
-        spender-param (left-pad-hex (subs spender* 2) 64)]
-    (str "0xdd62ed3e" owner-param spender-param)))
+  (required-call-data (abi/encode-allowance owner-address spender-address) "allowance"))
 
 (defn bigint-from-hex
   [value]

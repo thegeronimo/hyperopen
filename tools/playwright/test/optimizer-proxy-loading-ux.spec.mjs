@@ -4,7 +4,7 @@
 // ("Needs input" / premature "Configured") off as final — and settle to the
 // honest labels once the response lands. The bundle response is held open by
 // the test and released explicitly, so the in-flight window is deterministic.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
   keyword,

@@ -10,13 +10,15 @@
    [:effects/api-submit-funding-transfer :api-submit-funding-transfer]
    [:effects/api-submit-funding-repay :api-submit-funding-repay]
    [:effects/api-submit-funding-withdraw :api-submit-funding-withdraw]
-   [:effects/api-submit-funding-deposit :api-submit-funding-deposit]])
+   [:effects/api-submit-funding-deposit :api-submit-funding-deposit]
+   [:effects/wallet-watch-asset :wallet-watch-asset]])
 
 (def effect-order-policy-required-action-ids
   #{:actions/apply-funding-history-filters
     :actions/view-all-funding-history
     :actions/submit-funding-send
     :actions/submit-funding-transfer
+    :actions/submit-funding-transfer-gas-topup
     :actions/submit-funding-repay
     :actions/submit-funding-withdraw
     :actions/submit-funding-deposit})
@@ -67,4 +69,12 @@
    [:actions/submit-funding-transfer :submit-funding-transfer]
    [:actions/submit-funding-repay :submit-funding-repay]
    [:actions/submit-funding-withdraw :submit-funding-withdraw]
-   [:actions/submit-funding-deposit :submit-funding-deposit]])
+   [:actions/submit-funding-deposit :submit-funding-deposit]
+   [:actions/set-funding-transfer-location :set-funding-transfer-location]
+   [:actions/swap-funding-transfer-locations :swap-funding-transfer-locations]
+   [:actions/select-funding-transfer-asset :select-funding-transfer-asset]
+   [:actions/set-funding-transfer-amount-percent :set-funding-transfer-amount-percent]
+   [:actions/submit-funding-transfer-gas-topup :submit-funding-transfer-gas-topup]
+   [:actions/reset-funding-transfer-evm :reset-funding-transfer-evm]
+   [:actions/retry-funding-transfer-capability :retry-funding-transfer-capability]
+   [:actions/add-funding-transfer-token-to-wallet :add-funding-transfer-token-to-wallet]])

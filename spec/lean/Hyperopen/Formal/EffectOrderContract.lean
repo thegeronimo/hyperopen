@@ -130,6 +130,7 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/submit-funding-repay", heavyOnlyPolicy false ["effects/api-submit-funding-repay"])
   ,("actions/submit-funding-send", defaultPolicy false ["effects/api-submit-funding-send"])
   ,("actions/submit-funding-transfer", defaultPolicy false ["effects/api-submit-funding-transfer"])
+  ,("actions/submit-funding-transfer-gas-topup", defaultPolicy false ["effects/api-submit-funding-transfer"])
   ,("actions/submit-funding-withdraw", defaultPolicy false ["effects/api-submit-funding-withdraw"])
   ,("actions/submit-set-referrer", defaultPolicy false ["effects/api-set-referrer"])
   ,("actions/submit-register-referrer", defaultPolicy false ["effects/api-register-referrer"])

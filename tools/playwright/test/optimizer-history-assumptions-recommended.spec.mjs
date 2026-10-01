@@ -4,7 +4,7 @@
 // applies every pending recommendation first (same bulk funnel) instead of
 // dead-ending in the pipeline's readiness failure. The discovery and
 // history-bundle endpoints are stubbed, so both flows are deterministic.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
   optimizerPath,

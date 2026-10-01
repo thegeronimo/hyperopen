@@ -95,3 +95,12 @@
                           @calls))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest erc20-encoders-throw-rather-than-send-without-calldata-test
+  ;; The encoders delegate to hyperopen.hyperevm.domain.abi, which returns
+  ;; nil on invalid input; a deposit must never send a transaction whose
+  ;; calldata is missing.
+  (is (thrown? js/Error (erc20-rpc/encode-erc20-transfer-call-data "0xnope" (js/BigInt "1"))))
+  (is (thrown? js/Error (erc20-rpc/encode-erc20-approve-call-data token-address (js/BigInt "-1"))))
+  (is (thrown? js/Error (erc20-rpc/encode-erc20-balance-of-call-data nil)))
+  (is (thrown? js/Error (erc20-rpc/encode-erc20-allowance-call-data owner-address "0x"))))

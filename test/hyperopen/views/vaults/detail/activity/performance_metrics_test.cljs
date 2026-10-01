@@ -100,7 +100,7 @@
     (is (contains? (set (hiccup/collect-strings sharpe-benchmark-cell)) "0.98"))
     (is (contains? (set (hiccup/collect-strings sharpe-vault-cell)) "1.23"))
     (is (some? estimated-banner))
-    (is (= 0 (get-in estimated-banner [1 :tab-index])))
+    (is (= 0 (get-in estimated-banner [1 :tabindex])))
     (is (contains? (set (keys (get-in estimated-banner [1 :style]))) :border-color))
     (is (contains? (set (keys (get-in estimated-banner [1 :style]))) :background))
     (is (contains? (set (hiccup/collect-strings estimated-banner))
@@ -124,7 +124,7 @@
     (is (= "Growi HF" (first (hiccup/collect-strings vault-label))))
     (is (= "region" (get-in scroll-region [1 :role])))
     (is (= "Vault performance metrics" (get-in scroll-region [1 :aria-label])))
-    (is (= 0 (get-in scroll-region [1 :tab-index])))
+    (is (= 0 (get-in scroll-region [1 :tabindex])))
     (is (= [[:actions/toggle-vault-detail-performance-metrics-timeframe-dropdown]]
            (get-in timeframe-trigger [1 :on :click])))
     (is (= true (get-in timeframe-trigger [1 :aria-expanded])))

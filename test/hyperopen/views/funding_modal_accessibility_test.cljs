@@ -137,17 +137,20 @@
         first-focusable (make-focus-node document)
         {:keys [node]} (make-dialog-node document [(:node first-focusable)])
         queried-selectors* (atom [])
-        combined-selector "[data-role=\"funding-action-transfer\"], [data-role=\"portfolio-action-perps-spot\"], [data-role=\"portfolio-funding-action-transfer\"]"]
+        combined-selector (str "[data-role=\"funding-action-transfer\"], [data-role=\"portfolio-action-perps-spot\"], "
+                               "[data-role=\"portfolio-funding-action-transfer\"], "
+                               "[data-role=\"portfolio-funds-connector-perps-spot\"], "
+                               "[data-role=\"portfolio-funds-connector-spot-evm\"], "
+                               "[data-role=\"account-equity-hyperevm-move\"], [data-role^=\"balances-move-\"]")]
     (set! (.-body document) body-node)
     (set! (.-activeElement document) (:node header-opener))
     (aset document
           "querySelector"
           (fn [selector]
             (swap! queried-selectors* conj selector)
-            (case selector
+            (condp = selector
               "[data-role=\"portfolio-action-perps-spot\"]" nil
-              "[data-role=\"funding-action-transfer\"], [data-role=\"portfolio-action-perps-spot\"], [data-role=\"portfolio-funding-action-transfer\"]"
-              (:node replacement-opener)
+              combined-selector (:node replacement-opener)
               nil)))
     (set! (.-document js/globalThis) document)
     (set! (.-getComputedStyle js/globalThis)

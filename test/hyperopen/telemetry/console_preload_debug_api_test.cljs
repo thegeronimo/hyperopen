@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [nexus.registry :as nxr]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.hyperevm.infrastructure.balance-poller :as hyperevm-balance-poller]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.validation :as runtime-validation]
             [hyperopen.system :as app-system]
@@ -32,6 +33,20 @@
         (is (= [[:actions/stop-spectate-mode]
                 [:actions/toggle-asset-dropdown {:mode :fast}]]
                @dispatched))))))
+
+(deftest debug-api-exposes-the-hyperevm-poller-kill-switch-test
+  ;; Playwright specs rely on HYPEROPEN_DEBUG.setHyperevmPollerEnabled to
+  ;; stop background HyperEVM reads deterministically.
+  (let [api (@#'console-preload/debug-api)
+        set-enabled! (aget api "setHyperevmPollerEnabled")]
+    (is (fn? set-enabled!))
+    (try
+      (is (= {:enabled false} (js->clj (set-enabled! false) :keywordize-keys true)))
+      (is (false? (hyperevm-balance-poller/enabled?)))
+      (is (= {:enabled true} (js->clj (set-enabled! true) :keywordize-keys true)))
+      (is (true? (hyperevm-balance-poller/enabled?)))
+      (finally
+        (hyperevm-balance-poller/set-enabled! true)))))
 
 (deftest selector-helpers-and-element-rect-api-cover-present-missing-and-invalid-selectors-test
   (let [orig-document (.-document js/globalThis)

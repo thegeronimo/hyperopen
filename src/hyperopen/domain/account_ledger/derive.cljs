@@ -34,6 +34,11 @@
    Used to recognise a spot transfer that is really a HyperEVM bridge movement."
   "0x20")
 
+(def hype-system-address
+  "HYPE's HyperEVM system address. HYPE is native on HyperEVM, so it bridges
+   through this address rather than the generic `0x20…` token address."
+  "0x2222222222222222222222222222222222222222")
+
 (defn- finite-number?
   [value]
   (and (number? value)
@@ -66,7 +71,8 @@
   (some-> value non-blank-text str/lower-case))
 
 (defn token-system-address?
-  "Whether `address` is a HyperEVM system address minted for a spot token.
+  "Whether `address` is a HyperEVM system address minted for a spot token,
+   or HYPE's `0x2222…2222`.
 
    The shape -- `0x20`, 34 zeros, a four-hex token index -- is the reference's
    own test. An ordering comparison against the prefix is NOT equivalent and
@@ -74,9 +80,10 @@
   [address]
   (boolean
    (when-let [address* (lower-address address)]
-     (and (= 42 (count address*))
-          (str/starts-with? address* hyper-evm-system-address-prefix)
-          (some? (re-matches #"0+" (subs address* 4 38)))))))
+     (or (= hype-system-address address*)
+         (and (= 42 (count address*))
+              (str/starts-with? address* hyper-evm-system-address-prefix)
+              (some? (re-matches #"0+" (subs address* 4 38))))))))
 
 (defn- dex-venue-label
   "Map a Hyperliquid dex identifier to its venue label.
@@ -97,9 +104,12 @@
 ;; implies. Three of its four rules are ported here. The fourth -- a `send`
 ;; whose sender is the native USDC contract becomes a bridge deposit -- is not,
 ;; because that contract address is derived at runtime from chain config rather
-;; than being a literal in the bundle. It is moot for us in any case: `send` is
-;; a multi-dex delta Hyperliquid's own API does not emit, so the rules keyed on
-;; it are carried for completeness, not because they fire today.
+;; than being a literal in the bundle.
+;;
+;; The HyperEVM rules go further than the reference. `sendAsset` to a system
+;; address does appear as a `send` delta (live, 2026-09-30), a spotSend to one
+;; as a `spotTransfer`, and HYPE bridges through 0x2222…2222, so each leg of a
+;; HyperCore <-> HyperEVM move is labelled with its two venues.
 
 (defn retype
   "Effective `[type-key delta-overrides]` for a delta, applying the re-typing
@@ -122,14 +132,36 @@
                                  :from-label hyper-evm-label
                                  :to-label spot-label}]
 
-      ;; A send *to* a HyperEVM system address is the reverse leg, and the
-      ;; reference negates the amount because the payload states it unsigned.
-      (and (= "send" type-key)
+      ;; A spot transfer *to* a system address is a spotSend-based move from
+      ;; spot to HyperEVM. The payload states it unsigned, so negate it.
+      (and (= "spot-transfer" type-key)
            (token-system-address? (field delta :destination)))
-      ["account-class-transfer" {:retyped-from "send"
+      ["account-class-transfer" {:retyped-from "spot-transfer"
                                  :from-label spot-label
                                  :to-label hyper-evm-label
                                  :negate-amount? true}]
+
+      ;; A send *to* a HyperEVM system address is the reverse leg, and the
+      ;; reference negates the amount because the payload states it unsigned.
+      ;; `sourceDex` names the venue it left; USDC can leave perps ("").
+      (and (= "send" type-key)
+           (token-system-address? (field delta :destination)))
+      ["account-class-transfer" {:retyped-from "send"
+                                 :from-label (if (some? (field delta :sourceDex))
+                                               (dex-venue-label (field delta :sourceDex))
+                                               spot-label)
+                                 :to-label hyper-evm-label
+                                 :negate-amount? true}]
+
+      ;; A send *from* a system address is a move from HyperEVM into the
+      ;; venue named by `destinationDex`.
+      (and (= "send" type-key)
+           (token-system-address? (field delta :user)))
+      ["account-class-transfer" {:retyped-from "send"
+                                 :from-label hyper-evm-label
+                                 :to-label (if (some? (field delta :destinationDex))
+                                             (dex-venue-label (field delta :destinationDex))
+                                             spot-label)}]
 
       :else
       [type-key nil])))

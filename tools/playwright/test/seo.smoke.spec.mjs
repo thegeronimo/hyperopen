@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import {
   RELEASE_ROUTE_METADATA_SCRIPT_PATH,
 } from "../../release-assets/site_metadata.mjs";

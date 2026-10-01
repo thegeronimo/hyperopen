@@ -8,6 +8,8 @@
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as projections]
+            [hyperopen.views.account-info.projections.balances-hyperevm :as balances-hyperevm]
+            [hyperopen.views.account-info.projections.balances-moves :as balances-moves]
             [hyperopen.views.account-info.projections.balances-staking :as balances-staking]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
@@ -48,8 +50,10 @@
   ;; The badge must agree with what the tab actually renders, so a HYPE row that
   ;; exists only because HYPE is in the unstaking queue counts once — but only
   ;; when it was synthesized, never when it annotated a spot row that is already
-  ;; counted below.
-  (let [balances (or (get-in spot-data [:clearinghouse-state :balances]) [])
+  ;; counted below. HyperEVM rows count too, whatever the location filter, the
+  ;; way Hide Small Balances leaves the badge alone.
+  (let [hyperevm-count (balances-hyperevm/hyperevm-row-count state)
+        balances (or (get-in spot-data [:clearinghouse-state :balances]) [])
         non-zero-spot-balances (->> balances
                                     (remove projections/outcome-balance?)
                                     (filter non-zero-spot-balance?))
@@ -60,6 +64,7 @@
                                           non-zero-spot-balances state))
                                   (count non-zero-spot-balances))]
     (+ synthesized-hype-count
+       hyperevm-count
        (if (unified-account-mode? account)
          (let [non-usdc-count (count (remove #(= "USDC" (:coin %)) non-zero-spot-balances))
                has-non-zero-spot-usdc? (boolean (some #(and (= "USDC" (:coin %))
@@ -280,6 +285,20 @@
 (defn reset-account-info-vm-cache! []
   (derived-cache/reset-derived-cache!))
 
+(defn- balances-tab-rows
+  "The Balances tab's rows: the memoized HyperCore rows, the unstaking HYPE
+   annotation, then the shown account's HyperEVM rows (after the annotation,
+   whose HYPE match would otherwise land on the HyperEVM HYPE row), then every
+   row's move targets. HyperEVM rows join here only, never the shared memo
+   that feeds the trading-equity metrics."
+  [selected-tab balance-rows state]
+  (let [rows (balances-staking/with-unstaking-hype balance-rows state)]
+    (if (= :balances selected-tab)
+      (-> rows
+          (into (balances-hyperevm/hyperevm-rows state balance-rows))
+          (balances-moves/with-move-targets state))
+      rows)))
+
 (defn account-info-vm [state]
   (let [selected-tab (get-in state [:account-info :selected-tab] :balances)
         route (get-in state [:router :path])
@@ -329,6 +348,7 @@
                                 (assoc :market-by-key market-by-key))
         read-only? (account-context/inspected-account-read-only? state)
         read-only-message (account-context/mutations-blocked-message state)
+        balance-rows* (balances-tab-rows selected-tab balance-rows state)
         twap-state (cond-> (merge {:selected-subtab :active}
                                   (get-in state [:account-info :twap] {}))
                      true (assoc :read-only? read-only?)
@@ -414,7 +434,12 @@
      :hide-small? hide-small?
      :perp-dex-states perp-dex-states
      :webdata2 webdata2
-     :balance-rows (balances-staking/with-unstaking-hype balance-rows state)
+     :balance-rows balance-rows*
+     :balances-location-filter (balances-hyperevm/normalize-location-filter
+                                (get-in state [:account-info :balances-location-filter]))
+     :has-hyperevm-rows? (boolean (some balances-hyperevm/hyperevm-row? balance-rows*))
+     :hyperevm-status (balances-hyperevm/hyperevm-status state)
+     :hyperevm-moves-blocked-message (account-context/hyperevm-moves-blocked-message state)
      :outcomes (or outcomes [])
      :positions (or positions [])
      :open-orders (or open-orders [])

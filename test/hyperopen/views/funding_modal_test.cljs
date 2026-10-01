@@ -518,7 +518,7 @@
                         :amount-input ""
                         :destination-input "0x1234567890abcdef1234567890abcdef12345678"
                         :anchor mobile-anchor}
-                :expected-text "Perps <-> Spot"}
+                :expected-text "Transfer"}
                {:name "withdraw"
                 :modal {:open? true
                         :mode :withdraw
@@ -540,7 +540,7 @@
               backdrop-node (find-first-node view-node #(= "funding-mobile-sheet-backdrop"
                                                            (get-in % [1 :data-role])))
               modal-node (funding-modal-node view-node)
-              all-text (set (collect-strings view-node))]
+              title-node (find-first-node view-node #(= "funding-modal-title" (get-in % [1 :id])))]
           (is (some? layer-node) (str name " uses mobile sheet layer"))
           (is (some? backdrop-node) (str name " uses mobile sheet backdrop"))
           (is (= "true" (get-in modal-node [1 :data-funding-mobile-sheet-surface]))
@@ -549,8 +549,8 @@
               (str name " anchors the surface to the bottom"))
           (is (contains? (set (get-in modal-node [1 :class])) "rounded-t-[22px]")
               (str name " uses sheet top rounding"))
-          (is (contains? all-text expected-text)
-              (str name " renders expected content"))))
+          (is (= [expected-text] (collect-strings title-node))
+              (str name " titles the modal (the heading alone, not any button text)"))))
       (finally
         (set! (.-innerWidth js/globalThis) original-inner-width)
         (set! (.-innerHeight js/globalThis) original-inner-height)))))

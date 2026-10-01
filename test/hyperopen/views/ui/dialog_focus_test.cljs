@@ -393,3 +393,52 @@
       (finally
         (set! (.-document js/globalThis) original-document)
         (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
+
+(deftest dialog-focus-trap-skips-nodes-under-a-hidden-ancestor-test
+  ;; A link inside a `display:none` slot reports its own `display` as inline,
+  ;; so only `checkVisibility` (which looks at ancestors) can tell it is not
+  ;; rendered. Counted as the last focusable, it would let Tab leave the
+  ;; dialog from the real last control.
+  (let [original-document (.-document js/globalThis)
+        original-get-computed-style (.-getComputedStyle js/globalThis)
+        document #js {}
+        body-node (:node (make-focus-node document))
+        opener (make-focus-node document)
+        first-focusable (make-focus-node document)
+        last-rendered (make-focus-node document)
+        hidden-link (make-focus-node document)
+        {:keys [node listeners]} (make-dialog-node document [(:node first-focusable)
+                                                             (:node last-rendered)
+                                                             (:node hidden-link)])
+        prevented* (atom 0)
+        on-render (dialog-focus/dialog-focus-on-render)]
+    (aset (:node first-focusable) "checkVisibility" (fn [] true))
+    (aset (:node last-rendered) "checkVisibility" (fn [] true))
+    (aset (:node hidden-link) "checkVisibility" (fn [] false))
+    (set! (.-body document) body-node)
+    (set! (.-activeElement document) (:node opener))
+    (set! (.-document js/globalThis) document)
+    (set! (.-getComputedStyle js/globalThis)
+          (fn [_node]
+            #js {:display "inline"
+                 :visibility "visible"}))
+    (try
+      (with-redefs [platform/queue-microtask! (fn [f] (f))
+                    platform/set-timeout! (fn [f _ms]
+                                            (f)
+                                            :timeout-id)]
+        (on-render {:replicant/life-cycle :replicant.life-cycle/mount
+                    :replicant/node node
+                    :replicant/remember (fn [_memory] nil)})
+        (set! (.-activeElement document) (:node last-rendered))
+        ((get @listeners "keydown")
+         #js {:key "Tab"
+              :shiftKey false
+              :preventDefault (fn []
+                                (swap! prevented* inc))})
+        (is (= 1 @prevented*) "Tab from the last rendered control wraps")
+        (is (= (:node first-focusable) (.-activeElement document)))
+        (is (= 0 @(-> hidden-link :focus-calls))))
+      (finally
+        (set! (.-document js/globalThis) original-document)
+        (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))

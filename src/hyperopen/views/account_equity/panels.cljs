@@ -5,6 +5,7 @@
                                                             metric-row]]
             [hyperopen.views.account-equity.funding-actions :refer [funding-actions-section
                                                                      funding-actions-view]]
+            [hyperopen.views.account-equity.hyperevm-line :refer [hyperevm-line]]
             [hyperopen.views.account-equity.metrics :refer [account-equity-metrics
                                                             unified-account?]]))
 
@@ -80,6 +81,7 @@
                                             pnl-info
                                             fill-height?
                                             show-funding-actions?
+                                            hyperevm-line-model
                                             state]}]
   [:div {:class (into ["bg-base-100" "rounded-none" "spectate-none" "p-3" "space-y-4" "w-full"]
                       (when fill-height?
@@ -94,7 +96,10 @@
                 :tooltip "Total classic account value (Spot + Perps).")
     (metric-row "Spot" (display-currency spot-equity))
     (metric-row "Perps" (display-currency perps-value)
-                :tooltip "Balance + Unrealized PNL (approximate account value if all positions were closed)")]
+                :tooltip "Balance + Unrealized PNL (approximate account value if all positions were closed)")
+    ;; Beside Spot and Perps, never part of Account Value: HyperEVM funds
+    ;; cannot margin a position.
+    (hyperevm-line hyperevm-line-model)]
 
    [:div.border-t.border-base-300.pt-3.space-y-2
     [:div.text-xs.font-semibold.text-trading-text "Perps Overview"]
@@ -117,6 +122,7 @@
                                              pnl-info
                                              fill-height?
                                              show-funding-actions?
+                                             hyperevm-line-model
                                              state]}]
   [:div {:class (into ["bg-base-100" "rounded-none" "spectate-none" "p-3" "space-y-4" "w-full"]
                       (when fill-height?
@@ -138,12 +144,17 @@
                 :tooltip unified-maintenance-margin-tooltip)
     (metric-row "Unified Account Leverage" (display-leverage unified-account-leverage)
                 :tooltip unified-account-leverage-tooltip)
-    (unified-isolated-notional-note isolated-notional)]])
+    (unified-isolated-notional-note isolated-notional)
+    (hyperevm-line hyperevm-line-model)]])
 
 (defn account-equity-view
+  "`opts` may carry `:hyperevm-line`, the precomputed
+   `hyperevm-line/hyperevm-line-model`; without it the HyperEVM line stays
+   hidden."
   ([state]
    (account-equity-view state {}))
   ([state {:keys [fill-height? show-funding-actions? metrics]
+           line-model :hyperevm-line
            :or {fill-height? true
                 show-funding-actions? true}}]
    (let [metrics* (or metrics
@@ -152,8 +163,10 @@
        (unified-account-summary-view (assoc metrics*
                                             :fill-height? fill-height?
                                             :show-funding-actions? show-funding-actions?
+                                            :hyperevm-line-model line-model
                                             :state state))
        (classic-account-equity-view (assoc metrics*
                                            :fill-height? fill-height?
                                            :show-funding-actions? show-funding-actions?
+                                           :hyperevm-line-model line-model
                                            :state state))))))

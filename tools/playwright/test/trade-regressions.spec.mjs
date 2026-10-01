@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import {
   debugCall,
   dispatch,
@@ -3271,7 +3271,7 @@ test("trade funding openers launch the funding modal on real click @regression",
 
   for (const [dataRole, title] of [
     ["funding-action-deposit", "Deposit"],
-    ["funding-action-transfer", "Perps <-> Spot"],
+    ["funding-action-transfer", "Transfer"],
     ["funding-action-withdraw", "Withdraw"]
   ]) {
     const openButton = page.locator(`[data-role='${dataRole}']`);

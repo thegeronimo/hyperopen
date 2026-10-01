@@ -13,7 +13,7 @@
 // data and the only producer ships an empty vector, so the branch never renders
 // in the running app -- loading a route proves nothing about it. The workbench
 // scene mounts the populated branch through the real renderer instead.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE =
   "/ui-workbench.html?id=hyperopen.workbench.scenes.shell.shell-scenes" +

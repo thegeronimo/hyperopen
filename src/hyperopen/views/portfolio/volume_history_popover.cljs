@@ -182,7 +182,7 @@
                                  :overflow-y "auto"})
                   :role "dialog"
                   :aria-labelledby "portfolio-volume-history-title"
-                  :tab-index 0
+                  :tabindex 0
                   :data-role "portfolio-volume-history-popover"
                   :replicant/on-render focus-on-render
                   :on {:keydown [[:actions/handle-portfolio-volume-history-keydown [:event/key]]]}}

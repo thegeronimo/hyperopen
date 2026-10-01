@@ -17,6 +17,12 @@
 (def selected-subaccount-unavailable-message
   "Subaccount selection is unavailable. Refresh subaccounts or switch back to the master account.")
 
+(def hyperevm-master-only-message
+  "HyperEVM transfers are available for the master account only.")
+
+(def hyperevm-connect-wallet-message
+  "Connect your wallet to move funds.")
+
 (def ^:private max-watchlist-size
   50)
 
@@ -311,6 +317,29 @@
 
     :else
     nil))
+
+(defn hyperevm-moves-blocked-message
+  "Why HyperEVM moves are unavailable, or nil when they are allowed.
+
+   A subaccount has no private key, so funds credited to its HyperEVM address
+   would be unreachable; moves are for the connected master account only.
+   Read-only views keep their existing explanation."
+  [state]
+  (cond
+    (inspected-account-read-only? state) (mutations-blocked-message state)
+    (some? (selected-subaccount-address state)) hyperevm-master-only-message
+    (nil? (owner-address state)) hyperevm-connect-wallet-message
+    :else nil))
+
+(defn core-account-activation-status
+  "`:active` or `:missing` for the owner's HyperCore account, from the
+   `userRole` read at `[:hyperevm :core-account <owner>]`, or nil while
+   unknown. `:active` is final; `:missing` is re-read by every
+   `:actions/refresh-hyperevm-bridge-capacity`. A HyperEVM -> Core move into
+   a missing account pays a 1 USDC activation fee."
+  [state]
+  (when-let [owner (owner-address state)]
+    (get-in state [:hyperevm :core-account owner])))
 
 (defn default-account-context-state
   []

@@ -430,6 +430,10 @@
   ([address] (request-user-fees! address {}))
   ([address opts] (account/request-user-fees! {:post-info! post-info!} address opts)))
 
+(defn request-user-role!
+  ([address] (request-user-role! address {}))
+  ([address opts] (account/request-user-role! {:post-info! post-info!} address opts)))
+
 (defn request-referral!
   ([address] (request-referral! address {}))
   ([address opts] (account/request-referral! {:post-info! post-info!} address opts)))

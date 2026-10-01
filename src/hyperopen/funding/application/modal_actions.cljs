@@ -1,10 +1,18 @@
 (ns hyperopen.funding.application.modal-actions
-  (:require [hyperopen.funding.application.modal-commands :as modal-commands]
+  (:require [hyperopen.account.context :as account-context]
+            [hyperopen.domain.token-pricing :as token-pricing]
+            [hyperopen.funding.application.modal-commands :as modal-commands]
             [hyperopen.funding.application.modal-state :as modal-state]
             [hyperopen.funding.application.modal-vm :as modal-vm]
+            [hyperopen.funding.application.transfer-commands :as transfer-commands]
             [hyperopen.funding.domain.assets :as assets-domain]
             [hyperopen.funding.domain.lifecycle :as lifecycle-domain]
-            [hyperopen.funding.domain.policy :as policy-domain]))
+            [hyperopen.funding.domain.policy :as policy-domain]
+            [hyperopen.hyperevm.actions :as hyperevm-actions]
+            [hyperopen.hyperevm.domain.balances :as hyperevm-balances]
+            [hyperopen.hyperevm.domain.tokens :as hyperevm-tokens]
+            [hyperopen.hyperevm.domain.transfer-state :as hyperevm-transfer-state]
+            [hyperopen.platform :as platform]))
 
 (def ^:private funding-modal-path
   [:funding-ui :modal])
@@ -69,7 +77,11 @@
 (def withdraw-minimum-amount assets-domain/withdraw-minimum-amount)
 (def hyperunit-source-chain assets-domain/hyperunit-source-chain)
 
-(def transfer-max-amount policy-domain/transfer-max-amount)
+;; The Transfer previews and MAX age the HyperCore bridge capacity, so they
+;; are bound to the clock here, at the composition seam; the domain stays pure.
+(defn transfer-max-amount
+  [state modal]
+  (policy-domain/transfer-max-amount state modal (platform/now-ms)))
 (def withdraw-max-amount policy-domain/withdraw-max-amount)
 (def format-usdc-display policy-domain/format-usdc-display)
 (def format-usdc-input policy-domain/format-usdc-input)
@@ -79,10 +91,18 @@
 (def hyperunit-fee-entry policy-domain/hyperunit-fee-entry)
 (def hyperunit-withdrawal-queue-entry policy-domain/hyperunit-withdrawal-queue-entry)
 (def estimate-fee-display policy-domain/estimate-fee-display)
-(def transfer-preview policy-domain/transfer-preview)
+(defn transfer-preview
+  [state modal]
+  (policy-domain/transfer-preview state modal (platform/now-ms)))
 (def withdraw-preview policy-domain/withdraw-preview)
 (def deposit-preview policy-domain/deposit-preview)
-(def preview policy-domain/preview)
+(defn preview
+  [state modal]
+  (policy-domain/preview state modal (platform/now-ms)))
+
+(defn- hyperevm-linked-tokens
+  [state]
+  (hyperevm-tokens/linked-tokens (get-in state [:spot :meta])))
 
 (defn- modal-state
   [state]
@@ -128,7 +148,12 @@
     :format-usdc-input format-usdc-input
     :deposit-quick-amounts deposit-quick-amounts
     :deposit-min-usdc deposit-min-usdc
-    :withdraw-min-usdc withdraw-min-usdc}
+    :withdraw-min-usdc withdraw-min-usdc
+    :hyperevm-linked-tokens hyperevm-linked-tokens
+    :hyperevm-entry hyperevm-balances/entry
+    :hyperevm-moves-blocked-message account-context/hyperevm-moves-blocked-message
+    :token-price-usd token-pricing/market-token-price-usd
+    :wallet-chain-id hyperevm-transfer-state/wallet-chain-id}
    state))
 
 (declare close-funding-modal
@@ -173,7 +198,10 @@
    :send-preview policy-domain/send-preview
    :transfer-preview transfer-preview
    :withdraw-preview withdraw-preview
-   :deposit-preview deposit-preview})
+   :deposit-preview deposit-preview
+   :gas-topup-request policy-domain/gas-topup-request
+   :refresh-hyperevm-bridge-capacity hyperevm-actions/refresh-hyperevm-bridge-capacity
+   :now-ms (fn [] (platform/now-ms))})
 
 (defn open-funding-send-modal
   ([state]
@@ -201,7 +229,7 @@
   ([state anchor opener-data-role]
    (open-funding-transfer-modal state anchor opener-data-role nil))
   ([state anchor opener-data-role transfer-context]
-   (modal-commands/open-funding-transfer-modal (command-deps) state anchor opener-data-role transfer-context)))
+   (transfer-commands/open-funding-transfer-modal (command-deps) state anchor opener-data-role transfer-context)))
 
 (defn open-funding-withdraw-modal
   ([state]
@@ -257,7 +285,7 @@
 
 (defn enter-funding-transfer-amount
   [state value]
-  (modal-commands/enter-funding-transfer-amount (command-deps) state value))
+  (transfer-commands/enter-funding-transfer-amount (command-deps) state value))
 
 (defn select-funding-withdraw-asset
   [state asset-key]
@@ -285,11 +313,49 @@
 
 (defn set-funding-transfer-direction
   [state to-perp?]
-  (modal-commands/set-funding-transfer-direction (command-deps) state to-perp?))
+  (transfer-commands/set-funding-transfer-direction (command-deps) state to-perp?))
 
 (defn set-funding-amount-to-max
   [state]
-  (modal-commands/set-funding-amount-to-max (command-deps) state))
+  (transfer-commands/set-funding-amount-to-max (command-deps) state))
+
+(defn set-funding-transfer-location
+  [state side location]
+  (transfer-commands/set-funding-transfer-location (command-deps) state side location))
+
+(defn swap-funding-transfer-locations
+  [state]
+  (transfer-commands/swap-funding-transfer-locations (command-deps) state))
+
+(defn select-funding-transfer-asset
+  [state index]
+  (transfer-commands/select-funding-transfer-asset (command-deps) state index))
+
+(defn set-funding-transfer-amount-percent
+  [state pct]
+  (transfer-commands/set-funding-transfer-amount-percent (command-deps) state pct))
+
+(defn submit-funding-transfer-gas-topup
+  [state]
+  (transfer-commands/submit-funding-transfer-gas-topup (command-deps) state))
+
+(defn reset-funding-transfer-evm
+  [state]
+  (transfer-commands/reset-funding-transfer-evm (command-deps) state))
+
+(defn retry-funding-transfer-capability
+  [state]
+  (transfer-commands/retry-funding-transfer-capability (command-deps) state))
+
+(defn add-funding-transfer-token-to-wallet
+  [state]
+  (transfer-commands/add-funding-transfer-token-to-wallet (command-deps) state))
+
+(defn transfer-capacity-refresh-index
+  "For the HyperEVM balance poller: the token index whose HyperCore reads
+   the open Transfer draft needs again at `now-ms`, or nil."
+  [state now-ms]
+  (transfer-commands/capacity-refresh-index (command-deps) state now-ms))
 
 (defn submit-funding-send
   [state]
@@ -297,7 +363,7 @@
 
 (defn submit-funding-transfer
   [state]
-  (modal-commands/submit-funding-transfer (command-deps) state))
+  (transfer-commands/submit-funding-transfer (command-deps) state))
 
 (defn submit-funding-withdraw
   [state]

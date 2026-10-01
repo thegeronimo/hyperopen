@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import {
   debugCall,
   dispatch,
@@ -1445,6 +1445,24 @@ async function stubPortfolioUserFees(page, observedRequests = []) {
 
 async function unroutePortfolioUserFees(page) {
   await page.unroute("**/info");
+}
+
+// Scroll `locator`'s nearest scrolling ancestor (the app's page scroller) so
+// its top sits at `top` px from the viewport's top; returns its rect.
+async function scrollElementTopTo(locator, top) {
+  return locator.evaluate((element, targetTop) => {
+    let scroller = document.scrollingElement;
+    for (let current = element.parentElement; current; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (/(auto|scroll)/.test(style.overflowY) && current.scrollHeight > current.clientHeight) {
+        scroller = current;
+        break;
+      }
+    }
+    scroller.scrollTop += element.getBoundingClientRect().top - targetTop;
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }, top);
 }
 
 test("portfolio route exposes deterministic interaction states @regression", async ({ page }) => {
@@ -2935,6 +2953,12 @@ test("portfolio volume history opens near the metric card trigger @regression", 
 
   await expect(popover).toHaveCount(0);
   await expect(trigger).toBeVisible();
+  // Anchoring is checked with the trigger in the upper half of the viewport,
+  // where the popover has room below it. (With an account shown the funds
+  // strip puts the trigger near the bottom of a 375x812 viewport; that
+  // clamped case has its own test below.)
+  const { top: triggerTop } = await scrollElementTopTo(trigger, 200);
+  expect(triggerTop).toBeLessThan(812 / 2);
   await trigger.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
 
@@ -2983,9 +3007,54 @@ test("portfolio volume history opens near the metric card trigger @regression", 
   await unroutePortfolioUserFees(page);
 });
 
+test("portfolio volume history opened from a low trigger is clamped fully into view at 375 px @regression", async ({ page }) => {
+  // The anchored popover never flips above its anchor: on a phone it is a
+  // full-width overlay whose top follows the trigger's (on a HEAD build
+  // without the funds strip it opens at y=284 over a trigger at y=288), and
+  // near the bottom of the viewport it is clamped up to fit, still over the
+  // trigger. This pins that clamp: wholly on screen, against the bottom
+  // margin rather than pinned to the top.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await stubPortfolioUserFees(page);
+  await visitRoute(page, "/portfolio");
+  await seedPortfolioVolumeHistory(page);
+
+  const trigger = page.locator("[data-role='portfolio-volume-history-trigger']");
+  const popover = page.locator("[data-role='portfolio-volume-history-popover']");
+  await expect(trigger).toBeVisible();
+  // As low as the fixed mobile nav lets a finger reach it.
+  const height = await trigger.evaluate((element) => element.getBoundingClientRect().height);
+  const triggerBox = await scrollElementTopTo(trigger, 812 - 72 - height);
+  expect(triggerBox.top).toBeGreaterThan(812 * 0.75);
+  await trigger.click();
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+  await expect(popover).toBeVisible();
+  // Measured once the 14 day rows are in, at the height the layout estimates.
+  await expect(page.locator("[data-role='portfolio-volume-history-day-row']")).toHaveCount(14);
+  await expect(popover).toContainText("Your 14 day maker volume share is 7.63%");
+
+  const box = await popover.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, innerWidth, innerHeight };
+  });
+  expect(box.top).toBeGreaterThanOrEqual(12);
+  expect(box.left).toBeGreaterThanOrEqual(12);
+  expect(box.right).toBeLessThanOrEqual(box.innerWidth - 12);
+  expect(box.bottom).toBeLessThanOrEqual(box.innerHeight - 12);
+  expect(box.bottom, "clamped against the bottom margin, not pinned to the top").toBeGreaterThanOrEqual(box.innerHeight - 40);
+  expect(box.top).toBeLessThan(triggerBox.top);
+
+  await page.keyboard.press("Escape");
+  await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
+  await expect(popover).toHaveCount(0);
+  await unroutePortfolioUserFees(page);
+});
+
 test("portfolio volume history follows the spectated account user fees @regression", async ({ page }) => {
   const observedUserFeesRequests = [];
   await stubPortfolioUserFees(page, observedUserFeesRequests);
+  // Opened without visitRoute; the shared guard's context-level mock answers
+  // the HyperEVM balance poller that spectating starts.
   await page.goto(`/portfolio?spectate=${SPECTATE_ADDRESS}`);
   await waitForDebugBridge(page);
   await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
@@ -3053,7 +3122,7 @@ test("portfolio funding openers launch the funding modal on real click @regressi
 
   for (const [dataRole, title] of [
     ["portfolio-action-deposit", "Deposit"],
-    ["portfolio-action-perps-spot", "Perps <-> Spot"],
+    ["portfolio-action-perps-spot", "Transfer"],
     ["portfolio-action-withdraw", "Withdraw"]
   ]) {
     const openButton = page.locator(`[data-role='${dataRole}']`);

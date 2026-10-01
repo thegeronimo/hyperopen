@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForDebugBridge, waitForIdle } from "../support/hyperopen.mjs";
 
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";

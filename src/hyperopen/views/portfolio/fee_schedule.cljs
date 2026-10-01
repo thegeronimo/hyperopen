@@ -206,7 +206,7 @@
                            :data-role (str role-prefix "-option-" (role-value value))}
                     disabled?
                     (assoc :aria-disabled "true"
-                           :tab-index -1)
+                           :tabindex -1)
 
                     (not disabled?)
                     (assoc :on {:click [[(select-action kind) value]]}))
@@ -331,7 +331,7 @@
             :role "dialog"
             :aria-modal false
             :aria-labelledby title-id
-            :tab-index 0
+            :tabindex 0
             :data-role "portfolio-fee-schedule-dialog"
             :replicant/on-render dialog-focus-on-render
             :on {:keydown [[:actions/handle-portfolio-fee-schedule-keydown

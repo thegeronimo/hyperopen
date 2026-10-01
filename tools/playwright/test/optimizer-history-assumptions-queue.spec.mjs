@@ -6,7 +6,7 @@
 // and the rail's order does NOT reshuffle as assets get accepted — plus the
 // "every diagnostic behind one toggle" fold. Discovery and history-bundle are
 // stubbed, so the whole flow is deterministic.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
   keyword,

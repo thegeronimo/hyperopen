@@ -53,20 +53,29 @@
              :submitting? submitting?}})
 
 (defn- transfer-model
-  [{:keys [to-perp?
+  "The Transfer submodel. `:transfer-vm` comes from the transfer step; the
+   submit actions are decided by presentation, so they are added here."
+  [{:keys [transfer-vm
+           to-perp?
            amount-input
            transfer-max-display
            transfer-max-input
+           transfer-submit-label
+           transfer-message
            submit-disabled?
            submitting?]}]
-  {:to-perp? to-perp?
-   :amount {:value amount-input
-            :max-display transfer-max-display
-            :max-input transfer-max-input
-            :symbol "USDC"}
-   :actions {:submit-label (if submitting? "Submitting..." "Transfer")
-             :submit-disabled? submit-disabled?
-             :submitting? submitting?}})
+  (assoc (or transfer-vm
+             {:to-perp? to-perp?
+              :amount {:value amount-input
+                       :max-display transfer-max-display
+                       :max-input transfer-max-input
+                       :symbol "USDC"
+                       :notice nil}})
+         :message transfer-message
+         :actions {:submit-label (or transfer-submit-label
+                                     (if submitting? "Submitting..." "Transfer"))
+                   :submit-disabled? submit-disabled?
+                   :submitting? submitting?}))
 
 (defn- send-model
   [{:keys [send-token

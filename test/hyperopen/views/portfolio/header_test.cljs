@@ -25,6 +25,8 @@
              :event.currentTarget/bounds
              "portfolio-action-perps-spot"]]
            (get-in perps-spot [1 :on :click])))
+    (is (= ["Transfer" "Transfer"] (hiccup/collect-strings perps-spot))
+        "the Perps <-> Spot opener reads Transfer at every width, keeping its data-role")
     (is (= [[:actions/open-funding-withdraw-modal
              :event.currentTarget/bounds
              "portfolio-action-withdraw"]]

@@ -33,6 +33,41 @@
               (map? inputs)))))
 
 (s/def ::margin-rec-compute-args margin-rec-compute-args?)
+
+(defn- fetch-hyperevm-balances-args?
+  [args]
+  (and (= 1 (count args))
+       (let [{:keys [addresses requested-at-ms]} (first args)]
+         (and (vector? addresses)
+              (seq addresses)
+              (every? common/non-empty-string? addresses)
+              (number? requested-at-ms)))))
+
+(s/def ::fetch-hyperevm-balances-args fetch-hyperevm-balances-args?)
+(s/def ::fetch-hyperevm-core-bridge-balance-args
+  (s/tuple (s/and int? (complement neg?)) ::common/non-empty-string))
+(defn- evm-address?
+  [value]
+  (and (string? value) (boolean (re-matches #"^0x[0-9a-fA-F]{40}$" value))))
+
+(s/def ::fetch-hyperevm-in-flight-receipt-args
+  (s/tuple evm-address? (s/and string? #(re-matches #"^0x[0-9a-fA-F]{64}$" %))))
+
+(defn- wallet-watch-asset-args?
+  "`[{:chain-id :address :symbol :decimals}]`: HyperEVM's chain, a contract
+   address (nil for native HYPE), and ERC-20 decimals."
+  [args]
+  (and (= 1 (count args))
+       (let [{:keys [chain-id address symbol decimals] :as request} (first args)]
+         (and (map? request)
+              (= #{:chain-id :address :symbol :decimals} (set (keys request)))
+              (= "0x3e7" chain-id)
+              (or (nil? address) (evm-address? address))
+              (common/non-empty-string? symbol)
+              (int? decimals)
+              (<= 0 decimals 36)))))
+
+(s/def ::wallet-watch-asset-args wallet-watch-asset-args?)
 (s/def ::api-submit-vault-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-send-args (s/tuple ::api-submit-request))
@@ -339,6 +374,11 @@
    :effects/api-submit-position-margin ::api-submit-position-margin-args
    :effects/margin-rec-fetch-fills ::margin-rec-fetch-fills-args
    :effects/margin-rec-compute ::margin-rec-compute-args
+   :effects/fetch-hyperevm-balances ::fetch-hyperevm-balances-args
+   :effects/fetch-hyperevm-core-bridge-balance ::fetch-hyperevm-core-bridge-balance-args
+   :effects/fetch-hyperevm-core-account-status ::common/address-args
+   :effects/fetch-hyperevm-in-flight-receipt ::fetch-hyperevm-in-flight-receipt-args
+   :effects/wallet-watch-asset ::wallet-watch-asset-args
    :effects/clear-order-feedback-toast-timeout ::common/optional-string-args
    :effects/api-load-user-data ::common/address-args
    :effects/api-fetch-trader-portfolio-benchmark ::common/address-args

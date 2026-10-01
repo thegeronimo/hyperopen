@@ -1,5 +1,6 @@
 (ns hyperopen.schema.funding-modal-contracts
-  (:require [cljs.spec.alpha :as s]))
+  (:require [cljs.spec.alpha :as s]
+            [hyperopen.schema.funding-modal-transfer-contracts]))
 
 (def ^:private allowed-anchor-keys
   #{:left :right :top :bottom :width :height :viewport-width :viewport-height})
@@ -128,12 +129,6 @@
 
 (def ^:private required-send-keys
   #{:asset :destination :amount :actions})
-
-(def ^:private required-transfer-amount-keys
-  #{:value :max-display :max-input :symbol})
-
-(def ^:private required-transfer-keys
-  #{:to-perp? :amount :actions})
 
 (def ^:private required-last-operation-keys
   #{:tx-id :explorer-url})
@@ -616,27 +611,9 @@
                     :funding-modal-vm.send/actions])
    #(exact-keys? % required-send-keys)))
 
-(s/def :funding-modal-vm.transfer/to-perp? boolean?)
-(s/def :funding-modal-vm.transfer-amount/value string?)
-(s/def :funding-modal-vm.transfer-amount/max-display string?)
-(s/def :funding-modal-vm.transfer-amount/max-input string?)
-(s/def :funding-modal-vm.transfer-amount/symbol string?)
-(s/def :funding-modal-vm/transfer-amount
-  (s/and
-   (s/keys :req-un [:funding-modal-vm.transfer-amount/value
-                    :funding-modal-vm.transfer-amount/max-display
-                    :funding-modal-vm.transfer-amount/max-input
-                    :funding-modal-vm.transfer-amount/symbol])
-   #(exact-keys? % required-transfer-amount-keys)))
-
-(s/def :funding-modal-vm.transfer/amount :funding-modal-vm/transfer-amount)
+;; The rest of the transfer submap lives in funding-modal-transfer-contracts; this
+;; alias must register after :funding-modal-vm/actions (cljs.spec resolves it eagerly).
 (s/def :funding-modal-vm.transfer/actions :funding-modal-vm/actions)
-(s/def :funding-modal-vm/transfer
-  (s/and
-   (s/keys :req-un [:funding-modal-vm.transfer/to-perp?
-                    :funding-modal-vm.transfer/amount
-                    :funding-modal-vm.transfer/actions])
-   #(exact-keys? % required-transfer-keys)))
 
 (s/def :funding-modal-vm.last-operation/tx-id (s/nilable string?))
 (s/def :funding-modal-vm.last-operation/explorer-url (s/nilable string?))

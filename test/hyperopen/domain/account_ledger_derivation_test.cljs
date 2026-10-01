@@ -8,7 +8,8 @@
    discarded, the fee was labelled USDC regardless of asset, and rows whose
    amount lived in an unprobed key were dropped outright."
   (:require [cljs.test :refer-macros [deftest is testing]]
-            [hyperopen.domain.account-ledger :as account-ledger]))
+            [hyperopen.domain.account-ledger :as account-ledger]
+            [hyperopen.domain.account-ledger.derive :as derive]))
 
 (def ^:private viewer "0xAAAA000000000000000000000000000000000001")
 (def ^:private counterparty "0xBBBB000000000000000000000000000000000002")
@@ -180,6 +181,74 @@
                                 :amount "3"
                                 :user counterparty
                                 :destination viewer}))))))
+
+(deftest hyperevm-bridge-legs-are-labelled-with-both-venues-test
+  ;; Shapes from live `userNonFundingLedgerUpdates` rows (2026-09-30; see the
+  ;; HyperEVM transfer ExecPlan's Artifacts and Notes).
+  (testing "Core -> EVM sendAsset: a send to a token system address"
+    (let [row (row-for {:type "send"
+                        :user viewer
+                        :destination "0x2000000000000000000000000000000000000001"
+                        :sourceDex "spot"
+                        :destinationDex "spot"
+                        :token "PURR"
+                        :amount "100"
+                        :nativeTokenFee "0.00002"})]
+      (is (= "account-class-transfer" (:type-key row)))
+      (is (= ["Spot" "HyperEVM"] [(:from-label row) (:to-label row)]))
+      (is (= -100 (:signed-amount row)) "money left the viewer's spot balance")))
+  (testing "HYPE Core -> EVM goes to 0x2222…2222"
+    (let [row (row-for {:type "send"
+                        :user viewer
+                        :destination "0x2222222222222222222222222222222222222222"
+                        :sourceDex "spot"
+                        :destinationDex "spot"
+                        :token "HYPE"
+                        :amount "2.5"
+                        :nativeTokenFee "0.0"})]
+      (is (= "account-class-transfer" (:type-key row)))
+      (is (= ["Spot" "HyperEVM"] [(:from-label row) (:to-label row)]))
+      (is (= -2.5 (:signed-amount row)))))
+  (testing "USDC can leave perps: the empty sourceDex is Perps"
+    (let [row (row-for {:type "send"
+                        :user viewer
+                        :destination "0x2000000000000000000000000000000000000000"
+                        :sourceDex ""
+                        :destinationDex "spot"
+                        :token "USDC"
+                        :amount "25"})]
+      (is (= ["Perps" "HyperEVM"] [(:from-label row) (:to-label row)]))))
+  (testing "spotSend Core -> EVM: a spot transfer to a system address"
+    (let [row (row-for {:type "spotTransfer"
+                        :user viewer
+                        :destination "0x2000000000000000000000000000000000000001"
+                        :token "PURR"
+                        :amount "40"})]
+      (is (= "account-class-transfer" (:type-key row)))
+      (is (= ["Spot" "HyperEVM"] [(:from-label row) (:to-label row)]))
+      (is (= -40 (:signed-amount row)))))
+  (testing "EVM -> Core HYPE: a spot transfer from 0x2222…2222"
+    (let [row (row-for {:type "spotTransfer"
+                        :user "0x2222222222222222222222222222222222222222"
+                        :destination viewer
+                        :token "HYPE"
+                        :amount "10"})]
+      (is (= "account-class-transfer" (:type-key row)))
+      (is (= ["HyperEVM" "Spot"] [(:from-label row) (:to-label row)]))
+      (is (= 10 (:signed-amount row)))))
+  (testing "a send from a system address arrives in its destination venue"
+    (let [row (row-for {:type "send"
+                        :user "0x2000000000000000000000000000000000000001"
+                        :destination viewer
+                        :destinationDex "spot"
+                        :token "PURR"
+                        :amount "3"})]
+      (is (= "account-class-transfer" (:type-key row)))
+      (is (= ["HyperEVM" "Spot"] [(:from-label row) (:to-label row)]))
+      (is (= 3 (:signed-amount row)))))
+  (testing "0x2222…2222 is a system address; a look-alike is not"
+    (is (true? (derive/token-system-address? "0x2222222222222222222222222222222222222222")))
+    (is (false? (derive/token-system-address? "0x2222222222222222222222222222222222222223")))))
 
 (deftest unknown-future-types-stay-legible-rather-than-blank-test
   (let [row (row-for {:type "someBrandNewDelta" :usdc "7"})]

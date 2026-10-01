@@ -64,7 +64,7 @@
               :role "dialog"
               :aria-modal true
               :aria-label title
-              :tab-index 0
+              :tabindex 0
               :data-role "vault-transfer-modal"
               :on {:keydown [[:actions/handle-vault-transfer-modal-keydown [:event/key]]]}}
         [:div {:class ["flex" "items-center" "justify-between"]}

@@ -131,6 +131,12 @@
    opts]
   (account-endpoints/request-user-fees! post-info! address opts))
 
+(defn request-user-role!
+  [{:keys [post-info!]}
+   address
+   opts]
+  (account-endpoints/request-user-role! post-info! address opts))
+
 (defn request-referral!
   [{:keys [post-info!]}
    address

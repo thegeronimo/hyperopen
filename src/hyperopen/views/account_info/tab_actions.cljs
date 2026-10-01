@@ -2,7 +2,8 @@
   (:require [hyperopen.ui.fonts :as fonts]
             [hyperopen.views.account-info.margin-rec-batch-panel :as margin-rec-batch-panel]
             [hyperopen.views.account-info.tab-registry :as tab-registry]
-            [hyperopen.views.account-info.tab-filters :as tab-filters]))
+            [hyperopen.views.account-info.tab-filters :as tab-filters]
+            [hyperopen.views.account-info.tabs.balances.location-filter :as location-filter]))
 
 (defn- freshness-cue-text-classes
   [tone]
@@ -185,6 +186,21 @@
    "md:min-h-12"
    "md:border-b-0"])
 
+;; The Balances actions (search, location filter, Hide Small Balances) are
+;; about 530 px wide. Beside the tab strip they left it about 200 px at
+;; 768 px, too narrow to show the selected tab, so below lg they take their
+;; own row under the strip, as on phones.
+(def ^:private stacked-below-lg-classes
+  {"md:flex-row" "lg:flex-row"
+   "md:items-stretch" "lg:items-stretch"
+   "md:border-b-0" "lg:border-b-0"})
+
+(defn- header-classes
+  [classes stacked-below-lg?]
+  (if stacked-below-lg?
+    (mapv #(get stacked-below-lg-classes % %) classes)
+    classes))
+
 (def ^:private account-tab-empty-actions-shell-classes
   ["hidden"
    "md:flex"
@@ -307,10 +323,13 @@
   (tab-filters/open-orders-direction-filter-key open-orders-state))
 
 (defn- balances-header-actions
-  [hide-small? coin-search]
-  [:div {:class ["ml-auto" "relative" "flex" "items-center" "justify-end" "gap-3" "px-4" "py-2" "md:min-h-12" "md:py-0"]
+  ;; Wraps below md (the location filter drops under the search on a phone);
+  ;; one row from md up, under the tab strip until lg (`header-classes`).
+  [hide-small? coin-search location-filter*]
+  [:div {:class ["ml-auto" "relative" "flex" "flex-wrap" "items-center" "justify-end" "gap-x-3" "gap-y-2" "px-4" "py-2" "md:flex-nowrap" "md:min-h-12" "md:py-0"]
          :data-role "account-info-tab-actions-shell"}
    (account-info-coin-search-control :balances coin-search)
+   (location-filter/location-filter-control location-filter*)
    [:div {:class ["flex" "items-center" "space-x-2"]}
     [:input
      {:type "checkbox"
@@ -418,6 +437,7 @@
   ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search]
    (tab-navigation selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search {}))
   ([selected-tab counts hide-small? _funding-history-state trade-history-state order-history-state positions-state open-orders-state freshness-cues balances-coin-search {:keys [extra-tabs
+                                                                                                                                                                                balances-location-filter
                                                                                                                                                                                 tab-click-actions-by-tab
                                                                                                                                                                                 tab-label-overrides
                                                                                                                                                                                 tab-order]
@@ -429,7 +449,7 @@
          tabs* (tab-registry/available-tabs-for extra-tabs tab-order tab-label-overrides)
          actions-node (case selected-tab
                         :balances
-                        (balances-header-actions hide-small? balances-coin-search)
+                        (balances-header-actions hide-small? balances-coin-search balances-location-filter)
 
                         :funding-history
                         (funding-history-header-actions)
@@ -449,8 +469,8 @@
                                                     (get freshness-cues :open-orders))
 
                         nil)]
-     [:div {:class account-tab-header-shell-classes}
-      [:div {:class account-tab-strip-viewport-classes}
+     [:div {:class (header-classes account-tab-header-shell-classes (= :balances selected-tab))}
+      [:div {:class (header-classes account-tab-strip-viewport-classes (= :balances selected-tab))}
        [:div {:class ["account-info-tab-strip"]
               :data-role "account-info-tab-strip"
               :replicant/on-render account-tab-indicator-on-render

@@ -12,8 +12,8 @@
     :mobile-label "Staking"
     :data-role "portfolio-action-link-staking"
     :action [:actions/navigate "/staking"]}
-   {:label "Perps ↔ Spot"
-    :mobile-label "Perp Spot"
+   {:label "Transfer"
+    :mobile-label "Transfer"
     :data-role "portfolio-action-perps-spot"
     :action [:actions/open-funding-transfer-modal
              :event.currentTarget/bounds

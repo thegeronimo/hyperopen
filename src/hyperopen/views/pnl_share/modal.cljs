@@ -192,7 +192,7 @@
            :role "dialog"
            :aria-modal true
            :aria-labelledby title-id
-           :tab-index 0
+           :tabindex 0
            :data-role "pnl-share-modal"
            :data-parity-id "pnl-share-modal"
            :replicant/on-render (dialog-focus/dialog-focus-on-render

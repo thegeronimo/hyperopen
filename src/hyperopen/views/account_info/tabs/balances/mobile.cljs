@@ -2,16 +2,22 @@
   (:require [clojure.string :as str]
             [hyperopen.views.account-info.mobile-cards :as mobile-cards]
             [hyperopen.views.account-info.shared :as shared]
-            [hyperopen.views.account-info.tabs.balances.shared :as balances-shared]))
+            [hyperopen.views.account-info.tabs.balances.moves :as balances-moves]
+            [hyperopen.views.account-info.tabs.balances.shared :as balances-shared]
+            [hyperopen.views.ui.location-chip :as location-chip]))
 
-(defn- mobile-balance-coin-node [{:keys [coin selection-coin]}]
+(defn- mobile-balance-coin-node [{:keys [coin selection-coin] :as row}]
   (let [{:keys [base-label prefix-label]}
         (shared/resolve-coin-display (or selection-coin coin) {})]
-    [:span {:class ["flex" "min-w-0" "items-center" "gap-1"]}
+    ;; The coin column is narrow on a phone, so a place chip wraps under the
+    ;; name instead of squeezing it to an ellipsis.
+    [:span {:class (cond-> ["flex" "min-w-0" "items-center" "gap-1"]
+                     (:location-chip row) (into ["flex-wrap" "gap-y-0.5"]))}
      [:span {:class ["truncate" "font-medium" "leading-4" "text-trading-text"]} (or base-label coin "Asset")]
      (when prefix-label
        [:span {:class shared/position-chip-classes}
-        prefix-label])]))
+        prefix-label])
+     (location-chip/location-chip (:location-chip row))]))
 
 (defn- mobile-balance-footer-action
   ([label enabled?]
@@ -33,7 +39,10 @@
                                 "focus:outline-none"
                                 "focus:ring-0"
                                 "focus:ring-offset-0"
-                                "focus-visible:text-ho-accent-bright"]
+                                "focus-visible:text-ho-accent-bright"
+                                ;; Colour alone is too weak a focus cue.
+                                "focus-visible:underline"
+                                "underline-offset-2"]
                                ["cursor-default" "text-trading-text-secondary"]))}]
      (if (and enabled? action)
        [:button (assoc attrs
@@ -48,7 +57,6 @@
                 selection-coin
                 total-balance
                 available-balance
-                usdc-value
                 pnl-value
                 pnl-pct
                 amount-decimals
@@ -62,6 +70,7 @@
                             (balances-shared/send-enabled? {:key key
                                                             :selection-coin selection-coin
                                                             :coin coin
+                                                            :location (:location row)
                                                             :available-balance available-balance}))
         send-action (when send-enabled?*
                       [:actions/open-funding-send-modal
@@ -90,7 +99,7 @@
                                                                   "leading-4"
                                                                   "text-trading-text"]})
                       (mobile-cards/summary-item "USDC Value"
-                                                 (str "$" (shared/format-currency usdc-value))
+                                                 (balances-shared/balance-usd-value-text row)
                                                  {:value-classes ["num"
                                                                   "font-medium"
                                                                   "leading-4"
@@ -115,7 +124,8 @@
                                                                           :amount-decimals amount-decimals
                                                                           :transfer-disabled? transfer-disabled?
                                                                           :tooltip-position available-balance-tooltip-position})
-                           (balances-shared/unstaking-chip (:unstaking-hype row))]
+                           (balances-shared/unstaking-chip (:unstaking-hype row))
+                           (balances-shared/gas-reserve-note row)]
                           {:value-classes ["num" "font-medium" "whitespace-nowrap"]})
                          (mobile-cards/detail-item
                           "PNL (ROE %)"
@@ -125,12 +135,29 @@
                                                              :pnl-pct pnl-pct
                                                              :contract-id contract-id})
                           {:value-classes ["font-medium"]})
-                         (when-let [contract-node (balances-shared/balance-contract-node contract-id)]
+                         (when-let [contract-node (if (= :hyperevm (:location row))
+                                                    (balances-shared/evm-contract-node row)
+                                                    (balances-shared/balance-contract-node contract-id))]
                            (mobile-cards/detail-item "Contract"
                                                      contract-node
                                                      {:full-width? true}))])
                        (when-not read-only?
                          [:div {:class ["border-t" "border-ho-border-accent-muted" "pt-2.5"]}
                           [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]}
-                           (mobile-balance-footer-action "Send" send-enabled?* send-action)
-                           (mobile-balance-footer-action transfer-label transfer-enabled?* transfer-action)]])]})))
+                           ;; HyperCore Send never moves a HyperEVM balance, so
+                           ;; a HyperEVM card keeps the slot, hidden.
+                           (if (= :hyperevm (:location row))
+                             [:span {:class ["hidden"]}]
+                             (mobile-balance-footer-action "Send" send-enabled?* send-action))
+                           ;; Rows from the Balances-tab view-model carry their
+                           ;; move targets (keyed, so they get their own
+                           ;; wrapper); any other caller keeps the one Transfer
+                           ;; action.
+                           (if (contains? row :move-targets)
+                             (into [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]
+                                          :data-role (str "balances-moves-mobile-" row-id)}]
+                                   (balances-moves/move-nodes row :mobile))
+                             (mobile-balance-footer-action transfer-label
+                                                           transfer-enabled?*
+                                                           transfer-action))]
+                          (balances-moves/mobile-reasons-node row)])]})))

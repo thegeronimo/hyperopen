@@ -105,7 +105,9 @@
            install-optimizer-draft-watchers!
            optimizer-draft-watchers-deps
            install-margin-rec-watcher!
-           margin-rec-watcher-deps]}]
+           margin-rec-watcher-deps
+           install-hyperevm-balance-poller!
+           hyperevm-balance-poller-deps]}]
   (install-store-cache-watchers!
    store
    store-cache-watchers-deps)
@@ -120,7 +122,9 @@
   (when (fn? install-optimizer-draft-watchers!)
     (install-optimizer-draft-watchers! optimizer-draft-watchers-deps))
   (when (fn? install-margin-rec-watcher!)
-    (install-margin-rec-watcher! margin-rec-watcher-deps)))
+    (install-margin-rec-watcher! margin-rec-watcher-deps))
+  (when (fn? install-hyperevm-balance-poller!)
+    (install-hyperevm-balance-poller! hyperevm-balance-poller-deps)))
 
 (defn install-state-validation!
   [{:keys [store

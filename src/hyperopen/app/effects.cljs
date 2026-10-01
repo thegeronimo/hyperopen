@@ -4,6 +4,7 @@
             [hyperopen.route-modules :as route-modules]
             [hyperopen.runtime.collaborators :as runtime-collaborators]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
+            [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.runtime.effect-adapters.margin-rec :as margin-rec-effects]
             [hyperopen.runtime.effect-adapters.pnl-share :as pnl-share-effects]
             [hyperopen.runtime.effect-adapters.spectate-mode :as spectate-mode-effects]
@@ -131,7 +132,12 @@
                   :api-submit-funding-send effect-adapters/api-submit-funding-send-effect
                   :api-submit-funding-repay effect-adapters/api-submit-funding-repay-effect
                   :api-submit-funding-withdraw effect-adapters/api-submit-funding-withdraw-effect
-                  :api-submit-funding-deposit effect-adapters/api-submit-funding-deposit-effect}
+                  :api-submit-funding-deposit effect-adapters/api-submit-funding-deposit-effect
+                  :fetch-hyperevm-balances hyperevm-effect-adapters/fetch-hyperevm-balances-effect
+                  :fetch-hyperevm-core-bridge-balance hyperevm-effect-adapters/fetch-hyperevm-core-bridge-balance-effect
+                  :fetch-hyperevm-core-account-status hyperevm-effect-adapters/fetch-hyperevm-core-account-status-effect
+                  :fetch-hyperevm-in-flight-receipt hyperevm-effect-adapters/fetch-hyperevm-in-flight-receipt-effect
+                  :wallet-watch-asset hyperevm-effect-adapters/wallet-watch-asset-effect}
                  (:api lazy-vault-effect-deps))
      :portfolio-optimizer (:portfolio-optimizer lazy-portfolio-optimizer-effect-deps)}))
 

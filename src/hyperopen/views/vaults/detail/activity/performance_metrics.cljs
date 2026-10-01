@@ -113,7 +113,7 @@
            :style {:border-color "rgba(66, 102, 128, 0.52)"
                    :background "linear-gradient(135deg, rgba(18, 53, 79, 0.58) 0%, rgba(14, 40, 61, 0.52) 100%)"}
            :data-role "vault-detail-performance-metrics-estimated-banner"
-           :tab-index 0}
+           :tabindex 0}
      [:div {:class ["flex" "min-w-0" "items-start" "gap-2.5"]}
       (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" "text-[#8fc7ff]"])
       [:div {:class ["min-w-0" "text-sm" "leading-5" "text-[#d5e8ff]"]}
@@ -344,7 +344,7 @@
             :data-role "vault-detail-performance-metrics-scroll-region"
             :role "region"
             :aria-label "Vault performance metrics"
-            :tab-index 0}
+            :tabindex 0}
       [:div {:class ["sticky"
                      "top-0"
                      "z-[1]"

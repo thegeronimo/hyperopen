@@ -41,6 +41,15 @@
 (def submit-funding-withdraw modal-actions/submit-funding-withdraw)
 (def submit-funding-deposit modal-actions/submit-funding-deposit)
 (def set-funding-modal-compat modal-actions/set-funding-modal-compat)
+(def set-funding-transfer-location modal-actions/set-funding-transfer-location)
+(def swap-funding-transfer-locations modal-actions/swap-funding-transfer-locations)
+(def select-funding-transfer-asset modal-actions/select-funding-transfer-asset)
+(def set-funding-transfer-amount-percent modal-actions/set-funding-transfer-amount-percent)
+(def submit-funding-transfer-gas-topup modal-actions/submit-funding-transfer-gas-topup)
+(def reset-funding-transfer-evm modal-actions/reset-funding-transfer-evm)
+(def retry-funding-transfer-capability modal-actions/retry-funding-transfer-capability)
+(def add-funding-transfer-token-to-wallet modal-actions/add-funding-transfer-token-to-wallet)
+(def transfer-capacity-refresh-index modal-actions/transfer-capacity-refresh-index)
 
 (defn submit-funding-repay
   "Repays a Hyperliquid spot/portfolio-margin borrow for `token` (the spot token

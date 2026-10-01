@@ -4,7 +4,7 @@
 // asserted here — they depend on loaded history and stay covered by unit tests;
 // this spec pins the deterministic file mechanics end to end.
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
   keyword,

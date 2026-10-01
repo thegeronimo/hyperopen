@@ -6,7 +6,7 @@
 // center scrolls, and a rail scrolls internally when its own content is taller
 // than the viewport. This is gated to the xl (>=1280px) 3-column breakpoint;
 // below that the layout is a single stacked column with normal page scroll.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute } from "../support/hyperopen.mjs";
 import { keyword, optimizerPath, seedOptimizerState, seedPatch } from "../support/optimizer_state.mjs";
 

@@ -1,8 +1,10 @@
 (ns hyperopen.funding.domain.policy
   (:require [hyperopen.funding.domain.amounts :as amounts]
             [hyperopen.funding.domain.availability :as availability]
+            [hyperopen.funding.domain.evm-transfer-preview :as evm-transfer-preview]
             [hyperopen.funding.domain.hyperunit :as hyperunit]
-            [hyperopen.funding.domain.preview :as preview]))
+            [hyperopen.funding.domain.preview :as preview]
+            [hyperopen.funding.domain.transfer-dispatch :as transfer-dispatch]))
 
 (def non-blank-text amounts/non-blank-text)
 (def parse-num amounts/parse-num)
@@ -22,7 +24,10 @@
 (def withdraw-assets availability/withdraw-assets)
 (def withdraw-assets-filtered availability/withdraw-assets-filtered)
 (def withdraw-asset availability/withdraw-asset)
-(def transfer-max-amount availability/transfer-max-amount)
+;; Route-aware: Perps <-> Spot delegates to the legacy functions unchanged,
+;; routes touching HyperEVM go to the EVM preview. Each takes an optional
+;; trailing `now-ms`.
+(def transfer-max-amount transfer-dispatch/transfer-max-amount*)
 (def withdraw-max-amount availability/withdraw-max-amount)
 
 (def hyperunit-lifecycle-failure? hyperunit/hyperunit-lifecycle-failure?)
@@ -32,11 +37,12 @@
 (def hyperunit-withdrawal-queue-entry hyperunit/hyperunit-withdrawal-queue-entry)
 (def estimate-fee-display hyperunit/estimate-fee-display)
 
-(def transfer-preview preview/transfer-preview)
+(def transfer-preview transfer-dispatch/transfer-preview*)
 (def send-preview preview/send-preview)
 (def withdraw-preview preview/withdraw-preview)
 (def deposit-preview preview/deposit-preview)
-(def preview preview/preview)
+(def preview transfer-dispatch/preview*)
+(def gas-topup-request evm-transfer-preview/gas-topup-request)
 
 (def ^:private direct-balance-row-available availability/direct-balance-row-available)
 (def ^:private derived-balance-row-available availability/derived-balance-row-available)

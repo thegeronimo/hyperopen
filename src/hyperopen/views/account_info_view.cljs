@@ -88,14 +88,20 @@
                           balances-coin-search
                           mobile-expanded-card
                           read-only?
-                          read-only-message]}]
+                          read-only-message
+                          balances-location-filter
+                          hyperevm-status
+                          hyperevm-moves-blocked-message]}]
                (balances-tab-content balance-rows
                                      hide-small?
                                      balances-sort
                                      balances-coin-search
                                      {:mobile-expanded-card mobile-expanded-card
                                       :read-only? read-only?
-                                      :read-only-message read-only-message}))})
+                                      :read-only-message read-only-message
+                                      :location-filter balances-location-filter
+                                      :hyperevm-status hyperevm-status
+                                      :hyperevm-moves-blocked-message hyperevm-moves-blocked-message}))})
 
 (defn- extra-tab-renderers [extra-tabs]
   (reduce (fn [acc {:keys [id content render]}]
@@ -181,6 +187,7 @@
                  tab-counts
                  hide-small?
                  balances-coin-search
+                 balances-location-filter
                  funding-history-state
                  trade-history-state
                  order-history-state
@@ -246,6 +253,7 @@
                                   freshness-cues
                                   balances-coin-search
                                   {:extra-tabs extra-tabs
+                                   :balances-location-filter balances-location-filter
                                    :tab-click-actions-by-tab tab-click-actions-by-tab
                                    :tab-label-overrides tab-label-overrides*
                                    :tab-order tab-order})

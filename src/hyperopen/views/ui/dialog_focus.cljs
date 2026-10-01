@@ -10,12 +10,25 @@
   (and node
        (true? (.-isConnected node))))
 
+(defn- rendered-node?
+  "Whether `node` is rendered at all. The computed style checks in
+   `visible-node?` see only the node's own `display`, so a link inside a
+   `display:none` ancestor would pass them and could become the trap's last
+   focusable element, letting Tab leave the dialog. `checkVisibility` also
+   looks at ancestors; where a browser lacks it, the node counts as
+   rendered."
+  [node]
+  (if (fn? (.-checkVisibility node))
+    (true? (.checkVisibility node))
+    true))
+
 (defn- visible-node?
   [node]
   (when (connected-node? node)
     (let [style (js/getComputedStyle node)]
       (and (not= "none" (.-display style))
-           (not= "hidden" (.-visibility style))))))
+           (not= "hidden" (.-visibility style))
+           (rendered-node? node)))))
 
 (defn- document-active-element
   []

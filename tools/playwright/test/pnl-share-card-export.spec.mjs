@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute } from "../support/hyperopen.mjs";
 
 // Milestone 0 harness for the PnL share card export path.

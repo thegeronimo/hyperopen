@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 
 // Browser coverage for the TWAP ticket: the venue's advanced controls (7-day runtime,
 // trigger price, termination price) and the 2026-08-19 design pass that made them legible

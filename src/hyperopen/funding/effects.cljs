@@ -3,14 +3,18 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.funding.actions :as funding-actions]
+            [hyperopen.funding.application.hyperevm-transfer-effects :as hyperevm-transfer-effects]
             [hyperopen.funding.application.hyperunit-query :as hyperunit-query]
             [hyperopen.funding.application.modal-state :as modal-state]
             [hyperopen.funding.application.submit-effects :as submit-effects]
             [hyperopen.funding.domain.lifecycle :as funding-lifecycle]
             [hyperopen.funding.effects.common :as common]
+            [hyperopen.funding.effects.hyperevm-runtime :as hyperevm-runtime]
             [hyperopen.funding.effects.hyperunit-runtime :as hyperunit-runtime]
+            [hyperopen.funding.infrastructure.wallet-rpc :as wallet-rpc]
             [hyperopen.funding.effects.transport-runtime :as transport-runtime]
-            [hyperopen.ui.dialog-focus-runtime :as dialog-focus-runtime]))
+            [hyperopen.ui.dialog-focus-runtime :as dialog-focus-runtime]
+            [hyperopen.wallet.core :as wallet]))
 
 (defn update-funding-submit-error
   [state error-text]
@@ -74,17 +78,31 @@
     :transition-loading? true}))
 
 (defn api-submit-funding-transfer!
+  "Submit a Transfer. Routes that touch HyperEVM also need the HyperEVM
+   submitter, a Spot re-read, a flow-id source and timers (for the arrival
+   and \"slow\" states); each defaults to the real one."
   [{:keys [store
            request
            dispatch!
            submit-usd-class-transfer!
            submit-send-asset!
+           submit-hyperevm-to-core!
+           refresh-spot-clearinghouse!
+           next-flow-id!
+           set-timeout-fn
+           now-ms-fn
+           log-fn
            exchange-response-error
            runtime-error-message
            show-toast!
            default-funding-modal-state]
     :or {submit-usd-class-transfer! trading-api/submit-usd-class-transfer!
          submit-send-asset! trading-api/submit-send-asset!
+         submit-hyperevm-to-core! hyperevm-runtime/submit-hyperevm-to-core-tx!
+         refresh-spot-clearinghouse! hyperevm-runtime/refresh-spot-clearinghouse!
+         next-flow-id! hyperevm-runtime/next-flow-id!
+         log-fn hyperevm-runtime/log!
+         now-ms-fn (fn [] (js/Date.now))
          exchange-response-error common/fallback-exchange-response-error
          runtime-error-message common/fallback-runtime-error-message
          show-toast! (fn [_store _kind _message] nil)
@@ -95,6 +113,12 @@
     :dispatch! dispatch!
     :submit-usd-class-transfer! submit-usd-class-transfer!
     :submit-send-asset! submit-send-asset!
+    :submit-hyperevm-to-core! submit-hyperevm-to-core!
+    :refresh-spot-clearinghouse! refresh-spot-clearinghouse!
+    :next-flow-id! next-flow-id!
+    :set-timeout-fn set-timeout-fn
+    :now-ms-fn now-ms-fn
+    :log-fn log-fn
     :exchange-response-error exchange-response-error
     :runtime-error-message runtime-error-message
     :show-toast! show-toast!
@@ -102,6 +126,44 @@
     :set-funding-submit-error! set-funding-submit-error!
     :close-funding-modal! close-funding-modal!
     :refresh-after-funding-submit! refresh-after-funding-submit!}))
+
+(defn resolve-hyperevm-in-flight-receipt!
+  "Settle a HyperEVM -> Core move left confirming in the background once
+   `tx-hash` has a receipt."
+  [{:keys [store owner tx-hash dispatch! get-transaction-receipt! set-timeout-fn now-ms-fn
+           refresh-spot-clearinghouse! show-toast! log-fn]
+    :or {get-transaction-receipt! hyperevm-runtime/get-transaction-receipt!
+         refresh-spot-clearinghouse! hyperevm-runtime/refresh-spot-clearinghouse!
+         now-ms-fn (fn [] (js/Date.now))
+         show-toast! (fn [_store _kind _message] nil)
+         log-fn hyperevm-runtime/log!}}]
+  (hyperevm-transfer-effects/resolve-in-flight-receipt!
+   {:store store
+    :owner owner
+    :tx-hash tx-hash
+    :dispatch! dispatch!
+    :get-transaction-receipt! get-transaction-receipt!
+    :set-timeout-fn set-timeout-fn
+    :now-ms-fn now-ms-fn
+    :refresh-spot-clearinghouse! refresh-spot-clearinghouse!
+    :show-toast! show-toast!
+    :log-fn log-fn}))
+
+(defn wallet-watch-asset!
+  "Add a HyperEVM token to the wallet (switching it to HyperEVM first)."
+  [{:keys [store request wallet-provider-fn ensure-wallet-chain! watch-asset! show-toast!]
+    :or {wallet-provider-fn wallet/provider
+         ensure-wallet-chain! wallet-rpc/ensure-wallet-chain!
+         watch-asset! wallet-rpc/watch-asset!
+         show-toast! (fn [_store _kind _message] nil)}}]
+  (hyperevm-transfer-effects/wallet-watch-asset!
+   {:store store
+    :request request
+    :wallet-provider-fn wallet-provider-fn
+    :ensure-wallet-chain! ensure-wallet-chain!
+    :watch-asset! watch-asset!
+    :chain-config hyperevm-runtime/wallet-chain-config
+    :show-toast! show-toast!}))
 
 (defn api-submit-funding-send!
   [{:keys [store
