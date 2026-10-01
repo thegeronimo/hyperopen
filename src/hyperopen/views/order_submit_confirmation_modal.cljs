@@ -74,7 +74,7 @@
                 :role "dialog"
                 :aria-modal true
                 :aria-label title
-                :tab-index 0
+                :tabindex 0
                 :data-role "order-submit-confirmation-dialog"
                 :on {:keydown [[:actions/handle-order-submission-confirmation-keydown
                                 [:event/key]]]}}

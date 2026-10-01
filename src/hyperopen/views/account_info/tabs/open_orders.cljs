@@ -239,7 +239,7 @@
                 :role "dialog"
                 :aria-modal true
                 :aria-label "Cancel visible open orders confirmation"
-                :tab-index 0
+                :tabindex 0
                 :data-role "open-orders-cancel-visible-confirmation"
                 :on {:keydown [[:actions/handle-cancel-visible-open-orders-confirmation-keydown
                                 [:event/key]]]}}

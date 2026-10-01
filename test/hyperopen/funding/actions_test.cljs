@@ -17,40 +17,14 @@
 
 (defn- expected-open-modal
   [mode & {:keys [legacy-kind] :or {legacy-kind nil}}]
-  {:open? true
-   :mode mode
-   :legacy-kind legacy-kind
-   :anchor nil
-   :opener-data-role nil
-   :focus-return-data-role nil
-   :focus-return-token 0
-   :send-token nil
-   :send-symbol nil
-   :send-prefix-label nil
-   :send-max-amount nil
-   :send-max-display nil
-   :send-max-input ""
-   :deposit-step :asset-select
-   :deposit-search-input ""
-   :withdraw-step :asset-select
-   :withdraw-search-input ""
-   :deposit-selected-asset-key nil
-   :deposit-generated-address nil
-   :deposit-generated-signatures nil
-   :deposit-generated-asset-key nil
-   :amount-input ""
-   :to-perp? true
-   :transfer-dex ""
-   :transfer-destination-address ""
-   :transfer-from-subaccount ""
-   :destination-input "0x1234567890abcdef1234567890abcdef12345678"
-   :withdraw-selected-asset-key :usdc
-   :withdraw-generated-address nil
-   :hyperunit-lifecycle (funding-actions/default-hyperunit-lifecycle-state)
-   :hyperunit-fee-estimate (funding-actions/default-hyperunit-fee-estimate-state)
-   :hyperunit-withdrawal-queue (funding-actions/default-hyperunit-withdrawal-queue-state)
-   :submitting? false
-   :error nil})
+  ;; Merged over the live defaults so a new default modal key does not break
+  ;; every open-modal expectation; only the keys an open command sets are pinned.
+  (merge (funding-actions/default-funding-modal-state)
+         {:open? true
+          :mode mode
+          :legacy-kind legacy-kind
+          :destination-input "0x1234567890abcdef1234567890abcdef12345678"
+          :withdraw-selected-asset-key :usdc}))
 
 (deftest open-funding-modal-actions-set-mode-and-open-state-test
   (let [state (base-state)]

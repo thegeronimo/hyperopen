@@ -31,6 +31,7 @@
     (is (contains? paths [:portfolio :loading?]))
     (is (contains? paths [:portfolio :ledger-loading?]))
     (is (contains? paths [:account :mode]))
+    (is (contains? paths [:hyperevm :balances :by-address]))
     (is (thrown-with-msg?
          js/Error
          #"account lifecycle invariant failed"

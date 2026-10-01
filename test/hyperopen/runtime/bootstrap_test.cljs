@@ -142,6 +142,23 @@
     (is (= [[store store-cache-watchers-deps]] @store-watcher-calls))
     (is (= [websocket-watchers-deps] @websocket-watcher-calls))))
 
+(deftest install-runtime-watchers-installs-the-hyperevm-poller-when-provided-test
+  (let [poller-calls (atom [])
+        poller-deps {:store :store-id :dispatch! :dispatch-id}
+        base {:store (atom {})
+              :install-store-cache-watchers! (fn [& _] nil)
+              :store-cache-watchers-deps {}
+              :install-websocket-watchers! (fn [& _] nil)
+              :websocket-watchers-deps {}}]
+    (runtime-bootstrap/install-runtime-watchers!
+     (assoc base
+            :install-hyperevm-balance-poller! (fn [deps] (swap! poller-calls conj deps))
+            :hyperevm-balance-poller-deps poller-deps))
+    (is (= [poller-deps] @poller-calls))
+    (runtime-bootstrap/install-runtime-watchers!
+     (assoc base :install-hyperevm-balance-poller! nil))
+    (is (= 1 (count @poller-calls)) "a nil installer (no document) installs nothing")))
+
 (deftest bootstrap-runtime-installs-state-validation-when-provided-test
   (let [validation-calls (atom [])]
     (runtime-bootstrap/bootstrap-runtime!

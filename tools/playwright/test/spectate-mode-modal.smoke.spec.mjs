@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 import { mobileViewport, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
 const WATCHLIST_ADDRESS = "0x2222222222222222222222222222222222222222";

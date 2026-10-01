@@ -4,6 +4,7 @@
             [hyperopen.funding.application.submit-effects :as submit-effects]
             [hyperopen.funding.effects :as effects]
             [hyperopen.funding.effects.common :as common]
+            [hyperopen.funding.effects.hyperevm-runtime :as hyperevm-runtime]
             [hyperopen.funding.effects.hyperunit-runtime :as hyperunit-runtime]
             [hyperopen.funding.effects.transport-runtime :as transport-runtime]
             [hyperopen.funding.test-support.effects :as effects-support]))
@@ -90,6 +91,14 @@
                       (:set-funding-submit-error! (:transfer @seen))))
       (is (identical? effects/close-funding-modal!
                       (:close-funding-modal! (:transfer @seen))))
+      ;; Routes that touch HyperEVM get the real HyperEVM collaborators by default.
+      (is (identical? hyperevm-runtime/submit-hyperevm-to-core-tx!
+                      (:submit-hyperevm-to-core! (:transfer @seen))))
+      (is (identical? hyperevm-runtime/refresh-spot-clearinghouse!
+                      (:refresh-spot-clearinghouse! (:transfer @seen))))
+      (is (identical? hyperevm-runtime/next-flow-id!
+                      (:next-flow-id! (:transfer @seen))))
+      (is (fn? (:now-ms-fn (:transfer @seen))))
 
       (is (= :send-result
              (effects/api-submit-funding-send! {:store store

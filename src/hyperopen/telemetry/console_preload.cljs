@@ -518,10 +518,12 @@
        :setWalletConnectedHandlerMode simulators/set-wallet-connected-handler-mode!
        :installWalletSimulator simulators/install-wallet-simulator!
        :walletSimulatorEmit simulators/emit-wallet-simulator!
+       :walletSimulatorSnapshot simulators/wallet-simulator-snapshot
        :clearWalletSimulator simulators/clear-wallet-simulator!
        :installExchangeSimulator simulators/install-exchange-simulator!
        :exchangeSimulatorSnapshot simulators/exchange-simulator-snapshot
        :clearExchangeSimulator simulators/clear-exchange-simulator!
+       :setHyperevmPollerEnabled simulators/set-hyperevm-poller-enabled!
        :flightRecording (fn []
                           (clj->js (ws-client/get-flight-recording)))
        :flightRecordingRedacted (fn []

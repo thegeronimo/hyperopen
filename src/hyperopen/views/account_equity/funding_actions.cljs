@@ -55,7 +55,7 @@
                                     :event.currentTarget/bounds
                                     funding-modal-positioning/deposit-action-data-role]})
    [:div.grid.grid-cols-2.gap-2.5
-    (funding-action-button {:label "Perps <-> Spot"
+    (funding-action-button {:label "Transfer"
                             :focus-request focus-request
                             :data-role funding-modal-positioning/transfer-action-data-role
                             :action [:actions/open-funding-transfer-modal

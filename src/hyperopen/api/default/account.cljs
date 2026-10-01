@@ -90,6 +90,10 @@
   [{:keys [post-info!]} address opts]
   (account-gateway/request-user-fees! {:post-info! post-info!} address opts))
 
+(defn request-user-role!
+  [{:keys [post-info!]} address opts]
+  (account-gateway/request-user-role! {:post-info! post-info!} address opts))
+
 (defn request-referral!
   [{:keys [post-info!]} address opts]
   (account-gateway/request-referral! {:post-info! post-info!} address opts))

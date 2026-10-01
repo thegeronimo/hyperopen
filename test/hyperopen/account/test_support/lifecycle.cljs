@@ -102,4 +102,5 @@
       (assoc-in [:portfolio :user-fees-loaded-for-address] spectate-address)
       (assoc-in [:portfolio :ledger-loaded-at-ms] 1700000000003)
       (assoc :account {:mode :unified
-                       :abstraction-raw {:kind :agent}})))
+                       :abstraction-raw {:kind :agent}})
+      (assoc-in [:hyperevm :balances :by-address spectate-address] {:native-wei "1"})))

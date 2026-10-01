@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [hyperopen.funding.domain.assets :as assets-domain]
             [hyperopen.funding.domain.policy :as policy-domain]
-            [hyperopen.funding.domain.lifecycle :as lifecycle-domain]))
+            [hyperopen.funding.domain.lifecycle :as lifecycle-domain]
+            [hyperopen.funding.domain.transfer-route :as transfer-route]))
 
 (defn default-funding-modal-state
   []
@@ -32,6 +33,14 @@
    :transfer-dex ""
    :transfer-destination-address ""
    :transfer-from-subaccount ""
+   ;; Transfer places and asset. Both places nil means the legacy Perps <->
+   ;; Spot route derived from :to-perp?. :transfer-asset is a spot token index.
+   :transfer-from nil
+   :transfer-to nil
+   :transfer-asset nil
+   ;; HyperEVM run progress and the one-click gas top-up, written by effects.
+   :transfer-evm nil
+   :transfer-gas-topup nil
    :destination-input ""
    :withdraw-selected-asset-key assets-domain/withdraw-default-asset-key
    :withdraw-generated-address nil
@@ -87,4 +96,10 @@
            :hyperunit-withdrawal-queue (lifecycle-domain/normalize-hyperunit-withdrawal-queue
                                         (:hyperunit-withdrawal-queue modal))
            :hyperunit-lifecycle (lifecycle-domain/normalize-hyperunit-lifecycle
-                                 (:hyperunit-lifecycle modal)))))
+                                 (:hyperunit-lifecycle modal))
+           :transfer-from (transfer-route/normalize-location (:transfer-from modal))
+           :transfer-to (transfer-route/normalize-location (:transfer-to modal))
+           :transfer-asset (transfer-route/normalize-asset-index (:transfer-asset modal))
+           :transfer-evm (when (map? (:transfer-evm modal)) (:transfer-evm modal))
+           :transfer-gas-topup (when (map? (:transfer-gas-topup modal))
+                                 (:transfer-gas-topup modal)))))

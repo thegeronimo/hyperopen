@@ -114,6 +114,16 @@ test("release CSP permits the optimizer history API origin", () => {
   );
 });
 
+test("release CSP permits the HyperEVM RPC origin", () => {
+  // The dev server sends no CSP, so a missing entry only breaks production:
+  // every HyperEVM balance read would be silently blocked.
+  assert.ok(
+    extractCspDirective(buildContentSecurityPolicy(), "connect-src").includes(
+      "https://rpc.hyperliquid.xyz"
+    )
+  );
+});
+
 function buildSampleIndexHtml() {
   return `<!DOCTYPE html>
 <html>

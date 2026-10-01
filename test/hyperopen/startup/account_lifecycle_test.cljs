@@ -62,7 +62,9 @@
 	               :user-fees-loaded-for-address address
 	               :ledger-loaded-at-ms 1700000000003}
    :account {:mode :unified
-             :abstraction-raw "raw"}})
+             :abstraction-raw "raw"}
+   :hyperevm {:balances {:by-address {address {:status :ready :native-wei "1"}}}
+              :in-flight {"0x1111111111111111111111111111111111111111" {:waiting-receipt? true}}}})
 
 (defn- seed-stale-account-surfaces!
   [store address]
@@ -115,3 +117,15 @@
           (sequence-preserves-disconnected-clear-invariant? addresses))
         result (tc/quick-check 80 property)]
     (is (:pass? result) (pr-str result))))
+
+(deftest clearing-an-account-drops-hyperevm-balances-but-keeps-in-flight-transactions-test
+  ;; A HyperEVM transaction hash must outlive an account switch: forgetting it
+  ;; would re-enable a submit that could send the same funds twice.
+  (let [store (atom (stale-account-surface-state address-a))]
+    (startup-runtime/clear-disconnected-account-state!
+     {:store store
+      :address address-a
+      :startup-runtime (atom {:bootstrapped-address address-a})})
+    (is (= {} (get-in @store [:hyperevm :balances :by-address])))
+    (is (= {"0x1111111111111111111111111111111111111111" {:waiting-receipt? true}}
+           (get-in @store [:hyperevm :in-flight])))))

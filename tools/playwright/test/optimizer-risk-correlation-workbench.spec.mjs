@@ -8,7 +8,7 @@
 // allocation-row clicks and the Change-asset select, the full-width
 // correlation heatmap, the 12-asset heatmap cap, and degenerate-variance
 // em-dashes.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE_BASE =
   "/ui-workbench.html?id=hyperopen.workbench.scenes.optimize.equal-risk-correlation-scenes";

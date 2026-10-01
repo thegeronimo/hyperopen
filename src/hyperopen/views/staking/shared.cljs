@@ -53,7 +53,7 @@
     :jailed
     [:span {:class ["group" "relative" "inline-flex" "items-center" "leading-6"]}
      [:span {:class ["text-xs" "font-normal" "text-ho-text-secondary" "cursor-help"]
-             :tab-index 0
+             :tabindex 0
              :data-role "staking-validator-status-inactive"}
       "Inactive"]
      [:span {:class ["pointer-events-none"

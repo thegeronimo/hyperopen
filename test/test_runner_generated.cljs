@@ -13,6 +13,7 @@
             [hyperopen.account.history.position-modal-actions-test]
             [hyperopen.account.history.position-reduce-test]
             [hyperopen.account.history.position-tpsl-test]
+            [hyperopen.account.hyperevm-gate-test]
             [hyperopen.account.lifecycle-invariants-test]
             [hyperopen.account.lifecycle-transitions-test]
             [hyperopen.account.spectate-mode-actions-search-test]
@@ -130,6 +131,7 @@
             [hyperopen.domain.account-ledger-test]
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
+            [hyperopen.domain.token-pricing-test]
             [hyperopen.domain.trading.fees-test]
             [hyperopen.domain.trading.indicators.contracts-test]
             [hyperopen.domain.trading.indicators.family-parity-test]
@@ -149,6 +151,11 @@
             [hyperopen.funding-comparison.effects-test]
             [hyperopen.funding.actions-test]
             [hyperopen.funding.application.deposit-submit-test]
+            [hyperopen.funding.application.hyperevm-review-fixes-test]
+            [hyperopen.funding.application.hyperevm-submit-failures-test]
+            [hyperopen.funding.application.hyperevm-submit-test]
+            [hyperopen.funding.application.hyperevm-transfer-followup-test]
+            [hyperopen.funding.application.hyperevm-transfer-outcomes-test]
             [hyperopen.funding.application.hyperunit-query-test]
             [hyperopen.funding.application.hyperunit-submit-test]
             [hyperopen.funding.application.lifecycle-polling-test]
@@ -161,14 +168,28 @@
             [hyperopen.funding.application.modal-vm.lifecycle-test]
             [hyperopen.funding.application.modal-vm.models-test]
             [hyperopen.funding.application.modal-vm.presentation-test]
+            [hyperopen.funding.application.modal-vm.transfer-test]
+            [hyperopen.funding.application.submit-effects-gas-topup-test]
+            [hyperopen.funding.application.submit-effects-hyperevm-test]
             [hyperopen.funding.application.submit-effects-test]
+            [hyperopen.funding.application.submit-effects-transfer-guard-test]
+            [hyperopen.funding.application.transfer-capacity-refresh-test]
+            [hyperopen.funding.application.transfer-commands-test]
+            [hyperopen.funding.domain.evm-transfer-amounts-test]
+            [hyperopen.funding.domain.evm-transfer-preview-test]
             [hyperopen.funding.domain.named-dex-transfer-preview-test]
             [hyperopen.funding.domain.policy-preview-test]
             [hyperopen.funding.domain.policy-test]
             [hyperopen.funding.domain.spot-tokens-test]
+            [hyperopen.funding.domain.transfer-dispatch-test]
+            [hyperopen.funding.domain.transfer-invariants-test]
+            [hyperopen.funding.domain.transfer-review-fixes-test]
+            [hyperopen.funding.domain.transfer-route-test]
+            [hyperopen.funding.domain.transfer-run-test]
             [hyperopen.funding.effects-api-wrappers-test]
             [hyperopen.funding.effects.common-test]
             [hyperopen.funding.effects.facade-test]
+            [hyperopen.funding.effects.hyperevm-runtime-test]
             [hyperopen.funding.effects.hyperunit-runtime-test]
             [hyperopen.funding.effects.transport-runtime-test]
             [hyperopen.funding.history-cache-test]
@@ -180,6 +201,22 @@
             [hyperopen.funding.predictability-test]
             [hyperopen.funding.transfer-modal-context-test]
             [hyperopen.header.actions-test]
+            [hyperopen.hyperevm.actions-test]
+            [hyperopen.hyperevm.domain.abi-test]
+            [hyperopen.hyperevm.domain.balances-test]
+            [hyperopen.hyperevm.domain.bridge-freshness-test]
+            [hyperopen.hyperevm.domain.bridge-test]
+            [hyperopen.hyperevm.domain.chain-test]
+            [hyperopen.hyperevm.domain.fees-test]
+            [hyperopen.hyperevm.domain.tokens-test]
+            [hyperopen.hyperevm.domain.transfer-state-test]
+            [hyperopen.hyperevm.domain.txs-test]
+            [hyperopen.hyperevm.domain.units-test]
+            [hyperopen.hyperevm.effects-test]
+            [hyperopen.hyperevm.infrastructure.balance-poller-test]
+            [hyperopen.hyperevm.infrastructure.rpc-balances-test]
+            [hyperopen.hyperevm.infrastructure.rpc-bridge-reads-test]
+            [hyperopen.hyperevm.infrastructure.rpc-test]
             [hyperopen.i18n.locale-test]
             [hyperopen.leaderboard.actions-test]
             [hyperopen.leaderboard.cache-test]
@@ -477,7 +514,10 @@
             [hyperopen.schema.contracts.assertions-test]
             [hyperopen.schema.contracts.common-test]
             [hyperopen.schema.contracts.effect-args-test]
+            [hyperopen.schema.contracts.funding-transfer-args-test]
+            [hyperopen.schema.contracts.hyperevm-args-test]
             [hyperopen.schema.contracts.state-test]
+            [hyperopen.schema.funding-modal-transfer-contracts-test]
             [hyperopen.schema.order-form-command-catalog-test]
             [hyperopen.schema.order-request-contracts-test]
             [hyperopen.schema.vault-transfer-contracts-test]
@@ -518,6 +558,7 @@
             [hyperopen.telemetry-test]
             [hyperopen.telemetry.console-preload-debug-api-test]
             [hyperopen.telemetry.console-preload-test]
+            [hyperopen.telemetry.console-preload.simulators-evm-test]
             [hyperopen.telemetry.console-preload.simulators-test]
             [hyperopen.telemetry.console-warning-test]
             [hyperopen.test-runner-support-test]
@@ -574,19 +615,27 @@
             [hyperopen.views.account-equity-unified-metrics-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
+            [hyperopen.views.account-equity.hyperevm-line-test]
             [hyperopen.views.account-info-view-test]
             [hyperopen.views.account-info.cache-keys-test]
+            [hyperopen.views.account-info.hyperevm-equity-invariance-test]
             [hyperopen.views.account-info.margin-recommendation-panel-test]
             [hyperopen.views.account-info.navigation-test]
             [hyperopen.views.account-info.position-overlay-mobile-layout-test]
             [hyperopen.views.account-info.position-tpsl-modal-test]
             [hyperopen.views.account-info.projections-test]
+            [hyperopen.views.account-info.projections.balances-hyperevm-test]
+            [hyperopen.views.account-info.projections.balances-moves-test]
             [hyperopen.views.account-info.projections.outcomes-test]
             [hyperopen.views.account-info.table-contract-test]
+            [hyperopen.views.account-info.tabs.balances.balances-geometry-test]
             [hyperopen.views.account-info.tabs.balances.content-test]
             [hyperopen.views.account-info.tabs.balances.desktop-test]
+            [hyperopen.views.account-info.tabs.balances.hyperevm-reasons-test]
+            [hyperopen.views.account-info.tabs.balances.hyperevm-view-test]
             [hyperopen.views.account-info.tabs.balances.mobile-test]
             [hyperopen.views.account-info.tabs.balances.projection-test]
+            [hyperopen.views.account-info.tabs.balances.review-fixes-test]
             [hyperopen.views.account-info.tabs.funding-history-test]
             [hyperopen.views.account-info.tabs.open-orders-test]
             [hyperopen.views.account-info.tabs.open-orders.projection-test]
@@ -603,6 +652,7 @@
             [hyperopen.views.account-info.tabs.trade-history.sorting-test]
             [hyperopen.views.account-info.tabs.trade-history.table-test]
             [hyperopen.views.account-info.tabs.twap-test]
+            [hyperopen.views.account-info.vm-hyperevm-test]
             [hyperopen.views.account-info.vm-outcomes-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
@@ -638,6 +688,11 @@
             [hyperopen.views.funding-comparison.vm-test]
             [hyperopen.views.funding-modal-accessibility-test]
             [hyperopen.views.funding-modal-test]
+            [hyperopen.views.funding-modal.transfer-evm-view-test]
+            [hyperopen.views.funding-modal.transfer-form-states-test]
+            [hyperopen.views.funding-modal.transfer-qa-fixes-test]
+            [hyperopen.views.funding-modal.transfer-review-fixes-test]
+            [hyperopen.views.funding-modal.transfer-view-test]
             [hyperopen.views.header-account-selector-test]
             [hyperopen.views.header-settings-view-test]
             [hyperopen.views.header-subaccount-state-test]
@@ -660,6 +715,8 @@
             [hyperopen.views.portfolio.account-activity-test]
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
+            [hyperopen.views.portfolio.funds-locations-reconcile-test]
+            [hyperopen.views.portfolio.funds-locations-test]
             [hyperopen.views.portfolio.header-test]
             [hyperopen.views.portfolio.montecarlo.chart-test]
             [hyperopen.views.portfolio.montecarlo.controls-test]
@@ -746,6 +803,9 @@
             [hyperopen.views.staking-unstaking-block-test]
             [hyperopen.views.staking-view-test]
             [hyperopen.views.subaccounts-view-test]
+            [hyperopen.views.trade-view.hyperevm-funds-cost-test]
+            [hyperopen.views.trade-view.hyperevm-line-repaint-test]
+            [hyperopen.views.trade-view.hyperevm-slice-repaint-test]
             [hyperopen.views.trade-view.layout-state-test]
             [hyperopen.views.trade-view.layout-test]
             [hyperopen.views.trade-view.lazy-tab-module-repaint-test]
@@ -807,7 +867,9 @@
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.ui.anchored-popover-test]
             [hyperopen.views.ui.dialog-focus-test]
+            [hyperopen.views.ui.dismissible-tooltip-test]
             [hyperopen.views.ui.funding-modal-positioning-test]
+            [hyperopen.views.ui.location-chip-test]
             [hyperopen.views.ui.toggle-test]
             [hyperopen.views.vaults.detail-view-hover-freeze-test]
             [hyperopen.views.vaults.detail-view-test]
@@ -922,6 +984,7 @@
              'hyperopen.account.history.position-modal-actions-test
              'hyperopen.account.history.position-reduce-test
              'hyperopen.account.history.position-tpsl-test
+             'hyperopen.account.hyperevm-gate-test
              'hyperopen.account.lifecycle-invariants-test
              'hyperopen.account.lifecycle-transitions-test
              'hyperopen.account.spectate-mode-actions-search-test
@@ -1039,6 +1102,7 @@
              'hyperopen.domain.account-ledger-test
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
+             'hyperopen.domain.token-pricing-test
              'hyperopen.domain.trading.fees-test
              'hyperopen.domain.trading.indicators.contracts-test
              'hyperopen.domain.trading.indicators.family-parity-test
@@ -1058,6 +1122,11 @@
              'hyperopen.funding-comparison.effects-test
              'hyperopen.funding.actions-test
              'hyperopen.funding.application.deposit-submit-test
+             'hyperopen.funding.application.hyperevm-review-fixes-test
+             'hyperopen.funding.application.hyperevm-submit-failures-test
+             'hyperopen.funding.application.hyperevm-submit-test
+             'hyperopen.funding.application.hyperevm-transfer-followup-test
+             'hyperopen.funding.application.hyperevm-transfer-outcomes-test
              'hyperopen.funding.application.hyperunit-query-test
              'hyperopen.funding.application.hyperunit-submit-test
              'hyperopen.funding.application.lifecycle-polling-test
@@ -1070,14 +1139,28 @@
              'hyperopen.funding.application.modal-vm.lifecycle-test
              'hyperopen.funding.application.modal-vm.models-test
              'hyperopen.funding.application.modal-vm.presentation-test
+             'hyperopen.funding.application.modal-vm.transfer-test
+             'hyperopen.funding.application.submit-effects-gas-topup-test
+             'hyperopen.funding.application.submit-effects-hyperevm-test
              'hyperopen.funding.application.submit-effects-test
+             'hyperopen.funding.application.submit-effects-transfer-guard-test
+             'hyperopen.funding.application.transfer-capacity-refresh-test
+             'hyperopen.funding.application.transfer-commands-test
+             'hyperopen.funding.domain.evm-transfer-amounts-test
+             'hyperopen.funding.domain.evm-transfer-preview-test
              'hyperopen.funding.domain.named-dex-transfer-preview-test
              'hyperopen.funding.domain.policy-preview-test
              'hyperopen.funding.domain.policy-test
              'hyperopen.funding.domain.spot-tokens-test
+             'hyperopen.funding.domain.transfer-dispatch-test
+             'hyperopen.funding.domain.transfer-invariants-test
+             'hyperopen.funding.domain.transfer-review-fixes-test
+             'hyperopen.funding.domain.transfer-route-test
+             'hyperopen.funding.domain.transfer-run-test
              'hyperopen.funding.effects-api-wrappers-test
              'hyperopen.funding.effects.common-test
              'hyperopen.funding.effects.facade-test
+             'hyperopen.funding.effects.hyperevm-runtime-test
              'hyperopen.funding.effects.hyperunit-runtime-test
              'hyperopen.funding.effects.transport-runtime-test
              'hyperopen.funding.history-cache-test
@@ -1089,6 +1172,22 @@
              'hyperopen.funding.predictability-test
              'hyperopen.funding.transfer-modal-context-test
              'hyperopen.header.actions-test
+             'hyperopen.hyperevm.actions-test
+             'hyperopen.hyperevm.domain.abi-test
+             'hyperopen.hyperevm.domain.balances-test
+             'hyperopen.hyperevm.domain.bridge-freshness-test
+             'hyperopen.hyperevm.domain.bridge-test
+             'hyperopen.hyperevm.domain.chain-test
+             'hyperopen.hyperevm.domain.fees-test
+             'hyperopen.hyperevm.domain.tokens-test
+             'hyperopen.hyperevm.domain.transfer-state-test
+             'hyperopen.hyperevm.domain.txs-test
+             'hyperopen.hyperevm.domain.units-test
+             'hyperopen.hyperevm.effects-test
+             'hyperopen.hyperevm.infrastructure.balance-poller-test
+             'hyperopen.hyperevm.infrastructure.rpc-balances-test
+             'hyperopen.hyperevm.infrastructure.rpc-bridge-reads-test
+             'hyperopen.hyperevm.infrastructure.rpc-test
              'hyperopen.i18n.locale-test
              'hyperopen.leaderboard.actions-test
              'hyperopen.leaderboard.cache-test
@@ -1386,7 +1485,10 @@
              'hyperopen.schema.contracts.assertions-test
              'hyperopen.schema.contracts.common-test
              'hyperopen.schema.contracts.effect-args-test
+             'hyperopen.schema.contracts.funding-transfer-args-test
+             'hyperopen.schema.contracts.hyperevm-args-test
              'hyperopen.schema.contracts.state-test
+             'hyperopen.schema.funding-modal-transfer-contracts-test
              'hyperopen.schema.order-form-command-catalog-test
              'hyperopen.schema.order-request-contracts-test
              'hyperopen.schema.vault-transfer-contracts-test
@@ -1427,6 +1529,7 @@
              'hyperopen.telemetry-test
              'hyperopen.telemetry.console-preload-debug-api-test
              'hyperopen.telemetry.console-preload-test
+             'hyperopen.telemetry.console-preload.simulators-evm-test
              'hyperopen.telemetry.console-preload.simulators-test
              'hyperopen.telemetry.console-warning-test
              'hyperopen.test-runner-support-test
@@ -1483,19 +1586,27 @@
              'hyperopen.views.account-equity-unified-metrics-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
+             'hyperopen.views.account-equity.hyperevm-line-test
              'hyperopen.views.account-info-view-test
              'hyperopen.views.account-info.cache-keys-test
+             'hyperopen.views.account-info.hyperevm-equity-invariance-test
              'hyperopen.views.account-info.margin-recommendation-panel-test
              'hyperopen.views.account-info.navigation-test
              'hyperopen.views.account-info.position-overlay-mobile-layout-test
              'hyperopen.views.account-info.position-tpsl-modal-test
              'hyperopen.views.account-info.projections-test
+             'hyperopen.views.account-info.projections.balances-hyperevm-test
+             'hyperopen.views.account-info.projections.balances-moves-test
              'hyperopen.views.account-info.projections.outcomes-test
              'hyperopen.views.account-info.table-contract-test
+             'hyperopen.views.account-info.tabs.balances.balances-geometry-test
              'hyperopen.views.account-info.tabs.balances.content-test
              'hyperopen.views.account-info.tabs.balances.desktop-test
+             'hyperopen.views.account-info.tabs.balances.hyperevm-reasons-test
+             'hyperopen.views.account-info.tabs.balances.hyperevm-view-test
              'hyperopen.views.account-info.tabs.balances.mobile-test
              'hyperopen.views.account-info.tabs.balances.projection-test
+             'hyperopen.views.account-info.tabs.balances.review-fixes-test
              'hyperopen.views.account-info.tabs.funding-history-test
              'hyperopen.views.account-info.tabs.open-orders-test
              'hyperopen.views.account-info.tabs.open-orders.projection-test
@@ -1512,6 +1623,7 @@
              'hyperopen.views.account-info.tabs.trade-history.sorting-test
              'hyperopen.views.account-info.tabs.trade-history.table-test
              'hyperopen.views.account-info.tabs.twap-test
+             'hyperopen.views.account-info.vm-hyperevm-test
              'hyperopen.views.account-info.vm-outcomes-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
@@ -1547,6 +1659,11 @@
              'hyperopen.views.funding-comparison.vm-test
              'hyperopen.views.funding-modal-accessibility-test
              'hyperopen.views.funding-modal-test
+             'hyperopen.views.funding-modal.transfer-evm-view-test
+             'hyperopen.views.funding-modal.transfer-form-states-test
+             'hyperopen.views.funding-modal.transfer-qa-fixes-test
+             'hyperopen.views.funding-modal.transfer-review-fixes-test
+             'hyperopen.views.funding-modal.transfer-view-test
              'hyperopen.views.header-account-selector-test
              'hyperopen.views.header-settings-view-test
              'hyperopen.views.header-subaccount-state-test
@@ -1569,6 +1686,8 @@
              'hyperopen.views.portfolio.account-activity-test
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
+             'hyperopen.views.portfolio.funds-locations-reconcile-test
+             'hyperopen.views.portfolio.funds-locations-test
              'hyperopen.views.portfolio.header-test
              'hyperopen.views.portfolio.montecarlo.chart-test
              'hyperopen.views.portfolio.montecarlo.controls-test
@@ -1655,6 +1774,9 @@
              'hyperopen.views.staking-unstaking-block-test
              'hyperopen.views.staking-view-test
              'hyperopen.views.subaccounts-view-test
+             'hyperopen.views.trade-view.hyperevm-funds-cost-test
+             'hyperopen.views.trade-view.hyperevm-line-repaint-test
+             'hyperopen.views.trade-view.hyperevm-slice-repaint-test
              'hyperopen.views.trade-view.layout-state-test
              'hyperopen.views.trade-view.layout-test
              'hyperopen.views.trade-view.lazy-tab-module-repaint-test
@@ -1716,7 +1838,9 @@
              'hyperopen.views.typography-scale-test
              'hyperopen.views.ui.anchored-popover-test
              'hyperopen.views.ui.dialog-focus-test
+             'hyperopen.views.ui.dismissible-tooltip-test
              'hyperopen.views.ui.funding-modal-positioning-test
+             'hyperopen.views.ui.location-chip-test
              'hyperopen.views.ui.toggle-test
              'hyperopen.views.vaults.detail-view-hover-freeze-test
              'hyperopen.views.vaults.detail-view-test

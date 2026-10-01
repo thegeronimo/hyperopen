@@ -89,4 +89,12 @@
    :submit-funding-transfer funding-actions/submit-funding-transfer
    :submit-funding-withdraw funding-actions/submit-funding-withdraw
    :submit-funding-deposit funding-actions/submit-funding-deposit
-   :submit-funding-repay funding-actions/submit-funding-repay})
+   :submit-funding-repay funding-actions/submit-funding-repay
+   :set-funding-transfer-location funding-actions/set-funding-transfer-location
+   :swap-funding-transfer-locations funding-actions/swap-funding-transfer-locations
+   :select-funding-transfer-asset funding-actions/select-funding-transfer-asset
+   :set-funding-transfer-amount-percent funding-actions/set-funding-transfer-amount-percent
+   :submit-funding-transfer-gas-topup funding-actions/submit-funding-transfer-gas-topup
+   :reset-funding-transfer-evm funding-actions/reset-funding-transfer-evm
+   :retry-funding-transfer-capability funding-actions/retry-funding-transfer-capability
+   :add-funding-transfer-token-to-wallet funding-actions/add-funding-transfer-token-to-wallet})

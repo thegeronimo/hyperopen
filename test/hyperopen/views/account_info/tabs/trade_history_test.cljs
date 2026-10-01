@@ -221,7 +221,7 @@
         group-node (hiccup/find-first-node direction-cell #(and (= :div (first %))
                                                                 (contains? (hiccup/node-class-set %) "group")))
         focusable-label (hiccup/find-first-node direction-cell #(and (= :span (first %))
-                                                                     (= 0 (get-in % [1 :tab-index]))))
+                                                                     (= 0 (get-in % [1 :tabindex]))))
         focusable-label-classes (hiccup/node-class-set focusable-label)
         tooltip-panel-node (hiccup/find-first-node direction-cell #(and (= :div (first %))
                                                                         (contains? (hiccup/node-class-set %) "group-hover:opacity-100")

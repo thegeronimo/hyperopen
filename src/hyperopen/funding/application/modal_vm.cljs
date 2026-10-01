@@ -4,7 +4,8 @@
             [hyperopen.funding.application.modal-vm.context :as context]
             [hyperopen.funding.application.modal-vm.lifecycle :as lifecycle]
             [hyperopen.funding.application.modal-vm.models :as models]
-            [hyperopen.funding.application.modal-vm.presentation :as presentation]))
+            [hyperopen.funding.application.modal-vm.presentation :as presentation]
+            [hyperopen.funding.application.modal-vm.transfer :as transfer]))
 
 (defn funding-modal-view-model
   [deps
@@ -16,5 +17,6 @@
       (async/with-async-context deps)
       (lifecycle/with-lifecycle-context deps)
       (amounts/with-amount-context deps)
+      (transfer/with-transfer-context deps)
       presentation/with-presentation-context
       models/build-view-model))

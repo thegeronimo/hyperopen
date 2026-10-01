@@ -15,6 +15,69 @@
     (is (= false (:submitting? state)))
     (is (nil? (:error state)))))
 
+;; Other tests merge over these defaults, so this literal is the one place every
+;; default value is pinned; a new modal key must be added here on purpose.
+(deftest default-funding-modal-state-pins-every-default-value-test
+  (is (= {:open? false
+          :mode nil
+          :legacy-kind nil
+          :anchor nil
+          :opener-data-role nil
+          :focus-return-data-role nil
+          :focus-return-token 0
+          :send-token nil
+          :send-symbol nil
+          :send-prefix-label nil
+          :send-max-amount nil
+          :send-max-display nil
+          :send-max-input ""
+          :deposit-step :asset-select
+          :deposit-search-input ""
+          :withdraw-step :asset-select
+          :withdraw-search-input ""
+          :deposit-selected-asset-key nil
+          :deposit-generated-address nil
+          :deposit-generated-signatures nil
+          :deposit-generated-asset-key nil
+          :amount-input ""
+          :to-perp? true
+          :transfer-dex ""
+          :transfer-destination-address ""
+          :transfer-from-subaccount ""
+          :transfer-from nil
+          :transfer-to nil
+          :transfer-asset nil
+          :transfer-evm nil
+          :transfer-gas-topup nil
+          :destination-input ""
+          :withdraw-selected-asset-key :usdc
+          :withdraw-generated-address nil
+          :hyperunit-lifecycle {:direction nil
+                                :asset-key nil
+                                :operation-id nil
+                                :state nil
+                                :status nil
+                                :source-tx-confirmations nil
+                                :destination-tx-confirmations nil
+                                :position-in-withdraw-queue nil
+                                :destination-tx-hash nil
+                                :state-next-at nil
+                                :last-updated-ms nil
+                                :error nil}
+          :hyperunit-fee-estimate {:status :idle
+                                   :by-chain {}
+                                   :requested-at-ms nil
+                                   :updated-at-ms nil
+                                   :error nil}
+          :hyperunit-withdrawal-queue {:status :idle
+                                       :by-chain {}
+                                       :requested-at-ms nil
+                                       :updated-at-ms nil
+                                       :error nil}
+          :submitting? false
+          :error nil}
+         (modal-state/default-funding-modal-state))))
+
 (deftest normalize-modal-state-merges-defaults-and-normalizes-application-fields-test
   (let [normalized (modal-state/normalize-modal-state
                     {:stored-modal {:open? true
@@ -49,3 +112,29 @@
            (get-in normalized [:hyperunit-fee-estimate :by-chain "bitcoin" :withdrawal-fee])))
     (is (= 9
            (get-in normalized [:hyperunit-withdrawal-queue :by-chain "bitcoin" :withdrawal-queue-length])))))
+
+(deftest normalize-modal-state-coerces-the-transfer-keys-test
+  (testing "places become keywords, a digit string an index, and non-map run state nil"
+    (is (= {:transfer-from :spot
+            :transfer-to :hyperevm
+            :transfer-asset 150
+            :transfer-evm nil
+            :transfer-gas-topup nil}
+           (select-keys (modal-state/normalize-modal-state
+                         {:stored-modal {:transfer-from "spot"
+                                         :transfer-to "HyperEVM"
+                                         :transfer-asset "150"
+                                         :transfer-evm "x"
+                                         :transfer-gas-topup 1}})
+                        [:transfer-from :transfer-to :transfer-asset
+                         :transfer-evm :transfer-gas-topup]))))
+  (testing "unknown places and non-index assets become nil; maps are kept"
+    (let [normalized (modal-state/normalize-modal-state
+                      {:stored-modal {:transfer-from "evm"
+                                      :transfer-to :arbitrum
+                                      :transfer-asset "-1"
+                                      :transfer-evm {:phase :failed}
+                                      :transfer-gas-topup {:status :sent}}})]
+      (is (= [nil nil nil {:phase :failed} {:status :sent}]
+             ((juxt :transfer-from :transfer-to :transfer-asset :transfer-evm :transfer-gas-topup)
+              normalized))))))

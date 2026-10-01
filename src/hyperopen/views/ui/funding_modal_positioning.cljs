@@ -19,6 +19,14 @@
 (def ^:private estimated-panel-height-px
   560)
 
+;; The Transfer form (places, asset list, amount, blocked card, summary) runs
+;; taller than the other funding forms. Placing it as if it were 700px tall
+;; keeps an anchored popover opened from a low row high enough that its fix
+;; and submit buttons stay in view at 1280x800; the panel scrolls inside past
+;; that (see the funding modal shell's height cap).
+(def ^:private estimated-panel-height-px-by-mode
+  {:transfer 700})
+
 (def ^:private popover-divider-gap-px
   10)
 
@@ -90,13 +98,21 @@
        (<= (modal-viewport-width anchor)
            mobile-sheet-breakpoint-px)))
 
+(def ^:private mobile-sheet-padding-bottom
+  "max(env(safe-area-inset-bottom), 1rem)")
+
 (defn- mobile-sheet-style
+  "The sheet's height cap and bottom padding. The padding is also published
+   as `--funding-panel-pad-bottom`, so a sticky footer inside can reach over
+   exactly that much (it is more than 1rem on phones with a home
+   indicator)."
   [anchor]
   (let [max-height (max 320
                         (- (modal-viewport-height anchor)
                            mobile-sheet-top-offset-px))]
     {:max-height (str max-height "px")
-     :padding-bottom "max(env(safe-area-inset-bottom), 1rem)"}))
+     :padding-bottom mobile-sheet-padding-bottom
+     :--funding-panel-pad-bottom mobile-sheet-padding-bottom}))
 
 (defn- element-anchor-bounds
   [selector]
@@ -152,6 +168,8 @@
                       (anchored-popover/anchored-popover-layout-style
                        {:anchor anchor
                         :preferred-width-px preferred-panel-width-px
-                        :estimated-height-px estimated-panel-height-px}))
+                        :estimated-height-px (get estimated-panel-height-px-by-mode
+                                                  (:mode modal)
+                                                  estimated-panel-height-px)}))
      :sheet-style (when mobile-sheet?
                     (mobile-sheet-style anchor))}))

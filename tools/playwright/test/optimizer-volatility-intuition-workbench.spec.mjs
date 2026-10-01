@@ -10,7 +10,7 @@
 // modeled dollar rows with the vs-current shortfall headline, the lognormal
 // ending-wealth distribution markers, and the multiples fallback when
 // account equity is unknown.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE_BASE =
   "/ui-workbench.html?id=hyperopen.workbench.scenes.optimize.volatility-intuition-scenes";

@@ -215,6 +215,22 @@
                    "user" address}
                   opts*))))
 
+(defn request-user-role!
+  "`userRole` for `address`: `{:role \"missing\"}` when it has no
+   HyperCore account yet, otherwise its role (\"user\", \"agent\", …)."
+  [post-info! address opts]
+  (if-not address
+    (js/Promise.resolve nil)
+    (let [requested-address (some-> address str str/lower-case)
+          opts* (request-policy/apply-info-request-policy
+                 :user-role
+                 (merge {:priority :high
+                         :dedupe-key [:user-role requested-address]}
+                        opts))]
+      (post-info! {"type" "userRole"
+                   "user" address}
+                  opts*))))
+
 (defn- non-funding-ledger-updates-seq
   [payload]
   (cond

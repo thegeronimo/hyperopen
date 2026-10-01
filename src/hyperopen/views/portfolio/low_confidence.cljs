@@ -80,7 +80,7 @@
            :style {:border-color "rgba(78, 109, 150, 0.48)"
                    :background "linear-gradient(135deg, rgba(30, 58, 106, 0.52) 0%, rgba(21, 46, 88, 0.46) 100%)"}
            :data-role "portfolio-performance-metrics-estimated-banner"
-           :tab-index 0}
+           :tabindex 0}
      [:div {:class ["flex" "min-w-0" "items-start" "gap-2.5"]}
       (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" "text-[#7fb5ff]"])
       [:div {:class ["min-w-0" "text-sm" "leading-5" "text-[#d5e4ff]"]}

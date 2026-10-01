@@ -312,7 +312,7 @@
         summary-index (first-index-where children #(contains? (direct-texts %) "Unified Account Summary"))]
     (is (some? funding-section))
     (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Deposit"))))
-    (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Perps <-> Spot"))))
+    (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Transfer"))))
     (is (some? (find-first-node funding-section #(contains? (direct-texts %) "Withdraw"))))
     (is (number? funding-index))
     (is (number? summary-index))
@@ -571,7 +571,9 @@
         ;; even though it counts toward portfolio value.
         (is (approx= 0.125 (:unified-account-leverage metrics)))
         (is (approx= 100.0 (:isolated-notional metrics)))
-        (is (seq coins))
+        ;; Markets are resolved only for a token no balance row prices, and
+        ;; never for USDC, so this state may resolve none; any it does is scalar.
+        (is (not-any? #{"USDC"} coins))
         (is (every? scalar-coin-value? coins))
         (is (not-any? map? coins))
         (is (not-any? vector? coins))

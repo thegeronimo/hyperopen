@@ -73,6 +73,25 @@
   ;; if a [:<>] is reintroduced anywhere under src.
   (is (zero? (lint/check-hiccup-fragments!))))
 
+(deftest misspelled-attrs-are-reported-in-literal-maps-and-assoc-calls
+  (let [text (str "[:div {:tab-index 0}]\n"
+                  "(cond-> attrs\n"
+                  "  disabled? (assoc :tab-index -1))\n"
+                  "[:div {:tabindex 0}]\n")
+        violations (lint/sort-violations
+                    (lint/misspelled-attr-violations-in-text "sample.cljs" text))]
+    (is (= [{:file-path "sample.cljs" :line 1 :literal ":tab-index"}
+            {:file-path "sample.cljs" :line 3 :literal ":tab-index"}]
+           violations))))
+
+(deftest misspelled-attrs-ignore-comments-and-strings
+  (let [text (str ";; never write {:tab-index 0}\n"
+                  "[:div {:title \":tab-index\" :tabindex \"0\"}]\n")]
+    (is (empty? (lint/misspelled-attr-violations-in-text "sample.cljs" text)))))
+
+(deftest the-repo-source-tree-has-no-misspelled-attrs
+  (is (zero? (lint/check-misspelled-attrs!))))
+
 (defn -main
   [& _args]
   (let [{:keys [fail error]} (run-tests 'dev.hiccup-lint-test)]

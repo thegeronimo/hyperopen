@@ -4,8 +4,9 @@
    Hyperliquid reports each perps dex in that dex's own collateral token, so
    nothing can be added across dexes until every figure has been converted. This
    namespace owns that conversion -- resolving a token's USD price from the
-   wallet's own balance rows or the market catalogue -- and the aggregation the
-   venue performs on top of it.
+   wallet's own balance rows or the market catalogue (delegated to the pure
+   `hyperopen.domain.token-pricing`) -- and the aggregation the venue performs
+   on top of it.
 
    The nil discipline here is deliberate and load-bearing: a figure that cannot
    be converted contributes nothing rather than a zero, and a sum with no
@@ -14,10 +15,10 @@
    `docs/agent-guides/trading-ui-policy.md` forbids."
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as asset-selector-markets]
+            [hyperopen.domain.token-pricing :as token-pricing]
             [hyperopen.views.account-equity.format :refer [parse-num]]))
 
-(defn normalized-token-name [value]
-  (some-> value str str/trim str/upper-case not-empty))
+(def normalized-token-name token-pricing/normalized-token-name)
 
 (defn- normalized-dex-name [value]
   (some-> value str str/trim not-empty))
@@ -33,35 +34,6 @@
   (= (normalized-dex-name left)
      (normalized-dex-name right)))
 
-(defn- stable-dollar-token?
-  [token]
-  (let [token* (normalized-token-name token)]
-    (or (= "USDC" token*)
-        (= "USDE" token*)
-        (= "USDH" token*)
-        (some-> token* (str/starts-with? "USDT"))
-        (some-> token* (str/starts-with? "USD")))))
-
-(defn- market-mark-price [market]
-  (let [mark (parse-num (:mark market))
-        mark-raw (parse-num (:markRaw market))]
-    (cond
-      (and (number? mark) (pos? mark)) mark
-      (and (number? mark-raw) (pos? mark-raw)) mark-raw
-      :else nil)))
-
-(defn- market-token-usd-price
-  [token market]
-  (let [mark-price (market-mark-price market)
-        base (normalized-token-name (:base market))
-        quote (normalized-token-name (:quote market))]
-    (cond
-      (and (number? mark-price) (pos? mark-price) (= token base) (= "USDC" quote))
-      mark-price
-      (and (number? mark-price) (pos? mark-price) (= token quote) (= "USDC" base))
-      (/ 1 mark-price)
-      :else nil)))
-
 (defn perp-market-for-coin
   [market-by-key coin]
   (when-let [coin* (when (scalar-coin-id? coin)
@@ -73,45 +45,11 @@
           (when (= :perp (:market-type resolved))
             resolved))))))
 
-(defn- balance-row-token-key
-  [row]
-  (normalized-token-name (or (:selection-coin row)
-                             (:coin row))))
+;; The token price resolver itself is pure and lives outside views so the
+;; funding modal can use it too.
+(def balance-rows-by-token token-pricing/balance-rows-by-token)
 
-(defn balance-rows-by-token
-  [balance-rows]
-  (reduce (fn [acc row]
-            (if-let [token (balance-row-token-key row)]
-              (assoc acc token row)
-              acc))
-          {}
-          (or balance-rows [])))
-
-(defn- balance-row-usd-price
-  [row]
-  (let [total-balance (parse-num (:total-balance row))
-        usdc-value (parse-num (:usdc-value row))]
-    (cond
-      (and (number? total-balance)
-           (not (zero? total-balance))
-           (number? usdc-value))
-      (/ usdc-value total-balance)
-
-      (stable-dollar-token? (balance-row-token-key row))
-      1
-
-      :else nil)))
-
-(defn token-price-usd
-  [balance-row-by-token market-by-key token]
-  (let [token* (normalized-token-name token)
-        row (get balance-row-by-token token*)
-        row-price (some-> row balance-row-usd-price)
-        market (or (get market-by-key (str "spot:" token*))
-                   (asset-selector-markets/resolve-market-by-coin market-by-key token*))]
-    (or row-price
-        (market-token-usd-price token* market)
-        (when (stable-dollar-token? token*) 1))))
+(def token-price-usd token-pricing/token-price-usd)
 
 (defn- clearinghouse-state-quote-token
   [market-by-key dex clearinghouse-state]

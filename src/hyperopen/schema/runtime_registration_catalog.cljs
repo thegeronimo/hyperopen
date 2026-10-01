@@ -2,6 +2,7 @@
   (:require [hyperopen.schema.runtime-registration.api-wallets :as api-wallets]
             [hyperopen.schema.runtime-registration.funding :as funding]
             [hyperopen.schema.runtime-registration.funding-comparison :as funding-comparison]
+            [hyperopen.schema.runtime-registration.hyperevm :as hyperevm]
             [hyperopen.schema.runtime-registration.leaderboard :as leaderboard]
             [hyperopen.schema.runtime-registration.margin-rec :as margin-rec]
             [hyperopen.schema.runtime-registration.pnl-share :as pnl-share]
@@ -35,7 +36,8 @@
    staking/effect-binding-rows
    funding/effect-binding-rows
    margin-rec/effect-binding-rows
-   pnl-share/effect-binding-rows))
+   pnl-share/effect-binding-rows
+   hyperevm/effect-binding-rows))
 
 (def ^:private action-binding-rows-data
   (concat-row-groups
@@ -53,7 +55,8 @@
    staking/action-binding-rows
    vaults/action-binding-rows
    margin-rec/action-binding-rows
-   pnl-share/action-binding-rows))
+   pnl-share/action-binding-rows
+   hyperevm/action-binding-rows))
 
 (def ^:private effect-order-policy-required-action-ids-data
   (set
@@ -69,7 +72,8 @@
            funding-comparison/effect-order-policy-required-action-ids
            staking/effect-order-policy-required-action-ids
            vaults/effect-order-policy-required-action-ids
-           margin-rec/effect-order-policy-required-action-ids)))
+           margin-rec/effect-order-policy-required-action-ids
+           hyperevm/effect-order-policy-required-action-ids)))
 
 (defn- duplicate-ids
   [rows]

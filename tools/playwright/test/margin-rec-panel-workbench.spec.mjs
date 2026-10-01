@@ -5,7 +5,7 @@
 // probability-vs-collateral SVG (current marker left of the recommended
 // marker, both dots sitting on the curve's x positions), the methods/buffers
 // columns, and the Apply recommendation / Set custom margin actions.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE_BASE =
   "/ui-workbench.html?id=hyperopen.workbench.scenes.account.margin-recommendation-scenes";
