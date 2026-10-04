@@ -338,7 +338,16 @@
                                         selected-side-coins))
         subscribe-effects* (cond-> subscribe-effects
                              (seq canonical-coin)
-                             (conj [:effects/sync-active-asset-funding-predictability canonical-coin]))]
+                             (conj [:effects/sync-active-asset-funding-predictability canonical-coin])
+
+                             ;; A coin the loaded catalog can't resolve (a spot
+                             ;; balance's bare token name before spot markets
+                             ;; load) is not a venue coin. Load the full catalog
+                             ;; so the post-load hook can swap in the real pair.
+                             (and (nil? resolved-market)
+                                  (seq canonical-coin)
+                                  (not= :full (get-in state [:asset-selector :phase])))
+                             (conj [:effects/fetch-asset-selector-markets]))]
     (into immediate-ui-effects
           (into trade-route-effects
                 (into unsubscribe-effects subscribe-effects*)))))

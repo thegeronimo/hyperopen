@@ -297,7 +297,9 @@
    :apply-asset-selector-error api-projections/apply-asset-selector-error
    :after-asset-selector-success! (fn [runtime-store _phase _market-state]
                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store)
-                                    (ws-adapters/sync-active-outcome-market-side-streams! runtime-store))})
+                                    (ws-adapters/sync-active-outcome-market-side-streams! runtime-store)
+                                    (asset-adapters/correct-bare-spot-token-active-asset!
+                                     runtime-store nxr/dispatch))})
 
 (defn fetch-asset-selector-markets-effect
   [_ store & [opts]]

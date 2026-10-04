@@ -18,7 +18,8 @@
                         :effects/subscribe-active-asset
                         :effects/subscribe-orderbook
                         :effects/subscribe-trades
-                        :effects/sync-active-asset-funding-predictability}}
+                        :effects/sync-active-asset-funding-predictability
+                        :effects/fetch-asset-selector-markets}}
 
    :actions/select-chart-timeframe
    {:required-phase-order [:projection :persistence :heavy-io]

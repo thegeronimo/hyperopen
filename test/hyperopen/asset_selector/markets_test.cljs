@@ -431,6 +431,25 @@
                                               :base "GOLD"}
                                              "xyz:GOLD")))))
 
+(deftest bare-spot-token-market-test
+  (let [market-by-key {"perp:HYPE" {:key "perp:HYPE" :market-type :perp :coin "HYPE"}
+                       "spot:@336" {:key "spot:@336" :market-type :spot :coin "@336"
+                                    :base "KHYPE" :quote "USDC"}
+                       "spot:@250" {:key "spot:@250" :market-type :spot :coin "@250"
+                                    :base "KHYPE" :quote "USDH"}
+                       "spot:HYPE/USDC" {:key "spot:HYPE/USDC" :market-type :spot
+                                         :coin "HYPE/USDC" :base "HYPE" :quote "USDC"}}]
+    (testing "a bare spot-only token name maps to its USDC spot pair"
+      (is (= "@336" (:coin (markets/bare-spot-token-market market-by-key "KHYPE")))))
+    (testing "coins that are already market coins are left alone"
+      (is (nil? (markets/bare-spot-token-market market-by-key "HYPE")))
+      (is (nil? (markets/bare-spot-token-market market-by-key "@336")))
+      (is (nil? (markets/bare-spot-token-market market-by-key "HYPE/USDC"))))
+    (testing "unknown tokens and a perp-only catalog resolve nothing"
+      (is (nil? (markets/bare-spot-token-market market-by-key "NOPE")))
+      (is (nil? (markets/bare-spot-token-market {"perp:HYPE" {:key "perp:HYPE" :coin "HYPE"}}
+                                                "KHYPE"))))))
+
 (deftest resolve-spot-market-by-coin-never-returns-a-perp-test
   (let [market-by-key {"perp:HYPE" {:key "perp:HYPE"
                                     :market-type :perp

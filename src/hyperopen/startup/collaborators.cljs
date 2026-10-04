@@ -9,6 +9,7 @@
             [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.api-effects :as runtime-api-effects]
+            [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.telemetry :as telemetry]
@@ -395,7 +396,9 @@
      :apply-asset-selector-error api-projections/apply-asset-selector-error
      :after-asset-selector-success! (fn [runtime-store _phase _market-state]
                                       (ws-adapters/sync-active-outcome-market-side-streams!
-                                       runtime-store))})))
+                                       runtime-store)
+                                      (asset-adapters/correct-bare-spot-token-active-asset!
+                                       runtime-store nxr/dispatch))})))
 
 (defn startup-base-deps
   [overrides]

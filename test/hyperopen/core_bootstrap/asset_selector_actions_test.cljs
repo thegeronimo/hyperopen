@@ -13,7 +13,8 @@
     :effects/subscribe-active-asset
     :effects/subscribe-orderbook
     :effects/subscribe-trades
-    :effects/sync-active-asset-funding-predictability})
+    :effects/sync-active-asset-funding-predictability
+    :effects/fetch-asset-selector-markets})
 
 (deftest mark-loaded-asset-icon-promotes-key-to-loaded-and-clears-missing-test
   (let [state {:asset-selector {:loaded-icons #{}
@@ -281,3 +282,25 @@
     (is (some? saved-order-form-ui))
     (is (= false (:price-input-focused? saved-order-form-ui)))
     (is (= "" (:price saved-order-form)))))
+
+(deftest select-asset-unresolved-token-before-full-catalog-requests-full-catalog-test
+  (let [perp-only {"perp:HYPE" {:key "perp:HYPE" :coin "HYPE" :market-type :perp}}
+        effects (core/select-asset {:active-asset "HYPE"
+                                    :asset-selector {:phase :bootstrap
+                                                     :market-by-key perp-only}}
+                                   "KHYPE")]
+    (is (= [:effects/fetch-asset-selector-markets] (last effects)))
+    (is (effect-extractors/projection-before-heavy? effects select-asset-heavy-effect-ids))
+    (is (effect-extractors/phase-order-valid? effects select-asset-heavy-effect-ids))
+    (is (empty? (effect-extractors/duplicate-heavy-effect-ids effects select-asset-heavy-effect-ids))))
+  (let [full-catalog-effects (core/select-asset {:active-asset "HYPE"
+                                                 :asset-selector {:phase :full
+                                                                  :market-by-key {}}}
+                                                "NOPE")
+        resolved-effects (core/select-asset {:active-asset "ETH"
+                                             :asset-selector {:phase :bootstrap
+                                                              :market-by-key {"perp:HYPE" {:key "perp:HYPE"
+                                                                                           :coin "HYPE"}}}}
+                                            "HYPE")]
+    (is (not (some #{[:effects/fetch-asset-selector-markets]} full-catalog-effects)))
+    (is (not (some #{[:effects/fetch-asset-selector-markets]} resolved-effects)))))

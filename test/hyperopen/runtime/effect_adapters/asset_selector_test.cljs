@@ -114,3 +114,24 @@
              (active-ctx/get-subscribed-coins-by-owner :asset-selector)))
       (finally
         (reset! active-ctx/active-asset-ctx-state original-state)))))
+
+(deftest correct-bare-spot-token-active-asset-reselects-the-spot-pair-test
+  (let [market-by-key {"perp:HYPE" {:key "perp:HYPE" :market-type :perp :coin "HYPE"}
+                       "spot:@336" {:key "spot:@336" :market-type :spot :coin "@336"
+                                    :base "KHYPE" :quote "USDC"}}
+        dispatched (atom [])
+        dispatch! (fn [_store _event actions] (swap! dispatched conj actions))
+        store-for (fn [phase active-asset]
+                    (atom {:active-asset active-asset
+                           :asset-selector {:phase phase :market-by-key market-by-key}}))]
+    (is (= "@336" (asset-adapters/correct-bare-spot-token-active-asset!
+                   (store-for :full "KHYPE") dispatch!)))
+    (is (= [[[:actions/select-asset "@336"]]] @dispatched))
+    (reset! dispatched [])
+    (is (nil? (asset-adapters/correct-bare-spot-token-active-asset!
+               (store-for :bootstrap "KHYPE") dispatch!)))
+    (is (nil? (asset-adapters/correct-bare-spot-token-active-asset!
+               (store-for :full "HYPE") dispatch!)))
+    (is (nil? (asset-adapters/correct-bare-spot-token-active-asset!
+               (store-for :full "@336") dispatch!)))
+    (is (= [] @dispatched))))

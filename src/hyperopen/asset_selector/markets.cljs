@@ -230,6 +230,21 @@
                 (candidate-market-keys coin*))
           (spot-market-by-base-token market-by-key coin*)))))
 
+(defn bare-spot-token-market
+  "The spot market a bare spot-token name stands for, when the name is not a
+   market coin itself. Spot balances name tokens (\"KHYPE\") while the venue only
+   knows spot pairs by their pair coin (\"@336\"); subscribing or fetching with the
+   token name is rejected, and Hyperliquid closes the websocket on an unknown
+   l2Book coin. Returns nil for any coin that is already a market key candidate
+   (perps, pair coins, @ids, outcomes)."
+  [market-by-key coin]
+  (let [coin* (when (scalar-coin-id? coin) (str coin))]
+    (when (and (map? market-by-key)
+               (seq coin*)
+               (not (some #(contains? market-by-key %)
+                          (candidate-market-keys coin*))))
+      (spot-market-by-base-token market-by-key coin*))))
+
 (declare inferred-perp-market)
 
 (defn resolve-or-infer-market-by-coin
