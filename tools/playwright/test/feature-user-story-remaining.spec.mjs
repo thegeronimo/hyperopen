@@ -601,6 +601,13 @@ test("vault detail transfer modal and Monte Carlo tab are reachable @regression"
     "lock-up period"
   );
   await page.locator("[data-role='vault-transfer-amount-input']").fill("10");
+  // Classic accounts fund vault deposits from perps, so spot-only USDC is not spendable.
+  await expect(page.locator("[data-role='vault-transfer-status']")).toContainText(
+    "Transfer USDC from spot to perps first"
+  );
+  await expect(page.locator("[data-role='vault-transfer-submit']")).toBeDisabled();
+  await setAppState(page, [[["webdata2", "clearinghouseState", "withdrawable"], "100"]]);
+  await expect(page.locator("[data-role='vault-transfer-deposit-max']")).toContainText("MAX: 100.00 USDC");
   await expect(page.locator("[data-role='vault-transfer-submit']")).toBeEnabled();
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.locator("[data-role='vault-transfer-modal']")).toHaveCount(0);

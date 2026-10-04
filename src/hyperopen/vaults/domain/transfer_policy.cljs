@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.domain.transfer-policy
   (:require [clojure.string :as str]
+            [hyperopen.funding.domain.availability :as funding-availability]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.vaults.domain.identity :as identity]))
 
@@ -40,6 +41,35 @@
                     (<= micros js/Number.MAX_SAFE_INTEGER))
            micros))))))
 
+;; Hyperliquid funds a vaultTransfer deposit from the account's collateral:
+;; spot USDC for unified accounts, base-dex perps withdrawable for classic
+;; accounts. A classic account's spot USDC is NOT spendable until it is moved
+;; to perps, and the exchange rejects the deposit with "Insufficient funds
+;; available to deposit."
+(defn deposit-available-usdc
+  "USDC the active account can deposit into a vault, or nil when the account
+   mode or its balance has not loaded yet."
+  [state]
+  (case (get-in state [:account :mode])
+    :unified (funding-availability/spot-usdc-available state)
+    :classic (some funding-availability/clearinghouse-withdrawable
+                   (funding-availability/clearinghouse-state-candidates state))
+    nil))
+
+(defn- usdc->micros
+  [value]
+  ;; Round at nano precision first so 1350.69 does not floor to 1350.689999.
+  (js/Math.floor (/ (js/Math.round (* value 1000000000)) 1000)))
+
+(defn- deposit-shortfall-message
+  [state amount-micros]
+  (let [spot-usdc (funding-availability/spot-usdc-available state)]
+    (if (and (= :classic (get-in state [:account :mode]))
+             (number? spot-usdc)
+             (>= (usdc->micros spot-usdc) amount-micros))
+      "Vault deposits use your perps USDC. Transfer USDC from spot to perps first."
+      "Amount exceeds your available USDC.")))
+
 (defn vault-transfer-deposit-allowed?
   [state vault-address]
   (let [vault-address* (identity/normalize-vault-address vault-address)
@@ -74,7 +104,9 @@
          amount-micros (if withdraw-all?
                          0
                          (parse-usdc-micros amount-input locale))
-         deposit-allowed? (vault-transfer-deposit-allowed? state vault-address)]
+         deposit-allowed? (vault-transfer-deposit-allowed? state vault-address)
+         deposit-available (when (= mode :deposit)
+                             (deposit-available-usdc state))]
      (cond
        (nil? vault-address)
        {:ok? false
@@ -90,6 +122,11 @@
                 (<= amount-micros 0)))
        {:ok? false
         :display-message "Enter an amount greater than 0."}
+
+       (and (number? deposit-available)
+            (> amount-micros (usdc->micros (max 0 deposit-available))))
+       {:ok? false
+        :display-message (deposit-shortfall-message state amount-micros)}
 
        :else
        {:ok? true

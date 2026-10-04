@@ -1,7 +1,7 @@
 (ns hyperopen.vaults.detail.transfer
   (:require [clojure.string :as str]
+            [hyperopen.funding.domain.availability :as funding-availability]
             [hyperopen.utils.formatting :as fmt]
-            [hyperopen.vaults.adapters.webdata :as webdata-adapter]
             [hyperopen.vaults.application.transfer-state :as transfer-state]
             [hyperopen.vaults.domain.identity :as vault-identity]
             [hyperopen.vaults.domain.transfer-policy :as vault-transfer-policy]))
@@ -34,76 +34,6 @@
   (let [text (some-> value str str/trim)]
     (when (seq text)
       text)))
-
-(defn- usdc-coin?
-  [coin]
-  (let [token (some-> coin str str/trim str/upper-case)]
-    (and (seq token)
-         (str/starts-with? token "USDC"))))
-
-(defn- direct-balance-row-available
-  [row]
-  (some optional-number
-        [(:available row)
-         (:availableBalance row)
-         (:free row)]))
-
-(defn- derived-balance-row-available
-  [row]
-  (let [total (or (optional-number (:total row))
-                  (optional-number (:totalBalance row)))
-        hold (optional-number (:hold row))]
-    (when (number? total)
-      (if (number? hold)
-        (- total hold)
-        total))))
-
-(defn- balance-row-available
-  [row]
-  (when (map? row)
-    (let [available (or (direct-balance-row-available row)
-                        (derived-balance-row-available row))]
-      (when (number? available)
-        (max 0 available)))))
-
-(defn- usdc-available-from-balance-rows
-  [rows]
-  (some (fn [row]
-          (when (usdc-coin? (or (:coin row)
-                                (:token row)))
-            (balance-row-available row)))
-        (if (sequential? rows) rows [])))
-
-(defn- webdata-usdc-available
-  [webdata]
-  (let [balance-available (some (fn [row]
-                                  (when (usdc-coin? (:coin row))
-                                    (when-let [available (optional-number (:available row))]
-                                      (max 0 available))))
-                                (webdata-adapter/balances webdata))
-        clearinghouse-state (or (:clearinghouseState webdata)
-                                (get-in webdata [:data :clearinghouseState])
-                                {})
-        withdrawable-direct (some optional-number
-                                 [(:withdrawable clearinghouse-state)
-                                  (:withdrawableUsd clearinghouse-state)
-                                  (:withdrawableUSDC clearinghouse-state)
-                                  (:availableToWithdraw clearinghouse-state)
-                                  (:availableToWithdrawUsd clearinghouse-state)
-                                  (:availableToWithdrawUSDC clearinghouse-state)])
-        margin-summary (or (:marginSummary clearinghouse-state)
-                           (:crossMarginSummary clearinghouse-state)
-                           {})
-        account-value (optional-number (:accountValue margin-summary))
-        total-margin-used (optional-number (:totalMarginUsed margin-summary))
-        withdrawable-derived (when (and (number? account-value)
-                                        (number? total-margin-used))
-                               (- account-value total-margin-used))
-        withdrawable (or withdrawable-direct
-                        withdrawable-derived)]
-    (or balance-available
-        (when (number? withdrawable)
-          (max 0 withdrawable)))))
 
 (defn- floor-to-decimals
   [value decimals]
@@ -149,25 +79,16 @@
       (default-deposit-lockup-days vault-name)))
 
 (defn- vault-transfer-deposit-max-usdc
-  [state wallet-webdata vault-webdata]
-  (let [spot-available (usdc-available-from-balance-rows
-                        (get-in state [:spot :clearinghouse-state :balances]))
-        wallet-webdata-available (webdata-usdc-available wallet-webdata)
-        vault-webdata-available (webdata-usdc-available vault-webdata)
-        available (or spot-available
-                      wallet-webdata-available
-                      vault-webdata-available
-                      0)]
-    (floor-to-decimals available 2)))
+  [state]
+  (floor-to-decimals (or (vault-transfer-policy/deposit-available-usdc state)
+                         (funding-availability/withdrawable-usdc state))
+                     2))
 
 (defn read-model
-  [state {:keys [vault-address vault-name details webdata]}]
+  [state {:keys [vault-address vault-name details]}]
   (let [vault-name* (or (non-blank-text vault-name)
                         "Vault")
-        wallet-webdata (if (map? (:webdata2 state))
-                         (:webdata2 state)
-                         {})
-        deposit-max-usdc (vault-transfer-deposit-max-usdc state wallet-webdata webdata)
+        deposit-max-usdc (vault-transfer-deposit-max-usdc state)
         deposit-lockup-days (vault-deposit-lockup-days details vault-name*)
         raw-vault-transfer-modal (get-in state [:vaults-ui :vault-transfer-modal])
         vault-transfer-modal* (merge (transfer-state/default-vault-transfer-modal-state)

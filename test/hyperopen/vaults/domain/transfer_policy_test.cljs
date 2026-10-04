@@ -228,3 +228,46 @@
     (is (true? (:ok? result)))
     (is (= 1
            (get-in result [:request :action :usd])))))
+
+(defn- deposit-preview
+  [account-state amount-input]
+  (transfer-policy/vault-transfer-preview
+   (merge (base-state "en-US" true) account-state)
+   {:mode :deposit
+    :vault-address vault-address
+    :amount-input amount-input}))
+
+(def ^:private classic-account
+  {:account {:mode :classic}
+   :webdata2 {:clearinghouseState {:withdrawable "1350.69"}}
+   :spot {:clearinghouse-state {:balances [{:coin "USDC" :total "244789.13"}]}}})
+
+(deftest deposit-available-usdc-follows-account-mode-test
+  (is (= 1350.69 (transfer-policy/deposit-available-usdc classic-account)))
+  (is (= 244789.13 (transfer-policy/deposit-available-usdc
+                    (assoc classic-account :account {:mode :unified}))))
+  (is (nil? (transfer-policy/deposit-available-usdc
+             (dissoc classic-account :account))))
+  (is (nil? (transfer-policy/deposit-available-usdc {:account {:mode :classic}}))))
+
+(deftest vault-transfer-preview-caps-deposit-at-available-usdc-test
+  (testing "classic: exact perps balance is allowed"
+    (is (true? (:ok? (deposit-preview classic-account "1350.69")))))
+  (testing "classic: over perps but covered by spot hints at spot->perps transfer"
+    (is (= {:ok? false
+            :display-message "Vault deposits use your perps USDC. Transfer USDC from spot to perps first."}
+           (deposit-preview classic-account "20000"))))
+  (testing "classic: over perps and spot is a plain shortfall"
+    (is (= "Amount exceeds your available USDC."
+           (:display-message (deposit-preview classic-account "300000")))))
+  (testing "unified: spot USDC is spendable"
+    (is (true? (:ok? (deposit-preview (assoc classic-account :account {:mode :unified})
+                                      "20000")))))
+  (testing "unknown mode does not block (balance not trusted yet)"
+    (is (true? (:ok? (deposit-preview (dissoc classic-account :account) "20000")))))
+  (testing "withdrawals are never capped by the wallet balance"
+    (is (true? (:ok? (transfer-policy/vault-transfer-preview
+                      (merge (base-state "en-US" true) classic-account)
+                      {:mode :withdraw
+                       :vault-address vault-address
+                       :amount-input "20000"}))))))
