@@ -42,21 +42,27 @@
    {:load-cache-fn load-cache-fn
     :resolve-market-by-coin-fn resolve-market-by-coin-fn}))
 
-(defn correct-bare-spot-token-active-asset!
-  "After a full catalog load, re-select the real spot pair when the active
-   asset is a bare spot-token name (\"KHYPE\" -> \"@336\"). Such a coin reaches
-   the store when a spot balance row is clicked, or a ?market= route restored,
-   before spot markets loaded; left alone, its l2Book subscription makes
-   Hyperliquid close the websocket on every reconnect. Returns the corrected
-   coin, or nil."
+(def ^:private fallback-active-asset
+  "BTC")
+
+(defn correct-unresolved-active-asset!
+  "After a full catalog load, re-select a real market when the active asset is
+   not a venue coin: a bare spot-token name becomes its pair (\"KHYPE\" ->
+   \"@336\"), and a coin no market matches (a stale ?market= or stored asset)
+   falls back to BTC. Such coins reach the store when a spot balance row is
+   clicked, or a route or stored asset restored, before the full catalog
+   loaded; left alone, their l2Book subscription makes Hyperliquid close the
+   websocket on every reconnect. Returns the corrected coin, or nil."
   [store dispatch!]
-  (let [state @store]
+  (let [state @store
+        market-by-key (get-in state [:asset-selector :market-by-key])
+        coin (:active-asset state)]
     (when (= :full (get-in state [:asset-selector :phase]))
-      (when-let [coin (:coin (markets/bare-spot-token-market
-                              (get-in state [:asset-selector :market-by-key])
-                              (:active-asset state)))]
-        (dispatch! store nil [[:actions/select-asset coin]])
-        coin))))
+      (when-let [coin* (or (:coin (markets/bare-spot-token-market market-by-key coin))
+                           (when (markets/unknown-market-coin? market-by-key coin)
+                             fallback-active-asset))]
+        (dispatch! store nil [[:actions/select-asset coin*]])
+        coin*))))
 
 (defn- active-market-display-normalize-deps []
   {:normalize-display-text markets-cache/normalize-display-text

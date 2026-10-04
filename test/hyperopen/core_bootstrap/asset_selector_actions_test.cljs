@@ -304,3 +304,10 @@
                                             "HYPE")]
     (is (not (some #{[:effects/fetch-asset-selector-markets]} full-catalog-effects)))
     (is (not (some #{[:effects/fetch-asset-selector-markets]} resolved-effects)))))
+
+(deftest select-asset-ignores-a-coin-the-full-catalog-cannot-resolve-test
+  (let [state {:active-asset "BTC"
+               :asset-selector {:phase :full
+                                :market-by-key {"perp:BTC" {:key "perp:BTC" :coin "BTC"}}}}]
+    (is (= [] (core/select-asset state "FOOBAR")))
+    (is (seq (core/select-asset state "BTC")))))

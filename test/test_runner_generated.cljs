@@ -101,6 +101,7 @@
             [hyperopen.asset-selector.active-market-cache-test]
             [hyperopen.asset-selector.funding-drafts-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
+            [hyperopen.asset-selector.market-coin-validity-test]
             [hyperopen.asset-selector.market-live-projection-test]
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
@@ -911,6 +912,7 @@
             [hyperopen.websocket.api-wallets-application-coverage-test]
             [hyperopen.websocket.application.flight-recorder-test]
             [hyperopen.websocket.application.runtime-engine-test]
+            [hyperopen.websocket.application.runtime-reducer-short-lived-backoff-test]
             [hyperopen.websocket.application.runtime-reducer-subscription-rejected-test]
             [hyperopen.websocket.application.runtime-reducer-test]
             [hyperopen.websocket.application.runtime-test]
@@ -1072,6 +1074,7 @@
              'hyperopen.asset-selector.active-market-cache-test
              'hyperopen.asset-selector.funding-drafts-test
              'hyperopen.asset-selector.icon-status-runtime-test
+             'hyperopen.asset-selector.market-coin-validity-test
              'hyperopen.asset-selector.market-live-projection-test
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
@@ -1882,6 +1885,7 @@
              'hyperopen.websocket.api-wallets-application-coverage-test
              'hyperopen.websocket.application.flight-recorder-test
              'hyperopen.websocket.application.runtime-engine-test
+             'hyperopen.websocket.application.runtime-reducer-short-lived-backoff-test
              'hyperopen.websocket.application.runtime-reducer-subscription-rejected-test
              'hyperopen.websocket.application.runtime-reducer-test
              'hyperopen.websocket.application.runtime-test

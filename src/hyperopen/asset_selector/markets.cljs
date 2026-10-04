@@ -245,6 +245,22 @@
                           (candidate-market-keys coin*))))
       (spot-market-by-base-token market-by-key coin*))))
 
+(defn unknown-market-coin?
+  "True when a FULL catalog (every perp dex, spot, outcomes) cannot resolve
+   `coin` to any market, so the venue will reject it. A namespaced perp coin
+   counts as unknown only when its dex is in the catalog, so a dex missing
+   from a partial load never condemns its markets."
+  [market-by-key coin]
+  (let [coin* (when (scalar-coin-id? coin) (str coin))]
+    (boolean
+     (and (seq market-by-key)
+          (seq coin*)
+          (nil? (resolve-market-by-coin market-by-key coin*))
+          (or (not (namespaced-perp-coin? coin*))
+              (let [dex (normalized-token (first (str/split coin* #":" 2)))]
+                (some #(= dex (normalized-token (:dex %)))
+                      (vals market-by-key))))))))
+
 (declare inferred-perp-market)
 
 (defn resolve-or-infer-market-by-coin

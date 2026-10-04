@@ -266,7 +266,24 @@
                         [[:asset-selector :highlighted-market-key] nil]]]
    sync-asset-selector-active-ctx-subscriptions-effect])
 
+(defn- unknown-coin-for-full-catalog?
+  "A plain coin the full catalog cannot resolve (a delisted or mistyped coin).
+   Selecting it would only subscribe a coin the venue rejects."
+  [state market-or-coin]
+  (and (not (map? market-or-coin))
+       (= :full (get-in state [:asset-selector :phase]))
+       (markets/unknown-market-coin? (get-in state [:asset-selector :market-by-key])
+                                     (market-token market-or-coin))))
+
+(declare select-asset*)
+
 (defn select-asset
+  [state market-or-coin]
+  (if (unknown-coin-for-full-catalog? state market-or-coin)
+    []
+    (select-asset* state market-or-coin)))
+
+(defn- select-asset*
   [state market-or-coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
         input-coin (if (map? market-or-coin)

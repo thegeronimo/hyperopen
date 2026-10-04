@@ -397,7 +397,7 @@
      :after-asset-selector-success! (fn [runtime-store _phase _market-state]
                                       (ws-adapters/sync-active-outcome-market-side-streams!
                                        runtime-store)
-                                      (asset-adapters/correct-bare-spot-token-active-asset!
+                                      (asset-adapters/correct-unresolved-active-asset!
                                        runtime-store nxr/dispatch))})))
 
 (defn startup-base-deps

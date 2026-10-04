@@ -67,7 +67,8 @@
      effects]
 
     :else
-    (let [attempt (max 1 (:attempt state))
+    (let [attempt (+ (max 1 (:attempt state))
+                     (or (:short-lived-streak state) 0))
           delay-ms (calculate-retry-delay-ms attempt (:hidden? state) (:config state) 0.5)
           retry-at (+ ts delay-ms)
           effects* (cond-> effects

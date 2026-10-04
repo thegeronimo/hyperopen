@@ -16,7 +16,9 @@
    :stale-threshold-ms health/default-stream-stale-threshold-ms
    :stale-visible-ms 45000
    :stale-hidden-ms 180000
-   :market-coalesce-window-ms 16})
+   :market-coalesce-window-ms 16
+   ;; A socket must stay open this long before a close restarts retry backoff.
+   :stable-connection-ms 10000})
 
 (defn- normalize-runtime-config
   [config]
@@ -28,6 +30,7 @@
     (assert (pos-int? (:stale-visible-ms config*)) "runtime config :stale-visible-ms must be a positive integer")
     (assert (pos-int? (:stale-hidden-ms config*)) "runtime config :stale-hidden-ms must be a positive integer")
     (assert (pos-int? (:market-coalesce-window-ms config*)) "runtime config :market-coalesce-window-ms must be a positive integer")
+    (assert (pos-int? (:stable-connection-ms config*)) "runtime config :stable-connection-ms must be a positive integer")
     config*))
 
 (defn initial-runtime-state [config]
@@ -51,6 +54,11 @@
    :ws-url nil
    :status :disconnected
    :attempt 0
+   ;; Consecutive sockets that opened then closed before :stable-connection-ms.
+   ;; :attempt resets on every open, so without this a server that drops each
+   ;; fresh socket (e.g. on a subscription it rejects) is retried at the base
+   ;; delay forever.
+   :short-lived-streak 0
    :next-retry-at-ms nil
    :last-close nil
    :last-activity-at-ms nil
@@ -239,6 +247,13 @@
         ts (:ts msg)]
     (if (= (:socket-id msg) (:active-socket-id state))
       (let [close-at-ms (or (:at-ms msg) ts)
+            connected-at-ms (get-in state [:transport :connected-at-ms])
+            short-lived-streak (cond
+                                 (nil? connected-at-ms) (or (:short-lived-streak state) 0)
+                                 (< (- close-at-ms connected-at-ms)
+                                    (get-in state [:config :stable-connection-ms]))
+                                 (inc (or (:short-lived-streak state) 0))
+                                 :else 0)
             close-info {:code (or (:code msg) 0)
                         :reason (or (:reason msg) "")
                         :was-clean? (boolean (:was-clean? msg))
@@ -246,7 +261,8 @@
             state1 (-> state
                        (connection/with-now close-at-ms)
                        (assoc :active-socket-id nil
-                              :last-close close-info)
+                              :last-close close-info
+                              :short-lived-streak short-lived-streak)
                        (assoc-in [:transport :connected-at-ms] nil))
             [state1* effects1*] (market/maybe-clear-market-flush state1 [])]
         (if (:intentional-close? state1)

@@ -298,7 +298,7 @@
    :after-asset-selector-success! (fn [runtime-store _phase _market-state]
                                     (sync-asset-selector-active-ctx-subscriptions nil runtime-store)
                                     (ws-adapters/sync-active-outcome-market-side-streams! runtime-store)
-                                    (asset-adapters/correct-bare-spot-token-active-asset!
+                                    (asset-adapters/correct-unresolved-active-asset!
                                      runtime-store nxr/dispatch))})
 
 (defn fetch-asset-selector-markets-effect
