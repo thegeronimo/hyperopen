@@ -7,6 +7,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.vaults.application.transfer-state :as vault-transfer-state]
             [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.effects.viewer-ledger :as viewer-ledger-effects]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]))
 
 (def ^:private funding-history-lookback-ms
@@ -414,7 +415,8 @@
            begin-vault-details-load
            apply-vault-details-success
            apply-vault-details-error
-           opts]}]
+           opts]
+    :as deps}]
   (if (allow-route? store opts true)
     (let [request-opts* (cond-> (route-scoped-request-opts store opts true vault-address)
                           user-address (assoc :user user-address))]
@@ -425,6 +427,12 @@
                   apply-vault-details-success
                   vault-address
                   user-address))
+          (.then (fn [payload]
+                   (-> (viewer-ledger-effects/fetch-viewer-ledger!
+                        deps
+                        (route-scoped-request-opts store opts true vault-address)
+                        payload)
+                       (.then (fn [_] payload)))))
           (.catch (promise-effects/apply-error-and-reject
                    store
                    apply-vault-details-error

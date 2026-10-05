@@ -141,6 +141,10 @@
                                       :vaultEquity "2.5"
                                       :daysFollowing "8"
                                       :vaultEntryTime nil})))
+    (is (= {:leader? true
+            :vault-equity 10}
+           (normalize-follower-state {:user "Leader"
+                                      :vaultEquity "10"})))
     (is (= 0
            (followers-count nil [])))
     (is (= 0

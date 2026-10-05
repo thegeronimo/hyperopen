@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.detail.hero
   (:require [hyperopen.views.vaults.detail.format :as vf]
             [hyperopen.views.vaults.detail.panels :as panels]
+            [hyperopen.views.vaults.detail.position :as position-view]
             [hyperopen.views.vaults.detail.transfer-modal :as transfer-modal]
             [hyperopen.wallet.core :as wallet]))
 
@@ -13,7 +14,7 @@
       :else ["text-[22px]" "sm:text-[28px]" "lg:text-[38px]"])))
 
 (defn- metric-card
-  [{:keys [label value accent]}]
+  [{:keys [label value accent detail detail-accent role]}]
   [:div {:class ["rounded-xl"
                  "border"
                  "border-[#1a3a37]"
@@ -21,7 +22,8 @@
                  "min-w-0"
                  "px-3.5"
                  "py-3"
-                 "spectate-[inset_0_0_0_1px_rgba(8,38,45,0.35)]"]}
+                 "spectate-[inset_0_0_0_1px_rgba(8,38,45,0.35)]"]
+         :data-role role}
    [:div {:class ["text-xs"
                   "uppercase"
                   "tracking-[0.08em]"
@@ -36,7 +38,16 @@
                                  :positive ["text-[#5de2c0]"]
                                  :negative ["text-[#e59ca8]"]
                                  ["text-trading-text"])))}
-    value]])
+    value]
+   (when detail
+     [:div {:class ["num"
+                    "mt-1"
+                    "text-sm"
+                    (case detail-accent
+                      :positive "text-ho-buy"
+                      :negative "text-ho-sell"
+                      "text-ho-text-muted")]}
+      detail])])
 
 (defn hero-section
   [vm vault-transfer]
@@ -44,7 +55,8 @@
                 name
                 vault-address
                 relationship
-                metrics]} vm
+                metrics
+                position]} vm
         resolved-name (vf/resolved-vault-name name vault-address)
         show-name-skeleton? (and loading?
                                  (nil? resolved-name))
@@ -119,7 +131,21 @@
                     :value (vf/format-percent month-return {:signed? false
                                                             :decimals 2})
                     :accent month-return-accent})
-      (metric-card {:label "Your Deposits"
-                    :value (vf/format-currency (:your-deposit metrics))})
-      (metric-card {:label "All-time Earned"
-                    :value (vf/format-currency (:all-time-earned metrics))})]]))
+      (metric-card {:label "APR"
+                    :value (vf/format-percent (:apr metrics) {:signed? false
+                                                              :decimals 1})})
+      (let [{:keys [status value unrealized unrealized-pct]} position]
+        (metric-card {:label "Your Position"
+                      :role "vault-hero-your-position"
+                      :value (vf/format-currency (if (= :open status)
+                                                   value
+                                                   (:your-deposit metrics)))
+                      :detail (when (and (= :open status) (number? unrealized))
+                                (str (position-view/format-signed-currency unrealized)
+                                     (when (number? unrealized-pct)
+                                       (str " · " (vf/format-percent unrealized-pct)))))
+                      :detail-accent (cond
+                                       (not (number? unrealized)) nil
+                                       (pos? unrealized) :positive
+                                       (neg? unrealized) :negative
+                                       :else nil)}))]]))

@@ -413,6 +413,38 @@
         (assoc-in [:vaults :loaded-at-ms :ledger-updates-by-vault vault-address*] (.now js/Date)))
     state))
 
+(defn begin-vault-viewer-ledger-load
+  [state vault-address viewer-address]
+  (let [vault-address* (normalize-vault-address vault-address)
+        viewer-address* (normalize-vault-address viewer-address)]
+    (if (and vault-address* viewer-address*)
+      (-> state
+          (assoc-in [:vaults :loading :viewer-ledger-by-address vault-address* viewer-address*] true)
+          (assoc-in [:vaults :errors :viewer-ledger-by-address vault-address* viewer-address*] nil))
+      state)))
+
+(defn apply-vault-viewer-ledger-success
+  [state vault-address viewer-address rows]
+  (let [vault-address* (normalize-vault-address vault-address)
+        viewer-address* (normalize-vault-address viewer-address)]
+    (if (and vault-address* viewer-address*)
+      (-> state
+          (assoc-in [:vaults :viewer-ledger-by-address vault-address* viewer-address*] (rows->vec rows))
+          (assoc-in [:vaults :loading :viewer-ledger-by-address vault-address* viewer-address*] false)
+          (assoc-in [:vaults :errors :viewer-ledger-by-address vault-address* viewer-address*] nil))
+      state)))
+
+(defn apply-vault-viewer-ledger-error
+  [state vault-address viewer-address err]
+  (let [vault-address* (normalize-vault-address vault-address)
+        viewer-address* (normalize-vault-address viewer-address)]
+    (if (and vault-address* viewer-address*)
+      (let [{:keys [message]} (normalized-error err)]
+        (-> state
+            (assoc-in [:vaults :loading :viewer-ledger-by-address vault-address* viewer-address*] false)
+            (assoc-in [:vaults :errors :viewer-ledger-by-address vault-address* viewer-address*] message)))
+      state)))
+
 (defn apply-vault-ledger-updates-error
   [state vault-address err]
   (if-let [vault-address* (normalize-vault-address vault-address)]

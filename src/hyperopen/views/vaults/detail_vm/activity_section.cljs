@@ -38,9 +38,11 @@
         addresses))
 
 (defn- normalize-depositor-row
-  [row]
+  [leader-address row]
   (when (map? row)
-    {:address (vault-identity/normalize-vault-address (:user row))
+    {:address (or (vault-identity/normalize-vault-address (:user row))
+                  (when (:leader? row) leader-address))
+     :leader? (true? (:leader? row))
      :vault-amount (context/optional-number (:vault-equity row))
      :unrealized-pnl (context/optional-number (:pnl row))
      :all-time-pnl (context/optional-number (:all-time-pnl row))
@@ -48,9 +50,10 @@
 
 (defn- activity-depositors
   [details]
-  (let [followers (or (:followers details) [])]
+  (let [followers (or (:followers details) [])
+        leader-address (vault-identity/normalize-vault-address (:leader details))]
     (->> (if (sequential? followers) followers [])
-         (keep normalize-depositor-row)
+         (keep #(normalize-depositor-row leader-address %))
          (sort-by (fn [{:keys [vault-amount]}]
                     (js/Math.abs (or vault-amount 0)))
                   >)
@@ -195,6 +198,7 @@
      :activity-order-history order-history
      :activity-deposits-withdrawals deposits-withdrawals
      :activity-depositors depositors
+     :activity-copy-feedback (get-in state [:wallet :copy-feedback])
      :activity-loading activity-loading
      :activity-errors activity-errors
      :activity-summary {:fill-count (count fills)

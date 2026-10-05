@@ -600,12 +600,14 @@
             [hyperopen.vaults.detail.benchmarks-test]
             [hyperopen.vaults.detail.metrics-bridge-test]
             [hyperopen.vaults.detail.performance-test]
+            [hyperopen.vaults.detail.position-test]
             [hyperopen.vaults.detail.transfer-test]
             [hyperopen.vaults.detail.types-test]
             [hyperopen.vaults.domain.transfer-policy-properties-test]
             [hyperopen.vaults.domain.transfer-policy-test]
             [hyperopen.vaults.effects-preview-scope-test]
             [hyperopen.vaults.effects-test]
+            [hyperopen.vaults.effects.viewer-ledger-test]
             [hyperopen.vaults.infrastructure.list-cache-test]
             [hyperopen.vaults.infrastructure.persistence-test]
             [hyperopen.vaults.infrastructure.preview-cache-test]
@@ -874,6 +876,7 @@
             [hyperopen.views.ui.toggle-test]
             [hyperopen.views.vaults.detail-view-hover-freeze-test]
             [hyperopen.views.vaults.detail-view-test]
+            [hyperopen.views.vaults.detail-vm-position-test]
             [hyperopen.views.vaults.detail-vm-returns-chart-test]
             [hyperopen.views.vaults.detail-vm-test]
             [hyperopen.views.vaults.detail.activity-test]
@@ -884,6 +887,7 @@
             [hyperopen.views.vaults.detail.chart-view-test]
             [hyperopen.views.vaults.detail.format-test]
             [hyperopen.views.vaults.detail.panels-test]
+            [hyperopen.views.vaults.detail.position-test]
             [hyperopen.views.vaults.detail.transfer-modal-test]
             [hyperopen.views.vaults.list-view-test]
             [hyperopen.views.vaults.route-shell-test]
@@ -1573,12 +1577,14 @@
              'hyperopen.vaults.detail.benchmarks-test
              'hyperopen.vaults.detail.metrics-bridge-test
              'hyperopen.vaults.detail.performance-test
+             'hyperopen.vaults.detail.position-test
              'hyperopen.vaults.detail.transfer-test
              'hyperopen.vaults.detail.types-test
              'hyperopen.vaults.domain.transfer-policy-properties-test
              'hyperopen.vaults.domain.transfer-policy-test
              'hyperopen.vaults.effects-preview-scope-test
              'hyperopen.vaults.effects-test
+             'hyperopen.vaults.effects.viewer-ledger-test
              'hyperopen.vaults.infrastructure.list-cache-test
              'hyperopen.vaults.infrastructure.persistence-test
              'hyperopen.vaults.infrastructure.preview-cache-test
@@ -1847,6 +1853,7 @@
              'hyperopen.views.ui.toggle-test
              'hyperopen.views.vaults.detail-view-hover-freeze-test
              'hyperopen.views.vaults.detail-view-test
+             'hyperopen.views.vaults.detail-vm-position-test
              'hyperopen.views.vaults.detail-vm-returns-chart-test
              'hyperopen.views.vaults.detail-vm-test
              'hyperopen.views.vaults.detail.activity-test
@@ -1857,6 +1864,7 @@
              'hyperopen.views.vaults.detail.chart-view-test
              'hyperopen.views.vaults.detail.format-test
              'hyperopen.views.vaults.detail.panels-test
+             'hyperopen.views.vaults.detail.position-test
              'hyperopen.views.vaults.detail.transfer-modal-test
              'hyperopen.views.vaults.list-view-test
              'hyperopen.views.vaults.route-shell-test

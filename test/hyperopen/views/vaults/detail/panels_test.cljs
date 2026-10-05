@@ -49,6 +49,35 @@
     (is (contains? yp-text "Your Deposits"))
     (is (contains? yp-text "All-time Earned"))))
 
+(deftest your-performance-tab-reads-the-open-position-test
+  (let [panel (panels/render-tab-panel {:selected-tab :your-performance
+                                        :position {:status :open
+                                                   :value 1100
+                                                   :cost-basis 1000
+                                                   :unrealized 100
+                                                   :unrealized-pct 10
+                                                   :all-time-earned 150
+                                                   :realized 50
+                                                   :period-pnl {:day {:pnl 1.25 :pct 0.11}
+                                                                :week {:pnl -3 :pct -0.27}
+                                                                :month nil}
+                                                   :max-drawdown-pct -1.9
+                                                   :lockup-until-ms 1000
+                                                   :locked? false
+                                                   :days-held 206
+                                                   :transfer-count 3}})
+        text (set (hiccup/collect-strings panel))
+        cell (fn [role] (hiccup/find-first-node panel #(= role (get-in % [1 :data-role]))))]
+    (is (some? (cell "vault-your-performance")))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-day"))) "+$1.25"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-week"))) "−$3.00"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-month"))) "—"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-since-deposit"))) "+$100.00"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-drawdown"))) "-1.90%"))
+    (is (some #(re-find #"^Ended " %) (hiccup/collect-strings (cell "vault-your-performance-lockup"))))
+    (is (contains? text "+$50.00 realized"))
+    (is (some #(re-find #"Held 206 days · 3 transfers" %) text))))
+
 (deftest relationship-links-only-render-for-child-relationships-test
   (let [parent-address "0x1234567890abcdef1234567890abcdef12345678"
         links (panels/relationship-links {:relationship {:type :child
@@ -60,3 +89,29 @@
     (is (some? nav-button))
     (is (nil? (panels/relationship-links {:relationship {:type :parent
                                                          :parent-address parent-address}})))))
+
+(deftest vault-performance-tab-uses-the-shared-performance-grid-test
+  (let [panel (panels/render-tab-panel {:selected-tab :vault-performance
+                                        :snapshot {:day 0.12 :week -0.5 :month 2.09 :all-time 37.1}
+                                        :metrics {:apr 22.9 :tvl 1000}
+                                        :vault-max-drawdown-pct -4.2
+                                        :followers 37
+                                        :leader-commission 10
+                                        :leader-fraction 5.3})
+        cell (fn [role] (set (hiccup/collect-strings
+                              (hiccup/find-first-node panel #(= role (get-in % [1 :data-role]))))))
+        week (hiccup/find-first-node panel #(= "vault-performance-week" (get-in % [1 :data-role])))]
+    (is (contains? (cell "vault-performance-day") "+0.12%"))
+    (is (some? (hiccup/find-first-node week #(contains? (hiccup/node-class-set %) "text-ho-sell"))))
+    (is (contains? (cell "vault-performance-apr") "22.9%"))
+    (is (contains? (cell "vault-performance-drawdown") "-4.20%"))
+    (is (contains? (cell "vault-performance-depositors") "37"))
+    (is (contains? (set (hiccup/collect-strings
+                         (panels/render-tab-panel {:selected-tab :vault-performance :followers 100})))
+                   "100+"))
+    (is (contains? (cell "vault-performance-commission") "10%"))
+    (is (some #(re-find #"leader owns 5\.3%" %) (hiccup/collect-strings panel))))
+  (is (contains? (set (hiccup/collect-strings
+                       (panels/render-tab-panel {:selected-tab :vault-performance
+                                                 :leader-commission 0})))
+                 "None")))

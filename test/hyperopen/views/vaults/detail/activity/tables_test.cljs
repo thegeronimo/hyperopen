@@ -184,3 +184,26 @@
     (is (= 5 (get-in funding-loading-cell [1 :col-span])))
     (is (= 7 (get-in order-empty-cell [1 :col-span])))
     (is (= 4 (get-in ledger-empty-cell [1 :col-span])))))
+
+(deftest depositor-address-cell-reveals-full-address-and-copies-it-test
+  (let [address "0x0183fb7deeebd63c86f51c278cf39dcdd2a13834"
+        cell (tables/depositor-address-cell {:address address})
+        button (hiccup/find-first-node cell #(= :button (first %)))
+        strings (set (hiccup/collect-strings cell))]
+    (is (= [[:actions/copy-spectate-mode-watchlist-address address]]
+           (get-in button [1 :on :click])))
+    (is (nil? (get-in button [1 :title])) "no tooltip duplicating the visible address")
+    (is (= (str "Copy address " address) (get-in button [1 :aria-label])))
+    (is (empty? (hiccup/find-all-nodes cell #(contains? (hiccup/node-class-set %) "hidden")))
+        "visibility swap only, never display:none, so the column never resizes")
+    (is (contains? strings "0x0183…3834"))
+    (is (contains? strings address))
+    (is (= "—" (last (tables/depositor-address-cell {:address nil}))))
+    (is (contains? (set (hiccup/collect-strings (tables/depositor-address-cell {:address address :leader? true})))
+                   "Leader"))))
+
+(deftest depositors-table-shows-copy-feedback-test
+  (let [table (tables/depositors-table [] nil [] {:kind :success :message "Address copied to clipboard"})
+        quiet (tables/depositors-table [] nil [] nil)]
+    (is (contains? (set (hiccup/collect-strings table)) "Address copied to clipboard"))
+    (is (not (contains? (set (hiccup/collect-strings quiet)) "Address copied to clipboard")))))

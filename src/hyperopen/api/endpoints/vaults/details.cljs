@@ -37,7 +37,11 @@
 (defn normalize-follower-state
   [payload]
   (when (map? payload)
-    (let [normalized {:user (common/normalize-address (:user payload))
+    (let [;; Hyperliquid lists the vault's own leader as the literal string
+          ;; "Leader" instead of an address.
+          leader? (= "Leader" (:user payload))
+          normalized {:user (when-not leader? (common/normalize-address (:user payload)))
+                      :leader? (when leader? true)
                       :vault-equity (common/parse-optional-num (:vaultEquity payload))
                       :pnl (common/parse-optional-num (:pnl payload))
                       :all-time-pnl (common/parse-optional-num (:allTimePnl payload))

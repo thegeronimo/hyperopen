@@ -253,6 +253,7 @@
    :funding-history-by-vault {}
    :order-history-by-vault {}
    :ledger-updates-by-vault {}
+   :viewer-ledger-by-address {}
    :loading {:index? false
              :summaries? false
              :user-equities? false
@@ -262,7 +263,8 @@
              :fills-by-vault {}
              :funding-history-by-vault {}
              :order-history-by-vault {}
-             :ledger-updates-by-vault {}}
+             :ledger-updates-by-vault {}
+             :viewer-ledger-by-address {}}
    :errors {:index nil
             :summaries nil
             :user-equities nil
@@ -272,7 +274,8 @@
             :fills-by-vault {}
             :funding-history-by-vault {}
             :order-history-by-vault {}
-            :ledger-updates-by-vault {}}
+            :ledger-updates-by-vault {}
+            :viewer-ledger-by-address {}}
    :loaded-at-ms {:index nil
                   :summaries nil
                   :user-equities nil

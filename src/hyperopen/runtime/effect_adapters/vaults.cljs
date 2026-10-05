@@ -79,7 +79,11 @@
     :request-vault-details! api/request-vault-details!
     :begin-vault-details-load api-projections/begin-vault-details-load
     :apply-vault-details-success api-projections/apply-vault-details-success
-    :apply-vault-details-error api-projections/apply-vault-details-error}))
+    :apply-vault-details-error api-projections/apply-vault-details-error
+    :request-user-non-funding-ledger-updates! api/request-user-non-funding-ledger-updates!
+    :begin-vault-viewer-ledger-load api-projections/begin-vault-viewer-ledger-load
+    :apply-vault-viewer-ledger-success api-projections/apply-vault-viewer-ledger-success
+    :apply-vault-viewer-ledger-error api-projections/apply-vault-viewer-ledger-error}))
 
 (defn api-fetch-vault-benchmark-details-effect
   [_ store vault-address]
