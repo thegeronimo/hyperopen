@@ -320,3 +320,15 @@
     (is (= [{:delta {:type "vaultDeposit"}}] (get-in ledger-success [:vaults :ledger-updates-by-vault "0xa"])))
     (is (number? (get-in ledger-success [:vaults :loaded-at-ms :ledger-updates-by-vault "0xa"])))
     (is (= "ledger-fail" (get-in ledger-error [:vaults :errors :ledger-updates-by-vault "0xa"])))))
+
+(deftest vault-viewer-ledger-projections-key-by-vault-and-viewer-test
+  (let [loading (vaults/begin-vault-viewer-ledger-load {} "0xA" "0xB")
+        success (vaults/apply-vault-viewer-ledger-success loading "0xA" "0xB" [{:time 1}])
+        error (vaults/apply-vault-viewer-ledger-error loading "0xA" "0xB" "ledger-fail")]
+    (is (= true (get-in loading [:vaults :loading :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (nil? (get-in loading [:vaults :errors :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (= [{:time 1}] (get-in success [:vaults :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (= false (get-in success [:vaults :loading :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (= false (get-in error [:vaults :loading :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (= "ledger-fail" (get-in error [:vaults :errors :viewer-ledger-by-address "0xa" "0xb"])))
+    (is (= {} (vaults/begin-vault-viewer-ledger-load {} "0xA" nil)))))

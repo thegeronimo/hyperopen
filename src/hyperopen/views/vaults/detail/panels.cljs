@@ -65,22 +65,31 @@
     [:div {:class ["text-ho-text-muted"]} "All-time"]
     [:div {:class ["num" "font-medium" "text-trading-text"]} (vf/format-percent (:all-time snapshot))]]])
 
-(defn- render-your-performance-panel [metrics]
-  [:div {:class ["space-y-3" "px-3" "pb-3" "pt-2" "text-sm"]}
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "Your Deposits"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]}
-     (vf/format-currency (:your-deposit metrics))]]
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "All-time Earned"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]}
-     (vf/format-currency (:all-time-earned metrics))]]])
+(defn- your-performance-row
+  [label value]
+  [:div
+   [:div {:class ["text-ho-text-muted"]} label]
+   [:div {:class ["num" "font-medium" "text-trading-text"]} value]])
+
+(defn- render-your-performance-panel [{:keys [metrics position]}]
+  (if (= :open (:status position))
+    [:div {:class ["grid" "grid-cols-2" "gap-3" "px-3" "pb-3" "pt-2" "text-sm"]}
+     (your-performance-row "Current Value" (vf/format-currency (:value position)))
+     (your-performance-row "Cost Basis" (vf/format-currency (:cost-basis position)))
+     (your-performance-row "P&L Since Deposit"
+                           (str (vf/format-currency (:unrealized position))
+                                (when (number? (:unrealized-pct position))
+                                  (str " (" (vf/format-percent (:unrealized-pct position)) ")"))))
+     (your-performance-row "All-time Earned" (vf/format-currency (:all-time-earned position)))]
+    [:div {:class ["space-y-3" "px-3" "pb-3" "pt-2" "text-sm"]}
+     (your-performance-row "Your Deposits" (vf/format-currency (:your-deposit metrics)))
+     (your-performance-row "All-time Earned" (vf/format-currency (:all-time-earned metrics)))]))
 
 (defn render-tab-panel
   [{:keys [selected-tab] :as vm}]
   (case selected-tab
     :vault-performance (render-vault-performance-panel vm)
-    :your-performance (render-your-performance-panel (:metrics vm))
+    :your-performance (render-your-performance-panel vm)
     (render-about-panel vm)))
 
 (defn relationship-links

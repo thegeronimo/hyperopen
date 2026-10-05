@@ -50,7 +50,8 @@
                               activity-funding-history
                               activity-order-history
                               activity-deposits-withdrawals
-                              activity-depositors]}]
+                              activity-depositors
+                              activity-copy-feedback]}]
   (let [sort-state-by-tab (or activity-sort-state-by-tab {})
         selected-filter* (or activity-direction-filter :all)
         table-config-by-tab (or activity-table-config {})
@@ -164,6 +165,7 @@
                                                   (table-columns :deposits-withdrawals))
        :depositors (tables/depositors-table activity-depositors
                                             (get sort-state-by-tab :depositors)
-                                            (table-columns :depositors))
+                                            (table-columns :depositors)
+                                            activity-copy-feedback)
        [:div {:class ["px-4" "py-6" "text-sm" "text-[#8ea2aa]"]}
         "This activity stream is not available yet for vaults."])]))

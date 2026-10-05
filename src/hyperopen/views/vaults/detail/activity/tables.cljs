@@ -278,16 +278,70 @@
        :else
        (chrome/empty-table-row (count columns) "No deposits or withdrawals available."))]]])
 
-(defn depositors-table [rows sort-state columns]
+(defn- copy-icon
+  []
+  [:svg {:viewBox "0 0 16 16"
+         :class ["h-3.5" "w-3.5" "shrink-0"]
+         :fill "none"
+         :stroke "currentColor"
+         :stroke-width 1.5
+         :aria-hidden true}
+   [:rect {:x 5.5 :y 5.5 :width 8 :height 8 :rx 1.5}]
+   [:path {:d "M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"}]])
+
+(defn depositor-address-cell
+  "Short address at rest; on hover or keyboard focus the full address and a
+   copy icon replace it in place (a floating tooltip would be clipped by the
+   table's scroll box). Click copies the full address."
+  [{:keys [address leader?]}]
+  [:td {:class (into chrome/activity-cell-num-class ["whitespace-nowrap" "text-ho-text"])}
+   (if address
+     [:button {:type "button"
+               :class ["group/addr" "inline-flex" "items-center" "gap-1.5" "rounded" "text-left"
+                       "hover:text-ho-accent-hi" "focus-visible:text-ho-accent-hi"
+                       "focus-visible:outline-none" "focus-visible:ring-1" "focus-visible:ring-ho-accent"]
+               :title address
+               :aria-label (str "Copy address " address)
+               :data-role "vault-depositor-address"
+               :on {:click [[:actions/copy-spectate-mode-watchlist-address address]]}}
+      (when leader?
+        [:span {:class ["rounded" "bg-ho-accent-soft" "px-1.5" "text-xs" "text-ho-accent-hi"]} "Leader"])
+      [:span {:class ["group-hover/addr:hidden" "group-focus-visible/addr:hidden"]}
+       (wallet/short-addr address)]
+      [:span {:class ["hidden" "group-hover/addr:inline" "group-focus-visible/addr:inline"]}
+       address]
+      [:span {:class ["opacity-0" "group-hover/addr:opacity-100" "group-focus-visible/addr:opacity-100"]}
+       (copy-icon)]]
+     "—")])
+
+(defn- copy-feedback-note
+  [{:keys [kind message]}]
+  (when (seq message)
+    [:div {:class ["sticky" "left-0" "top-0" "z-10" "flex" "justify-end" "px-4" "py-1.5"]
+           :role "status"
+           :aria-live "polite"
+           :data-role "vault-depositor-copy-feedback"}
+     [:span {:class ["rounded-full" "border" "px-2.5" "py-0.5" "text-xs"
+                     (if (= :error kind)
+                       "border-ho-border-sell"
+                       "border-ho-border-accent")
+                     (if (= :error kind)
+                       "text-ho-sell"
+                       "text-ho-accent-hi")
+                     "bg-ho-bg-deep"]}
+      message]]))
+
+(defn depositors-table [rows sort-state columns & [copy-feedback]]
   [:div {:class ["overflow-auto" "max-h-[540px]"]}
+   (copy-feedback-note copy-feedback)
    [:table {:class ["w-full" "min-w-[980px]" "border-collapse"]}
     (chrome/table-header :depositors columns sort-state)
     [:tbody
      (if (seq rows)
-       (for [{:keys [address vault-amount unrealized-pnl all-time-pnl days-following]} rows]
+       (for [{:keys [address vault-amount unrealized-pnl all-time-pnl days-following] :as row} rows]
          ^{:key (str "depositor-" address)}
          [:tr {:class chrome/activity-row-class}
-          [:td {:class (into chrome/activity-cell-num-class ["whitespace-nowrap" "text-ho-text"])} (or (wallet/short-addr address) "—")]
+          (depositor-address-cell row)
           [:td {:class (into chrome/activity-cell-num-class ["whitespace-nowrap" "text-ho-text"])} (vf/format-currency vault-amount)]
           [:td {:class (into chrome/activity-cell-num-class ["whitespace-nowrap" (chrome/position-pnl-class unrealized-pnl)])}
            (vf/format-currency unrealized-pnl)]

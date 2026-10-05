@@ -5,6 +5,7 @@
             [hyperopen.views.chart.d3.hover-state :as chart-hover-state]
             [hyperopen.views.vaults.detail.hero :as hero]
             [hyperopen.views.vaults.detail.panels :as panels]
+            [hyperopen.views.vaults.detail.position :as position-view]
             [hyperopen.views.vaults.detail.transfer-modal :as transfer-modal]
             [hyperopen.views.vaults.detail-vm :as detail-vm]))
 
@@ -104,6 +105,7 @@
        :else
        [:div {:class ["space-y-4"]}
         (hero/hero-section vm vault-transfer*)
+        (position-view/position-band (:position vm) vault-transfer* (:vault-address vm))
         (background-status-banner background-status)
 
         (when loading?

@@ -109,3 +109,6 @@
 (def begin-vault-ledger-updates-load vaults/begin-vault-ledger-updates-load)
 (def apply-vault-ledger-updates-success vaults/apply-vault-ledger-updates-success)
 (def apply-vault-ledger-updates-error vaults/apply-vault-ledger-updates-error)
+(def begin-vault-viewer-ledger-load vaults/begin-vault-viewer-ledger-load)
+(def apply-vault-viewer-ledger-success vaults/apply-vault-viewer-ledger-success)
+(def apply-vault-viewer-ledger-error vaults/apply-vault-viewer-ledger-error)

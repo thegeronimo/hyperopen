@@ -49,6 +49,20 @@
     (is (contains? yp-text "Your Deposits"))
     (is (contains? yp-text "All-time Earned"))))
 
+(deftest your-performance-tab-reads-the-open-position-test
+  (let [panel (panels/render-tab-panel {:selected-tab :your-performance
+                                        :position {:status :open
+                                                   :value 1100
+                                                   :cost-basis 1000
+                                                   :unrealized 100
+                                                   :unrealized-pct 10
+                                                   :all-time-earned 150}})
+        text (set (hiccup/collect-strings panel))]
+    (is (contains? text "Cost Basis"))
+    (is (contains? text "$1,000.00"))
+    (is (contains? text "$100.00 (+10.00%)"))
+    (is (contains? text "$150.00"))))
+
 (deftest relationship-links-only-render-for-child-relationships-test
   (let [parent-address "0x1234567890abcdef1234567890abcdef12345678"
         links (panels/relationship-links {:relationship {:type :child

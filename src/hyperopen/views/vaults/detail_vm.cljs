@@ -2,6 +2,8 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.vaults.application.detail-commands :as detail-commands]
             [hyperopen.vaults.application.ui-state :as vault-ui-state]
+            [hyperopen.vaults.detail.performance :as performance-model]
+            [hyperopen.vaults.detail.position :as position-model]
             [hyperopen.vaults.detail.transfer :as transfer-model]
             [hyperopen.vaults.domain.identity :as vault-identity]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]
@@ -25,6 +27,34 @@
 (defn reset-vault-detail-vm-cache!
   []
   (detail-cache/reset-cache!))
+
+(defn- viewer-ledger-status
+  [state vault-address viewer-address]
+  (let [path [vault-address viewer-address]]
+    (cond
+      (nil? viewer-address) :idle
+      (true? (get-in state (into [:vaults :loading :viewer-ledger-by-address] path))) :loading
+      (some? (get-in state (into [:vaults :errors :viewer-ledger-by-address] path))) :error
+      (some? (get-in state (into [:vaults :viewer-ledger-by-address] path))) :ready
+      :else :idle)))
+
+(defn- viewer-position
+  [state vault-address viewer-address details user-equity viewer-follower now-ms]
+  (let [viewer-address* (vault-identity/normalize-vault-address viewer-address)
+        ledger-status (viewer-ledger-status state vault-address viewer-address*)
+        summary (position-model/position-summary
+                 {:vault-address vault-address
+                  :follower viewer-follower
+                  :equity (detail-context/optional-number (:equity user-equity))
+                  :ledger-rows (get-in state [:vaults :viewer-ledger-by-address vault-address viewer-address*])
+                  :ledger-status ledger-status
+                  :returns-candidates (mapv #(position-model/returns-rows-from-summary
+                                              (performance-model/portfolio-summary-by-range details %))
+                                            [:day :week :month :all-time])
+                  :now-ms now-ms})]
+    (assoc summary
+           :viewer-address viewer-address*
+           :spectating? (account-context/spectate-mode-active? state))))
 
 (defn vault-detail-vm
   ([state]
@@ -93,6 +123,13 @@
                                                                                 now-ms*
                                                                                 activity-tab
                                                                                 activity-sources)
+         position (viewer-position state
+                                   vault-address
+                                   viewer-address
+                                   details-base
+                                   user-equity
+                                   viewer-follower
+                                   now-ms*)
          {:keys [tvl apr month-return your-deposit all-time-earned]} metrics-context]
      (merge
       {:kind kind
@@ -119,6 +156,7 @@
                  :your-deposit your-deposit
                  :all-time-earned all-time-earned
                  :apr (detail-context/normalize-percent-value apr)}
+       :position position
        :vault-transfer vault-transfer
        :tabs [{:value :about
                :label "About"}
