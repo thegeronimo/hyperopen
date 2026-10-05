@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.detail.panels
   (:require [hyperopen.views.vaults.detail.format :as vf]
+            [hyperopen.views.vaults.detail.position :as position-view]
             [hyperopen.wallet.core :as wallet]))
 
 (defn detail-tab-button
@@ -71,16 +72,80 @@
    [:div {:class ["text-ho-text-muted"]} label]
    [:div {:class ["num" "font-medium" "text-trading-text"]} value]])
 
+(defn- signed-tone
+  [value]
+  (cond
+    (not (number? value)) "text-trading-text"
+    (>= value 0.005) "text-ho-buy"
+    (<= value -0.005) "text-ho-sell"
+    :else "text-trading-text"))
+
+(defn- performance-cell
+  [{:keys [label value tone detail role]}]
+  [:div {:class ["min-w-0"] :data-role role}
+   [:div {:class ["text-ho-text-muted"]} label]
+   [:div {:class ["num" "font-medium" (or tone "text-trading-text")]} value]
+   (when detail
+     [:div {:class ["num" "text-xs" "text-ho-text-dim"]} detail])])
+
+(defn- period-cell
+  [label {:keys [pnl pct]} role]
+  (performance-cell {:label label
+                     :role role
+                     :value (position-view/format-signed-currency pnl)
+                     :tone (signed-tone pnl)
+                     :detail (when (number? pct) (vf/format-percent pct))}))
+
+(defn- lockup-value
+  [{:keys [locked? lockup-until-ms]}]
+  (cond
+    locked? (str "Until " (position-view/format-date lockup-until-ms))
+    (number? lockup-until-ms) (str "Ended " (position-view/format-date lockup-until-ms))
+    :else "None"))
+
+(defn- render-open-performance-panel
+  [{:keys [period-pnl unrealized unrealized-pct max-drawdown-pct cost-basis
+           all-time-earned realized days-held transfer-count locked?]
+    :as position}]
+  [:div {:class ["px-4" "pb-4" "pt-3" "text-sm"] :data-role "vault-your-performance"}
+   [:div {:class ["grid" "grid-cols-2" "gap-x-3" "gap-y-3.5"]}
+    (period-cell "24H" (:day period-pnl) "vault-your-performance-day")
+    (period-cell "7D" (:week period-pnl) "vault-your-performance-week")
+    (period-cell "30D" (:month period-pnl) "vault-your-performance-month")
+    (performance-cell {:label "Since deposit"
+                       :role "vault-your-performance-since-deposit"
+                       :value (position-view/format-signed-currency unrealized)
+                       :tone (signed-tone unrealized)
+                       :detail (when (number? unrealized-pct) (vf/format-percent unrealized-pct))})
+    (performance-cell {:label "Max drawdown"
+                       :role "vault-your-performance-drawdown"
+                       :value (vf/format-percent max-drawdown-pct)
+                       :tone (signed-tone max-drawdown-pct)
+                       :detail (when (number? max-drawdown-pct) "vault, since deposit")})
+    (performance-cell {:label "Lockup"
+                       :role "vault-your-performance-lockup"
+                       :value (lockup-value position)
+                       :tone (when locked? "text-ho-warn")})
+    (performance-cell {:label "Cost basis"
+                       :value (vf/format-currency cost-basis)})
+    (performance-cell {:label "All-time earned"
+                       :value (position-view/format-signed-currency all-time-earned)
+                       :tone (signed-tone all-time-earned)
+                       :detail (when (and (number? realized) (>= (js/Math.abs realized) 0.005))
+                                 (str (position-view/format-signed-currency realized) " realized"))})]
+   [:div {:class ["mt-3.5" "border-t" "border-ho-border-accent-muted" "pt-2.5" "text-xs" "text-ho-text-muted"]}
+    (str (cond
+           (= 0 days-held) "Opened today"
+           (= 1 days-held) "Held 1 day"
+           (number? days-held) (str "Held " days-held " days")
+           :else "Held —")
+         (when (pos? transfer-count)
+           (str " · " transfer-count (if (= 1 transfer-count) " transfer" " transfers")))
+         " · period figures estimated from vault history")]])
+
 (defn- render-your-performance-panel [{:keys [metrics position]}]
   (if (= :open (:status position))
-    [:div {:class ["grid" "grid-cols-2" "gap-3" "px-3" "pb-3" "pt-2" "text-sm"]}
-     (your-performance-row "Current Value" (vf/format-currency (:value position)))
-     (your-performance-row "Cost Basis" (vf/format-currency (:cost-basis position)))
-     (your-performance-row "P&L Since Deposit"
-                           (str (vf/format-currency (:unrealized position))
-                                (when (number? (:unrealized-pct position))
-                                  (str " (" (vf/format-percent (:unrealized-pct position)) ")"))))
-     (your-performance-row "All-time Earned" (vf/format-currency (:all-time-earned position)))]
+    (render-open-performance-panel position)
     [:div {:class ["space-y-3" "px-3" "pb-3" "pt-2" "text-sm"]}
      (your-performance-row "Your Deposits" (vf/format-currency (:your-deposit metrics)))
      (your-performance-row "All-time Earned" (vf/format-currency (:all-time-earned metrics)))]))

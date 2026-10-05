@@ -255,6 +255,76 @@
          vec)
     []))
 
+(defn- series-value-at
+  "Series value at `time-ms`: after any transfer at that instant,
+   interpolated between samples."
+  [points time-ms]
+  (let [before (last (filter #(<= (:time-ms %) time-ms) points))
+        after (first (filter #(> (:time-ms %) time-ms) points))]
+    (cond
+      (nil? before) nil
+      (or (nil? after) (= (:time-ms before) time-ms)) (:value before)
+      :else (+ (:value before)
+               (* (- (:value after) (:value before))
+                  (/ (- time-ms (:time-ms before))
+                     (- (:time-ms after) (:time-ms before))))))))
+
+(defn window-pnl
+  "P&L the current position earned from `window-start-ms` to `now-ms`: the
+   value held in each stretch between transfers grows with the vault index
+   (from the finest history covering the window). Transfers are cash flows,
+   not P&L. Windows reaching back past the first deposit start there. `:pct`
+   is relative to the capital put to work in the window: the value held at
+   its start plus deposits made during it."
+  [{:keys [series transfers returns-candidates now-ms]} window-start-ms]
+  (let [start (max window-start-ms (:start-ms series))
+        rows (rows-covering returns-candidates start)
+        v0 (when series (series-value-at (:points series) start))]
+    (when (and rows (number? v0) (< start now-ms))
+      (loop [prev-t start
+             held v0
+             capital v0
+             pnl 0
+             [boundary & more] (concat (->> transfers
+                                            (filter #(< start (:time-ms %) now-ms))
+                                            (sort-by :time-ms))
+                                       [{:time-ms now-ms}])]
+        (if-not boundary
+          {:pnl pnl
+           :pct (when (pos? capital) (* 100 (/ pnl capital)))}
+          (let [i0 (index-at rows prev-t)
+                i1 (index-at rows (:time-ms boundary))]
+            (when (and i0 i1)
+              (let [grown (* held (/ i1 i0))]
+                (recur (:time-ms boundary)
+                       (case (:kind boundary)
+                         :deposit (+ grown (:amount boundary))
+                         :withdraw (max 0 (- grown (or (:requested boundary) (:amount boundary))))
+                         grown)
+                       (if (= :deposit (:kind boundary))
+                         (+ capital (:amount boundary))
+                         capital)
+                       (+ pnl (- grown held))
+                       more)))))))))
+
+(defn max-drawdown-since
+  "Deepest peak-to-trough fall of the vault's share-price index since
+   `start-ms`, in percent (zero or negative)."
+  [candidates start-ms]
+  (when-let [rows (rows-covering candidates start-ms)]
+    (let [indexes (keep identity
+                        (cons (index-at rows start-ms)
+                              (->> rows
+                                   (filter #(> (first %) start-ms))
+                                   (map #(index-at rows (first %))))))]
+      (when (seq indexes)
+        (:drawdown (reduce (fn [{:keys [peak drawdown]} index]
+                             (let [peak* (max peak index)]
+                               {:peak peak*
+                                :drawdown (min drawdown (* 100 (- (/ index peak*) 1)))}))
+                           {:peak (first indexes) :drawdown 0}
+                           indexes))))))
+
 (defn- lockup-status
   [lockup-until-ms now-ms]
   (if (and (number? lockup-until-ms)
@@ -333,7 +403,14 @@
                                  (and (= :deposit kind) current-position? open?)
                                  (assoc :vault-return-since-pct (return-since time-ms)))))
                         reverse
-                        vec)]
+                        vec)
+        current-transfers (filter :current-position? transfers)
+        series (when (and open? (number? start-ms))
+                 (position-series {:transfers current-transfers
+                                   :returns-candidates candidates
+                                   :now-ms now-ms
+                                   :value value
+                                   :cost-basis cost-basis}))]
     (merge
      {:status status
       :value value
@@ -352,12 +429,17 @@
       :days-held (when (and (number? position-start-ms) (number? now-ms))
                    (max 0 (js/Math.floor (/ (- now-ms position-start-ms) ms-per-day))))
       :vault-return-since-start-pct (when open? (return-since position-start-ms))
-      :series (when (and open? (number? start-ms))
-                (position-series {:transfers (filter :current-position? transfers)
+      :series series
+      :period-pnl (when series
+                    (let [window {:series series
+                                  :transfers current-transfers
                                   :returns-candidates candidates
-                                  :now-ms now-ms
-                                  :value value
-                                  :cost-basis cost-basis}))
+                                  :now-ms now-ms}]
+                      {:day (window-pnl window (- now-ms ms-per-day))
+                       :week (window-pnl window (- now-ms (* 7 ms-per-day)))
+                       :month (window-pnl window (- now-ms (* 30 ms-per-day)))}))
+      :max-drawdown-pct (when series
+                          (max-drawdown-since candidates position-start-ms))
       :composition (when open? (composition value cost-basis unrealized))
       :ledger-status (or ledger-status :idle)
       :transfers transfers*

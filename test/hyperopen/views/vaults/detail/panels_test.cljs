@@ -56,12 +56,27 @@
                                                    :cost-basis 1000
                                                    :unrealized 100
                                                    :unrealized-pct 10
-                                                   :all-time-earned 150}})
-        text (set (hiccup/collect-strings panel))]
-    (is (contains? text "Cost Basis"))
-    (is (contains? text "$1,000.00"))
-    (is (contains? text "$100.00 (+10.00%)"))
-    (is (contains? text "$150.00"))))
+                                                   :all-time-earned 150
+                                                   :realized 50
+                                                   :period-pnl {:day {:pnl 1.25 :pct 0.11}
+                                                                :week {:pnl -3 :pct -0.27}
+                                                                :month nil}
+                                                   :max-drawdown-pct -1.9
+                                                   :lockup-until-ms 1000
+                                                   :locked? false
+                                                   :days-held 206
+                                                   :transfer-count 3}})
+        text (set (hiccup/collect-strings panel))
+        cell (fn [role] (hiccup/find-first-node panel #(= role (get-in % [1 :data-role]))))]
+    (is (some? (cell "vault-your-performance")))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-day"))) "+$1.25"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-week"))) "−$3.00"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-month"))) "—"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-since-deposit"))) "+$100.00"))
+    (is (contains? (set (hiccup/collect-strings (cell "vault-your-performance-drawdown"))) "-1.90%"))
+    (is (some #(re-find #"^Ended " %) (hiccup/collect-strings (cell "vault-your-performance-lockup"))))
+    (is (contains? text "+$50.00 realized"))
+    (is (some #(re-find #"Held 206 days · 3 transfers" %) text))))
 
 (deftest relationship-links-only-render-for-child-relationships-test
   (let [parent-address "0x1234567890abcdef1234567890abcdef12345678"

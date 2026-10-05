@@ -16,7 +16,7 @@
   ["rounded-2xl" "border" "border-ho-border-accent"
    "bg-[linear-gradient(180deg,rgb(var(--ho-accent-soft)/0.55)_0%,rgb(var(--ho-bg-deep))_42%)]"])
 
-(defn- format-date
+(defn format-date
   [time-ms]
   (or (when (number? time-ms)
         (fmt/format-intl-date-time time-ms {:month "short"

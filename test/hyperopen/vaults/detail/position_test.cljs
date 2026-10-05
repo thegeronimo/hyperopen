@@ -240,3 +240,33 @@
     (is (nil? (:vault-return-since-pct (first (:transfers same-day)))))
     (is (= 2 (count (get-in same-day [:series :points]))))
     (is (near? 0.0990 (:vault-return-since-start-pct (summary (+ t0 day-ms)))))))
+
+(deftest window-pnl-grows-held-value-with-the-index-and-treats-transfers-as-cash-test
+  (let [t0 (* 4000 day-ms)
+        rows [[t0 0] [(+ t0 (* 10 day-ms)) 10.0] [(+ t0 (* 20 day-ms)) 21.0]]
+        series {:start-ms t0
+                :points [{:time-ms t0 :value 1000 :basis 1000}
+                         {:time-ms (+ t0 (* 10 day-ms)) :value 1100 :basis 1000}
+                         {:time-ms (+ t0 (* 10 day-ms)) :value 1600 :basis 1500}
+                         {:time-ms (+ t0 (* 20 day-ms)) :value 1760 :basis 1500}]}
+        window {:series series
+                :transfers [{:kind :deposit :time-ms t0 :amount 1000}
+                            {:kind :deposit :time-ms (+ t0 (* 10 day-ms)) :amount 500}]
+                :returns-candidates [rows]
+                :now-ms (+ t0 (* 20 day-ms))}]
+    (testing "a window inside the position: 1600 held grows 10%"
+      (let [{:keys [pnl pct]} (position/window-pnl window (+ t0 (* 10 day-ms)))]
+        (is (near? 160 pnl))
+        (is (near? 10 pct))))
+    (testing "a window spanning the top-up counts growth, not the deposit"
+      (let [{:keys [pnl pct]} (position/window-pnl window (+ t0 (* 5 day-ms)))]
+        (is (near? 210 pnl) "50 before the top-up + 160 after")
+        (is (near? (* 100 (/ 210 1550)) pct) "over 1050 held + 500 deposited")))
+    (testing "a window older than the position starts at the first deposit"
+      (is (near? 260 (:pnl (position/window-pnl window (- t0 (* 30 day-ms))))) "100 + 160"))))
+
+(deftest max-drawdown-since-measures-the-index-from-the-start-test
+  (let [rows [[0 0] [10 10.0] [20 -1.0] [30 5.0]]]
+    (is (near? -10 (position/max-drawdown-since [rows] 0)))
+    (is (near? (* 100 (- (/ 0.99 1.10) 1)) (position/max-drawdown-since [rows] 10)))
+    (is (nil? (position/max-drawdown-since [rows] -5)))))
