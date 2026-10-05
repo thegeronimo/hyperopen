@@ -89,3 +89,29 @@
     (is (some? nav-button))
     (is (nil? (panels/relationship-links {:relationship {:type :parent
                                                          :parent-address parent-address}})))))
+
+(deftest vault-performance-tab-uses-the-shared-performance-grid-test
+  (let [panel (panels/render-tab-panel {:selected-tab :vault-performance
+                                        :snapshot {:day 0.12 :week -0.5 :month 2.09 :all-time 37.1}
+                                        :metrics {:apr 22.9 :tvl 1000}
+                                        :vault-max-drawdown-pct -4.2
+                                        :followers 37
+                                        :leader-commission 10
+                                        :leader-fraction 5.3})
+        cell (fn [role] (set (hiccup/collect-strings
+                              (hiccup/find-first-node panel #(= role (get-in % [1 :data-role]))))))
+        week (hiccup/find-first-node panel #(= "vault-performance-week" (get-in % [1 :data-role])))]
+    (is (contains? (cell "vault-performance-day") "+0.12%"))
+    (is (some? (hiccup/find-first-node week #(contains? (hiccup/node-class-set %) "text-ho-sell"))))
+    (is (contains? (cell "vault-performance-apr") "22.9%"))
+    (is (contains? (cell "vault-performance-drawdown") "-4.20%"))
+    (is (contains? (cell "vault-performance-depositors") "37"))
+    (is (contains? (set (hiccup/collect-strings
+                         (panels/render-tab-panel {:selected-tab :vault-performance :followers 100})))
+                   "100+"))
+    (is (contains? (cell "vault-performance-commission") "10%"))
+    (is (some #(re-find #"leader owns 5\.3%" %) (hiccup/collect-strings panel))))
+  (is (contains? (set (hiccup/collect-strings
+                       (panels/render-tab-panel {:selected-tab :vault-performance
+                                                 :leader-commission 0})))
+                 "None")))

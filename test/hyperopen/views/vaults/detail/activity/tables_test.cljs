@@ -192,7 +192,10 @@
         strings (set (hiccup/collect-strings cell))]
     (is (= [[:actions/copy-spectate-mode-watchlist-address address]]
            (get-in button [1 :on :click])))
-    (is (= address (get-in button [1 :title])))
+    (is (nil? (get-in button [1 :title])) "no tooltip duplicating the visible address")
+    (is (= (str "Copy address " address) (get-in button [1 :aria-label])))
+    (is (empty? (hiccup/find-all-nodes cell #(contains? (hiccup/node-class-set %) "hidden")))
+        "visibility swap only, never display:none, so the column never resizes")
     (is (contains? strings "0x0183…3834"))
     (is (contains? strings address))
     (is (= "—" (last (tables/depositor-address-cell {:address nil}))))

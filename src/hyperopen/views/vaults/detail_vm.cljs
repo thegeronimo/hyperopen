@@ -157,6 +157,10 @@
                  :all-time-earned all-time-earned
                  :apr (detail-context/normalize-percent-value apr)}
        :position position
+       :vault-max-drawdown-pct (let [rows (position-model/returns-rows-from-summary
+                                           (performance-model/portfolio-summary-by-range details-base :all-time))]
+                                 (when (seq rows)
+                                   (position-model/max-drawdown-since [rows] (ffirst rows))))
        :vault-transfer vault-transfer
        :tabs [{:value :about
                :label "About"}

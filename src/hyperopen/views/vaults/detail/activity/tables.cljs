@@ -292,7 +292,9 @@
 (defn depositor-address-cell
   "Short address at rest; on hover or keyboard focus the full address and a
    copy icon replace it in place (a floating tooltip would be clipped by the
-   table's scroll box). Click copies the full address."
+   table's scroll box). Both forms share one grid cell and only swap
+   visibility, so the column is always sized for the full address and hovering
+   never reflows the table. Click copies the full address."
   [{:keys [address leader?]}]
   [:td {:class (into chrome/activity-cell-num-class ["whitespace-nowrap" "text-ho-text"])}
    (if address
@@ -300,16 +302,19 @@
                :class ["group/addr" "inline-flex" "items-center" "gap-1.5" "rounded" "text-left"
                        "hover:text-ho-accent-hi" "focus-visible:text-ho-accent-hi"
                        "focus-visible:outline-none" "focus-visible:ring-1" "focus-visible:ring-ho-accent"]
-               :title address
                :aria-label (str "Copy address " address)
                :data-role "vault-depositor-address"
                :on {:click [[:actions/copy-spectate-mode-watchlist-address address]]}}
       (when leader?
         [:span {:class ["rounded" "bg-ho-accent-soft" "px-1.5" "text-xs" "text-ho-accent-hi"]} "Leader"])
-      [:span {:class ["group-hover/addr:hidden" "group-focus-visible/addr:hidden"]}
-       (wallet/short-addr address)]
-      [:span {:class ["hidden" "group-hover/addr:inline" "group-focus-visible/addr:inline"]}
-       address]
+      [:span {:class ["grid"]}
+       [:span {:class ["col-start-1" "row-start-1"
+                       "group-hover/addr:invisible" "group-focus-visible/addr:invisible"]}
+        (wallet/short-addr address)]
+       [:span {:class ["invisible" "col-start-1" "row-start-1"
+                       "group-hover/addr:visible" "group-focus-visible/addr:visible"]
+               :aria-hidden true}
+        address]]
       [:span {:class ["opacity-0" "group-hover/addr:opacity-100" "group-focus-visible/addr:opacity-100"]}
        (copy-icon)]]
      "—")])

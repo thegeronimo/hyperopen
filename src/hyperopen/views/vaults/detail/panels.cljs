@@ -51,21 +51,6 @@
          parent-address]])
      (render-address-list component-addresses)]))
 
-(defn- render-vault-performance-panel [{:keys [snapshot]}]
-  [:div {:class ["grid" "grid-cols-2" "gap-3" "px-3" "pb-3" "pt-2" "text-sm"]}
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "24H"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]} (vf/format-percent (:day snapshot))]]
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "7D"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]} (vf/format-percent (:week snapshot))]]
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "30D"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]} (vf/format-percent (:month snapshot))]]
-   [:div
-    [:div {:class ["text-ho-text-muted"]} "All-time"]
-    [:div {:class ["num" "font-medium" "text-trading-text"]} (vf/format-percent (:all-time snapshot))]]])
-
 (defn- your-performance-row
   [label value]
   [:div
@@ -142,6 +127,50 @@
          (when (pos? transfer-count)
            (str " · " transfer-count (if (= 1 transfer-count) " transfer" " transfers")))
          " · period figures estimated from vault history")]])
+
+(defn- return-cell
+  [label value role]
+  (performance-cell {:label label
+                     :role role
+                     :value (vf/format-percent value)
+                     :tone (signed-tone value)}))
+
+(defn- render-vault-performance-panel
+  [{:keys [snapshot metrics vault-max-drawdown-pct followers leader-commission leader-fraction]}]
+  [:div {:class ["px-4" "pb-4" "pt-3" "text-sm"] :data-role "vault-performance-panel"}
+   [:div {:class ["grid" "grid-cols-2" "gap-x-3" "gap-y-3.5"]}
+    (return-cell "24H" (:day snapshot) "vault-performance-day")
+    (return-cell "7D" (:week snapshot) "vault-performance-week")
+    (return-cell "30D" (:month snapshot) "vault-performance-month")
+    (return-cell "All-time" (:all-time snapshot) "vault-performance-all-time")
+    (performance-cell {:label "APR"
+                       :role "vault-performance-apr"
+                       :value (vf/format-percent (:apr metrics) {:signed? false :decimals 1})})
+    (performance-cell {:label "Max drawdown"
+                       :role "vault-performance-drawdown"
+                       :value (vf/format-percent vault-max-drawdown-pct)
+                       :tone (signed-tone vault-max-drawdown-pct)
+                       :detail (when (number? vault-max-drawdown-pct) "all-time")})
+    (performance-cell {:label "Depositors"
+                       :role "vault-performance-depositors"
+                       :value (cond
+                                ;; Hyperliquid lists at most 100 followers.
+                                (and (number? followers) (>= followers 100)) "100+"
+                                (number? followers) (str followers)
+                                :else "—")})
+    (performance-cell {:label "Leader profit share"
+                       :role "vault-performance-commission"
+                       :value (cond
+                                (not (number? leader-commission)) "—"
+                                (zero? leader-commission) "None"
+                                :else (vf/format-percent leader-commission {:signed? false :decimals 0}))
+                       :detail (when (and (number? leader-commission) (pos? leader-commission))
+                                 "of depositor profits")})]
+   [:div {:class ["mt-3.5" "border-t" "border-ho-border-accent-muted" "pt-2.5" "text-xs" "text-ho-text-muted"]}
+    (str "TVL " (vf/format-currency (:tvl metrics))
+         (when (number? leader-fraction)
+           (str " · leader owns " (vf/format-percent leader-fraction {:signed? false :decimals 1})))
+         " · returns from vault history")]])
 
 (defn- render-your-performance-panel [{:keys [metrics position]}]
   (if (= :open (:status position))
