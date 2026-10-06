@@ -2,7 +2,6 @@
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
             [hyperopen.account.context :as account-context]
-            [hyperopen.api.default :as api-default]
             [hyperopen.api.endpoints.account :as account-endpoints]
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
@@ -12,6 +11,8 @@
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters.websocket :as ws-adapters]
             [hyperopen.runtime.state :as runtime-state]
+            [hyperopen.startup.collaborators.api-ops :as api-ops]
+            [hyperopen.startup.collaborators.vault-equities :as vault-equities]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
@@ -22,11 +23,6 @@
             [hyperopen.websocket.trades :as trades]
             [hyperopen.websocket.user :as user-ws]
             [hyperopen.websocket.webdata2 :as webdata2]))
-
-(defn- resolve-api-op
-  [api-instance key fallback]
-  (or (get api-instance key)
-      fallback))
 
 (defn- normalize-address
   [address]
@@ -53,23 +49,6 @@
     (when (requested-address-current? store requested-address)
       (apply swap! store apply-error-fn (concat leading-args [err])))
     (promise-effects/reject-error err)))
-
-(defn- resolve-api-ops
-  [api-instance]
-  {:get-request-stats (resolve-api-op api-instance :get-request-stats api-default/get-request-stats)
-   :request-frontend-open-orders! (resolve-api-op api-instance :request-frontend-open-orders! api-default/request-frontend-open-orders!)
-   :request-clearinghouse-state! (resolve-api-op api-instance :request-clearinghouse-state! api-default/request-clearinghouse-state!)
-   :request-user-fills! (resolve-api-op api-instance :request-user-fills! api-default/request-user-fills!)
-   :request-historical-orders! (resolve-api-op api-instance :request-historical-orders! api-default/request-historical-orders!)
-   :request-spot-clearinghouse-state! (resolve-api-op api-instance :request-spot-clearinghouse-state! api-default/request-spot-clearinghouse-state!)
-   :request-user-abstraction! (resolve-api-op api-instance :request-user-abstraction! api-default/request-user-abstraction!)
-   :request-portfolio! (resolve-api-op api-instance :request-portfolio! api-default/request-portfolio!)
-   :request-user-fees! (resolve-api-op api-instance :request-user-fees! api-default/request-user-fees!)
-   :request-staking-delegator-summary! (resolve-api-op api-instance :request-staking-delegator-summary! api-default/request-staking-delegator-summary!)
-   :request-user-non-funding-ledger-updates! (resolve-api-op api-instance :request-user-non-funding-ledger-updates! api-default/request-user-non-funding-ledger-updates!)
-   :ensure-perp-dexs-data! (resolve-api-op api-instance :ensure-perp-dexs-data! api-default/ensure-perp-dexs-data!)
-   :request-asset-contexts! (resolve-api-op api-instance :request-asset-contexts! api-default/request-asset-contexts!)
-   :request-asset-selector-markets! (resolve-api-op api-instance :request-asset-selector-markets! api-default/request-asset-selector-markets!)})
 
 (defn- fetch-frontend-open-orders!
   ([api-ops store address]
@@ -402,7 +381,7 @@
 
 (defn startup-base-deps
   [overrides]
-  (let [api-ops (resolve-api-ops (:api overrides))]
+  (let [api-ops (api-ops/resolve-api-ops (:api overrides))]
     (merge
      {:log-fn telemetry/log!
       :get-request-stats (:get-request-stats api-ops)
@@ -500,4 +479,5 @@
       :subscribe-user! user-ws/subscribe-user!
       :unsubscribe-user! user-ws/unsubscribe-user!
       :sync-perp-dex-clearinghouse-subscriptions! user-ws/sync-perp-dex-clearinghouse-subscriptions!}
+     (vault-equities/collaborators api-ops)
      (dissoc overrides :api))))

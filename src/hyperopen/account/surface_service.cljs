@@ -36,6 +36,17 @@
   (when (fn? f)
     (apply f args)))
 
+(defn- call-and-consume-rejection!
+  [f & args]
+  (when (fn? f)
+    (when-let [request (apply f args)]
+      (when (instance? js/Promise request)
+        (.catch request (fn [_] nil))))))
+
+(defn- unified-account?
+  [store]
+  (= :unified (get-in @store [:account :mode])))
+
 (defn- refresh-dex-open-orders?
   [open-orders-live? refresh-dex-open-orders-when-stream-live?]
   (or (not open-orders-live?)
@@ -131,6 +142,8 @@
            fetch-user-abstraction!
            fetch-portfolio!
            fetch-user-fees!
+           fetch-user-vault-equities!
+           start-user-vault-equity-poller!
            fetch-staking-delegator-summary!]}]
   (call-when-fn! fetch-spot-clearinghouse-state! store address {:priority :high})
   ;; The base-dex perp book has no webData2 stream anymore; hydrate it via
@@ -139,6 +152,9 @@
   (call-when-fn! fetch-user-abstraction! store address {:priority :high})
   (call-when-fn! fetch-portfolio! store address {:priority :high})
   (call-when-fn! fetch-user-fees! store address {:priority :high})
+  (when-not (unified-account? store)
+    (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
+    (call-when-fn! start-user-vault-equity-poller! store address))
   (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high}))
 
 (defn- bootstrap-open-orders-and-fills!
@@ -268,6 +284,7 @@
            refresh-default-clearinghouse!
            refresh-spot-clearinghouse!
            refresh-perp-dex-clearinghouse!
+           fetch-user-vault-equities!
            resolve-current-address
            refresh-spot?
            force-base-open-orders-refresh?
@@ -313,6 +330,8 @@
                        address
                        {:priority :high
                         :force-refresh? true}))
+      (when-not (unified-account? store)
+        (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high}))
       (when-not base-clearinghouse-live?
         (call-when-fn! refresh-default-clearinghouse! store address {:priority :high}))
       (when (fn? ensure-perp-dexs!)

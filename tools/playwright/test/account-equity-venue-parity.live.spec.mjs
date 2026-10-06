@@ -116,11 +116,12 @@ async function accountMode(request, address) {
 }
 
 async function snapshotVenue(request, address) {
-  const [perpDexs, [spotMeta, spotCtxs], spotState, base] = await Promise.all([
+  const [perpDexs, [spotMeta, spotCtxs], spotState, base, vaultEquities] = await Promise.all([
     info(request, { type: "perpDexs" }),
     info(request, { type: "spotMetaAndAssetCtxs" }),
     info(request, { type: "spotClearinghouseState", user: address }),
-    info(request, { type: "clearinghouseState", user: address })
+    info(request, { type: "clearinghouseState", user: address }),
+    info(request, { type: "userVaultEquities", user: address })
   ]);
 
   const dexNames = (perpDexs ?? []).map((dex) => dex?.name).filter(Boolean);
@@ -150,7 +151,10 @@ async function snapshotVenue(request, address) {
     return total + num(balance?.total) * price;
   }, 0);
 
-  return venueRows(perDex, spotUsd);
+  return {
+    ...venueRows(perDex, spotUsd),
+    vaults: (vaultEquities ?? []).reduce((total, row) => total + num(row?.equity), 0)
+  };
 }
 
 // Read the panel structurally rather than by scraping innerText: every metric
@@ -227,7 +231,16 @@ test.describe("classic account equity against the live venue", () => {
       near(money(rendered["Perps"]), rows.perps, drift, "Perps");
       near(money(rendered["Balance"]), rows.balance, drift, "Balance");
       near(money(rendered["Spot"]), rows.spot, drift, "Spot");
-      near(money(rendered["Account Value"]), rows.accountValue, drift, "Account Value");
+      near(money(rendered["Vaults"]), rows.vaults, 0, "Vaults");
+      // The venue's classic Account Value excludes owned vault deposits. The
+      // application preserves that two-part value behind the panel's Total
+      // Account Value, so subtracting rendered Vaults must match the venue.
+      near(
+        money(rendered["Total Account Value"]) - money(rendered["Vaults"]),
+        rows.accountValue,
+        drift,
+        "Total Account Value - Vaults = venue Spot + Perps"
+      );
       near(money(rendered["Maintenance Margin"]), rows.maintenance, drift, "Maintenance Margin");
       nearRatio(
         percent(rendered["Cross Margin Ratio"]),
@@ -250,10 +263,10 @@ test.describe("classic account equity against the live venue", () => {
         "Balance = Perps - Unrealized PNL"
       );
       near(
-        money(rendered["Account Value"]),
-        money(rendered["Spot"]) + money(rendered["Perps"]),
+        money(rendered["Total Account Value"]),
+        money(rendered["Spot"]) + money(rendered["Perps"]) + money(rendered["Vaults"]),
         0,
-        "Account Value = Spot + Perps"
+        "Total Account Value = Spot + Perps + Vaults"
       );
 
       // Whatever the live figures are, an account with an open book must never

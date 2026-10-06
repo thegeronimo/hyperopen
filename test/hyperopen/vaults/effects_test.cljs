@@ -661,39 +661,6 @@
                       (is false "Unexpected inflight vault summaries error")
                       (done))))))))
 
-(deftest api-fetch-user-vault-equities-allows-skip-route-override-test
-  (async done
-    (let [request-calls (atom [])
-          store (atom {:router {:path "/trade"}})]
-      (-> (effects/api-fetch-user-vault-equities!
-           {:store store
-            :address wallet-address
-            :request-user-vault-equities! (fn [address opts]
-                                            (swap! request-calls conj [address opts])
-                                            (js/Promise.resolve [{:vault-address vault-address
-                                                                  :equity-usd 42}]))
-            :begin-user-vault-equities-load (fn [state]
-                                              (assoc state :equities-loading? true))
-            :apply-user-vault-equities-success (fn [state rows]
-                                                 (assoc state :equities rows))
-            :apply-user-vault-equities-error (fn [state err]
-                                               (assoc state :equities-error err))
-            :opts {:skip-route-gate? true
-                   :priority :high}})
-          (.then (fn [rows]
-                   (is (= [{:vault-address vault-address
-                            :equity-usd 42}]
-                          rows))
-                   (is (= [[wallet-address {:priority :high}]]
-                          @request-calls))
-                   (is (= true (:equities-loading? @store)))
-                   (is (= rows (:equities @store)))
-                   (done)))
-          (.catch (fn [err]
-                    (js/console.error err)
-                    (is false "Unexpected vault equities error")
-                    (done)))))))
-
 (deftest api-fetch-vault-details-omits-user-address-and-allows-route-override-test
   (async done
     (let [request-calls (atom [])

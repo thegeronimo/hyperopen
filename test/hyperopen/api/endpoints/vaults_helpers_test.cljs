@@ -129,7 +129,7 @@
                                      :isClosed "true"
                                      :createTimeMillis "1700"})))
     (is (= {:vault-address "0xabc"
-            :equity 0
+            :equity nil
             :equity-raw nil
             :locked-until-ms 1700}
            (normalize-user-vault-equity {:vaultAddress "0xABC"

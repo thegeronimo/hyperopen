@@ -1,8 +1,8 @@
 (ns hyperopen.views.account-info.hyperevm-equity-invariance-test
-  "HyperEVM funds cannot margin a position, so they must never reach trading
-   equity. The Balances tab shows HyperEVM rows; the equity metrics, the
-   shared balance-row memo behind them and the Portfolio summary must read
-   exactly the same with and without them."
+  "HyperEVM funds cannot margin a position. The Balances tab shows HyperEVM
+   rows; the classic grouped Account Equity total includes their confirmed USD
+   value, while trading equity, the shared balance-row memo and the Portfolio
+   summary remain unchanged."
   (:require [cljs.test :refer-macros [deftest is use-fixtures]]
             [hyperopen.funding.test-support.hyperevm-transfer :as fixture]
             [hyperopen.hyperevm.domain.balances :as hyperevm-balances]
@@ -35,6 +35,10 @@
 (def ^:private with-evm
   (-> (fixture/state)
       (fixture/with-evm-entry whale-evm-entry)
+      (assoc :vaults {:user-equities []
+                      :user-equities-for-address fixture/owner
+                      :loading {:user-equities? false}
+                      :errors {:user-equities nil}})
       (assoc :portfolio-ui {:summary-scope :all :summary-time-range :month}
              :portfolio {:summary-by-key {:month {:pnlHistory [[1 10] [2 30]]
                                                   :accountValueHistory [[1 100] [2 100]]
@@ -60,7 +64,7 @@
     (is (< 1000000 (reduce + (keep #(when (hyperevm-row? %) (:usdc-value %)) rows)))
         "they carry a large USD value, so leaking them would move every figure")))
 
-(deftest trading-equity-metrics-are-unchanged-by-hyperevm-balances-test
+(deftest hyperevm-balances-change-only-the-classic-grouped-total-test
   (let [baseline (fresh account-equity-view/account-equity-metrics without-evm)
         _ (reset-caches!)
         ;; Render the Balances tab first, as the page does, so the HyperEVM
@@ -68,8 +72,26 @@
         _ (account-info-vm/account-info-vm with-evm)
         with-rows (account-equity-view/account-equity-metrics with-evm)]
     (is (some? (:spot-equity baseline)))
-    (is (= baseline with-rows))
-    (is (= baseline (fresh account-equity-view/account-equity-metrics with-evm)))))
+    (is (= (select-keys baseline [:spot-equity
+                                  :perps-value
+                                  :account-value-display
+                                  :base-balance
+                                  :maintenance-margin
+                                  :cross-margin-ratio
+                                  :cross-account-leverage])
+           (select-keys with-rows [:spot-equity
+                                   :perps-value
+                                   :account-value-display
+                                   :base-balance
+                                   :maintenance-margin
+                                   :cross-margin-ratio
+                                   :cross-account-leverage])))
+    (is (pos? (:hyperevm-equity with-rows)))
+    (is (= (+ (:account-value-display with-rows)
+              (:vault-equity with-rows 0)
+              (:hyperevm-equity with-rows))
+           (:total-account-value-display with-rows)))
+    (is (= with-rows (fresh account-equity-view/account-equity-metrics with-evm)))))
 
 (deftest the-shared-balance-row-memo-never-holds-hyperevm-rows-test
   (let [_ (account-info-vm/account-info-vm with-evm)

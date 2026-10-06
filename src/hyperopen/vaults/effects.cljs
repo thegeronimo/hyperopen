@@ -7,6 +7,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.vaults.application.transfer-state :as vault-transfer-state]
             [hyperopen.vaults.domain.identity :as vault-identity]
+            [hyperopen.vaults.effects.user-equities :as user-equities]
             [hyperopen.vaults.effects.viewer-ledger :as viewer-ledger-effects]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]))
 
@@ -387,25 +388,7 @@
                        apply-vault-summaries-error))))))
     (js/Promise.resolve nil)))
 
-(defn api-fetch-user-vault-equities!
-  [{:keys [store
-           address
-           request-user-vault-equities!
-           begin-user-vault-equities-load
-           apply-user-vault-equities-success
-           apply-user-vault-equities-error
-           opts]}]
-  (if (allow-route? store opts false)
-    (let [request-opts* (route-scoped-request-opts store opts false)]
-      (swap! store begin-user-vault-equities-load)
-      (-> (request-user-vault-equities! address request-opts*)
-          (.then (promise-effects/apply-success-and-return
-                  store
-                  apply-user-vault-equities-success))
-          (.catch (promise-effects/apply-error-and-reject
-                   store
-                   apply-user-vault-equities-error))))
-    (js/Promise.resolve nil)))
+(def api-fetch-user-vault-equities! (partial user-equities/api-fetch-user-vault-equities! allow-route? route-scoped-request-opts))
 
 (defn api-fetch-vault-details!
   [{:keys [store
@@ -600,6 +583,13 @@
   (swap! store update-vault-transfer-error error-text)
   (show-toast! store :error error-text))
 
+(defn- fetch-and-consume-rejection!
+  [fetch! & args]
+  (when (fn? fetch!)
+    (when-let [request (apply fetch! args)]
+      (when (instance? js/Promise request)
+        (.catch request (fn [_] nil))))))
+
 (defn- submit-mode-label
   [is-deposit?]
   (if is-deposit?
@@ -611,6 +601,7 @@
            request
            dispatch!
            submit-vault-transfer!
+           fetch-user-vault-equities!
            exchange-response-error
            runtime-error-message
            show-toast!
@@ -623,6 +614,7 @@
   (let [state @store
         spectate-mode-message (account-context/mutations-blocked-message state)
         address (get-in state [:wallet :address])
+        effective-address (account-context/effective-account-address state)
         agent-status (get-in state [:wallet :agent :status])
         vault-address (or (vault-identity/normalize-vault-address (:vault-address request))
                           (vault-identity/normalize-vault-address (get-in request [:action :vaultAddress])))
@@ -661,6 +653,13 @@
                                                                           [[:actions/load-vault-detail vault-address]])
                          (route-modules/dispatch-route-actions-after-load! store dispatch! "/vaults"
                                                                           [[:actions/load-vaults]]))
+                       (when (and (not= :unified (get-in @store [:account :mode]))
+                                  (user-equities/requested-account-active? store effective-address))
+                         (fetch-and-consume-rejection! fetch-user-vault-equities!
+                                                       store
+                                                       effective-address
+                                                       {:priority :high
+                                                        :force-refresh? true}))
                        resp)
                      (let [error-text (str/trim (str (exchange-response-error resp)))
                            message (str mode-label " failed: "

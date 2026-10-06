@@ -19,6 +19,10 @@
   [state]
   (account-equity/account-equity-metrics state))
 
+(defn ^:export account-equity-hyperevm-funds
+  [state]
+  (account-equity/account-equity-hyperevm-funds state))
+
 (defn ^:export hyperevm-line-model
   [state]
   (hyperevm-line/hyperevm-line-model state))
@@ -32,5 +36,6 @@
 (goog/exportSymbol "hyperopen.views.account_surfaces_module.account_info_view" account-info-view)
 (goog/exportSymbol "hyperopen.views.account_surfaces_module.account_equity_view" account-equity-view)
 (goog/exportSymbol "hyperopen.views.account_surfaces_module.account_equity_metrics" account-equity-metrics)
+(goog/exportSymbol "hyperopen.views.account_surfaces_module.account_equity_hyperevm_funds" account-equity-hyperevm-funds)
 (goog/exportSymbol "hyperopen.views.account_surfaces_module.hyperevm_line_model" hyperevm-line-model)
 (goog/exportSymbol "hyperopen.views.account_surfaces_module.funding_actions_view" funding-actions-view)

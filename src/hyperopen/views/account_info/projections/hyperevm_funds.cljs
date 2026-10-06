@@ -10,8 +10,9 @@
    (`hyperopen.hyperevm.panel-slice`), which drops the gas price the gas
    status needs.
 
-   HyperEVM funds cannot margin anything: nothing here feeds trading equity,
-   the shared balance-row memo, or the Portfolio summary's Total Equity.
+   HyperEVM funds cannot margin anything. They feed classic Account Equity's
+   presentation-only Total Account Value, never trading equity, the shared
+   balance-row memo, or the Portfolio summary's Total Equity.
 
    Unknown is never zero. Until the shown account's first HyperEVM read
    lands, when it failed, or while some token has never been answered (a

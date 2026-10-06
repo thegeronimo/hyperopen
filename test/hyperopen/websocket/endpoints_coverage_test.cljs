@@ -737,15 +737,13 @@
             {:vaultAddress "0xA1"
              :equity "120.5"
              :lockedUntilTimestamp "1700"})))
-    (is (= [{:vault-address "0xa1"
-             :equity 1
-             :equity-raw "1"
-             :locked-until-ms nil}]
-           (vaults-endpoints/normalize-user-vault-equities
-            [{:vaultAddress "0xA1"
-              :equity "1"}
-             {:vaultAddress " "
-              :equity "2"}])))))
+    ;; A malformed member cannot be silently discarded: doing so would report
+    ;; an undercounted vault balance as a confirmed value.
+    (is (nil? (vaults-endpoints/normalize-user-vault-equities
+               [{:vaultAddress "0xA1"
+                 :equity "1"}
+                {:vaultAddress " "
+                 :equity "2"}])))))
 
 (deftest ws-vaults-endpoints-request-coverage-smoke-test
   (async done

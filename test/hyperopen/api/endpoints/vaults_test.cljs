@@ -237,9 +237,7 @@
                       calls
                       [{:vaultAddress "0xA1"
                         :equity "120.5"
-                        :lockedUntilTimestamp "1700"}
-                       {:vaultAddress ""
-                        :equity "10"}])]
+                        :lockedUntilTimestamp "1700"}])]
       (-> (vaults/request-user-vault-equities! post-info! "0xAbC" {:priority :low})
           (.then (fn [rows]
                    (is (= {"type" "userVaultEquities"
@@ -256,6 +254,55 @@
                           rows))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest request-user-vault-equities-opt-in-replaces-the-cache-only-for-forced-refresh-test
+  (async done
+    (let [calls (atom [])
+          post-info! (api-stubs/post-info-stub calls [])]
+      (-> (vaults/request-user-vault-equities! post-info!
+                                                "0xAbC"
+                                                {:priority :high
+                                                 :force-refresh? true})
+          (.then (fn [_]
+                   (is (= [{"type" "userVaultEquities"
+                            "user" "0xabc"}
+                           {:priority :high
+                            :force-refresh? true
+                            :replace-response-cache-on-force? true
+                            :dedupe-key [:user-vault-equities "0xabc"]
+                            :cache-ttl-ms 5000}]
+                          (first @calls)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest user-vault-equity-normalization-preserves-invalid-raw-values-and-rejects-invalid-payload-shape-test
+  ;; An invalid response cannot become a successful empty vector: [] means a
+  ;; confirmed zero vault balance, while a malformed response means unknown.
+  (is (nil? (vaults/normalize-user-vault-equities {:unexpected "object"})))
+  (is (= [{:vault-address "0xa1"
+           :equity nil
+           :equity-raw "12bad"
+           :locked-until-ms nil}]
+         (vaults/normalize-user-vault-equities
+          [{:vaultAddress "0xA1" :equity "12bad"}])))
+  (is (= [{:vault-address "0xa1"
+           :equity nil
+           :equity-raw "  "
+           :locked-until-ms nil}]
+         (vaults/normalize-user-vault-equities
+          [{:vaultAddress "0xA1" :equity "  "}]))))
+
+(deftest user-vault-equity-normalization-does-not-confirm-an-incomplete-member-as-zero-test
+  ;; A raw [] response is the only confirmed zero. Dropping malformed members
+  ;; would turn both a malformed response and an undercounted mixed response
+  ;; into a trusted vault total.
+  (is (= [] (vaults/normalize-user-vault-equities [])))
+  (doseq [payload [[nil]
+                   [{}]
+                   [{:vaultAddress " "}]
+                   [{:vaultAddress "0xA1" :equity "2"} nil]]]
+    (is (nil? (vaults/normalize-user-vault-equities payload))
+        (pr-str payload))))
 
 (deftest request-vault-details-builds-body-and-normalizes-portfolio-tuples-test
   (async done

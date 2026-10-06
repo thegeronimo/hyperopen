@@ -527,6 +527,7 @@
             [hyperopen.staking.effects-test]
             [hyperopen.staking.unstake-actions-regression-test]
             [hyperopen.staking.unstaking-test]
+            [hyperopen.startup.account-equity-vaults-test]
             [hyperopen.startup.account-lifecycle-test]
             [hyperopen.startup.collaborators-test]
             [hyperopen.startup.deferred-bootstrap-outcome-cache-test]
@@ -608,14 +609,18 @@
             [hyperopen.vaults.effects-preview-scope-test]
             [hyperopen.vaults.effects-test]
             [hyperopen.vaults.effects.viewer-ledger-test]
+            [hyperopen.vaults.equity-effects-test]
             [hyperopen.vaults.infrastructure.list-cache-test]
             [hyperopen.vaults.infrastructure.persistence-test]
             [hyperopen.vaults.infrastructure.preview-cache-test]
             [hyperopen.vaults.infrastructure.routes-test]
+            [hyperopen.vaults.infrastructure.user-equity-poller-test]
             [hyperopen.vaults.route-runtime-module-test]
             [hyperopen.views.account-equity-aggregate-test]
+            [hyperopen.views.account-equity-hyperevm-total-test]
             [hyperopen.views.account-equity-parity-test]
             [hyperopen.views.account-equity-unified-metrics-test]
+            [hyperopen.views.account-equity-vaults-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
             [hyperopen.views.account-equity.hyperevm-line-test]
@@ -806,6 +811,7 @@
             [hyperopen.views.staking-unstaking-block-test]
             [hyperopen.views.staking-view-test]
             [hyperopen.views.subaccounts-view-test]
+            [hyperopen.views.trade-view.account-equity-slice-test]
             [hyperopen.views.trade-view.hyperevm-funds-cost-test]
             [hyperopen.views.trade-view.hyperevm-line-repaint-test]
             [hyperopen.views.trade-view.hyperevm-slice-repaint-test]
@@ -1504,6 +1510,7 @@
              'hyperopen.staking.effects-test
              'hyperopen.staking.unstake-actions-regression-test
              'hyperopen.staking.unstaking-test
+             'hyperopen.startup.account-equity-vaults-test
              'hyperopen.startup.account-lifecycle-test
              'hyperopen.startup.collaborators-test
              'hyperopen.startup.deferred-bootstrap-outcome-cache-test
@@ -1585,14 +1592,18 @@
              'hyperopen.vaults.effects-preview-scope-test
              'hyperopen.vaults.effects-test
              'hyperopen.vaults.effects.viewer-ledger-test
+             'hyperopen.vaults.equity-effects-test
              'hyperopen.vaults.infrastructure.list-cache-test
              'hyperopen.vaults.infrastructure.persistence-test
              'hyperopen.vaults.infrastructure.preview-cache-test
              'hyperopen.vaults.infrastructure.routes-test
+             'hyperopen.vaults.infrastructure.user-equity-poller-test
              'hyperopen.vaults.route-runtime-module-test
              'hyperopen.views.account-equity-aggregate-test
+             'hyperopen.views.account-equity-hyperevm-total-test
              'hyperopen.views.account-equity-parity-test
              'hyperopen.views.account-equity-unified-metrics-test
+             'hyperopen.views.account-equity-vaults-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
              'hyperopen.views.account-equity.hyperevm-line-test
@@ -1783,6 +1794,7 @@
              'hyperopen.views.staking-unstaking-block-test
              'hyperopen.views.staking-view-test
              'hyperopen.views.subaccounts-view-test
+             'hyperopen.views.trade-view.account-equity-slice-test
              'hyperopen.views.trade-view.hyperevm-funds-cost-test
              'hyperopen.views.trade-view.hyperevm-line-repaint-test
              'hyperopen.views.trade-view.hyperevm-slice-repaint-test

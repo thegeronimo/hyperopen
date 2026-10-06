@@ -282,3 +282,32 @@
       (is (= store (:store custom-deps)))
       (is (= request (:request custom-deps)))
       (is (identical? custom-show-toast! (:show-toast! custom-deps)))))))
+
+(deftest vault-submit-adapter-refreshes-vault-equity-through-the-route-override-seam-test
+  (let [store (atom {})
+        request {:vault-address "0xvault"}
+        submit-deps (atom nil)
+        refresh-calls (atom [])]
+    (with-redefs [vault-effects/api-submit-vault-transfer!
+                  (fn [deps]
+                    (reset! submit-deps deps)
+                    :submit-result)
+                  vault-effects/api-fetch-user-vault-equities!
+                  (fn [deps]
+                    (swap! refresh-calls conj deps)
+                    :refresh-result)]
+      (is (= :submit-result
+             (vault-adapters/api-submit-vault-transfer-effect nil store request)))
+      (is (fn? (:fetch-user-vault-equities! @submit-deps)))
+      (is (= :refresh-result
+             ((:fetch-user-vault-equities! @submit-deps)
+              store
+              "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              {:priority :high}))))
+    (is (= [[nil
+             store
+             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+             {:priority :high :skip-route-gate? true}]]
+           (mapv (fn [{:keys [store address opts]}]
+                   [nil store address opts])
+                 @refresh-calls)))))

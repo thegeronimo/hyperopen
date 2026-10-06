@@ -208,12 +208,12 @@
                                 #(contains? (direct-texts %)
                                             "Unified Account Leverage = Total Cross Positions Value / Total Collateral Balance. Isolated positions are excluded: each carries its own margin and liquidates on its own."))))))
 
-(deftest classic-account-equity-renders-classic-account-value-label-test
+(deftest classic-account-equity-renders-total-account-value-label-test
   (let [view-node (view/account-equity-view {:account {:mode :classic}
                                              :webdata2 {}
                                              :spot {}
                                              :perp-dex-clearinghouse {}})]
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Account Value"))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Total Account Value"))))
     (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Portfolio Value"))))))
 
 (deftest account-equity-view-can-hide-inline-funding-actions-test
@@ -254,7 +254,7 @@
     (is (nil? (:base-balance metrics)))
     (is (= "--" (get-in metrics [:pnl-info :text])))
     (is (contains? strings "Account Equity"))
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Account Value"))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Total Account Value"))))
     (is (>= (count (filter #(= "--" %) (collect-strings view-node))) 4))))
 
 (deftest funding-actions-view-exposes-anchor-aware-funding-actions-test

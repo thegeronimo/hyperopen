@@ -3,16 +3,17 @@
    account holds on HyperEVM, with a Move link that opens Transfer preset to
    HyperEVM -> Spot.
 
-   HyperEVM funds cannot margin a position, so the line sits beside the
-   Spot and Perps rows but is never part of Account Value or any other
-   trading figure; the chip says so in words.
+   HyperEVM funds cannot margin a position. They contribute to the classic
+   Total Account Value, while this separate line makes their non-marginable
+   status and Move action clear.
 
    The /trade view precomputes the model from the full app state
    (`hyperevm-line-model`, exported by the account-surfaces module) and
-   passes it in the panel's opts: the panel itself renders from a memoized
-   slice that has no identity, wallet or HyperEVM keys. The model holds only
-   what the line shows, so a balance poll that changes nothing compares
-   equal and the memoized panel does not repaint.
+   passes it in the panel's opts. The panel itself renders from a memoized
+   reduced slice that carries only the grouped total's HyperEVM summary, not
+   raw holdings or gas inputs. The model holds only what the line shows, so
+   a balance poll that changes nothing compares equal and the memoized panel
+   does not repaint.
 
    The slot is always rendered and hidden by class while there is nothing
    to show: no complete read yet, or nothing on HyperEVM that is either
@@ -111,6 +112,7 @@
    "border-0"
    "bg-transparent"
    "p-0"
+   "min-h-6"
    "text-sm"
    "font-medium"
    "leading-none"
