@@ -61,14 +61,17 @@
     :apply-vault-summaries-error api-projections/apply-vault-summaries-error}))
 
 (defn api-fetch-user-vault-equities-effect
-  [_ store address]
-  (vault-effects/api-fetch-user-vault-equities!
-   {:store store
-    :address address
-    :request-user-vault-equities! api/request-user-vault-equities!
-    :begin-user-vault-equities-load api-projections/begin-user-vault-equities-load
-    :apply-user-vault-equities-success api-projections/apply-user-vault-equities-success
-    :apply-user-vault-equities-error api-projections/apply-user-vault-equities-error}))
+  ([_ store address]
+   (api-fetch-user-vault-equities-effect nil store address {}))
+  ([_ store address opts]
+   (vault-effects/api-fetch-user-vault-equities!
+    {:store store
+     :address address
+     :request-user-vault-equities! api/request-user-vault-equities!
+     :begin-user-vault-equities-load api-projections/begin-user-vault-equities-load
+     :apply-user-vault-equities-success api-projections/apply-user-vault-equities-success
+     :apply-user-vault-equities-error api-projections/apply-user-vault-equities-error
+     :opts opts})))
 
 (defn api-fetch-vault-details-effect
   [_ store vault-address user-address]
@@ -154,6 +157,12 @@
     {:store store
      :request request
      :dispatch! nxr/dispatch
+     :fetch-user-vault-equities! (fn [store* address opts]
+                                   (api-fetch-user-vault-equities-effect
+                                    nil
+                                    store*
+                                    address
+                                    (assoc (or opts {}) :skip-route-gate? true)))
      :exchange-response-error common/exchange-response-error
      :runtime-error-message common/runtime-error-message
      :show-toast! show-toast!})))

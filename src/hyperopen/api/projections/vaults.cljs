@@ -1,6 +1,8 @@
 (ns hyperopen.api.projections.vaults
   (:require [clojure.string :as str]
-            [hyperopen.api.errors :as api-errors]))
+            [hyperopen.account.context :as account-context]
+            [hyperopen.api.errors :as api-errors]
+            [hyperopen.api.projections.vaults.user-equities :as user-equities]))
 
 (defn- normalized-error
   [err]
@@ -178,34 +180,9 @@
                      (assoc-in [:vaults :errors :summaries] message))]
       (assoc-in state* [:vaults-ui :list-loading?] (vault-list-loading? state*)))))
 
-(defn begin-user-vault-equities-load
-  [state]
-  (-> state
-      (assoc-in [:vaults :loading :user-equities?] true)
-      (assoc-in [:vaults :errors :user-equities] nil)))
-
-(defn apply-user-vault-equities-success
-  [state rows]
-  (let [rows* (if (sequential? rows) (vec rows) [])
-        by-address (reduce (fn [acc row]
-                             (if-let [address (normalize-vault-address (:vault-address row))]
-                               (assoc acc address row)
-                               acc))
-                           {}
-                           rows*)]
-    (-> state
-        (assoc-in [:vaults :user-equities] rows*)
-        (assoc-in [:vaults :user-equity-by-address] by-address)
-        (assoc-in [:vaults :loading :user-equities?] false)
-        (assoc-in [:vaults :errors :user-equities] nil)
-        (assoc-in [:vaults :loaded-at-ms :user-equities] (.now js/Date)))))
-
-(defn apply-user-vault-equities-error
-  [state err]
-  (let [{:keys [message]} (normalized-error err)]
-    (-> state
-        (assoc-in [:vaults :loading :user-equities?] false)
-        (assoc-in [:vaults :errors :user-equities] message))))
+(def begin-user-vault-equities-load user-equities/begin-load)
+(def apply-user-vault-equities-success user-equities/apply-success)
+(def apply-user-vault-equities-error user-equities/apply-error)
 
 (def ^:private user-scoped-vault-detail-keys
   #{:follower-state

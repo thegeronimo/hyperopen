@@ -4,34 +4,47 @@
             [hyperopen.api.endpoints.vaults.snapshots :as snapshots]
             [hyperopen.api.request-policy :as request-policy]))
 
+(defn- parse-user-vault-equity
+  [value]
+  (when (or (not (string? value))
+            (common/non-blank-text value))
+    (common/parse-optional-num value)))
+
 (defn normalize-user-vault-equity
   [row]
   (when (map? row)
     (when-let [vault-address (common/normalize-address (:vaultAddress row))]
       {:vault-address vault-address
-       :equity (or (common/parse-optional-num (:equity row)) 0)
+       :equity (parse-user-vault-equity (:equity row))
        :equity-raw (:equity row)
        :locked-until-ms (common/parse-optional-int (:lockedUntilTimestamp row))})))
 
 (defn normalize-user-vault-equities
   [payload]
   (if (sequential? payload)
-    (->> payload
-         (keep normalize-user-vault-equity)
-         vec)
-    []))
+    (reduce (fn [rows row]
+              (if-let [normalized-row (normalize-user-vault-equity row)]
+                (conj rows normalized-row)
+                (reduced nil)))
+            []
+            payload)
+    nil))
 
 (defn request-user-vault-equities!
   [post-info! address opts]
   (if-let [requested-address (common/normalize-address address)]
-    (-> (post-info! {"type" "userVaultEquities"
-                     "user" requested-address}
-                    (request-policy/apply-info-request-policy
-                     :user-vault-equities
-                     (merge {:priority :high
-                             :dedupe-key [:user-vault-equities requested-address]}
-                            opts)))
-        (.then normalize-user-vault-equities))
+    (let [request-opts (cond->
+                         (request-policy/apply-info-request-policy
+                          :user-vault-equities
+                          (merge {:priority :high
+                                  :dedupe-key [:user-vault-equities requested-address]}
+                                 opts))
+                         (true? (:force-refresh? opts))
+                         (assoc :replace-response-cache-on-force? true))]
+      (-> (post-info! {"type" "userVaultEquities"
+                       "user" requested-address}
+                      request-opts)
+          (.then normalize-user-vault-equities)))
     (js/Promise.resolve [])))
 
 (defn normalize-follower-state

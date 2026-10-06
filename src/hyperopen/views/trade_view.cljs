@@ -52,8 +52,12 @@
 
 (def ^:private account-equity-view-state-keys
   [:account
+   :account-context
    :perp-dex-clearinghouse
+   :router
    :spot
+   :vaults
+   :wallet
    :webdata2])
 
 (def ^:private order-form-view-state-keys
@@ -130,11 +134,6 @@
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
-(defn- account-equity-view-state
-  [state]
-  (merge (select-view-state state account-equity-view-state-keys)
-         (asset-selector-market-lookup-state state)))
-
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
@@ -143,6 +142,18 @@
 (defn- account-surface-export
   [export-id]
   (surface-modules/resolved-surface-export :account-surfaces export-id))
+
+(defn- account-equity-view-state
+  [state]
+  ;; Account Equity needs the HyperEVM value, but raw `:hyperevm` changes on
+  ;; every balance poll even when value, account and pricing did not. The lazy
+  ;; account-surfaces export returns only the ownership and truth fields the
+  ;; total uses, so equal summaries preserve this panel's render cache.
+  (assoc (merge (select-view-state state account-equity-view-state-keys)
+                (asset-selector-market-lookup-state state))
+         :account-equity/hyperevm-funds
+         (when-let [funds-fn (account-surface-export :account-equity-hyperevm-funds)]
+           (funds-fn state))))
 
 (def ^:private memoized-active-asset-view
   (memoize-last (fn [render-fn state]
@@ -247,9 +258,9 @@
 
 (defn- hyperevm-line-model
   "The Account Equity panel's HyperEVM line, computed from the FULL state:
-   the panel's own slice has no identity, wallet or HyperEVM keys (and the
-   Balances slice drops the gas price). The model holds only what the line
-   shows, so it compares equal across polls that change nothing and the
+   the panel's reduced slice carries only the grouped total's HyperEVM
+   summary, never raw holdings or gas inputs. The model holds only what the
+   line shows, so it compares equal across polls that change nothing and the
    memoized panel does not repaint."
   [state]
   (when-let [model-fn (account-surface-export :hyperevm-line-model)]

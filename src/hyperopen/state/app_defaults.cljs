@@ -245,6 +245,10 @@
    :startup-preview nil
    :user-equities []
    :user-equity-by-address {}
+   :user-equities-for-address nil
+   :user-equities-error-for-address nil
+   :user-equities-request-id nil
+   :user-equities-request-sequence 0
    :details-by-address {}
    :benchmark-details-by-address {}
    :viewer-details-by-address {}
@@ -257,6 +261,7 @@
    :loading {:index? false
              :summaries? false
              :user-equities? false
+             :user-equities-for-address nil
              :details-by-address {}
              :benchmark-details-by-address {}
              :webdata-by-vault {}

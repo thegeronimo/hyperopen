@@ -2,7 +2,8 @@
   (:require [hyperopen.views.account-equity.format :refer [display-currency
                                                             display-leverage
                                                             display-percent
-                                                            metric-row]]
+                                                            metric-row
+                                                            tooltip]]
             [hyperopen.views.account-equity.funding-actions :refer [funding-actions-section
                                                                      funding-actions-view]]
             [hyperopen.views.account-equity.hyperevm-line :refer [hyperevm-line]]
@@ -71,9 +72,23 @@
        (str "Excludes " (display-currency isolated-notional) " isolated")
        "")]))
 
+(defn- classic-total-row
+  [value]
+  [:div {:class ["flex" "items-center" "justify-between" "text-sm"]}
+   (tooltip
+    [:span.text-sm.font-semibold.text-trading-text "Total Account Value"]
+    "Total value across Spot, Perps, Vaults, and HyperEVM. HyperEVM balances are not margin.")
+   [:span {:class ["num" "text-sm" "font-semibold"
+                  (if (= value "--")
+                    "text-trading-text-secondary"
+                    "text-trading-text")]}
+    value]])
+
 (defn- classic-account-equity-view [{:keys [spot-equity
                                             perps-value
                                             account-value-display
+                                            vault-equity
+                                            total-account-value-display
                                             base-balance
                                             maintenance-margin
                                             cross-margin-ratio
@@ -83,7 +98,7 @@
                                             show-funding-actions?
                                             hyperevm-line-model
                                             state]}]
-  [:div {:class (into ["bg-base-100" "rounded-none" "spectate-none" "p-3" "space-y-4" "w-full"]
+  [:div {:class (into ["bg-base-100" "rounded-none" "spectate-none" "px-3" "pt-2" "pb-3" "space-y-0.5" "w-full"]
                       (when fill-height?
                         ["h-full"]))
          :data-parity-id "account-equity"}
@@ -91,14 +106,16 @@
    (when show-funding-actions?
      (funding-actions-view state))
 
-   [:div.space-y-2
-    (metric-row "Account Value" (display-currency account-value-display)
-                :tooltip "Total classic account value (Spot + Perps).")
+   [:div {:class ["space-y-0.5" "pt-1.5"]}
+    (classic-total-row (display-currency total-account-value-display))
+    [:div {:class ["border-t" "border-base-300"]
+           :data-role "account-equity-total-divider"}]
     (metric-row "Spot" (display-currency spot-equity))
     (metric-row "Perps" (display-currency perps-value)
                 :tooltip "Balance + Unrealized PNL (approximate account value if all positions were closed)")
-    ;; Beside Spot and Perps, never part of Account Value: HyperEVM funds
-    ;; cannot margin a position.
+    (metric-row "Vaults" (display-currency vault-equity))
+    ;; HyperEVM is included in the grouped total but remains separate here:
+    ;; it cannot margin a position, and this row keeps its Move action.
     (hyperevm-line hyperevm-line-model)]
 
    [:div.border-t.border-base-300.pt-3.space-y-2

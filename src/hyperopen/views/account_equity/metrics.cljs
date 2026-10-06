@@ -7,13 +7,15 @@
    and aggregation live in `hyperopen.views.account-equity.pricing`; the
    unified-only figures live in `hyperopen.views.account-equity.unified`."
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.views.account-equity.format :refer [parse-num pnl-display safe-div]]
             [hyperopen.views.account-equity.pricing :as pricing
              :refer [aggregate-clearinghouse-usd balance-rows-by-token
                      clearinghouse-state-records sum-when-present]]
             [hyperopen.views.account-equity.unified :as unified]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
-            [hyperopen.views.account-info.projections :as account-projections]))
+            [hyperopen.views.account-info.projections :as account-projections]
+            [hyperopen.views.account-info.projections.hyperevm-funds :as hyperevm-funds]))
 
 (defonce ^:private account-equity-metrics-cache
   (atom nil))
@@ -41,7 +43,79 @@
   [row]
   (boolean (some-> (:key row) (str/starts-with? "perps-usdc"))))
 
-(defn- derive-account-equity-metrics [state]
+(defn- parse-finite-number
+  [value]
+  (cond
+    (number? value)
+    (when (js/isFinite value)
+      value)
+
+    (string? value)
+    (let [trimmed (str/trim value)]
+      (when (seq trimmed)
+        (let [parsed (js/Number trimmed)]
+          (when (js/isFinite parsed)
+            parsed))))
+
+    :else
+    nil))
+
+(defn- current-vault-equity
+  [state]
+  (let [effective-address (account-context/effective-account-address state)
+        rows (get-in state [:vaults :user-equities])
+        source-address (get-in state [:vaults :user-equities-for-address])
+        error-address (get-in state [:vaults :user-equities-error-for-address])]
+    (when (and effective-address
+               (= effective-address source-address)
+               (not= effective-address error-address)
+               (vector? rows))
+      (let [equities (mapv (fn [row]
+                             (when (map? row)
+                               (parse-finite-number (:equity-raw row))))
+                           rows)]
+        (when (every? some? equities)
+          (reduce + 0 equities))))))
+
+(def ^:private hyperevm-funds-summary-key
+  :account-equity/hyperevm-funds)
+
+(def ^:private hyperevm-funds-summary-keys
+  [:status :address :usd :unpriced-count])
+
+(defn account-equity-hyperevm-funds
+  "The value-level HyperEVM summary consumed by classic Account Equity.
+
+   The /trade shell asks this through its lazy account-surfaces export, then
+   retains the result rather than raw `:hyperevm` state in its memoized panel
+   slice."
+  [state]
+  (select-keys (hyperevm-funds/hyperevm-funds state)
+               hyperevm-funds-summary-keys))
+
+(defn- account-equity-hyperevm-funds-summary
+  [state]
+  ;; A present key belongs to the reduced /trade slice. In particular, nil
+  ;; means the lazy export has not supplied a full-state summary yet; deriving
+  ;; from that incomplete slice would invent a second source of truth.
+  (if (contains? state hyperevm-funds-summary-key)
+    (get state hyperevm-funds-summary-key)
+    (account-equity-hyperevm-funds state)))
+
+(defn- current-hyperevm-equity
+  [state funds]
+  (let [effective-address (account-context/effective-account-address state)
+        usd (parse-finite-number (:usd funds))
+        unpriced-count (:unpriced-count funds)]
+    (when (and effective-address
+               (= effective-address (:address funds))
+               (= :ready (:status funds))
+               (some? usd)
+               (number? unpriced-count)
+               (zero? unpriced-count))
+      usd)))
+
+(defn- derive-account-equity-metrics [state hyperevm-funds-summary]
   (let [webdata2 (:webdata2 state)
         market-by-key (get-in state [:asset-selector :market-by-key] {})
         balance-rows (derived-cache/memoized-balance-rows webdata2 (:spot state) (:account state) market-by-key (:perp-dex-clearinghouse state))
@@ -84,22 +158,40 @@
         base-balance (when (and (number? perps-value)
                                 (number? unrealized-pnl))
                        (- perps-value unrealized-pnl))
+        unified? (unified-account? state)
         spot-values (keep (fn [row]
                             (when-not (perps-balance-row? row)
                               (parse-num (:usdc-value row))))
                           balance-rows)
-        spot-equity (when (seq spot-values) (reduce + spot-values))
+        ;; Retain the existing public metric whenever spot rows are unavailable.
+        ;; Only a classic account's confirmed empty balance snapshot is zero for
+        ;; the new four-part total; Unified keeps its existing fallback.
+        spot-equity-from-rows (when (seq spot-values)
+                                (reduce + spot-values))
+        spot-equity (or spot-equity-from-rows
+                        (when (and (not unified?)
+                                   (sequential? (get-in state [:spot :clearinghouse-state :balances]))
+                                   (empty? (get-in state [:spot :clearinghouse-state :balances])))
+                          0))
         portfolio-value (account-projections/portfolio-usdc-value balance-rows)
         cross-margin-ratio (safe-div maintenance-margin cross-account-value)
         cross-account-leverage (safe-div cross-total-ntl-pos cross-account-value)
-        unified? (unified-account? state)
-        ;; The classic panel adds an Account Value row the venue does not have,
-        ;; which carries the obligation to equal the two rows beneath it. Summing
-        ;; the balance rows instead would double-count a named dex's equity and
+        ;; The existing classic Account Value presentation remains Spot + Perps.
+        ;; Summing balance rows instead would double-count named-dex equity and
         ;; add its collateral token to a USD total unconverted.
         account-value-display (if unified?
                                 (derive-account-value-display portfolio-value spot-equity perps-value)
-                                (sum-when-present [spot-equity perps-value]))
+                                (sum-when-present [spot-equity-from-rows perps-value]))
+        vault-equity (when-not unified?
+                       (current-vault-equity state))
+        hyperevm-equity (when-not unified?
+                          (current-hyperevm-equity state hyperevm-funds-summary))
+        total-account-value-display (when (and (not unified?)
+                                               (number? spot-equity)
+                                               (number? perps-value)
+                                               (number? vault-equity)
+                                               (number? hyperevm-equity))
+                                      (+ spot-equity perps-value vault-equity hyperevm-equity))
         ;; What the cross-only leverage and maintenance figures leave out. The
         ;; panel prints it beside them so an all-isolated book cannot render a
         ;; bare 0.00x that reads as "no exposure".
@@ -132,6 +224,9 @@
      :cross-account-value cross-account-value
      :portfolio-value portfolio-value
      :account-value-display account-value-display
+     :vault-equity vault-equity
+     :hyperevm-equity hyperevm-equity
+     :total-account-value-display total-account-value-display
      :pnl-info pnl-info}))
 
 (defn- memoized-account-equity-metrics
@@ -139,6 +234,9 @@
   (let [webdata2 (:webdata2 state)
         spot-data (:spot state)
         account (:account state)
+        vaults (:vaults state)
+        effective-address (account-context/effective-account-address state)
+        hyperevm-funds-summary (account-equity-hyperevm-funds-summary state)
         perp-dex-states (:perp-dex-clearinghouse state)
         market-by-key (get-in state [:asset-selector :market-by-key])
         cache @account-equity-metrics-cache
@@ -146,14 +244,20 @@
                         (identical? webdata2 (:webdata2 cache))
                         (identical? spot-data (:spot-data cache))
                         (identical? account (:account cache))
+                        (identical? vaults (:vaults cache))
+                        (= effective-address (:effective-address cache))
+                        (= hyperevm-funds-summary (:hyperevm-funds-summary cache))
                         (identical? perp-dex-states (:perp-dex-states cache))
                         (identical? market-by-key (:market-by-key cache)))]
     (if cache-hit?
       (:result cache)
-      (let [result (derive-account-equity-metrics state)]
+      (let [result (derive-account-equity-metrics state hyperevm-funds-summary)]
         (reset! account-equity-metrics-cache {:webdata2 webdata2
                                               :spot-data spot-data
                                               :account account
+                                              :vaults vaults
+                                              :effective-address effective-address
+                                              :hyperevm-funds-summary hyperevm-funds-summary
                                               :perp-dex-states perp-dex-states
                                               :market-by-key market-by-key
                                               :result result})

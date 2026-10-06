@@ -16,20 +16,31 @@
         flight-key (or dedupe-key cache-key)
         cache-ttl-ms (request-policy/normalize-ttl-ms (:cache-ttl-ms opts*))
         force-refresh? (true? (:force-refresh? opts*))
+        replace-response-cache-on-force? (true? (:replace-response-cache-on-force? opts*))
         request-source (or (:request-source opts*)
                            flight-key)
         request-opts (cond-> (dissoc opts*
                                     :dedupe-key
                                     :cache-key
                                     :cache-ttl-ms
-                                    :force-refresh?)
+                                    :force-refresh?
+                                    :replace-response-cache-on-force?)
                        (some? request-source)
                        (assoc :request-source request-source))]
     {:request-opts request-opts
      :cache-key cache-key
      :cache-ttl-ms cache-ttl-ms
      :force-refresh? force-refresh?
+     :replace-response-cache-on-force? replace-response-cache-on-force?
      :flight-key flight-key}))
+
+(defn- cache-generation
+  [entry]
+  (or (:generation entry) 0))
+
+(defn- cache-generation-marker
+  [entry]
+  {:generation (cache-generation entry)})
 
 (defn cached-response-result
   [cache now-ms cache-key]
@@ -43,7 +54,9 @@
        :value (:value entry)}
 
       (some? entry)
-      {:cache (dissoc cache cache-key)}
+      {:cache (if (map? entry)
+                (assoc cache cache-key (cache-generation-marker entry))
+                (dissoc cache cache-key))}
 
       :else
       {:cache cache})))
@@ -62,14 +75,39 @@
       @cached-value)))
 
 (defn write-cached-response!
-  [response-cache now-ms-fn cache-key cache-ttl-ms value]
-  (when (and cache-key
-             (number? cache-ttl-ms)
-             (pos? cache-ttl-ms))
-    (swap! response-cache assoc
-           cache-key
-           {:value value
-            :expires-at-ms (+ (now-ms-fn) cache-ttl-ms)})))
+  ([response-cache now-ms-fn cache-key cache-ttl-ms value]
+   (write-cached-response! response-cache
+                           now-ms-fn
+                           cache-key
+                           cache-ttl-ms
+                           value
+                           nil))
+  ([response-cache now-ms-fn cache-key cache-ttl-ms value expected-generation]
+   (when (and cache-key
+              (number? cache-ttl-ms)
+              (pos? cache-ttl-ms))
+     (swap! response-cache
+            (fn [cache]
+              (let [entry (get cache cache-key)
+                    generation (cache-generation entry)]
+                (if (or (nil? expected-generation)
+                        (= expected-generation generation))
+                  (assoc cache
+                         cache-key
+                         {:value value
+                          :expires-at-ms (+ (now-ms-fn) cache-ttl-ms)
+                          :generation generation})
+                  cache)))))))
+
+(defn- advance-cache-generation!
+  [response-cache cache-key]
+  (let [next-generation (atom nil)]
+    (swap! response-cache
+           (fn [cache]
+             (let [generation (inc (cache-generation (get cache cache-key)))]
+               (reset! next-generation generation)
+               (assoc cache cache-key {:generation generation}))))
+    @next-generation))
 
 (defn retryable-status?
   [status]
@@ -156,6 +194,25 @@
         (reset! tracked-ref tracked)
         (swap! single-flight-promises assoc dedupe-key tracked)
         tracked))))
+
+(defn- replace-single-flight!
+  [single-flight-promises dedupe-key promise-fn]
+  (if (nil? dedupe-key)
+    (promise-fn)
+    (let [tracked-ref (atom nil)
+          tracked
+          (-> (promise-fn)
+              (.finally
+               (fn []
+                 (let [tracked* @tracked-ref]
+                   (swap! single-flight-promises
+                          (fn [state]
+                            (if (identical? (get state dedupe-key) tracked*)
+                              (dissoc state dedupe-key)
+                              state)))))))]
+      (reset! tracked-ref tracked)
+      (swap! single-flight-promises assoc dedupe-key tracked)
+      tracked)))
 
 (defn parse-json!
   [resp]
@@ -250,25 +307,47 @@
                 cache-key
                 cache-ttl-ms
                 force-refresh?
+                replace-response-cache-on-force?
                 flight-key]} (request-flow-opts default-priority opts)]
     (cond
+      (and force-refresh?
+           replace-response-cache-on-force?
+           cache-key
+           cache-ttl-ms)
+      (let [generation (advance-cache-generation! response-cache cache-key)]
+        (replace-single-flight!
+         single-flight-promises
+         flight-key
+         (fn []
+           (-> (request-attempt-fn body request-opts 0)
+               (.then (fn [value]
+                        (write-cached-response! response-cache
+                                                now-ms-fn
+                                                cache-key
+                                                cache-ttl-ms
+                                                value
+                                                generation)
+                        value))))))
+
       (and (not force-refresh?)
            cache-key
            cache-ttl-ms)
       (if-let [cached (read-cached-response! response-cache now-ms-fn cache-key)]
         (js/Promise.resolve cached)
-        (with-single-flight!
-          single-flight-promises
-          flight-key
-          (fn []
-            (-> (request-attempt-fn body request-opts 0)
-                (.then (fn [value]
-                         (write-cached-response! response-cache
-                                                 now-ms-fn
-                                                 cache-key
-                                                 cache-ttl-ms
-                                                 value)
-                         value))))))
+        (let [generation (cache-generation (get @response-cache cache-key))]
+          (with-single-flight!
+           single-flight-promises
+           flight-key
+           (fn []
+             (-> (request-attempt-fn body request-opts 0)
+                 (.then (fn [value]
+                          (write-cached-response! response-cache
+                                                  now-ms-fn
+                                                  cache-key
+                                                  cache-ttl-ms
+                                                  value
+                                                  generation)
+                          value)))))))
       force-refresh?
       (request-attempt-fn body request-opts 0)
 

@@ -5,6 +5,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.api.info-client :as info-client]
             [hyperopen.platform :as platform]
+            [hyperopen.startup.runtime.account-state :as account-state]
             [hyperopen.startup.route-refresh :as route-refresh]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 (defn default-startup-runtime-state
@@ -190,74 +191,22 @@
      :start-time-ms (max 0 (- end-time-ms lookback-ms))
      :end-time-ms end-time-ms}))
 
-(defn- reset-account-surface-state
-  [state]
-  ;; Clear every account-derived surface when the effective account changes so
-  ;; disconnected, spectate, and connected transitions cannot drift apart.
-  (-> state
-      (assoc :webdata2 nil)
-      (assoc-in [:orders :open-orders] [])
-      (assoc-in [:orders :open-orders-hydrated?] false)
-      (assoc-in [:orders :open-orders-snapshot] [])
-      (assoc-in [:orders :open-orders-snapshot-by-dex] {})
-      (assoc-in [:orders :open-error] nil)
-      (assoc-in [:orders :open-error-category] nil)
-      (assoc-in [:orders :fills] [])
-      (assoc-in [:orders :fills-error] nil)
-      (assoc-in [:orders :fills-error-category] nil)
-      (assoc-in [:orders :fundings-raw] [])
-      (assoc-in [:orders :fundings] [])
-      (assoc-in [:orders :order-history] [])
-      (assoc-in [:orders :ledger] [])
-      (assoc-in [:orders :twap-states] [])
-      (assoc-in [:orders :twap-history] [])
-      (assoc-in [:orders :twap-slice-fills] [])
-      (assoc-in [:orders :pending-cancel-oids] nil)
-      (assoc-in [:orders :recently-canceled-oids] #{})
-      (assoc-in [:orders :recently-canceled-order-keys] #{})
-      (update-in [:account-info :funding-history]
-                 (fn [funding-history]
-                   (-> (or funding-history {})
-                       (assoc :loading? false)
-                       (assoc :error nil))))
-      (update-in [:account-info :order-history]
-                 (fn [order-history]
-                   (-> (or order-history {})
-                       (assoc :loading? false)
-                       (assoc :error nil)
-                       (assoc :loaded-at-ms nil)
-                       (assoc :loaded-for-address nil))))
-      (assoc-in [:spot :clearinghouse-state] nil)
-      (assoc-in [:spot :loading-balances?] false)
-      (assoc-in [:spot :error] nil)
-      (assoc-in [:spot :error-category] nil)
-      (assoc-in [:perp-dex-clearinghouse] {})
-      (assoc-in [:perp-dex-clearinghouse-error] nil)
-      (assoc-in [:perp-dex-clearinghouse-error-category] nil)
-      ;; HyperEVM balances are per address; in-flight transactions are not
-      ;; and must survive account switches.
-      (assoc-in [:hyperevm :balances :by-address] {})
-      (update :portfolio assoc
-              :summary-by-key {} :user-fees nil :ledger-updates []
-              :loading? false :user-fees-loading? false :user-fees-loading-for-address nil :ledger-loading? false
-              :error nil :user-fees-error nil :user-fees-error-for-address nil :ledger-error nil
-              :loaded-at-ms nil :user-fees-loaded-at-ms nil :user-fees-loaded-for-address nil
-              :ledger-loaded-at-ms nil)
-      (assoc :account {:mode :classic :abstraction-raw nil})))
-
 (defn clear-disconnected-account-state!
   [{:keys [store
            address
-           unsubscribe-user!]
+           unsubscribe-user!
+           stop-user-vault-equity-poller!]
     :as deps}]
   (when address
     (when (fn? unsubscribe-user!)
       (unsubscribe-user! address)))
+  (when (fn? stop-user-vault-equity-poller!)
+    (stop-user-vault-equity-poller!))
   (swap-startup-state! deps assoc :bootstrapped-address nil)
   (swap! store
          (fn [state]
            (-> state
-               reset-account-surface-state
+               account-state/reset-account-surface-state
                invalidate-order-history-request))))
 
 (defn install-asset-selector-shortcuts!
@@ -380,7 +329,8 @@
 (defn bootstrap-account-data!
   [{:keys [store address fetch-historical-orders!
            startup-funding-history-lookback-ms
-           non-visible-account-bootstrap-delay-ms]
+           non-visible-account-bootstrap-delay-ms
+           stop-user-vault-equity-poller!]
     :as deps}]
   (when address
     (when-not (= address (:bootstrapped-address (startup-state deps)))
@@ -390,7 +340,9 @@
             portfolio-performance-route?
             (account-surface-service/portfolio-performance-metrics-route? @store)]
         (swap-startup-state! deps assoc :bootstrapped-address address)
-        (swap! store reset-account-surface-state)
+        (when (fn? stop-user-vault-equity-poller!)
+          (stop-user-vault-equity-poller!))
+        (swap! store account-state/reset-account-surface-state)
         (when-not portfolio-performance-route?
           (prefetch-order-history! {:store store
                                     :fetch-historical-orders! fetch-historical-orders!}))

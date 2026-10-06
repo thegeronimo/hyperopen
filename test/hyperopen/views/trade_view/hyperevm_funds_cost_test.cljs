@@ -48,6 +48,13 @@
   [models line?]
   (cond-> {;; A fresh function per run, so the view's last-call memo starts empty.
            :account-equity-metrics (fn [state] (account-equity-view/account-equity-metrics state))
+           ;; The classic grouped total asks for this value summary through the
+           ;; lazy Account Surfaces seam. It must reuse the metrics' balance
+           ;; rows rather than introduce a second build.
+           :account-equity-hyperevm-funds
+           (fn [state]
+             (select-keys (hyperevm-funds/hyperevm-funds state)
+                          [:status :address :usd :unpriced-count]))
            :account-equity-view (fn [_state opts]
                                   (swap! models conj (:hyperevm-line opts))
                                   [:div {:data-role "stub-account-equity"}])

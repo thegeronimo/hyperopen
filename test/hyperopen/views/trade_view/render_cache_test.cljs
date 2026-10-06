@@ -20,7 +20,7 @@
     :account-equity-view (fn [& args]
                            (apply account-equity-view/account-equity-view args))
     :funding-actions-view (fn [& args]
-                            (apply account-equity-view/funding-actions-view args))}))
+                           (apply account-equity-view/funding-actions-view args))}))
 
 (deftest trade-view-active-asset-panel-memoization-ignores-closed-selector-bookkeeping-test
   (let [active-asset-calls (atom 0)

@@ -3,7 +3,9 @@
    the shown account's HyperEVM holdings are read and worth something, its
    Move link opens Transfer preset to HyperEVM -> Spot, read-only views get
    no link, a subaccount gets a disabled link with its reason as visible
-   text, and the trading figures around it never change."
+   text, and the legacy trading figures around it never change. Its known USD
+   value does contribute to the classic grouped total, despite remaining
+   unavailable as position margin."
   (:require [cljs.test :refer-macros [deftest is testing use-fixtures]]
             [clojure.string :as str]
             [hyperopen.account.context :as account-context]
@@ -173,25 +175,38 @@
         (is (nil? (by-role panel "account-equity-hyperevm-line")))
         (is (some? (line-root panel)))))))
 
-(deftest trading-equity-figures-ignore-hyperevm-test
+(deftest classic-grouped-total-includes-hyperevm-without-changing-trading-figures-test
   (let [without (assoc state :hyperevm (hyperevm-balances/default-state))
+        state-with-confirmed-empty-vaults
+        (assoc state
+               :vaults {:user-equities []
+                        :user-equities-for-address
+                        (account-context/effective-account-address state)
+                        :loading {:user-equities? false}
+                        :errors {:user-equities nil}})
         metrics-of (fn [state*]
                      (reset-caches!)
                      (account-equity-view/account-equity-metrics state*))
-        baseline (metrics-of without)
-        with-evm (metrics-of state)
-        account-value (fn [state* model]
-                        (let [panel (account-equity-view/account-equity-view
-                                     state* {:hyperevm-line model :show-funding-actions? false})]
-                          (text (hiccup/find-first-node
-                                 panel
-                                 #(and (contains? (classes %) "justify-between")
-                                       (str/starts-with? (text %) "Account Value"))))))]
+        baseline (metrics-of (assoc without :vaults (:vaults state-with-confirmed-empty-vaults)))
+        with-evm (metrics-of state-with-confirmed-empty-vaults)]
     (is (some? (:spot-equity baseline)))
-    (is (= baseline with-evm))
-    (is (str/includes? (account-value without nil) "$"))
-    (is (= (account-value without nil)
-           (account-value state (hyperevm-line/hyperevm-line-model state))))))
+    ;; Account Value, Balance and cross risk remain the HyperCore trading
+    ;; figures. HyperEVM has value, but cannot margin a position.
+    (is (= (select-keys baseline [:account-value-display
+                                  :base-balance
+                                  :maintenance-margin
+                                  :cross-margin-ratio
+                                  :cross-account-leverage])
+           (select-keys with-evm [:account-value-display
+                                  :base-balance
+                                  :maintenance-margin
+                                  :cross-margin-ratio
+                                  :cross-account-leverage])))
+    (is (< (js/Math.abs (- (:hyperevm-equity with-evm) 1808.5)) 1e-6))
+    (is (= (+ (:account-value-display with-evm)
+              (:vault-equity with-evm)
+              (:hyperevm-equity with-evm))
+           (:total-account-value-display with-evm)))))
 
 (deftest dust-below-a-cent-keeps-the-line-hidden-test
   (let [dust (fixture/with-evm-entry state (assoc fixture/evm-entry
@@ -201,11 +216,25 @@
         cent (fixture/with-evm-entry state (assoc fixture/evm-entry
                                                   ;; 0.0002 HYPE at 44.68: $0.0089.
                                                   :native-wei "200000000000000"
-                                                  :token-units {}))]
+                                                  :token-units {}))
+        dust-with-confirmed-vaults
+        (assoc dust :vaults {:user-equities []
+                             :user-equities-for-address fixture/owner
+                             :loading {:user-equities? false}
+                             :errors {:user-equities nil}})
+        dust-metrics (account-equity-view/account-equity-metrics dust-with-confirmed-vaults)]
     (is (pos? (:usd (hyperevm-funds/hyperevm-funds dust))) "the dust is priced above zero")
     (is (false? (:visible? (hyperevm-line/hyperevm-line-model dust))))
     (is (contains? (classes (rendered dust)) "hidden"))
     (is (not (str/includes? (text (rendered dust)) "$0.00")))
+    ;; Hiding a value that rounds below one cent is a line-layout decision;
+    ;; it must not silently remove owned USD from the classic grouped total.
+    (is (pos? (:hyperevm-equity dust-metrics)))
+    (is (< (:hyperevm-equity dust-metrics) 0.01))
+    (is (= (+ (:account-value-display dust-metrics)
+              (:vault-equity dust-metrics)
+              (:hyperevm-equity dust-metrics))
+           (:total-account-value-display dust-metrics)))
     (is (= "$0.01" (text (by-role (rendered cent) "account-equity-hyperevm-value")))
         "from the first amount that rounds to a cent, the line shows")))
 
