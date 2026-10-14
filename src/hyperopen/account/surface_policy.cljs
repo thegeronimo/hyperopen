@@ -51,22 +51,3 @@
      topic
      {:user address
       :dex dex})))
-
-(defn spot-refresh-surface-active?
-  [state]
-  (let [route (some-> (get-in state [:router :path]) str str/trim)
-        selected-tab (get-in state [:account-info :selected-tab])
-        balances-tab-active? (or (nil? selected-tab)
-                                 (= selected-tab :balances))
-        outcomes-tab-active? (= selected-tab :outcomes)
-        trade-route-active? (or (str/blank? route)
-                                (str/starts-with? route "/trade"))
-        funding-modal-open? (true? (get-in state [:funding-ui :modal :open?]))
-        position-margin-modal-open? (true? (get-in state [:positions-ui :margin-modal :open?]))
-        vault-transfer-modal-open? (true? (get-in state [:vaults-ui :vault-transfer-modal :open?]))]
-    (or funding-modal-open?
-        position-margin-modal-open?
-        vault-transfer-modal-open?
-        (and trade-route-active?
-             (or balances-tab-active?
-                 outcomes-tab-active?)))))

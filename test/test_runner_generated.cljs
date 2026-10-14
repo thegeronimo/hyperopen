@@ -232,6 +232,7 @@
             [hyperopen.margin-rec.tiers-test]
             [hyperopen.order.actions-test]
             [hyperopen.order.cancel-guard-test]
+            [hyperopen.order.effects.spot-refresh-test]
             [hyperopen.order.exchange-errors-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.order.margin-rec-intent-test]
@@ -1215,6 +1216,7 @@
              'hyperopen.margin-rec.tiers-test
              'hyperopen.order.actions-test
              'hyperopen.order.cancel-guard-test
+             'hyperopen.order.effects.spot-refresh-test
              'hyperopen.order.exchange-errors-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.order.margin-rec-intent-test

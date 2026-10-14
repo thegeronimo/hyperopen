@@ -46,21 +46,6 @@
                  "0x1111111111111111111111111111111111111111"
                  "vault")))))
 
-(deftest spot-refresh-surface-active-follows-route-tab-and-modal-rules-test
-  (is (true? (surface-policy/spot-refresh-surface-active?
-              {:router {:path "/trade"}
-               :account-info {:selected-tab :balances}})))
-  (is (true? (surface-policy/spot-refresh-surface-active?
-              {:router {:path "/trade"}
-               :account-info {:selected-tab :outcomes}})))
-  (is (false? (surface-policy/spot-refresh-surface-active?
-               {:router {:path "/trade"}
-                :account-info {:selected-tab :funding-history}})))
-  (is (true? (surface-policy/spot-refresh-surface-active?
-              {:router {:path "/portfolio"}
-               :account-info {:selected-tab :funding-history}
-               :funding-ui {:modal {:open? true}}}))))
-
 (deftest websocket-topic-helpers-accept-base-dex-selector-test
   (let [state {:websocket {:health {:transport {:state :connected
                                                 :freshness :live}

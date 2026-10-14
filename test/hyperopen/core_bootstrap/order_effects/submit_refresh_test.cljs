@@ -136,6 +136,72 @@
              (done))))
        100))))
 
+(defn- submit-order-and-capture-spot-refreshes!
+  [asset-id check! done]
+  (let [address "0xabc"
+        store (atom (support/base-submit-order-store
+                     {:wallet {:address address
+                               :agent {:status :ready}}}))
+        spot-clearinghouse-calls (atom [])
+        original-submit-order trading-api/submit-order!
+        original-dispatch nxr/dispatch
+        restore-account-refresh-mocks! (support/install-account-refresh-mocks! (atom [])
+                                                                               (atom [])
+                                                                               [])
+        original-request-spot-clearinghouse-state api/request-spot-clearinghouse-state!]
+    (support/clear-order-feedback-toast-timeout!)
+    (set! trading-api/submit-order!
+          (fn [_store _address _action]
+            (js/Promise.resolve {:status "ok"})))
+    (set! nxr/dispatch (fn [& _] nil))
+    (set! api/request-spot-clearinghouse-state!
+          (fn request-spot-clearinghouse-state-mock
+            ([refresh-address]
+             (request-spot-clearinghouse-state-mock refresh-address {}))
+            ([refresh-address opts]
+             (swap! spot-clearinghouse-calls conj [refresh-address opts])
+             (js/Promise.resolve {:balances []}))))
+    (core/api-submit-order nil store {:action {:type "order"
+                                               :orders [{:a asset-id
+                                                         :b true
+                                                         :p "10"
+                                                         :s "1"
+                                                         :r false
+                                                         :t {:limit {:tif "Ioc"}}}]
+                                               :grouping "na"}})
+    (js/setTimeout
+     (fn []
+       (try
+         (check! address @spot-clearinghouse-calls)
+         (finally
+           (support/clear-order-feedback-toast-timeout!)
+           (set! trading-api/submit-order! original-submit-order)
+           (set! nxr/dispatch original-dispatch)
+           (set! api/request-spot-clearinghouse-state! original-request-spot-clearinghouse-state)
+           (restore-account-refresh-mocks!)
+           (done))))
+     100)))
+
+(deftest api-submit-order-effect-refreshes-spot-clearinghouse-for-spot-orders-test
+  ;; Regression: only outcome orders used to refresh spot balances on submit,
+  ;; so a filled spot order left the balance stale until a page reload.
+  (async done
+    (submit-order-and-capture-spot-refreshes!
+     11035
+     (fn [address spot-calls]
+       (is (= [[address {:priority :high
+                         :force-refresh? true}]]
+              spot-calls)))
+     done)))
+
+(deftest api-submit-order-effect-skips-spot-clearinghouse-for-perp-orders-test
+  (async done
+    (submit-order-and-capture-spot-refreshes!
+     0
+     (fn [_address spot-calls]
+       (is (= [] spot-calls)))
+     done)))
+
 (deftest api-submit-order-effect-refreshes-dex-open-orders-and-skips-per-dex-clearinghouse-when-ws-snapshot-ready-test
   (async done
     (let [address "0xabc"

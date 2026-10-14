@@ -116,6 +116,33 @@
          (done))
        0))))
 
+(deftest refresh-after-user-fill-refreshes-spot-regardless-of-visible-surface-test
+  ;; Regression: spot balances have no websocket stream, so the post-fill REST
+  ;; refetch is their only update path. It used to run only on /trade with the
+  ;; Balances or Outcomes tab open, leaving balances stale until a page reload.
+  (async done
+    (let [refresh-spot-calls (atom [])
+          surfaces [{:router {:path "/trade"}
+                     :account-info {:selected-tab :positions}}
+                    {:router {:path "/trade"}
+                     :account-info {:selected-tab :open-orders}}
+                    {:router {:path "/portfolio"}
+                     :account-info {:selected-tab :balances}}]]
+      (doseq [surface surfaces]
+        (surface-service/refresh-after-user-fill!
+         {:store (atom (assoc surface :wallet {:address address}))
+          :address address
+          :refresh-spot-clearinghouse! (fn [_store refresh-address opts]
+                                         (swap! refresh-spot-calls conj [refresh-address opts]))}))
+      (js/setTimeout
+       (fn []
+         (is (= (repeat (count surfaces)
+                        [address {:priority :high
+                                  :force-refresh? true}])
+                @refresh-spot-calls))
+         (done))
+       0))))
+
 (deftest refresh-after-user-fill-refreshes-base-open-orders-when-stream-is-event-driven-test
   (async done
     (let [refresh-open-orders-calls (atom [])
