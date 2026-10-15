@@ -8,6 +8,8 @@
    :perp-dexs 60000
    :spot-meta 60000
    :outcome-meta 60000
+   :perp-concise-annotations 300000
+   :perp-annotation 300000
    :public-webdata2 30000
    :frontend-open-orders 2500
    :user-fills 5000

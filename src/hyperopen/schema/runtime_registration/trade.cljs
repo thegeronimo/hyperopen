@@ -18,6 +18,7 @@
    [:effects/load-trading-indicators-module :load-trading-indicators-module]
    [:effects/fetch-asset-selector-markets :fetch-asset-selector-markets]
    [:effects/sync-active-asset-funding-predictability :sync-active-asset-funding-predictability]
+   [:effects/sync-perp-annotations :sync-perp-annotations]
    [:effects/api-fetch-historical-orders :api-fetch-historical-orders]
    [:effects/api-load-user-data :api-load-user-data]
    [:effects/api-submit-order :api-submit-order]

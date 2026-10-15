@@ -457,6 +457,8 @@
    :webdata2 {}
    :perp-dexs []
    :perp-dex-fee-config-by-name {}
+   :perp-dex-full-name-by-name {}
+   :perp-annotations {:concise-status :idle :by-coin {} :detail-by-coin {}}
    :perp-dex-clearinghouse {}
    :spot {:meta nil
           :clearinghouse-state nil

@@ -124,6 +124,28 @@
                        :dedupe-key :outcome-meta}
                       opts))))
 
+(defn request-perp-concise-annotations!
+  [post-info! opts]
+  (post-info! {"type" "perpConciseAnnotations"}
+              (request-policy/apply-info-request-policy
+               :perp-concise-annotations
+               (merge {:priority :low
+                       :dedupe-key :perp-concise-annotations}
+                      opts))))
+
+(defn request-perp-annotation!
+  [post-info! coin opts]
+  (if-not (and (string? coin) (seq coin))
+    (js/Promise.resolve nil)
+    (post-info! {"type" "perpAnnotation"
+                 "coin" coin}
+                (request-policy/apply-info-request-policy
+                 :perp-annotation
+                 (merge {:priority :low
+                         :dedupe-key [:perp-annotation coin]
+                         :cache-key [:perp-annotation coin]}
+                        opts)))))
+
 (defn normalize-spot-meta-and-asset-ctxs
   "Shape the spotMetaAndAssetCtxs tuple [spotMeta spotAssetCtxs] like the
   spot slice of the retired webData2 aggregate so downstream consumers

@@ -62,6 +62,14 @@
   [{:keys [post-info!]} opts]
   (market-gateway/request-outcome-meta! {:post-info! post-info!} opts))
 
+(defn request-perp-concise-annotations!
+  [{:keys [post-info!]} opts]
+  (market-gateway/request-perp-concise-annotations! {:post-info! post-info!} opts))
+
+(defn request-perp-annotation!
+  [{:keys [post-info!]} coin opts]
+  (market-gateway/request-perp-annotation! {:post-info! post-info!} coin opts))
+
 (defn fetch-spot-meta!
   [{:keys [log-fn request-spot-meta!]} store opts]
   (api-compat/fetch-spot-meta!

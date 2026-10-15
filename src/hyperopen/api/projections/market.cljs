@@ -39,10 +39,14 @@
 
 (defn apply-perp-dexs-success
   [state payload]
-  (let [{:keys [dex-names fee-config-by-name]} (perp-dexs/normalize-perp-dex-payload payload)]
-    (-> state
-        (assoc-in [:perp-dexs] dex-names)
-        (assoc-in [:perp-dex-fee-config-by-name] fee-config-by-name))))
+  (let [{:keys [dex-names fee-config-by-name full-name-by-name]}
+        (perp-dexs/normalize-perp-dex-payload payload)]
+    (cond-> (-> state
+                (assoc-in [:perp-dexs] dex-names)
+                (assoc-in [:perp-dex-fee-config-by-name] fee-config-by-name))
+      ;; Cached re-applies can carry names only; keep full names already known.
+      (seq full-name-by-name)
+      (assoc-in [:perp-dex-full-name-by-name] full-name-by-name))))
 
 (defn apply-perp-dexs-error
   [state err]

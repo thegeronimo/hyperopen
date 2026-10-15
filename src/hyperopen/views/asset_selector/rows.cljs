@@ -71,7 +71,9 @@
                      (not is-outcome) (conj "col-span-3"))}
       (icons/favorite-button favorite? key)
       [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
-       [:div {:class ["text-sm" "truncate" "whitespace-nowrap"]}
+       ;; With a descriptor, the ticker keeps its width and the descriptor truncates.
+       [:div {:class (cond-> ["text-sm" "truncate" "whitespace-nowrap"]
+                       (:descriptor asset) (conj "shrink-0"))}
         symbol]
        (when (and is-outcome (seq outcome-summary))
          [:div {:class ["text-xs" "truncate" "whitespace-nowrap" "text-gray-500"]}
@@ -81,7 +83,11 @@
        (when dex
          (controls/chip dex ["bg-emerald-500/20" "text-emerald-300" "border-emerald-500/30" "shrink-0"]))
        (when (and maxLeverage (> maxLeverage 0))
-         (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))]]
+         (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))
+       (when-let [descriptor (:descriptor asset)]
+         [:div {:class ["min-w-0" "text-xs" "truncate" "whitespace-nowrap" "text-gray-500"]
+                :data-role "asset-selector-row-descriptor"}
+          descriptor])]]
      [:div {:class (desktop-outcome-cell-classes is-outcome
                                                   ["col-span-2" "text-left"])}
       (if is-outcome
@@ -229,7 +235,11 @@
         (when dex
           (controls/chip dex ["bg-emerald-500/20" "text-emerald-300" "border-emerald-500/30" "shrink-0"]))
         (when (and maxLeverage (> maxLeverage 0))
-          (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))]]]
+          (controls/chip (str maxLeverage "x") ["bg-primary/20" "text-primary" "border-primary/30" "shrink-0"]))
+        (when-let [descriptor (:descriptor asset)]
+          [:span {:class ["min-w-0" "truncate" "text-xs" "text-trading-text-secondary"]
+                  :data-role "asset-selector-row-descriptor"}
+           descriptor])]]]
      [:div {:class ["min-w-0" "space-y-1" "text-left"]}
       [:div {:class ["num" "text-base" "font-semibold" "leading-none" "text-trading-text"]}
        (format-or-dash volume24h fmt/format-large-currency)]

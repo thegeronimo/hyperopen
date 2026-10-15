@@ -1,5 +1,6 @@
 (ns hyperopen.views.asset-selector.processing
-  (:require [hyperopen.asset-selector.query :as query]))
+  (:require [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.query :as query]))
 
 (defn matches-search? [asset search-term strict?]
   (query/matches-search? asset search-term strict?))
@@ -26,14 +27,15 @@
   (mapv (fn [{:keys [key symbol title coin base underlying market-type category hip3? hip3-eligible?
                      cache-order period expiry-ms target-price outcome-id outcome-kind question-id
                      named-outcome-ids fallback-outcome-id outcome-category outcome-subcategory
-                     question-options outcome-summary]}]
+                     question-options outcome-summary asset-class search-keywords display-name
+                     descriptor]}]
           (let [option-signature (mapv (fn [{:keys [label outcome-id yes-coin no-coin mark]}]
                                           [label outcome-id yes-coin no-coin mark])
                                         question-options)]
           [key symbol title coin base underlying market-type category hip3? hip3-eligible?
            cache-order period expiry-ms target-price outcome-id outcome-kind question-id
            named-outcome-ids fallback-outcome-id outcome-category outcome-subcategory
-           option-signature outcome-summary]))
+           option-signature outcome-summary asset-class search-keywords display-name descriptor]))
         markets))
 
 (defn processed-assets-market-by-key
@@ -45,6 +47,32 @@
                 acc))
             (transient {})
             markets)))
+
+(defonce annotated-markets-cache
+  (atom nil))
+
+(defn annotated-selector-markets
+  "Catalog markets with HIP-3 annotation fields merged in, plus a matching
+  market-by-key. Memoized on the identity of both inputs, which change only
+  when the catalog refreshes or an annotation arrives."
+  [markets market-by-key perp-annotations]
+  (let [cache @annotated-markets-cache]
+    (if (and (map? cache)
+             (identical? markets (:markets cache))
+             (identical? market-by-key (:market-by-key cache))
+             (identical? perp-annotations (:perp-annotations cache)))
+      (:result cache)
+      (let [annotated (annotations/annotate-markets markets perp-annotations)
+            result (if (identical? annotated markets)
+                     {:markets markets
+                      :market-by-key market-by-key}
+                     {:markets annotated
+                      :market-by-key (processed-assets-market-by-key annotated)})]
+        (reset! annotated-markets-cache {:markets markets
+                                         :market-by-key market-by-key
+                                         :perp-annotations perp-annotations
+                                         :result result})
+        result))))
 
 (defn ordered-market-keys->assets
   [ordered-market-keys market-by-key]

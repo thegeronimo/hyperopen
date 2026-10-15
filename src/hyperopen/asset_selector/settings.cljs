@@ -4,7 +4,21 @@
 
 (def valid-sort-keys #{:name :price :volume :change :openInterest :funding})
 (def valid-sort-directions #{:asc :desc})
-(def valid-tabs #{:all :perps :spot :outcome :outcome-15m :outcome-1d :outcome-economics :outcome-sports :crypto :tradfi :hip3})
+;; Tradfi sub-tabs filter by the asset class HIP-3 deployers publish on-chain.
+(def tradfi-asset-class-tabs
+  [[:tradfi-stocks :stocks]
+   [:tradfi-indices :indices]
+   [:tradfi-commodities :commodities]
+   [:tradfi-preipo :preipo]
+   [:tradfi-fx :fx]
+   [:tradfi-rates :rates]])
+
+(def tradfi-tab->asset-class
+  (into {} tradfi-asset-class-tabs))
+
+(def valid-tabs
+  (into #{:all :perps :spot :outcome :outcome-15m :outcome-1d :outcome-economics :outcome-sports :crypto :tradfi :hip3}
+        (keys tradfi-tab->asset-class)))
 
 (defn- chain-context-value
   [value]
