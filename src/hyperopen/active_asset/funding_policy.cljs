@@ -1,5 +1,6 @@
 (ns hyperopen.active-asset.funding-policy
   (:require [clojure.string :as str]
+            [hyperopen.active-asset.funding-insights :as insights]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.utils.parse :as parse-utils]))
 
@@ -240,8 +241,47 @@
            (:minimum-daily-count first-insufficient)
            " daily points"))))
 
+(defn- unsigned-input-text
+  [text]
+  (let [text* (str (or text ""))]
+    (if (or (str/starts-with? text* "-")
+            (str/starts-with? text* "−")
+            (str/starts-with? text* "+"))
+      (subs text* 1)
+      text*)))
+
+(defn- year-outlook
+  [summary direction position-value]
+  (let [annualized-mean (daily-decimal->annualized-percent (:mean summary))
+        annualized-volatility (daily-decimal-stddev->annualized-percent (:stddev summary))
+        expected (funding-payment-estimate direction position-value annualized-mean)
+        band (fn [sign]
+               (when (and (number? annualized-mean)
+                          (number? annualized-volatility))
+                 (funding-payment-estimate direction
+                                           position-value
+                                           (+ annualized-mean (* sign annualized-volatility)))))
+        a (band -1)
+        b (band 1)]
+    (when (number? expected)
+      {:mean-apy annualized-mean
+       :expected expected
+       :lower (when (and (number? a) (number? b)) (min a b))
+       :upper (when (and (number? a) (number? b)) (max a b))})))
+
+(defn- projection-row
+  [id label rate direction position-value margin]
+  (let [payment (funding-payment-estimate direction position-value rate)]
+    {:id id
+     :label label
+     :rate rate
+     :payment payment
+     :margin-pct (insights/share-of-margin-pct payment margin)}))
+
 (defn funding-tooltip-model
-  [position market coin mark funding-rate predictability-state hypothetical-input locale]
+  ([position market coin mark funding-rate predictability-state hypothetical-input locale]
+   (funding-tooltip-model position market coin mark funding-rate predictability-state hypothetical-input locale nil))
+  ([position market coin mark funding-rate predictability-state hypothetical-input locale {:keys [order-leverage]}]
   (let [size-raw (:szi position)
         size (parse-optional-number size-raw)
         direction (direction-from-size size)
@@ -264,14 +304,20 @@
                            :value-input (live-value-input-text direction position-value)})
         next-24h-rate (when (number? funding-rate)
                         (* funding-rate 24))
+        next-30d-rate (when (number? funding-rate)
+                        (* funding-rate 24 30))
         annual-rate (fmt/annualized-funding-rate funding-rate)
+        margin-info (insights/margin-model {:live? (not hypothetical-active?)
+                                            :position position
+                                            :position-value effective-position-value
+                                            :order-leverage order-leverage})
         predictability-summary (:summary predictability-state)
         predictability-loading? (true? (:loading? predictability-state))
         predictability-error (non-blank-text (:error predictability-state))]
     {:position-mode (if hypothetical-active? :hypothetical :live)
      :position-title (if hypothetical-active?
-                       "Hypothetical Position"
-                       "Your Position")
+                       "If you hold"
+                       "Your position")
      :position-action-label (cond
                               (and hypothetical-active? has-live-position?) "Use live"
                               has-live-position? "Edit estimate"
@@ -298,18 +344,37 @@
      :hypothetical-value-input (:value-input hypothetical-model)
      :hypothetical-coin (:coin hypothetical-model)
      :hypothetical-mark mark
-     :projection-rows [{:id "next-24h"
-                        :label "Next 24h"
-                        :rate next-24h-rate
-                        :payment (funding-payment-estimate effective-direction
-                                                          effective-position-value
-                                                          next-24h-rate)}
-                       {:id "apy"
-                        :label "APY"
-                        :rate annual-rate
-                        :payment (funding-payment-estimate effective-direction
-                                                          effective-position-value
-                                                          annual-rate)}]
+     :hypothetical-side (if (= :short effective-direction) :short :long)
+     :hypothetical-size-display (unsigned-input-text (:size-input hypothetical-model))
+     :hypothetical-value-display (unsigned-input-text (:value-input hypothetical-model))
+     :hourly-rate funding-rate
+     :direction effective-direction
+     :verdict (insights/payer-verdict effective-direction funding-rate)
+     :leverage (:leverage margin-info)
+     :margin (:margin margin-info)
+     :margin-per-day-pct (insights/share-of-margin-pct
+                          (funding-payment-estimate effective-direction
+                                                    effective-position-value
+                                                    next-24h-rate)
+                          (:margin margin-info))
+     :since-open-funding (when-not hypothetical-active?
+                           (insights/since-open-funding position))
+     :breakeven (insights/breakeven effective-direction funding-rate mark)
+     :rate-breakdown (insights/rate-breakdown coin funding-rate)
+     :projection-rows [(projection-row "next-24h" "Next 24 hours" next-24h-rate
+                                       effective-direction effective-position-value (:margin margin-info))
+                       (projection-row "next-30d" "Next 30 days" next-30d-rate
+                                       effective-direction effective-position-value (:margin margin-info))
+                       (projection-row "apy" "Next year" annual-rate
+                                       effective-direction effective-position-value (:margin margin-info))]
+     :history-chart (when (map? predictability-summary)
+                      (insights/history-chart-model (:daily-funding-series predictability-summary)))
+     :lag-strip (when (map? predictability-summary)
+                  (insights/lag-strip (:autocorrelation-series predictability-summary)))
+     :year-outlook (when (map? predictability-summary)
+                     (year-outlook predictability-summary
+                                   effective-direction
+                                   effective-position-value))
      :predictability-loading? predictability-loading?
      :predictability-error predictability-error
      :predictability-rows (when (map? predictability-summary)
@@ -323,15 +388,19 @@
                                               (vec (or (:autocorrelation-series predictability-summary)
                                                        [])))
      :predictability-lag-note (when (map? predictability-summary)
-                                (predictability-lag-note predictability-summary))}))
+                                (predictability-lag-note predictability-summary))})))
 
 (defonce ^:private funding-tooltip-model-cache
   (atom nil))
 
 (defn- funding-tooltip-cache-key
-  [position market coin mark funding-rate predictability-state hypothetical-input locale]
+  [position market coin mark funding-rate predictability-state hypothetical-input locale extras]
   {:position {:szi (:szi position)
-              :position-value (:positionValue position)}
+              :position-value (:positionValue position)
+              :leverage (get-in position [:leverage :value])
+              :margin-used (:marginUsed position)
+              :cum-funding (:cumFunding position)}
+   :extras extras
    :market-base (non-blank-text (:base market))
    :market-symbol (non-blank-text (:symbol market))
    :coin (non-blank-text coin)
@@ -344,27 +413,31 @@
    :locale locale})
 
 (defn memoized-funding-tooltip-model
-  [position market coin mark funding-rate predictability-state hypothetical-input locale]
-  (let [cache-key (funding-tooltip-cache-key position
-                                             market
-                                             coin
-                                             mark
-                                             funding-rate
-                                             predictability-state
-                                             hypothetical-input
-                                             locale)
-        cached @funding-tooltip-model-cache]
-    (if (and (map? cached)
-             (= cache-key (:key cached)))
-      (:result cached)
-      (let [result (funding-tooltip-model position
-                                          market
-                                          coin
-                                          mark
-                                          funding-rate
-                                          predictability-state
-                                          hypothetical-input
-                                          locale)]
-        (reset! funding-tooltip-model-cache {:key cache-key
-                                             :result result})
-        result))))
+  ([position market coin mark funding-rate predictability-state hypothetical-input locale]
+   (memoized-funding-tooltip-model position market coin mark funding-rate predictability-state hypothetical-input locale nil))
+  ([position market coin mark funding-rate predictability-state hypothetical-input locale extras]
+   (let [cache-key (funding-tooltip-cache-key position
+                                              market
+                                              coin
+                                              mark
+                                              funding-rate
+                                              predictability-state
+                                              hypothetical-input
+                                              locale
+                                              extras)
+         cached @funding-tooltip-model-cache]
+     (if (and (map? cached)
+              (= cache-key (:key cached)))
+       (:result cached)
+       (let [result (funding-tooltip-model position
+                                           market
+                                           coin
+                                           mark
+                                           funding-rate
+                                           predictability-state
+                                           hypothetical-input
+                                           locale
+                                           extras)]
+         (reset! funding-tooltip-model-cache {:key cache-key
+                                              :result result})
+         result)))))

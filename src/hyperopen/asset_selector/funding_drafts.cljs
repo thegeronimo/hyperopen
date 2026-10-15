@@ -216,11 +216,83 @@
         []))
     []))
 
+(def funding-chart-style-storage-key
+  "funding-chart-style")
+
+(def ^:private funding-chart-styles
+  #{:area :bars})
+
+(defn normalize-funding-chart-style
+  [style]
+  (let [style* (cond
+                 (keyword? style) style
+                 (string? style) (keyword (str/lower-case (str/trim style)))
+                 :else nil)]
+    (when (contains? funding-chart-styles style*)
+      style*)))
+
+(defn- explicit-sign?
+  [text]
+  (let [text* (str (or text ""))]
+    (or (str/starts-with? text* "-")
+        (str/starts-with? text* "−")
+        (str/starts-with? text* "+"))))
+
+(defn- negative-input?
+  [text]
+  (let [text* (str (or text ""))]
+    (or (str/starts-with? text* "-")
+        (str/starts-with? text* "−"))))
+
+(defn- unsigned-input
+  [text]
+  (let [text* (str (or text ""))]
+    (if (explicit-sign? text*)
+      (subs text* 1)
+      text*)))
+
+(defn- entry-short?
+  [entry]
+  (negative-input? (:size-input entry)))
+
+(defn- side-preserving-input
+  "Unsigned typing keeps the current side; an explicit sign picks a side."
+  [state coin input]
+  (let [input* (normalize-decimal-input input)]
+    (if (and (seq input*)
+             (not (explicit-sign? input*))
+             (entry-short? (get-in state [:funding-ui :hypothetical-position-by-coin coin])))
+      (str "-" input*)
+      input*)))
+
+(defn set-funding-hypothetical-side
+  [state coin mark side]
+  (if-let [coin* (normalize-coin-key coin)]
+    (let [short? (= "short" (some-> side name str/lower-case))
+          entry (hypothetical-entry state coin* mark)
+          size-text (unsigned-input (:size-input entry))
+          next-entry (assoc entry
+                            :size-input (if (and short? (seq size-text))
+                                          (str "-" size-text)
+                                          size-text)
+                            :value-input (unsigned-input (:value-input entry)))
+          by-coin (or (get-in state [:funding-ui :hypothetical-position-by-coin]) {})]
+      [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+        (assoc by-coin coin* next-entry)]])
+    []))
+
+(defn set-funding-chart-style
+  [_state style]
+  (if-let [style* (normalize-funding-chart-style style)]
+    [[:effects/save [:funding-ui :chart-style] style*]
+     [:effects/local-storage-set funding-chart-style-storage-key (name style*)]]
+    []))
+
 (defn set-funding-hypothetical-size
   [state coin mark size-input]
   (if-let [coin* (normalize-coin-key coin)]
     (let [locale (get-in state [:ui :locale])
-          size-input* (normalize-decimal-input size-input)
+          size-input* (side-preserving-input state coin* size-input)
           mark* (parse-finite-number mark)
           size* (parse-decimal-input size-input* locale)
           next-value (when (and (number? mark*)
@@ -239,7 +311,7 @@
   [state coin mark value-input]
   (if-let [coin* (normalize-coin-key coin)]
     (let [locale (get-in state [:ui :locale])
-          value-input* (normalize-decimal-input value-input)
+          value-input* (side-preserving-input state coin* value-input)
           mark* (parse-finite-number mark)
           value* (parse-decimal-input value-input* locale)
           sign (if (or (str/starts-with? value-input* "-")

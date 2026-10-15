@@ -64,3 +64,13 @@
     (is (= 1234 (get-in (nth (first grouped-effects) 2) [:ema :period])))
     (is (= 20 (get-in (nth (first invalid-effects) 2) [:ema :period])))
     (is (= :effects/load-trading-indicators-module (first (last decimal-effects))))))
+
+(deftest restore-chart-options-restores-funding-chart-style-test
+  (let [store (atom {:chart-options {}})]
+    (with-redefs [platform/local-storage-get (local-storage-get-stub {"funding-chart-style" "bars"})]
+      (chart-settings/restore-chart-options! store))
+    (is (= :bars (get-in @store [:funding-ui :chart-style]))))
+  (let [store (atom {:chart-options {}})]
+    (with-redefs [platform/local-storage-get (local-storage-get-stub {"funding-chart-style" "pie"})]
+      (chart-settings/restore-chart-options! store))
+    (is (nil? (get-in @store [:funding-ui :chart-style])))))

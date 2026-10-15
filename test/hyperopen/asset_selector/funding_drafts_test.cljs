@@ -1,7 +1,8 @@
 (ns hyperopen.asset-selector.funding-drafts-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.active-asset.funding-policy :as funding-policy]
-            [hyperopen.asset-selector.actions :as actions]))
+            [hyperopen.asset-selector.actions :as actions]
+            [hyperopen.asset-selector.funding-drafts :as funding-drafts]))
 
 (deftest set-funding-tooltip-visible-syncs-active-asset-predictability-on-open-test
   (let [btc-pin-id (funding-policy/funding-tooltip-pin-id "BTC")
@@ -179,9 +180,10 @@
           5372.43
           "0.0300")))
 
+  ;; Unsigned typing keeps the current (short) side; the side toggle flips it.
   (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0300"
-                   :value-input "1500"}}]]
+           {"BTC" {:size-input "-0.0300"
+                   :value-input "-1500"}}]]
          (actions/set-funding-hypothetical-value
           {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
                                                                 :value-input "1000.00"}}}}
@@ -209,8 +211,8 @@
           "-1250,0")))
 
   (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
-           {"BTC" {:size-input "0.0200"
-                   :value-input "1000"}}]]
+           {"BTC" {:size-input "-0.0200"
+                   :value-input "-1000"}}]]
          (actions/set-funding-hypothetical-value
           {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
                                                                 :value-input "-1000.00"}}}}
@@ -222,3 +224,45 @@
            {"BTC" {:size-input "0.0200"
                    :value-input ""}}]]
          (actions/set-funding-hypothetical-value {} "BTC" 50000 ""))))
+
+(deftest funding-hypothetical-typing-keeps-short-side-and-explicit-sign-picks-side-test
+  (let [short-state {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
+                                                                         :value-input "1000.00"}}}}]
+    (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+             {"BTC" {:size-input "-0.0300"
+                     :value-input "1500.00"}}]]
+           (actions/set-funding-hypothetical-size short-state "btc" 50000 "0.0300")))
+    (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+             {"BTC" {:size-input ""
+                     :value-input "1000.00"}}]]
+           (actions/set-funding-hypothetical-size short-state "btc" 50000 "")))))
+
+(deftest set-funding-hypothetical-side-flips-size-sign-and-unsigns-value-test
+  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+           {"BTC" {:size-input "-0.0200"
+                   :value-input "1000.00"}}]]
+         (funding-drafts/set-funding-hypothetical-side
+          {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "0.0200"
+                                                                :value-input "1000.00"}}}}
+          "btc" 50000 "short")))
+  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+           {"BTC" {:size-input "0.0200"
+                   :value-input "1000.00"}}]]
+         (funding-drafts/set-funding-hypothetical-side
+          {:funding-ui {:hypothetical-position-by-coin {"BTC" {:size-input "-0.0200"
+                                                                :value-input "-1000.00"}}}}
+          "btc" 50000 :long)))
+  (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
+           {"BTC" {:size-input "-0.0200"
+                   :value-input "1000.00"}}]]
+         (funding-drafts/set-funding-hypothetical-side {} "BTC" 50000 "short")))
+  (is (= [] (funding-drafts/set-funding-hypothetical-side {} " " 50000 "short"))))
+
+(deftest set-funding-chart-style-saves-and-persists-known-styles-test
+  (is (= [[:effects/save [:funding-ui :chart-style] :bars]
+          [:effects/local-storage-set "funding-chart-style" "bars"]]
+         (funding-drafts/set-funding-chart-style {} "bars")))
+  (is (= [[:effects/save [:funding-ui :chart-style] :area]
+          [:effects/local-storage-set "funding-chart-style" "area"]]
+         (funding-drafts/set-funding-chart-style {} :area)))
+  (is (= [] (funding-drafts/set-funding-chart-style {} "candles"))))

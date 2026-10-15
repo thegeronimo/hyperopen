@@ -3395,7 +3395,7 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
   expect(layering.fullyWithinViewport).toBe(true);
   expect(layering.centerHitBelongsToTooltip, JSON.stringify(layering)).toBe(true);
   await expect(positionSection).toHaveAttribute("data-position-mode", "live");
-  await expect(tooltip.getByRole("heading", { name: "Your Position" })).toBeVisible();
+  await expect(tooltip.getByRole("heading", { name: "Your position" })).toBeVisible();
   await expect(tooltip.getByRole("button", { name: "Edit estimate" })).toBeVisible();
 
   await page.setViewportSize({ width: 1023, height: 900 });
@@ -3430,7 +3430,7 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
   await tooltip.getByRole("button", { name: "Edit estimate" }).click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(positionSection).toHaveAttribute("data-position-mode", "hypothetical");
-  await expect(tooltip.getByRole("heading", { name: "Hypothetical Position" })).toBeVisible();
+  await expect(tooltip.getByRole("heading", { name: "If you hold" })).toBeVisible();
   await expect(tooltip.getByRole("button", { name: "Use live" })).toBeVisible();
 
   const sizeInput = tooltip.getByLabel("Hypothetical position size");
@@ -3439,10 +3439,8 @@ test("funding tooltip transitions from live position to hypothetical estimate @r
   await expect(valueInput).toHaveValue(livePositionValue);
 
   const next24hPayment = tooltip
-    .locator('div.contents')
-    .filter({ hasText: "Next 24h" })
-    .locator("span")
-    .nth(2);
+    .locator('[data-role="funding-projection-next-24h"] > span')
+    .first();
   const next24hBefore = (await next24hPayment.textContent())?.trim() ?? "";
 
   await sizeInput.fill("10.0000");
@@ -3519,9 +3517,9 @@ test.describe("funding tooltip mobile presentation @mobile", () => {
     await expect(sheetLayer).toBeVisible();
     await expect(sheet).toBeVisible();
     await expect(positionSection).toHaveAttribute("data-position-mode", "live");
-    await expect(sheet.getByRole("heading", { name: "Your Position" })).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "Predictability (30d)" })).toBeVisible();
-    await expect(sheet.getByText(/Past Rate Correlation|Loading 30d stats/)).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Your position" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Projected at today's rate" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Last 30 days", exact: true })).toBeVisible();
 
     await backdrop.click({ position: { x: 16, y: 16 } });
     await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
