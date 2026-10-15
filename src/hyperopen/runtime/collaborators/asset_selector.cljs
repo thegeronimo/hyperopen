@@ -30,4 +30,5 @@
    :set-funding-hypothetical-size asset-actions/set-funding-hypothetical-size
    :set-funding-hypothetical-value asset-actions/set-funding-hypothetical-value
    :set-funding-hypothetical-side funding-drafts/set-funding-hypothetical-side
-   :set-funding-chart-style funding-drafts/set-funding-chart-style})
+   :set-funding-chart-style funding-drafts/set-funding-chart-style
+   :set-funding-projection-basis funding-drafts/set-funding-projection-basis})

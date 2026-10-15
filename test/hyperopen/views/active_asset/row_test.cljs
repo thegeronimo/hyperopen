@@ -478,7 +478,7 @@
             (is (= "dialog" (get-in sheet-node [1 :role])))
             (is (= true (get-in sheet-node [1 :aria-modal])))
             (is (contains? sheet-strings "If you hold"))
-            (is (contains? sheet-strings "Projected at today's rate"))))))))
+            (is (contains? sheet-strings "Projections"))))))))
 
 (deftest active-asset-row-renders-24h-change-without-funding-rate-test
   (let [ctx-data {:coin "SOL"

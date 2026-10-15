@@ -7,9 +7,6 @@
 (def ^:private default-hypothetical-position-value
   1000)
 
-(def ^:private annualization-days
-  365)
-
 (defn- non-blank-text [value]
   (let [text (some-> value str str/trim)]
     (when (seq text) text)))
@@ -187,60 +184,6 @@
          :short 1
          0))))
 
-(defn- daily-decimal->annualized-percent
-  [daily-decimal]
-  (when (number? daily-decimal)
-    (* daily-decimal annualization-days 100)))
-
-(defn- daily-decimal-stddev->annualized-percent
-  [daily-decimal-stddev]
-  (when (number? daily-decimal-stddev)
-    (* daily-decimal-stddev
-       100
-       (js/Math.sqrt annualization-days))))
-
-(defn- predictability-rows
-  [summary direction position-value]
-  (let [annualized-mean (daily-decimal->annualized-percent (:mean summary))
-        annualized-volatility (daily-decimal-stddev->annualized-percent (:stddev summary))
-        expected-payment (funding-payment-estimate direction position-value annualized-mean)
-        lower-rate (when (and (number? annualized-mean)
-                              (number? annualized-volatility))
-                     (- annualized-mean annualized-volatility))
-        upper-rate (when (and (number? annualized-mean)
-                              (number? annualized-volatility))
-                     (+ annualized-mean annualized-volatility))
-        lower-payment (funding-payment-estimate direction position-value lower-rate)
-        upper-payment (funding-payment-estimate direction position-value upper-rate)]
-    [{:id "mean-rate"
-      :label "Mean APY"
-      :rate annualized-mean
-      :rate-kind :signed-percentage
-      :payment expected-payment
-      :payment-kind :signed-usd}
-     {:id "volatility"
-      :label "Volatility"
-      :rate annualized-volatility
-      :rate-kind :unsigned-percentage
-      :payment {:lower lower-payment
-                :upper upper-payment}
-      :payment-kind :usd-range}]))
-
-(defn- predictability-lag-note
-  [summary]
-  (let [lag-order [:lag-1d :lag-5d :lag-15d]
-        first-insufficient (some (fn [lag]
-                                   (let [lag-stat (get-in summary [:autocorrelation lag])]
-                                     (when (:insufficient? lag-stat)
-                                       lag-stat)))
-                                 lag-order)]
-    (when first-insufficient
-      (str "Lag "
-           (:lag-days first-insufficient)
-           "d needs at least "
-           (:minimum-daily-count first-insufficient)
-           " daily points"))))
-
 (defn- unsigned-input-text
   [text]
   (let [text* (str (or text ""))]
@@ -250,33 +193,22 @@
       (subs text* 1)
       text*)))
 
-(defn- year-outlook
-  [summary direction position-value]
-  (let [annualized-mean (daily-decimal->annualized-percent (:mean summary))
-        annualized-volatility (daily-decimal-stddev->annualized-percent (:stddev summary))
-        expected (funding-payment-estimate direction position-value annualized-mean)
-        band (fn [sign]
-               (when (and (number? annualized-mean)
-                          (number? annualized-volatility))
-                 (funding-payment-estimate direction
-                                           position-value
-                                           (+ annualized-mean (* sign annualized-volatility)))))
-        a (band -1)
-        b (band 1)]
-    (when (number? expected)
-      {:mean-apy annualized-mean
-       :expected expected
-       :lower (when (and (number? a) (number? b)) (min a b))
-       :upper (when (and (number? a) (number? b)) (max a b))})))
-
 (defn- projection-row
-  [id label rate direction position-value margin]
+  [id label basis rate direction position-value margin]
   (let [payment (funding-payment-estimate direction position-value rate)]
     {:id id
      :label label
+     :basis basis
      :rate rate
      :payment payment
      :margin-pct (insights/share-of-margin-pct payment margin)}))
+
+(defn- average-hourly-rate
+  "The 30-day average rate in the context's units (percent per hour). The
+  predictability summary's :mean is a daily decimal rate."
+  [summary]
+  (when (number? (:mean summary))
+    (/ (* (:mean summary) 100) 24)))
 
 (defn funding-tooltip-model
   ([position market coin mark funding-rate predictability-state hypothetical-input locale]
@@ -313,7 +245,9 @@
                                             :order-leverage order-leverage})
         predictability-summary (:summary predictability-state)
         predictability-loading? (true? (:loading? predictability-state))
-        predictability-error (non-blank-text (:error predictability-state))]
+        predictability-error (non-blank-text (:error predictability-state))
+        average-rate (when (map? predictability-summary)
+                       (average-hourly-rate predictability-summary))]
     {:position-mode (if hypothetical-active? :hypothetical :live)
      :position-title (if hypothetical-active?
                        "If you hold"
@@ -360,35 +294,26 @@
      :since-open-funding (when-not hypothetical-active?
                            (insights/since-open-funding position))
      :breakeven (insights/breakeven effective-direction funding-rate mark)
+     :expected-breakeven (when (number? average-rate)
+                           (insights/breakeven effective-direction average-rate mark))
      :rate-breakdown (insights/rate-breakdown coin funding-rate)
-     :projection-rows [(projection-row "next-24h" "Next 24 hours" next-24h-rate
-                                       effective-direction effective-position-value (:margin margin-info))
-                       (projection-row "next-30d" "Next 30 days" next-30d-rate
-                                       effective-direction effective-position-value (:margin margin-info))
-                       (projection-row "apy" "Next year" annual-rate
-                                       effective-direction effective-position-value (:margin margin-info))]
+     :projection-rows (mapv (fn [[id label rate]]
+                              (projection-row id label :today rate effective-direction
+                                              effective-position-value (:margin margin-info)))
+                            [["next-24h" "Next 24 hours" next-24h-rate]
+                             ["next-30d" "Next 30 days" next-30d-rate]
+                             ["apy" "Next year" annual-rate]])
+     :expected-projection-rows (when (number? average-rate)
+                                 (mapv (fn [[id label basis rate]]
+                                         (projection-row id label basis rate effective-direction
+                                                         effective-position-value (:margin margin-info)))
+                                       [["next-24h" "Next 24 hours" :today next-24h-rate]
+                                        ["next-30d" "Next 30 days" :average (* average-rate 24 30)]
+                                        ["apy" "Next year" :average (fmt/annualized-funding-rate average-rate)]]))
      :history-chart (when (map? predictability-summary)
                       (insights/history-chart-model (:daily-funding-series predictability-summary)))
-     :lag-strip (when (map? predictability-summary)
-                  (insights/lag-strip (:autocorrelation-series predictability-summary)))
-     :year-outlook (when (map? predictability-summary)
-                     (year-outlook predictability-summary
-                                   effective-direction
-                                   effective-position-value))
      :predictability-loading? predictability-loading?
-     :predictability-error predictability-error
-     :predictability-rows (when (map? predictability-summary)
-                            (predictability-rows predictability-summary
-                                                 effective-direction
-                                                 effective-position-value))
-     :predictability-daily-rate-series (when (map? predictability-summary)
-                                         (vec (or (:daily-funding-series predictability-summary)
-                                                  [])))
-     :predictability-autocorrelation-series (when (map? predictability-summary)
-                                              (vec (or (:autocorrelation-series predictability-summary)
-                                                       [])))
-     :predictability-lag-note (when (map? predictability-summary)
-                                (predictability-lag-note predictability-summary))})))
+     :predictability-error predictability-error})))
 
 (defonce ^:private funding-tooltip-model-cache
   (atom nil))

@@ -234,7 +234,7 @@
 (defn funding-tooltip-panel
   ([model]
    (funding-tooltip-panel model {}))
-  ([model {:keys [mobile-sheet? attrs chart-style countdown-text]}]
+  ([model {:keys [mobile-sheet? attrs chart-style countdown-text projection-basis]}]
    [:div (merge {:class (funding-tooltip-panel-classes mobile-sheet?)}
                 (or attrs {}))
     [:div {:class ["flex" "flex-col" "gap-3"]}
@@ -242,14 +242,12 @@
      (position-section model)
      (sections/verdict-section model)
      (sections/since-open-section model)
-     (sections/projections-section model)
+     (sections/projections-section model projection-basis)
      (when (:rate-breakdown model)
        (list (divider)
              (sections/rate-breakdown-section model)))
      (divider)
-     (sections/history-section model chart-style)
-     (sections/year-outlook-section model)
-     (sections/lag-strip-section model)]]))
+     (sections/history-section model chart-style)]]))
 
 (defn funding-tooltip-popover
   [{:keys [trigger body position open? pin-id pinned? anchor viewport-layer?]}]

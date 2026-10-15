@@ -1,7 +1,7 @@
 (ns hyperopen.active-asset.funding-insights
   "Pure derivations behind the funding tooltip: who pays, cost as a share of
   margin, funding already paid, the price move that covers funding, the
-  baseline/premium split, the 30-day chart model and the lag strip.
+  baseline/premium split and the 30-day chart model.
 
   Rate units follow the active-asset context: `funding-rate` is a percent per
   hour (0.00125 means 0.00125%/hr)."
@@ -17,12 +17,6 @@
 
 (def ^:private breakeven-days
   30)
-
-(def ^:private lag-strip-days
-  [1 3 7 14])
-
-(def ^:private min-lag-pair-count
-  3)
 
 (defn- finite-number?
   [value]
@@ -165,49 +159,3 @@
        :max-apy (when (seq values) (apply max values))
        :sd-apy (sample-stddev values)
        :positive-days (count (filter pos? values))})))
-
-(defn- lag-label
-  [lag-days]
-  (case lag-days
-    1 "Tomorrow"
-    7 "1 week out"
-    14 "2 weeks out"
-    (str lag-days " days out")))
-
-(defn- lag-row
-  [{:keys [lag-days value pair-count undefined?]}]
-  (let [value* (parse-number value)
-        pair-count* (or (parse-number pair-count) 0)]
-    (when (and (not undefined?)
-               (number? value*)
-               (>= pair-count* min-lag-pair-count))
-      (let [noise (/ 1.96 (js/Math.sqrt pair-count*))]
-        {:lag-days lag-days
-         :label (lag-label lag-days)
-         :value value*
-         :noise (min 1 noise)
-         :significant? (> (js/Math.abs value*) noise)}))))
-
-(defn- lag-verdict
-  [rows]
-  (when-let [{:keys [value significant?]} (first (filter #(= 1 (:lag-days %)) rows))]
-    (cond
-      (or (not significant?) (neg? value)) :barely
-      (>= value 0.5) :strongly
-      :else :somewhat)))
-
-(defn lag-strip
-  "Autocorrelation at a few horizons with a 95% noise band, plus a plain verdict
-  read from the one-day lag."
-  [autocorrelation-series]
-  (let [by-lag (into {}
-                     (keep (fn [row]
-                             (when (map? row)
-                               [(:lag-days row) row])))
-                     autocorrelation-series)
-        rows (vec (keep (fn [lag-days]
-                          (some-> (get by-lag lag-days) lag-row))
-                        lag-strip-days))]
-    (when (seq rows)
-      {:verdict (lag-verdict rows)
-       :rows rows})))

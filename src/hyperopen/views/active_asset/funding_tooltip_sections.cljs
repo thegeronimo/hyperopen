@@ -60,7 +60,7 @@
 (defn section-heading
   [text & [right]]
   [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
-   [:h4 {:class section-heading-classes} text]
+   [:h4 {:class (conj section-heading-classes "whitespace-nowrap")} text]
    right])
 
 (defn- countdown-text
@@ -127,51 +127,118 @@
   {"next-24h" 4 "next-30d" 3 "apy" 2})
 
 (defn- breakeven-text
-  [{:keys [kind move pct days mark target-price]} base-symbol]
+  [{:keys [kind move pct days mark target-price]} base-symbol expected?]
   (let [pct-text (str (fmt/format-fixed-number pct 2) "%")
         target-text (fmt/format-trade-price target-price)
-        mark-text (fmt/format-trade-price mark)]
+        mark-text (fmt/format-trade-price mark)
+        funding-word (if expected? "expected funding" "funding")]
     (if (= kind :cover)
-      (str "To cover " days " days of funding, " base-symbol " needs to "
+      (str "To cover " days " days of " funding-word ", " base-symbol " needs to "
            (name move) " " pct-text ", from " mark-text " to about " target-text ".")
-      (str "Over " days " days, funding offsets a " pct-text " move against you ("
+      (str "Over " days " days, " funding-word " offsets a " pct-text " move against you ("
            base-symbol " at about " target-text ")."))))
 
+(defn- basis-button
+  [basis current label]
+  (let [active? (= basis current)]
+    [:button {:type "button"
+              :aria-pressed (if active? "true" "false")
+              :data-role (str "funding-projection-basis-" (name basis))
+              :class (into ["h-6" "whitespace-nowrap" "rounded" "px-2" "text-xs" "font-semibold" "transition-colors"
+                            "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-ho-accent"]
+                           (if active?
+                             ["bg-ho-surface-raised" "text-ho-text"]
+                             ["text-ho-text-muted" "hover:text-ho-text"]))
+              :on {:click [[:actions/set-funding-projection-basis (name basis)]]}}
+     label]))
+
+(defn- basis-toggle
+  [current]
+  [:div {:role "group"
+         :aria-label "Projection basis"
+         :class ["flex" "gap-0.5" "rounded-md" "border" "border-ho-border-accent-muted"
+                 "bg-ho-bg-deep" "p-0.5"]}
+   (basis-button :expected current "Expected")
+   (basis-button :today current "Today's rate")])
+
+(defn- projection-note
+  [data-role tone-classes icon text]
+  [:div {:class (into ["flex" "items-start" "gap-2" "rounded-md" "px-2.5" "py-2"] tone-classes)
+         :data-role data-role}
+   [:svg {:viewBox "0 0 16 16" :width 14 :height 14 :fill "none" :stroke "currentColor"
+          :stroke-width 1.6 :stroke-linecap "round" :stroke-linejoin "round" :aria-hidden "true"
+          :class ["mt-0.5" "shrink-0" "text-ho-warn"]}
+    icon]
+   [:span {:class ["text-xs"]} text]])
+
+(def ^:private fade-note-text
+  "Rate spikes usually fade within a day, so 30-day and 1-year figures use the 30-day average instead of today's rate.")
+
+(def ^:private scenario-note-text
+  "A scenario, not a forecast. Over the past year, today's rate missed the next 30 days' funding by about twice as much as the 30-day average.")
+
+(defn- rate-basis-text
+  [{:keys [id basis rate]}]
+  (str (if (= basis :average) "30-day avg · " "today's rate · ")
+       (signed-pct-text rate (get projection-rate-decimals id 4))))
+
 (defn projections-section
-  [{:keys [projection-rows verdict margin breakeven position-base-symbol]}]
-  (let [show-margin? (number? margin)
+  "Expected (the default) projects 30 days and a year at the 30-day average,
+  which beat today's rate out of sample; today's rate is offered as a labelled
+  scenario."
+  [{:keys [projection-rows expected-projection-rows verdict margin breakeven
+           expected-breakeven position-base-symbol]}
+   projection-basis]
+  (let [basis (if (= :today projection-basis) :today :expected)
+        expected? (= basis :expected)
+        average-ready? (seq expected-projection-rows)
+        rows (if (and expected? average-ready?) expected-projection-rows projection-rows)
+        breakeven* (if (and expected? expected-breakeven) expected-breakeven breakeven)
+        show-margin? (number? margin)
         grid (if show-margin?
                ["grid-cols-[minmax(0,1fr)_auto_4.5rem]"]
                ["grid-cols-[minmax(0,1fr)_auto]"])]
     [:div {:class ["flex" "flex-col" "gap-1.5"]
-           :data-role "funding-tooltip-projections"}
-     (section-heading "Projected at today's rate")
+           :data-role "funding-tooltip-projections"
+           :data-projection-basis (name basis)}
+     (section-heading "Projections" (basis-toggle basis))
      [:div {:class (into ["grid" "gap-x-3" "text-xs" "text-ho-text-muted"] grid)}
       [:span]
       [:span {:class ["text-right"]}
        (case verdict :pays "You pay" :receives "You earn" "Payment")]
       (when show-margin? [:span {:class ["text-right"]} "Of margin"])]
-     (for [{:keys [id label rate payment margin-pct]} projection-rows]
+     (for [{:keys [id label payment margin-pct] :as row} rows]
        ^{:key id}
        [:div {:class (into ["grid" "items-baseline" "gap-x-3" "border-b" "border-ho-border/60" "pb-1"]
                            grid)
               :data-role (str "funding-projection-" id)}
         [:div {:class ["flex" "min-w-0" "flex-col"]}
          [:span {:class ["text-sm" "text-ho-text"]} label]
-         [:span {:class ["num" "text-xs" "text-ho-text-muted"]}
-          (str (signed-pct-text rate (get projection-rate-decimals id 4))
-               (when (= id "apy") " APY"))]]
+         [:span {:class ["num" "text-xs" "text-ho-text-muted"]} (rate-basis-text row)]]
         [:span {:class ["num" "text-sm" "font-semibold" "text-right" "whitespace-nowrap"
                         (payment-tone-class payment)]}
          (usd-text payment)]
         (when show-margin?
           [:span {:class ["num" "text-sm" "text-right" "text-ho-text-secondary"]}
            (margin-pct-text margin-pct)])])
-     (when breakeven
+     (cond
+       (and expected? average-ready?)
+       (projection-note "funding-projection-fade-note"
+                        ["bg-ho-surface/60" "text-ho-text-secondary"]
+                        (list [:path {:d "M2 4 L6 10 L9 7 L14 12"}] [:path {:d "M10 12 H14 V8"}])
+                        fade-note-text)
+
+       (not expected?)
+       (projection-note "funding-projection-scenario-note"
+                        ["bg-ho-warn/10" "text-ho-text"]
+                        (list [:circle {:cx 8 :cy 8 :r 6.25}] [:path {:d "M8 7.5 V11"}] [:path {:d "M8 5 V5.1"}])
+                        scenario-note-text))
+     (when breakeven*
        [:p {:class ["mt-1" "rounded-md" "border" "border-ho-border-accent-muted" "px-2.5" "py-1.5"
                     "text-xs" "text-ho-text-secondary"]
             :data-role "funding-tooltip-breakeven"}
-        (breakeven-text breakeven position-base-symbol)])]))
+        (breakeven-text breakeven* position-base-symbol
+                        (and expected? (some? expected-breakeven)))])]))
 
 ;; ---------------------------------------------------------------------------
 ;; Why this rate
@@ -251,85 +318,3 @@
 
      :else
      [:div {:class ["num" "text-xs" "text-ho-text-muted"]} "—"])])
-
-(defn year-outlook-section
-  [{:keys [year-outlook predictability-loading? predictability-error]}]
-  (when (and (map? year-outlook)
-             (not predictability-loading?)
-             (not (seq predictability-error)))
-    (let [{:keys [expected lower upper]} year-outlook]
-      [:div {:class ["flex" "flex-col" "gap-1"]
-             :data-role "funding-tooltip-year-outlook"}
-       (section-heading "If the last 30 days repeat for a year")
-       [:div {:class ["flex" "items-baseline" "justify-between" "gap-3"]}
-        [:span {:class ["text-sm" "text-ho-text"]}
-         (if (neg? expected) "You'd pay about" "You'd earn about")]
-        [:span {:class ["num" "text-base" "font-semibold" (payment-tone-class expected)]}
-         (usd-text expected)]]
-       (when (and (number? lower) (number? upper))
-         [:span {:class ["num" "text-xs" "text-ho-text-muted"]}
-          (if (= (neg? lower) (neg? upper))
-            (str "Likely range " (usd-text (min (js/Math.abs lower) (js/Math.abs upper)))
-                 " to " (usd-text (max (js/Math.abs lower) (js/Math.abs upper)))
-                 " (2 in 3 odds)")
-            (str "Likely anywhere from paying " (usd-text lower)
-                 " to earning " (usd-text upper) " (2 in 3 odds)"))])
-       [:p {:class ["text-xs" "text-ho-text-muted"]}
-        "Daily swings mostly cancel out over a year. The bigger risk is the rate regime changing."]])))
-
-(def ^:private lag-verdict-copy
-  {:barely {:pill "Barely"
-            :pill-classes ["bg-ho-warn" "text-ho-bg-deep"]
-            :text "Today's rate tells you little about the rate a few days out. Treat it as a snapshot, not a forecast."}
-   :somewhat {:pill "Somewhat"
-              :pill-classes ["bg-ho-info/20" "text-ho-info"]
-              :text "Rates tend to carry over for a day or so, then drift."}
-   :strongly {:pill "Strongly"
-              :pill-classes ["bg-ho-buy/20" "text-ho-buy"]
-              :text "Rates tend to persist, so today's rate is a fair guide to the next few days."}})
-
-(defn- lag-row
-  [{:keys [lag-days label value noise significant?]}]
-  (let [half-width (* 50 (min 1 (js/Math.abs value)))
-        left (if (neg? value) (- 50 half-width) 50)]
-    [:div {:class ["grid" "grid-cols-[5rem_minmax(0,1fr)_2.5rem]" "items-center" "gap-2"]
-           :data-role (str "funding-lag-" lag-days "d")}
-     [:span {:class ["text-xs" "text-ho-text-secondary"]} label]
-     [:div {:class ["relative" "h-3.5"]}
-      [:div {:class ["absolute" "inset-y-0" "rounded-sm" "bg-ho-surface"]
-             :style {:left (str (- 50 (* 50 noise)) "%")
-                     :width (str (* 100 noise) "%")}}]
-      [:div {:class ["absolute" "-inset-y-0.5" "w-px" "bg-ho-border"]
-             :style {:left "50%"}}]
-      [:div {:class ["absolute" "inset-y-1" "rounded-sm"
-                     (if significant? "bg-ho-text" "bg-ho-text-dim")]
-             :style {:left (str left "%")
-                     :width (str half-width "%")}}]]
-     [:span {:class ["num" "text-right" "text-xs"
-                     (if significant? "text-ho-text" "text-ho-text-muted")]}
-      (str (when (pos? value) "+") (fmt/format-fixed-number value 2))]]))
-
-(defn lag-strip-section
-  [{:keys [lag-strip predictability-loading? predictability-error]}]
-  (when (and (map? lag-strip)
-             (not predictability-loading?)
-             (not (seq predictability-error)))
-    (let [{:keys [verdict rows]} lag-strip
-          {:keys [pill pill-classes text]} (get lag-verdict-copy verdict)]
-      [:div {:class ["flex" "flex-col" "gap-1.5"]
-             :data-role "funding-tooltip-lag-strip"}
-       (section-heading "Does today predict later?"
-                        (when pill
-                          [:span {:class (into ["rounded-full" "px-2" "py-0.5" "text-xs" "font-semibold"]
-                                               pill-classes)}
-                           pill]))
-       (when text
-         [:p {:class ["text-xs" "text-ho-text-secondary"]} text])
-       (for [row rows]
-         ^{:key (str "lag-" (:lag-days row))}
-         (lag-row row))
-       [:div {:class ["grid" "grid-cols-[5rem_minmax(0,1fr)_2.5rem]" "gap-2" "text-xs" "text-ho-text-muted"]}
-        [:span]
-        [:div {:class ["flex" "justify-between"]}
-         [:span "reverses"] [:span "noise"] [:span "persists"]]
-        [:span]]])))

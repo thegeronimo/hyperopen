@@ -70,20 +70,3 @@
     (is (approx= -3.65 (:min-apy model)))
     (is (approx= 3.65 (:mean-apy model))))
   (is (nil? (insights/history-chart-model []))))
-
-(deftest lag-strip-keeps-supported-lags-and-reads-verdict-from-one-day-lag-test
-  (let [series [{:lag-days 1 :value 0.1 :pair-count 29}
-                {:lag-days 3 :value -0.5 :pair-count 27}
-                {:lag-days 7 :value 0.9 :pair-count 2}
-                {:lag-days 14 :value nil :pair-count 16 :undefined? true}
-                {:lag-days 5 :value 0.9 :pair-count 25}]
-        {:keys [verdict rows]} (insights/lag-strip series)]
-    (is (= :barely verdict))
-    (is (= [1 3] (mapv :lag-days rows)))
-    (is (= ["Tomorrow" "3 days out"] (mapv :label rows)))
-    (is (false? (:significant? (first rows))))
-    (is (true? (:significant? (second rows))))
-    (is (approx= (/ 1.96 (js/Math.sqrt 29)) (:noise (first rows))))
-    (is (= :strongly (:verdict (insights/lag-strip [{:lag-days 1 :value 0.8 :pair-count 29}]))))
-    (is (= :somewhat (:verdict (insights/lag-strip [{:lag-days 1 :value 0.45 :pair-count 29}]))))
-    (is (nil? (insights/lag-strip [])))))

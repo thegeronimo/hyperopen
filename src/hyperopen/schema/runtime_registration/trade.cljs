@@ -71,6 +71,7 @@
    [:actions/set-funding-hypothetical-value :set-funding-hypothetical-value]
    [:actions/set-funding-hypothetical-side :set-funding-hypothetical-side]
    [:actions/set-funding-chart-style :set-funding-chart-style]
+   [:actions/set-funding-projection-basis :set-funding-projection-basis]
    [:actions/toggle-timeframes-dropdown :toggle-timeframes-dropdown]
    [:actions/select-chart-timeframe :select-chart-timeframe]
    [:actions/request-chart-candle-backfill :request-chart-candle-backfill]

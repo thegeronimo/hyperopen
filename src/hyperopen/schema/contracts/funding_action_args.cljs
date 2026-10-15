@@ -41,10 +41,13 @@
            #{:long :short "long" "short"}))
 (s/def ::funding-chart-style-args
   (s/tuple #{:area :bars "area" "bars"}))
+(s/def ::funding-projection-basis-args
+  (s/tuple #{:expected :today "expected" "today"}))
 
 (def funding-action-args-spec-by-id
   {:actions/set-funding-hypothetical-side ::funding-hypothetical-side-args
    :actions/set-funding-chart-style ::funding-chart-style-args
+   :actions/set-funding-projection-basis ::funding-projection-basis-args
    :actions/set-funding-modal ::funding-modal-args
    :actions/open-funding-send-modal ::funding-send-open-args
    :actions/open-funding-transfer-modal ::funding-transfer-open-args

@@ -288,6 +288,21 @@
      [:effects/local-storage-set funding-chart-style-storage-key (name style*)]]
     []))
 
+(def ^:private funding-projection-bases
+  #{:expected :today})
+
+(defn set-funding-projection-basis
+  "Expected (30-day average) or the today's-rate scenario. Session-only on
+  purpose: every open starts from Expected."
+  [_state basis]
+  (let [basis* (cond
+                 (keyword? basis) basis
+                 (string? basis) (keyword (str/lower-case (str/trim basis)))
+                 :else nil)]
+    (if (contains? funding-projection-bases basis*)
+      [[:effects/save [:funding-ui :projection-basis] basis*]]
+      [])))
+
 (defn set-funding-hypothetical-size
   [state coin mark size-input]
   (if-let [coin* (normalize-coin-key coin)]

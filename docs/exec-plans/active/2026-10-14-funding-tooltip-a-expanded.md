@@ -31,7 +31,8 @@ Repo artifacts:
 - [x] (2026-10-14) Tests updated/added; `npm run gates` 34/34 PASS.
 - [x] (2026-10-14) Browser QA: funding tooltip Playwright specs (desktop + mobile sheet) pass 3x repeated against the worktree build; screenshots reviewed for live, hypothetical long/short, area and bar views.
 - [x] (2026-10-14) Owner testing feedback: tooltip scrollbar hidden (`scrollbar-hide`, desktop popover + mobile sheet); 30-day chart shows a per-day hover readout (date · APY, guide line, dot) via CSS `group-hover` only, so hovering dispatches no actions. Gates 34/34; hover verified in Playwright for area and bar views.
-- [ ] Owner review of the live tooltip; commit/PR.
+- [x] (2026-10-15) Backtest (25 HL perps, Jun 2025 to Oct 2026, scored out of sample from 2025-12-01): the 30-day average beat today's rate by 37% (7d) and 48% (30d) on every coin; the lag-1 verdict repeated only 39% of the time and 44% of persistent verdicts flipped when one day was dropped. Applied as "A-Revised + scenario toggle": Projections default to Expected (24h at today's rate, 30d and 1y at the 30-day average) with a session-only `:actions/set-funding-projection-basis` toggle to a labelled today's-rate scenario; the year-outlook and "Does today predict later?" sections and the lag-strip derivation were removed.
+- [ ] Owner review of the live tooltip; PR.
 
 ## Surprises & Discoveries
 
@@ -53,6 +54,9 @@ Repo artifacts:
 - Decision: lag strip shows lags 1, 3, 7, 14 days with a ±1.96/√n noise band, replacing the 29-lag ACF chart; lags with fewer than 2 pairs are omitted.
   Rationale: large lags on 30 points compare only a handful of pairs and render as spurious near-±1 bars.
   Date/Author: 2026-10-14, Claude.
+- Decision (supersedes the lag strip): remove the predictability indicator and project 30 days and a year at the 30-day average by default, with today's rate as an opt-in scenario.
+  Rationale: the out-of-sample backtest showed the verdict does not replicate and its advice ("today's rate is a fair guide") was wrong even in "Strongly" months; the 30-day average roughly halves 30-day projection error.
+  Date/Author: 2026-10-15, Claude (owner chose the scenario toggle with the evidence line).
 - Decision: the chart-style preference is a single localStorage key restored alongside chart options.
   Rationale: tiny, low-frequency UI preference per `docs/BROWSER_STORAGE.md`.
   Date/Author: 2026-10-14, Claude.

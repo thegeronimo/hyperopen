@@ -181,14 +181,15 @@
                (get-in action-button [1 :on :click])))
         (is (= "pays" (get-in verdict [1 :data-verdict])))
         (is (contains? strings "Pays funding every hour"))
-        (is (contains? strings "Projected at today's rate"))
+        (is (contains? strings "Projections"))
         (is (contains? strings "You pay"))
         (is (contains? strings "Next 24 hours"))
         (is (contains? strings "Next 30 days"))
         (is (contains? strings "Next year"))
-        (is (contains? strings "+0.1344%"))
-        (is (contains? strings "+4.032%"))
-        (is (contains? strings "+49.06% APY"))
+        (is (contains? strings "today's rate · +0.1344%"))
+        (is (contains? strings "today's rate · +4.032%"))
+        (is (contains? strings "today's rate · +49.06%"))
+        (is (nil? (support/find-node-by-role view-node "funding-projection-fade-note")))
         (is (contains? (set (support/collect-strings next-24h)) "$0.13"))
         (is (contains? strings "$4.01"))
         (is (contains? strings "$48.76"))
@@ -324,18 +325,50 @@
         (is (contains? strings "2d ago · +1,051.20% APY"))
         (is (contains? strings "Today · +700.80% APY"))
         (is (contains? strings "2 of 3 d"))
-        (is (contains? strings "If the last 30 days repeat for a year"))
-        (is (contains? strings "You'd pay about"))
+        (is (= "expected" (get-in (support/find-node-by-role view-node "funding-tooltip-projections")
+                                  [1 :data-projection-basis])))
+        (is (contains? strings "Projections"))
+        (is (contains? strings "today's rate · +0.2400%"))
+        (is (contains? strings "30-day avg · +302.400%"))
+        (is (contains? strings "30-day avg · +3,679.20%"))
+        (is (contains? strings "$15,120.00"))
         (is (contains? strings "$183,960.00"))
-        (is (contains? strings "Likely range $175,208.89 to $192,711.11 (2 in 3 odds)"))
-        (is (contains? strings "Does today predict later?"))
-        (is (contains? strings "Strongly"))
-        (is (contains? strings "Tomorrow"))
-        (is (contains? strings "3 days out"))
-        (is (contains? strings "+0.71"))
-        (is (not (contains? strings "1 week out")))
+        (is (some? (support/find-node-by-role view-node "funding-projection-fade-note")))
+        (is (some-string-includes? strings "days of expected funding"))
+        (is (not (contains? strings "If the last 30 days repeat for a year")))
+        (is (not (contains? strings "Does today predict later?")))
         (is (not (contains? strings "Rate History")))
         (is (not (contains? strings "Past Rate Correlation")))))))
+
+(deftest active-asset-row-funding-tooltip-shows-todays-rate-scenario-when-selected-test
+  (let [ctx-data (gold-ctx-data {})
+        market (gold-market {})
+        full-state (-> (visible-gold-state
+                        {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD" gold-predictability-summary}
+                                                                  :loading-by-coin {}
+                                                                  :error-by-coin {}}}})
+                       (assoc-in [:funding-ui :projection-basis] :today))]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
+                    {:coin "xyz:GOLD"
+                     :szi "1"
+                     :positionValue "5000"})
+                  fmt/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (support/collect-strings view-node))
+            today-button (support/find-node-by-role view-node "funding-projection-basis-today")
+            expected-button (support/find-node-by-role view-node "funding-projection-basis-expected")]
+        (is (contains? strings "Projections"))
+        (is (= "true" (get-in today-button [1 :aria-pressed])))
+        (is (= [[:actions/set-funding-projection-basis "expected"]]
+               (get-in expected-button [1 :on :click])))
+        (is (contains? strings "today's rate · +7.200%"))
+        (is (contains? strings "$360.00"))
+        (is (nil? (support/find-node-by-role view-node "funding-projection-fade-note")))
+        (is (some? (support/find-node-by-role view-node "funding-projection-scenario-note")))
+        (is (some-string-includes? strings "A scenario, not a forecast."))
+        (is (some-string-includes? strings "needs to rise 7.20%"))))))
 
 (deftest active-asset-row-funding-tooltip-renders-bar-chart-when-selected-test
   (let [ctx-data (gold-ctx-data {})
@@ -382,9 +415,10 @@
                                   false)
             ready-view (row/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)]
         (is (contains? loading-strings "Loading 30d stats..."))
-        (is (nil? (support/find-node-by-role loading-view "funding-tooltip-lag-strip")))
+        ;; a refresh keeps the cached 30-day average on screen
+        (is (some? (support/find-node-by-role loading-view "funding-projection-fade-note")))
         (is (some? (support/find-node-by-role ready-view "funding-history-chart")))
-        (is (some? (support/find-node-by-role ready-view "funding-tooltip-lag-strip")))))))
+        (is (some? (support/find-node-by-role ready-view "funding-projection-fade-note")))))))
 
 (deftest active-asset-row-funding-tooltip-shows-margin-and-since-open-for-live-position-test
   (let [ctx-data (support/active-asset-row-ctx {:coin "BTC"

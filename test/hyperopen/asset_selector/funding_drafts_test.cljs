@@ -266,3 +266,10 @@
           [:effects/local-storage-set "funding-chart-style" "area"]]
          (funding-drafts/set-funding-chart-style {} :area)))
   (is (= [] (funding-drafts/set-funding-chart-style {} "candles"))))
+
+(deftest set-funding-projection-basis-saves-known-bases-test
+  (is (= [[:effects/save [:funding-ui :projection-basis] :today]]
+         (funding-drafts/set-funding-projection-basis {} "today")))
+  (is (= [[:effects/save [:funding-ui :projection-basis] :expected]]
+         (funding-drafts/set-funding-projection-basis {} :expected)))
+  (is (= [] (funding-drafts/set-funding-projection-basis {} "forecast"))))

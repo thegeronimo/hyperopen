@@ -245,7 +245,10 @@
   [state]
   (cond-> {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id :anchor])}
     (some? (get-in state [:funding-ui :chart-style]))
-    (assoc :chart-style (get-in state [:funding-ui :chart-style]))))
+    (assoc :chart-style (get-in state [:funding-ui :chart-style]))
+
+    (some? (get-in state [:funding-ui :projection-basis]))
+    (assoc :projection-basis (get-in state [:funding-ui :projection-basis]))))
 
 (defn- funding-tooltip-open?
   [tooltip-ui coins]
@@ -435,6 +438,7 @@
      :funding-tooltip-pinned? funding-tooltip-pinned?
      :funding-tooltip-anchor (when funding-tooltip-open? (:anchor funding-tooltip-ui))
      :funding-chart-style (get-in full-state [:funding-ui :chart-style])
+     :funding-projection-basis (get-in full-state [:funding-ui :projection-basis])
      :is-spot (= :spot (:market-type market))
      :is-outcome outcome?
      :open-interest-tooltip (when outcome?

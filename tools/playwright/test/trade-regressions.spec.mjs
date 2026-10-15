@@ -3518,7 +3518,7 @@ test.describe("funding tooltip mobile presentation @mobile", () => {
     await expect(sheet).toBeVisible();
     await expect(positionSection).toHaveAttribute("data-position-mode", "live");
     await expect(sheet.getByRole("heading", { name: "Your position" })).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "Projected at today's rate" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Projections" })).toBeVisible();
     await expect(sheet.getByRole("heading", { name: "Last 30 days", exact: true })).toBeVisible();
 
     await backdrop.click({ position: { x: 16, y: 16 } });
