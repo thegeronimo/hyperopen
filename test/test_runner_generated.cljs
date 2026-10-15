@@ -22,6 +22,7 @@
             [hyperopen.account.spectate-watchlist-io-test]
             [hyperopen.account.surface-policy-test]
             [hyperopen.account.surface-service-test]
+            [hyperopen.active-asset.funding-insights-test]
             [hyperopen.api-wallets.actions-test]
             [hyperopen.api-wallets.application.form-policy-test]
             [hyperopen.api-wallets.application.ui-state-test]
@@ -666,6 +667,7 @@
             [hyperopen.views.account-info.vm-outcomes-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
+            [hyperopen.views.active-asset.funding-history-chart-test]
             [hyperopen.views.active-asset.funding-tooltip-model-test]
             [hyperopen.views.active-asset.funding-tooltip-popover-test]
             [hyperopen.views.active-asset.icon-button-test]
@@ -684,7 +686,6 @@
             [hyperopen.views.asset-selector.processing-test]
             [hyperopen.views.asset-selector.rows-test]
             [hyperopen.views.asset-selector.runtime-test]
-            [hyperopen.views.autocorrelation-plot-test]
             [hyperopen.views.chart.d3.model-test]
             [hyperopen.views.chart.d3.runtime-test]
             [hyperopen.views.chart.range-strip-model-test]
@@ -1008,6 +1009,7 @@
              'hyperopen.account.spectate-watchlist-io-test
              'hyperopen.account.surface-policy-test
              'hyperopen.account.surface-service-test
+             'hyperopen.active-asset.funding-insights-test
              'hyperopen.api-wallets.actions-test
              'hyperopen.api-wallets.application.form-policy-test
              'hyperopen.api-wallets.application.ui-state-test
@@ -1652,6 +1654,7 @@
              'hyperopen.views.account-info.vm-outcomes-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
+             'hyperopen.views.active-asset.funding-history-chart-test
              'hyperopen.views.active-asset.funding-tooltip-model-test
              'hyperopen.views.active-asset.funding-tooltip-popover-test
              'hyperopen.views.active-asset.icon-button-test
@@ -1670,7 +1673,6 @@
              'hyperopen.views.asset-selector.processing-test
              'hyperopen.views.asset-selector.rows-test
              'hyperopen.views.asset-selector.runtime-test
-             'hyperopen.views.autocorrelation-plot-test
              'hyperopen.views.chart.d3.model-test
              'hyperopen.views.chart.d3.runtime-test
              'hyperopen.views.chart.range-strip-model-test

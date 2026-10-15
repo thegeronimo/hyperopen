@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.collaborators.asset-selector
-  (:require [hyperopen.asset-selector.actions :as asset-actions]))
+  (:require [hyperopen.asset-selector.actions :as asset-actions]
+            [hyperopen.asset-selector.funding-drafts :as funding-drafts]))
 
 (defn action-deps []
   {:toggle-asset-dropdown asset-actions/toggle-asset-dropdown
@@ -27,4 +28,7 @@
    :enter-funding-hypothetical-position asset-actions/enter-funding-hypothetical-position
    :reset-funding-hypothetical-position asset-actions/reset-funding-hypothetical-position
    :set-funding-hypothetical-size asset-actions/set-funding-hypothetical-size
-   :set-funding-hypothetical-value asset-actions/set-funding-hypothetical-value})
+   :set-funding-hypothetical-value asset-actions/set-funding-hypothetical-value
+   :set-funding-hypothetical-side funding-drafts/set-funding-hypothetical-side
+   :set-funding-chart-style funding-drafts/set-funding-chart-style
+   :set-funding-projection-basis funding-drafts/set-funding-projection-basis})

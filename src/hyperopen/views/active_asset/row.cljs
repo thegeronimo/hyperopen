@@ -95,7 +95,7 @@
   [{:keys [funding-rate
            funding-tooltip-open?
            funding-tooltip-model
-           funding-tooltip-id funding-tooltip-pinned? funding-tooltip-anchor]}
+           funding-tooltip-id funding-tooltip-pinned? funding-tooltip-anchor funding-chart-style countdown-text funding-projection-basis]}
    {:keys [trigger-classes underlined? mobile-sheet?]}]
   (if (number? funding-rate)
     (let [trigger [:span {:class (into ["cursor-help"
@@ -109,12 +109,12 @@
           body (when funding-tooltip-open?
                  (funding-tooltip/funding-tooltip-panel
                   funding-tooltip-model
-                  (when mobile-sheet?
-                    {:mobile-sheet? true
-                     :attrs {:role "dialog"
-                             :aria-modal true
-                             :aria-label "Funding details"
-                             :data-role "active-asset-funding-mobile-sheet"}})))]
+                  (cond-> {:chart-style funding-chart-style :countdown-text countdown-text :projection-basis funding-projection-basis}
+                    mobile-sheet? (assoc :mobile-sheet? true
+                                         :attrs {:role "dialog"
+                                                 :aria-modal true
+                                                 :aria-label "Funding details"
+                                                 :data-role "active-asset-funding-mobile-sheet"}))))]
       (if mobile-sheet?
         (funding-tooltip/funding-tooltip-mobile-sheet
          {:trigger trigger

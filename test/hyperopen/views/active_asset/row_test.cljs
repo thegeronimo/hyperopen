@@ -477,7 +477,7 @@
                    (get-in backdrop-node [1 :on :click])))
             (is (= "dialog" (get-in sheet-node [1 :role])))
             (is (= true (get-in sheet-node [1 :aria-modal])))
-            (is (contains? sheet-strings "Hypothetical Position"))
+            (is (contains? sheet-strings "If you hold"))
             (is (contains? sheet-strings "Projections"))))))))
 
 (deftest active-asset-row-renders-24h-change-without-funding-rate-test

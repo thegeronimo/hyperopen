@@ -243,7 +243,12 @@
 
 (defn- funding-tooltip-ui-state
   [state]
-  {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id :anchor])})
+  (cond-> {:tooltip (select-state-keys (get-in state [:funding-ui :tooltip]) [:visible-id :pinned-id :anchor])}
+    (some? (get-in state [:funding-ui :chart-style]))
+    (assoc :chart-style (get-in state [:funding-ui :chart-style]))
+
+    (some? (get-in state [:funding-ui :projection-basis]))
+    (assoc :projection-basis (get-in state [:funding-ui :projection-basis]))))
 
 (defn- funding-tooltip-open?
   [tooltip-ui coins]
@@ -303,6 +308,12 @@
              :trade-ui {:mobile-asset-details-open? (true? (get-in state [:trade-ui :mobile-asset-details-open?]))
                         :outcome-option-sort-by (get-in state [:trade-ui :outcome-option-sort-by])
                         :outcome-option-sort-direction (get-in state [:trade-ui :outcome-option-sort-direction])}}
+      tooltip-open?
+      (assoc-in [:order-form :ui-leverage] (get-in state [:order-form :ui-leverage]))
+
+      tooltip-open?
+      (assoc-in [:order-form-ui :ui-leverage] (get-in state [:order-form-ui :ui-leverage]))
+
       tooltip-open?
       (assoc :account (:account state)
              :perp-dex-clearinghouse (:perp-dex-clearinghouse state)
@@ -394,7 +405,9 @@
                                       funding-hypothetical-input (read-by-coin
                                                                   (get-in full-state [:funding-ui :hypothetical-position-by-coin] {})
                                                                   coin)
-                                      locale (get-in full-state [:ui :locale])]
+                                      locale (get-in full-state [:ui :locale])
+                                      order-leverage (or (get-in full-state [:order-form :ui-leverage])
+                                                         (get-in full-state [:order-form-ui :ui-leverage]))]
                                   (funding-policy/memoized-funding-tooltip-model
                                    (or active-position {})
                                    market
@@ -403,7 +416,8 @@
                                    funding-rate
                                    funding-predictability-state
                                    funding-hypothetical-input
-                                   locale)))]
+                                   locale
+                                   {:order-leverage order-leverage})))]
     {:coin coin
      :icon-market icon-market
      :dropdown-visible? (= (:visible-dropdown dropdown-state) :asset-selector)
@@ -423,6 +437,8 @@
      :funding-tooltip-id funding-tooltip-id
      :funding-tooltip-pinned? funding-tooltip-pinned?
      :funding-tooltip-anchor (when funding-tooltip-open? (:anchor funding-tooltip-ui))
+     :funding-chart-style (get-in full-state [:funding-ui :chart-style])
+     :funding-projection-basis (get-in full-state [:funding-ui :projection-basis])
      :is-spot (= :spot (:market-type market))
      :is-outcome outcome?
      :open-interest-tooltip (when outcome?
