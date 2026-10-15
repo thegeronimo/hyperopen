@@ -62,6 +62,10 @@
   [{:keys [post-info!]} opts]
   (market-gateway/request-outcome-meta! {:post-info! post-info!} opts))
 
+(defn request-perp-annotations!
+  [{:keys [post-info!]} opts]
+  (market-gateway/request-perp-annotations! {:post-info! post-info!} opts))
+
 (defn fetch-spot-meta!
   [{:keys [log-fn request-spot-meta!]} store opts]
   (api-compat/fetch-spot-meta!
@@ -149,6 +153,7 @@
            ensure-spot-meta-data!
            ensure-outcome-meta-data!
            ensure-public-webdata2!
+           request-perp-annotations!
            request-meta-and-asset-ctxs!
            now-ms-fn
            log-fn]}]
@@ -162,6 +167,7 @@
     :ensure-outcome-meta-data! (fn [request-opts]
                                  (ensure-outcome-meta-data! store request-opts))
     :ensure-public-webdata2! ensure-public-webdata2!
+    :request-perp-annotations! request-perp-annotations!
     :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
     :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
                           (build-market-state-with-optional-outcomes now-ms-fn

@@ -42,7 +42,8 @@
 (defn- projected-scale-preview-lines
   [state draft market-info]
   (let [{:keys [type scale]} draft
-        {:keys [base-symbol quote-symbol sz-decimals]} market-info
+        {:keys [display-name quote-symbol sz-decimals]} market-info
+        base-symbol (or display-name (:base-symbol market-info))
         preview (when (= :scale type)
                   (trading/scale-preview-boundaries draft {:sz-decimals sz-decimals}))]
     {:start (format-scale-preview-line state

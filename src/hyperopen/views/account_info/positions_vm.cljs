@@ -21,7 +21,8 @@
   [position-data]
   (let [coin (:coin position-data)
         parsed (shared/parse-coin-namespace coin)]
-    (or (:base parsed)
+    (or (shared/non-blank-text (:display-name position-data))
+        (:base parsed)
         (shared/non-blank-text coin)
         "-")))
 
@@ -251,6 +252,7 @@
         coin-search-candidates (shared/normalized-coin-search-candidates
                                 [(:coin position)
                                  (some-> (:coin position) shared/parse-coin-namespace :base)
+                                 (:display-name position)
                                  dex-label])
         pnl-num (shared/parse-optional-num (:unrealizedPnl position))
         pnl-percent (some-> (:returnOnEquity position) shared/parse-optional-num (* 100))

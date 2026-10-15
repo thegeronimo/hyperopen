@@ -1,5 +1,6 @@
 (ns hyperopen.api.market-loader
-  (:require [hyperopen.api.market-metadata.facade :as market-metadata]))
+  (:require [hyperopen.api.market-metadata.facade :as market-metadata]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]))
 
 (defn- meta-and-asset-ctxs-request-opts
   [phase priority dex]
@@ -18,6 +19,7 @@
            ensure-spot-meta-data!
            ensure-outcome-meta-data!
            ensure-public-webdata2!
+           request-perp-annotations!
            request-meta-and-asset-ctxs!
            build-market-state
            log-fn]}]
@@ -45,15 +47,25 @@
         webdata2-promise (if bootstrap?
                            (js/Promise.resolve {})
                            (ensure-public-webdata2! {:priority priority}))
+        ;; Display names only label HIP-3 markets, which bootstrap never builds.
+        ;; A failed fetch must not block the catalog: fall back to coin symbols.
+        perp-annotations-promise (if (or bootstrap?
+                                         (nil? request-perp-annotations!))
+                                   (js/Promise.resolve {})
+                                   (-> (request-perp-annotations! {:priority priority})
+                                       (.catch (fn [err]
+                                                 (log-fn "Perp annotations unavailable:" err)
+                                                 {}))))
         base-promises (js/Promise.all
                        (clj->js [perp-dex-names-promise
                                  spot-meta-promise
                                  webdata2-promise
-                                 outcome-meta-promise]))]
+                                 outcome-meta-promise
+                                 perp-annotations-promise]))]
     (log-fn "Fetching asset selector markets. phase:" (name phase))
     (.then
      base-promises
-     (fn [[dexs* spot-meta-loaded webdata2 outcome-meta]]
+     (fn [[dexs* spot-meta-loaded webdata2 outcome-meta annotations]]
        (let [dexs-with-default (if (= phase :bootstrap)
                                  [nil]
                                  (vec (cons nil dexs*)))
@@ -67,13 +79,14 @@
          (.then
           (js/Promise.all perp-promises)
           (fn [perp-results]
-            (let [market-state (build-market-state active-asset
-                                                   phase
-                                                   dexs*
-                                                   spot-meta-loaded
-                                                   spot-asset-ctxs
-                                                   (array-seq perp-results)
-                                                   outcome-meta)]
+            (let [market-state (-> (build-market-state active-asset
+                                                       phase
+                                                       dexs*
+                                                       spot-meta-loaded
+                                                       spot-asset-ctxs
+                                                       (array-seq perp-results)
+                                                       outcome-meta)
+                                   (perp-annotations/apply-perp-annotations annotations))]
               {:phase phase
                :spot-meta spot-meta-loaded
                :market-state market-state}))))))))

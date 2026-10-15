@@ -63,7 +63,8 @@
   (or (instrument/quote-symbol-from-value coin) "USDC"))
 
 (defn resolve-base-symbol [coin market]
-  (instrument/resolve-base-symbol coin market "Asset"))
+  (or (some-> (:display-name market) str not-empty)
+      (instrument/resolve-base-symbol coin market "Asset")))
 
 (defn resolve-quote-symbol [coin market]
   (instrument/resolve-quote-symbol coin market "USDC"))

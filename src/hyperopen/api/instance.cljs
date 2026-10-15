@@ -92,6 +92,12 @@
              (market-gateway/request-outcome-meta!
               {:post-info! post-info!}
               opts)))
+          (request-perp-annotations!
+            ([] (request-perp-annotations! {}))
+            ([opts]
+             (market-gateway/request-perp-annotations!
+              {:post-info! post-info!}
+              opts)))
           (request-public-webdata2!
             ([] (request-public-webdata2! {}))
             ([opts]
@@ -119,6 +125,7 @@
      :request-l2-book-snapshot! request-l2-book-snapshot!
      :request-spot-meta! request-spot-meta!
      :request-outcome-meta! request-outcome-meta!
+     :request-perp-annotations! request-perp-annotations!
      :request-public-webdata2! request-public-webdata2!
      :request-market-funding-history! request-market-funding-history!
      :request-predicted-fundings! request-predicted-fundings!}))
@@ -128,6 +135,7 @@
   (let [{:keys [request-perp-dexs!
                 request-spot-meta!
                 request-outcome-meta!
+                request-perp-annotations!
                 request-public-webdata2!
                 request-meta-and-asset-ctxs!]} market-ops]
     (letfn [(ensure-perp-dexs-data!
@@ -164,6 +172,7 @@
                  :ensure-outcome-meta-data! (fn [request-opts]
                                               (ensure-outcome-meta-data! store request-opts))
                  :ensure-public-webdata2! ensure-public-webdata2!
+                 :request-perp-annotations! request-perp-annotations!
                  :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
                  :build-market-state (fn [active-asset phase dexs spot-meta spot-asset-ctxs perp-results outcome-meta]
                                        (let [builder market-gateway/build-market-state]

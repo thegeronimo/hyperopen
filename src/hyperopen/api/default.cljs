@@ -278,6 +278,10 @@
   ([] (request-outcome-meta! {}))
   ([opts] (market/request-outcome-meta! {:post-info! post-info!} opts)))
 
+(defn request-perp-annotations!
+  ([] (request-perp-annotations! {}))
+  ([opts] (market/request-perp-annotations! {:post-info! post-info!} opts)))
+
 (defn fetch-spot-meta!
   ([store] (fetch-spot-meta! store {}))
   ([store opts]
@@ -381,6 +385,7 @@
      :ensure-spot-meta-data! ensure-spot-meta-data!
      :ensure-outcome-meta-data! ensure-outcome-meta-data!
      :ensure-public-webdata2! ensure-public-webdata2!
+     :request-perp-annotations! request-perp-annotations!
      :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
      :now-ms-fn now-ms
      :log-fn (api-log-fn)})))
