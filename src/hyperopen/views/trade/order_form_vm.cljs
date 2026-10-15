@@ -92,6 +92,7 @@
         normalized-form draft
         {:keys [quote-symbol
                 base-symbol
+                display-name
                 spot?
                 hip3?
                 outcome?
@@ -112,7 +113,7 @@
                                                  :pro-mode? pro-mode?
                                                  :tpsl-panel-open? tpsl-panel-open?
                                                  :order-type-capabilities order-type-capabilities})
-        summary-display (selectors/summary-display summary sz-decimals)
+        summary-display (selectors/summary-display summary sz-decimals display-name)
         ui-leverage (:ui-leverage normalized-form)
         size-percent (trading/clamp-percent (:size-percent normalized-form))
         price (selectors/price-model pricing-policy)
@@ -147,7 +148,7 @@
                        selected-outcome-side-label
 
                        :else
-                       base-symbol)]
+                       (or display-name base-symbol))]
     {:form normalized-form
      :side side
      :type type

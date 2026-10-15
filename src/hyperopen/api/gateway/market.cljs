@@ -150,6 +150,11 @@
    opts]
   (market-endpoints/request-outcome-meta! post-info! opts))
 
+(defn request-perp-annotations!
+  [{:keys [post-info!]}
+   opts]
+  (market-endpoints/request-perp-annotations! post-info! opts))
+
 (defn fetch-spot-meta!
   [{:keys [log-fn
            request-spot-meta!
@@ -254,6 +259,7 @@
            ensure-spot-meta-data!
            ensure-outcome-meta-data!
            ensure-public-webdata2!
+           request-perp-annotations!
            request-meta-and-asset-ctxs!
            build-market-state
            log-fn]}]
@@ -264,6 +270,7 @@
     :ensure-spot-meta-data! ensure-spot-meta-data!
     :ensure-outcome-meta-data! ensure-outcome-meta-data!
     :ensure-public-webdata2! ensure-public-webdata2!
+    :request-perp-annotations! request-perp-annotations!
     :request-meta-and-asset-ctxs! request-meta-and-asset-ctxs!
     :build-market-state build-market-state
     :log-fn log-fn}))

@@ -93,7 +93,8 @@
 
 (defn- perp-label
   [active-asset active-market]
-  (let [base (instrument/resolve-base-symbol active-asset active-market nil)
+  (let [base (or (non-blank-text (:display-name active-market))
+                 (instrument/resolve-base-symbol active-asset active-market nil))
         dex (or (non-blank-text (:dex active-market))
                 (namespace-token (:coin active-market))
                 (namespace-token active-asset))]

@@ -90,3 +90,51 @@
           (.catch (fn [err]
                     (is false (str "Unexpected error: " err))
                     (done)))))))
+
+(defn- full-phase-deps
+  [request-perp-annotations!]
+  {:active-asset "xyz:HO"
+   :opts {:phase :full}
+   :ensure-perp-dexs-data! (fn [_opts] (js/Promise.resolve ["xyz"]))
+   :ensure-spot-meta-data! (fn [_opts] (js/Promise.resolve {:tokens []}))
+   :ensure-outcome-meta-data! (fn [_opts] (js/Promise.resolve {:outcomes []}))
+   :ensure-public-webdata2! (fn [_opts] (js/Promise.resolve {:spotAssetCtxs []}))
+   :request-perp-annotations! request-perp-annotations!
+   :request-meta-and-asset-ctxs! (fn [_dex _opts] (js/Promise.resolve [{} []]))
+   :build-market-state (fn [& _]
+                         (let [market {:key "perp:xyz:HO" :coin "xyz:HO" :symbol "HO-USDC"
+                                       :quote "USDC" :market-type :perp :hip3? true}]
+                           {:markets [market]
+                            :market-by-key {"perp:xyz:HO" market}
+                            :active-market market}))
+   :log-fn (fn [& _] nil)})
+
+(deftest request-asset-selector-markets-full-phase-applies-perp-annotations-test
+  (async done
+    (let [annotation-calls (atom [])]
+      (-> (market-loader/request-asset-selector-markets!
+           (full-phase-deps (fn [opts]
+                              (swap! annotation-calls conj opts)
+                              (js/Promise.resolve {"xyz:HO" {:display-name "DIESEL"}}))))
+          (.then (fn [{:keys [market-state]}]
+                   (is (= [{:priority :low}] @annotation-calls))
+                   (is (= "DIESEL-USDC" (get-in market-state [:markets 0 :display-symbol])))
+                   (is (= "DIESEL-USDC" (get-in market-state [:market-by-key "perp:xyz:HO" :display-symbol])))
+                   (is (= "DIESEL-USDC" (get-in market-state [:active-market :display-symbol])))
+                   (is (= "HO-USDC" (get-in market-state [:active-market :symbol])))
+                   (done)))
+          (.catch (fn [err]
+                    (is false (str "Unexpected error: " err))
+                    (done)))))))
+
+(deftest request-asset-selector-markets-annotation-failure-keeps-catalog-test
+  (async done
+    (-> (market-loader/request-asset-selector-markets!
+         (full-phase-deps (fn [_opts] (js/Promise.reject (js/Error. "boom")))))
+        (.then (fn [{:keys [market-state]}]
+                 (is (= "HO-USDC" (get-in market-state [:markets 0 :symbol])))
+                 (is (nil? (get-in market-state [:markets 0 :display-symbol])))
+                 (done)))
+        (.catch (fn [err]
+                  (is false (str "Unexpected error: " err))
+                  (done))))))

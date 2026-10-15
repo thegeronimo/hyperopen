@@ -131,6 +131,8 @@
           coin (normalize-display-text (:coin market))
           key (normalize-display-text (:key market))
           symbol (normalize-display-text (:symbol market))
+          display-name (normalize-display-text (:display-name market))
+          display-symbol (normalize-display-text (:display-symbol market))
           base (normalize-display-text (:base market))
           quote (normalize-display-text (:quote market))
           dex (normalize-display-text (:dex market))
@@ -183,6 +185,8 @@
         (cond-> {:coin coin}
           (seq key) (assoc :key key)
           (seq symbol) (assoc :symbol symbol)
+          (seq display-name) (assoc :display-name display-name)
+          (seq display-symbol) (assoc :display-symbol display-symbol)
           (seq base) (assoc :base base)
           (seq quote) (assoc :quote quote)
           (seq dex) (assoc :dex dex)
