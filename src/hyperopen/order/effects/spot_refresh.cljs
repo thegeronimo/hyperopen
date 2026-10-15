@@ -4,18 +4,36 @@
             [hyperopen.api.projections :as api-projections]
             [hyperopen.telemetry :as telemetry]))
 
+(def ^:private spot-asset-id-base 10000)
+
+(def ^:private builder-deployed-perp-asset-id-base 100000)
+
 (def ^:private outcome-asset-id-base 100000000)
 
-(defn outcome-order-mutation?
+(defn- spot-balance-asset-id?
+  "Spot pairs (10000 + spotMeta index) and outcome markets (>= 100000000) both
+  settle against the spot clearinghouse. Base-dex perps (< 10000) and
+  builder-deployed perps (100000 + dex*10000 + idx) do not."
+  [asset-id]
+  (and (number? asset-id)
+       (not (js/isNaN asset-id))
+       (or (and (>= asset-id spot-asset-id-base)
+                (< asset-id builder-deployed-perp-asset-id-base))
+           (>= asset-id outcome-asset-id-base))))
+
+(defn spot-balance-order-mutation?
+  "True when an order or cancel request touches a market whose fills and holds
+  live in the spot clearinghouse. There is no spot balance stream, so these
+  mutations must refetch `spotClearinghouseState` to stay current."
   [request]
-  (let [orders (get-in request [:action :orders])]
+  (let [{:keys [orders cancels]} (:action request)]
     (boolean
-     (some (fn [order]
-             (let [asset-id (:a order)]
-               (and (number? asset-id)
-                    (not (js/isNaN asset-id))
-                    (>= asset-id outcome-asset-id-base))))
-           orders))))
+     (some (comp spot-balance-asset-id? :a)
+           (concat orders cancels)))))
+
+(defn order-mutation-refresh-opts
+  [request]
+  {:refresh-spot? (spot-balance-order-mutation? request)})
 
 (defn- active-wallet-address?
   [state address]

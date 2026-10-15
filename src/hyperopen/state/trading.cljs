@@ -201,6 +201,7 @@
            :max-leverage (market-max-leverage state)
            :cross-margin-allowed? (cross-margin-allowed? state)
            :market-type (:market-type market)
+           :display-name (:display-name market)
            :dex (:dex market)
            :outcome? (outcome-market? market)
            :outcome-sides (vec outcome-sides)

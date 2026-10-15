@@ -34,6 +34,7 @@
 (defn- market-title-token
   [asset]
   (sort-token (or (:title asset)
+                  (:display-symbol asset)
                   (:symbol asset))))
 
 (defn- market-primary-sort-rank [sort-key asset]
@@ -70,6 +71,8 @@
   (let [query (str/lower-case (or search-term ""))
         symbol (str/lower-case (or (:symbol asset) ""))
         title (str/lower-case (or (:title asset) ""))
+        display-symbol (str/lower-case (or (:display-symbol asset) ""))
+        keywords (map str/lower-case (:search-keywords asset))
         coin (str/lower-case (or (:coin asset) ""))
         base (str/lower-case (or (:base asset) ""))
         underlying (str/lower-case (or (:underlying asset) ""))
@@ -81,6 +84,8 @@
     (if strict?
       (or (str/starts-with? symbol query)
           (str/starts-with? title query)
+          (str/starts-with? display-symbol query)
+          (some #(str/starts-with? % query) keywords)
           (str/starts-with? coin query)
           (str/starts-with? base query)
           (str/starts-with? underlying query)
@@ -88,6 +93,8 @@
           (str/starts-with? option-labels query))
       (or (str/includes? symbol query)
           (str/includes? title query)
+          (str/includes? display-symbol query)
+          (some #(str/includes? % query) keywords)
           (str/includes? coin query)
           (str/includes? base query)
           (str/includes? underlying query)

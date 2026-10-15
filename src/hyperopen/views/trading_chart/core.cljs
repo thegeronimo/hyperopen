@@ -95,7 +95,7 @@
                          (or (:market-open? legend-meta) true)
                          "-"
                          volume-visible?)
-         chart-accessible-label (str (or (:symbol legend-meta) "Asset")
+         chart-accessible-label (str (or (:display-symbol legend-meta) (:symbol legend-meta) "Asset")
                                      " price chart, "
                                      (or (:timeframe-label legend-meta) "selected")
                                      " timeframe"

@@ -107,6 +107,7 @@
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.outcome-actions-test]
+            [hyperopen.asset-selector.perp-annotations-test]
             [hyperopen.asset-selector.settings-test]
             [hyperopen.chart.settings-test]
             [hyperopen.config-test]
@@ -233,6 +234,7 @@
             [hyperopen.margin-rec.tiers-test]
             [hyperopen.order.actions-test]
             [hyperopen.order.cancel-guard-test]
+            [hyperopen.order.effects.spot-refresh-test]
             [hyperopen.order.exchange-errors-test]
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.order.margin-rec-intent-test]
@@ -707,6 +709,7 @@
             [hyperopen.views.header-subaccount-state-test]
             [hyperopen.views.header-view-test]
             [hyperopen.views.header.vm-test]
+            [hyperopen.views.hip3-display-names-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
             [hyperopen.views.leaderboard-view-test]
@@ -1091,6 +1094,7 @@
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.asset-selector.outcome-actions-test
+             'hyperopen.asset-selector.perp-annotations-test
              'hyperopen.asset-selector.settings-test
              'hyperopen.chart.settings-test
              'hyperopen.config-test
@@ -1217,6 +1221,7 @@
              'hyperopen.margin-rec.tiers-test
              'hyperopen.order.actions-test
              'hyperopen.order.cancel-guard-test
+             'hyperopen.order.effects.spot-refresh-test
              'hyperopen.order.exchange-errors-test
              'hyperopen.order.feedback-runtime-test
              'hyperopen.order.margin-rec-intent-test
@@ -1691,6 +1696,7 @@
              'hyperopen.views.header-subaccount-state-test
              'hyperopen.views.header-view-test
              'hyperopen.views.header.vm-test
+             'hyperopen.views.hip3-display-names-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.l2-orderbook.depth-transition-test
              'hyperopen.views.leaderboard-view-test

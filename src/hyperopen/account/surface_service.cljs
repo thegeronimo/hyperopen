@@ -398,7 +398,10 @@
   [{:keys [store] :as deps}]
   (run-post-event-refresh!
    (assoc deps
-          :refresh-spot? (surface-policy/spot-refresh-surface-active? @store)
+          ;; Always: spot balances have no websocket stream, so this REST refetch
+          ;; is their only update path after a fill. Gating it on the visible
+          ;; account tab left the order form and Balances tab stale until reload.
+          :refresh-spot? true
           :force-base-open-orders-refresh? (not (false? (:force-base-open-orders-refresh? deps)))
           ;; Deliberately NOT forced: see the call site in run-post-event-refresh!.
           :force-open-orders-request? false

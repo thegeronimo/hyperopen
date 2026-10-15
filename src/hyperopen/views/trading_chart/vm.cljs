@@ -112,10 +112,20 @@
       :position-overlay position-overlay
       :fill-markers fill-markers})))
 
+(defn- legend-display-symbol
+  "`xyz:HO` -> `xyz:DIESEL` when Hyperliquid has a display name for the market."
+  [active-asset active-market]
+  (when-let [display-name (and (= active-asset (:coin active-market))
+                               (some-> (:display-name active-market) str not-empty))]
+    (if-let [dex (some-> (:dex active-market) str not-empty)]
+      (str dex ":" display-name)
+      display-name)))
+
 (def ^:private memoized-legend-meta
   (memoize-last
-   (fn [symbol timeframe-label candle-data]
+   (fn [symbol display-symbol timeframe-label candle-data]
      {:symbol symbol
+      :display-symbol display-symbol
       :timeframe-label timeframe-label
       :venue "Hyperopen"
       :market-open? true
@@ -219,6 +229,9 @@
         history-backfill-loading? (pos? (or (get-in state [:chart-options :history-backfill-pending-count])
                                             0))
         symbol (or active-asset "—")
+        ;; Legend text only. `:symbol` keys the chart container, so the coin
+        ;; stays there and a late-arriving display name never remounts it.
+        display-symbol (legend-display-symbol active-asset active-market)
         timeframe-label (str/upper-case (name selected-timeframe))
         price-decimals (or (:price-decimals active-market)
                            (:priceDecimals active-market)
@@ -241,7 +254,7 @@
                                position-overlay
                                fill-markers
                                show-fill-markers?)
-        legend-meta (memoized-legend-meta symbol timeframe-label candle-data)]
+        legend-meta (memoized-legend-meta symbol display-symbol timeframe-label candle-data)]
     {:has-error? has-error?
      :candle-data candle-data
      :selected-chart-type selected-chart-type

@@ -180,6 +180,9 @@
           coin (normalize-display-text (:coin market))
           symbol (or (normalize-display-text (:symbol market))
                      coin)
+          display-name (normalize-display-text (:display-name market))
+          display-symbol (normalize-display-text (:display-symbol market))
+          search-keywords (normalize-display-text-list (:search-keywords market))
           base (or (normalize-display-text (:base market))
                    coin)
           quote (normalize-display-text (:quote market))
@@ -236,6 +239,9 @@
                  :coin coin
                  :symbol symbol
                  :base base}
+          (seq display-name) (assoc :display-name display-name)
+          (seq display-symbol) (assoc :display-symbol display-symbol)
+          (seq search-keywords) (assoc :search-keywords search-keywords)
           (seq title) (assoc :title title)
           (seq quote) (assoc :quote quote)
           (seq dex) (assoc :dex dex)

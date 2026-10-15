@@ -375,7 +375,7 @@
       (is (= [effective-address]
              @spot-clearinghouse-addresses)))))
 
-(deftest user-ledger-refresh-skips-spot-clearinghouse-when-surface-inactive-test
+(deftest user-ledger-refresh-refreshes-spot-clearinghouse-when-surface-inactive-test
   (let [effective-address "0xdddddddddddddddddddddddddddddddddddddddd"
         store (doto (make-store)
                 (swap! assoc :wallet {:address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
@@ -446,7 +446,7 @@
       (@scheduled-refresh)
       (is (= [] @open-orders-addresses))
       (is (= [] @perp-clearinghouse-addresses))
-      (is (= [] @spot-clearinghouse-addresses)))))
+      (is (= [effective-address] @spot-clearinghouse-addresses)))))
 
 (deftest user-ledger-refresh-skips-per-dex-clearinghouse-when-stream-subscribed-and-snapshot-ready-test
   (async done

@@ -102,7 +102,7 @@
   ([legend-meta]
    (build-legend-state nil legend-meta))
   ([previous-state legend-meta]
-   (let [symbol (or (:symbol legend-meta) "—")
+   (let [symbol (or (:display-symbol legend-meta) (:symbol legend-meta) "—")
          timeframe-label (or (:timeframe-label legend-meta) "—")
          venue (or (:venue legend-meta) "—")
          header-text (str symbol " · " timeframe-label " · " venue)

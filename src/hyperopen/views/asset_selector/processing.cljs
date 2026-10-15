@@ -23,14 +23,14 @@
 
 (defn processed-assets-market-signature
   [markets]
-  (mapv (fn [{:keys [key symbol title coin base underlying market-type category hip3? hip3-eligible?
+  (mapv (fn [{:keys [key symbol display-symbol search-keywords title coin base underlying market-type category hip3? hip3-eligible?
                      cache-order period expiry-ms target-price outcome-id outcome-kind question-id
                      named-outcome-ids fallback-outcome-id outcome-category outcome-subcategory
                      question-options outcome-summary]}]
           (let [option-signature (mapv (fn [{:keys [label outcome-id yes-coin no-coin mark]}]
                                           [label outcome-id yes-coin no-coin mark])
                                         question-options)]
-          [key symbol title coin base underlying market-type category hip3? hip3-eligible?
+          [key symbol display-symbol search-keywords title coin base underlying market-type category hip3? hip3-eligible?
            cache-order period expiry-ms target-price outcome-id outcome-kind question-id
            named-outcome-ids fallback-outcome-id outcome-category outcome-subcategory
            option-signature outcome-summary]))

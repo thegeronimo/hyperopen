@@ -494,7 +494,7 @@
             (swap! store open-enable-trading-recovery message)))
         (do
           (swap! store assoc-in [:order-form-runtime :submitting?] true)
-          (let [refresh-opts {:refresh-spot? (spot-refresh/outcome-order-mutation? request)}]
+          (let [refresh-opts (spot-refresh/order-mutation-refresh-opts request)]
             (letfn [(handle-submit-runtime-error! [err]
                       (let [error-text (runtime-error-message err)]
                         (swap! store update-order-submit-runtime error-text)
@@ -755,7 +755,7 @@
                                     (assoc-in [:orders :cancel-response] resp))))
                          (show-toast! store (if ok? :success :error) toast-message)
                          (when ok?
-                           (refresh-account-surfaces-after-order-mutation! store account-address)
+                           (refresh-account-surfaces-after-order-mutation! store account-address (spot-refresh/order-mutation-refresh-opts request))
                            (dispatch! store nil [[:actions/refresh-order-history]])))
                        (let [{:keys [ok? success-cancels error-text toast-message]}
                              (cancel-outcome exchange-response-error request resp)
@@ -778,7 +778,7 @@
                                     (prune-fn success-request))))
                          (show-toast! store (if ok? :success :error) toast-message)
                          (when (pos? success-count)
-                           (refresh-account-surfaces-after-order-mutation! store account-address)
+                           (refresh-account-surfaces-after-order-mutation! store account-address (spot-refresh/order-mutation-refresh-opts request))
                            (dispatch! store nil [[:actions/refresh-order-history]]))))))
             (.catch (fn [err]
                       (let [error-text (runtime-error-message err)]

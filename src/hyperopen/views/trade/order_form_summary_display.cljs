@@ -7,14 +7,19 @@
          " USDC")
     "N/A"))
 
-(defn format-position-label [position sz-decimals]
-  (let [size (:abs-size position)
-        coin (:coin position)]
-    (if (and (number? size) (pos? size) (seq coin))
-      (str (fmt/format-fixed-number size (or sz-decimals 4))
-           " "
-           coin)
-      (str "0.0000 " (or coin "--")))))
+(defn format-position-label
+  "`unit-label` overrides the position's wire coin (`xyz:HO`) with the market's
+   display name (DIESEL) when there is one."
+  ([position sz-decimals]
+   (format-position-label position sz-decimals nil))
+  ([position sz-decimals unit-label]
+   (let [size (:abs-size position)
+         coin (or (some-> unit-label str not-empty) (:coin position))]
+     (if (and (number? size) (pos? size) (seq coin))
+       (str (fmt/format-fixed-number size (or sz-decimals 4))
+            " "
+            coin)
+       (str "0.0000 " (or coin "--"))))))
 
 (defn format-percent
   ([value]
@@ -54,11 +59,13 @@
        " / Max " (format-percent max 2)))
 
 (defn summary-display
-  [summary sz-decimals]
-  {:available-to-trade (format-usdc (:available-to-trade summary))
-   :current-position (format-position-label (:current-position summary) sz-decimals)
-   :liquidation-price (format-trade-price-or-na (:liquidation-price summary))
-   :order-value (format-currency-or-na (:order-value summary))
-   :margin-required (format-currency-or-na (:margin-required summary))
-   :slippage (format-slippage (:slippage-est summary) (:slippage-max summary))
-   :fees (format-fees (:fees summary))})
+  ([summary sz-decimals]
+   (summary-display summary sz-decimals nil))
+  ([summary sz-decimals position-label]
+   {:available-to-trade (format-usdc (:available-to-trade summary))
+    :current-position (format-position-label (:current-position summary) sz-decimals position-label)
+    :liquidation-price (format-trade-price-or-na (:liquidation-price summary))
+    :order-value (format-currency-or-na (:order-value summary))
+    :margin-required (format-currency-or-na (:margin-required summary))
+    :slippage (format-slippage (:slippage-est summary) (:slippage-max summary))
+    :fees (format-fees (:fees summary))}))
