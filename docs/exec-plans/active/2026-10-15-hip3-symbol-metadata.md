@@ -50,10 +50,10 @@ Local scratch refs (non-authoritative):
 
 In scope: the request plumbing, pure normalization and subtitle derivation, the app-db projection, the per-coin lazy effect, the header subtitle and hover description, the selector inline descriptor, keyword search, and the Tradfi asset-class sub-tabs.
 
+Added on 2026-10-15 at the owner's request ("Do this task here"): design B (the "About this market" panel) and design D (the mobile sheet).
+
 Non-goals, which are follow-ups:
 
-- The full "About this market" spec panel (design B).
-- The mobile bottom sheet (design D).
 - Persisting descriptions across sessions.
 - Bulk-fetching every description. `perpAnnotation` is one request per coin, so bulk-fetching 221 of them would cost a large share of the per-IP info rate budget.
 
@@ -67,6 +67,9 @@ Non-goals, which are follow-ups:
 - [x] (2026-10-15) Selector descriptor, keyword and display-name search, Tradfi asset-class sub-tabs.
 - [x] (2026-10-15) `npm run gates` 34/34 PASS. `bb tools/formal.clj verify --surface effect-order-contract` PASS.
 - [x] (2026-10-15) Browser QA against the worktree build on :8090 with live mainnet data, at 1440 and 375.
+- [x] (2026-10-15) Design B: "About this market" panel. An info button beside the HIP-3 ticker toggles `[:trade-ui :market-info-open?]`. The panel renders in `active_asset_view` below the strip, outside its clipping scroll container. It shows a headline, the rest of the description, a fact grid, a unit warning, keyword chips, and deployer attribution.
+- [x] (2026-10-15) Design D: the same model as a bottom sheet below `lg`, with a backdrop that closes it. It opens from a 44px "About this market" row in the existing mobile market-details drawer, because the phone header has no room beside the ticker.
+- [x] (2026-10-15) Gates 34/34 PASS. Browser QA for B and D at 375, 768, 1280 and 1440, live data: SPCX, ARM, 10Y, OAI, cash:HOOD, GOLD and US500.
 - [ ] Owner acceptance, then move this plan to `completed/`.
 
 ## Surprises & Discoveries
@@ -81,6 +84,9 @@ Non-goals, which are follow-ups:
 - On a 375px phone the header ticker truncates ("TS…"). This predates the change: the ticker measures the same with the subtitle hidden (37px visible of 91px).
 
 ## Decision Log
+
+- Decision: build the panel headline from parsed parts ("1 share of <issuer>") when both the issuer and the unit parse, and show the full description beneath it. Rationale: the sentence splitter treats "Corp." as a sentence end, which cut SPCX's headline to "...Technologies Corp". The selector subtitle keeps the splitter, because Kinetiq's descriptions open with the bare company name ("Apple Inc. Global technology...") and splitting there gives the shorter, better label. Date: 2026-10-15.
+- Decision: no "Settles in" fact. Rationale: the catalog `:quote` said USDC for km:US500 while the order form priced it in USDH. The panel must not state a fact the app contradicts elsewhere. Date: 2026-10-15.
 
 - Decision: keep annotations in their own app-db key and merge them into markets at the selector view-model boundary, instead of writing them into catalog market entries. Rationale: catalog markets are rebuilt on every refresh and whitelisted by two caches, so a separate key avoids touching both cache codecs and the merge ordering between two independent fetches. Date: 2026-10-15.
 - Decision: one effect, `:effects/sync-perp-annotations coin`, ensures the bulk concise payload once per session (single flight) and then the coin's detail. Rationale: there is one registration chain, and the existing emission points (select-asset, subscribe-to-asset) cover both startup and switching markets. Date: 2026-10-15.
@@ -104,7 +110,7 @@ Selector:
 
 Remaining limits and follow-ups:
 - Selector rows show the issuer only for markets whose description has loaded this session. Otherwise they show the deployer's display name where it differs from the ticker. Descriptions are per-coin requests, so persisting them is the follow-up that would fill rows over time.
-- Designs B (spec panel) and D (mobile sheet) are not built.
+- Designs B and D shipped in the same branch. The panel model is `src/hyperopen/asset_selector/market_info.cljs`; the views are in `src/hyperopen/views/active_asset/market_info.cljs`. A unit-warning chip flags rates ("Price is a yield in percent, not a bond price") and pre-IPO valuations.
 
 ## Validation
 

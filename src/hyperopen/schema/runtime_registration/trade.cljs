@@ -84,6 +84,8 @@
    [:actions/select-orderbook-tab :select-orderbook-tab]
    [:actions/select-trade-mobile-surface :select-trade-mobile-surface]
    [:actions/toggle-trade-mobile-asset-details :toggle-trade-mobile-asset-details]
+   [:actions/toggle-market-info-panel :toggle-market-info-panel]
+   [:actions/close-market-info-panel :close-market-info-panel]
    [:actions/add-indicator :add-indicator]
    [:actions/remove-indicator :remove-indicator]
    [:actions/update-indicator-period :update-indicator-period]

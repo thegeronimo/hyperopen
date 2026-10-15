@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.market-info :as market-info]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.asset-selector.processing :as selector-processing]
@@ -305,6 +306,7 @@
                             (open-tooltip-funding-ui-state state active-asset active-market)
                             (funding-tooltip-ui-state state))
              :trade-ui {:mobile-asset-details-open? (true? (get-in state [:trade-ui :mobile-asset-details-open?]))
+                        :market-info-open? (true? (get-in state [:trade-ui :market-info-open?]))
                         :outcome-option-sort-by (get-in state [:trade-ui :outcome-option-sort-by])
                         :outcome-option-sort-direction (get-in state [:trade-ui :outcome-option-sort-direction])}}
       tooltip-open?
@@ -448,6 +450,7 @@
                                                  [:trade-ui :outcome-option-sort-direction])}
      :outcome-tooltip (outcome-tooltip-model market)
      :symbol-meta symbol-meta
+     :market-info-open? (and (some? symbol-meta) (true? (get-in full-state [:trade-ui :market-info-open?])))
      :outcome-chance-label outcome-chance-label
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))
@@ -473,6 +476,8 @@
                                     dropdown
                                     state))
      :dropdown-state dropdown
+     :market-info (when-not (:visible-dropdown dropdown)
+                    (market-info/open-panel-model state active-asset active-market))
      :asset-selector-props (when (:visible-dropdown dropdown)
                              {:visible? true
                               :markets (:markets selector-markets)

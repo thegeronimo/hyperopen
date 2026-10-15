@@ -260,18 +260,36 @@
   ;; "A perpetual future contract tracking the price of Gold" -> "Gold"
   #"(?i)^(?:(?:[A-Z0-9][A-Za-z0-9&.$/-]*\s+)?(?:references|tracks|represents|provides|offers)\s+|a\s+perpetual\s+future(?:\s+contract)?\s+tracking\s+(?:the\s+price\s+of\s+)?)")
 
+(def ^:private sentence-boundary
+  ;; A period after a lowercase letter, digit or ")" ends a sentence, so
+  ;; "U.S." and "N.V." do not. No-limit split: CLJS's limited split ignores
+  ;; lookbehind.
+  #"(?<=[a-z0-9)])\.\s+")
+
 (defn description-first-clause
+  ([description]
+   (description-first-clause description max-subtitle-length))
+  ([description limit]
+   (when-let [text (non-blank-text description)]
+     (let [sentence (first (str/split text sentence-boundary))
+           clause (-> sentence
+                      (str/replace description-lead-pattern "")
+                      (str/replace #"(?i),?\s+quoted in [A-Z]{3}\.?$" "")
+                      (str/replace #"\.$" "")
+                      str/trim)]
+       (when (seq clause)
+         (clip (str (str/upper-case (subs clause 0 1)) (subs clause 1))
+               limit))))))
+
+(defn description-remainder
+  "The description after its first sentence, or nil."
   [description]
   (when-let [text (non-blank-text description)]
-    (let [sentence (first (str/split text #"(?<=[a-z0-9)])\.\s+"))
-          clause (-> sentence
-                     (str/replace description-lead-pattern "")
-                     (str/replace #"(?i),?\s+quoted in [A-Z]{3}\.?$" "")
-                     (str/replace #"\.$" "")
-                     str/trim)]
-      (when (seq clause)
-        (clip (str (str/upper-case (subs clause 0 1)) (subs clause 1))
-              max-subtitle-length)))))
+    (some->> (str/split text sentence-boundary)
+             rest
+             seq
+             (str/join ". ")
+             non-blank-text)))
 
 (defn- display-name-differs?
   [display-name base]
@@ -309,6 +327,7 @@
                :deployer deployer
                :loading? loading?}
         subtitle (assoc :subtitle subtitle)
+        issuer (assoc :issuer issuer)
         category (assoc :category category
                         :category-label (category-label category))
         description (assoc :description description)

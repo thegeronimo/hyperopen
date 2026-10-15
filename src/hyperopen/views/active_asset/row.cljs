@@ -2,6 +2,7 @@
   (:require [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.active-asset.funding-tooltip :as funding-tooltip]
             [hyperopen.views.active-asset.icon-button :as icon-button]
+            [hyperopen.views.active-asset.market-info :as market-info]
             [hyperopen.views.active-asset.outcome-tooltip :as outcome-tooltip]
             [hyperopen.views.active-asset.statistics :as statistics]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
@@ -204,7 +205,8 @@
                                   :mobile-sheet? true}))
      [:span {:class ["text-trading-text-secondary"]} "/"]
      [:span {:class ["num" "text-trading-text-secondary"]}
-      (if is-spot "--" countdown-text)]])])
+      (if is-spot "--" countdown-text)]])
+   (when (:symbol-meta row-vm) (market-info/mobile-details-entry))])
 
 (defn- mobile-active-asset-row
   [{:keys [icon-market
@@ -300,11 +302,12 @@
                  "lg:grid"
                  "md:gap-3"
                  active-asset-grid-template]}
-   [:div {:class ["flex" "justify-start" "app-shell-gutter-left" "min-w-fit"]}
+   [:div {:class ["flex" "items-center" "justify-start" "gap-1" "app-shell-gutter-left" "min-w-fit"]}
     (icon-button/asset-button icon-market
                               dropdown-visible?
                               missing-icons
-                              loaded-icons)]
+                              loaded-icons)
+    (when (:symbol-meta row-vm) (market-info/info-trigger (:market-info-open? row-vm) :desktop))]
    (statistics/desktop-stat-cell
     (data-column "Mark"
                  (if (some? mark)

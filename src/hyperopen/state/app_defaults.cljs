@@ -153,7 +153,8 @@
 (defn default-trade-ui-state
   []
   {:mobile-surface :chart
-   :mobile-asset-details-open? false})
+   :mobile-asset-details-open? false
+   :market-info-open? false})
 
 (defn default-portfolio-ui-state
   []

@@ -103,6 +103,7 @@
             [hyperopen.asset-selector.funding-drafts-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
             [hyperopen.asset-selector.market-coin-validity-test]
+            [hyperopen.asset-selector.market-info-test]
             [hyperopen.asset-selector.market-live-projection-test]
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
@@ -670,6 +671,7 @@
             [hyperopen.views.active-asset.funding-tooltip-model-test]
             [hyperopen.views.active-asset.funding-tooltip-popover-test]
             [hyperopen.views.active-asset.icon-button-test]
+            [hyperopen.views.active-asset.market-info-view-test]
             [hyperopen.views.active-asset.outcome-option-sort-test]
             [hyperopen.views.active-asset.outcome-tooltip-test]
             [hyperopen.views.active-asset.row-helpers-test]
@@ -1091,6 +1093,7 @@
              'hyperopen.asset-selector.funding-drafts-test
              'hyperopen.asset-selector.icon-status-runtime-test
              'hyperopen.asset-selector.market-coin-validity-test
+             'hyperopen.asset-selector.market-info-test
              'hyperopen.asset-selector.market-live-projection-test
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
@@ -1658,6 +1661,7 @@
              'hyperopen.views.active-asset.funding-tooltip-model-test
              'hyperopen.views.active-asset.funding-tooltip-popover-test
              'hyperopen.views.active-asset.icon-button-test
+             'hyperopen.views.active-asset.market-info-view-test
              'hyperopen.views.active-asset.outcome-option-sort-test
              'hyperopen.views.active-asset.outcome-tooltip-test
              'hyperopen.views.active-asset.row-helpers-test
