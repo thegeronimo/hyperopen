@@ -58,6 +58,8 @@ const DOCUMENT_IMG_SRC = [
   "data:",
   "blob:",
   "https://app.hyperliquid.xyz",
+  // Fallback market icons for HIP-3 coins Hyperliquid's CDN lacks.
+  "https://assets.entropy.trade",
 ];
 
 function appendDirective(directives, name, values) {

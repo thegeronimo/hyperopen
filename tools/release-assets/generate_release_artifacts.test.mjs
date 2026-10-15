@@ -124,6 +124,16 @@ test("release CSP permits the HyperEVM RPC origin", () => {
   );
 });
 
+test("release CSP permits the Entropy fallback icon origin", () => {
+  // Market icons fall back to Entropy's logo CDN when Hyperliquid's has none.
+  // Dev sends no CSP, so only production would render the monogram instead.
+  assert.ok(
+    extractCspDirective(buildContentSecurityPolicy(), "img-src").includes(
+      "https://assets.entropy.trade"
+    )
+  );
+});
+
 function buildSampleIndexHtml() {
   return `<!DOCTYPE html>
 <html>

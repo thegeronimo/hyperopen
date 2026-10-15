@@ -97,14 +97,18 @@
     {:load [[:actions/mark-loaded-asset-icon market-key]]
      :error [[:actions/mark-missing-asset-icon market-key]]}))
 
-(defn attach-asset-icon-probe [market-key _icon-src]
+(defn attach-asset-icon-probe [market-key icon-src]
   (fn [{:keys [:replicant/life-cycle :replicant/node :replicant/memory :replicant/remember]}]
     (when (contains? #{:replicant.life-cycle/mount
                        :replicant.life-cycle/update}
                      life-cycle)
-      (let [status* (or (:status* memory) (atom nil))]
+      ;; The node is reused when the Hyperliquid icon gives way to the fallback,
+      ;; so the last reported status is remembered per source, not per node.
+      (let [status* (if (= icon-src (:icon-src memory))
+                      (or (:status* memory) (atom nil))
+                      (atom nil))]
         (when (ifn? remember)
-          (remember {:status* status*}))
+          (remember {:status* status* :icon-src icon-src}))
         (when-let [status (mounted-image-status node)]
           (dispatch-icon-status! market-key status status*))))))
 
@@ -158,6 +162,24 @@
    [:div {:class ["border-t" "border-base-300" "pt-2" "text-xs" "font-normal" "text-trading-text-secondary"]}
     (str "Written by the market deployer, " deployer)]])
 
+(defn icon-source
+  "Which icon to try: Hyperliquid's, then Entropy's once Hyperliquid's is
+  known missing. Returns {:src :status-key}, or {:exhausted? true} when both
+  are missing (the monogram shows), or nil when there is nothing to try."
+  [market market-key missing-icons]
+  (let [fallback-key (asset-icon-view/fallback-icon-status-key market-key)
+        fallback-src (asset-icon-view/market-icon-fallback-url market)]
+    (cond
+      (not (contains? missing-icons market-key))
+      (when-let [src (asset-icon-view/market-icon-url market)]
+        {:src src :status-key market-key})
+
+      (and (seq fallback-src) (not (contains? missing-icons fallback-key)))
+      {:src fallback-src :status-key fallback-key}
+
+      :else
+      {:exhausted? true})))
+
 (defn asset-button
   [market dropdown-visible? missing-icons loaded-icons & [{:keys [outcome-hover-glow?]}]]
   (let [coin (:coin market)
@@ -166,13 +188,12 @@
         leverage-label (leverage-chip-label market)
         market-type (:market-type market)
         market-key (or (:key market) (markets/coin->market-key coin))
-        loaded-icon? (contains? loaded-icons market-key)
-        missing-icon? (contains? missing-icons market-key)
-        icon-src (when-not missing-icon?
-                   (asset-icon-view/market-icon-url market))
+        {icon-src :src status-key :status-key exhausted? :exhausted?}
+        (icon-source market market-key missing-icons)
+        loaded-icon? (contains? loaded-icons status-key)
         show-loaded-icon? (and loaded-icon? (seq icon-src))
         probe-icon? (and (seq icon-src) (not loaded-icon?))
-        show-monogram? missing-icon?
+        show-monogram? (true? exhausted?)
         monogram (symbol-monogram market symbol coin)
         symbol-meta (:symbol-meta market)
         description-tooltip? (and (seq (:description symbol-meta))
@@ -219,7 +240,7 @@
      [:div {:class ["relative" "h-5" "w-5" "shrink-0" "overflow-hidden" "rounded-full"]}
       (if show-loaded-icon?
         [:img {:class ["block" "h-5" "w-5" "object-contain" "pointer-events-none"]
-               :on (icon-status-handlers market-key)
+               :on (icon-status-handlers status-key)
                :src icon-src
                :alt ""
                :aria-hidden true}]
@@ -261,11 +282,11 @@
                        "object-contain"
                        "opacity-0"
                        "pointer-events-none"]
-               :on (icon-status-handlers market-key)
+               :on (icon-status-handlers status-key)
                :src icon-src
                :alt ""
                :aria-hidden true
-               :replicant/on-render (attach-asset-icon-probe market-key icon-src)}])]
+               :replicant/on-render (attach-asset-icon-probe status-key icon-src)}])]
      [:div {:class ["flex" "min-w-0" "flex-col"]}
       [:div {:class ["flex" "min-w-0" "items-center" "space-x-2"]}
        [:span {:class ["truncate" "font-medium"]} symbol]

@@ -70,6 +70,7 @@ Non-goals, which are follow-ups:
 - [x] (2026-10-15) Design B: "About this market" panel. An info button beside the HIP-3 ticker toggles `[:trade-ui :market-info-open?]`. The panel renders in `active_asset_view` below the strip, outside its clipping scroll container. It shows a headline, the rest of the description, a fact grid, a unit warning, keyword chips, and deployer attribution.
 - [x] (2026-10-15) Design D: the same model as a bottom sheet below `lg`, with a backdrop that closes it. It opens from a 44px "About this market" row in the existing mobile market-details drawer, because the phone header has no room beside the ticker.
 - [x] (2026-10-15) Gates 34/34 PASS. Browser QA for B and D at 375, 768, 1280 and 1440, live data: SPCX, ARM, 10Y, OAI, cash:HOOD, GOLD and US500.
+- [x] (2026-10-15) Header icon fallback. Order: Hyperliquid's coin CDN, then Entropy's logo CDN (`https://assets.entropy.trade/logos/<encodeURIComponent coin>.svg`), then the monogram. Entropy attempts are tracked under `<market-key>#entropy` in the existing icon status sets. `https://assets.entropy.trade` is added to the release CSP `img-src`. Gates pass 34/34. Live QA: io:PRL, io:DRAM and io:TCNT render Entropy logos; mkts:US500 shows the monogram; BTC is unchanged.
 - [ ] Owner acceptance, then move this plan to `completed/`.
 
 ## Surprises & Discoveries
@@ -84,6 +85,8 @@ Non-goals, which are follow-ups:
 - On a 375px phone the header ticker truncates ("TS…"). This predates the change: the ticker measures the same with the subtitle hidden (37px visible of 91px).
 
 ## Decision Log
+
+- Decision: use Entropy's logo CDN only as an icon fallback, not its `/api/markets` registry. Rationale: the CDN is public (CORS `*`, cross-origin resource policy, a real 404 when absent) and fills 27 of the 54 live perps Hyperliquid's CDN lacks, including all io markets. The registry is Entropy's private app API, sends no CORS allow-origin, and adds only display names, which on-chain annotations already cover. Date: 2026-10-15.
 
 - Decision: build the panel headline from parsed parts ("1 share of <issuer>") when both the issuer and the unit parse, and show the full description beneath it. Rationale: the sentence splitter treats "Corp." as a sentence end, which cut SPCX's headline to "...Technologies Corp". The selector subtitle keeps the splitter, because Kinetiq's descriptions open with the bare company name ("Apple Inc. Global technology...") and splitting there gives the shorter, better label. Date: 2026-10-15.
 - Decision: no "Settles in" fact. Rationale: the catalog `:quote` said USDC for km:US500 while the order form priced it in USDH. The panel must not state a fact the app contradicts elsewhere. Date: 2026-10-15.
