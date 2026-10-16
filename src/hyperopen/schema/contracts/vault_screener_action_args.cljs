@@ -22,4 +22,8 @@
    :actions/close-vault-save-view-dialog ::common/no-args
    :actions/save-vault-screener-view ::common/no-args
    :actions/select-vault-saved-view ::common/optional-string-args
-   :actions/vault-saved-view-command ::common/keyword-or-string-args})
+   :actions/vault-saved-view-command ::common/keyword-or-string-args
+   :actions/open-vault-optimizer-handoff ::common/keyword-or-string-args
+   :actions/set-vault-optimizer-handoff-field ::control-and-value-args
+   :actions/close-vault-optimizer-handoff ::common/no-args
+   :actions/confirm-vault-optimizer-handoff ::common/no-args})

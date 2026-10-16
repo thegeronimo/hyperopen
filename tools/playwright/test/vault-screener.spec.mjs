@@ -178,3 +178,33 @@ test("saved screener results become a view on the All vaults page @regression", 
   await chip.click();
   await expect(page.locator("[data-role='vault-row']")).toHaveCount(memberCount);
 });
+
+test("screener results open in the optimizer as a vault universe @regression", async ({ page }) => {
+  test.setTimeout(60_000);
+  await stubVaults(page, []);
+  await openScreener(page);
+  await page.locator("[data-role='vault-screener-run']").click();
+  await expect(page.locator("[data-role='vault-screener-headline']")).toContainText("vaults pass", {
+    timeout: 30_000
+  });
+
+  await page.locator("[data-role='vault-screener-optimize-menu'] summary").click();
+  await page.locator("[data-role='vault-screener-optimize-screener-near']").click();
+  const sheet = page.locator("[data-role='vault-optimizer-handoff']");
+  await expect(sheet).toBeVisible();
+  const rows = page.locator("[data-role='vault-optimizer-handoff-row']");
+  const rowCount = await rows.count();
+  expect(rowCount).toBeGreaterThan(0);
+  await page.locator("[data-role='vault-optimizer-handoff-goal-minimum-variance']").click();
+  await page.locator("[data-role='vault-optimizer-handoff-confirm']").click();
+
+  await expect(page).toHaveURL(/\/portfolio\/optimize/);
+  const panel = page.locator("[data-role='portfolio-optimizer-universe-panel']");
+  await expect(panel).toBeVisible({ timeout: 20_000 });
+  await expect(panel).toContainText(`${rowCount} included`, { ignoreCase: true });
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-source-vault-view']")).toBeVisible();
+  await expect(page.locator("[data-role='portfolio-optimizer-universe-source-line']")).toContainText(
+    "From vault view"
+  );
+  await expect(panel).toContainText("Steady Vault");
+});

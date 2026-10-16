@@ -10,6 +10,7 @@
             [hyperopen.vaults.infrastructure.persistence :as persistence]
             [hyperopen.vaults.infrastructure.routes :as routes]
             [hyperopen.vaults.screener.commands :as screener-commands]
+            [hyperopen.vaults.screener.optimizer-handoff :as optimizer-handoff]
             [hyperopen.vaults.screener.view-commands :as view-commands]))
 
 (def default-vault-snapshot-range ui-state/default-vault-snapshot-range)
@@ -185,3 +186,8 @@
 (defn submit-vault-transfer
   [state]
   (transfer-commands/submit-vault-transfer (transfer-command-deps) state))
+
+(def open-vault-optimizer-handoff optimizer-handoff/open-vault-optimizer-handoff)
+(def set-vault-optimizer-handoff-field optimizer-handoff/set-vault-optimizer-handoff-field)
+(def close-vault-optimizer-handoff optimizer-handoff/close-vault-optimizer-handoff)
+(def confirm-vault-optimizer-handoff optimizer-handoff/confirm-vault-optimizer-handoff)

@@ -63,6 +63,26 @@
             :on {:click [action]}}
    label])
 
+(defn optimize-icon
+  []
+  [:svg {:viewBox "0 0 16 16" :class ["h-4" "w-4"] :fill "none" :stroke "currentColor"
+         :stroke-width "1.6" :stroke-linecap "round" :stroke-linejoin "round" :aria-hidden true}
+   [:path {:d "M2 13l4-5 3 3 5-7"}]
+   [:path {:d "M10 4h4v4"}]])
+
+(defn- optimize-button
+  [count]
+  [:button {:type "button"
+            :disabled (zero? count)
+            :class (into ["inline-flex" "min-h-10" "items-center" "gap-2" "rounded-lg" "bg-ho-accent" "px-3.5" "text-sm"
+                          "font-medium" "text-ho-bg" "hover:bg-ho-accent-hi" "disabled:cursor-not-allowed"
+                          "disabled:opacity-50"]
+                         format/focus-ring-classes)
+            :data-role "vaults-saved-view-optimize"
+            :on {:click [[:actions/open-vault-optimizer-handoff :saved-view]]}}
+   (optimize-icon)
+   (str "Optimize these " count (if (= 1 count) " vault" " vaults"))])
+
 (defn- menu-item
   [label command danger?]
   [:button {:type "button"
@@ -101,6 +121,7 @@
                    text]))
            chips)]
     [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
+     (optimize-button count)
      (cond
        (:paused? status) (header-button "Resume" [:actions/control-vault-screener-run :resume] "vaults-saved-view-resume")
        (:refreshing? status) (header-button "Pause" [:actions/control-vault-screener-run :pause] "vaults-saved-view-pause")

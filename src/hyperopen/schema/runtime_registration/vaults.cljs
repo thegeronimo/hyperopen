@@ -87,4 +87,8 @@
    [:actions/close-vault-save-view-dialog :close-vault-save-view-dialog]
    [:actions/save-vault-screener-view :save-vault-screener-view]
    [:actions/select-vault-saved-view :select-vault-saved-view]
-   [:actions/vault-saved-view-command :vault-saved-view-command]])
+   [:actions/vault-saved-view-command :vault-saved-view-command]
+   [:actions/open-vault-optimizer-handoff :open-vault-optimizer-handoff]
+   [:actions/set-vault-optimizer-handoff-field :set-vault-optimizer-handoff-field]
+   [:actions/close-vault-optimizer-handoff :close-vault-optimizer-handoff]
+   [:actions/confirm-vault-optimizer-handoff :confirm-vault-optimizer-handoff]])

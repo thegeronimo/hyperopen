@@ -38,9 +38,46 @@
    [:div {:class (into ["num" "text-[28px]" "leading-8"] value-classes)} value]
    [:div {:class ["mt-1" "text-sm" "text-trading-text-secondary"]} label]])
 
+(defn- optimize-option
+  [label count source]
+  [:button {:type "button"
+            :role "menuitem"
+            :disabled (zero? count)
+            :class (into ["flex" "min-h-10" "w-full" "items-center" "justify-between" "gap-3" "rounded-md" "px-2.5"
+                          "text-left" "text-sm" "text-trading-text" "hover:bg-base-200"
+                          "disabled:cursor-not-allowed" "disabled:opacity-50"]
+                         format/focus-ring-classes)
+            :data-role (str "vault-screener-optimize-" (name source))
+            :on {:click [[:actions/open-vault-optimizer-handoff source]]}}
+   label
+   [:span {:class ["num" "text-trading-text-secondary"]} (str count)]])
+
+(defn- optimize-menu
+  [pass-count near-count]
+  [:details {:class ["relative"]
+             :data-role "vault-screener-optimize-menu"}
+   [:summary {:class (into ["inline-flex" "min-h-10" "cursor-pointer" "list-none" "items-center" "gap-2" "rounded-lg"
+                            "border" "border-ho-border-accent" "bg-ho-accent-soft" "px-3.5" "text-sm" "font-medium"
+                            "text-ho-accent-bright" "hover:bg-ho-accent-soft-hi"]
+                           format/focus-ring-classes)}
+    [:svg {:viewBox "0 0 16 16" :class ["h-4" "w-4"] :fill "none" :stroke "currentColor"
+           :stroke-width "1.6" :stroke-linecap "round" :stroke-linejoin "round" :aria-hidden true}
+     [:path {:d "M2 13l4-5 3 3 5-7"}]
+     [:path {:d "M10 4h4v4"}]]
+    "Optimize…"]
+   [:div {:role "menu"
+          :class ["ui-dropdown-panel" "absolute" "right-0" "top-full" "z-30" "mt-1.5" "flex" "w-64" "flex-col"
+                  "rounded-xl" "border" "border-base-300" "bg-base-100" "p-1.5" "shadow-2xl"]
+          :data-ui-native-details-panel "true"}
+    (optimize-option "Passing vaults" pass-count :screener-pass)
+    (optimize-option "Passing + near misses" (+ pass-count near-count) :screener-near)
+    (optimize-option "Top 5 by Sharpe" (min 5 pass-count) :screener-top)]])
+
 (defn- run-actions
-  [{:keys [status]} pass-count]
+  [{:keys [status]} pass-count near-count]
   [:div {:class ["flex" "flex-wrap" "gap-2"]}
+   (when (and (= status :done) (pos? (+ pass-count near-count)))
+     (optimize-menu pass-count near-count))
    (when (and (= status :done) (pos? pass-count))
      [:button {:type "button"
                :class (into ["inline-flex" "min-h-10" "items-center" "rounded-lg" "bg-ho-accent" "px-3.5" "text-sm"
@@ -84,7 +121,7 @@
        (into [:div {:class ["flex" "flex-wrap" "gap-1.5"]}]
              (concat (map #(chip % false) chips)
                      (map #(chip % true) criteria-summary)))]
-      (run-actions run (get tab-counts :pass 0))]
+      (run-actions run (get tab-counts :pass 0) (get tab-counts :near 0))]
      (when stale?
        [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "rounded-xl" "border" "border-base-300" "bg-base-100" "px-4" "py-3" "text-sm"]
               :data-role "vault-screener-stale"}

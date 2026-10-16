@@ -270,6 +270,7 @@
             [hyperopen.portfolio.montecarlo.engine-test]
             [hyperopen.portfolio.optimizer.actions-test]
             [hyperopen.portfolio.optimizer.actions.execution-margin-rec-test]
+            [hyperopen.portfolio.optimizer.actions.vault-handoff-test]
             [hyperopen.portfolio.optimizer.application.assumption-library-test]
             [hyperopen.portfolio.optimizer.application.black-litterman-calibration-test]
             [hyperopen.portfolio.optimizer.application.black-litterman-editor-model-test]
@@ -625,6 +626,7 @@
             [hyperopen.vaults.screener.commands-test]
             [hyperopen.vaults.screener.metrics-test]
             [hyperopen.vaults.screener.model-test]
+            [hyperopen.vaults.screener.optimizer-handoff-test]
             [hyperopen.vaults.screener.runner-test]
             [hyperopen.vaults.screener.saved-views-test]
             [hyperopen.vaults.screener.view-commands-test]
@@ -1270,6 +1272,7 @@
              'hyperopen.portfolio.montecarlo.engine-test
              'hyperopen.portfolio.optimizer.actions-test
              'hyperopen.portfolio.optimizer.actions.execution-margin-rec-test
+             'hyperopen.portfolio.optimizer.actions.vault-handoff-test
              'hyperopen.portfolio.optimizer.application.assumption-library-test
              'hyperopen.portfolio.optimizer.application.black-litterman-calibration-test
              'hyperopen.portfolio.optimizer.application.black-litterman-editor-model-test
@@ -1625,6 +1628,7 @@
              'hyperopen.vaults.screener.commands-test
              'hyperopen.vaults.screener.metrics-test
              'hyperopen.vaults.screener.model-test
+             'hyperopen.vaults.screener.optimizer-handoff-test
              'hyperopen.vaults.screener.runner-test
              'hyperopen.vaults.screener.saved-views-test
              'hyperopen.vaults.screener.view-commands-test

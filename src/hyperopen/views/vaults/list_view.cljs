@@ -5,6 +5,7 @@
             [hyperopen.views.vaults.list-view.saved-views :as saved-views]
             [hyperopen.views.vaults.list-view.sections :as sections]
             [hyperopen.views.vaults.screener-view :as screener-view]
+            [hyperopen.views.vaults.optimizer-handoff-sheet :as optimizer-handoff-sheet]
             [hyperopen.views.vaults.screener-view.save-dialog :as save-dialog]
             [hyperopen.views.vaults.vm :as vault-vm]))
 
@@ -175,7 +176,8 @@
       (if (= view :screener)
         (screener-view/screener-view state {:desktop-layout? desktop-layout?})
         (list-content state list-vm desktop-layout?))]
-     (save-dialog/save-dialog state)]))
+     (save-dialog/save-dialog state)
+     (optimizer-handoff-sheet/handoff-sheet state)]))
 
 (defn ^:export route-view
   [state]

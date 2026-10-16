@@ -309,10 +309,12 @@
       [:div {:class ["mt-1.5" "font-mono" "text-[0.6875rem]" "leading-4" "text-trading-muted"]
              :data-role "portfolio-optimizer-universe-source-line"
              :data-universe-source (name (or (:kind universe-source) :custom))}
-       (if holdings?
-         [:p (str "From holdings"
-                  (when (pos? (count omitted))
-                    (str " · " (count omitted) " omitted")))]
+       (case (:kind universe-source)
+         :holdings [:p (str "From holdings"
+                            (when (pos? (count omitted))
+                              (str " · " (count omitted) " omitted")))]
+         :vault-view [:p (str "From vault view \u201c" (:label universe-source) "\u201d · "
+                              (:count universe-source) " vaults")]
          [:p "Custom universe"])
        (when (and holdings? (seq omitted))
          [:details {:class ["mt-0.5"]}
@@ -350,6 +352,7 @@
                  universe-source
                  no-importable-holdings?]} model
          holdings-source? (= :holdings (:kind universe-source))
+         vault-view-source? (= :vault-view (:kind universe-source))
          holdings-loading? (= :holdings-loading (:reason readiness))
          ;; While the auto-seed is pending, "My holdings" is the source in
          ;; flight, so the strip shows it active instead of offering it as a
@@ -371,7 +374,8 @@
      ;; from holdings when account data is available) and doubles as the
      ;; load/refresh action; "Custom" lights up once the set is hand-edited or
      ;; cleared. The active segment reflects the recorded universe source.
-     [:div {:class ["mt-3" "grid" "grid-cols-2" "border" "border-base-300" "text-center"
+     [:div {:class ["mt-3" "grid" (if vault-view-source? "grid-cols-3" "grid-cols-2")
+                    "border" "border-base-300" "text-center"
                     "text-[0.75rem]" "font-medium"
                     "tracking-[0.04em]" "text-trading-muted"]
             :data-role "portfolio-optimizer-universe-source-strip"}
@@ -388,11 +392,17 @@
         (if holdings-active?
           "Refresh the universe from your current holdings"
           "Load my current holdings into the universe")]]
+      (when vault-view-source?
+        [:span {:class ["border-r" "border-base-300" "px-2" "py-2"
+                        "border-warning/60" "bg-warning/10" "text-warning"]
+                :data-role "portfolio-optimizer-universe-source-vault-view"
+                :data-active "true"}
+         "Vault view"])
       [:span {:class (cond-> ["px-2" "py-2"]
-                       (and universe-source (not holdings-source?))
+                       (and universe-source (not holdings-source?) (not vault-view-source?))
                        (conj "bg-warning/10" "text-warning"))
               :data-role "portfolio-optimizer-universe-source-custom"
-              :data-active (when (and universe-source (not holdings-source?)) "true")}
+              :data-active (when (and universe-source (not holdings-source?) (not vault-view-source?)) "true")}
        "Custom"]]
      (universe-source-line universe-source)
      [:div {:class ["sr-only"]} "Manual Add"]
