@@ -19,3 +19,21 @@
 
 (def select-orderbook-tab
   orderbook-settings/select-orderbook-tab)
+
+;; Hovered (or keyboard-focused) row for the depth readout card: its side and its
+;; depth from the spread (0 = best level). Keyed by position rather than price so that
+;; when the book ticks under a still cursor, the card stays on the row under the cursor
+;; and its figures update, instead of chasing the old price or vanishing. Transient,
+;; never persisted, and a no-op when nothing changes.
+(defn set-orderbook-hover-level
+  [state side depth]
+  (let [level {:side (keyword side) :depth depth}]
+    (if (= level (get-in state [:orderbook-ui :hover-level]))
+      []
+      [[:effects/save [:orderbook-ui :hover-level] level]])))
+
+(defn clear-orderbook-hover-level
+  [state]
+  (if (get-in state [:orderbook-ui :hover-level])
+    [[:effects/save [:orderbook-ui :hover-level] nil]]
+    []))

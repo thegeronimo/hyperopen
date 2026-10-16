@@ -484,6 +484,8 @@
    :actions/toggle-orderbook-price-aggregation-dropdown ::common/no-args
    :actions/select-orderbook-price-aggregation ::common/keyword-or-string-args
    :actions/select-orderbook-tab ::common/tab-args
+   :actions/set-orderbook-hover-level (s/tuple ::common/keyword-or-string nat-int?)
+   :actions/clear-orderbook-hover-level ::common/no-args
    :actions/select-trade-mobile-surface ::common/tab-args
    :actions/toggle-trade-mobile-asset-details ::common/no-args
    :actions/add-indicator ::add-indicator-args

@@ -9,6 +9,7 @@
             [hyperopen.views.degen.widgets :as degen-widgets]
             [hyperopen.views.l2-orderbook-view :as l2-orderbook-view]
             [hyperopen.views.l2-orderbook.own-orders :as own-orders]
+            [hyperopen.views.trade.book-impact :as book-impact]
             [hyperopen.views.trade.order-form-view :as order-form-view]
             [hyperopen.views.trade-view.layout-state :as layout-state]
             [hyperopen.views.trade-view.loading-shell :as loading-shell]
@@ -319,6 +320,7 @@
           :orderbook orderbook-data
           :orderbook-ui (:orderbook-ui state)
           :own-orders (own-orders/active-asset-open-orders state)
+          :impact (book-impact/market-impact state)
           :trading-settings (:trading-settings state)
           :show-surface-freshness-cues? show-surface-freshness-cues?
           :websocket-health (when show-surface-freshness-cues?

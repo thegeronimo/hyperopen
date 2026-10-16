@@ -98,5 +98,6 @@
                                                                show-surface-freshness-cues?
                                                                layout
                                                                animate-orderbook?
-                                                               (:own-orders state))
+                                                               {:open-orders (:own-orders state)
+                                                                :impact (:impact state)})
            :else (panel/empty-orderbook))))]]))

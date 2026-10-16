@@ -1,5 +1,6 @@
 (ns hyperopen.views.l2-orderbook.depth
-  (:require [hyperopen.views.l2-orderbook.model :refer [cumulative-bar-scale
+  (:require [hyperopen.views.l2-orderbook.readout :refer [card-id] :rename {card-id readout-card-id}]
+            [hyperopen.views.l2-orderbook.model :refer [cumulative-bar-scale
                                                          format-order-size
                                                          format-order-total
                                                          format-percent
@@ -62,30 +63,70 @@
            :on {:click [[:actions/set-order-price-from-orderbook (:px row)]]}}
     own-size (assoc :title (own-order-note own-size))))
 
-;; Component for individual order row
+(defn- hover-handlers
+  "Hover or keyboard focus selects the row, by side and depth from the spread, for the
+   depth readout. Leaving the book clears it from the depth body, so moving between
+   rows is one write per row."
+  [row depth]
+  {:mouseenter [[:actions/set-orderbook-hover-level (:side row) depth]]
+   :focus [[:actions/set-orderbook-hover-level (:side row) depth]]
+   :blur [[:actions/clear-orderbook-hover-level]]})
+
+;; Marks a level the order form's market order would take: a rail down the left edge
+;; and a band for the share of the level it takes.
+(defn- sweep-marks [fill-fraction]
+  (list
+   [:span {:class ["pointer-events-none" "absolute" "inset-y-0" "left-0" "z-10" "w-[2px]" "bg-ho-accent"]
+           :data-role "orderbook-impact-rail"
+           :aria-hidden "true"}]
+   [:span {:class ["pointer-events-none" "absolute" "inset-0" "origin-left" "bg-ho-accent/15"]
+           :style {:transform (str "scaleX(" fill-fraction ")")}
+           :data-role "orderbook-impact-band"
+           :aria-hidden "true"}]))
+
+;; Component for individual order row.
+;; `opts`:
+;;   :depth          the row's distance from the spread (0 = best level), for hover
+;;   :flash-version  update number this level changed in (nil = unchanged)
+;;   :own-size       "0.5 BTC" when the user rests orders here
+;;   :sweep-fill     0..1 share the order form's market order would take from this level
+;;   :in-readout?    inside the hovered level's sweep (best price through the hovered level)
+;;   :readout        the depth readout card, on the hovered level only
 (defn order-row
   ([row size-unit]
    (order-row row size-unit true))
   ([row size-unit animate?]
    (order-row row size-unit animate? nil))
-  ([row size-unit animate? flash-version]
-   (order-row row size-unit animate? flash-version nil))
-  ([row size-unit animate? flash-version own-size]
+  ([row size-unit animate? {:keys [depth flash-version own-size sweep-fill in-readout? readout]}]
    (let [is-ask? (= :ask (:side row))
          bar-color (if is-ask? ask-depth-bar-class bid-depth-bar-class)
          price-text-color (if is-ask? ask-price-text-class bid-price-text-class)
          flash-class (when animate? (level-flash-class (:side row) flash-version))]
-     [:button (merge (level-attrs row (if is-ask? "Ask" "Bid") own-size)
-                     {:class (cond-> ["flex" "items-center" "w-full" "h-[23px]" "relative" "bg-base-100"
-                                      "text-xs" "text-left" "cursor-pointer" "orderbook-level-row"
-                                      "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-inset"
-                                      "focus-visible:ring-ho-accent"]
-                               flash-class (conj flash-class))
-                      :data-role "orderbook-level-row"})
+     [:button (-> (level-attrs row (if is-ask? "Ask" "Bid") own-size)
+                  (cond-> (some? depth) (update :on merge (hover-handlers row depth)))
+                  (merge {:class (cond-> ["flex" "items-center" "w-full" "h-[23px]" "relative" "bg-base-100"
+                                          "text-xs" "text-left" "cursor-pointer" "orderbook-level-row"
+                                          "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-inset"
+                                          "focus-visible:ring-ho-accent"]
+                                   flash-class (conj flash-class))
+                          :data-role "orderbook-level-row"})
+                  (cond-> readout (assoc :aria-describedby readout-card-id)))
       ;; Size bar background - always grows from the left
       (depth-bar row size-unit bar-color "origin-left" animate?)
+      ;; Readout tint and hovered-row outline are their own layers: the change flash
+      ;; animates the row's background and box-shadow, and would wipe them mid-flash.
+      (when in-readout?
+        [:span {:class ["pointer-events-none" "absolute" "inset-0" "bg-ho-text/5"]
+                :data-role "orderbook-readout-tint"
+                :aria-hidden "true"}])
+      (when readout
+        [:span {:class ["pointer-events-none" "absolute" "inset-0" "z-20" "border" "border-ho-text-secondary"]
+                :data-role "orderbook-readout-outline"
+                :aria-hidden "true"}])
+      (when sweep-fill
+        (sweep-marks sweep-fill))
       (when own-size
-        (own-order-pip ["left-[2px]"]))
+        (own-order-pip ["left-[3px]"]))
       ;; Content
       [:div {:class ["grid" orderbook-columns-class "w-full" "items-center" "pl-2" "pr-2" "relative" "z-10"]
              :data-role "orderbook-level-content-row"}
@@ -100,7 +141,8 @@
        [:div {:class ["text-right" "num-right"]
               :data-role "orderbook-level-total-cell"}
         [:span {:class [body-neutral-text-class "num" "orderbook-level-value"]}
-         (row-total-label row size-unit)]]]])))
+         (row-total-label row size-unit)]]]
+      readout])))
 
 ;; Spread component
 (defn spread-row [spread]

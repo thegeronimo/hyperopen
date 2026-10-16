@@ -87,12 +87,12 @@
         a (attrs node)]
     (is (= :button (first node)))
     (is (= "button" (:type a)))
-    (is (= {:click [[:actions/set-order-price-from-orderbook "100"]]} (:on a)))
+    (is (= [[:actions/set-order-price-from-orderbook "100"]] (:click (:on a))))
     (is (= "Bid 100.00, set limit price" (:aria-label a)))
     (is (empty? (nodes node (role= "orderbook-own-order-pip"))))))
 
 (deftest a-level-holding-your-order-shows-a-pip-test
-  (let [node (depth/order-row (assoc row :side :ask) :base true nil "0.5 BTC")
+  (let [node (depth/order-row (assoc row :side :ask) :base true {:own-size "0.5 BTC"})
         a (attrs node)]
     (is (= 1 (count (nodes node (role= "orderbook-own-order-pip")))))
     (is (= "Your resting order here: 0.5 BTC" (:title a)))
@@ -118,6 +118,6 @@
                                        false
                                        {:desktop-layout? true}
                                        true
-                                       [{:side "B" :px "99" :sz "0.5"}])
+                                       {:open-orders [{:side "B" :px "99" :sz "0.5"}]})
         titled (keep (comp :title attrs) (nodes node (role= "orderbook-level-row")))]
     (is (= ["Your resting order here: 0.5 BTC"] titled))))

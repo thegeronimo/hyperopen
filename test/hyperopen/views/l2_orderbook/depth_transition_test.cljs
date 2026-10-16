@@ -66,18 +66,18 @@
 
 (deftest changed-level-flashes-with-alternating-animation-test
   (testing "a level that changed in an even update"
-    (is (contains? (row-classes (depth/order-row row :base true 2)) "ob-flash-bid-a")))
+    (is (contains? (row-classes (depth/order-row row :base true {:flash-version 2})) "ob-flash-bid-a")))
   (testing "the same level changing again in the next update switches animation"
-    (is (contains? (row-classes (depth/order-row row :base true 3)) "ob-flash-bid-b")))
+    (is (contains? (row-classes (depth/order-row row :base true {:flash-version 3})) "ob-flash-bid-b")))
   (testing "asks flash in the ask colour"
-    (is (contains? (row-classes (depth/order-row (assoc row :side :ask) :base true 4))
+    (is (contains? (row-classes (depth/order-row (assoc row :side :ask) :base true {:flash-version 4}))
                    "ob-flash-ask-a"))))
 
 (deftest unchanged-or-unanimated-level-does-not-flash-test
   (let [flash? (fn [node] (some #(.startsWith % "ob-flash-") (row-classes node)))]
-    (is (not (flash? (depth/order-row row :base true nil))))
+    (is (not (flash? (depth/order-row row :base true {}))))
     (is (not (flash? (depth/order-row row :base true))))
-    (is (not (flash? (depth/order-row row :base false 2))))))
+    (is (not (flash? (depth/order-row row :base false {:flash-version 2}))))))
 
 (deftest mobile-split-row-flashes-each-side-independently-test
   (let [split {:bid row :ask (assoc row :side :ask :px "101")}

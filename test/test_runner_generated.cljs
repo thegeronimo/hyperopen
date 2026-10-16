@@ -135,6 +135,7 @@
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
             [hyperopen.domain.token-pricing-test]
+            [hyperopen.domain.trading.book-sweep-test]
             [hyperopen.domain.trading.fees-test]
             [hyperopen.domain.trading.indicators.contracts-test]
             [hyperopen.domain.trading.indicators.family-parity-test]
@@ -712,6 +713,7 @@
             [hyperopen.views.header.vm-test]
             [hyperopen.views.hip3-display-names-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.l2-orderbook.depth-readout-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
             [hyperopen.views.l2-orderbook.own-orders-test]
             [hyperopen.views.leaderboard-view-test]
@@ -1125,6 +1127,7 @@
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
              'hyperopen.domain.token-pricing-test
+             'hyperopen.domain.trading.book-sweep-test
              'hyperopen.domain.trading.fees-test
              'hyperopen.domain.trading.indicators.contracts-test
              'hyperopen.domain.trading.indicators.family-parity-test
@@ -1702,6 +1705,7 @@
              'hyperopen.views.header.vm-test
              'hyperopen.views.hip3-display-names-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.l2-orderbook.depth-readout-test
              'hyperopen.views.l2-orderbook.depth-transition-test
              'hyperopen.views.l2-orderbook.own-orders-test
              'hyperopen.views.leaderboard-view-test
