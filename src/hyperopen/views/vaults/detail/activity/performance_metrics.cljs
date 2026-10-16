@@ -45,6 +45,7 @@
     :drawdown-unavailable "Estimated from sparse drawdown observations."
     :rolling-window-span-insufficient "Estimated from limited history in this window."
     :benchmark-coverage-gate-failed "Estimated from limited benchmark overlap."
+    :interpolated-samples "Estimated: some vaults publish a sample only every few days, and values between samples are interpolated."
     "Low-confidence estimate."))
 
 (def ^:private low-confidence-reason-order
@@ -53,7 +54,8 @@
    :drawdown-reliability-gate-failed
    :drawdown-unavailable
    :rolling-window-span-insufficient
-   :benchmark-coverage-gate-failed])
+   :benchmark-coverage-gate-failed
+   :interpolated-samples])
 
 (defn- ordered-low-confidence-reasons
   [reasons]
@@ -77,6 +79,9 @@
 
       (= reason-set #{:benchmark-coverage-gate-failed})
       "Some metrics are estimated from limited benchmark overlap."
+
+      (= reason-set #{:interpolated-samples})
+      "Some vaults publish a sample only every few days in this range. Values between samples are interpolated, which smooths day-to-day swings."
 
       :else
       "Some metrics are estimated from incomplete or limited data.")))

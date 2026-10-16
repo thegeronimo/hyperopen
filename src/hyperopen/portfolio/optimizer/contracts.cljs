@@ -114,6 +114,7 @@
 (def ui-return-views-filter-path paths/ui-return-views-filter-path)
 (def ui-return-views-io-note-path paths/ui-return-views-io-note-path)
 (def ui-history-assumptions-io-note-path paths/ui-history-assumptions-io-note-path)
+(def ui-tear-sheet-path paths/ui-tear-sheet-path)
 (def path-catalog paths/path-catalog)
 (def optimizer-state-path paths/optimizer-state-path)
 (def optimizer-ui-state-path paths/optimizer-ui-state-path)

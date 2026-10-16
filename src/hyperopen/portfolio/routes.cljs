@@ -14,6 +14,9 @@
 (def ^:private optimize-scenario-route-prefix
   "/portfolio/optimize/")
 
+(def ^:private tear-sheet-route-suffix
+  "/tear-sheet")
+
 (defn- portfolio-prefix-match?
   [path]
   (or (= path canonical-route)
@@ -40,13 +43,23 @@
                     (str/includes? scenario-id "/"))
         (non-blank-text scenario-id)))))
 
+(defn- optimize-tear-sheet-scenario-id
+  "/portfolio/optimize/<id>/tear-sheet: the hypothetical tear sheet of that
+  scenario's run. It parses as the scenario route (plus `:view`) so scenario
+  loading, query state and route gating all treat it as the same scenario."
+  [path]
+  (when (and (str/starts-with? path optimize-scenario-route-prefix)
+             (str/ends-with? path tear-sheet-route-suffix))
+    (optimize-scenario-id (subs path 0 (- (count path) (count tear-sheet-route-suffix))))))
+
 (defn parse-portfolio-route
   [path]
   (let [path* (router/normalize-path path)
         suffix (when (str/starts-with? path* trader-route-prefix)
                  (subs path* (count trader-route-prefix)))
         trader-address (normalize-address suffix)
-        scenario-id (optimize-scenario-id path*)]
+        scenario-id (optimize-scenario-id path*)
+        tear-sheet-scenario-id (optimize-tear-sheet-scenario-id path*)]
     (cond
       (= path* canonical-route)
       {:kind :page
@@ -68,6 +81,12 @@
       {:kind :optimize-scenario
        :path path*
        :scenario-id scenario-id}
+
+      tear-sheet-scenario-id
+      {:kind :optimize-scenario
+       :path path*
+       :scenario-id tear-sheet-scenario-id
+       :view :tear-sheet}
 
       trader-address
       {:kind :trader
@@ -117,6 +136,11 @@
   [scenario-id]
   (when-let [scenario-id* (non-blank-text scenario-id)]
     (str optimize-scenario-route-prefix scenario-id*)))
+
+(defn portfolio-optimize-tear-sheet-path
+  [scenario-id]
+  (some-> (portfolio-optimize-scenario-path scenario-id)
+          (str tear-sheet-route-suffix)))
 
 (defn trader-portfolio-route?
   [path]

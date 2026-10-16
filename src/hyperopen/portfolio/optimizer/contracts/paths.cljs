@@ -140,6 +140,10 @@
 (def ui-return-views-io-note-path (conj optimizer-ui-path :return-views-io-note))
 (def ui-history-assumptions-io-note-path
   (conj optimizer-ui-path :history-assumptions-io-note))
+;; Hypothetical tear sheet options: {:range :mode :rebalance :missing
+;; :profit-share? :benchmarks :tab}. Absent keys fall back to the tear-sheet
+;; model's defaults.
+(def ui-tear-sheet-path (conj optimizer-ui-path :tear-sheet))
 
 (def path-catalog
   {:optimizer/root optimizer-path
@@ -241,7 +245,8 @@
    :optimizer-ui/return-views-filter ui-return-views-filter-path
    :optimizer-ui/return-views-io-note ui-return-views-io-note-path
    :optimizer-ui/history-assumptions-io-note ui-history-assumptions-io-note-path
-   :optimizer-ui/history-assumption-active ui-history-assumption-active-path})
+   :optimizer-ui/history-assumption-active ui-history-assumption-active-path
+   :optimizer-ui/tear-sheet ui-tear-sheet-path})
 
 (defn optimizer-state-path
   [& segments]

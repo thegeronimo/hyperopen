@@ -251,6 +251,8 @@
     :set-portfolio-optimizer-frontier-overlay-mode]
    [:actions/set-portfolio-optimizer-constrain-frontier
     :set-portfolio-optimizer-constrain-frontier]
+   [:actions/set-portfolio-optimizer-tear-sheet-option
+    :set-portfolio-optimizer-tear-sheet-option]
    [:actions/set-portfolio-optimizer-results-tab
     :set-portfolio-optimizer-results-tab]
    [:actions/set-portfolio-optimizer-selected-risk-instrument

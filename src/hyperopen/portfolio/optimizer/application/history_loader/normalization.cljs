@@ -72,11 +72,16 @@
             [summary-key summary]))
         portfolio))
 
+(defn summary-price-history
+  "A vault portfolio summary as price rows ({:time-ms :close}) of its
+  share-price return index (deposits and withdrawals removed)."
+  [summary]
+  (normalize-price-history
+   (metrics-history/returns-history-rows-from-summary (or summary {}))))
+
 (defn- normalized-summary-candidate
   [source window summary]
-  (let [history (normalize-price-history
-                 (metrics-history/returns-history-rows-from-summary
-                  (or summary {})))]
+  (let [history (summary-price-history summary)]
     (when (seq history)
       {:source source
        :window window
