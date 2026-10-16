@@ -76,3 +76,16 @@
                                       :base "BTC"
                                       :underlying "BTC"
                                       :market-type :outcome}))))
+
+(deftest market-icon-fallback-url-uses-entropy-logo-cdn-test
+  (is (= "https://assets.entropy.trade/logos/io%3APRL.svg"
+         (asset-icon/market-icon-fallback-url {:coin "io:PRL" :base "PRL" :dex "io" :market-type :perp})))
+  (is (= "https://assets.entropy.trade/logos/BTC.svg"
+         (asset-icon/market-icon-fallback-url {:coin "BTC" :base "BTC" :market-type :perp})))
+  (is (= "https://assets.entropy.trade/logos/xyz%3AMSFT.svg"
+         (asset-icon/market-icon-fallback-url {:coin "cash:MSFT" :base "MSFT" :dex "cash"}))
+      "uses the same aliased key as the primary icon")
+  (is (nil? (asset-icon/market-icon-fallback-url {:coin "PURR/USDC" :base "PURR"})))
+  (is (nil? (asset-icon/market-icon-fallback-url {:coin "#0" :base "BTC" :underlying "BTC" :market-type :outcome})))
+  (is (= "perp:io:PRL#entropy" (asset-icon/fallback-icon-status-key "perp:io:PRL")))
+  (is (nil? (asset-icon/fallback-icon-status-key nil))))

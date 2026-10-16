@@ -155,6 +155,12 @@
    opts]
   (market-endpoints/request-perp-annotations! post-info! opts))
 
+(defn request-perp-annotation!
+  [{:keys [post-info!]}
+   coin
+   opts]
+  (market-endpoints/request-perp-annotation! post-info! coin opts))
+
 (defn fetch-spot-meta!
   [{:keys [log-fn
            request-spot-meta!

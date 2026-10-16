@@ -282,6 +282,10 @@
   ([] (request-perp-annotations! {}))
   ([opts] (market/request-perp-annotations! {:post-info! post-info!} opts)))
 
+(defn request-perp-annotation!
+  ([coin] (request-perp-annotation! coin {}))
+  ([coin opts] (market/request-perp-annotation! {:post-info! post-info!} coin opts)))
+
 (defn fetch-spot-meta!
   ([store] (fetch-spot-meta! store {}))
   ([store opts]

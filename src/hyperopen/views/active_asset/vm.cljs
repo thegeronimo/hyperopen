@@ -1,8 +1,11 @@
 (ns hyperopen.views.active-asset.vm
   (:require [clojure.string :as str]
             [hyperopen.active-asset.funding-policy :as funding-policy]
+            [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.market-info :as market-info]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.state.trading :as trading-state]
+            [hyperopen.views.asset-selector.processing :as selector-processing]
             [hyperopen.utils.formatting :as fmt]))
 
 (def default-dropdown-state
@@ -296,6 +299,8 @@
              :active-market active-market
              :active-assets (active-assets-state state active-asset active-market tooltip-open?)
              :asset-selector (asset-selector-state state active-asset)
+             :perp-annotations (:perp-annotations state)
+             :perp-dex-full-name-by-name (:perp-dex-full-name-by-name state)
              :order-form {:outcome-option-id (get-in state [:order-form :outcome-option-id])
                           :outcome-option (get-in state [:order-form :outcome-option])}
              :order-form-ui {:outcome-option-dropdown-open?
@@ -306,6 +311,7 @@
                             (open-tooltip-funding-ui-state state active-asset active-market)
                             (funding-tooltip-ui-state state))
              :trade-ui {:mobile-asset-details-open? (true? (get-in state [:trade-ui :mobile-asset-details-open?]))
+                        :market-info-open? (true? (get-in state [:trade-ui :market-info-open?]))
                         :outcome-option-sort-by (get-in state [:trade-ui :outcome-option-sort-by])
                         :outcome-option-sort-direction (get-in state [:trade-ui :outcome-option-sort-direction])}}
       tooltip-open?
@@ -351,9 +357,11 @@
 
 (defn active-asset-row-vm [ctx-data market dropdown-state full-state]
   (let [coin (or (:coin market) (:coin ctx-data))
-        icon-market (-> (or market {})
-                        (assoc :coin (or (:coin market) coin))
-                        (assoc :symbol (or (:symbol market) coin)))
+        symbol-meta (annotations/header-metadata full-state coin)
+        icon-market (cond-> (-> (or market {})
+                                (assoc :coin (or (:coin market) coin))
+                                (assoc :symbol (or (:symbol market) coin)))
+                      symbol-meta (assoc :symbol-meta symbol-meta))
         mark (or (:mark ctx-data) (:mark market))
         mark-raw (or (:markRaw ctx-data) (:markRaw market))
         oracle (:oracle ctx-data)
@@ -457,6 +465,8 @@
                          :sort-direction (get-in full-state
                                                  [:trade-ui :outcome-option-sort-direction])}
      :outcome-tooltip (outcome-tooltip-model market)
+     :symbol-meta symbol-meta
+     :market-info-open? (and (some? symbol-meta) (true? (get-in full-state [:trade-ui :market-info-open?])))
      :outcome-chance-label outcome-chance-label
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))
@@ -468,7 +478,12 @@
         active-market (resolve-active-market state active-asset)
         selected-key (or (:key active-market)
                          (when active-asset
-                           (markets/coin->market-key active-asset)))]
+                           (markets/coin->market-key active-asset)))
+        selector-markets (when (:visible-dropdown dropdown)
+                           (selector-processing/annotated-selector-markets
+                            (available-assets state)
+                            (:market-by-key dropdown)
+                            (:perp-annotations state)))]
     {:active-asset active-asset
      :row-vm (when active-asset
                (active-asset-row-vm (or (get contexts active-asset)
@@ -477,10 +492,12 @@
                                     dropdown
                                     state))
      :dropdown-state dropdown
+     :market-info (when-not (:visible-dropdown dropdown)
+                    (market-info/open-panel-model state active-asset active-market))
      :asset-selector-props (when (:visible-dropdown dropdown)
                              {:visible? true
-                              :markets (available-assets state)
-                              :market-by-key (:market-by-key dropdown)
+                              :markets (:markets selector-markets)
+                              :market-by-key (:market-by-key selector-markets)
                               :selected-market-key selected-key
                               :loading? (:loading? dropdown)
                               :phase (:phase dropdown)

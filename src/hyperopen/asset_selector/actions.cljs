@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.account.history.shared :as history-shared]
+            [hyperopen.asset-selector.annotations :as annotations]
             [hyperopen.asset-selector.funding-drafts :as funding-drafts]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
@@ -255,7 +256,12 @@
                  sync-asset-selector-active-ctx-subscriptions-effect]]
     (cond-> effects
       should-refresh?
-      (conj [:effects/fetch-asset-selector-markets]))))
+      (conj [:effects/fetch-asset-selector-markets])
+
+      ;; Rows, keyword search and asset-class tabs read the bulk annotations.
+      (and (= coin :asset-selector) (some? next-dropdown) (string? (:active-asset state))
+           (annotations/concise-load-needed? state))
+      (conj [:effects/sync-perp-annotations (:active-asset state)]))))
 
 (defn close-asset-dropdown
   [_state]
@@ -356,6 +362,9 @@
         subscribe-effects* (cond-> subscribe-effects
                              (seq canonical-coin)
                              (conj [:effects/sync-active-asset-funding-predictability canonical-coin])
+
+                             (annotations/annotatable-coin? canonical-coin)
+                             (conj [:effects/sync-perp-annotations canonical-coin])
 
                              ;; A coin the loaded catalog can't resolve (a spot
                              ;; balance's bare token name before spot markets

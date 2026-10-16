@@ -1,5 +1,6 @@
 (ns hyperopen.views.asset-selector.controls
   (:require [clojure.string :as str]
+            [hyperopen.asset-selector.annotations :as annotations]
             [hyperopen.asset-selector.settings :as settings]
             [hyperopen.platform :as platform]
             [hyperopen.system :as app-system]
@@ -148,6 +149,11 @@
   [active-tab]
   (contains? (set (settings/outcome-tabs :testnet)) active-tab))
 
+(defn- tradfi-tab?
+  [active-tab]
+  (or (= :tradfi active-tab)
+      (contains? settings/tradfi-tab->asset-class active-tab)))
+
 (defn tab-row [active-tab]
   [:div.flex.items-center.gap-2.mb-4
    (tab-button "All" (= active-tab :all) :all)
@@ -155,7 +161,7 @@
    (tab-button "Spot" (= active-tab :spot) :spot)
    (tab-button "Outcome" (outcome-tab? active-tab) :outcome)
    (tab-button "Crypto" (= active-tab :crypto) :crypto)
-   (tab-button "Tradfi" (= active-tab :tradfi) :tradfi)
+   (tab-button "Tradfi" (tradfi-tab? active-tab) :tradfi)
    (tab-button "HIP-3" (= active-tab :hip3) :hip3)])
 
 (defn outcome-subtab-row [active-tab]
@@ -165,6 +171,17 @@
                             ["Crypto (1d)" :outcome-1d]
                             ["Economics" :outcome-economics]
                             ["Sports" :outcome-sports]]]
+       ^{:key (name tab-key)}
+       (tab-button label (= active-tab tab-key) tab-key))]))
+
+(defn tradfi-subtab-row [active-tab]
+  (when (tradfi-tab? active-tab)
+    [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-4" "gap-y-1" "mb-3"]
+           :data-role "asset-selector-tradfi-subtabs"}
+     (for [[label tab-key] (into [["All" :tradfi]]
+                                 (map (fn [[tab-key asset-class]]
+                                        [(annotations/category-plural-label asset-class) tab-key]))
+                                 settings/tradfi-asset-class-tabs)]
        ^{:key (name tab-key)}
        (tab-button label (= active-tab tab-key) tab-key))]))
 
@@ -259,8 +276,9 @@
    [:div {:class ["flex" "items-center" "gap-5" "whitespace-nowrap"]}
     (for [[label tab-key] selector-tabs]
       ^{:key (name tab-key)}
-      (mobile-tab-button label (if (= tab-key :outcome)
-                                 (outcome-tab? active-tab)
+      (mobile-tab-button label (case tab-key
+                                 :outcome (outcome-tab? active-tab)
+                                 :tradfi (tradfi-tab? active-tab)
                                  (= active-tab tab-key)) tab-key))]])
 
 (defn sort-chevron [direction]
@@ -292,6 +310,9 @@
 
 (defn mobile-outcome-subtab-row [active-tab]
   (outcome-subtab-row active-tab))
+
+(defn mobile-tradfi-subtab-row [active-tab]
+  (tradfi-subtab-row active-tab))
 
 (defn mobile-sort-header
   ([sort-by sort-direction]

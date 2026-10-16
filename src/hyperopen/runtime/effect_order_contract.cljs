@@ -19,6 +19,7 @@
                         :effects/subscribe-orderbook
                         :effects/subscribe-trades
                         :effects/sync-active-asset-funding-predictability
+                        :effects/sync-perp-annotations
                         :effects/fetch-asset-selector-markets}}
 
    :actions/select-chart-timeframe

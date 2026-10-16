@@ -14,6 +14,7 @@
     :effects/subscribe-orderbook
     :effects/subscribe-trades
     :effects/sync-active-asset-funding-predictability
+    :effects/sync-perp-annotations
     :effects/fetch-asset-selector-markets})
 
 (deftest mark-loaded-asset-icon-promotes-key-to-loaded-and-clears-missing-test
