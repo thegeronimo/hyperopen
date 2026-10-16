@@ -1,5 +1,6 @@
 (ns hyperopen.views.active-asset-view
   (:require [hyperopen.views.active-asset.row :as active-asset-row]
+            [hyperopen.views.active-asset.market-info :as market-info-view]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.asset-selector-view :as asset-selector]
             [hyperopen.views.trade.order-form-handlers :as order-form-handlers]))
@@ -35,7 +36,7 @@
       props)))
 
 (defn active-asset-panel [state]
-  (let [{:keys [active-asset row-vm dropdown-state asset-selector-props]}
+  (let [{:keys [active-asset row-vm dropdown-state asset-selector-props market-info]}
         (active-asset-vm/active-asset-panel-vm state)
         funding-tooltip-open? (true? (:funding-tooltip-open? row-vm))
         asset-selector-props* (stable-asset-selector-props asset-selector-props)]
@@ -49,6 +50,7 @@
          row-vm
          {:outcome-handlers (:outcome (order-form-handlers/build-handlers))})
         (active-asset-row/select-asset-row dropdown-state))]
+     (market-info-view/market-info-panel market-info)
      (when asset-selector-props*
        (asset-selector/asset-selector-wrapper asset-selector-props*))]))
 

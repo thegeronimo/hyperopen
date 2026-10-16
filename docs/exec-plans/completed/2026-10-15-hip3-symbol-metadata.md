@@ -1,0 +1,135 @@
+# Explain what a HIP-3 symbol is, in the market header and the asset selector
+
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept current as work proceeds. Maintain it according to `/hyperopen/.agents/PLANS.md`.
+
+## Purpose / Big Picture
+
+HIP-3 markets have tickers that say little about what you are trading. `SPCX`, `ANTH`, `10Y`, `XYZ100` and `vntl:SPACEX` could be a share, a pre-IPO valuation in billions, a bond yield or an index. trade[XYZ] shows a one-line issuer subtitle under the ticker ("Space Exploration Technologies Corp."). Hyperopen shows only the ticker and the dex chip.
+
+The deployers already publish this information on-chain. Hyperliquid's `/info` API exposes it through two request types:
+
+- `{"type":"perpConciseAnnotations"}` is one bulk call. It returns `[[coin, {category, displayName?, keywords?}], ...]` for every annotated HIP-3 market (221 on 2026-10-15). It has no descriptions.
+- `{"type":"perpAnnotation","coin":"xyz:SPCX"}` is per coin. It returns `{category, description, displayName?, keywords?}`, or `null` when the deployer published nothing.
+
+`perpDexs` (already fetched) carries each deployer's `fullName`, for example `flx` → "Felix Exchange".
+
+After this change:
+
+1. **Header subtitle (design A).** The market header shows a second line under the ticker for any annotated HIP-3 market. The issuer is parsed from the description where it can be ("Tesla, Inc."); otherwise the line shows the display name or a category label. Hovering or focusing the market button shows the deployer's full description, attributed to the deployer.
+2. **Fallbacks (design E).** Every HIP-3 market keeps the subtitle line, with degrading content:
+   - full annotation → issuer and category;
+   - free-form description → its first clause;
+   - name only → display name and category;
+   - nothing published → "Market by <deployer full name>";
+   - not yet loaded → nothing, with no layout jump on desktop.
+   Deployer text is always rendered as plain text.
+3. **Selector (design C).**
+   - Each annotated row carries a muted inline descriptor after the chips: the issuer if its description has been loaded this session, else the display name when it differs from the ticker (e.g. `io:OAI` → "OPENAI").
+   - Search matches deployer keywords and display names, so "spacex", "openai" and "tesla" find their markets.
+   - When the Tradfi tab is active, a sub-tab row filters by asset class: All, Stocks, Indices, Commodities, Pre-IPO, FX, Rates.
+
+To see it working: run the app, select `xyz:SPCX`, and read "Space Exploration Technologies Corp. · Stock" under the ticker. Open the selector, type "spacex", and both `xyz:SPCX` and `vntl:SPACEX` appear. Click Tradfi → Pre-IPO.
+
+## Context References
+
+Public refs:
+
+- Direct user request, 2026-10-15: "come up with a few designs for how this can be most intuitively displayed", then "go ahead and implement it" after the recommendation to build A + C + E first and B (spec panel) and D (mobile sheet) later.
+- The design canvas is at https://claude.ai/artifact/B2aHnmL1z8kqo4XeM9A3PT. It is private to the requester.
+
+Repo artifacts:
+
+- `/hyperopen/docs/exec-plans/completed/2026-08-21-account-tab-lazy-module-repaint.md`: the memoized trade-view state-slice trap. New app-db keys read by the header must be added to `panel-dependency-state`.
+- `/hyperopen/docs/BROWSER_TESTING.md`, `/hyperopen/docs/agent-guides/browser-qa.md`.
+
+Local scratch refs (non-authoritative):
+
+- None.
+
+## Scope and Non-Goals
+
+In scope: the request plumbing, pure normalization and subtitle derivation, the app-db projection, the per-coin lazy effect, the header subtitle and hover description, the selector inline descriptor, keyword search, and the Tradfi asset-class sub-tabs.
+
+Added on 2026-10-15 at the owner's request ("Do this task here"): design B (the "About this market" panel) and design D (the mobile sheet).
+
+Non-goals, which are follow-ups:
+
+- Persisting descriptions across sessions.
+- Bulk-fetching every description. `perpAnnotation` is one request per coin, so bulk-fetching 221 of them would cost a large share of the per-IP info rate budget.
+
+## Progress
+
+- [x] (2026-10-15) Confirm the endpoints and live coverage by deployer. Design canvas approved.
+- [x] (2026-10-15) Pure annotation namespace `src/hyperopen/asset_selector/annotations.cljs`. Tuned against all 221 live descriptions: every xyz single-share market yields its issuer (115/115).
+- [x] (2026-10-15) Endpoints, gateway and default API wiring for both request types. `perpDexs` `fullName` now projects to `:perp-dex-full-name-by-name`.
+- [x] (2026-10-15) `:perp-annotations` projection and `:effects/sync-perp-annotations`. Emitted on select-asset and subscribe-to-asset for HIP-3 coins, and on selector open until the bulk payload loads.
+- [x] (2026-10-15) Header subtitle and viewport-fixed hover description, with all fallbacks.
+- [x] (2026-10-15) Selector descriptor, keyword and display-name search, Tradfi asset-class sub-tabs.
+- [x] (2026-10-15) `npm run gates` 34/34 PASS. `bb tools/formal.clj verify --surface effect-order-contract` PASS.
+- [x] (2026-10-15) Browser QA against the worktree build on :8090 with live mainnet data, at 1440 and 375.
+- [x] (2026-10-15) Design B: "About this market" panel. An info button beside the HIP-3 ticker toggles `[:trade-ui :market-info-open?]`. The panel renders in `active_asset_view` below the strip, outside its clipping scroll container. It shows a headline, the rest of the description, a fact grid, a unit warning, keyword chips, and deployer attribution.
+- [x] (2026-10-15) Design D: the same model as a bottom sheet below `lg`, with a backdrop that closes it. It opens from a 44px "About this market" row in the existing mobile market-details drawer, because the phone header has no room beside the ticker.
+- [x] (2026-10-15) Gates 34/34 PASS. Browser QA for B and D at 375, 768, 1280 and 1440, live data: SPCX, ARM, 10Y, OAI, cash:HOOD, GOLD and US500.
+- [x] (2026-10-15) Header icon fallback. Order: Hyperliquid's coin CDN, then Entropy's logo CDN (`https://assets.entropy.trade/logos/<encodeURIComponent coin>.svg`), then the monogram. Entropy attempts are tracked under `<market-key>#entropy` in the existing icon status sets. `https://assets.entropy.trade` is added to the release CSP `img-src`. Gates pass 34/34. Live QA: io:PRL, io:DRAM and io:TCNT render Entropy logos; mkts:US500 shows the monogram; BTC is unchanged.
+- [x] (2026-10-16) Reconciled with main's `feat(markets): show Hyperliquid display names for HIP-3 perps` (`fde4054c5`).
+  - Main's catalog-side `request-perp-annotations!` is the single bulk request (cache key `:perp-annotations`). The sync effect calls it too, so the two callers share one network call per cache window.
+  - Display names, display symbols and search keywords come only from main's catalog enrichment. This branch adds just `:asset-class` and the issuer `:descriptor`.
+  - The subtitle and row descriptor no longer fall back to the display name, which is now the ticker label.
+  - Gates 34/34; Lean effect-order verify passes.
+  - Browser check: io:PRL reads "PEARL-USDC / Crypto" with the Entropy logo; xyz:SPCX shows its issuer; para:10Y shows its first clause; BTC is unchanged.
+- [x] (2026-10-16) Owner asked to reconcile for merge. Plan moved to `completed/`.
+
+## Surprises & Discoveries
+
+- The subtitle trade[XYZ] shows has no API field. It is lifted from the description ("references 1 share of Space Exploration Technologies Corp. Class A common stock").
+- Category labels are inconsistent across deployers: `fx`/`FX`, `stock`/`stocks`.
+- dreamcash, HyENA and ABCDEx publish no annotations. `perpAnnotation` returns JSON `null` for their coins. EntropyIO publishes empty descriptions for pre-IPO markets.
+- ClojureScript `str/split` with a limit locates each match with `indexOf` of the matched text. That ignores regex lookbehind, so "U.S. companies" split at the first ". ". Use the no-limit form, which is native `String.prototype.split`.
+- The market strip is an `overflow-x-auto` container about 79px tall, so it clips an absolutely positioned hover card. The description card is viewport-fixed instead, positioned from the trigger's rect on mouseenter or focus.
+- Firing the effect only for HIP-3 coins left the selector without annotations after a reload on BTC. Opening the selector now requests the bulk payload until it has loaded.
+- A desktop selector descriptor squeezed the ticker to "S…". The ticker is `shrink-0` whenever a descriptor is present.
+- On a 375px phone the header ticker truncates ("TS…"). This predates the change: the ticker measures the same with the subtitle hidden (37px visible of 91px).
+
+## Decision Log
+
+- Decision: on reconciliation, main's catalog enrichment owns display names, display symbols and keywords. This branch's annotation state keeps descriptions, deployer names and asset classes. Rationale: one source per field avoids a second bulk fetch and duplicate search terms, and stops the subtitle repeating the ticker label. Date: 2026-10-16.
+
+- Decision: use Entropy's logo CDN only as an icon fallback, not its `/api/markets` registry. Rationale: the CDN is public (CORS `*`, cross-origin resource policy, a real 404 when absent) and fills 27 of the 54 live perps Hyperliquid's CDN lacks, including all io markets. The registry is Entropy's private app API, sends no CORS allow-origin, and adds only display names, which on-chain annotations already cover. Date: 2026-10-15.
+
+- Decision: build the panel headline from parsed parts ("1 share of <issuer>") when both the issuer and the unit parse, and show the full description beneath it. Rationale: the sentence splitter treats "Corp." as a sentence end, which cut SPCX's headline to "...Technologies Corp". The selector subtitle keeps the splitter, because Kinetiq's descriptions open with the bare company name ("Apple Inc. Global technology...") and splitting there gives the shorter, better label. Date: 2026-10-15.
+- Decision: no "Settles in" fact. Rationale: the catalog `:quote` said USDC for km:US500 while the order form priced it in USDH. The panel must not state a fact the app contradicts elsewhere. Date: 2026-10-15.
+
+- Decision: keep annotations in their own app-db key and merge them into markets at the selector view-model boundary, instead of writing them into catalog market entries. Rationale: catalog markets are rebuilt on every refresh and whitelisted by two caches, so a separate key avoids touching both cache codecs and the merge ordering between two independent fetches. Date: 2026-10-15.
+- Decision: one effect, `:effects/sync-perp-annotations coin`, ensures the bulk concise payload once per session (single flight) and then the coin's detail. Rationale: there is one registration chain, and the existing emission points (select-asset, subscribe-to-asset) cover both startup and switching markets. Date: 2026-10-15.
+- Decision: selector rows stay one line. The descriptor is inline, using the existing outcome-summary pattern. Rationale: rows are virtualized at a fixed `row-height-px`. Date: 2026-10-15.
+
+## Outcomes & Retrospective
+
+Shipped designs A, C and E.
+
+Header, live checks:
+- `xyz:SPCX` reads "Space Exploration Technologies Corp. · Stock", and hovering shows the deployer's description attributed to XYZ.
+- `para:CRWD` → "CrowdStrike · Stock".
+- `io:OAI` → "OPENAI · Pre-IPO".
+- `km:US500` → its first clause plus "Index".
+- `cash:HOOD` → "Market by dreamcash".
+- BTC shows no subtitle.
+
+Selector:
+- "spacex" finds `xyz:SPCX` and `vntl:SPACEX`.
+- Tradfi → Pre-IPO lists the seven pre-IPO markets across io, xyz, para and vntl.
+
+Remaining limits and follow-ups:
+- Selector rows show the issuer only for markets whose description has loaded this session. Otherwise they show the deployer's display name where it differs from the ticker. Descriptions are per-coin requests, so persisting them is the follow-up that would fill rows over time.
+- Designs B and D shipped in the same branch. The panel model is `src/hyperopen/asset_selector/market_info.cljs`; the views are in `src/hyperopen/views/active_asset/market_info.cljs`. A unit-warning chip flags rates ("Price is a yield in percent, not a bond price") and pre-IPO valuations.
+
+## Validation
+
+- Unit tests:
+  - the annotations namespace (normalizers and subtitle derivation over real description fixtures);
+  - the projection;
+  - effect emission in select-asset and subscribe-to-asset;
+  - query keyword search and sub-tab matching;
+  - header and row view rendering.
+- `npm run check`, `npm test`, `npm run test:websocket`.
+- Browser QA: header subtitle for `xyz:SPCX`, `km:US500`, `io:ANTH` and a `cash:` market; selector search "spacex"; Tradfi sub-tabs; widths 375, 768, 1280 and 1440.

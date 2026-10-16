@@ -4,6 +4,9 @@
 (def ^:private required-perp-dex-metadata-keys
   #{:dex-names :fee-config-by-name})
 
+(def ^:private optional-perp-dex-metadata-keys
+  #{:full-name-by-name})
+
 (def ^:private required-fee-config-keys
   #{:deployer-fee-scale})
 
@@ -37,12 +40,26 @@
                       (fee-config? config)))
                value)))
 
+(defn- full-name-by-name?
+  [value]
+  (and (map? value)
+       (every? (fn [[dex full-name]]
+                 (and (non-empty-string? dex)
+                      (non-empty-string? full-name)))
+               value)))
+
 (defn normalized-perp-dex-metadata-valid?
   [payload]
   (and (map? payload)
-       (= required-perp-dex-metadata-keys (set (keys payload)))
+       (let [payload-keys (set (keys payload))]
+         (and (every? payload-keys required-perp-dex-metadata-keys)
+              (every? (into required-perp-dex-metadata-keys
+                            optional-perp-dex-metadata-keys)
+                      payload-keys)))
        (dex-names? (:dex-names payload))
        (fee-config-by-name? (:fee-config-by-name payload))
+       (or (not (contains? payload :full-name-by-name))
+           (full-name-by-name? (:full-name-by-name payload)))
        (let [dex-names* (set (:dex-names payload))]
          (every? dex-names* (keys (:fee-config-by-name payload))))))
 

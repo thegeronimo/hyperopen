@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.action-adapters.websocket
-  (:require [hyperopen.asset-selector.markets :as markets]))
+  (:require [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.markets :as markets]))
 
 (defn- matching-active-market
   [state coin]
@@ -33,7 +34,9 @@
                      [[:effects/subscribe-orderbook side-coin]
                       [:effects/subscribe-trades side-coin]])
                    side-coins)
-           [[:effects/sync-active-asset-funding-predictability coin]]))))
+           [[:effects/sync-active-asset-funding-predictability coin]]
+           (when (annotations/annotatable-coin? coin)
+             [[:effects/sync-perp-annotations coin]])))))
 
 (defn subscribe-to-webdata2
   [_state address]

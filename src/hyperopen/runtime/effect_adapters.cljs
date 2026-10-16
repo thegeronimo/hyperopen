@@ -11,6 +11,7 @@
             [hyperopen.runtime.effect-adapters.funding :as funding-adapters]
             [hyperopen.runtime.effect-adapters.leaderboard :as leaderboard-adapters]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
+            [hyperopen.runtime.effect-adapters.perp-annotations :as perp-annotation-adapters]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]
             [hyperopen.runtime.effect-adapters.referrals :as referrals-adapters]
             [hyperopen.runtime.effect-adapters.route-query :as route-query-adapters]
@@ -249,6 +250,7 @@
 (def make-api-submit-position-tpsl order-adapters/make-api-submit-position-tpsl)
 (def make-api-submit-position-margin order-adapters/make-api-submit-position-margin)
 (def sync-active-asset-funding-predictability funding-adapters/sync-active-asset-funding-predictability)
+(def sync-perp-annotations perp-annotation-adapters/sync-perp-annotations)
 
 (def make-portfolio-optimizer-controller-resolver portfolio-optimizer-adapters/make-portfolio-optimizer-controller-resolver)
 (def make-run-portfolio-optimizer portfolio-optimizer-adapters/make-run-portfolio-optimizer)

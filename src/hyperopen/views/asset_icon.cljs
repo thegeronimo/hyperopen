@@ -4,6 +4,12 @@
 (def ^:private hyperliquid-coin-icon-base-url
   "https://app.hyperliquid.xyz/coins/")
 
+;; Entropy (the `io` HIP-3 deployer) hosts logos keyed by URL-encoded coin,
+;; including markets Hyperliquid's CDN lacks (io:PRL, io:DRAM, ...). Public:
+;; CORS *, cross-origin resource policy, and a real 404 when absent.
+(def ^:private entropy-logo-base-url
+  "https://assets.entropy.trade/logos/")
+
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]
@@ -134,3 +140,19 @@
   [market]
   (when-let [icon-key (market-icon-key market)]
     (str hyperliquid-coin-icon-base-url icon-key ".svg")))
+
+(defn market-icon-fallback-url
+  "Second-choice icon for a perp whose Hyperliquid icon is missing. Nil for
+  spot and outcome markets, which Entropy does not host."
+  [{:keys [coin symbol market-type] :as market}]
+  (when-not (or (= :outcome market-type)
+                (spot-market? (non-blank-text coin) (non-blank-text symbol) market-type))
+    (when-let [icon-key (market-icon-key market)]
+      (str entropy-logo-base-url (js/encodeURIComponent icon-key) ".svg"))))
+
+(defn fallback-icon-status-key
+  "Loaded/missing status key for the fallback icon, kept beside the primary
+  key in the asset selector's icon sets."
+  [market-key]
+  (when (seq market-key)
+    (str market-key "#entropy")))

@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.query
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
+            [hyperopen.asset-selector.settings :as settings]
             [hyperopen.utils.formatting :as fmt]))
 
 (def ^:private asset-list-default-render-limit
@@ -80,7 +81,10 @@
         option-labels (->> (:question-options asset)
                            (keep :label)
                            (str/join " ")
-                           str/lower-case)]
+                           str/lower-case)
+        ;; The issuer parsed from a HIP-3 description: "space exploration"
+        ;; finds xyz:SPCX.
+        descriptor (str/lower-case (or (:descriptor asset) ""))]
     (if strict?
       (or (str/starts-with? symbol query)
           (str/starts-with? title query)
@@ -90,7 +94,8 @@
           (str/starts-with? base query)
           (str/starts-with? underlying query)
           (str/starts-with? outcome-summary query)
-          (str/starts-with? option-labels query))
+          (str/starts-with? option-labels query)
+          (str/starts-with? descriptor query))
       (or (str/includes? symbol query)
           (str/includes? title query)
           (str/includes? display-symbol query)
@@ -99,7 +104,8 @@
           (str/includes? base query)
           (str/includes? underlying query)
           (str/includes? outcome-summary query)
-          (str/includes? option-labels query)))))
+          (str/includes? option-labels query)
+          (str/includes? descriptor query)))))
 
 (defn- hip3-tab-eligible?
   [asset strict?]
@@ -133,6 +139,11 @@
                          (= :sports (:outcome-category asset)))
     :crypto (and (= :perp (:market-type asset)) (= :crypto (:category asset)))
     :tradfi (and (= :perp (:market-type asset)) (= :tradfi (:category asset)))
+    (:tradfi-stocks :tradfi-indices :tradfi-commodities :tradfi-preipo :tradfi-fx :tradfi-rates)
+    (and (= :perp (:market-type asset))
+         (= :tradfi (:category asset))
+         (= (get settings/tradfi-tab->asset-class active-tab)
+            (:asset-class asset)))
     :hip3 (and (= :perp (:market-type asset))
                (:hip3? asset)
                (hip3-tab-eligible? asset strict?))

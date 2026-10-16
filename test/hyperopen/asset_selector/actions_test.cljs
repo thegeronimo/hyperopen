@@ -135,7 +135,8 @@
             [:effects/subscribe-active-asset "xyz:GOLD"]
             [:effects/subscribe-orderbook "xyz:GOLD"]
             [:effects/subscribe-trades "xyz:GOLD"]
-            [:effects/sync-active-asset-funding-predictability "xyz:GOLD"]]
+            [:effects/sync-active-asset-funding-predictability "xyz:GOLD"]
+            [:effects/sync-perp-annotations "xyz:GOLD"]]
            (subvec effects 4))))
 
   (testing "trade route sync preserves spectate query when spectate mode is active"

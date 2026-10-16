@@ -199,17 +199,68 @@
            (.indexOf attr-keys :src)))
     (is (empty? (support/find-nodes-with-style-key icon-node :background-image)))))
 
-(deftest asset-icon-falls-back-to-monogram-when-icon-is-known-missing-test
+(deftest asset-icon-falls-back-to-monogram-when-both-icon-sources-are-missing-test
   (let [market {:key "perp:BTC"
                 :coin "BTC"
                 :symbol "BTC-USDC"
                 :base "BTC"
                 :market-type :perp}
-        icon-node (icon-button/asset-button market false #{"perp:BTC"} #{})
+        icon-node (icon-button/asset-button market false #{"perp:BTC" "perp:BTC#entropy"} #{})
         img-nodes (support/find-img-nodes icon-node)
         strings (set (support/collect-strings icon-node))]
     (is (empty? img-nodes))
     (is (contains? strings "BTC"))))
+
+(deftest asset-icon-tries-entropy-logo-after-hyperliquid-icon-is-missing-test
+  (let [market {:key "perp:io:PRL"
+                :coin "io:PRL"
+                :symbol "PRL-USDC"
+                :base "PRL"
+                :dex "io"
+                :market-type :perp}
+        entropy-src "https://assets.entropy.trade/logos/io%3APRL.svg"
+        probing (icon-button/asset-button market false #{"perp:io:PRL"} #{})
+        probe-img (first (support/find-img-nodes probing))
+        loaded (icon-button/asset-button market false #{"perp:io:PRL"} #{"perp:io:PRL#entropy"})
+        loaded-img (first (support/find-img-nodes loaded))]
+    (is (= entropy-src (get-in probe-img [1 :src])))
+    (is (= {:load [[:actions/mark-loaded-asset-icon "perp:io:PRL#entropy"]]
+            :error [[:actions/mark-missing-asset-icon "perp:io:PRL#entropy"]]}
+           (get-in probe-img [1 :on]))
+        "the fallback reports under its own status key")
+    (is (not (contains? (set (support/collect-strings probing)) "PRL"))
+        "no monogram while the fallback is still being tried")
+    (is (= entropy-src (get-in loaded-img [1 :src])))))
+
+(deftest icon-source-orders-hyperliquid-then-entropy-then-monogram-test
+  (let [perp {:coin "io:PRL" :base "PRL" :dex "io" :market-type :perp}
+        spot {:coin "@107" :symbol "HYPE/USDC" :base "HYPE" :market-type :spot}]
+    (is (= {:src "https://app.hyperliquid.xyz/coins/io:PRL.svg" :status-key "perp:io:PRL"}
+           (icon-button/icon-source perp "perp:io:PRL" #{})))
+    (is (= {:src "https://assets.entropy.trade/logos/io%3APRL.svg" :status-key "perp:io:PRL#entropy"}
+           (icon-button/icon-source perp "perp:io:PRL" #{"perp:io:PRL"})))
+    (is (= {:exhausted? true}
+           (icon-button/icon-source perp "perp:io:PRL" #{"perp:io:PRL" "perp:io:PRL#entropy"})))
+    (is (= {:exhausted? true} (icon-button/icon-source spot "spot:@107" #{"spot:@107"}))
+        "spot icons have no Entropy fallback")))
+
+(deftest asset-icon-probe-reports-again-when-the-node-switches-source-test
+  (let [dispatches (atom [])
+        memory (atom nil)
+        {node :node} (support/fake-image-node {:complete? true :natural-width 0})
+        run! (fn [key src]
+               ((icon-button/attach-asset-icon-probe key src)
+                {:replicant/life-cycle :replicant.life-cycle/update
+                 :replicant/node node
+                 :replicant/memory @memory
+                 :replicant/remember #(reset! memory %)}))]
+    (with-redefs [nxr/dispatch (fn [_ _ actions] (swap! dispatches into actions))
+                  app-system/store (atom {})]
+      (run! "perp:io:PRL" "https://app.hyperliquid.xyz/coins/io:PRL.svg")
+      (run! "perp:io:PRL#entropy" "https://assets.entropy.trade/logos/io%3APRL.svg"))
+    (is (= [[:actions/mark-missing-asset-icon "perp:io:PRL"]
+            [:actions/mark-missing-asset-icon "perp:io:PRL#entropy"]]
+           @dispatches))))
 
 (deftest asset-icon-renders-namespaced-icon-for-component-markets-test
   (let [market {:key "perp:xyz:XYZ100"

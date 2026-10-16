@@ -488,6 +488,8 @@
    :actions/clear-orderbook-hover-level ::common/no-args
    :actions/select-trade-mobile-surface ::common/tab-args
    :actions/toggle-trade-mobile-asset-details ::common/no-args
+   :actions/toggle-market-info-panel ::common/no-args
+   :actions/close-market-info-panel ::common/no-args
    :actions/add-indicator ::add-indicator-args
    :actions/remove-indicator ::common/keyword-args
    :actions/update-indicator-period ::update-indicator-period-args

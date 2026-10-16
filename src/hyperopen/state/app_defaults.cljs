@@ -153,7 +153,8 @@
 (defn default-trade-ui-state
   []
   {:mobile-surface :chart
-   :mobile-asset-details-open? false})
+   :mobile-asset-details-open? false
+   :market-info-open? false})
 
 (defn default-portfolio-ui-state
   []
@@ -457,6 +458,8 @@
    :webdata2 {}
    :perp-dexs []
    :perp-dex-fee-config-by-name {}
+   :perp-dex-full-name-by-name {}
+   :perp-annotations {:concise-status :idle :by-coin {} :detail-by-coin {}}
    :perp-dex-clearinghouse {}
    :spot {:meta nil
           :clearinghouse-state nil

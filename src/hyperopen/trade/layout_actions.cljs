@@ -26,6 +26,15 @@
   [[:effects/save [:trade-ui :mobile-surface]
     (normalize-trade-mobile-surface surface)]])
 
+(defn toggle-market-info-panel
+  [state]
+  [[:effects/save [:trade-ui :market-info-open?]
+    (not (true? (get-in state [:trade-ui :market-info-open?])))]])
+
+(defn close-market-info-panel
+  [_state]
+  [[:effects/save [:trade-ui :market-info-open?] false]])
+
 (defn toggle-trade-mobile-asset-details
   [state]
   [[:effects/save [:trade-ui :mobile-asset-details-open?]

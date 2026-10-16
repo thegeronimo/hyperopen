@@ -100,9 +100,11 @@
             [hyperopen.asset-selector.actions-property-test]
             [hyperopen.asset-selector.actions-test]
             [hyperopen.asset-selector.active-market-cache-test]
+            [hyperopen.asset-selector.annotations-test]
             [hyperopen.asset-selector.funding-drafts-test]
             [hyperopen.asset-selector.icon-status-runtime-test]
             [hyperopen.asset-selector.market-coin-validity-test]
+            [hyperopen.asset-selector.market-info-test]
             [hyperopen.asset-selector.market-live-projection-test]
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
@@ -485,6 +487,7 @@
             [hyperopen.runtime.effect-adapters.funding-test]
             [hyperopen.runtime.effect-adapters.leaderboard-test]
             [hyperopen.runtime.effect-adapters.order-test]
+            [hyperopen.runtime.effect-adapters.perp-annotations-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-assumption-library-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-constraint-profiles-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-cancel-test]
@@ -673,10 +676,12 @@
             [hyperopen.views.active-asset.funding-tooltip-model-test]
             [hyperopen.views.active-asset.funding-tooltip-popover-test]
             [hyperopen.views.active-asset.icon-button-test]
+            [hyperopen.views.active-asset.market-info-view-test]
             [hyperopen.views.active-asset.outcome-option-sort-test]
             [hyperopen.views.active-asset.outcome-tooltip-test]
             [hyperopen.views.active-asset.row-helpers-test]
             [hyperopen.views.active-asset.row-test]
+            [hyperopen.views.active-asset.symbol-subtitle-test]
             [hyperopen.views.active-asset.vm-test]
             [hyperopen.views.agent-trading-recovery-modal-test]
             [hyperopen.views.api-wallets-view-test]
@@ -684,6 +689,7 @@
             [hyperopen.views.app-view-test]
             [hyperopen.views.asset-icon-test]
             [hyperopen.views.asset-selector-view-test]
+            [hyperopen.views.asset-selector.annotation-selector-test]
             [hyperopen.views.asset-selector.controls-test]
             [hyperopen.views.asset-selector.processing-test]
             [hyperopen.views.asset-selector.rows-test]
@@ -1092,9 +1098,11 @@
              'hyperopen.asset-selector.actions-property-test
              'hyperopen.asset-selector.actions-test
              'hyperopen.asset-selector.active-market-cache-test
+             'hyperopen.asset-selector.annotations-test
              'hyperopen.asset-selector.funding-drafts-test
              'hyperopen.asset-selector.icon-status-runtime-test
              'hyperopen.asset-selector.market-coin-validity-test
+             'hyperopen.asset-selector.market-info-test
              'hyperopen.asset-selector.market-live-projection-test
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
@@ -1477,6 +1485,7 @@
              'hyperopen.runtime.effect-adapters.funding-test
              'hyperopen.runtime.effect-adapters.leaderboard-test
              'hyperopen.runtime.effect-adapters.order-test
+             'hyperopen.runtime.effect-adapters.perp-annotations-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-assumption-library-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-constraint-profiles-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-execution-cancel-test
@@ -1665,10 +1674,12 @@
              'hyperopen.views.active-asset.funding-tooltip-model-test
              'hyperopen.views.active-asset.funding-tooltip-popover-test
              'hyperopen.views.active-asset.icon-button-test
+             'hyperopen.views.active-asset.market-info-view-test
              'hyperopen.views.active-asset.outcome-option-sort-test
              'hyperopen.views.active-asset.outcome-tooltip-test
              'hyperopen.views.active-asset.row-helpers-test
              'hyperopen.views.active-asset.row-test
+             'hyperopen.views.active-asset.symbol-subtitle-test
              'hyperopen.views.active-asset.vm-test
              'hyperopen.views.agent-trading-recovery-modal-test
              'hyperopen.views.api-wallets-view-test
@@ -1676,6 +1687,7 @@
              'hyperopen.views.app-view-test
              'hyperopen.views.asset-icon-test
              'hyperopen.views.asset-selector-view-test
+             'hyperopen.views.asset-selector.annotation-selector-test
              'hyperopen.views.asset-selector.controls-test
              'hyperopen.views.asset-selector.processing-test
              'hyperopen.views.asset-selector.rows-test

@@ -353,6 +353,7 @@
    :effects/ws-reset-subscriptions ::common/ws-reset-subscriptions-args
    :effects/fetch-asset-selector-markets ::fetch-asset-selector-markets-args
    :effects/sync-active-asset-funding-predictability ::common/coin-args
+   :effects/sync-perp-annotations ::common/coin-args
    :effects/api-load-api-wallets ::common/no-args
    :effects/api-load-subaccounts ::common/no-args
    :effects/api-refresh-subaccounts ::common/no-args
