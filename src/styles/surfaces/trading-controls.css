@@ -214,6 +214,38 @@
     background-color: rgb(var(--ho-sell-hi) / 0.15);
   }
 
+  /* Change flash for a level whose size changed (or that just appeared). The a/b
+     pairs are identical; alternating between them restarts the animation when a
+     level changes in consecutive updates. See l2_orderbook/styles.cljs. */
+  .ob-flash-bid-a,
+  .ob-flash-bid-b {
+    --ob-flash-rgb: var(--ho-buy);
+  }
+
+  .ob-flash-ask-a,
+  .ob-flash-ask-b {
+    --ob-flash-rgb: var(--ho-sell-hi);
+  }
+
+  .ob-flash-bid-a,
+  .ob-flash-ask-a {
+    animation: ob-level-flash-a 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .ob-flash-bid-b,
+  .ob-flash-ask-b {
+    animation: ob-level-flash-b 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ob-flash-bid-a,
+    .ob-flash-bid-b,
+    .ob-flash-ask-a,
+    .ob-flash-ask-b {
+      animation: none;
+    }
+  }
+
   .order-book-row {
     @apply flex justify-between items-center py-1 px-2 hover:bg-trading-surface/50 transition-colors;
   }
@@ -243,4 +275,34 @@
     letter-spacing: -0.2px;
   }
 
+}
+
+@keyframes ob-level-flash-a {
+  0% {
+    background-color: rgb(var(--ob-flash-rgb) / 0.05);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0);
+  }
+  20% {
+    background-color: rgb(var(--ob-flash-rgb) / 0.2);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0.15);
+  }
+  100% {
+    background-color: rgb(var(--ob-flash-rgb) / 0);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0);
+  }
+}
+
+@keyframes ob-level-flash-b {
+  0% {
+    background-color: rgb(var(--ob-flash-rgb) / 0.05);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0);
+  }
+  20% {
+    background-color: rgb(var(--ob-flash-rgb) / 0.2);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0.15);
+  }
+  100% {
+    background-color: rgb(var(--ob-flash-rgb) / 0);
+    box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0);
+  }
 }

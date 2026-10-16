@@ -54,7 +54,14 @@
                                                    {:topic "l2Book"
                                                     :selector {:coin coin}
                                                     :live-prefix "Updated"}))
-         depth-dimmed? (boolean (and freshness-cue (:delayed? freshness-cue)))]
+         depth-dimmed? (boolean (and freshness-cue (:delayed? freshness-cue)))
+         changed-levels (:changed-levels orderbook-data)
+         flash-version (:flash-version orderbook-data)
+         ;; The update number a level changed in, or nil when it did not change.
+         level-flash-version (fn [side level]
+                               (when (and level
+                                          (contains? (get changed-levels side) (:px level)))
+                                 flash-version))]
      [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col" "num" "orderbook-panel-aligned"]}
       ;; Header
       (orderbook-header selected-option
@@ -78,14 +85,14 @@
                  :data-role "orderbook-asks-pane"}
            (for [ask desktop-asks]
              ^{:key (:row-key ask)}
-             (order-row ask size-unit animate-orderbook?))]
+             (order-row ask size-unit animate-orderbook? (level-flash-version :asks ask)))]
           (when spread
             (spread-row spread))
           [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "gap-0.5"]
                  :data-role "orderbook-bids-pane"}
            (for [bid desktop-bids]
              ^{:key (:row-key bid)}
-             (order-row bid size-unit animate-orderbook?))]]]
+             (order-row bid size-unit animate-orderbook? (level-flash-version :bids bid)))]]]
         [:div {:class (cond-> ["flex" "flex-1" "min-h-0" "flex-col" "lg:hidden"]
                         depth-dimmed? (conj "opacity-90"))
                :data-role "orderbook-mobile-split-panel"}
@@ -94,7 +101,11 @@
                 :data-role "orderbook-mobile-split-body"}
           (for [split-row mobile-pairs]
             ^{:key (:row-key split-row)}
-            (mobile-split-order-row split-row size-unit animate-orderbook?))]])])))
+            (mobile-split-order-row split-row
+                                    size-unit
+                                    animate-orderbook?
+                                    (level-flash-version :bids (:bid split-row))
+                                    (level-flash-version :asks (:ask split-row))))]])])))
 
 ;; Empty state
 (defn empty-orderbook []

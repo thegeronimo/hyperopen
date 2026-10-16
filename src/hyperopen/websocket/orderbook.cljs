@@ -98,9 +98,11 @@
 (defn- publish-book!
   "Build the book from canonically ordered sides and hand it to the store."
   [store coin bids asks timestamp]
-  (let [next-book (assoc (policy/build-book bids asks)
-                         :timestamp timestamp)
-        previous-book (get-in @orderbook-state [:books coin])
+  (let [previous-book (get-in @orderbook-state [:books coin])
+        next-book (policy/annotate-level-changes
+                   previous-book
+                   (assoc (policy/build-book bids asks)
+                          :timestamp timestamp))
         render-changed? (not (policy/same-render-book? previous-book next-book))]
     ;; Update local state
     (swap! orderbook-state assoc-in [:books coin] next-book)

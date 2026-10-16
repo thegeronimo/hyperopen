@@ -965,6 +965,7 @@
             [hyperopen.websocket.migration-flags-test]
             [hyperopen.websocket.order-feedback-runtime-coverage-test]
             [hyperopen.websocket.orderbook-l2-test]
+            [hyperopen.websocket.orderbook-level-changes-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
             [hyperopen.websocket.runtime-state-coverage-test]
@@ -1952,6 +1953,7 @@
              'hyperopen.websocket.migration-flags-test
              'hyperopen.websocket.order-feedback-runtime-coverage-test
              'hyperopen.websocket.orderbook-l2-test
+             'hyperopen.websocket.orderbook-level-changes-test
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test
              'hyperopen.websocket.runtime-state-coverage-test

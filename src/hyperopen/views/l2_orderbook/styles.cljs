@@ -13,15 +13,30 @@
 (def bid-price-text-class "ob-bid-px")
 (def orderbook-tab-indicator-class "bg-ho-accent")
 (def desktop-breakpoint-px 1024)
-;; Width-only, short, and non-overshooting. The previous 300ms
-;; ease-[cubic-bezier(0.68,-0.6,0.32,1.6)] curve is an easeInOutBack: its control
-;; points sit below 0 and above 1, so every bar deliberately undershoots and then
-;; overshoots its target. That was tolerable while the book refreshed once every
-;; ~5.4s, but the incremental `l2` feed retargets these bars roughly every 550ms,
-;; where a 300ms overshoot reads as a wobble on data that should be crisp.
-;; `transition-all` also transitioned every animatable property rather than the one
-;; that actually changes.
+;; Transform-only and non-overshooting. Bars are full-width fills scaled along x, so
+;; the animation runs on the compositor instead of relaying out the row each frame.
+;; The previous 300ms ease-[cubic-bezier(0.68,-0.6,0.32,1.6)] curve was an
+;; easeInOutBack whose control points sit below 0 and above 1, so every bar
+;; undershot and then overshot its target -- a wobble at the incremental `l2` feed's
+;; ~550ms cadence. 200ms ease-out keeps the bars visibly gliding for well over a third
+;; of each update interval, which reads as live movement rather than a snap.
 (def depth-bar-transition-classes
-  ["transition-[width]"
-   "duration-100"
+  ["transition-transform"
+   "duration-200"
    "ease-out"])
+
+;; Two identical keyframe sets per side (styled in trading-controls.css). A level that
+;; changes in consecutive updates switches between them, and switching the animation
+;; name is what restarts a CSS animation without an extra unflashed render in between.
+(defn level-flash-class
+  "The flash class for a level that changed in the update numbered `flash-version`,
+   or nil when the level did not change."
+  [side flash-version]
+  (when (number? flash-version)
+    ;; Spelled out in full: the stylesheet layer only keeps class names it finds
+    ;; literally in source.
+    (case [(= side :ask) (even? flash-version)]
+      [true true] "ob-flash-ask-a"
+      [true false] "ob-flash-ask-b"
+      [false true] "ob-flash-bid-a"
+      [false false] "ob-flash-bid-b")))
