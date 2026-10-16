@@ -1,5 +1,5 @@
 (ns hyperopen.vaults.infrastructure.screener-cache
-  "IndexedDB persistence for vault-screener histories.
+  "IndexedDB persistence for vault-screener histories and saved views.
 
   One record per vault (`vault-screener:<address>`) holds the vault's
   day/week/month/all-time portfolio, and one small index record maps each
@@ -64,4 +64,27 @@
                             {:version cache-version
                              :saved-at-ms now-ms
                              :portfolio portfolio})
+      (.catch (fn [_error] false))))
+
+(def saved-views-key
+  "vault-saved-views")
+
+(defn load-saved-views!
+  "Resolves the stored saved views (raw; normalize with
+  `hyperopen.vaults.screener.saved-views/normalize-views`), or []."
+  []
+  (-> (indexed-db/get-json! indexed-db/vault-index-store saved-views-key)
+      (.then (fn [record]
+               (if (and (map? record) (= cache-version (:version record)))
+                 (or (:views record) [])
+                 []))
+             (fn [_error] []))))
+
+(defn persist-saved-views!
+  [views now-ms]
+  (-> (indexed-db/put-json! indexed-db/vault-index-store
+                            saved-views-key
+                            {:version cache-version
+                             :saved-at-ms now-ms
+                             :views (vec views)})
       (.catch (fn [_error] false))))

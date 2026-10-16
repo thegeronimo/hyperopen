@@ -58,4 +58,10 @@
    :set-vault-screener-criterion-value vault-actions/set-vault-screener-criterion-value
    :apply-vault-screener-preset vault-actions/apply-vault-screener-preset
    :run-vault-screener vault-actions/run-vault-screener
-   :control-vault-screener-run vault-actions/control-vault-screener-run})
+   :control-vault-screener-run vault-actions/control-vault-screener-run
+   :open-vault-save-view-dialog vault-actions/open-vault-save-view-dialog
+   :set-vault-save-view-field vault-actions/set-vault-save-view-field
+   :close-vault-save-view-dialog vault-actions/close-vault-save-view-dialog
+   :save-vault-screener-view vault-actions/save-vault-screener-view
+   :select-vault-saved-view vault-actions/select-vault-saved-view
+   :vault-saved-view-command vault-actions/vault-saved-view-command})

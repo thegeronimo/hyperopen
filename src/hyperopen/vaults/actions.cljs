@@ -9,7 +9,8 @@
             [hyperopen.vaults.domain.transfer-policy :as transfer-policy]
             [hyperopen.vaults.infrastructure.persistence :as persistence]
             [hyperopen.vaults.infrastructure.routes :as routes]
-            [hyperopen.vaults.screener.commands :as screener-commands]))
+            [hyperopen.vaults.screener.commands :as screener-commands]
+            [hyperopen.vaults.screener.view-commands :as view-commands]))
 
 (def default-vault-snapshot-range ui-state/default-vault-snapshot-range)
 (def default-vault-sort-column ui-state/default-vault-sort-column)
@@ -94,6 +95,22 @@
 (defn run-vault-screener
   [state]
   (screener-commands/run-vault-screener state))
+
+(def open-vault-save-view-dialog view-commands/open-vault-save-view-dialog)
+(def set-vault-save-view-field view-commands/set-vault-save-view-field)
+(def close-vault-save-view-dialog view-commands/close-vault-save-view-dialog)
+
+(defn save-vault-screener-view
+  [state]
+  (view-commands/save-vault-screener-view state))
+
+(defn select-vault-saved-view
+  ([state] (view-commands/select-vault-saved-view state nil))
+  ([state view-id] (view-commands/select-vault-saved-view state view-id)))
+
+(defn vault-saved-view-command
+  [state command]
+  (view-commands/vault-saved-view-command state command))
 
 (defn- current-route-vault-address
   [state]

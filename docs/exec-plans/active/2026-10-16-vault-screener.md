@@ -56,12 +56,14 @@ State: config at `[:vaults-ui :screener]`, view at `[:vaults-ui :view]`, run/res
 - [x] (2026-10-16) Views: All vaults | Screener switch, builder, run panel, results (desktop table, phone cards).
 - [x] (2026-10-16) `npm run gates` 34/34 PASS.
 - [x] (2026-10-16) Browser QA: `tools/playwright/test/vault-screener.spec.mjs` (2 tests) green against the worktree build; desktop and 390px screenshots reviewed; live run against Hyperliquid (41 vaults, 1y+/$100k+): estimate 1 min 22 s, actual 81 s, 41 requests, zero 429s; HLP and Citadel 6M Sharpe/Max DD on the detail page equal the screener's (3.88, 2.21 / −2.71%).
-- [ ] Owner review of the live screener; PR.
+- [x] (2026-10-16) Saved views (owner request after reviewing results; design canvas artboards 6–8): "Save results…" on a finished run opens a dialog (name suggested from the criteria, passing vs passing + near misses, update-members vs fixed list). The view stores members, per-member metrics and the recipe in IndexedDB (`vault-saved-views` record). The All vaults page gains a Views row; picking a view filters the list to its members (search/Filter/Range still apply) and adds Sharpe / Max DD columns from the last refresh. The view header offers Refresh (a screener run tagged `:saved-view-id`; the runner rewrites the view and reports who joined/left), Open in Screener, Rename, Keep fixed and Delete (with confirm). Playwright covers save → filtered list → reload persistence.
+- [ ] Owner review of the live screener and saved views; PR.
 
 ## Surprises & Discoveries
 
 - Observation: the tear-sheet engine reports no drawdown statistics at all (status `:drawdown-unavailable`) for a series that never falls, so a monotonically rising vault landed in "Not enough data". The screener now reads a never-under-water window as 0% max drawdown and 0 longest-drawdown days (`with-zero-drawdown` in `vaults/screener/metrics.cljs`).
 - Observation: older vaults carry ~15–17 all-time points per 6 months (~28 per year; Growi HF 69 total, Citadel 87). A 20-point default minimum pushed 10 of 41 large vaults into "Not enough data" on the 6M window; the options are now Any / 10 / 20 with 10 the default (0 of 41 excluded live).
+- Observation: a saved-view refresh reuses the screener's single run slot, so refreshing a view replaces whatever screener run was showing; the Screener tab then shows the refresh run (flagged stale if its universe differs from the builder).
 - Observation: run state lives in the app store only, so a page reload drops the run panel; the per-vault histories survive in IndexedDB, so re-running is instant.
 
 - Observation: the vault index (`stats-data.hyperliquid.xyz/Mainnet/vaults`, ~14 MB, 9,477 rows) has 11–14 PnL-only points per range; `normalize-vault-snapshot-preview` further keeps 8.

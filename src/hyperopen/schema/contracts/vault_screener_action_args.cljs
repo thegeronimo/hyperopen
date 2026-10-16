@@ -16,4 +16,10 @@
    :actions/set-vault-screener-criterion-value ::control-and-value-args
    :actions/apply-vault-screener-preset ::common/keyword-or-string-args
    :actions/run-vault-screener ::common/no-args
-   :actions/control-vault-screener-run ::common/keyword-or-string-args})
+   :actions/control-vault-screener-run ::common/keyword-or-string-args
+   :actions/open-vault-save-view-dialog ::common/no-args
+   :actions/set-vault-save-view-field ::control-and-value-args
+   :actions/close-vault-save-view-dialog ::common/no-args
+   :actions/save-vault-screener-view ::common/no-args
+   :actions/select-vault-saved-view ::common/optional-string-args
+   :actions/vault-saved-view-command ::common/keyword-or-string-args})

@@ -30,7 +30,9 @@
     :api-fetch-vault-ledger-updates vault-effect-adapters/api-fetch-vault-ledger-updates-effect
     :api-submit-vault-transfer vault-effect-adapters/api-submit-vault-transfer-effect
     :load-vault-screener-cache-index vault-effect-adapters/load-vault-screener-cache-index-effect
-    :run-vault-screener vault-effect-adapters/run-vault-screener-effect}})
+    :run-vault-screener vault-effect-adapters/run-vault-screener-effect
+    :load-vault-saved-views vault-effect-adapters/load-vault-saved-views-effect
+    :persist-vault-saved-views vault-effect-adapters/persist-vault-saved-views-effect}})
 
 (goog/exportSymbol "hyperopen.vaults.route_runtime_module.action_deps" action-deps)
 (goog/exportSymbol "hyperopen.vaults.route_runtime_module.effect_deps" effect-deps)

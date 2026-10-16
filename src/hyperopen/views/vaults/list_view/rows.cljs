@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.list-view.rows
   (:require [clojure.string :as str]
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
+            [hyperopen.vaults.application.screener-vm :as screener-vm]
             [hyperopen.wallet.core :as wallet]
             [hyperopen.views.vaults.list-view.format :as format]))
 
@@ -59,9 +60,19 @@
              :stroke-linejoin "round"
              :vector-effect "non-scaling-stroke"}]]))
 
+(defn- view-metric-cells
+  [view-metrics]
+  (for [metric [:sharpe :max-drawdown]]
+    [:td {:class ["px-3" "py-2.5" "num" "text-trading-text"]
+          :data-role (str "vault-row-view-" (cljs.core/name metric))}
+     (screener-vm/format-metric metric (get view-metrics metric))]))
+
 (defn vault-row
-  [state
-   {:keys [name vault-address leader apr tvl your-deposit age-days snapshot-series is-closed?]}]
+  ([state row]
+   (vault-row state row {}))
+  ([state
+    {:keys [name vault-address leader apr tvl your-deposit age-days snapshot-series is-closed? view-metrics]}
+    {:keys [view-columns?]}]
   [:tr {:class ["border-b"
                 "border-base-300/50"
                 "text-sm"
@@ -99,12 +110,13 @@
     (format/format-currency your-deposit)]
    [:td {:class ["px-3" "py-2.5" "num" "text-trading-text"]}
     (format/format-age age-days)]
+   (when view-columns? (view-metric-cells view-metrics))
    [:td {:class ["px-3" "py-2.5" "text-right"]}
-    (snapshot-sparkline snapshot-series)]])
+    (snapshot-sparkline snapshot-series)]]))
 
 (defn mobile-vault-card
   [state
-   {:keys [name vault-address leader apr tvl your-deposit age-days snapshot-series]}]
+   {:keys [name vault-address leader apr tvl your-deposit age-days snapshot-series view-metrics]}]
   [:a {:href (spectate-mode-links/internal-route-href state (vault-detail-route vault-address))
        :data-role "vault-mobile-card"
        :class (into ["block"
@@ -128,6 +140,13 @@
      [:div {:class ["text-right" "text-xs" "uppercase" "tracking-[0.08em]" "text-trading-text-secondary"]}
       "Vault"]]]
    [:div {:class ["mt-2.5" "space-y-2" "text-xs"]}
+    (when view-metrics
+      [:div {:class ["grid" "grid-cols-[auto_1fr]" "items-center" "gap-2"]
+             :data-role "vault-mobile-card-view-metrics"}
+       [:span {:class ["text-trading-text-secondary"]} "Sharpe · Max DD"]
+       [:span {:class ["justify-self-end" "num" "text-trading-text"]}
+        (str (screener-vm/format-metric :sharpe (:sharpe view-metrics)) " · "
+             (screener-vm/format-metric :max-drawdown (:max-drawdown view-metrics)))]])
     [:div {:class ["grid" "grid-cols-[auto_1fr]" "items-center" "gap-2"]}
      [:span {:class ["text-trading-text-secondary"]} "Leader"]
      [:span {:class ["justify-self-end" "num" "text-trading-text"]} (wallet/short-addr leader)]]

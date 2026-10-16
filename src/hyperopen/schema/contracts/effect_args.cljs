@@ -398,6 +398,8 @@
    :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
    :effects/load-vault-screener-cache-index ::common/no-args
    :effects/run-vault-screener ::vault-screener-run-args
+   :effects/load-vault-saved-views ::common/no-args
+   :effects/persist-vault-saved-views ::common/no-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args

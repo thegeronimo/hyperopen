@@ -112,16 +112,18 @@
   (save-config (model/apply-preset (current-config state) preset-id)))
 
 (defn universe-addresses
-  [state now-ms]
-  (let [snapshot-range (vault-ui-state/normalize-vault-snapshot-range
-                        (get-in state [:vaults-ui :snapshot-range]))
-        parsed-rows (list-cache/cached-parsed-rows
-                     (preview/live-rows-source state)
-                     (rows/normalize-address (get-in state [:wallet :address]))
-                     (or (get-in state [:vaults :user-equity-by-address]) {})
-                     snapshot-range
-                     now-ms)]
-    (mapv :vault-address (model/universe-rows parsed-rows (current-config state)))))
+  ([state now-ms]
+   (universe-addresses state now-ms (current-config state)))
+  ([state now-ms config]
+   (let [snapshot-range (vault-ui-state/normalize-vault-snapshot-range
+                         (get-in state [:vaults-ui :snapshot-range]))
+         parsed-rows (list-cache/cached-parsed-rows
+                      (preview/live-rows-source state)
+                      (rows/normalize-address (get-in state [:wallet :address]))
+                      (or (get-in state [:vaults :user-equity-by-address]) {})
+                      snapshot-range
+                      now-ms)]
+     (mapv :vault-address (model/universe-rows parsed-rows config)))))
 
 (defn run-vault-screener
   ([state]

@@ -141,3 +141,40 @@ test("screener run paces requests and groups results @regression", async ({ page
   await expect(page.locator("[data-role='vault-screener-result-row']")).toHaveCount(3);
   expect(requests.length).toBe(before);
 });
+
+test("saved screener results become a view on the All vaults page @regression", async ({ page }) => {
+  test.setTimeout(60_000);
+  await stubVaults(page, []);
+  await openScreener(page);
+  await page.locator("[data-role='vault-screener-run']").click();
+  await expect(page.locator("[data-role='vault-screener-headline']")).toContainText("vaults pass", {
+    timeout: 30_000
+  });
+
+  await page.locator("[data-role='vault-screener-save']").click();
+  const dialog = page.locator("[data-role='vault-save-view-dialog']");
+  await expect(dialog).toBeVisible();
+  await page.locator("[data-role='vault-save-view-name']").fill("My calm vaults");
+  const submit = page.locator("[data-role='vault-save-view-submit']");
+  const label = await submit.innerText();
+  const memberCount = Number(label.match(/(\d+) vault/)[1]);
+  expect(memberCount).toBeGreaterThan(0);
+  await submit.click();
+
+  await expect(dialog).toHaveCount(0);
+  const header = page.locator("[data-role='vaults-saved-view-header']");
+  await expect(header).toContainText("My calm vaults");
+  await expect(page.locator("[data-role='vault-row']")).toHaveCount(memberCount);
+  await expect(page.locator("[data-role='vault-row-view-sharpe']").first()).not.toHaveText("—");
+
+  await page.locator("[data-role='vaults-saved-view-all']").click();
+  await expect(page.locator("[data-role='vault-row']")).toHaveCount(VAULTS.length);
+
+  // The view survives a reload (IndexedDB).
+  await page.reload();
+  await waitForIdle(page, { quietMs: 300, timeoutMs: 10_000, pollMs: 100 });
+  const chip = page.locator("[data-role='vaults-saved-view-chip']", { hasText: "My calm vaults" });
+  await expect(chip).toBeVisible({ timeout: 15_000 });
+  await chip.click();
+  await expect(page.locator("[data-role='vault-row']")).toHaveCount(memberCount);
+});

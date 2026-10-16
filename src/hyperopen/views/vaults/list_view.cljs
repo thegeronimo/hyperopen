@@ -1,8 +1,11 @@
 (ns hyperopen.views.vaults.list-view
   (:require [hyperopen.views.vaults.list-view.controls :as controls]
             [hyperopen.views.vaults.list-view.format :as format]
+            [hyperopen.vaults.application.saved-views-vm :as saved-views-vm]
+            [hyperopen.views.vaults.list-view.saved-views :as saved-views]
             [hyperopen.views.vaults.list-view.sections :as sections]
             [hyperopen.views.vaults.screener-view :as screener-view]
+            [hyperopen.views.vaults.screener-view.save-dialog :as save-dialog]
             [hyperopen.views.vaults.vm :as vault-vm]))
 
 (def ^:private desktop-breakpoint-px
@@ -31,6 +34,8 @@
                 visible-user-rows
                 user-pagination
                 total-visible-tvl]} list-vm
+        {:keys [active] :as views-vm} (saved-views-vm/saved-views-vm state)
+        view-columns? (some? active)
         wallet-connected? (boolean (get-in state [:wallet :connected?]))
         wallet-connecting? (boolean (get-in state [:wallet :connecting?]))]
     [:div {:class ["space-y-4"] :data-role "vaults-list-content"}
@@ -58,7 +63,7 @@
 
       [:div {:class ["w-full" "max-w-[320px]" "rounded-xl" "bg-ho-bg" "px-3" "py-3" "md:max-w-[360px]" "md:rounded-2xl"]}
        [:div {:class ["text-sm" "font-normal" "text-trading-text-secondary"]}
-        "Total Value Locked"]
+        (if active "Total Value Locked · this view" "Total Value Locked")]
        (if loading?
          [:div {:class ["mt-3" "h-10" "w-44" "rounded-md" "bg-base-300/70" "animate-pulse"]
                 :data-role "vaults-total-visible-tvl-loading"}
@@ -67,7 +72,7 @@
                 :data-role "vaults-total-visible-tvl"}
           (format/format-total-currency total-visible-tvl)])]
 
-      [:div {:class ["rounded-lg" "border" "border-base-300/80" "bg-base-100/90" "p-2.5" "md:rounded-2xl" "md:p-3"]}
+      [:div {:class ["space-y-3" "rounded-lg" "border" "border-base-300/80" "bg-base-100/90" "p-2.5" "md:rounded-2xl" "md:p-3"]}
        [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
         [:input {:id "vaults-search-input"
                  :type "search"
@@ -87,7 +92,11 @@
                  :value query
                  :on {:input [[:actions/set-vaults-search-query [:event.target/value]]]}}]
         (controls/role-filter-menu filters)
-        (controls/range-menu snapshot-range)]]
+        (controls/range-menu snapshot-range)]
+       (saved-views/views-row views-vm)]
+
+      (when active
+        (saved-views/view-header active))
 
       (when error
         [:div {:class ["rounded-xl" "border" "border-red-500/40" "bg-red-900/20" "px-3" "py-2.5" "text-sm" "text-red-200"]}
@@ -121,11 +130,19 @@
                                "md:p-3"]
                               (when loading?
                                 ["min-h-[24rem]" "md:min-h-[36rem]"]))}
-       (sections/section-table state "Protocol Vaults" protocol-rows sort {:loading? loading?
-                                                                           :desktop-layout? desktop-layout?})
+       ;; Inside a saved view an empty group is noise, not a filter result.
+       (if (and view-columns? (empty? protocol-rows) (not loading?))
+         [:div {:class ["hidden"]}]
+         (sections/section-table state "Protocol Vaults" protocol-rows sort {:loading? loading?
+                                                                             :desktop-layout? desktop-layout?
+                                                                             :view-columns? view-columns?}))
        (sections/section-table state "User Vaults" visible-user-rows sort {:loading? loading?
                                                                            :pagination user-pagination
-                                                                           :desktop-layout? desktop-layout?})
+                                                                           :desktop-layout? desktop-layout?
+                                                                           :view-columns? view-columns?})
+       (when view-columns?
+         [:div {:class ["text-xs" "text-trading-text-secondary"]}
+          "Sharpe and Max DD come from the view's last refresh; the other columns are live."])
        [:div {:class ["text-right" "text-xs" "text-trading-text-secondary"]}
         (str (count protocol-rows) " protocol vaults | " (count user-rows) " user vaults")]]]))
 
@@ -157,7 +174,8 @@
        (screener-view/view-switch view)]
       (if (= view :screener)
         (screener-view/screener-view state {:desktop-layout? desktop-layout?})
-        (list-content state list-vm desktop-layout?))]]))
+        (list-content state list-vm desktop-layout?))]
+     (save-dialog/save-dialog state)]))
 
 (defn ^:export route-view
   [state]

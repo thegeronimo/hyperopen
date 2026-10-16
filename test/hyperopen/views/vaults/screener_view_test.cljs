@@ -100,3 +100,23 @@
   (is (= "0.00" (screener-vm/format-metric :sharpe -0.001)))
   (is (= "45 d" (screener-vm/format-metric :longest-dd-days 45)))
   (is (= "—" (screener-vm/format-metric :sharpe nil))))
+
+(deftest saved-view-filters-the-all-vaults-list-test
+  (let [state (-> (base-state)
+                  (assoc-in [:vaults-ui :view] :list)
+                  (assoc-in [:vaults :saved-views]
+                            [{:id "v1" :name "Two vaults" :membership :update :scope :pass
+                              :config {:min-age-days 180 :min-tvl 10000 :window :six-month
+                                       :criteria [{:metric :sharpe :value "1.0"}]}
+                              :members ["0xa" "0xc"]
+                              :metrics-by-address {"0xa" {:sharpe 2.5 :max-drawdown -0.12}}
+                              :created-at-ms now-ms :refreshed-at-ms now-ms}])
+                  (assoc-in [:vaults-ui :active-saved-view] "v1"))
+        view (hiccup/with-viewport-width 1440 #(list-view/vaults-view state))
+        rows (hiccup/find-all-nodes view #(= "vault-row" (get-in % [1 :data-role])))]
+    (is (= 2 (count rows)) "only the view's members are listed")
+    (is (some? (hiccup/find-by-data-role view "vaults-saved-view-header")))
+    (is (some? (hiccup/find-by-data-role view "vaults-saved-views-row")))
+    (is (= ["2.50" "—"]
+           (mapv #(hiccup/node-text %)
+                 (hiccup/find-all-nodes view #(= "vault-row-view-sharpe" (get-in % [1 :data-role]))))))))

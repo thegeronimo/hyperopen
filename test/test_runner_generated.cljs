@@ -626,6 +626,8 @@
             [hyperopen.vaults.screener.metrics-test]
             [hyperopen.vaults.screener.model-test]
             [hyperopen.vaults.screener.runner-test]
+            [hyperopen.vaults.screener.saved-views-test]
+            [hyperopen.vaults.screener.view-commands-test]
             [hyperopen.views.account-equity-aggregate-test]
             [hyperopen.views.account-equity-hyperevm-total-test]
             [hyperopen.views.account-equity-parity-test]
@@ -1624,6 +1626,8 @@
              'hyperopen.vaults.screener.metrics-test
              'hyperopen.vaults.screener.model-test
              'hyperopen.vaults.screener.runner-test
+             'hyperopen.vaults.screener.saved-views-test
+             'hyperopen.vaults.screener.view-commands-test
              'hyperopen.views.account-equity-aggregate-test
              'hyperopen.views.account-equity-hyperevm-total-test
              'hyperopen.views.account-equity-parity-test

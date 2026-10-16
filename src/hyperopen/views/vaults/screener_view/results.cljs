@@ -39,8 +39,16 @@
    [:div {:class ["mt-1" "text-sm" "text-trading-text-secondary"]} label]])
 
 (defn- run-actions
-  [{:keys [status]}]
+  [{:keys [status]} pass-count]
   [:div {:class ["flex" "flex-wrap" "gap-2"]}
+   (when (and (= status :done) (pos? pass-count))
+     [:button {:type "button"
+               :class (into ["inline-flex" "min-h-10" "items-center" "rounded-lg" "bg-ho-accent" "px-3.5" "text-sm"
+                             "font-medium" "text-ho-bg" "hover:bg-ho-accent-hi"]
+                            format/focus-ring-classes)
+               :data-role "vault-screener-save"
+               :on {:click [[:actions/open-vault-save-view-dialog]]}}
+      "Save results…"])
    (case status
      :running (secondary-button "Pause" [:actions/control-vault-screener-run :pause] "vault-screener-pause")
      :paused (secondary-button "Resume" [:actions/control-vault-screener-run :resume] "vault-screener-resume")
@@ -76,7 +84,7 @@
        (into [:div {:class ["flex" "flex-wrap" "gap-1.5"]}]
              (concat (map #(chip % false) chips)
                      (map #(chip % true) criteria-summary)))]
-      (run-actions run)]
+      (run-actions run (get tab-counts :pass 0))]
      (when stale?
        [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "rounded-xl" "border" "border-base-300" "bg-base-100" "px-4" "py-3" "text-sm"]
               :data-role "vault-screener-stale"}

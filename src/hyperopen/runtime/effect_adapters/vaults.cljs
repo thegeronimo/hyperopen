@@ -192,8 +192,22 @@
     :load-record! screener-cache/load-record!
     :persist-record! screener-cache/persist-record!
     :persist-index! screener-cache/persist-index!
+    :persist-saved-views! screener-cache/persist-saved-views!
     :compute-metrics screener-metrics/window-metrics
     :now-ms platform/now-ms
     :sleep-ms! sleep-ms!
     :show-toast! order-adapters/show-order-feedback-toast!}
    run-id))
+
+(defn load-vault-saved-views-effect
+  [_ store]
+  (screener-runner/load-saved-views!
+   {:store store
+    :load-saved-views! screener-cache/load-saved-views!}))
+
+(defn persist-vault-saved-views-effect
+  [_ store]
+  (screener-runner/persist-saved-views-effect!
+   {:store store
+    :persist-saved-views! screener-cache/persist-saved-views!
+    :now-ms platform/now-ms}))

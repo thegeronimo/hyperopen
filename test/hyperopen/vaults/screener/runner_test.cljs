@@ -152,3 +152,38 @@
                    (is (true? (get-in @store [:vaults :screener :cache-index-loaded?])))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest refresh-run-updates-the-saved-view-test
+  (async done
+    (let [store (base-store ["0xa" "0xb"])
+          persisted (atom nil)
+          {:keys [toasts] :as h} (harness)]
+      (swap! store update-in [:vaults :screener :run] assoc :saved-view-id "v1")
+      (swap! store assoc-in [:vaults :saved-views]
+             [{:id "v1" :name "Mine" :membership :update :scope :pass
+               :config (model/normalize-config {:criteria [{:metric :sharpe :value "1"}]
+                                                :min-history-points 0})
+               :members ["0xold"] :metrics-by-address {}}])
+      (-> (runner/start-run! (assoc (deps store h)
+                                    :persist-saved-views! (fn [views _] (reset! persisted views)))
+                             1)
+          (.then (fn [_]
+                   (let [view (first (get-in @store [:vaults :saved-views]))]
+                     (is (= ["0xa" "0xb"] (:members view)))
+                     (is (= {:joined ["0xa" "0xb"] :left ["0xold"]} (:last-diff view)))
+                     (is (= view (first @persisted)) "the refreshed view is persisted")
+                     (is (= [[:success "Refreshed “Mine”: 2 vaults joined, 1 left."]] @toasts)))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest load-saved-views-normalizes-and-marks-loaded-test
+  (async done
+    (let [store (atom {})]
+      (-> (runner/load-saved-views! {:store store
+                                     :load-saved-views! (fn [] (js/Promise.resolve
+                                                                [{:id "v1" :name "A" :members ["0xA"]}]))})
+          (.then (fn [_]
+                   (is (= ["0xa"] (get-in @store [:vaults :saved-views 0 :members])))
+                   (is (true? (get-in @store [:vaults :saved-views-loaded?])))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))

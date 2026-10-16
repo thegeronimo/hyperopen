@@ -12,7 +12,8 @@
   is paused, cancelled or replaced, so pause/cancel are plain state writes.
   Only one loop is ever live: starting one retires any other."
   (:require [hyperopen.vaults.screener.metrics :as screener-metrics]
-            [hyperopen.vaults.screener.model :as model]))
+            [hyperopen.vaults.screener.model :as model]
+            [hyperopen.vaults.screener.saved-views :as saved-views]))
 
 (def screener-path
   [:vaults :screener])
@@ -25,6 +26,9 @@
 
 (def cache-index-path
   (conj screener-path :cache-index))
+
+(def saved-views-path
+  [:vaults :saved-views])
 
 (def ^:private index-retention-ms
   (* 7 24 60 60 1000))
@@ -200,16 +204,37 @@
         results (vals (get-in state results-path))]
     (count (filter #(= :pass (:status (model/evaluate config %))) results))))
 
+(defn- persist-views!
+  [{:keys [store persist-saved-views! now-ms]}]
+  (when (fn? persist-saved-views!)
+    (persist-saved-views! (vec (get-in @store saved-views-path)) (now-ms))))
+
+(defn- finish-view-refresh!
+  "A refresh run of a saved view rewrites that view's members and numbers."
+  [{:keys [store now-ms show-toast!] :as deps} run]
+  (let [state @store
+        view (saved-views/view-by-id (get-in state saved-views-path) (:saved-view-id run))]
+    (when view
+      (let [view* (saved-views/refresh-view view run (get-in state results-path) (now-ms))]
+        (swap! store update-in saved-views-path saved-views/upsert-view view*)
+        (persist-views! deps)
+        (when (fn? show-toast!)
+          (show-toast! store :success
+                       (str "Refreshed \u201c" (:name view*) "\u201d: "
+                            (saved-views/diff-summary (:last-diff view*)) ".")))))))
+
 (defn- finish-run!
-  [{:keys [store now-ms show-toast!]} run-id]
+  [{:keys [store now-ms show-toast!] :as deps} run-id]
   (let [state @store
         run (get-in state run-path)]
     (when (and (= run-id (:id run)) (= :running (:status run)))
       (update-run! store run-id assoc :status :done :finished-at-ms (now-ms) :backoff-until-ms nil)
-      (when (fn? show-toast!)
-        (show-toast! store :success
-                     (str "Vault screen ready: " (pass-count @store)
-                          " of " (count (:addresses run)) " vaults pass."))))))
+      (if (:saved-view-id run)
+        (finish-view-refresh! deps run)
+        (when (fn? show-toast!)
+          (show-toast! store :success
+                       (str "Vault screen ready: " (pass-count @store)
+                            " of " (count (:addresses run)) " vaults pass.")))))))
 
 (defn- next-pending-address
   [state]
@@ -251,3 +276,25 @@
         (.catch (fn [_]
                   (swap! store assoc-in (conj screener-path :cache-index-loaded?) true))))
     (js/Promise.resolve nil)))
+
+(defn load-saved-views!
+  [{:keys [store load-saved-views!]}]
+  (if (fn? load-saved-views!)
+    (-> (->promise (load-saved-views!))
+        (.then (fn [views]
+                 (swap! store
+                        (fn [state]
+                          (-> state
+                              (update-in saved-views-path
+                                         (fn [current]
+                                           (reduce saved-views/upsert-view
+                                                   (saved-views/normalize-views views)
+                                                   (or current []))))
+                              (assoc-in [:vaults :saved-views-loaded?] true))))))
+        (.catch (fn [_]
+                  (swap! store assoc-in [:vaults :saved-views-loaded?] true))))
+    (js/Promise.resolve nil)))
+
+(defn persist-saved-views-effect!
+  [deps]
+  (->promise (persist-views! deps)))

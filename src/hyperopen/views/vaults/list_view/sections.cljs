@@ -14,7 +14,7 @@
            page-size)
       loading/loading-skeleton-row-count)))
 
-(defn section-table [state label rows* sort-state {:keys [loading? pagination desktop-layout?]}]
+(defn section-table [state label rows* sort-state {:keys [loading? pagination desktop-layout? view-columns?]}]
   (let [loading-row-count (section-loading-row-count pagination)]
     [:section {:class ["space-y-2"]}
      [:h3 {:class ["text-sm" "font-normal" "text-trading-text"]} label]
@@ -22,14 +22,25 @@
        [:div {:class ["overflow-x-auto"]}
         [:table {:class ["w-full" "border-collapse"]
                  :data-role (str "vaults-" (str/lower-case (str/replace label #"\s+" "-")) "-table")}
-         [:colgroup
-          [:col {:style {:width "24%"}}]
-          [:col {:style {:width "16%"}}]
-          [:col {:style {:width "12%"}}]
-          [:col {:style {:width "12%"}}]
-          [:col {:style {:width "12%"}}]
-          [:col {:style {:width "12%"}}]
-          [:col {:style {:width "12%"}}]]
+         (if view-columns?
+           [:colgroup
+            [:col {:style {:width "22%"}}]
+            [:col {:style {:width "12%"}}]
+            [:col {:style {:width "9%"}}]
+            [:col {:style {:width "11%"}}]
+            [:col {:style {:width "10%"}}]
+            [:col {:style {:width "8%"}}]
+            [:col {:style {:width "8%"}}]
+            [:col {:style {:width "9%"}}]
+            [:col {:style {:width "11%"}}]]
+           [:colgroup
+            [:col {:style {:width "24%"}}]
+            [:col {:style {:width "16%"}}]
+            [:col {:style {:width "12%"}}]
+            [:col {:style {:width "12%"}}]
+            [:col {:style {:width "12%"}}]
+            [:col {:style {:width "12%"}}]
+            [:col {:style {:width "12%"}}]])
          [:thead
           [:tr {:class ["border-b" "border-base-300/70"]}
            [:th {:class ["px-3" "py-2" "text-left"]} (controls/sort-header "Vault" :vault sort-state)]
@@ -38,6 +49,10 @@
            [:th {:class ["px-3" "py-2" "text-left"]} (controls/sort-header "TVL" :tvl sort-state)]
            [:th {:class ["px-3" "py-2" "text-left"]} (controls/sort-header "Your Deposit" :your-deposit sort-state)]
            [:th {:class ["px-3" "py-2" "text-left"]} (controls/sort-header "Age" :age sort-state)]
+           (when view-columns?
+             [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-ho-accent-bright"]} "Sharpe"])
+           (when view-columns?
+             [:th {:class ["px-3" "py-2" "text-left" "text-xs" "font-normal" "text-ho-accent-bright"]} "Max DD"])
            [:th {:class ["px-3" "py-2" "text-right"]} (controls/sort-header "Snapshot" :snapshot sort-state)]]]
          [:tbody
           (cond
@@ -49,11 +64,11 @@
             (seq rows*)
             (for [row rows*]
               ^{:key (str "vault-row-" (:vault-address row))}
-              (rows/vault-row state row))
+              (rows/vault-row state row {:view-columns? view-columns?}))
 
             :else
             [:tr
-             [:td {:col-span 7
+             [:td {:col-span (if view-columns? 9 7)
                    :class ["px-3" "py-6" "text-center" "text-sm" "text-trading-text-secondary"]}
               "No vaults match current filters."]])]]]
        [:div {:class ["space-y-2"]}

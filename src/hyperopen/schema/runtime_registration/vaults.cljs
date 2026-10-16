@@ -14,7 +14,9 @@
    [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]
    [:effects/api-submit-vault-transfer :api-submit-vault-transfer]
    [:effects/load-vault-screener-cache-index :load-vault-screener-cache-index]
-   [:effects/run-vault-screener :run-vault-screener]])
+   [:effects/run-vault-screener :run-vault-screener]
+   [:effects/load-vault-saved-views :load-vault-saved-views]
+   [:effects/persist-vault-saved-views :persist-vault-saved-views]])
 
 (def effect-order-policy-required-action-ids
   #{:actions/load-vault-route
@@ -79,4 +81,10 @@
    [:actions/set-vault-screener-criterion-value :set-vault-screener-criterion-value]
    [:actions/apply-vault-screener-preset :apply-vault-screener-preset]
    [:actions/run-vault-screener :run-vault-screener]
-   [:actions/control-vault-screener-run :control-vault-screener-run]])
+   [:actions/control-vault-screener-run :control-vault-screener-run]
+   [:actions/open-vault-save-view-dialog :open-vault-save-view-dialog]
+   [:actions/set-vault-save-view-field :set-vault-save-view-field]
+   [:actions/close-vault-save-view-dialog :close-vault-save-view-dialog]
+   [:actions/save-vault-screener-view :save-vault-screener-view]
+   [:actions/select-vault-saved-view :select-vault-saved-view]
+   [:actions/vault-saved-view-command :vault-saved-view-command]])

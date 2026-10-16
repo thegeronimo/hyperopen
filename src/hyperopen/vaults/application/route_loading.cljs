@@ -3,7 +3,8 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vaults.application.detail-commands :as detail-commands]
-            [hyperopen.vaults.domain.identity :as identity]))
+            [hyperopen.vaults.domain.identity :as identity]
+            [hyperopen.vaults.screener.view-commands :as view-commands]))
 
 (def ^:private projection-effect-ids
   #{:effects/save :effects/save-many})
@@ -22,11 +23,12 @@
 (defn- load-vault-list-effects
   [state]
   (let [viewer-address (account-context/effective-account-address state)]
-    (cond-> [[:effects/save [:vaults-ui :list-loading?] true]
-             [:effects/api-fetch-vault-index-with-cache]
-             [:effects/api-fetch-vault-summaries]]
-      viewer-address
-      (conj [:effects/api-fetch-user-vault-equities viewer-address]))))
+    (-> [[:effects/save [:vaults-ui :list-loading?] true]
+         [:effects/api-fetch-vault-index-with-cache]
+         [:effects/api-fetch-vault-summaries]]
+        (cond-> viewer-address
+          (conj [:effects/api-fetch-user-vault-equities viewer-address]))
+        (into (view-commands/load-effects state)))))
 
 (def ^:private vault-list-effect-ids
   #{:effects/api-fetch-vault-index
