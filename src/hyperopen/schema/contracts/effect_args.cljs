@@ -68,6 +68,7 @@
               (<= 0 decimals 36)))))
 
 (s/def ::wallet-watch-asset-args wallet-watch-asset-args?)
+(s/def ::vault-screener-run-args (s/tuple ::common/non-negative-int))
 (s/def ::api-submit-vault-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-send-args (s/tuple ::api-submit-request))
@@ -395,6 +396,8 @@
    :effects/api-fetch-vault-order-history ::common/address-args
    :effects/api-fetch-vault-ledger-updates ::common/address-args
    :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
+   :effects/load-vault-screener-cache-index ::common/no-args
+   :effects/run-vault-screener ::vault-screener-run-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args

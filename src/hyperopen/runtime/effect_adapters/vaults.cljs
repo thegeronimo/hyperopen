@@ -3,9 +3,14 @@
             [nexus.registry :as nxr]
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
+            [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.common :as common]
+            [hyperopen.runtime.effect-adapters.order :as order-adapters]
             [hyperopen.vaults.effects :as vault-effects]
-            [hyperopen.vaults.infrastructure.list-cache :as vault-list-cache]))
+            [hyperopen.vaults.infrastructure.list-cache :as vault-list-cache]
+            [hyperopen.vaults.infrastructure.screener-cache :as screener-cache]
+            [hyperopen.vaults.screener.metrics :as screener-metrics]
+            [hyperopen.vaults.screener.runner :as screener-runner]))
 
 (def ^:private vaults-startup-preview-persist-path
   ["hyperopen" "views" "vaults" "startup_preview" "persist_startup_preview_record_BANG_"])
@@ -166,3 +171,29 @@
      :exchange-response-error common/exchange-response-error
      :runtime-error-message common/runtime-error-message
      :show-toast! show-toast!})))
+
+(defn- sleep-ms!
+  [ms]
+  (js/Promise.
+   (fn [resolve _]
+     (platform/set-timeout! resolve ms))))
+
+(defn load-vault-screener-cache-index-effect
+  [_ store]
+  (screener-runner/load-cache-index!
+   {:store store
+    :load-index! screener-cache/load-index!}))
+
+(defn run-vault-screener-effect
+  [_ store run-id]
+  (screener-runner/start-run!
+   {:store store
+    :request-vault-details! api/request-vault-details!
+    :load-record! screener-cache/load-record!
+    :persist-record! screener-cache/persist-record!
+    :persist-index! screener-cache/persist-index!
+    :compute-metrics screener-metrics/window-metrics
+    :now-ms platform/now-ms
+    :sleep-ms! sleep-ms!
+    :show-toast! order-adapters/show-order-feedback-toast!}
+   run-id))

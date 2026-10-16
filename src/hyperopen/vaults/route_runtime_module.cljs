@@ -28,7 +28,9 @@
     :api-fetch-vault-funding-history vault-effect-adapters/api-fetch-vault-funding-history-effect
     :api-fetch-vault-order-history vault-effect-adapters/api-fetch-vault-order-history-effect
     :api-fetch-vault-ledger-updates vault-effect-adapters/api-fetch-vault-ledger-updates-effect
-    :api-submit-vault-transfer vault-effect-adapters/api-submit-vault-transfer-effect}})
+    :api-submit-vault-transfer vault-effect-adapters/api-submit-vault-transfer-effect
+    :load-vault-screener-cache-index vault-effect-adapters/load-vault-screener-cache-index-effect
+    :run-vault-screener vault-effect-adapters/run-vault-screener-effect}})
 
 (goog/exportSymbol "hyperopen.vaults.route_runtime_module.action_deps" action-deps)
 (goog/exportSymbol "hyperopen.vaults.route_runtime_module.effect_deps" effect-deps)

@@ -622,6 +622,10 @@
             [hyperopen.vaults.infrastructure.routes-test]
             [hyperopen.vaults.infrastructure.user-equity-poller-test]
             [hyperopen.vaults.route-runtime-module-test]
+            [hyperopen.vaults.screener.commands-test]
+            [hyperopen.vaults.screener.metrics-test]
+            [hyperopen.vaults.screener.model-test]
+            [hyperopen.vaults.screener.runner-test]
             [hyperopen.views.account-equity-aggregate-test]
             [hyperopen.views.account-equity-hyperevm-total-test]
             [hyperopen.views.account-equity-parity-test]
@@ -907,6 +911,7 @@
             [hyperopen.views.vaults.detail.transfer-modal-test]
             [hyperopen.views.vaults.list-view-test]
             [hyperopen.views.vaults.route-shell-test]
+            [hyperopen.views.vaults.screener-view-test]
             [hyperopen.views.vaults.startup-preview-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
@@ -1615,6 +1620,10 @@
              'hyperopen.vaults.infrastructure.routes-test
              'hyperopen.vaults.infrastructure.user-equity-poller-test
              'hyperopen.vaults.route-runtime-module-test
+             'hyperopen.vaults.screener.commands-test
+             'hyperopen.vaults.screener.metrics-test
+             'hyperopen.vaults.screener.model-test
+             'hyperopen.vaults.screener.runner-test
              'hyperopen.views.account-equity-aggregate-test
              'hyperopen.views.account-equity-hyperevm-total-test
              'hyperopen.views.account-equity-parity-test
@@ -1900,6 +1909,7 @@
              'hyperopen.views.vaults.detail.transfer-modal-test
              'hyperopen.views.vaults.list-view-test
              'hyperopen.views.vaults.route-shell-test
+             'hyperopen.views.vaults.screener-view-test
              'hyperopen.views.vaults.startup-preview-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test

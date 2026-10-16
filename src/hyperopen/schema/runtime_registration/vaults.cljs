@@ -12,7 +12,9 @@
    [:effects/api-fetch-vault-funding-history :api-fetch-vault-funding-history]
    [:effects/api-fetch-vault-order-history :api-fetch-vault-order-history]
    [:effects/api-fetch-vault-ledger-updates :api-fetch-vault-ledger-updates]
-   [:effects/api-submit-vault-transfer :api-submit-vault-transfer]])
+   [:effects/api-submit-vault-transfer :api-submit-vault-transfer]
+   [:effects/load-vault-screener-cache-index :load-vault-screener-cache-index]
+   [:effects/run-vault-screener :run-vault-screener]])
 
 (def effect-order-policy-required-action-ids
   #{:actions/load-vault-route
@@ -69,4 +71,12 @@
    [:actions/handle-vault-transfer-modal-keydown :handle-vault-transfer-modal-keydown]
    [:actions/set-vault-transfer-amount :set-vault-transfer-amount]
    [:actions/set-vault-transfer-withdraw-all :set-vault-transfer-withdraw-all]
-   [:actions/submit-vault-transfer :submit-vault-transfer]])
+   [:actions/submit-vault-transfer :submit-vault-transfer]
+   [:actions/set-vaults-view :set-vaults-view]
+   [:actions/set-vault-screener-control :set-vault-screener-control]
+   [:actions/add-vault-screener-criterion :add-vault-screener-criterion]
+   [:actions/remove-vault-screener-criterion :remove-vault-screener-criterion]
+   [:actions/set-vault-screener-criterion-value :set-vault-screener-criterion-value]
+   [:actions/apply-vault-screener-preset :apply-vault-screener-preset]
+   [:actions/run-vault-screener :run-vault-screener]
+   [:actions/control-vault-screener-run :control-vault-screener-run]])

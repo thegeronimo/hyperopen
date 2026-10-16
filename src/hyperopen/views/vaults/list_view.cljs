@@ -2,6 +2,7 @@
   (:require [hyperopen.views.vaults.list-view.controls :as controls]
             [hyperopen.views.vaults.list-view.format :as format]
             [hyperopen.views.vaults.list-view.sections :as sections]
+            [hyperopen.views.vaults.screener-view :as screener-view]
             [hyperopen.views.vaults.vm :as vault-vm]))
 
 (def ^:private desktop-breakpoint-px
@@ -16,8 +17,8 @@
 (defn- desktop-vaults-layout? []
   (>= (viewport-width-px) desktop-breakpoint-px))
 
-(defn vaults-view
-  [state]
+(defn- list-content
+  [state list-vm desktop-layout?]
   (let [{:keys [query
                 filters
                 snapshot-range
@@ -25,35 +26,14 @@
                 loading?
                 refreshing?
                 error
-                preview-state
                 protocol-rows
                 user-rows
                 visible-user-rows
                 user-pagination
-                total-visible-tvl]} (vault-vm/vault-list-vm state)
-        desktop-layout? (desktop-vaults-layout?)
+                total-visible-tvl]} list-vm
         wallet-connected? (boolean (get-in state [:wallet :connected?]))
         wallet-connecting? (boolean (get-in state [:wallet :connecting?]))]
-    ;; pb-16 (not py): the fixed app footer (~49px) overlays the end of the page
-    ;; scroll, so the bottom padding must exceed it or the last rows sit under it.
-    [:div {:class ["relative" "w-full" "app-shell-gutter" "pt-4" "pb-16" "md:pt-6"]
-           :data-parity-id "vaults-root"
-           :data-preview-state (some-> (:source preview-state) name)}
-     [:div {:class ["pointer-events-none"
-                    "absolute"
-                    "inset-x-0"
-                    "top-0"
-                    "h-[180px]"
-                    "md:h-[300px]"
-                    "rounded-b-[24px]"
-                    "opacity-90"]
-            :style {:background-image "radial-gradient(120% 120% at 15% -10%, rgba(0, 148, 111, 0.35), rgba(6, 30, 34, 0.05) 60%), radial-gradient(130% 140% at 85% 20%, rgba(0, 138, 96, 0.22), rgba(6, 30, 34, 0) 68%), linear-gradient(180deg, rgba(4, 43, 36, 0.72) 0%, rgba(6, 27, 32, 0.15) 100%)"}}]
-
-     [:div {:class ["relative" "mx-auto" "w-full" "max-w-[1280px]" "space-y-4"]}
-      [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3"]}
-       [:h1 {:class ["text-2xl" "font-normal" "text-trading-text" "sm:text-[48px]" "sm:leading-[52px]"]}
-        "Vaults"]]
-
+    [:div {:class ["space-y-4"] :data-role "vaults-list-content"}
       (when-not wallet-connected?
         [:button {:type "button"
                   :class (into ["inline-flex"
@@ -147,7 +127,37 @@
                                                                            :pagination user-pagination
                                                                            :desktop-layout? desktop-layout?})
        [:div {:class ["text-right" "text-xs" "text-trading-text-secondary"]}
-        (str (count protocol-rows) " protocol vaults | " (count user-rows) " user vaults")]]]]))
+        (str (count protocol-rows) " protocol vaults | " (count user-rows) " user vaults")]]]))
+
+(defn vaults-view
+  [state]
+  (let [desktop-layout? (desktop-vaults-layout?)
+        view (if (= :screener (get-in state [:vaults-ui :view])) :screener :list)
+        list-vm (when (= view :list) (vault-vm/vault-list-vm state))
+        preview-source (some-> list-vm :preview-state :source name)]
+    ;; pb-16 (not py): the fixed app footer (~49px) overlays the end of the page
+    ;; scroll, so the bottom padding must exceed it or the last rows sit under it.
+    [:div {:class ["relative" "w-full" "app-shell-gutter" "pt-4" "pb-16" "md:pt-6"]
+           :data-parity-id "vaults-root"
+           :data-preview-state preview-source}
+     [:div {:class ["pointer-events-none"
+                    "absolute"
+                    "inset-x-0"
+                    "top-0"
+                    "h-[180px]"
+                    "md:h-[300px]"
+                    "rounded-b-[24px]"
+                    "opacity-90"]
+            :style {:background-image "radial-gradient(120% 120% at 15% -10%, rgba(0, 148, 111, 0.35), rgba(6, 30, 34, 0.05) 60%), radial-gradient(130% 140% at 85% 20%, rgba(0, 138, 96, 0.22), rgba(6, 30, 34, 0) 68%), linear-gradient(180deg, rgba(4, 43, 36, 0.72) 0%, rgba(6, 27, 32, 0.15) 100%)"}}]
+
+     [:div {:class ["relative" "mx-auto" "w-full" "max-w-[1280px]" "space-y-4"]}
+      [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3"]}
+       [:h1 {:class ["text-2xl" "font-normal" "text-trading-text" "sm:text-[48px]" "sm:leading-[52px]"]}
+        "Vaults"]
+       (screener-view/view-switch view)]
+      (if (= view :screener)
+        (screener-view/screener-view state {:desktop-layout? desktop-layout?})
+        (list-content state list-vm desktop-layout?))]]))
 
 (defn ^:export route-view
   [state]

@@ -8,7 +8,8 @@
             [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.domain.transfer-policy :as transfer-policy]
             [hyperopen.vaults.infrastructure.persistence :as persistence]
-            [hyperopen.vaults.infrastructure.routes :as routes]))
+            [hyperopen.vaults.infrastructure.routes :as routes]
+            [hyperopen.vaults.screener.commands :as screener-commands]))
 
 (def default-vault-snapshot-range ui-state/default-vault-snapshot-range)
 (def default-vault-sort-column ui-state/default-vault-sort-column)
@@ -82,6 +83,17 @@
 (def handle-vault-transfer-modal-keydown transfer-commands/handle-vault-transfer-modal-keydown)
 (def set-vault-transfer-amount transfer-commands/set-vault-transfer-amount)
 (def set-vault-transfer-withdraw-all transfer-commands/set-vault-transfer-withdraw-all)
+(def set-vaults-view screener-commands/set-vaults-view)
+(def set-vault-screener-control screener-commands/set-vault-screener-control)
+(def add-vault-screener-criterion screener-commands/add-vault-screener-criterion)
+(def remove-vault-screener-criterion screener-commands/remove-vault-screener-criterion)
+(def set-vault-screener-criterion-value screener-commands/set-vault-screener-criterion-value)
+(def apply-vault-screener-preset screener-commands/apply-vault-screener-preset)
+(def control-vault-screener-run screener-commands/control-vault-screener-run)
+
+(defn run-vault-screener
+  [state]
+  (screener-commands/run-vault-screener state))
 
 (defn- current-route-vault-address
   [state]
