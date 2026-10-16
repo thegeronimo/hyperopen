@@ -19,8 +19,11 @@
   - A recommendation never overwrites an existing draft entry: the user's
     authored assumption always wins."
   (:require [clojure.string :as str]
+            [hyperopen.portfolio.optimizer.application.history-loader.normalization :as normalization]
             [hyperopen.portfolio.optimizer.coercion :as coercion]
-            [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]))
+            [hyperopen.portfolio.optimizer.contracts :as contracts]
+            [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]
+            [hyperopen.portfolio.optimizer.ids :as ids]))
 
 (defn discovery-instrument
   "Normalized discovery row for a backend instrument id, or nil."
@@ -59,6 +62,74 @@
            :relationship-strength strength
            :rationale (coercion/non-blank-text (:rationale rec))
            :review-status (coercion/normalize-keyword-like (:review-status rec))})))))
+
+;; --- Vault own-history recommendation -----------------------------------------
+
+(def ^:private day-ms
+  (* 24 60 60 1000))
+
+(def own-history-min-returns
+  "Fewest return intervals a vault needs before its own volatility is quoted."
+  5)
+
+(def own-history-max-weight
+  "Cap for a vault modeled from its own short history. Looser than the generic
+  conservative 3% because the volatility is measured, not guessed, and an
+  all-vault allocation must still be able to reach 100%."
+  0.10)
+
+(defn annualized-volatility
+  "Annualized volatility of irregularly spaced price rows ({:time-ms :close}),
+  treating each interval's log return as having variance proportional to its
+  length: sigma^2 = 365 * sum((r - mu*dt)^2) / sum(dt). Nil below
+  `own-history-min-returns` intervals."
+  [rows]
+  (let [intervals (->> (partition 2 1 rows)
+                       (keep (fn [[a b]]
+                               (let [dt (/ (- (:time-ms b) (:time-ms a)) day-ms)]
+                                 (when (and (pos? dt) (pos? (:close a)) (pos? (:close b)))
+                                   {:r (js/Math.log (/ (:close b) (:close a)))
+                                    :dt dt}))))
+                       vec)
+        total-dt (reduce + 0 (map :dt intervals))]
+    (when (and (>= (count intervals) own-history-min-returns) (pos? total-dt))
+      (let [mu (/ (reduce + 0 (map :r intervals)) total-dt)
+            variance-per-day (/ (reduce + 0 (map (fn [{:keys [r dt]}]
+                                                   (let [e (- r (* mu dt))] (* e e)))
+                                                 intervals))
+                                total-dt)
+            vol (js/Math.sqrt (* 365 variance-per-day))]
+        (when (and (js/isFinite vol) (pos? vol))
+          vol)))))
+
+(defn vault-details-for
+  "The loaded vaultDetails payload for a vault instrument, or nil."
+  [state instrument]
+  (when-let [address (or (ids/normalize-vault-address (:vault-address instrument))
+                         (ids/vault-address-from-value (:instrument-id instrument)))]
+    (get-in state (conj contracts/history-data-path :vault-details-by-address address))))
+
+(defn vault-own-history-recommendation
+  "A conservative recommendation for a vault whose own history is too short to
+  model natively, quoting ITS OWN measured volatility instead of a proxy. A
+  vault is a strategy rather than a factor, so there is rarely a defensible
+  proxy basket; its own samples are the honest evidence. Nil for non-vaults or
+  when the vault has too few samples to quote."
+  [instrument details]
+  (when (and (ids/vault-instrument? instrument) (map? details))
+    (let [{:keys [history]} (first (normalization/vault-history-candidates details))
+          vol (annualized-volatility history)]
+      (when vol
+        (let [days (js/Math.round (/ (- (:time-ms (peek history)) (:time-ms (first history))) day-ms))]
+          {:approach :conservative
+           :members []
+           :volatility vol
+           :max-weight own-history-max-weight
+           :source :vault-own-history
+           :rationale (str "Volatility " (.toFixed (* 100 vol) 0) "% measured from this vault's own "
+                           (count history) " samples over " days " days. A vault is a strategy, not a "
+                           "factor, so it is modeled from its own history with no diversification credit "
+                           "and a " (js/Math.round (* 100 own-history-max-weight)) "% cap.")})))))
 
 ;; --- Members ------------------------------------------------------------------
 
@@ -140,10 +211,12 @@
 ;; --- Entries ------------------------------------------------------------------
 
 (defn- recommendation-metadata
-  [rationale]
-  (cond-> {:source :backend-recommendation
-           :acknowledged? true}
-    rationale (assoc :rationale rationale)))
+  ([rationale]
+   (recommendation-metadata rationale :backend-recommendation))
+  ([rationale source]
+   (cond-> {:source (or source :backend-recommendation)
+            :acknowledged? true}
+     rationale (assoc :rationale rationale))))
 
 (defn- prior-weights
   "Members' economic prior keyed by local id, normalized to sum 1. All-or-
@@ -164,8 +237,10 @@
   "Conservative draft entry seeded from the behavior defaults, carrying the
   recommendation's rationale as provenance."
   [rec]
-  (-> (history-assumptions/default-assumption :conservative)
-      (assoc :metadata (recommendation-metadata (:rationale rec)))))
+  (cond-> (-> (history-assumptions/default-assumption :conservative)
+              (assoc :metadata (recommendation-metadata (:rationale rec) (:source rec))))
+    (:volatility rec) (assoc :volatility (:volatility rec))
+    (:max-weight rec) (assoc :max-weight (:max-weight rec))))
 
 (defn proxy-entry
   "Proxy draft entry over the usable members: the same shape the manual card
@@ -218,7 +293,9 @@
   Inputs: :discovery (normalized discovery state), :assumptions (current
   draft map), :universe-ids (set of universe instrument ids), :resolve-member
   (fn member -> universe-instrument | nil, for usable members outside the
-  universe), :targets (seq of {:instrument-id local :backend-id backend}).
+  universe), :targets (seq of {:instrument-id local :backend-id backend}, or
+  {:instrument-id local :recommendation rec} for a frontend-derived
+  recommendation such as a vault's own-history one).
 
   Returns {:assumptions <final map>
            :applied [{:instrument-id .. :held [..]}]
@@ -229,8 +306,9 @@
   [{:keys [discovery assumptions targets] :as inputs}]
   (let [result
         (reduce
-         (fn [acc {:keys [instrument-id backend-id]}]
-           (let [rec (recommendation discovery backend-id)]
+         (fn [acc {:keys [instrument-id backend-id] :as target}]
+           (let [rec (or (:recommendation target)
+                         (recommendation discovery backend-id))]
              (cond
                (nil? rec)
                (update acc :skipped conj {:instrument-id instrument-id

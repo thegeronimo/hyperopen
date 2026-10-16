@@ -1,5 +1,6 @@
 (ns hyperopen.portfolio.optimizer.application.history-loader.normalization
   (:require [hyperopen.portfolio.metrics.history :as metrics-history]
+            [hyperopen.portfolio.optimizer.application.history-loader.api-v2.sparse-lane :as sparse-lane]
             [hyperopen.portfolio.optimizer.coercion :as coercion]))
 
 (def ^:private direct-vault-window-preference
@@ -81,6 +82,44 @@
        :window window
        :history history})))
 
+(def ^:private sparse-lane-windows
+  "Deepest-first windows tried for the sparse-lane candidate. Two years keeps an
+  old vault's estimate on its recent regime when that still leaves enough
+  samples; all-time is the fallback for vaults whose budgeted samples are spread
+  thinner than that."
+  [:two-year :all-time])
+
+(defn- qualifies-for-sparse-lane?
+  [candidate]
+  (some? (sparse-lane/lane-cadence (:history candidate))))
+
+(defn- sparse-lane-candidate
+  "The vault's own long, coarsely sampled history in a window the off-calendar
+  sparse lane can take (enough samples over enough days), or nil.
+
+  Why this exists: Hyperliquid spreads a fixed ~40-90 point budget over a
+  vault's whole life. A vault younger than a year has no complete one-year
+  window, so the ladder used to fall through to the 31-day month series - far
+  too short a span for the lane, so the vault needed a proxy. A vault much
+  older than a year keeps fewer than 30 samples in a one-year clip. Its all-time
+  series (or a two-year clip of it) does qualify, and the lane estimates it
+  natively."
+  [all-time-summary]
+  (when all-time-summary
+    (some (fn [window]
+            (let [summary (if (= window :all-time)
+                            all-time-summary
+                            (:summary (metrics-history/bounded-summary-context
+                                       all-time-summary
+                                       window)))
+                  candidate (normalized-summary-candidate
+                             (keyword (str "sparse-" (name window)))
+                             window
+                             summary)]
+              (when (and candidate (qualifies-for-sparse-lane? candidate))
+                candidate)))
+          sparse-lane-windows)))
+
 (defn vault-history-candidates
   [details]
   (let [portfolio (or (:portfolio details) {})
@@ -98,13 +137,24 @@
                                                   derived-one-year-vault-min-observations))
                                      summary))
         [first-any-window first-any-summary] (or (first-any-summary-entry portfolio)
-                                                 [nil nil])]
+                                                 [nil nil])
+        derived-one-year (normalized-summary-candidate :derived-one-year
+                                                       :one-year
+                                                       derived-one-year-summary)
+        lane-candidate (sparse-lane-candidate all-time-summary)
+        ;; The derived one-year window keeps priority whenever it is itself
+        ;; lane-ready (1-2 year old vaults: unchanged behaviour). Otherwise the
+        ;; lane-ready deeper window goes first, ahead of the short direct
+        ;; windows that would leave the vault needing a proxy.
+        derived-first? (or (nil? lane-candidate)
+                           (and derived-one-year
+                                (qualifies-for-sparse-lane? derived-one-year)))]
     (->> (concat [(normalized-summary-candidate :direct-one-year
                                                 :one-year
-                                                (summary-entry portfolio :one-year))
-                  (normalized-summary-candidate :derived-one-year
-                                                :one-year
-                                                derived-one-year-summary)]
+                                                (summary-entry portfolio :one-year))]
+                 (if derived-first?
+                   [derived-one-year lane-candidate]
+                   [lane-candidate derived-one-year])
                  (map (fn [window]
                         (normalized-summary-candidate
                          (keyword (str "direct-" (name window)))

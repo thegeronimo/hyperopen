@@ -1,6 +1,7 @@
 (ns hyperopen.portfolio.optimizer.application.view-model.universe
   (:require [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
+            [hyperopen.portfolio.optimizer.application.history-loader.api-v2.sparse-lane :as sparse-lane]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
             [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
@@ -234,7 +235,7 @@
    (str "Treated cautiously: high assumed volatility, no diversification "
         "credit, and a tight allocation cap.")
    :sparse-history
-   (str "Its own history spans a year or more but the venue publishes it far "
+   (str "Its own history spans months or more but the venue publishes it far "
         "apart. Return and risk are estimated from its own samples with the "
         "mixed-frequency model, and it is kept out of the shared daily window "
         "so it cannot shorten the other assets' estimate - its allocation is "
@@ -295,11 +296,12 @@
   otherwise take this branch and be shown the badge tooltip's promise that it is
   \"kept out of the shared daily window\" - a claim that would be false for it."
   [cadence]
+  ;; Span floor = the lane's own floor: a lane member is estimated natively.
   (boolean
    (and (:sparse? cadence)
         (:off-calendar? cadence)
         (>= (or (:elapsed-days cadence) 0)
-            history-assumptions/short-history-min-observations))))
+            sparse-lane/off-calendar-min-elapsed-days))))
 
 (defn assumption-required-ids
   "Ids whose native history is below the assumption-required threshold (their

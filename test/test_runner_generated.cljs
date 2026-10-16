@@ -347,6 +347,7 @@
             [hyperopen.portfolio.optimizer.application.universe-candidates-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test]
             [hyperopen.portfolio.optimizer.application.universe-search-test]
+            [hyperopen.portfolio.optimizer.application.vault-history-window-test]
             [hyperopen.portfolio.optimizer.application.view-library-test]
             [hyperopen.portfolio.optimizer.application.view-model-error-contract-test]
             [hyperopen.portfolio.optimizer.application.view-model-facade-test]
@@ -1349,6 +1350,7 @@
              'hyperopen.portfolio.optimizer.application.universe-candidates-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test
              'hyperopen.portfolio.optimizer.application.universe-search-test
+             'hyperopen.portfolio.optimizer.application.vault-history-window-test
              'hyperopen.portfolio.optimizer.application.view-library-test
              'hyperopen.portfolio.optimizer.application.view-model-error-contract-test
              'hyperopen.portfolio.optimizer.application.view-model-facade-test

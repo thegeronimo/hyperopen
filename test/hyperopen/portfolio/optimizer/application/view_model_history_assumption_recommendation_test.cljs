@@ -142,3 +142,46 @@
     (is (false? (:applicable? rec)) "...but cannot apply.")
     (is (zero? (:recommended-count model))
         "An unapplicable recommendation never counts toward the bulk banner.")))
+
+(def ^:private young-vault
+  {:instrument-id "vault:0x00000000000000000000000000000000000000aa"
+   :market-type :vault
+   :coin "vault:0x00000000000000000000000000000000000000aa"
+   :vault-address "0x00000000000000000000000000000000000000aa"
+   :name "Young Vault"})
+
+(defn- month-summary
+  [n]
+  (let [day-ms (* 24 60 60 1000)
+        times (mapv #(* % day-ms) (range n))
+        values (mapv #(* 100000 (+ 1 (* 0.02 (js/Math.sin %)))) (range n))]
+    {:accountValueHistory (mapv (fn [t v] [t (str v)]) times values)
+     :pnlHistory (mapv (fn [t v] [t (str (- v 100000))]) times values)}))
+
+(deftest young-vault-card-recommends-its-own-history-test
+  ;; No backend recommendation exists for a vault; a strategy has no factor to
+  ;; proxy, so the card offers the vault's own measured volatility instead.
+  (let [vault-universe [btc-instrument young-vault]
+        state (assoc-in {} [:portfolio :optimizer :history-data :vault-details-by-address
+                            "0x00000000000000000000000000000000000000aa"]
+                        {:portfolio {:month (month-summary 30) :all-time (month-summary 30)}})
+        readiness* (-> readiness
+                       (assoc-in [:request :requested-universe] vault-universe)
+                       (assoc-in [:request :universe] vault-universe)
+                       (assoc-in [:request :history :eligible-instruments] vault-universe)
+                       (assoc-in [:request :history :raw-price-series-by-instrument]
+                                 {"perp:BTC" (vec (repeat 1079 {:close 1}))
+                                  (:instrument-id young-vault) (vec (repeat 29 {:close 1}))}))
+        draft {:universe vault-universe
+               :objective {:kind :minimum-variance}
+               :history-assumptions {}}
+        model (view-model/history-assumption-cards
+               state draft readiness* {:status :succeeded
+                                       :request-signature {:universe vault-universe}} {})
+        rec (:recommendation (first (:cards model)))]
+    (is (= :conservative (:approach rec)))
+    (is (= "Use its own history" (:approach-label rec)))
+    (is (number? (:volatility rec)))
+    (is (= 0.1 (:max-weight rec)))
+    (is (true? (:applicable? rec)))
+    (is (= 1 (:recommended-count model)))))

@@ -75,10 +75,12 @@
 (defn- seed-guardrails-summary
   "The guardrails a one-click apply would author - the SAME behavior seeds
   `history-assumptions/default-assumption` writes, so the recommended panel can
-  never promise numbers the apply would not produce."
-  [approach percent-label*]
-  (str (percent-label* history-assumptions/default-conservative-volatility) " vol · "
-       (percent-label* (history-assumptions/default-max-weight approach)) " max"))
+  never promise numbers the apply would not produce. A recommendation that
+  carries its own measured volatility or cap (a vault's own-history one) is
+  applied with those numbers, so it is shown with them too."
+  [{:keys [approach volatility max-weight]} percent-label*]
+  (str (percent-label* (or volatility history-assumptions/default-conservative-volatility)) " vol · "
+       (percent-label* (or max-weight (history-assumptions/default-max-weight approach))) " max"))
 
 (defn- recommended-split-text
   "\"UNI 50% / PUMP-USDC 50%\" over the members an apply would actually use.
@@ -111,7 +113,7 @@
        :eyebrow "Recommended model"
        :line (join-clauses [(if proxy? split (:approach-label rec))
                             (when proxy? (similarity-clause (:relationship-label rec)))
-                            (seed-guardrails-summary (:approach rec) percent-label*)])
+                            (seed-guardrails-summary rec percent-label*)])
        :why (:rationale rec)
        :held-count (or (:held-count rec) 0)
        :cta "Use this"
@@ -221,7 +223,7 @@
     [["Proposed basket" (or (recommended-split-text (:members rec))
                             (:approach-label rec))]
      ["Similarity" (or (:relationship-label rec) "--")]
-     ["Guardrails" (seed-guardrails-summary (:approach rec) percent-label*)]
+     ["Guardrails" (seed-guardrails-summary rec percent-label*)]
      (when (pos? held)
        ["Held back" (str held (if (= 1 held) " member" " members")
                         " the backend cannot serve history for yet")])

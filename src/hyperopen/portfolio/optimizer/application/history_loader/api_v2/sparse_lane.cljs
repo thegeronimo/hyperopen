@@ -63,8 +63,10 @@
            (and (math/finite-number? span)
                 (>= span off-calendar-min-elapsed-days))))))
 
-(defn- lane-cadence
-  "The cadence summary for a row that qualifies for the lane, or nil."
+(defn lane-cadence
+  "The cadence summary for a series that qualifies for the lane, or nil. Also
+  used by vault window selection, so a vault is handed the window the lane can
+  actually take."
   [points]
   (when (possibly-sparse? points)
     (let [cadence (history-series/cadence-summary (vec points))]
@@ -78,9 +80,12 @@
   Rows the backend already serves on its own aligned calendar are skipped: a
   member the backend can carry stays exactly where it is, on that calendar.
 
-  DEGENERATE GUARD: when EVERY candidate qualifies there is no dense member whose
-  window needs protecting, so the lane is empty and today's behaviour stands (an
-  all-vault universe keeps aligning against itself)."
+  An ALL-SPARSE universe (every member a downsampled vault history) puts every
+  member on the lane: the mixed-frequency estimator pairs members by their own
+  sample times, so it needs no shared calendar at all. Exact-timestamp alignment
+  is never the right fallback for such members - Hyperliquid samples each vault
+  at its own instants, so their timestamps essentially never coincide and every
+  member would be peeled."
   [base-candidates aligned-usable?]
   (let [qualifying (into {}
                          (keep (fn [{:keys [instrument-id series]}]
@@ -90,9 +95,7 @@
                                    (when-let [cadence (lane-cadence (:points series))]
                                      [instrument-id cadence]))))
                          base-candidates)]
-    (if (every? #(contains? qualifying (:instrument-id %)) base-candidates)
-      {}
-      qualifying)))
+    qualifying))
 
 (defn off-calendar-ids
   [base-candidates aligned-usable?]

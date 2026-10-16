@@ -38,7 +38,7 @@
       (is (= :short adequacy)))))
 
 (deftest sparse-but-recent-is-still-short-test
-  (testing "sparse yet spanning under a year is not the lane case"
+  (testing "sparse but not admitted to the lane (no :off-calendar?) is still short"
     (let [adequacy (universe/history-adequacy
                     :sufficient
                     {}
@@ -47,6 +47,20 @@
                                31)
                     {:instrument-id "vault:new"})]
       (is (= :short adequacy)))))
+
+(deftest young-lane-member-reads-sparse-test
+  (testing "a 226-day vault the lane admits is estimated natively, not thin"
+    ;; Reading it :short would enroll it in the assumption workflow, where a bulk
+    ;; apply would override the native estimate with a conservative cap.
+    (let [adequacy (universe/history-adequacy
+                    :sufficient
+                    {}
+                    (readiness "vault:futurai"
+                               {:sparse? true :elapsed-days 226 :observations 41
+                                :off-calendar? true}
+                               41)
+                    {:instrument-id "vault:futurai"})]
+      (is (= :sparse adequacy)))))
 
 (deftest a-full-history-asset-is-unaffected-test
   (let [adequacy (universe/history-adequacy
