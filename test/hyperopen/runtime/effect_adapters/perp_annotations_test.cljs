@@ -8,7 +8,7 @@
 
 (defn- recording-deps
   [calls {:keys [concise detail dexs fail-concise?]}]
-  {:request-perp-concise-annotations!
+  {:request-perp-annotations!
    (fn [opts]
      (swap! calls conj [:concise opts])
      (if fail-concise?

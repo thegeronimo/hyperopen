@@ -4,8 +4,10 @@
             [hyperopen.asset-selector.annotations :as annotations]))
 
 ;; HIP-3 deployers publish market annotations on-chain. The bulk concise
-;; payload (category, display name, keywords) loads once per session; the
-;; description is per coin, so it loads lazily for the market being viewed.
+;; payload (category, display name, keywords) is the same request the market
+;; catalog makes (`api/request-perp-annotations!`, cache key
+;; :perp-annotations), so the two share one network call per cache window.
+;; The description is per coin, so it loads lazily for the market viewed.
 
 (defn- log-warning
   [message error]
@@ -13,11 +15,11 @@
     (.warn js/console message error)))
 
 (defn- ensure-concise-annotations!
-  [store request-perp-concise-annotations!]
+  [store request-perp-annotations!]
   (if (annotations/concise-load-needed? @store)
     (do
       (swap! store annotations/begin-concise-load)
-      (-> (request-perp-concise-annotations! {})
+      (-> (request-perp-annotations! {})
           (.then (fn [payload]
                    (swap! store annotations/apply-concise-success payload)))
           (.catch (fn [error]
@@ -49,7 +51,7 @@
     (js/Promise.resolve nil)))
 
 (defn sync-perp-annotations-with-deps!
-  [{:keys [request-perp-concise-annotations!
+  [{:keys [request-perp-annotations!
            request-perp-annotation!
            request-perp-dexs!]}
    store
@@ -58,7 +60,7 @@
   ;; names and the description only matter for a HIP-3 header.
   (js/Promise.all
    (into-array
-    (cond-> [(ensure-concise-annotations! store request-perp-concise-annotations!)]
+    (cond-> [(ensure-concise-annotations! store request-perp-annotations!)]
       (annotations/annotatable-coin? coin)
       (conj (ensure-dex-full-names! store request-perp-dexs!)
             (ensure-annotation-detail! store request-perp-annotation! coin))))))
@@ -66,7 +68,7 @@
 (defn sync-perp-annotations
   [_ store coin]
   (sync-perp-annotations-with-deps!
-   {:request-perp-concise-annotations! api/request-perp-concise-annotations!
+   {:request-perp-annotations! api/request-perp-annotations!
     :request-perp-annotation! api/request-perp-annotation!
     :request-perp-dexs! api/request-perp-dexs!}
    store

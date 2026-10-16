@@ -3,7 +3,7 @@
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.state :as state]))
 
-;; Funding modal action payload contracts. Merged into
+;; Funding modal and funding-tooltip action payload contracts. Merged into
 ;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
 
 (s/def ::funding-modal-args (s/tuple any?))
@@ -35,8 +35,20 @@
 (s/def ::set-funding-transfer-amount-percent-args
   (s/tuple (s/and number? pos? #(<= % 100))))
 
+(s/def ::funding-hypothetical-side-args
+  (s/tuple ::common/non-empty-string
+           (s/nilable ::common/numberish)
+           #{:long :short "long" "short"}))
+(s/def ::funding-chart-style-args
+  (s/tuple #{:area :bars "area" "bars"}))
+(s/def ::funding-projection-basis-args
+  (s/tuple #{:expected :today "expected" "today"}))
+
 (def funding-action-args-spec-by-id
-  {:actions/set-funding-modal ::funding-modal-args
+  {:actions/set-funding-hypothetical-side ::funding-hypothetical-side-args
+   :actions/set-funding-chart-style ::funding-chart-style-args
+   :actions/set-funding-projection-basis ::funding-projection-basis-args
+   :actions/set-funding-modal ::funding-modal-args
    :actions/open-funding-send-modal ::funding-send-open-args
    :actions/open-funding-transfer-modal ::funding-transfer-open-args
    :actions/open-funding-withdraw-modal ::funding-modal-open-args

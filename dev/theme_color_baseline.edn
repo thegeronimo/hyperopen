@@ -13,7 +13,7 @@
  "src/hyperopen/views/account_info/tabs/funding_history.cljs" 1
  "src/hyperopen/views/account_info/tabs/open_orders.cljs" 24
  "src/hyperopen/views/account_info/tabs/order_history.cljs" 2
- "src/hyperopen/views/active_asset/funding_tooltip.cljs" 6
+ "src/hyperopen/views/active_asset/funding_tooltip.cljs" 2
  "src/hyperopen/views/active_asset/icon_button.cljs" 4
  "src/hyperopen/views/active_asset/outcome_tooltip.cljs" 12
  "src/hyperopen/views/agent_trading_recovery_modal.cljs" 16
@@ -24,7 +24,6 @@
  "src/hyperopen/views/app_view.cljs" 14
  "src/hyperopen/views/asset_selector/icons.cljs" 1
  "src/hyperopen/views/asset_selector/rows.cljs" 1
- "src/hyperopen/views/autocorrelation_plot.cljs" 10
  "src/hyperopen/views/chart/d3/runtime.cljs" 3
  "src/hyperopen/views/chart/tooltip_core.cljs" 5
  "src/hyperopen/views/degen/illustrations.cljs" 15
@@ -35,7 +34,6 @@
  "src/hyperopen/views/funding_modal/send.cljs" 12
  "src/hyperopen/views/funding_modal/shared.cljs" 47
  "src/hyperopen/views/funding_modal/withdraw.cljs" 31
- "src/hyperopen/views/funding_rate_plot.cljs" 10
  "src/hyperopen/views/header/account_selector.cljs" 4
  "src/hyperopen/views/header/icons.cljs" 2
  "src/hyperopen/views/header/navigation.cljs" 13

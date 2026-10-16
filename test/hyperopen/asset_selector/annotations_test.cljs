@@ -158,14 +158,16 @@
                 "km:US500")]
       (is (= "Broad exposure to 500 of the largest U.S. companies by…" (:subtitle meta)))
       (is (= "Index" (:category-label meta)))))
-  (testing "name only: display name differs from the ticker"
+  (testing "name only: the ticker label already shows the name, so only the category remains"
     (let [meta (annotations/header-metadata
                 (state-with "io:OAI" {:concise {:category :preipo :display-name "OPENAI"}
                                       :detail {:category :preipo :display-name "OPENAI"}
                                       :detail-status :loaded})
                 "io:OAI")]
-      (is (= "OPENAI" (:subtitle meta)))
+      (is (nil? (:subtitle meta)))
+      (is (= "OPENAI" (:display-name meta)))
       (is (= "Pre-IPO" (:category-label meta)))
+      (is (nil? (:fallback-label meta)) "a category is enough; no deployer fallback")
       (is (nil? (:description meta)))))
   (testing "nothing published: attribute the market to its deployer"
     (let [meta (annotations/header-metadata
@@ -181,6 +183,12 @@
       (is (nil? (:fallback-label meta)))))
   (is (nil? (annotations/header-metadata {} "BTC"))))
 
+(deftest normalize-concise-payload-accepts-the-catalog-normalized-shape-test
+  (is (= {"io:OAI" {:category :preipo :display-name "OPENAI" :keywords ["openai" "oai"]}}
+         (annotations/normalize-concise-payload
+          {"io:OAI" {:display-name "OPENAI" :category "preipo" :keywords ["openai" "oai"]}}))
+      "the shape `perp-annotations/normalize-perp-annotations` returns"))
+
 (deftest annotate-markets-merges-only-annotated-rows-test
   (let [markets [{:key "perp:xyz:SPCX" :coin "xyz:SPCX" :base "SPCX"}
                  {:key "perp:io:OAI" :coin "io:OAI" :base "OAI"}
@@ -191,9 +199,10 @@
                                                    :annotation {:description (live-descriptions "xyz:SPCX")}}}}
         [spcx oai btc] (annotations/annotate-markets markets annotations*)]
     (is (= :stocks (:asset-class spcx)))
-    (is (= ["spacex" "ai"] (:search-keywords spcx)))
     (is (= "Space Exploration Technologies Corp." (:descriptor spcx)))
-    (is (= "OPENAI" (:descriptor oai)))
+    (is (not (contains? spcx :search-keywords)) "keywords come from the catalog, not this merge")
+    (is (= :preipo (:asset-class oai)))
+    (is (nil? (:descriptor oai)) "no description loaded, and the display name is already the row label")
     (is (= {:key "perp:BTC" :coin "BTC" :base "BTC"} btc)))
   (let [markets [{:coin "xyz:SPCX"}]]
     (is (identical? markets (annotations/annotate-markets markets nil)))))

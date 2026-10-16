@@ -136,6 +136,11 @@
          (remove nil?)
          distinct)))
 
+(defn- resolve-position-market
+  [market-by-key position-row]
+  (some #(markets/resolve-market-by-coin market-by-key %)
+        (position-coin-candidates position-row)))
+
 (defn- resolve-position-market-mark-price
   [market-by-key position-row]
   (some (fn [coin]
@@ -145,23 +150,29 @@
               mark)))
         (position-coin-candidates position-row)))
 
-(defn- attach-position-market-mark-prices
+(defn- attach-position-market-fields
+  "Fill a missing mark price from the market catalog, and carry the market's
+   Hyperliquid display name (`xyz:HO` -> DIESEL) onto the position."
   [positions market-by-key]
   (if-not (map? market-by-key)
     (vec (or positions []))
     (->> (or positions [])
          (mapv (fn [position-row]
-                 (if-not (map? position-row)
+                 (if-not (and (map? position-row)
+                              (map? (:position position-row)))
                    position-row
                    (let [existing-mark (existing-position-mark-price position-row)
                          resolved-mark (or existing-mark
                                            (resolve-position-market-mark-price market-by-key position-row))
-                         nested-mark (projections/parse-optional-num (get-in position-row [:position :markPx]))]
-                     (if (and (number? resolved-mark)
-                              (map? (:position position-row))
-                              (not (number? nested-mark)))
-                       (assoc-in position-row [:position :markPx] resolved-mark)
-                       position-row))))))))
+                         nested-mark (projections/parse-optional-num (get-in position-row [:position :markPx]))
+                         display-name (:display-name (resolve-position-market market-by-key position-row))]
+                     (cond-> position-row
+                       (and (number? resolved-mark)
+                            (not (number? nested-mark)))
+                       (assoc-in [:position :markPx] resolved-mark)
+
+                       (seq display-name)
+                       (assoc-in [:position :display-name] display-name)))))))))
 
 (defn- order-matches-position?
   [position order]
@@ -266,7 +277,7 @@
       :balances {:balance-rows (derived-cache/memoized-balance-rows webdata2 spot-data account market-by-key perp-dex-states)}
       :outcomes {:outcomes (projections/build-outcome-rows spot-data market-by-key outcome-options)}
       :positions (let [positions (derived-cache/memoized-positions webdata2 perp-dex-states)
-                       positions (attach-position-market-mark-prices positions market-by-key)
+                       positions (attach-position-market-fields positions market-by-key)
                        normalized-open-orders (derived-cache/memoized-open-orders open-orders
                                                                                    open-orders-snapshot
                                                                                    open-orders-snapshot-by-dex

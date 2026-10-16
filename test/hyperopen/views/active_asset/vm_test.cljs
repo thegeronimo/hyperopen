@@ -149,7 +149,7 @@
                                                                               :positionValue "10000"}}]}}
                :ui {:locale "en-US"}}
         panel-vm (active-asset-vm/active-asset-panel-vm state)]
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 2 GOLD"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
@@ -288,7 +288,7 @@
            (get-in deps [:active-market :dex])))
     (is (= "BRENTOIL-USDC"
            (get-in deps [:active-market :symbol])))
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 1.31 BRENTOIL"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
@@ -329,7 +329,7 @@
         panel-vm (active-asset-vm/active-asset-panel-vm deps)]
     (is (= "xyz"
            (get-in deps [:active-market :dex])))
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 2 GOLD"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
@@ -366,7 +366,7 @@
         deps (active-asset-vm/panel-dependency-state state)
         panel-vm (active-asset-vm/active-asset-panel-vm deps)]
     (is (= (:webdata2 state) (:webdata2 deps)))
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 9.2807 BTC"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
@@ -403,7 +403,7 @@
     (is (nil? (get-in deps [:asset-selector :market-by-key])))
     (is (= (:perp-dex-clearinghouse state)
            (:perp-dex-clearinghouse deps)))
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 1.31 BRENTOIL"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))
@@ -436,7 +436,7 @@
                :ui {:locale "en-US"}}
         deps (active-asset-vm/panel-dependency-state state)
         panel-vm (active-asset-vm/active-asset-panel-vm deps)]
-    (is (= "Your Position"
+    (is (= "Your position"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-title])))
     (is (= "Long 1.31 BRENTOIL"
            (get-in panel-vm [:row-vm :funding-tooltip-model :position-size-label])))

@@ -1,5 +1,6 @@
 (ns hyperopen.api.endpoints.market
   (:require [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]
             [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
             [hyperopen.api.request-policy :as request-policy]
             [hyperopen.utils.data-normalization :refer [normalize-asset-contexts]]
@@ -124,14 +125,17 @@
                        :dedupe-key :outcome-meta}
                       opts))))
 
-(defn request-perp-concise-annotations!
+(defn request-perp-annotations!
+  "Hyperliquid's curated HIP-3 display names, categories and search keywords,
+  normalized to `{coin annotation}`."
   [post-info! opts]
-  (post-info! {"type" "perpConciseAnnotations"}
-              (request-policy/apply-info-request-policy
-               :perp-concise-annotations
-               (merge {:priority :low
-                       :dedupe-key :perp-concise-annotations}
-                      opts))))
+  (-> (post-info! {"type" "perpConciseAnnotations"}
+                  (request-policy/apply-info-request-policy
+                   :perp-annotations
+                   (merge {:priority :low
+                           :dedupe-key :perp-annotations}
+                          opts)))
+      (.then perp-annotations/normalize-perp-annotations)))
 
 (defn request-perp-annotation!
   [post-info! coin opts]

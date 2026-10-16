@@ -16,8 +16,11 @@
                    (mod (inc idx) (count options*)))]
     (nth options* next-idx)))
 
-(defn summary-display [summary sz-decimals]
-  (summary-display/summary-display summary sz-decimals))
+(defn summary-display
+  ([summary sz-decimals]
+   (summary-display/summary-display summary sz-decimals))
+  ([summary sz-decimals position-label]
+   (summary-display/summary-display summary sz-decimals position-label)))
 
 (defn display-size-percent [size-percent]
   (str (int (js/Math.round size-percent))))

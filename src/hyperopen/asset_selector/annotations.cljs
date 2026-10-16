@@ -25,13 +25,6 @@
       (when (and idx (pos? idx))
         (subs coin 0 idx)))))
 
-(defn- coin-base
-  [coin]
-  (when (string? coin)
-    (if-let [idx (str/index-of coin ":")]
-      (subs coin (inc idx))
-      coin)))
-
 (defn annotatable-coin?
   "Only HIP-3 perps (`dex:BASE`) carry deployer annotations."
   [coin]
@@ -111,12 +104,13 @@
          not-empty)))
 
 (defn normalize-annotation
-  "Normalize one annotation map from either endpoint. Returns nil for the
-  JSON `null` the API sends when a deployer published nothing."
+  "Normalize one annotation map: a raw `perpAnnotation` payload, or an entry
+  already normalized by `perp-annotations/normalize-perp-annotations`. Returns
+  nil for the JSON `null` the API sends when a deployer published nothing."
   [value]
   (when (map? value)
     (let [category (normalize-category (:category value))
-          display-name (non-blank-text (:displayName value))
+          display-name (non-blank-text (or (:displayName value) (:display-name value)))
           keywords (normalize-keywords (:keywords value))
           description (non-blank-text (:description value))]
       (cond-> {}
@@ -291,22 +285,16 @@
              (str/join ". ")
              non-blank-text)))
 
-(defn- display-name-differs?
-  [display-name base]
-  (and (seq display-name)
-       (not= (str/lower-case display-name)
-             (str/lower-case (or base "")))))
-
 (defn symbol-metadata
   "Everything the header and selector show about a HIP-3 market.
 
   Returns nil for coins that cannot carry annotations. `:subtitle` degrades
   from the parsed issuer, to the description's first clause, to the
-  deployer's display name, to the deployer itself."
+  deployer itself. The display name is not a fallback: the ticker label
+  already shows it (`perp-annotations/display-symbol`)."
   [{:keys [coin concise detail-entry dex-full-name]}]
   (when (annotatable-coin? coin)
     (let [dex (coin-dex coin)
-          base (coin-base coin)
           detail-status (:status detail-entry)
           detail (:annotation detail-entry)
           annotation (merge concise detail)
@@ -316,9 +304,7 @@
           issuer (issuer-from-description description)
           deployer (or (non-blank-text dex-full-name) dex)
           subtitle (or issuer
-                       (description-first-clause description)
-                       (when (display-name-differs? display-name base)
-                         display-name))
+                       (description-first-clause description))
           loading? (and (nil? subtitle)
                         (nil? category)
                         (contains? #{nil :loading} detail-status))]
@@ -333,18 +319,15 @@
         description (assoc :description description)
         (:keywords annotation) (assoc :keywords (:keywords annotation))
         display-name (assoc :display-name display-name)
-        (and (nil? subtitle) (not loading?))
+        (and (nil? subtitle) (nil? category) (not loading?))
         (assoc :fallback-label (str "Market by " deployer))))))
 
 (defn row-descriptor
-  "The short muted text a selector row shows after its chips, or nil."
-  [{:keys [coin base] :as _market} concise detail-entry]
+  "The issuer a selector row shows after its chips, once the market's
+  description has loaded, or nil. Display names are already the row label."
+  [{:keys [coin] :as _market} concise detail-entry]
   (when (annotatable-coin? coin)
-    (let [annotation (merge concise (:annotation detail-entry))]
-      (or (issuer-from-description (:description annotation))
-          (let [display-name (:display-name annotation)]
-            (when (display-name-differs? display-name (or base (coin-base coin)))
-              display-name))))))
+    (issuer-from-description (:description (merge concise (:annotation detail-entry))))))
 
 (defn header-metadata
   "Header model for the active coin, read from app state."
@@ -358,8 +341,10 @@
         :dex-full-name (get-in state [:perp-dex-full-name-by-name (coin-dex coin)])}))))
 
 (defn annotate-markets
-  "Merge annotation fields the selector searches, filters and renders into
-  catalog market rows. Markets without annotations are returned unchanged."
+  "Add the selector's asset class and issuer descriptor to catalog market
+  rows. Display names and keywords already arrive on the catalog
+  (`perp-annotations/apply-perp-annotations`). Markets without annotations
+  are returned unchanged."
   [markets annotations]
   (let [{:keys [by-coin detail-by-coin]} (merge default-state annotations)]
     (if (and (empty? by-coin) (empty? detail-by-coin))
@@ -373,8 +358,6 @@
                         descriptor (row-descriptor market concise detail-entry)]
                     (cond-> market
                       (:category annotation) (assoc :asset-class (:category annotation))
-                      (:keywords annotation) (assoc :search-keywords (:keywords annotation))
-                      (:display-name annotation) (assoc :display-name (:display-name annotation))
                       descriptor (assoc :descriptor descriptor)))
                   market)))
             markets))))

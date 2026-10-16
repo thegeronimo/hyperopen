@@ -1,7 +1,9 @@
 (ns hyperopen.views.active-asset.funding-tooltip-model-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [clojure.string :as str]
             [hyperopen.active-asset.funding-policy :as funding-policy]
             [hyperopen.state.trading :as trading-state]
+            [hyperopen.test-support.hiccup :as hiccup]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.active-asset.row :as row]
             [hyperopen.views.active-asset.test-support :as support]))
@@ -124,6 +126,20 @@
     (is (identical? tooltip-1 tooltip-2))
     (is (not (identical? tooltip-2 tooltip-3)))))
 
+(defn- some-string-includes?
+  [strings fragment]
+  (boolean (some #(str/includes? % fragment) strings)))
+
+(defn- node-classes
+  [node]
+  (set (support/class-values (get-in node [1 :class]))))
+
+(defn- span-with-text
+  [view-node text]
+  (support/find-first-node view-node
+                           #(and (= :span (first %))
+                                 (= [text] (vec (support/collect-strings %))))))
+
 (deftest active-asset-row-funding-tooltip-shows-position-projections-test
   (let [ctx-data (gold-ctx-data {:mark 5372.43
                                  :oracle 5370.0
@@ -143,23 +159,13 @@
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))
             action-button (support/find-node-by-role view-node "active-asset-funding-position-action")
-            rate-node (support/find-first-node view-node
-                                               #(and (= :span (first %))
-                                                     (contains? (set (support/collect-strings %)) "+0.1344%")))
-            payment-node (support/find-first-node view-node
-                                                  #(and (= :span (first %))
-                                                        (contains? (set (support/collect-strings %)) "-$0.13")))
-            rate-classes (set (support/class-values (get-in rate-node [1 :class])))
-            payment-classes (set (support/class-values (get-in payment-node [1 :class])))]
-        (is (contains? strings "Your Position"))
+            verdict (support/find-node-by-role view-node "funding-tooltip-verdict")
+            next-24h (support/find-node-by-role view-node "funding-projection-next-24h")]
+        (is (contains? strings "GOLD funding"))
+        (is (contains? strings "22:01"))
+        (is (contains? strings "Your position"))
         (is (contains? strings "Edit estimate"))
-        (is (contains? strings "Projections"))
-        (is (contains? strings "Predictability (30d)"))
-        (is (contains? strings "Size"))
-        (is (contains? strings "Value"))
-        (is (contains? strings "Rate"))
-        (is (contains? strings "Payment"))
-        (is (contains? strings "Long 0.0185 GOLD"))
+        (is (contains? strings "0.0185 GOLD"))
         (is (contains? strings "$99.39"))
         (is (= [[:actions/enter-funding-hypothetical-position
                  "xyz:GOLD"
@@ -173,22 +179,25 @@
                  (funding-policy/funding-tooltip-pin-id "xyz:GOLD")
                  true]]
                (get-in action-button [1 :on :click])))
-        (is (not (contains? strings "Current in 22:01")))
-        (is (contains? strings "Next 24h"))
-        (is (contains? strings "APY"))
-        (is (not (contains? strings "Next 24h *")))
-        (is (not (contains? strings "APY *")))
-        (is (contains? strings "+0.1344%"))
-        (is (contains? strings "+49.0560%"))
-        (is (not (contains? strings "-$0.01")))
-        (is (contains? strings "-$0.13"))
-        (is (contains? strings "-$48.76"))
-        (is (contains? rate-classes "justify-self-end"))
-        (is (not (contains? rate-classes "justify-self-center")))
-        (is (not (contains? rate-classes "text-left")))
-        (is (not (contains? rate-classes "text-center")))
-        (is (contains? payment-classes "text-left"))
-        (is (not (contains? payment-classes "text-center")))))))
+        (is (= "pays" (get-in verdict [1 :data-verdict])))
+        (is (contains? strings "Pays funding every hour"))
+        (is (contains? strings "Projections"))
+        (is (contains? strings "You pay"))
+        (is (contains? strings "Next 24 hours"))
+        (is (contains? strings "Next 30 days"))
+        (is (contains? strings "Next year"))
+        (is (contains? strings "today's rate · +0.1344%"))
+        (is (contains? strings "today's rate · +4.032%"))
+        (is (contains? strings "today's rate · +49.06%"))
+        (is (nil? (support/find-node-by-role view-node "funding-projection-fade-note")))
+        (is (contains? (set (support/collect-strings next-24h)) "$0.13"))
+        (is (contains? strings "$4.01"))
+        (is (contains? strings "$48.76"))
+        (is (contains? (node-classes (span-with-text view-node "$0.13")) "text-error"))
+        (is (not (contains? strings "Of margin")))
+        (is (some-string-includes? strings "needs to rise 4.03%"))
+        (is (not (contains? strings "Why this rate")))
+        (is (not (contains? strings "Funding so far")))))))
 
 (deftest active-asset-row-funding-tooltip-short-position-shows-positive-payment-test
   (let [ctx-data (gold-ctx-data {})
@@ -203,10 +212,13 @@
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))]
-        (is (contains? strings "Short 2 GOLD"))
-        (is (not (contains? strings "+$0.15")))
-        (is (contains? strings "+$3.60"))
-        (is (contains? strings "+$1,314.00"))))))
+        (is (contains? strings "2 GOLD"))
+        (is (contains? strings "Earns funding every hour"))
+        (is (contains? strings "You earn"))
+        (is (contains? strings "$3.60"))
+        (is (contains? strings "$1,314.00"))
+        (is (contains? (node-classes (span-with-text view-node "$3.60")) "text-success"))
+        (is (some-string-includes? strings "funding offsets a 7.20% move against you"))))))
 
 (deftest active-asset-row-funding-tooltip-uses-hypothetical-position-when-no-open-position-test
   (let [ctx-data (gold-ctx-data {:fundingRate 0.0056})
@@ -217,11 +229,16 @@
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
-            strings (set (support/collect-strings view-node))]
-        (is (contains? strings "Hypothetical Position"))
-        (is (contains? strings "Enter size or value to estimate payments. Use negative size or value for short."))
-        (is (contains? strings "-$1.34"))
-        (is (contains? strings "-$490.56"))
+            strings (set (support/collect-strings view-node))
+            long-button (support/find-node-by-role view-node "funding-hypothetical-side-long")
+            short-button (support/find-node-by-role view-node "funding-hypothetical-side-short")]
+        (is (contains? strings "If you hold"))
+        (is (= "true" (get-in long-button [1 :aria-pressed])))
+        (is (= "false" (get-in short-button [1 :aria-pressed])))
+        (is (= [[:actions/set-funding-hypothetical-side "xyz:GOLD" 5000.0 "short"]]
+               (get-in short-button [1 :on :click])))
+        (is (contains? strings "$1.34"))
+        (is (contains? strings "$490.56"))
         (is (not (contains? strings "No open position")))))))
 
 (deftest active-asset-row-funding-tooltip-uses-negative-hypothetical-value-for-short-direction-test
@@ -236,11 +253,17 @@
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
-            strings (set (support/collect-strings view-node))]
-        (is (contains? strings "Hypothetical Position"))
-        (is (contains? strings "+$1.34"))
-        (is (contains? strings "+$490.56"))
-        (is (not (contains? strings "-$490.56")))))))
+            strings (set (support/collect-strings view-node))
+            short-button (support/find-node-by-role view-node "funding-hypothetical-side-short")
+            value-input (support/find-first-node view-node
+                                                 #(= "Hypothetical position value"
+                                                     (get-in % [1 :aria-label])))]
+        (is (contains? strings "If you hold"))
+        (is (= "true" (get-in short-button [1 :aria-pressed])))
+        (is (= "1000.00" (get-in value-input [1 :value])))
+        (is (contains? strings "Earns funding every hour"))
+        (is (contains? strings "$1.34"))
+        (is (contains? strings "$490.56"))))))
 
 (deftest active-asset-row-funding-tooltip-parses-localized-hypothetical-value-input-test
   (let [ctx-data (gold-ctx-data {:fundingRate 0.0056})
@@ -256,29 +279,32 @@
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))]
-        (is (contains? strings "Hypothetical Position"))
-        (is (contains? strings "+$1.34"))
-        (is (contains? strings "+$490.56"))
-        (is (not (contains? strings "-$490.56")))))))
+        (is (contains? strings "If you hold"))
+        (is (contains? strings "Earns funding every hour"))
+        (is (contains? strings "$1.34"))
+        (is (contains? strings "$490.56"))))))
+
+(def ^:private gold-predictability-summary
+  {:mean 0.1008
+   :stddev 0.0916108152
+   :daily-funding-series [{:day-index 1 :daily-rate 0.0288}
+                          {:day-index 2 :daily-rate -0.0096}
+                          {:day-index 3 :daily-rate 0.0192}]
+   :autocorrelation {:lag-1d {:value 0.714}
+                     :lag-5d {:value 0.482}
+                     :lag-15d {:value 0.21}}
+   :autocorrelation-series [{:lag-days 1 :value 0.714 :pair-count 28}
+                            {:lag-days 2 :value 0.55 :pair-count 27}
+                            {:lag-days 3 :value 0.44 :pair-count 26}
+                            {:lag-days 7 :value 0.05 :pair-count 2}]})
 
 (deftest active-asset-row-funding-tooltip-renders-predictability-metrics-test
   (let [ctx-data (gold-ctx-data {})
         market (gold-market {})
         full-state (visible-gold-state
-                    {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD"
-                                                                       {:mean 0.1008
-                                                                        :stddev 0.0916108152
-                                                                        :daily-funding-series [{:day-index 1 :daily-rate 0.0288}
-                                                                                              {:day-index 2 :daily-rate -0.0096}
-                                                                                              {:day-index 3 :daily-rate 0.0192}]
-                                                                        :autocorrelation {:lag-1d {:value 0.714}
-                                                                                          :lag-5d {:value 0.482}
-                                                                                          :lag-15d {:value 0.21}}
-                                                                        :autocorrelation-series [{:lag-days 1 :value 0.714}
-                                                                                                 {:lag-days 2 :value 0.55}
-                                                                                                 {:lag-days 3 :value 0.44}]}}
-                                                          :loading-by-coin {}
-                                                          :error-by-coin {}}}})]
+                    {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD" gold-predictability-summary}
+                                                              :loading-by-coin {}
+                                                              :error-by-coin {}}}})]
     (with-redefs [trading-state/position-for-market
                   (fn [_ _ _]
                     {:coin "xyz:GOLD"
@@ -287,41 +313,94 @@
                   fmt/format-funding-countdown
                   (fn [] "00:10:00")]
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
-            strings (set (support/collect-strings view-node))]
-        (is (contains? strings "Predictability (30d)"))
-        (is (contains? strings "Mean APY"))
-        (is (contains? strings "Volatility"))
-        (is (not (contains? strings "ACF Lag 1d")))
-        (is (not (contains? strings "ACF Lag 5d")))
-        (is (not (contains? strings "ACF Lag 15d")))
-        (is (contains? strings "Rate History"))
-        (is (contains? strings "Past Rate Correlation"))
-        (is (contains? strings "+3679.2000%"))
-        (is (contains? strings "-$183,960.00"))
-        (is (contains? strings "175.0222%"))
-        (is (contains? strings "-$175,208.89 to -$192,711.11"))))))
+            strings (set (support/collect-strings view-node))
+            chart (support/find-node-by-role view-node "funding-history-chart")
+            area-button (support/find-node-by-role view-node "funding-chart-style-area")]
+        (is (contains? strings "Last 30 days"))
+        (is (= "area" (get-in chart [1 :data-chart-style])))
+        (is (= "true" (get-in area-button [1 :aria-pressed])))
+        (is (contains? strings "Range"))
+        (is (contains? strings "-350.4–1,051.2%"))
+        (is (= 3 (count (hiccup/find-all-nodes chart #(= "funding-history-day" (get-in % [1 :data-role]))))))
+        (is (contains? strings "2d ago · +1,051.20% APY"))
+        (is (contains? strings "Today · +700.80% APY"))
+        (is (contains? strings "2 of 3 d"))
+        (is (= "expected" (get-in (support/find-node-by-role view-node "funding-tooltip-projections")
+                                  [1 :data-projection-basis])))
+        (is (contains? strings "Projections"))
+        (is (contains? strings "today's rate · +0.2400%"))
+        (is (contains? strings "30-day avg · +302.400%"))
+        (is (contains? strings "30-day avg · +3,679.20%"))
+        (is (contains? strings "$15,120.00"))
+        (is (contains? strings "$183,960.00"))
+        (is (some? (support/find-node-by-role view-node "funding-projection-fade-note")))
+        (is (some-string-includes? strings "days of expected funding"))
+        (is (not (contains? strings "If the last 30 days repeat for a year")))
+        (is (not (contains? strings "Does today predict later?")))
+        (is (not (contains? strings "Rate History")))
+        (is (not (contains? strings "Past Rate Correlation")))))))
 
-(deftest active-asset-row-funding-tooltip-renders-predictability-loading-and-insufficient-copy-test
+(deftest active-asset-row-funding-tooltip-shows-todays-rate-scenario-when-selected-test
+  (let [ctx-data (gold-ctx-data {})
+        market (gold-market {})
+        full-state (-> (visible-gold-state
+                        {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD" gold-predictability-summary}
+                                                                  :loading-by-coin {}
+                                                                  :error-by-coin {}}}})
+                       (assoc-in [:funding-ui :projection-basis] :today))]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
+                    {:coin "xyz:GOLD"
+                     :szi "1"
+                     :positionValue "5000"})
+                  fmt/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (support/collect-strings view-node))
+            today-button (support/find-node-by-role view-node "funding-projection-basis-today")
+            expected-button (support/find-node-by-role view-node "funding-projection-basis-expected")]
+        (is (contains? strings "Projections"))
+        (is (= "true" (get-in today-button [1 :aria-pressed])))
+        (is (= [[:actions/set-funding-projection-basis "expected"]]
+               (get-in expected-button [1 :on :click])))
+        (is (contains? strings "today's rate · +7.200%"))
+        (is (contains? strings "$360.00"))
+        (is (nil? (support/find-node-by-role view-node "funding-projection-fade-note")))
+        (is (some? (support/find-node-by-role view-node "funding-projection-scenario-note")))
+        (is (some-string-includes? strings "A scenario, not a forecast."))
+        (is (some-string-includes? strings "needs to rise 7.20%"))))))
+
+(deftest active-asset-row-funding-tooltip-renders-bar-chart-when-selected-test
+  (let [ctx-data (gold-ctx-data {})
+        market (gold-market {})
+        full-state (-> (visible-gold-state
+                        {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD" gold-predictability-summary}
+                                                                  :loading-by-coin {}
+                                                                  :error-by-coin {}}}})
+                       (assoc-in [:funding-ui :chart-style] :bars))]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _] nil)
+                  fmt/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            chart (support/find-node-by-role view-node "funding-history-chart")
+            bars-button (support/find-node-by-role view-node "funding-chart-style-bars")
+            bar-fills (->> (hiccup/find-all-nodes chart #(= :rect (first %)))
+                           (keep #(get-in % [1 :data-funding-rate-value]))
+                           vec)]
+        (is (= "bars" (get-in chart [1 :data-chart-style])))
+        (is (= "true" (get-in bars-button [1 :aria-pressed])))
+        (is (= [[:actions/set-funding-chart-style "bars"]]
+               (get-in bars-button [1 :on :click])))
+        (is (= 3 (count bar-fills)))))))
+
+(deftest active-asset-row-funding-tooltip-renders-predictability-loading-copy-test
   (let [ctx-data (gold-ctx-data {})
         market (gold-market {})
         full-state (visible-gold-state
-                    {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD"
-                                                                       {:mean 0.1008
-                                                                        :stddev 0.0916108152
-                                                                        :daily-funding-series [{:day-index 1 :daily-rate 0.0288}
-                                                                                              {:day-index 2 :daily-rate nil}
-                                                                                              {:day-index 3 :daily-rate -0.0144}]
-                                                                        :autocorrelation {:lag-1d {:value 0.714}
-                                                                                          :lag-5d {:value 0.482}
-                                                                                          :lag-15d {:value nil
-                                                                                                    :lag-days 15
-                                                                                                    :minimum-daily-count 16
-                                                                                                    :insufficient? true}}
-                                                                        :autocorrelation-series [{:lag-days 1 :value 0.714}
-                                                                                                 {:lag-days 2 :value nil :undefined? true}
-                                                                                                 {:lag-days 3 :value -0.12}]}}
-                                                          :loading-by-coin {"XYZ:GOLD" true}
-                                                          :error-by-coin {}}}})]
+                    {:active-assets {:funding-predictability {:by-coin {"XYZ:GOLD" gold-predictability-summary}
+                                                              :loading-by-coin {"XYZ:GOLD" true}
+                                                              :error-by-coin {}}}})]
     (with-redefs [trading-state/position-for-market
                   (fn [_ _ _]
                     {:coin "xyz:GOLD"
@@ -334,12 +413,53 @@
             ready-state (assoc-in full-state
                                   [:active-assets :funding-predictability :loading-by-coin "XYZ:GOLD"]
                                   false)
-            ready-view (row/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)
-            ready-strings (set (support/collect-strings ready-view))]
+            ready-view (row/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)]
         (is (contains? loading-strings "Loading 30d stats..."))
-        (is (contains? ready-strings "Rate History"))
-        (is (contains? ready-strings "Past Rate Correlation"))
-        (is (contains? ready-strings "Lag 15d needs at least 16 daily points"))))))
+        ;; a refresh keeps the cached 30-day average on screen
+        (is (some? (support/find-node-by-role loading-view "funding-projection-fade-note")))
+        (is (some? (support/find-node-by-role ready-view "funding-history-chart")))
+        (is (some? (support/find-node-by-role ready-view "funding-projection-fade-note")))))))
+
+(deftest active-asset-row-funding-tooltip-shows-margin-and-since-open-for-live-position-test
+  (let [ctx-data (support/active-asset-row-ctx {:coin "BTC"
+                                                :mark 100000.0
+                                                :markRaw nil
+                                                :oracle 100000.0
+                                                :oracleRaw nil
+                                                :change24h 0
+                                                :change24hPct 0
+                                                :volume24h 1
+                                                :openInterest 1
+                                                :fundingRate 0.00125})
+        market (support/active-asset-market {:coin "BTC" :symbol "BTC-USDC" :base "BTC"})
+        full-state (support/with-visible-funding-tooltip
+                     {:active-asset "BTC" :asset-selector {:missing-icons #{}}}
+                     "BTC")]
+    (with-redefs [trading-state/position-for-market
+                  (fn [_ _ _]
+                    {:coin "BTC"
+                     :szi "0.01"
+                     :positionValue "1000"
+                     :marginUsed "100"
+                     :leverage {:type "cross" :value 10}
+                     :cumFunding {:sinceOpen "1.84"}})
+                  fmt/format-funding-countdown
+                  (fn [] "00:10:00")]
+      (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
+            strings (set (support/collect-strings view-node))
+            since-open (support/find-node-by-role view-node "funding-tooltip-since-open")]
+        (is (contains? strings "Margin · 10×"))
+        (is (contains? strings "$100.00"))
+        (is (contains? strings "0.30% of your margin"))
+        (is (contains? strings " per day at 10×"))
+        (is (contains? strings "Of margin"))
+        (is (contains? strings "109.5%"))
+        (is (contains? (set (support/collect-strings since-open)) "Paid $1.84"))
+        (is (contains? strings "Why this rate"))
+        (is (contains? strings "Baseline interest (fixed)"))
+        (is (contains? strings "+10.95%"))
+        (is (contains? strings "0.00%"))
+        (is (contains? strings "The perp is trading close to spot, so only the fixed baseline is charged."))))))
 
 (deftest active-asset-row-funding-tooltip-uses-opaque-high-stack-surface-test
   (let [ctx-data (gold-ctx-data {})
@@ -353,7 +473,6 @@
         (is (support/contains-class? view-node "z-[140]"))
         (is (support/contains-class? view-node "bg-ho-bg-deep"))
         (is (support/contains-class? view-node "isolate"))
-        (is (support/contains-class? view-node "bg-[#0b1820]"))
         (is (not (support/contains-class? view-node "backdrop-blur-sm")))))))
 
 (deftest active-asset-row-funding-tooltip-renders-use-live-action-for-seeded-estimate-test
@@ -373,7 +492,7 @@
       (let [view-node (row/active-asset-row ctx-data market {:visible-dropdown nil} full-state)
             strings (set (support/collect-strings view-node))
             action-button (support/find-node-by-role view-node "active-asset-funding-position-action")]
-        (is (contains? strings "Hypothetical Position"))
+        (is (contains? strings "If you hold"))
         (is (contains? strings "Use live"))
         (is (= [[:actions/reset-funding-hypothetical-position "xyz:GOLD"]]
                (get-in action-button [1 :on :click])))))))

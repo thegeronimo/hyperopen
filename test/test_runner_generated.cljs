@@ -22,6 +22,7 @@
             [hyperopen.account.spectate-watchlist-io-test]
             [hyperopen.account.surface-policy-test]
             [hyperopen.account.surface-service-test]
+            [hyperopen.active-asset.funding-insights-test]
             [hyperopen.api-wallets.actions-test]
             [hyperopen.api-wallets.application.form-policy-test]
             [hyperopen.api-wallets.application.ui-state-test]
@@ -108,6 +109,7 @@
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.outcome-actions-test]
+            [hyperopen.asset-selector.perp-annotations-test]
             [hyperopen.asset-selector.settings-test]
             [hyperopen.chart.settings-test]
             [hyperopen.config-test]
@@ -668,6 +670,7 @@
             [hyperopen.views.account-info.vm-outcomes-test]
             [hyperopen.views.account-info.vm-test]
             [hyperopen.views.active-asset-view-test]
+            [hyperopen.views.active-asset.funding-history-chart-test]
             [hyperopen.views.active-asset.funding-tooltip-model-test]
             [hyperopen.views.active-asset.funding-tooltip-popover-test]
             [hyperopen.views.active-asset.icon-button-test]
@@ -689,7 +692,6 @@
             [hyperopen.views.asset-selector.processing-test]
             [hyperopen.views.asset-selector.rows-test]
             [hyperopen.views.asset-selector.runtime-test]
-            [hyperopen.views.autocorrelation-plot-test]
             [hyperopen.views.chart.d3.model-test]
             [hyperopen.views.chart.d3.runtime-test]
             [hyperopen.views.chart.range-strip-model-test]
@@ -713,6 +715,7 @@
             [hyperopen.views.header-subaccount-state-test]
             [hyperopen.views.header-view-test]
             [hyperopen.views.header.vm-test]
+            [hyperopen.views.hip3-display-names-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
             [hyperopen.views.leaderboard-view-test]
@@ -1012,6 +1015,7 @@
              'hyperopen.account.spectate-watchlist-io-test
              'hyperopen.account.surface-policy-test
              'hyperopen.account.surface-service-test
+             'hyperopen.active-asset.funding-insights-test
              'hyperopen.api-wallets.actions-test
              'hyperopen.api-wallets.application.form-policy-test
              'hyperopen.api-wallets.application.ui-state-test
@@ -1098,6 +1102,7 @@
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.asset-selector.outcome-actions-test
+             'hyperopen.asset-selector.perp-annotations-test
              'hyperopen.asset-selector.settings-test
              'hyperopen.chart.settings-test
              'hyperopen.config-test
@@ -1658,6 +1663,7 @@
              'hyperopen.views.account-info.vm-outcomes-test
              'hyperopen.views.account-info.vm-test
              'hyperopen.views.active-asset-view-test
+             'hyperopen.views.active-asset.funding-history-chart-test
              'hyperopen.views.active-asset.funding-tooltip-model-test
              'hyperopen.views.active-asset.funding-tooltip-popover-test
              'hyperopen.views.active-asset.icon-button-test
@@ -1679,7 +1685,6 @@
              'hyperopen.views.asset-selector.processing-test
              'hyperopen.views.asset-selector.rows-test
              'hyperopen.views.asset-selector.runtime-test
-             'hyperopen.views.autocorrelation-plot-test
              'hyperopen.views.chart.d3.model-test
              'hyperopen.views.chart.d3.runtime-test
              'hyperopen.views.chart.range-strip-model-test
@@ -1703,6 +1708,7 @@
              'hyperopen.views.header-subaccount-state-test
              'hyperopen.views.header-view-test
              'hyperopen.views.header.vm-test
+             'hyperopen.views.hip3-display-names-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.l2-orderbook.depth-transition-test
              'hyperopen.views.leaderboard-view-test

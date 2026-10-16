@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]
             [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.utils.parse :as parse-utils]
@@ -58,7 +59,8 @@
             non-blank-text)))
 
 (defn- symbol-monogram [market symbol coin]
-  (let [base-symbol (or (non-blank-text (:base market))
+  (let [base-symbol (or (non-blank-text (:display-name market))
+                        (non-blank-text (:base market))
                         (base-symbol-segment symbol)
                         (base-symbol-segment coin)
                         "ASSET")
@@ -183,7 +185,7 @@
 (defn asset-button
   [market dropdown-visible? missing-icons loaded-icons & [{:keys [outcome-hover-glow?]}]]
   (let [coin (:coin market)
-        symbol (or (:symbol market) coin)
+        symbol (or (perp-annotations/display-symbol market) coin)
         dex-label (market-dex-label market)
         leverage-label (leverage-chip-label market)
         market-type (:market-type market)

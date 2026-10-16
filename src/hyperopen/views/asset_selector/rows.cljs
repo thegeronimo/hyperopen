@@ -1,5 +1,6 @@
 (ns hyperopen.views.asset-selector.rows
   (:require [hyperopen.asset-selector.list-metrics :as list-metrics]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]
             [hyperopen.system :as app-system]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.asset-selector.controls :as controls]
@@ -40,6 +41,7 @@
 (defn asset-list-item [asset selected? highlighted? favorites _missing-icons _loaded-icons]
   (let [{:keys [key coin symbol mark markRaw volume24h change24h change24hPct openInterest fundingRate
                 market-type dex maxLeverage]} asset
+        symbol (or (perp-annotations/display-symbol asset) symbol)
         safe-change (when (some? change24h) (fmt/safe-number change24h))
         safe-change-pct (when (some? change24hPct) (fmt/safe-number change24hPct))
         safe-funding-rate (when (some? fundingRate) (fmt/safe-number fundingRate))
@@ -194,6 +196,7 @@
 
 (defn mobile-asset-list-item [asset selected? highlighted? favorites]
   (let [{:keys [key coin symbol mark markRaw volume24h change24h change24hPct openInterest market-type dex maxLeverage]} asset
+        symbol (or (perp-annotations/display-symbol asset) symbol)
         safe-change (when (some? change24h) (fmt/safe-number change24h))
         safe-change-pct (when (some? change24hPct) (fmt/safe-number change24hPct))
         change-available? (and (number? safe-change)

@@ -71,7 +71,13 @@ Non-goals, which are follow-ups:
 - [x] (2026-10-15) Design D: the same model as a bottom sheet below `lg`, with a backdrop that closes it. It opens from a 44px "About this market" row in the existing mobile market-details drawer, because the phone header has no room beside the ticker.
 - [x] (2026-10-15) Gates 34/34 PASS. Browser QA for B and D at 375, 768, 1280 and 1440, live data: SPCX, ARM, 10Y, OAI, cash:HOOD, GOLD and US500.
 - [x] (2026-10-15) Header icon fallback. Order: Hyperliquid's coin CDN, then Entropy's logo CDN (`https://assets.entropy.trade/logos/<encodeURIComponent coin>.svg`), then the monogram. Entropy attempts are tracked under `<market-key>#entropy` in the existing icon status sets. `https://assets.entropy.trade` is added to the release CSP `img-src`. Gates pass 34/34. Live QA: io:PRL, io:DRAM and io:TCNT render Entropy logos; mkts:US500 shows the monogram; BTC is unchanged.
-- [ ] Owner acceptance, then move this plan to `completed/`.
+- [x] (2026-10-16) Reconciled with main's `feat(markets): show Hyperliquid display names for HIP-3 perps` (`fde4054c5`).
+  - Main's catalog-side `request-perp-annotations!` is the single bulk request (cache key `:perp-annotations`). The sync effect calls it too, so the two callers share one network call per cache window.
+  - Display names, display symbols and search keywords come only from main's catalog enrichment. This branch adds just `:asset-class` and the issuer `:descriptor`.
+  - The subtitle and row descriptor no longer fall back to the display name, which is now the ticker label.
+  - Gates 34/34; Lean effect-order verify passes.
+  - Browser check: io:PRL reads "PEARL-USDC / Crypto" with the Entropy logo; xyz:SPCX shows its issuer; para:10Y shows its first clause; BTC is unchanged.
+- [x] (2026-10-16) Owner asked to reconcile for merge. Plan moved to `completed/`.
 
 ## Surprises & Discoveries
 
@@ -85,6 +91,8 @@ Non-goals, which are follow-ups:
 - On a 375px phone the header ticker truncates ("TS…"). This predates the change: the ticker measures the same with the subtitle hidden (37px visible of 91px).
 
 ## Decision Log
+
+- Decision: on reconciliation, main's catalog enrichment owns display names, display symbols and keywords. This branch's annotation state keeps descriptions, deployer names and asset classes. Rationale: one source per field avoids a second bulk fetch and duplicate search terms, and stops the subtitle repeating the ticker label. Date: 2026-10-16.
 
 - Decision: use Entropy's logo CDN only as an icon fallback, not its `/api/markets` registry. Rationale: the CDN is public (CORS `*`, cross-origin resource policy, a real 404 when absent) and fills 27 of the 54 live perps Hyperliquid's CDN lacks, including all io markets. The registry is Entropy's private app API, sends no CORS allow-origin, and adds only display names, which on-chain annotations already cover. Date: 2026-10-15.
 

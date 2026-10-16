@@ -1,12 +1,20 @@
 (ns hyperopen.views.asset-selector.annotation-selector-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]
             [hyperopen.asset-selector.settings :as settings]
             [hyperopen.views.asset-selector.controls :as controls]
             [hyperopen.views.asset-selector.processing :as processing]
             [hyperopen.views.asset-selector.rows :as rows]
             [hyperopen.views.asset-selector.test-support :as support]))
 
-(def ^:private hip3-markets
+(def ^:private catalog-annotations
+  ;; The catalog's own enrichment (main's display names and keywords).
+  (perp-annotations/normalize-perp-annotations
+   [["xyz:SPCX" {:category "stocks" :displayName "SPCX" :keywords ["spacex" "ai"]}]
+    ["vntl:SPACEX" {:category "preipo" :keywords ["elon" "preipo"]}]
+    ["io:OAI" {:category "preipo" :displayName "OPENAI" :keywords ["openai" "oai"]}]]))
+
+(def ^:private raw-markets
   [{:key "perp:xyz:SPCX" :symbol "SPCX-USDC" :coin "xyz:SPCX" :base "SPCX" :dex "xyz"
     :market-type :perp :category :tradfi :hip3? true :volume24h 30}
    {:key "perp:vntl:SPACEX" :symbol "SPACEX-USDH" :coin "vntl:SPACEX" :base "SPACEX" :dex "vntl"
@@ -16,12 +24,19 @@
    {:key "perp:BTC" :symbol "BTC-USDC" :coin "BTC" :base "BTC"
     :market-type :perp :category :crypto :hip3? false :volume24h 40}])
 
+(def ^:private hip3-markets
+  (mapv #(perp-annotations/apply-perp-annotation % (get catalog-annotations (:coin %))) raw-markets))
+
+(def ^:private spcx-description
+  "SPCX references 1 share of Space Exploration Technologies Corp. Class A common stock (Nasdaq: SPCX), quoted in USD.")
+
 (def ^:private perp-annotations
   {:concise-status :loaded
    :by-coin {"xyz:SPCX" {:category :stocks :display-name "SPCX" :keywords ["spacex" "ai"]}
              "vntl:SPACEX" {:category :preipo :keywords ["elon" "preipo"]}
              "io:OAI" {:category :preipo :display-name "OPENAI" :keywords ["openai" "oai"]}}
-   :detail-by-coin {}})
+   :detail-by-coin {"xyz:SPCX" {:status :loaded
+                                :annotation {:category :stocks :description spcx-description}}}})
 
 (defn- annotated []
   (processing/reset-processed-assets-cache!)
@@ -35,7 +50,9 @@
     (is (= #{"perp:xyz:SPCX" "perp:vntl:SPACEX"} (search "spacex" false)))
     (is (= #{"perp:io:OAI"} (search "openai" false)))
     (is (= #{"perp:io:OAI"} (search "open" true)) "strict mode prefix-matches display names")
-    (is (= #{"perp:vntl:SPACEX"} (search "elon" false)))))
+    (is (= #{"perp:vntl:SPACEX"} (search "elon" false)))
+    (is (= #{"perp:xyz:SPCX"} (search "space exploration" false))
+        "the issuer parsed from a loaded description is searchable")))
 
 (deftest tradfi-asset-class-subtabs-filter-by-deployer-category-test
   (let [markets (annotated)
@@ -64,16 +81,19 @@
               (processing/processed-assets-market-signature (annotated))))))
 
 (deftest row-renders-descriptor-after-chips-test
-  (let [oai (some #(when (= "io:OAI" (:coin %)) %) (annotated))
-        desktop (rows/asset-list-item oai false false #{} #{} #{})
-        mobile (rows/mobile-asset-list-item oai false false #{})]
-    (is (= ["OPENAI"] (support/collect-strings
-                       (support/find-node-by-role desktop "asset-selector-row-descriptor"))))
-    (is (= ["OPENAI"] (support/collect-strings
-                       (support/find-node-by-role mobile "asset-selector-row-descriptor"))))
-    (is (nil? (support/find-node-by-role
-               (rows/asset-list-item (last hip3-markets) false false #{} #{} #{})
-               "asset-selector-row-descriptor")))))
+  (let [[spcx _ oai] (annotated)
+        desktop (rows/asset-list-item spcx false false #{} #{} #{})
+        mobile (rows/mobile-asset-list-item spcx false false #{})]
+    (is (= ["Space Exploration Technologies Corp."]
+           (support/collect-strings (support/find-node-by-role desktop "asset-selector-row-descriptor"))))
+    (is (= ["Space Exploration Technologies Corp."]
+           (support/collect-strings (support/find-node-by-role mobile "asset-selector-row-descriptor"))))
+    (is (contains? (set (support/collect-strings (rows/asset-list-item oai false false #{} #{} #{})))
+                   "OPENAI-USDC")
+        "the catalog display symbol is the row label")
+    (is (nil? (support/find-node-by-role (rows/asset-list-item oai false false #{} #{} #{})
+                                         "asset-selector-row-descriptor"))
+        "no descriptor repeats the display name")))
 
 (deftest tradfi-subtab-row-shows-only-under-tradfi-test
   (is (nil? (controls/tradfi-subtab-row :all)))

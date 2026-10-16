@@ -71,6 +71,18 @@
   []
   (parse-bool (platform/local-storage-get chart-volume-visible-storage-key) true))
 
+(defn- load-funding-chart-style
+  "Funding tooltip chart style (:area or :bars); key shared with
+  hyperopen.asset-selector.funding-drafts/funding-chart-style-storage-key."
+  []
+  (let [style (some-> (platform/local-storage-get "funding-chart-style")
+                      str
+                      str/trim
+                      str/lower-case
+                      keyword)]
+    (when (contains? #{:area :bars} style)
+      style)))
+
 (defn- save-volume-visible-effects
   [visible?]
   [[:effects/save [:chart-options :volume-visible?] visible?]
@@ -81,12 +93,16 @@
   (let [timeframe (load-chart-option "chart-timeframe" :1d chart-timeframes)
         chart-type (load-chart-type)
         indicators (load-indicators)
-        volume-visible? (load-volume-visible?)]
-    (swap! store update-in [:chart-options] merge
-           {:selected-timeframe timeframe
-            :selected-chart-type chart-type
-            :volume-visible? volume-visible?
-            :active-indicators indicators})))
+        volume-visible? (load-volume-visible?)
+        funding-chart-style (load-funding-chart-style)]
+    (swap! store (fn [state]
+                   (cond-> (update state :chart-options merge
+                                   {:selected-timeframe timeframe
+                                    :selected-chart-type chart-type
+                                    :volume-visible? volume-visible?
+                                    :active-indicators indicators})
+                     funding-chart-style
+                     (assoc-in [:funding-ui :chart-style] funding-chart-style))))))
 
 (defn add-indicator
   [state indicator-type params]

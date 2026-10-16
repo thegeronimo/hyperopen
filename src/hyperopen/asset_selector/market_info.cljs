@@ -4,7 +4,8 @@
   warning when the price is not what a trader would assume. Pure: built from
   `annotations/symbol-metadata` plus the catalog market."
   (:require [clojure.string :as str]
-            [hyperopen.asset-selector.annotations :as annotations]))
+            [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.perp-annotations :as perp-annotations]))
 
 (def ^:private headline-max-length 140)
 
@@ -87,7 +88,7 @@
                            (str deployer " (" dex ")")
                            (or deployer dex))]
       {:coin coin
-       :symbol (or (:symbol market) coin)
+       :symbol (or (perp-annotations/display-symbol market) coin)
        :status (cond
                  loading? :loading
                  (seq description) :described
