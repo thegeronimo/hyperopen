@@ -122,7 +122,7 @@
     (testing "render snapshot includes branch-independent precomputed metadata"
       (is (= 1
              (get-in book [:render :spread :absolute])))
-      (is (= "1.00"
+      (is (= "1"
              (get-in book [:render :spread :absolute-label])))
       (is (= "0.990%"
              (get-in book [:render :spread :percentage-label])))
@@ -163,7 +163,7 @@
             desktop-ask (get-in desktop-snapshot [:desktop-asks 0])]
         (is (= :bid (:side desktop-bid)))
         (is (= "bid-100" (:row-key desktop-bid)))
-        (is (= "100.00" (get-in desktop-bid [:display :price])))
+        (is (= "100" (get-in desktop-bid [:display :price])))
         (is (= "2" (get-in desktop-bid [:display :size :base])))
         (is (= "200" (get-in desktop-bid [:display :size :quote])))
         (is (= "2" (get-in desktop-bid [:display :total :base])))
@@ -171,7 +171,7 @@
         (is (= "22.22222222222222%" (get-in desktop-bid [:display :bar-width :base])))
         (is (= :ask (:side desktop-ask)))
         (is (= "ask-102" (:row-key desktop-ask)))
-        (is (= "102.00" (get-in desktop-ask [:display :price])))
+        (is (= "102" (get-in desktop-ask [:display :price])))
         (is (= "5" (get-in desktop-ask [:display :size :base])))
         (is (= "510" (get-in desktop-ask [:display :size :quote])))
         (is (= "9" (get-in desktop-ask [:display :total :base])))

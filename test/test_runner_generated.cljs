@@ -137,6 +137,7 @@
             [hyperopen.domain.funding-history-test]
             [hyperopen.domain.market.instrument-test]
             [hyperopen.domain.token-pricing-test]
+            [hyperopen.domain.trading.book-sweep-test]
             [hyperopen.domain.trading.fees-test]
             [hyperopen.domain.trading.indicators.contracts-test]
             [hyperopen.domain.trading.indicators.family-parity-test]
@@ -580,6 +581,7 @@
             [hyperopen.trading.order-form-tpsl-policy-test]
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.trading.order-form-transitions-update-test]
+            [hyperopen.trading.orderbook-price-pick-test]
             [hyperopen.ui.fonts-test]
             [hyperopen.ui.fx-test]
             [hyperopen.ui.preferences-test]
@@ -717,7 +719,9 @@
             [hyperopen.views.header.vm-test]
             [hyperopen.views.hip3-display-names-test]
             [hyperopen.views.l2-orderbook-view-test]
+            [hyperopen.views.l2-orderbook.depth-readout-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
+            [hyperopen.views.l2-orderbook.own-orders-test]
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.notifications-view-trade-confirmation-test]
@@ -971,6 +975,7 @@
             [hyperopen.websocket.migration-flags-test]
             [hyperopen.websocket.order-feedback-runtime-coverage-test]
             [hyperopen.websocket.orderbook-l2-test]
+            [hyperopen.websocket.orderbook-level-changes-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
             [hyperopen.websocket.runtime-state-coverage-test]
@@ -1130,6 +1135,7 @@
              'hyperopen.domain.funding-history-test
              'hyperopen.domain.market.instrument-test
              'hyperopen.domain.token-pricing-test
+             'hyperopen.domain.trading.book-sweep-test
              'hyperopen.domain.trading.fees-test
              'hyperopen.domain.trading.indicators.contracts-test
              'hyperopen.domain.trading.indicators.family-parity-test
@@ -1573,6 +1579,7 @@
              'hyperopen.trading.order-form-tpsl-policy-test
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.trading.order-form-transitions-update-test
+             'hyperopen.trading.orderbook-price-pick-test
              'hyperopen.ui.fonts-test
              'hyperopen.ui.fx-test
              'hyperopen.ui.preferences-test
@@ -1710,7 +1717,9 @@
              'hyperopen.views.header.vm-test
              'hyperopen.views.hip3-display-names-test
              'hyperopen.views.l2-orderbook-view-test
+             'hyperopen.views.l2-orderbook.depth-readout-test
              'hyperopen.views.l2-orderbook.depth-transition-test
+             'hyperopen.views.l2-orderbook.own-orders-test
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.notifications-view-trade-confirmation-test
@@ -1964,6 +1973,7 @@
              'hyperopen.websocket.migration-flags-test
              'hyperopen.websocket.order-feedback-runtime-coverage-test
              'hyperopen.websocket.orderbook-l2-test
+             'hyperopen.websocket.orderbook-level-changes-test
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test
              'hyperopen.websocket.runtime-state-coverage-test

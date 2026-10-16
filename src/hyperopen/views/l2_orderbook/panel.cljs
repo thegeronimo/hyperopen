@@ -12,7 +12,10 @@
                                                          resolve-base-symbol
                                                          resolve-quote-symbol
                                                          resolve-reference-price]]
+            [hyperopen.views.l2-orderbook.own-orders :as own-orders]
+            [hyperopen.views.l2-orderbook.readout :as readout]
             [hyperopen.views.l2-orderbook.tabs :refer [orderbook-header]]
+            [hyperopen.websocket.orderbook-policy :as orderbook-policy]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
 (defn l2-orderbook-panel
@@ -25,7 +28,14 @@
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout]
    (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout true))
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook?]
-   (let [size-unit (normalize-size-unit (:size-unit orderbook-ui))
+   (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? nil))
+  ;; `extras`:
+  ;;   :open-orders  the user's normalized open orders on this coin, for the pips
+  ;;   :impact       the order form's market order sweep (domain.trading.book-sweep), for
+  ;;                 marking the levels it would take
+  ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? extras]
+   (let [{:keys [open-orders impact]} extras
+         size-unit (normalize-size-unit (:size-unit orderbook-ui))
          size-unit-dropdown-visible? (boolean (:size-unit-dropdown-visible? orderbook-ui))
          price-dropdown-visible? (boolean (:price-aggregation-dropdown-visible? orderbook-ui))
          aggregation-by-coin (or (:price-aggregation-by-coin orderbook-ui) {})
@@ -54,7 +64,52 @@
                                                    {:topic "l2Book"
                                                     :selector {:coin coin}
                                                     :live-prefix "Updated"}))
-         depth-dimmed? (boolean (and freshness-cue (:delayed? freshness-cue)))]
+         depth-dimmed? (boolean (and freshness-cue (:delayed? freshness-cue)))
+         changed-levels (:changed-levels orderbook-data)
+         flash-version (:flash-version orderbook-data)
+         ;; The update number a level changed in, or nil when it did not change.
+         level-flash-version (fn [side level]
+                               (when (and level
+                                          (contains? (get changed-levels side) (:px level)))
+                                 flash-version))
+         own-sizes (when (seq open-orders)
+                     (own-orders/own-order-sizes open-orders
+                                                 (or desktop-bids (keep :bid mobile-pairs))
+                                                 (or desktop-asks (keep :ask mobile-pairs))
+                                                 (not= :full selected-mode)))
+         ;; "0.5 BTC" for a level holding the user's resting orders, else nil.
+         level-own-size (fn [side level]
+                          (when-let [size (and level (get-in own-sizes [side (:px level)]))]
+                            (str (orderbook-policy/format-total size :decimals 8) " " base-symbol)))
+         ;; Depth readout for the hovered row (desktop only: touch has no hover). The
+         ;; hover is a side and a depth from the spread, so the row under the cursor keeps
+         ;; the card while the prices on it change.
+         hover-level (when desktop-layout? (:hover-level orderbook-ui))
+         best-first {:ask (some-> desktop-asks rseq vec) :bid desktop-bids}
+         hovered-row (when-let [depth (:depth hover-level)]
+                       (get (get best-first (:side hover-level)) depth))
+         readout-data (readout/readout orderbook-data hovered-row)
+         in-readout? (fn [row depth]
+                       (and readout-data
+                            (= (:side row) (:side hover-level))
+                            (<= depth (:depth hover-level))))
+         impact-side (case (:side impact) :buy :ask :sell :bid nil)
+         row-opts (fn [side-key row depth]
+                    (let [hovered? (and readout-data
+                                        (= (:side row) (:side hover-level))
+                                        (= depth (:depth hover-level)))]
+                      {:depth depth
+                       :flash-version (level-flash-version side-key row)
+                       :own-size (level-own-size side-key row)
+                       :sweep-fill (when (= impact-side (:side row))
+                                     (get-in impact [:fill-fraction-by-px (:px row)]))
+                       :in-readout? (in-readout? row depth)
+                       :readout (when hovered?
+                                  (readout/readout-card readout-data
+                                                        (:side row)
+                                                        (or (get-in row [:display :price]) (:px row))
+                                                        (or (:price-decimals snapshot) 2)
+                                                        base-symbol))}))]
      [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col" "num" "orderbook-panel-aligned"]}
       ;; Header
       (orderbook-header selected-option
@@ -73,19 +128,22 @@
          (column-headers selected-size-symbol)
          [:div {:class (cond-> ["flex-1" "min-h-0" "flex" "flex-col"]
                          depth-dimmed? (conj "opacity-90"))
-                :data-role "orderbook-depth-body"}
+                :data-role "orderbook-depth-body"
+                :on {:mouseleave [[:actions/clear-orderbook-hover-level]]}}
           [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "gap-0.5" "justify-end"]
                  :data-role "orderbook-asks-pane"}
-           (for [ask desktop-asks]
-             ^{:key (:row-key ask)}
-             (order-row ask size-unit animate-orderbook?))]
+           (let [ask-count (count desktop-asks)]
+             (map-indexed (fn [idx ask]
+                            (order-row ask size-unit animate-orderbook?
+                                       (row-opts :asks ask (- ask-count 1 idx))))
+                          desktop-asks))]
           (when spread
             (spread-row spread))
           [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "gap-0.5"]
                  :data-role "orderbook-bids-pane"}
-           (for [bid desktop-bids]
-             ^{:key (:row-key bid)}
-             (order-row bid size-unit animate-orderbook?))]]]
+           (map-indexed (fn [depth bid]
+                          (order-row bid size-unit animate-orderbook? (row-opts :bids bid depth)))
+                        desktop-bids)]]]
         [:div {:class (cond-> ["flex" "flex-1" "min-h-0" "flex-col" "lg:hidden"]
                         depth-dimmed? (conj "opacity-90"))
                :data-role "orderbook-mobile-split-panel"}
@@ -94,7 +152,13 @@
                 :data-role "orderbook-mobile-split-body"}
           (for [split-row mobile-pairs]
             ^{:key (:row-key split-row)}
-            (mobile-split-order-row split-row size-unit animate-orderbook?))]])])))
+            (mobile-split-order-row split-row
+                                    size-unit
+                                    animate-orderbook?
+                                    (level-flash-version :bids (:bid split-row))
+                                    (level-flash-version :asks (:ask split-row))
+                                    (level-own-size :bids (:bid split-row))
+                                    (level-own-size :asks (:ask split-row))))]])])))
 
 ;; Empty state
 (defn empty-orderbook []

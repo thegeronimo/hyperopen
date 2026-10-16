@@ -118,7 +118,7 @@
         (is (contains? account-actions-classes "pt-2"))
         (is (contains? account-actions-classes "pb-1.5"))
         (is (not (contains? account-actions-classes "py-3")))
-        (is (contains? account-mobile-text "Account Equity"))
+        (is (contains? account-mobile-text "Total Account Value"))
         (is (contains? account-mobile-text "Deposit"))
         (is (contains? account-mobile-text "Withdraw"))
         (is (not (some #(str/starts-with? % "Balances") account-mobile-text)))

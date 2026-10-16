@@ -8,7 +8,8 @@
             [hyperopen.order.outcome-side-selection :as outcome-side-selection]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading-settings :as trading-settings]
-            [hyperopen.trading.order-form-transitions :as transitions]))
+            [hyperopen.trading.order-form-transitions :as transitions]
+            [hyperopen.trading.orderbook-price-pick :as orderbook-price-pick]))
 
 (defn- next-order-form-ui-state
   [state order-form order-form-ui]
@@ -216,6 +217,10 @@
 
 (defn set-order-price-to-mid [state]
   (transition-save-many state (transitions/set-order-price-to-mid state)))
+
+(defn set-order-price-from-orderbook [state price]
+  (if-let [t (orderbook-price-pick/set-order-price-from-orderbook state price)]
+    (transition-save-many state t) []))
 
 (defn toggle-order-tpsl-panel [state]
   (if-let [transition (transitions/toggle-order-tpsl-panel state)]

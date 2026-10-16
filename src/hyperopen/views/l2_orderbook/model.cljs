@@ -174,6 +174,9 @@
 (defn cumulative-bar-width [cum-size max-cum-size]
   (orderbook-policy/cumulative-bar-width cum-size max-cum-size))
 
+(defn cumulative-bar-scale [cum-size max-cum-size]
+  (orderbook-policy/cumulative-bar-scale cum-size max-cum-size))
+
 (defn- strip-cumulative-totals [levels]
   (mapv #(dissoc % :cum-size :cum-value) (or levels [])))
 

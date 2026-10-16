@@ -86,6 +86,8 @@
    orderbook-actions/toggle-orderbook-price-aggregation-dropdown
    :select-orderbook-price-aggregation orderbook-actions/select-orderbook-price-aggregation
    :select-orderbook-tab orderbook-actions/select-orderbook-tab
+   :set-orderbook-hover-level orderbook-actions/set-orderbook-hover-level
+   :clear-orderbook-hover-level orderbook-actions/clear-orderbook-hover-level
    :select-trade-mobile-surface trade-layout-actions/select-trade-mobile-surface
    :toggle-trade-mobile-asset-details trade-layout-actions/toggle-trade-mobile-asset-details
    :toggle-market-info-panel trade-layout-actions/toggle-market-info-panel
