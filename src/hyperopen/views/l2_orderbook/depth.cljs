@@ -42,6 +42,26 @@
                   animate? (into depth-bar-transition-classes))
          :style {:transform (str "scaleX(" (row-bar-scale row size-unit) ")")}}])
 
+;; Own resting order marker. Sits in the row's left padding, clear of the price text.
+(defn- own-order-pip [position-classes]
+  [:span {:class (into ["pointer-events-none" "absolute" "top-1/2" "-translate-y-1/2" "z-10"
+                        "h-[5px]" "w-[5px]" "rounded-full" "bg-ho-warn"]
+                       position-classes)
+          :data-role "orderbook-own-order-pip"
+          :aria-hidden "true"}])
+
+(defn- own-order-note [own-size]
+  (str "Your resting order here: " own-size))
+
+(defn- level-attrs
+  "A clickable level: sets the order form's limit price to the level's raw price."
+  [row label-prefix own-size]
+  (cond-> {:type "button"
+           :aria-label (cond-> (str label-prefix " " (row-price-label row) ", set limit price")
+                         own-size (str ". " (own-order-note own-size)))
+           :on {:click [[:actions/set-order-price-from-orderbook (:px row)]]}}
+    own-size (assoc :title (own-order-note own-size))))
+
 ;; Component for individual order row
 (defn order-row
   ([row size-unit]
@@ -49,15 +69,23 @@
   ([row size-unit animate?]
    (order-row row size-unit animate? nil))
   ([row size-unit animate? flash-version]
+   (order-row row size-unit animate? flash-version nil))
+  ([row size-unit animate? flash-version own-size]
    (let [is-ask? (= :ask (:side row))
          bar-color (if is-ask? ask-depth-bar-class bid-depth-bar-class)
          price-text-color (if is-ask? ask-price-text-class bid-price-text-class)
          flash-class (when animate? (level-flash-class (:side row) flash-version))]
-     [:div {:class (cond-> ["flex" "items-center" "h-[23px]" "relative" "bg-base-100" "text-xs" "orderbook-level-row"]
-                     flash-class (conj flash-class))
-            :data-role "orderbook-level-row"}
+     [:button (merge (level-attrs row (if is-ask? "Ask" "Bid") own-size)
+                     {:class (cond-> ["flex" "items-center" "w-full" "h-[23px]" "relative" "bg-base-100"
+                                      "text-xs" "text-left" "cursor-pointer" "orderbook-level-row"
+                                      "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-inset"
+                                      "focus-visible:ring-ho-accent"]
+                               flash-class (conj flash-class))
+                      :data-role "orderbook-level-row"})
       ;; Size bar background - always grows from the left
       (depth-bar row size-unit bar-color "origin-left" animate?)
+      (when own-size
+        (own-order-pip ["left-[2px]"]))
       ;; Content
       [:div {:class ["grid" orderbook-columns-class "w-full" "items-center" "pl-2" "pr-2" "relative" "z-10"]
              :data-role "orderbook-level-content-row"}
@@ -119,7 +147,9 @@
    (mobile-split-order-row row size-unit true))
   ([row size-unit animate?]
    (mobile-split-order-row row size-unit animate? nil nil))
-  ([{:keys [bid ask]} size-unit animate? bid-flash-version ask-flash-version]
+  ([row size-unit animate? bid-flash-version ask-flash-version]
+   (mobile-split-order-row row size-unit animate? bid-flash-version ask-flash-version nil nil))
+  ([{:keys [bid ask]} size-unit animate? bid-flash-version ask-flash-version bid-own-size ask-own-size]
    (let [bid-total (when bid (row-total-label bid size-unit))
          ask-total (when ask (row-total-label ask size-unit))
          bid-price (when bid (row-price-label bid))
@@ -149,4 +179,21 @@
        [:span {:class [ask-price-text-class "num"]} ask-price]]
       [:div {:class ["relative" "z-10" "text-right" "num-right"]
              :data-role "orderbook-mobile-ask-total-cell"}
-       [:span {:class [body-neutral-text-class "num"]} ask-total]]])))
+       [:span {:class [body-neutral-text-class "num"]} ask-total]]
+      ;; One tap target per half, over the cells, so either side sets the limit price.
+      (when bid
+        [:button (merge (level-attrs bid "Bid" bid-own-size)
+                        {:class ["absolute" "inset-y-0" "left-0" "z-20" "w-1/2" "cursor-pointer"
+                                 "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-inset"
+                                 "focus-visible:ring-ho-accent"]
+                         :data-role "orderbook-mobile-bid-level"})
+         (when bid-own-size
+           (own-order-pip ["left-[2px]"]))])
+      (when ask
+        [:button (merge (level-attrs ask "Ask" ask-own-size)
+                        {:class ["absolute" "inset-y-0" "right-0" "z-20" "w-1/2" "cursor-pointer"
+                                 "focus:outline-none" "focus-visible:ring-1" "focus-visible:ring-inset"
+                                 "focus-visible:ring-ho-accent"]
+                         :data-role "orderbook-mobile-ask-level"})
+         (when ask-own-size
+           (own-order-pip ["right-[2px]"]))])])))

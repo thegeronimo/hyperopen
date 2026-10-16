@@ -577,6 +577,7 @@
             [hyperopen.trading.order-form-tpsl-policy-test]
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.trading.order-form-transitions-update-test]
+            [hyperopen.trading.orderbook-price-pick-test]
             [hyperopen.ui.fonts-test]
             [hyperopen.ui.fx-test]
             [hyperopen.ui.preferences-test]
@@ -712,6 +713,7 @@
             [hyperopen.views.hip3-display-names-test]
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
+            [hyperopen.views.l2-orderbook.own-orders-test]
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
             [hyperopen.views.notifications-view-trade-confirmation-test]
@@ -1565,6 +1567,7 @@
              'hyperopen.trading.order-form-tpsl-policy-test
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.trading.order-form-transitions-update-test
+             'hyperopen.trading.orderbook-price-pick-test
              'hyperopen.ui.fonts-test
              'hyperopen.ui.fx-test
              'hyperopen.ui.preferences-test
@@ -1700,6 +1703,7 @@
              'hyperopen.views.hip3-display-names-test
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.l2-orderbook.depth-transition-test
+             'hyperopen.views.l2-orderbook.own-orders-test
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
              'hyperopen.views.notifications-view-trade-confirmation-test

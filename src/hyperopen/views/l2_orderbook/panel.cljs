@@ -12,7 +12,9 @@
                                                          resolve-base-symbol
                                                          resolve-quote-symbol
                                                          resolve-reference-price]]
+            [hyperopen.views.l2-orderbook.own-orders :as own-orders]
             [hyperopen.views.l2-orderbook.tabs :refer [orderbook-header]]
+            [hyperopen.websocket.orderbook-policy :as orderbook-policy]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
 (defn l2-orderbook-panel
@@ -25,6 +27,8 @@
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout]
    (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout true))
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook?]
+   (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? nil))
+  ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? open-orders]
    (let [size-unit (normalize-size-unit (:size-unit orderbook-ui))
          size-unit-dropdown-visible? (boolean (:size-unit-dropdown-visible? orderbook-ui))
          price-dropdown-visible? (boolean (:price-aggregation-dropdown-visible? orderbook-ui))
@@ -61,7 +65,16 @@
          level-flash-version (fn [side level]
                                (when (and level
                                           (contains? (get changed-levels side) (:px level)))
-                                 flash-version))]
+                                 flash-version))
+         own-sizes (when (seq open-orders)
+                     (own-orders/own-order-sizes open-orders
+                                                 (or desktop-bids (keep :bid mobile-pairs))
+                                                 (or desktop-asks (keep :ask mobile-pairs))
+                                                 (not= :full selected-mode)))
+         ;; "0.5 BTC" for a level holding the user's resting orders, else nil.
+         level-own-size (fn [side level]
+                          (when-let [size (and level (get-in own-sizes [side (:px level)]))]
+                            (str (orderbook-policy/format-total size :decimals 8) " " base-symbol)))]
      [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col" "num" "orderbook-panel-aligned"]}
       ;; Header
       (orderbook-header selected-option
@@ -85,14 +98,22 @@
                  :data-role "orderbook-asks-pane"}
            (for [ask desktop-asks]
              ^{:key (:row-key ask)}
-             (order-row ask size-unit animate-orderbook? (level-flash-version :asks ask)))]
+             (order-row ask
+                        size-unit
+                        animate-orderbook?
+                        (level-flash-version :asks ask)
+                        (level-own-size :asks ask)))]
           (when spread
             (spread-row spread))
           [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col" "gap-0.5"]
                  :data-role "orderbook-bids-pane"}
            (for [bid desktop-bids]
              ^{:key (:row-key bid)}
-             (order-row bid size-unit animate-orderbook? (level-flash-version :bids bid)))]]]
+             (order-row bid
+                        size-unit
+                        animate-orderbook?
+                        (level-flash-version :bids bid)
+                        (level-own-size :bids bid)))]]]
         [:div {:class (cond-> ["flex" "flex-1" "min-h-0" "flex-col" "lg:hidden"]
                         depth-dimmed? (conj "opacity-90"))
                :data-role "orderbook-mobile-split-panel"}
@@ -105,7 +126,9 @@
                                     size-unit
                                     animate-orderbook?
                                     (level-flash-version :bids (:bid split-row))
-                                    (level-flash-version :asks (:ask split-row))))]])])))
+                                    (level-flash-version :asks (:ask split-row))
+                                    (level-own-size :bids (:bid split-row))
+                                    (level-own-size :asks (:ask split-row))))]])])))
 
 ;; Empty state
 (defn empty-orderbook []

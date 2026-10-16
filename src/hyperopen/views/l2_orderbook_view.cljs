@@ -97,5 +97,6 @@
                                                                websocket-health
                                                                show-surface-freshness-cues?
                                                                layout
-                                                               animate-orderbook?)
+                                                               animate-orderbook?
+                                                               (:own-orders state))
            :else (panel/empty-orderbook))))]]))

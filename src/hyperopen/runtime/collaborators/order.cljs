@@ -39,6 +39,7 @@
    :focus-order-price-input order-actions/focus-order-price-input
    :blur-order-price-input order-actions/blur-order-price-input
    :set-order-price-to-mid order-actions/set-order-price-to-mid
+   :set-order-price-from-orderbook order-actions/set-order-price-from-orderbook
    :toggle-order-tpsl-panel order-actions/toggle-order-tpsl-panel
    :update-order-form order-actions/update-order-form
    :dismiss-order-feedback-toast order-actions/dismiss-order-feedback-toast

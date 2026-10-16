@@ -599,6 +599,7 @@
    :actions/focus-order-price-input ::common/no-args
    :actions/blur-order-price-input ::common/no-args
    :actions/set-order-price-to-mid ::common/no-args
+   :actions/set-order-price-from-orderbook (s/tuple ::common/non-empty-string)
    :actions/toggle-order-tpsl-panel ::common/no-args
    :actions/update-order-form (s/tuple ::common/state-path any?)
    :actions/dismiss-order-feedback-toast ::common/optional-string-args
