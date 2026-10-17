@@ -12,6 +12,7 @@
           :opt-un [::force? ::fast-poll-ms]))
 (s/def ::refresh-hyperevm-balances-args
   (s/tuple ::refresh-hyperevm-balances-opts))
+(s/def ::retry-hyperevm-balances-args empty?)
 (s/def ::token-index (s/and int? (complement neg?)))
 (s/def ::refresh-hyperevm-bridge-capacity-args
   (s/tuple ::token-index))
@@ -24,6 +25,7 @@
 
 (def hyperevm-action-args-spec-by-id
   {:actions/refresh-hyperevm-balances ::refresh-hyperevm-balances-args
+   :actions/retry-hyperevm-balances ::retry-hyperevm-balances-args
    :actions/refresh-hyperevm-bridge-capacity ::refresh-hyperevm-bridge-capacity-args
    :actions/check-hyperevm-in-flight ::check-hyperevm-in-flight-args
    :actions/set-balances-location-filter ::set-balances-location-filter-args})

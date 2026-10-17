@@ -59,4 +59,52 @@
   .account-info-tab-button-inactive {
     color: rgb(148 158 156);
   }
+
+  /* "Checking HyperEVM balances…": a light band sweeps across the muted
+     text while a read is pending, so the line reads as working, not stuck.
+     Same background-clip technique as the header's Optimize link. */
+  .ho-checking-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      rgb(var(--ho-text-muted)) 35%,
+      rgb(var(--ho-text-hi)) 50%,
+      rgb(var(--ho-text-muted)) 65%
+    );
+    background-size: 250% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ho-checking-shimmer 1.8s linear infinite;
+  }
+
+  @keyframes ho-checking-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+
+    to {
+      background-position: 0% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ho-checking-shimmer {
+      animation: ho-checking-pulse 2s ease-in-out infinite;
+      background-image: none;
+      color: rgb(var(--ho-text-muted));
+    }
+  }
+
+  @keyframes ho-checking-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.55;
+    }
+  }
 }

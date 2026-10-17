@@ -33,6 +33,7 @@
                    :core-system-balances {} :token-health {} :health-requested-at-ms nil}
           :in-flight {}
           :fast-poll-until-ms nil
+          :stalled-address nil
           :wallet-capabilities {}
           :core-account {}
           :backoff {:strikes 0 :until-ms nil}}
@@ -346,3 +347,21 @@
                                                :unread-token-indexes [197 999]}
                                               (conj queried 999) 401))]
         (is (= #{999} (:never-read-token-indexes (balances/entry newly owner))))))))
+
+(deftest first-read-pending-and-check-stalled-test
+  (is (true? (balances/first-read-pending? base-state)) "never read")
+  (is (false? (balances/check-stalled? base-state)) "pending, but not yet retried")
+  (let [stalled (assoc-in base-state [:hyperevm :stalled-address] owner)]
+    (is (true? (balances/check-stalled? stalled)))
+    (testing "a read that lands ends it"
+      (is (false? (balances/first-read-pending? (loaded stalled {:native-wei "1" :token-units {} :gas-price-wei "1"}))))
+      (is (false? (balances/check-stalled? (loaded stalled {:native-wei "1" :token-units {} :gas-price-wei "1"})))))
+    (testing "so does a failed one"
+      (let [failed (-> stalled
+                       (balances/apply-loading {:addresses [owner] :requested-at-ms 100})
+                       (balances/apply-error owner 100 {:message "down" :kind :network}))]
+        (is (false? (balances/first-read-pending? failed)))
+        (is (false? (balances/check-stalled? failed)))))
+    (testing "another shown account is not stalled by this mark"
+      (is (false? (balances/check-stalled?
+                   (assoc-in stalled [:hyperevm :stalled-address] "0x9999999999999999999999999999999999999999")))))))

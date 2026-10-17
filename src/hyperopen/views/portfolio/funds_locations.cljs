@@ -189,7 +189,9 @@
     (:value-text evm-model)]
    [:div {:class card-detail-classes
           :data-role "portfolio-funds-card-evm-detail"}
-    (:detail evm-model)
+    (if (:checking? evm-model)
+      [:span {:class ["ho-checking-shimmer"]} (:detail evm-model)]
+      (:detail evm-model))
     (gas-node (:gas evm-model))]])
 
 (def ^:private classic-grid-classes

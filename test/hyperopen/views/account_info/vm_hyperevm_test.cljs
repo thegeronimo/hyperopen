@@ -90,7 +90,11 @@
                           ["a retry of the failed first read in flight"
                            (hyperevm-balances/apply-loading
                             (fixture/with-evm-entry state {:status :error :stale? false :error "x"})
-                            {:addresses [fixture/owner] :requested-at-ms 5})]]]
+                            {:addresses [fixture/owner] :requested-at-ms 5})]
+                          ["first read stalled"
+                           (-> state
+                               (assoc-in [:hyperevm :balances :by-address] {})
+                               (assoc-in [:hyperevm :stalled-address] fixture/owner))]]]
     (testing label
       (let [full (vm/account-info-vm state*)
             projected (vm/account-info-vm (sliced state*))]

@@ -84,7 +84,9 @@
                                     status-line
                                     moves-blocked?))
          note-opts {:blocked-message hyperevm-moves-blocked-message
-                    :status-line status-line}
+                    :status-line status-line
+                    :checking? (location-filter/checking-status? hyperevm-status)
+                    :retry? (= :stalled hyperevm-status)}
          location-rows (balances-hyperevm/filter-rows-by-location rows* location-filter*)
          visible-rows (if hide-small?
                         (filter (fn [row]

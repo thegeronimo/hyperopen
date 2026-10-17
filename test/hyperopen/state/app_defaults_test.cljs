@@ -250,6 +250,7 @@
                      :core-system-balances {} :token-health {} :health-requested-at-ms nil}
             :in-flight {}
             :fast-poll-until-ms nil
+            :stalled-address nil
             :wallet-capabilities {}
             :core-account {}
             :backoff {:strikes 0 :until-ms nil}}

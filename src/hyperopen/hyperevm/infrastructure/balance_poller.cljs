@@ -34,7 +34,14 @@
    `in-flight-check-ms`, which reads each pending hash's receipt (one RPC
    call) until the transaction resolves and its entry is cleared. The gap
    widens as the move ages (`transfer-state/in-flight-check-interval-ms`):
-   a transaction replaced or dropped in the wallet never gets a receipt."
+   a transaction replaced or dropped in the wallet never gets a receipt.
+
+   Finally it watches for a check that never finishes: while a surface is up
+   and visible and the shown account's first read stays pending
+   (`balances/first-read-pending?`) for `check-stall-ms`, it dispatches
+   `:actions/retry-hyperevm-balances`, and again every `check-stall-ms`
+   until the read lands or fails. A read in flight times out on its own,
+   so this catches the case with no read in flight at all."
   (:require [hyperopen.hyperevm.domain.balances :as balances]
             [hyperopen.hyperevm.domain.bridge :as bridge]
             [hyperopen.hyperevm.domain.transfer-state :as transfer-state]
@@ -88,7 +95,8 @@
    interval instead of stacking another."
   [{:keys [store dispatch! now-ms-fn set-timeout-fn set-interval-fn clear-interval-fn
            visible?-fn enabled?-fn debounce-ms tick-ms interval-ms
-           capacity-refresh-index-fn capacity-retry-ms in-flight-check-ms]
+           capacity-refresh-index-fn capacity-retry-ms in-flight-check-ms
+           check-stall-ms]
     :or {now-ms-fn platform/now-ms
          set-timeout-fn platform/set-timeout!
          set-interval-fn platform/set-interval!
@@ -100,12 +108,16 @@
          interval-ms default-interval-ms
          capacity-refresh-index-fn (constantly nil)
          capacity-retry-ms bridge/core-capacity-retry-ms
-         in-flight-check-ms default-in-flight-check-ms}}]
+         in-flight-check-ms default-in-flight-check-ms
+         check-stall-ms balances/check-stall-ms}}]
   (let [pending? (atom false)
         last-fingerprint (atom ::none)
         last-poll-ms (atom nil)
         last-capacity-ms (atom nil)
         last-in-flight-ms (atom nil)
+        ;; {:address a :at-ms n}: since when the shown account's first
+        ;; read has been pending, as seen by this poller.
+        check-started (atom nil)
         refresh! (fn [opts]
                    (when (enabled?-fn)
                      (dispatch! store nil [[:actions/refresh-hyperevm-balances
@@ -132,6 +144,23 @@
                                        (>= (- now @last-in-flight-ms) gap-ms))
                                (reset! last-in-flight-ms now)
                                (dispatch! store nil [[:actions/check-hyperevm-in-flight]]))))
+        watch-check! (fn [state now]
+                       (let [address (balances/display-address state)
+                             pending? (and (enabled?-fn)
+                                           (visible?-fn)
+                                           (balances/surface-active? state)
+                                           (balances/first-read-pending? state))
+                             {started-address :address at-ms :at-ms} @check-started]
+                         (cond
+                           (not pending?)
+                           (reset! check-started nil)
+
+                           (not= address started-address)
+                           (reset! check-started {:address address :at-ms now})
+
+                           (>= (- now at-ms) check-stall-ms)
+                           (do (reset! check-started {:address address :at-ms now})
+                               (dispatch! store nil [[:actions/retry-hyperevm-balances]])))))
         tick! (fn []
                 (let [state @store
                       now (now-ms-fn)]
@@ -146,7 +175,8 @@
                     (do (reset! last-poll-ms now)
                         (refresh! {})))
                   (refresh-capacity! state now)
-                  (check-in-flight! state now)))]
+                  (check-in-flight! state now)
+                  (watch-check! state now)))]
     (stop-installed-timer!)
     (reset! installed-timer {:id (set-interval-fn tick! tick-ms)
                              :clear-interval-fn clear-interval-fn})

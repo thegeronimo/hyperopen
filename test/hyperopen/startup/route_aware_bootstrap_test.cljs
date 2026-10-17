@@ -109,13 +109,56 @@
           (.then
            (fn []
              (is (= [{:priority :high}] @context-fetches))
-             (is (= [{:phase :bootstrap}] @selector-fetches))
+             (is (= [{:phase :bootstrap} {:phase :full}] @selector-fetches)
+                 "a portfolio route needs spotMeta, so the full catalog follows")
              (is (= ["app:critical-data:ready"] @mark-calls))
              (done)))
           (.catch
            (fn [err]
              (is false (str "Unexpected critical bootstrap error: " err))
              (done)))))))
+
+(defn- bootstrap-selector-fetches
+  [state]
+  (let [store (atom state)
+        selector-fetches (atom [])]
+    (-> (startup-runtime/start-critical-bootstrap!
+         {:store store
+          :fetch-asset-contexts! (fn [_store _opts] (js/Promise.resolve :ctx))
+          :fetch-asset-selector-markets! (fn [_store opts]
+                                           (swap! selector-fetches conj opts)
+                                           (js/Promise.resolve :selector))
+          :mark-performance! (fn [_mark] nil)})
+        (.then (fn [_] @selector-fetches)))))
+
+(deftest start-critical-bootstrap-chases-spot-meta-the-post-paint-check-skipped-test
+  (async done
+    (-> (js/Promise.all
+         #js [(bootstrap-selector-fetches {:router {:path "/trade"}
+                                           :active-asset "BTC"
+                                           :active-market {:coin "BTC"}})
+              (bootstrap-selector-fetches {:router {:path "/trade"}
+                                           :active-asset "BTC"
+                                           :active-market {:coin "BTC"}
+                                           :spot {:meta {:tokens []}}})
+              (bootstrap-selector-fetches {:router {:path "/trade"}
+                                           :active-asset "BTC"
+                                           :active-market {:coin "BTC"}
+                                           :asset-selector {:loading? true}})
+              (bootstrap-selector-fetches {:router {:path "/vaults"}
+                                           :active-asset "BTC"
+                                           :active-market {:coin "BTC"}})])
+        (.then
+         (fn [[missing present in-flight other-route]]
+           (is (= [{:phase :bootstrap} {:phase :full}] missing)
+               "no spotMeta on /trade: fetch the full catalog")
+           (is (= [{:phase :bootstrap}] present) "spotMeta already loaded")
+           (is (= [{:phase :bootstrap}] in-flight) "a full load already running")
+           (is (= [{:phase :bootstrap}] other-route) "a route that does not need spotMeta")
+           (done)))
+        (.catch (fn [err]
+                  (is false (str err))
+                  (done))))))
 
 (deftest schedule-deferred-bootstrap-uses-timeout-delay-on-portfolio-performance-route-test
   (let [store (atom {:router {:path "/portfolio"}
@@ -180,7 +223,8 @@
           (.then
            (fn []
              (is (= [{:priority :high}] @context-fetches))
-             (is (= [{:phase :bootstrap}] @selector-fetches))
+             (is (= [{:phase :bootstrap} {:phase :full}] @selector-fetches)
+                 "/portfolio needs spotMeta, so the full catalog follows the bootstrap")
              (is (= ["app:critical-data:ready"] @mark-calls))
              (done)))
           (.catch
