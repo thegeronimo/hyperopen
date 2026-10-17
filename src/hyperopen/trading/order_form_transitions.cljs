@@ -184,7 +184,7 @@
                                             :inverse inverse
                                             :unit unit})))
 
-(defn- backfill-tpsl-triggers-from-offset-inputs
+(defn backfill-tpsl-triggers-from-offset-inputs
   [state form]
   (let [panel-open? (boolean (:tpsl-panel-open? (trading/order-form-ui-state state)))]
     (if (and panel-open?

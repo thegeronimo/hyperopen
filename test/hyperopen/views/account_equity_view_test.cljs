@@ -108,10 +108,10 @@
   (let [view-node (view/account-equity-view {:webdata2 {}
                                              :spot {}
                                              :perp-dex-clearinghouse {}})
-        title-node (find-first-node view-node #(contains? (direct-texts %) "Account Equity"))
         section-node (find-first-node view-node #(contains? (direct-texts %) "Perps Overview"))
         spot-label-node (find-first-node view-node #(contains? (direct-texts %) "Spot"))]
-    (is (contains? (node-class-set title-node) "text-trading-text"))
+    (testing "no redundant panel heading; Total Account Value leads the panel"
+      (is (nil? (find-first-node view-node #(contains? (direct-texts %) "Account Equity")))))
     (is (contains? (node-class-set section-node) "text-trading-text"))
     (is (contains? (node-class-set section-node) "font-semibold"))
     (is (contains? (node-class-set spot-label-node) "text-trading-text-secondary"))))
@@ -228,7 +228,7 @@
                                                        (:data-role (node-attrs %))))
         withdraw-button (find-first-node view-node #(= "funding-action-withdraw"
                                                        (:data-role (node-attrs %))))]
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Account Equity"))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Total Account Value"))))
     (is (nil? deposit-button))
     (is (nil? transfer-button))
     (is (nil? withdraw-button))))
@@ -253,7 +253,6 @@
     (is (nil? (:account-value-display metrics)))
     (is (nil? (:base-balance metrics)))
     (is (= "--" (get-in metrics [:pnl-info :text])))
-    (is (contains? strings "Account Equity"))
     (is (some? (find-first-node view-node #(contains? (direct-texts %) "Total Account Value"))))
     (is (>= (count (filter #(= "--" %) (collect-strings view-node))) 4))))
 
@@ -363,7 +362,7 @@
     (is (nil? deposit-button))
     (is (nil? transfer-button))
     (is (nil? withdraw-button))
-    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Account Equity"))))))
+    (is (some? (find-first-node view-node #(contains? (direct-texts %) "Total Account Value"))))))
 
 (deftest unified-account-summary-falls-back-to-placeholders-test
   (let [view-node (view/account-equity-view {:account {:mode :unified}

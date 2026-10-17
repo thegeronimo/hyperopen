@@ -3,6 +3,7 @@
             [hyperopen.state.trading :as trading]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.ui.voice :as voice]
+            [hyperopen.views.trade.book-impact :as book-impact]
             [hyperopen.views.degen.order-form :as degen-order-form]
             [hyperopen.views.trade.order-form-component-primitives :as primitives]
             [hyperopen.views.trade.order-form-component-sections :as sections]
@@ -275,6 +276,11 @@
 
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
+
+      (when-let [impact (when show-slippage-row? (book-impact/market-impact state))]
+        (book-impact/book-impact-card impact
+                                      (get-in state [:orderbooks (:active-asset state)])
+                                      base-symbol))
 
       (when spectate-mode-read-only?
         (feedback/spectate-mode-stop-affordance))

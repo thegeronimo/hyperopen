@@ -488,6 +488,8 @@
    :actions/toggle-orderbook-price-aggregation-dropdown ::common/no-args
    :actions/select-orderbook-price-aggregation ::common/keyword-or-string-args
    :actions/select-orderbook-tab ::common/tab-args
+   :actions/set-orderbook-hover-level (s/tuple ::common/keyword-or-string nat-int?)
+   :actions/clear-orderbook-hover-level ::common/no-args
    :actions/select-trade-mobile-surface ::common/tab-args
    :actions/toggle-trade-mobile-asset-details ::common/no-args
    :actions/toggle-market-info-panel ::common/no-args
@@ -605,6 +607,7 @@
    :actions/focus-order-price-input ::common/no-args
    :actions/blur-order-price-input ::common/no-args
    :actions/set-order-price-to-mid ::common/no-args
+   :actions/set-order-price-from-orderbook (s/tuple ::common/non-empty-string)
    :actions/toggle-order-tpsl-panel ::common/no-args
    :actions/update-order-form (s/tuple ::common/state-path any?)
    :actions/dismiss-order-feedback-toast ::common/optional-string-args

@@ -102,7 +102,6 @@
                       (when fill-height?
                         ["h-full"]))
          :data-parity-id "account-equity"}
-   [:div.text-sm.font-semibold.text-trading-text "Account Equity"]
    (when show-funding-actions?
      (funding-actions-view state))
 
