@@ -2,7 +2,8 @@
   (:require [cljs.spec.alpha :as s]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.funding-action-args :as funding-action-args]
-            [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]))
+            [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]
+            [hyperopen.schema.contracts.vault-screener-action-args :as vault-screener-action-args]))
 (s/def ::funding-history-filter-path (s/or :path ::common/state-path :key keyword?))
 (s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
 (s/def ::add-indicator-args (s/tuple keyword? map?))
@@ -422,6 +423,9 @@
    ::portfolio-optimizer-universe-search-keydown-args
    :actions/set-portfolio-optimizer-frontier-overlay-mode ::common/keyword-or-string-args
    :actions/set-portfolio-optimizer-constrain-frontier ::common/boolean-args
+   :actions/set-portfolio-optimizer-tear-sheet-option ::vault-screener-action-args/control-and-value-args
+   :actions/set-portfolio-optimizer-vault-funding-field ::vault-screener-action-args/control-and-value-args
+   :actions/portfolio-optimizer-vault-funding-command ::common/keyword-or-string-args
    :actions/set-portfolio-optimizer-results-tab ::common/tab-args
    :actions/set-portfolio-optimizer-selected-risk-instrument
    ::portfolio-optimizer-instrument-id-args
@@ -746,4 +750,5 @@
 (def action-args-spec-by-id
   (merge core-action-args-spec-by-id
          funding-action-args/funding-action-args-spec-by-id
-         hyperevm-action-args/hyperevm-action-args-spec-by-id))
+         hyperevm-action-args/hyperevm-action-args-spec-by-id
+         vault-screener-action-args/vault-screener-action-args-spec-by-id))

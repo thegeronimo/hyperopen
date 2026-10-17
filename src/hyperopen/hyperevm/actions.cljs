@@ -31,6 +31,27 @@
       fast-until (conj [:effects/save [:hyperevm :fast-poll-until-ms] fast-until])
       plan (conj [:effects/fetch-hyperevm-balances plan]))))
 
+(defn retry-hyperevm-balances
+  "Start the shown account's HyperEVM check again, from the Retry link or
+   the balance poller once it has been pending for
+   `balances/check-stall-ms`. It marks the check stalled (the note then
+   offers Retry), asks for the spot-inclusive catalog when spotMeta is
+   missing and nothing is loading it (no read can be planned without it),
+   and forces a read, which still respects the rate-limit backoff."
+  [state now-ms]
+  (let [address (account-context/normalize-address (balances/display-address state))
+        plan (balances/refresh-plan state now-ms {:force? true})]
+    (cond-> []
+      address
+      (conj [:effects/save [:hyperevm :stalled-address] address])
+
+      (and (nil? (get-in state [:spot :meta]))
+           (not (get-in state [:asset-selector :loading?])))
+      (conj [:effects/fetch-asset-selector-markets {:phase :full}])
+
+      plan
+      (conj [:effects/fetch-hyperevm-balances plan]))))
+
 (defn refresh-hyperevm-bridge-capacity
   "Fetch what a HyperEVM -> Core move of token `index` needs from HyperCore:
    the Core balance of the token's system address (HYPE's is 0x2222…; USDC

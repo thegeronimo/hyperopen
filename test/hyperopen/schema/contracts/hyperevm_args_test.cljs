@@ -53,6 +53,10 @@
   (is (not (action-valid? :actions/set-balances-location-filter ["hyperevm"])))
   (is (not (action-valid? :actions/set-balances-location-filter []))))
 
+(deftest retry-hyperevm-balances-args-test
+  (is (action-valid? :actions/retry-hyperevm-balances []))
+  (is (not (action-valid? :actions/retry-hyperevm-balances [1000]))))
+
 (deftest check-hyperevm-in-flight-args-test
   (is (action-valid? :actions/check-hyperevm-in-flight []))
   (is (not (action-valid? :actions/check-hyperevm-in-flight [owner]))))

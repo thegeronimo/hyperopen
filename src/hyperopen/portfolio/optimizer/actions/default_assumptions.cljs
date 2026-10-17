@@ -18,7 +18,8 @@
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
             [hyperopen.portfolio.optimizer.application.view-model.universe :as universe-vm]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
-            [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]))
+            [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]
+            [hyperopen.portfolio.optimizer.ids :as ids]))
 
 (defn- note-effect
   [kind message]
@@ -60,9 +61,14 @@
   ;; card. It must never touch an asset with real usable history.
   #{:none :short})
 
+(defn vault-details
+  [state instrument]
+  (default-assumptions/vault-details-for state instrument))
+
 (defn- recommendation-targets
-  "Entry-less workflow assets ({:instrument-id local :backend-id backend})
-  whose id passes `pred`, in universe order."
+  "Entry-less workflow assets ({:instrument-id local :backend-id backend}, or
+  {:instrument-id local :recommendation rec} for a vault the backend has no
+  recommendation for) whose id passes `pred`, in universe order."
   [state pred]
   (let [discovery (discovery-state state)
         assumptions (assumptions-map state)
@@ -81,11 +87,21 @@
                         adequacy (universe-vm/history-adequacy
                                   status state readiness instrument)]
                     (when (and id
-                               backend-id
                                (pred id)
                                (not (contains? assumptions id))
                                (contains? workflow-adequacies adequacy))
-                      {:instrument-id id :backend-id backend-id}))))
+                      (cond
+                        (default-assumptions/recommendation discovery backend-id)
+                        {:instrument-id id :backend-id backend-id}
+
+                        (ids/vault-instrument? instrument)
+                        (when-let [rec (default-assumptions/vault-own-history-recommendation
+                                        instrument
+                                        (vault-details state instrument))]
+                          {:instrument-id id :recommendation rec})
+
+                        backend-id
+                        {:instrument-id id :backend-id backend-id})))))
           (get-in state contracts/draft-universe-path))))
 
 (defn- plan-effects

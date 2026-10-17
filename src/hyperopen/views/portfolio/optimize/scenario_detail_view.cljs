@@ -1,5 +1,7 @@
 (ns hyperopen.views.portfolio.optimize.scenario-detail-view
-  (:require [hyperopen.portfolio.optimizer.application.view-model :as optimizer-view-model]
+  (:require [hyperopen.portfolio.optimizer.application.tear-sheet.model :as tear-sheet-model]
+            [hyperopen.portfolio.optimizer.application.vault-funding.model :as vault-funding-model]
+            [hyperopen.portfolio.optimizer.application.view-model :as optimizer-view-model]
             [hyperopen.portfolio.optimizer.application.view-model.equal-risk-results
              :as equal-risk-results]
             [hyperopen.portfolio.optimizer.application.view-model.inverse-volatility-results
@@ -16,6 +18,7 @@
             [hyperopen.views.portfolio.optimize.scenario-kpi-strip :as kpi-strip]
             [hyperopen.views.portfolio.optimize.scenario-objective-menu :as objective-menu]
             [hyperopen.views.portfolio.optimize.target-sigma :as target-sigma]
+            [hyperopen.views.portfolio.optimize.tear-sheet-card :as tear-sheet-card]
             [hyperopen.views.portfolio.optimize.tracking-panel :as tracking-panel]
             [nexus.registry :as nxr]))
 
@@ -46,7 +49,7 @@
            running?
            scenario-save-state
            refinement
-           rerun-blocked-reason]}]
+           rerun-blocked-reason] :as model}]
   (let [status (:status active-scenario)
         read-only? (true? (:read-only? active-scenario))
         running? (or running?
@@ -97,6 +100,7 @@
        ;; Back to the workspace: the scenario load already hydrated the draft
        ;; with this scenario's config, so the setup page opens editing it and
        ;; Save updates the same record.
+       (tear-sheet-card/header-link model)
        [:button {:type "button"
                  :class ["rounded-lg"
                          "border"
@@ -344,16 +348,24 @@
            ;; The covariance-only objectives get objective-specific verdict
            ;; copy (incl. Equal Risk's constraint-determined case) instead of
            ;; vol/return framing that implies a frontier choice was made.
-           deltas (if-let [body (or (equal-risk-results/verdict-body result)
-                                    (inverse-volatility-results/verdict-body result))]
-                    (assoc deltas* :objective-body body)
-                    deltas*)]
+           deltas (cond-> (if-let [body (or (equal-risk-results/verdict-body result)
+                                            (inverse-volatility-results/verdict-body result))]
+                            (assoc deltas* :objective-body body)
+                            deltas*)
+                    (vault-funding-model/all-vault-result? result)
+                    (assoc :vault-funding? true))
+           tear-sheet-card* (when (tear-sheet-model/vault-run? result)
+                              (tear-sheet-card/card state model))]
        (cond-> []
          ;; Lead with the plain-language verdict + the primary Review-trades CTA,
          ;; before the analyst diagnostics — the page's job is review-and-act, so the
          ;; action sits above the fold instead of after the results grid.
          true (conj (results-summary/verdict-headline deltas))
          running? (conj (recompute-banner optimization-progress))
+         ;; Runs that hold vaults get a hypothetical-performance card that
+         ;; opens the tear sheet; other runs are unchanged. Conj'd only when
+         ;; present: a nil hole among keyed siblings freezes the renderer.
+         tear-sheet-card* (conj tear-sheet-card*)
          true (conj (results-panel/results-panel
                      last-successful-run
                      draft

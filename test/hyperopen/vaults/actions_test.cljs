@@ -31,7 +31,8 @@
           [:effects/api-fetch-vault-summaries]
           [:effects/api-fetch-user-vault-equities "0x1234567890abcdef1234567890abcdef12345678"]]
          (actions/load-vaults
-          {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}})))
+          {:wallet {:address "0x1234567890abcdef1234567890abcdef12345678"}
+           :vaults {:saved-views-loaded? true :screener {:cache-index-loaded? true}}})))
   (is (= [[:effects/save [:vaults-ui :detail-loading?] true]
           [:effects/api-fetch-vault-details "0x1234567890abcdef1234567890abcdef12345678" "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"]
           [:effects/api-fetch-vault-webdata2 "0x1234567890abcdef1234567890abcdef12345678"]]

@@ -8,7 +8,10 @@
             [hyperopen.vaults.domain.identity :as identity]
             [hyperopen.vaults.domain.transfer-policy :as transfer-policy]
             [hyperopen.vaults.infrastructure.persistence :as persistence]
-            [hyperopen.vaults.infrastructure.routes :as routes]))
+            [hyperopen.vaults.infrastructure.routes :as routes]
+            [hyperopen.vaults.screener.commands :as screener-commands]
+            [hyperopen.vaults.screener.optimizer-handoff :as optimizer-handoff]
+            [hyperopen.vaults.screener.view-commands :as view-commands]))
 
 (def default-vault-snapshot-range ui-state/default-vault-snapshot-range)
 (def default-vault-sort-column ui-state/default-vault-sort-column)
@@ -82,6 +85,33 @@
 (def handle-vault-transfer-modal-keydown transfer-commands/handle-vault-transfer-modal-keydown)
 (def set-vault-transfer-amount transfer-commands/set-vault-transfer-amount)
 (def set-vault-transfer-withdraw-all transfer-commands/set-vault-transfer-withdraw-all)
+(def set-vaults-view screener-commands/set-vaults-view)
+(def set-vault-screener-control screener-commands/set-vault-screener-control)
+(def add-vault-screener-criterion screener-commands/add-vault-screener-criterion)
+(def remove-vault-screener-criterion screener-commands/remove-vault-screener-criterion)
+(def set-vault-screener-criterion-value screener-commands/set-vault-screener-criterion-value)
+(def apply-vault-screener-preset screener-commands/apply-vault-screener-preset)
+(def control-vault-screener-run screener-commands/control-vault-screener-run)
+
+(defn run-vault-screener
+  [state]
+  (screener-commands/run-vault-screener state))
+
+(def open-vault-save-view-dialog view-commands/open-vault-save-view-dialog)
+(def set-vault-save-view-field view-commands/set-vault-save-view-field)
+(def close-vault-save-view-dialog view-commands/close-vault-save-view-dialog)
+
+(defn save-vault-screener-view
+  [state]
+  (view-commands/save-vault-screener-view state))
+
+(defn select-vault-saved-view
+  ([state] (view-commands/select-vault-saved-view state nil))
+  ([state view-id] (view-commands/select-vault-saved-view state view-id)))
+
+(defn vault-saved-view-command
+  [state command]
+  (view-commands/vault-saved-view-command state command))
 
 (defn- current-route-vault-address
   [state]
@@ -156,3 +186,8 @@
 (defn submit-vault-transfer
   [state]
   (transfer-commands/submit-vault-transfer (transfer-command-deps) state))
+
+(def open-vault-optimizer-handoff optimizer-handoff/open-vault-optimizer-handoff)
+(def set-vault-optimizer-handoff-field optimizer-handoff/set-vault-optimizer-handoff-field)
+(def close-vault-optimizer-handoff optimizer-handoff/close-vault-optimizer-handoff)
+(def confirm-vault-optimizer-handoff optimizer-handoff/confirm-vault-optimizer-handoff)

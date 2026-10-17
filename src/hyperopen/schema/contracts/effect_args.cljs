@@ -68,6 +68,7 @@
               (<= 0 decimals 36)))))
 
 (s/def ::wallet-watch-asset-args wallet-watch-asset-args?)
+(s/def ::vault-screener-run-args (s/tuple ::common/non-negative-int))
 (s/def ::api-submit-vault-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-transfer-args (s/tuple ::api-submit-request))
 (s/def ::api-submit-funding-send-args (s/tuple ::api-submit-request))
@@ -395,6 +396,10 @@
    :effects/api-fetch-vault-order-history ::common/address-args
    :effects/api-fetch-vault-ledger-updates ::common/address-args
    :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
+   :effects/load-vault-screener-cache-index ::common/no-args
+   :effects/run-vault-screener ::vault-screener-run-args
+   :effects/load-vault-saved-views ::common/no-args
+   :effects/persist-vault-saved-views ::common/no-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args
@@ -430,6 +435,8 @@
    ::portfolio-optimizer-scenario-mutation-args
 	   :effects/save-portfolio-optimizer-scenario ::portfolio-optimizer-scenario-save-args
 	   :effects/execute-portfolio-optimizer-plan ::portfolio-optimizer-execution-plan-args
+   :effects/run-portfolio-optimizer-vault-funding ::common/no-args
+   :effects/fetch-portfolio-optimizer-vault-funding-limits ::common/no-args
 	   :effects/refresh-portfolio-optimizer-open-orders ::common/no-args
 	   :effects/refresh-portfolio-optimizer-tracking ::common/no-args
 	   :effects/refresh-portfolio-optimizer-rebalance-slippage-snapshots ::common/no-args

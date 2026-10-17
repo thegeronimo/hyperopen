@@ -244,3 +244,27 @@
       (is (= ["perps-usdc" "spot-0" "hyperevm-0" "spot-150" "hyperevm-150"] (sorted :asc)))
       (is (= ["spot-0" "perps-usdc" "hyperevm-0" "spot-150" "hyperevm-150"] (sorted :desc))
           "the HyperCore labels keep the sort's direction, as before"))))
+
+(deftest pending-check-shimmers-and-a-stalled-one-offers-retry-test
+  (let [unread (assoc-in state [:hyperevm :balances :by-address] {})
+        stalled (assoc-in unread [:hyperevm :stalled-address]
+                          (hyperevm-balances/display-address unread))
+        status (fn [content] (by-role content "balances-hyperevm-status"))
+        retry (fn [content] (by-role content "balances-hyperevm-retry"))]
+    (testing "pending: animated, no Retry yet"
+      (let [content (panel unread)]
+        (is (= ["Checking HyperEVM balances…"] (hiccup/collect-strings (status content))))
+        (is (contains? (class-set (status content)) "ho-checking-shimmer"))
+        (is (contains? (class-set (retry content)) "hidden"))))
+    (testing "stalled: still animated, and Retry restarts the check"
+      (let [content (panel stalled)]
+        (is (= ["Still checking HyperEVM balances…"] (hiccup/collect-strings (status content))))
+        (is (contains? (class-set (status content)) "ho-checking-shimmer"))
+        (is (not (contains? (class-set (retry content)) "hidden")))
+        (is (= [[:actions/retry-hyperevm-balances]] (click-actions (retry content))))))
+    (testing "a failed read is not animated"
+      (let [content (panel (fixture/with-evm-entry
+                            unread
+                            {:status :error :stale? false :error "down" :error-kind :network}))]
+        (is (not (contains? (class-set (status content)) "ho-checking-shimmer")))
+        (is (contains? (class-set (retry content)) "hidden"))))))

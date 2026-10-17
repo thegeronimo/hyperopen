@@ -50,4 +50,22 @@
    :handle-vault-transfer-modal-keydown vault-actions/handle-vault-transfer-modal-keydown
    :set-vault-transfer-amount vault-actions/set-vault-transfer-amount
    :set-vault-transfer-withdraw-all vault-actions/set-vault-transfer-withdraw-all
-   :submit-vault-transfer vault-actions/submit-vault-transfer})
+   :submit-vault-transfer vault-actions/submit-vault-transfer
+   :set-vaults-view vault-actions/set-vaults-view
+   :set-vault-screener-control vault-actions/set-vault-screener-control
+   :add-vault-screener-criterion vault-actions/add-vault-screener-criterion
+   :remove-vault-screener-criterion vault-actions/remove-vault-screener-criterion
+   :set-vault-screener-criterion-value vault-actions/set-vault-screener-criterion-value
+   :apply-vault-screener-preset vault-actions/apply-vault-screener-preset
+   :run-vault-screener vault-actions/run-vault-screener
+   :control-vault-screener-run vault-actions/control-vault-screener-run
+   :open-vault-save-view-dialog vault-actions/open-vault-save-view-dialog
+   :set-vault-save-view-field vault-actions/set-vault-save-view-field
+   :close-vault-save-view-dialog vault-actions/close-vault-save-view-dialog
+   :save-vault-screener-view vault-actions/save-vault-screener-view
+   :select-vault-saved-view vault-actions/select-vault-saved-view
+   :vault-saved-view-command vault-actions/vault-saved-view-command
+   :open-vault-optimizer-handoff vault-actions/open-vault-optimizer-handoff
+   :set-vault-optimizer-handoff-field vault-actions/set-vault-optimizer-handoff-field
+   :close-vault-optimizer-handoff vault-actions/close-vault-optimizer-handoff
+   :confirm-vault-optimizer-handoff vault-actions/confirm-vault-optimizer-handoff})

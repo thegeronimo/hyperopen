@@ -435,9 +435,18 @@
                ;; :active-market from it, and the trade form needs the market's
                ;; params — chase the full catalog immediately instead of
                ;; waiting for a demand path.
+               ;;
+               ;; The same goes for a route that needs spotMeta: the
+               ;; post-paint demand path checks while this bootstrap load is
+               ;; still in flight, sees it loading, and skips. Nothing else
+               ;; asks again, so without this spotMeta stays nil and the
+               ;; HyperEVM balance check never starts.
                (let [state @store]
-                 (when (and (some? (:active-asset state))
-                            (nil? (:active-market state)))
+                 (when (or (and (some? (:active-asset state))
+                                (nil? (:active-market state)))
+                           (route-refresh/spot-catalog-markets-needed?
+                            state
+                            (route-refresh/current-route-path state)))
                    (fetch-asset-selector-markets! store {:phase :full})))
                results))))
       (.finally

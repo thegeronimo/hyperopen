@@ -90,3 +90,27 @@
          (actions/set-balances-location-filter base-state :all)))
   (is (= [] (actions/set-balances-location-filter base-state :perps)))
   (is (= [] (actions/set-balances-location-filter base-state "hyperevm"))))
+
+(deftest retry-hyperevm-balances-marks-stalled-loads-spot-meta-and-forces-a-read-test
+  (testing "spotMeta present: mark stalled and force a read"
+    (is (= [[:effects/save [:hyperevm :stalled-address] owner]
+            [:effects/fetch-hyperevm-balances {:addresses [owner] :requested-at-ms 1000}]]
+           (actions/retry-hyperevm-balances
+            (balances/apply-loading base-state {:addresses [owner] :requested-at-ms 990})
+            1000))
+        "forced, so a read still loading does not block it"))
+  (testing "spotMeta missing: ask for the full catalog; no read can be planned yet"
+    (is (= [[:effects/save [:hyperevm :stalled-address] owner]
+            [:effects/fetch-asset-selector-markets {:phase :full}]]
+           (actions/retry-hyperevm-balances (assoc base-state :spot {}) 1000))))
+  (testing "a catalog load already running is not doubled"
+    (is (= [[:effects/save [:hyperevm :stalled-address] owner]]
+           (actions/retry-hyperevm-balances (-> base-state
+                                                (assoc :spot {})
+                                                (assoc-in [:asset-selector :loading?] true))
+                                            1000))))
+  (testing "the rate-limit backoff still holds"
+    (is (= [[:effects/save [:hyperevm :stalled-address] owner]]
+           (actions/retry-hyperevm-balances
+            (assoc-in base-state [:hyperevm :backoff] {:strikes 1 :until-ms 5000})
+            1000)))))

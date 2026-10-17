@@ -313,6 +313,13 @@
      :options-signature {:markets (:markets-signature market-result)
                          :vault-rows (:rows-signature vault-result)}}))
 
+(defn benchmark-options
+  "Every benchmark the vault page offers ({:value :label}): markets by open
+  interest, then the top vaults by TVL. Also used by the optimizer's
+  hypothetical tear sheet."
+  [state]
+  (:options (benchmark-selector-options-result state)))
+
 (defn- normalize-benchmark-search-query
   [value]
   (-> (or value "")

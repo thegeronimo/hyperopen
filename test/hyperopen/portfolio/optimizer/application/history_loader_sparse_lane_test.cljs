@@ -65,13 +65,15 @@
                (constantly true))]
       (is (= #{} ids)))))
 
-(deftest degenerate-all-sparse-universe-keeps-todays-behaviour-test
-  (testing "with no dense member there is no calendar to protect"
+(deftest all-sparse-universe-takes-the-lane-test
+  (testing "an all-vault universe is estimated pairwise, not by exact timestamps"
+    ;; Hyperliquid samples each vault at its own instants, so exact-timestamp
+    ;; alignment would peel every member; the lane needs no shared calendar.
     (let [ids (sparse-lane/off-calendar-ids
                [(row "vault:a" (spaced-points 31 13))
                 (row "vault:b" (spaced-points 40 11))]
                never-aligned)]
-      (is (= #{} ids)))))
+      (is (= #{"vault:a" "vault:b"} ids)))))
 
 (deftest lane-warning-is-descriptive-not-a-defect-test
   (let [cadence-by-id (sparse-lane/cadence-by-id

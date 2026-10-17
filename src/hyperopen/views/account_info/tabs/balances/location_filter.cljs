@@ -74,11 +74,13 @@
 
 (defn status-message
   "What the note says about a first HyperEVM read that is still pending
-   (`:loading`) or failed (`:unavailable`), or a read that left some token
-   never answered (`:partial`), else nil."
+   (`:loading`, or `:stalled` once the poller has retried it) or failed
+   (`:unavailable`), or a read that left some token never answered
+   (`:partial`), else nil."
   [hyperevm-status]
   (case hyperevm-status
     :loading (:checking-balances evm-transfer-preview/messages)
+    :stalled (:checking-balances-stalled evm-transfer-preview/messages)
     :unavailable (:balances-unavailable evm-transfer-preview/messages)
     :partial (:balances-partial evm-transfer-preview/messages)
     nil))
@@ -95,23 +97,47 @@
     :no-match no-match-message
     (or (status-message cause) "No HyperEVM balances.")))
 
+(defn checking-status?
+  "Whether `hyperevm-status` is a first read still pending, which the note
+   animates so it reads as working rather than stuck."
+  [hyperevm-status]
+  (contains? #{:loading :stalled} hyperevm-status))
+
 (defn- note-line
-  [data-role text]
+  [data-role text checking?]
   [:span {:class (cond-> ["mr-1"]
-                   (nil? text) (conj "hidden"))
+                   (nil? text) (conj "hidden")
+                   checking? (conj "ho-checking-shimmer"))
           :data-role data-role}
    (or text "")])
+
+(def ^:private retry-button-classes
+  ["mr-1" "bg-transparent" "p-0" "font-medium" "text-ho-accent-bright"
+   "hover:underline" "focus:outline-none" "focus-visible:underline"
+   "underline-offset-2"])
+
+(defn- retry-button
+  [data-role retry?]
+  [:button {:type "button"
+            :class (cond-> retry-button-classes
+                     (not retry?) (conj "hidden"))
+            :data-role data-role
+            :on {:click [[:actions/retry-hyperevm-balances]]}}
+   "Retry"])
 
 (defn hyperevm-note
   "The note under the table: `surface` `:desktop` (under the rows, 1024 px
    and up), `:mobile` (above the cards, below 1024 px) or `:any`. Always
    rendered, hidden by class unless `visible?` and it has something to say:
-   `:status-line` says a first HyperEVM read is pending or failed;
-   `:blocked-message` says why HyperEVM moves are unavailable for this
-   account, if they are."
-  [surface visible? {:keys [blocked-message status-line]}]
+   `:status-line` says a first HyperEVM read is pending or failed
+   (`:checking?` animates it while pending, and `:retry?` offers Retry once
+   it has stalled); `:blocked-message` says why HyperEVM moves are
+   unavailable for this account, if they are."
+  [surface visible? {:keys [blocked-message status-line checking? retry?]}]
   (let [mobile? (= :mobile surface)
         status-line (when visible? status-line)
+        checking? (and (some? status-line) (true? checking?))
+        retry? (and (some? status-line) (true? retry?))
         blocked-message (when visible? blocked-message)
         shown? (boolean (or status-line blocked-message))]
     [:div {:class (into ["shrink-0" "border-ho-border-accent-muted" "px-4" "text-xs"
@@ -123,7 +149,10 @@
                           :else ["border-t" "py-2.5"]))
            :data-role (if mobile? "balances-hyperevm-note-mobile" "balances-hyperevm-note")}
      (note-line (if mobile? "balances-hyperevm-status-mobile" "balances-hyperevm-status")
-                status-line)
+                status-line
+                checking?)
+     (retry-button (if mobile? "balances-hyperevm-retry-mobile" "balances-hyperevm-retry")
+                   retry?)
      [:span {:class (into ["text-ho-warn"]
                           (when-not blocked-message ["hidden"]))
              :data-role (if mobile?

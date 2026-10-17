@@ -231,14 +231,21 @@
     (let [discovery (get-in state contracts/history-discovery-path)
           backend-id (:optimizer-history/instrument-id
                       (history-api-v2/with-discovery-metadata instrument discovery))
-          rec (default-assumptions/recommendation discovery backend-id)]
+          rec (or (default-assumptions/recommendation discovery backend-id)
+                  (default-assumptions/vault-own-history-recommendation
+                   instrument
+                   (default-assumptions/vault-details-for state instrument)))]
       (when rec
         (let [{:keys [usable held]} (default-assumptions/member-availability
                                      discovery
                                      (:instrument-id instrument)
                                      (:members rec))]
           {:approach (:approach rec)
-           :approach-label (get recommendation-approach-labels (:approach rec))
+           :volatility (:volatility rec)
+           :max-weight (:max-weight rec)
+           :approach-label (if (= :vault-own-history (:source rec))
+                             "Use its own history"
+                             (get recommendation-approach-labels (:approach rec)))
            :members (into (mapv #(recommendation-member-row resolve-proxy-label true %)
                                 usable)
                           (mapv #(recommendation-member-row resolve-proxy-label false %)

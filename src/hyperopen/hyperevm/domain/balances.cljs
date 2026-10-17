@@ -48,6 +48,14 @@
    transaction that is dropped and never mined cannot stop polling for good."
   180000)
 
+(def check-stall-ms
+  "How long the first read of the shown account may stay pending before
+   the balance poller retries it and the UI offers a Retry. A read in
+   flight times out at `read-timeout-ms`, so a check pending this long
+   usually has no read in flight at all: something it needs (spotMeta, an
+   address) never arrived."
+  20000)
+
 (def rate-limit-backoff-ms
   "Pause after the 1st, 2nd and 3rd+ consecutive rate limit. The public RPC
    allows 100 requests per minute per IP, shared by every tab on that IP."
@@ -66,6 +74,7 @@
             :core-system-balances {} :token-health {} :health-requested-at-ms nil}
    :in-flight {}
    :fast-poll-until-ms nil
+   :stalled-address nil
    :wallet-capabilities {}
    :core-account {}
    :backoff {:strikes 0 :until-ms nil}})
@@ -218,6 +227,25 @@
   [state now-ms]
   (let [until (get-in state [:hyperevm :backoff :until-ms])]
     (and (number? until) (< now-ms until))))
+
+(defn first-read-pending?
+  "Whether the shown account's HyperEVM balances have never been read and
+   no read of them has failed: what the UI shows as \"Checking…\"."
+  [state]
+  (when-let [address (display-address state)]
+    (let [entry* (entry state address)]
+      (and (not (read? entry*))
+           (not (first-read-failed? entry*))))))
+
+(defn check-stalled?
+  "Whether the pending first read of the shown account has outlasted
+   `check-stall-ms`: the balance poller marks it by saving the address at
+   `[:hyperevm :stalled-address]` when it retries."
+  [state]
+  (boolean
+   (and (first-read-pending? state)
+        (= (account-context/normalize-address (display-address state))
+           (get-in state [:hyperevm :stalled-address])))))
 
 (defn- due?
   "Whether `entry*` needs a read: never requested, or requested at least

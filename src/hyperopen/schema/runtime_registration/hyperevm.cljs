@@ -13,6 +13,7 @@
 
 (def action-binding-rows
   [[:actions/refresh-hyperevm-balances :refresh-hyperevm-balances]
+   [:actions/retry-hyperevm-balances :retry-hyperevm-balances]
    [:actions/refresh-hyperevm-bridge-capacity :refresh-hyperevm-bridge-capacity]
    [:actions/check-hyperevm-in-flight :check-hyperevm-in-flight]
    [:actions/set-balances-location-filter :set-balances-location-filter]])

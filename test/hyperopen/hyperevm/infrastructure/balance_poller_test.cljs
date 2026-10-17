@@ -77,7 +77,8 @@
     (is (= [[:actions/refresh-hyperevm-balances {:now-ms 2000}]] @dispatched))))
 
 (deftest interval-refreshes-every-30-seconds-on-an-active-visible-surface-test
-  (let [{:keys [now dispatched interval visible?] :as h} (harness)]
+  ;; Nothing is read here, so the stall watchdog is pushed out of the way.
+  (let [{:keys [now dispatched interval visible?] :as h} (harness {:check-stall-ms 1e9})]
     (is (= 4000 (second @interval)) "one 4 s tick drives both cadences")
     (reset! now 1000)
     (tick! h)
@@ -241,3 +242,38 @@
       (reset! now 200000)
       (tick! h)
       (is (= 4 (count (checks)))))))
+
+(deftest a-check-pending-for-20-seconds-is-retried-until-it-lands-test
+  (let [{:keys [store now dispatched visible?] :as h} (harness)
+        retries #(filterv (fn [[id]] (= :actions/retry-hyperevm-balances id)) @dispatched)]
+    (reset! now 1000)
+    (tick! h)
+    (reset! now 17000)
+    (tick! h)
+    (is (= [] (retries)) "not before 20 s")
+    (reset! now 21000)
+    (tick! h)
+    (is (= [[:actions/retry-hyperevm-balances]] (retries)))
+    (reset! now 25000)
+    (tick! h)
+    (is (= 1 (count (retries))) "the next retry waits another 20 s")
+    (reset! now 41000)
+    (tick! h)
+    (is (= 2 (count (retries))))
+    (testing "a hidden page is not retried, and the clock restarts on return"
+      (reset! visible? false)
+      (reset! now 70000)
+      (tick! h)
+      (reset! visible? true)
+      (reset! now 74000)
+      (tick! h)
+      (is (= 2 (count (retries)))))
+    (testing "once the read lands nothing more is retried"
+      (swap! store #(-> %
+                        (balances/apply-loading {:addresses [owner] :requested-at-ms 74000})
+                        (balances/apply-success owner 74000
+                                                {:native-wei "1" :token-units {} :gas-price-wei "1"}
+                                                #{} 75000)))
+      (reset! now 120000)
+      (tick! h)
+      (is (= 2 (count (retries)))))))

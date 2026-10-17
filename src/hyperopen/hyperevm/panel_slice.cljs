@@ -36,6 +36,9 @@
      its first read is left out.
      Its gas price is kept only when it lifts the native-HYPE gas reserve
      above the reserve's floor, the one thing the table derives from it.
+   - `:stalled-address` is kept when it is the shown account, so
+     `balances/check-stalled?` (the note's \"Still checking…\" and Retry)
+     answers the same; it changes at most once per stalled check.
    - Bridge health is kept as is (it settles after the first read).
    - Only the HyperEVM system balances whose Core -> EVM capacity is zero
      are kept: the table asks whether a token's bridge side is empty, never
@@ -115,5 +118,8 @@
                                                 (not= :loading (projected-status entry)))
                                          {address (projected-entry entry)}
                                          {})}
+                :stalled-address (when (and address
+                                            (= address (get-in state [:hyperevm :stalled-address])))
+                                   address)
                 :bridge {:token-health (or (get-in state [:hyperevm :bridge :token-health]) {})
                          :evm-system-units (empty-bridge-units state)}}}))

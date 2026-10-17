@@ -155,7 +155,10 @@
               :detail "Some HyperEVM balances are unavailable right now."
               :gas nil}
     {:value-text loading-text
-     :detail "Checking HyperEVM balances…"
+     :detail (if (= :stalled status)
+               "Still checking HyperEVM balances…"
+               "Checking HyperEVM balances…")
+     :checking? true
      :gas nil}))
 
 ;; --- total -------------------------------------------------------------------

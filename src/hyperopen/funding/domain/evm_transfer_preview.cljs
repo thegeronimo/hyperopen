@@ -45,6 +45,7 @@
    :in-flight transfer-state/in-flight-message
    :meta-missing "Token details haven't loaded yet. Try again in a moment."
    :checking-balances "Checking HyperEVM balances…"
+   :checking-balances-stalled "Still checking HyperEVM balances…"
    :balances-unavailable "HyperEVM balances are unavailable right now."
    :balances-partial "Some HyperEVM balances couldn't be read. Retrying…"
    :checking-spot "Checking your Spot balances…"

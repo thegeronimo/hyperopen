@@ -410,7 +410,7 @@
                       (assoc option :stroke (get color-by-coin value)))
                     (or options []))))))
 
-(defn- chart-legend [series]
+(defn chart-legend [series]
   (let [visible-series (->> series
                             (filter :has-data?)
                             vec)]
@@ -464,16 +464,50 @@
                                                                      hover
                                                                      series)))))
 
-(defn chart-section
+(defn chart-plot
+  "Y-axis ticks and the d3 host for a chart map. Shared with the optimizer's
+  hypothetical tear sheet so both draw through the same chart runtime."
   [chart]
   (let [axis-kind (:axis-kind chart)
         y-ticks (:y-ticks chart)
-        selected-series (:selected-series chart)
         series (:series chart)
         d3-spec (vault-d3-spec chart)
-        returns-benchmark* (add-benchmark-chip-colors (:returns-benchmark chart) series)
         y-axis-width (y-axis-gutter-width axis-kind y-ticks)
         plot-left (+ y-axis-width 10)]
+    [:div {:class ["relative" "mt-3" "h-[260px]"]}
+     [:div {:class ["absolute" "left-0" "top-0" "bottom-0"]
+            :style {:width (str y-axis-width "px")}}
+      (for [{:keys [value y-ratio]} y-ticks]
+        ^{:key (str "vault-chart-tick-" y-ratio "-" value)}
+        [:span {:class ["absolute" "right-2" "-translate-y-1/2" "num" "text-right" "text-xs" "text-ho-text-muted"]
+                :style {:top (str (* 100 y-ratio) "%")}}
+         (format-chart-axis-value axis-kind value)])
+      [:div {:class ["absolute"
+                     "right-0"
+                     "top-0"
+                     "bottom-0"
+                     "border-l"
+                     "border-ho-border-accent"]}]
+      (for [{:keys [y-ratio]} y-ticks]
+        ^{:key (str "vault-chart-axis-tick-" y-ratio)}
+        [:div {:class ["absolute"
+                       "right-0"
+                       "w-1.5"
+                       "border-t"
+                       "border-ho-border-accent"]
+               :style {:top (str (* 100 y-ratio) "%")}}])]
+     [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
+            :style {:left (str plot-left "px")}
+            :data-role "vault-detail-chart-plot-area"}
+      [:div {:class ["h-full" "w-full"]
+             :data-role "vault-detail-chart-d3-host"
+             :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]))
+
+(defn chart-section
+  [chart]
+  (let [selected-series (:selected-series chart)
+        series (:series chart)
+        returns-benchmark* (add-benchmark-chip-colors (:returns-benchmark chart) series)]
     [:section {:class ["rounded-2xl"
                        "border"
                        "border-[#1b393a]"
@@ -497,40 +531,7 @@
                               :custom (:custom-range chart)
                               :data-role-prefix "vault-detail-chart-timeframe"})]]
      [:div {:class ["space-y-2"]}
-      [:div {:class ["relative" "mt-3" "h-[260px]"]}
-       [:div {:class ["absolute" "left-0" "top-0" "bottom-0"]
-              :style {:width (str y-axis-width "px")}}
-        (for [{:keys [value y-ratio]} y-ticks]
-          ^{:key (str "vault-chart-tick-" y-ratio "-" value)}
-          [:span {:class ["absolute"
-                          "right-2"
-                          "-translate-y-1/2"
-                          "num"
-                          "text-right"
-                          "text-xs"
-                          "text-ho-text-muted"]
-                  :style {:top (str (* 100 y-ratio) "%")}}
-           (format-chart-axis-value axis-kind value)])
-        [:div {:class ["absolute"
-                       "right-0"
-                       "top-0"
-                       "bottom-0"
-                       "border-l"
-                       "border-ho-border-accent"]}]
-        (for [{:keys [y-ratio]} y-ticks]
-          ^{:key (str "vault-chart-axis-tick-" y-ratio)}
-          [:div {:class ["absolute"
-                         "right-0"
-                         "w-1.5"
-                         "border-t"
-                         "border-ho-border-accent"]
-                 :style {:top (str (* 100 y-ratio) "%")}}])]
-       [:div {:class ["absolute" "right-2" "top-0" "bottom-0" "cursor-crosshair"]
-              :style {:left (str plot-left "px")}
-              :data-role "vault-detail-chart-plot-area"}
-        [:div {:class ["h-full" "w-full"]
-               :data-role "vault-detail-chart-d3-host"
-               :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]
+      (chart-plot chart)
       (chart-legend series)
       (when (= selected-series :returns)
         (returns-benchmark-chip-rail returns-benchmark*))

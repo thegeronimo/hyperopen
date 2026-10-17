@@ -109,3 +109,17 @@
                                                             (fn [& _] nil)))]
         (is (= "BTC" (:symbol legend)))
         (is (nil? (:display-symbol legend)))))))
+
+(deftest chart-legend-shows-the-spot-pair-not-its-wire-coin-test
+  (chart-derived-cache/reset-derived-cache!)
+  (binding [chart-derived-cache/*process-candle-data* (fn [_] [])]
+    (let [hype {:key "spot:@107" :coin "@107" :symbol "HYPE/USDC" :base "HYPE" :quote "USDC"
+                :market-type :spot :dex nil}
+          legend (:legend-meta (chart-vm/chart-view-model (chart-state "@107" hype) (fn [& _] nil)))]
+      (is (= "@107" (:symbol legend)) "the chart stays keyed on the coin")
+      (is (= "HYPE/USDC" (:display-symbol legend))))
+    (testing "a perp without a display name keeps its coin"
+      (let [btc {:key "perp:BTC" :coin "BTC" :symbol "BTC-USDC" :market-type :perp}
+            legend (:legend-meta (chart-vm/chart-view-model (chart-state "BTC" btc) (fn [& _] nil)))]
+        (is (= "BTC" (:symbol legend)))
+        (is (nil? (:display-symbol legend)))))))

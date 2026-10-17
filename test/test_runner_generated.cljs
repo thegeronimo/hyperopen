@@ -271,6 +271,7 @@
             [hyperopen.portfolio.montecarlo.engine-test]
             [hyperopen.portfolio.optimizer.actions-test]
             [hyperopen.portfolio.optimizer.actions.execution-margin-rec-test]
+            [hyperopen.portfolio.optimizer.actions.vault-handoff-test]
             [hyperopen.portfolio.optimizer.application.assumption-library-test]
             [hyperopen.portfolio.optimizer.application.black-litterman-calibration-test]
             [hyperopen.portfolio.optimizer.application.black-litterman-editor-model-test]
@@ -342,11 +343,15 @@
             [hyperopen.portfolio.optimizer.application.setup-readiness-served-observations-test]
             [hyperopen.portfolio.optimizer.application.setup-readiness-test]
             [hyperopen.portfolio.optimizer.application.setup-readiness-warning-policy-test]
+            [hyperopen.portfolio.optimizer.application.tear-sheet-backtest-test]
+            [hyperopen.portfolio.optimizer.application.tear-sheet-model-test]
             [hyperopen.portfolio.optimizer.application.tracking-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-cache-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test]
             [hyperopen.portfolio.optimizer.application.universe-search-test]
+            [hyperopen.portfolio.optimizer.application.vault-funding-plan-test]
+            [hyperopen.portfolio.optimizer.application.vault-history-window-test]
             [hyperopen.portfolio.optimizer.application.view-library-test]
             [hyperopen.portfolio.optimizer.application.view-model-error-contract-test]
             [hyperopen.portfolio.optimizer.application.view-model-facade-test]
@@ -457,6 +462,7 @@
             [hyperopen.portfolio.optimizer.universe-from-holdings-actions-test]
             [hyperopen.portfolio.optimizer.universe-keyboard-test]
             [hyperopen.portfolio.optimizer.universe-search-actions-test]
+            [hyperopen.portfolio.optimizer.vault-funding-actions-test]
             [hyperopen.portfolio.optimizer.view-library-actions-test]
             [hyperopen.portfolio.optimizer.worker-test]
             [hyperopen.portfolio.query-state-test]
@@ -501,6 +507,7 @@
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-scenarios-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-vault-funding-test]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-view-library-test]
             [hyperopen.runtime.effect-adapters.referrals-test]
             [hyperopen.runtime.effect-adapters.staking-test]
@@ -624,6 +631,13 @@
             [hyperopen.vaults.infrastructure.routes-test]
             [hyperopen.vaults.infrastructure.user-equity-poller-test]
             [hyperopen.vaults.route-runtime-module-test]
+            [hyperopen.vaults.screener.commands-test]
+            [hyperopen.vaults.screener.metrics-test]
+            [hyperopen.vaults.screener.model-test]
+            [hyperopen.vaults.screener.optimizer-handoff-test]
+            [hyperopen.vaults.screener.runner-test]
+            [hyperopen.vaults.screener.saved-views-test]
+            [hyperopen.vaults.screener.view-commands-test]
             [hyperopen.views.account-equity-aggregate-test]
             [hyperopen.views.account-equity-hyperevm-total-test]
             [hyperopen.views.account-equity-parity-test]
@@ -795,6 +809,7 @@
             [hyperopen.views.portfolio.optimize.tracking-panel-test]
             [hyperopen.views.portfolio.optimize.universe-panel-test]
             [hyperopen.views.portfolio.optimize.unsaved-draft-route-test]
+            [hyperopen.views.portfolio.optimize.vault-funding-sheet-test]
             [hyperopen.views.portfolio.optimize.view-test]
             [hyperopen.views.portfolio.optimize.volatility-intuition-card-test]
             [hyperopen.views.portfolio.optimize.workspace-view-test]
@@ -911,6 +926,7 @@
             [hyperopen.views.vaults.detail.transfer-modal-test]
             [hyperopen.views.vaults.list-view-test]
             [hyperopen.views.vaults.route-shell-test]
+            [hyperopen.views.vaults.screener-view-test]
             [hyperopen.views.vaults.startup-preview-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
@@ -1269,6 +1285,7 @@
              'hyperopen.portfolio.montecarlo.engine-test
              'hyperopen.portfolio.optimizer.actions-test
              'hyperopen.portfolio.optimizer.actions.execution-margin-rec-test
+             'hyperopen.portfolio.optimizer.actions.vault-handoff-test
              'hyperopen.portfolio.optimizer.application.assumption-library-test
              'hyperopen.portfolio.optimizer.application.black-litterman-calibration-test
              'hyperopen.portfolio.optimizer.application.black-litterman-editor-model-test
@@ -1340,11 +1357,15 @@
              'hyperopen.portfolio.optimizer.application.setup-readiness-served-observations-test
              'hyperopen.portfolio.optimizer.application.setup-readiness-test
              'hyperopen.portfolio.optimizer.application.setup-readiness-warning-policy-test
+             'hyperopen.portfolio.optimizer.application.tear-sheet-backtest-test
+             'hyperopen.portfolio.optimizer.application.tear-sheet-model-test
              'hyperopen.portfolio.optimizer.application.tracking-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-cache-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test
              'hyperopen.portfolio.optimizer.application.universe-search-test
+             'hyperopen.portfolio.optimizer.application.vault-funding-plan-test
+             'hyperopen.portfolio.optimizer.application.vault-history-window-test
              'hyperopen.portfolio.optimizer.application.view-library-test
              'hyperopen.portfolio.optimizer.application.view-model-error-contract-test
              'hyperopen.portfolio.optimizer.application.view-model-facade-test
@@ -1455,6 +1476,7 @@
              'hyperopen.portfolio.optimizer.universe-from-holdings-actions-test
              'hyperopen.portfolio.optimizer.universe-keyboard-test
              'hyperopen.portfolio.optimizer.universe-search-actions-test
+             'hyperopen.portfolio.optimizer.vault-funding-actions-test
              'hyperopen.portfolio.optimizer.view-library-actions-test
              'hyperopen.portfolio.optimizer.worker-test
              'hyperopen.portfolio.query-state-test
@@ -1499,6 +1521,7 @@
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-scenarios-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-tracking-test
+             'hyperopen.runtime.effect-adapters.portfolio-optimizer-vault-funding-test
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-view-library-test
              'hyperopen.runtime.effect-adapters.referrals-test
              'hyperopen.runtime.effect-adapters.staking-test
@@ -1622,6 +1645,13 @@
              'hyperopen.vaults.infrastructure.routes-test
              'hyperopen.vaults.infrastructure.user-equity-poller-test
              'hyperopen.vaults.route-runtime-module-test
+             'hyperopen.vaults.screener.commands-test
+             'hyperopen.vaults.screener.metrics-test
+             'hyperopen.vaults.screener.model-test
+             'hyperopen.vaults.screener.optimizer-handoff-test
+             'hyperopen.vaults.screener.runner-test
+             'hyperopen.vaults.screener.saved-views-test
+             'hyperopen.vaults.screener.view-commands-test
              'hyperopen.views.account-equity-aggregate-test
              'hyperopen.views.account-equity-hyperevm-total-test
              'hyperopen.views.account-equity-parity-test
@@ -1793,6 +1823,7 @@
              'hyperopen.views.portfolio.optimize.tracking-panel-test
              'hyperopen.views.portfolio.optimize.universe-panel-test
              'hyperopen.views.portfolio.optimize.unsaved-draft-route-test
+             'hyperopen.views.portfolio.optimize.vault-funding-sheet-test
              'hyperopen.views.portfolio.optimize.view-test
              'hyperopen.views.portfolio.optimize.volatility-intuition-card-test
              'hyperopen.views.portfolio.optimize.workspace-view-test
@@ -1909,6 +1940,7 @@
              'hyperopen.views.vaults.detail.transfer-modal-test
              'hyperopen.views.vaults.list-view-test
              'hyperopen.views.vaults.route-shell-test
+             'hyperopen.views.vaults.screener-view-test
              'hyperopen.views.vaults.startup-preview-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test

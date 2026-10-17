@@ -391,11 +391,13 @@
           {:asset-selector {:phase :full}
            :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize")))
+  ;; A scenario route also fetches HLP for the hypothetical-performance card.
   (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]
           [:effects/load-portfolio-optimizer-history-discovery]
           [:effects/load-portfolio-optimizer-constraint-profiles]
           [:effects/load-portfolio-optimizer-view-library]
-          [:effects/load-portfolio-optimizer-assumption-library]]
+          [:effects/load-portfolio-optimizer-assumption-library]
+          [:effects/api-fetch-vault-benchmark-details "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"]]
          (actions/load-portfolio-optimizer-route
           {:asset-selector {:phase :full}
            :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
@@ -444,7 +446,8 @@
           [:effects/api-fetch-vault-summaries]
           [:effects/load-portfolio-optimizer-constraint-profiles]
           [:effects/load-portfolio-optimizer-view-library]
-          [:effects/load-portfolio-optimizer-assumption-library]]
+          [:effects/load-portfolio-optimizer-assumption-library]
+          [:effects/api-fetch-vault-benchmark-details "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303"]]
          (actions/load-portfolio-optimizer-route
           {:asset-selector {:phase :full}
            :vaults {}}

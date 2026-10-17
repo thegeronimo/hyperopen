@@ -58,7 +58,8 @@
            page-size-dropdown-open?
            loading?
            refreshing?
-           error]}]
+           error
+           member-set]}]
   (let [sort-column (vault-ui-state/normalize-vault-sort-column (:column sort-state))
         sort-direction (if (= :asc (:direction sort-state)) :asc :desc)
         cache @vault-list-model-cache]
@@ -75,9 +76,12 @@
              (= preview-state (:preview-state cache))
              (= loading? (:loading? cache))
              (= refreshing? (:refreshing? cache))
-             (= error (:error cache)))
+             (= error (:error cache))
+             (= member-set (:member-set cache)))
       (:model cache)
       (let [visible-rows (->> parsed-rows
+                              (filter #(or (nil? member-set)
+                                           (contains? member-set (:vault-address %))))
                               (filter #(filtering/include-vault-row? % {:query query
                                                                         :filters filters}))
                               (#(filtering/sort-rows % {:column sort-column
@@ -121,5 +125,6 @@
                                         :loading? loading?
                                         :refreshing? refreshing?
                                         :error error
+                                        :member-set member-set
                                         :model model})
         model))))

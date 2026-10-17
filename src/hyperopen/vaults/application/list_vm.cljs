@@ -2,13 +2,26 @@
   (:require [hyperopen.vaults.application.list-vm.cache :as cache]
             [hyperopen.vaults.application.list-vm.preview :as preview]
             [hyperopen.vaults.application.list-vm.rows :as rows]
-            [hyperopen.vaults.application.ui-state :as vault-ui-state]))
+            [hyperopen.vaults.application.ui-state :as vault-ui-state]
+            [hyperopen.vaults.screener.view-commands :as view-commands]))
 
 (defn- snapshot-range-keys
   [snapshot-range]
   (rows/snapshot-range-keys snapshot-range))
 
 (declare vault-list-vm)
+
+(defn- with-view-metrics
+  "Inside a saved view, each row carries the view's stored metric values so
+  the table can show them next to the live columns."
+  [model active-view]
+  (if-let [metrics (:metrics-by-address active-view)]
+    (let [attach (fn [rows*] (mapv #(assoc % :view-metrics (get metrics (:vault-address %))) rows*))]
+      (-> model
+          (update :protocol-rows attach)
+          (update :visible-user-rows attach)
+          (assoc :active-view active-view)))
+    model))
 
 (defn reset-vault-list-vm-cache! []
   (cache/reset-cache!))
@@ -34,6 +47,7 @@
                            (assoc-in [:vaults-ui :user-vaults-page-size] vault-ui-state/default-vault-user-page-size)
                            (assoc-in [:vaults-ui :user-vaults-page] vault-ui-state/default-vault-user-page)
                            (assoc-in [:vaults-ui :user-vaults-page-size-dropdown-open?] false)
+                           (assoc-in [:vaults-ui :active-saved-view] nil)
                            (assoc-in [:vaults :startup-preview] nil))
          live-rows (preview/live-rows-source startup-state)]
      (when (seq live-rows)
@@ -94,6 +108,7 @@
          list-error (or (get-in state [:vaults :errors :index])
                         (get-in state [:vaults :errors :summaries]))
          page-size-dropdown-open? (true? (get-in state [:vaults-ui :user-vaults-page-size-dropdown-open?]))
+         active-view (view-commands/active-view state)
          model-context {:query query
                         :snapshot-range snapshot-range
                         :filters filters
@@ -104,7 +119,9 @@
                         :preview-state preview-state*
                         :loading? loading?
                         :refreshing? refreshing?
-                        :error list-error}]
+                        :error list-error
+                        :member-set (some-> active-view :members set)}]
      (if (:previewing? preview-state*)
        (preview/preview-vault-list-model preview-record model-context)
-       (cache/cached-vault-list-model parsed-rows model-context)))))
+       (with-view-metrics (cache/cached-vault-list-model parsed-rows model-context)
+                          active-view)))))

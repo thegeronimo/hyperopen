@@ -90,8 +90,11 @@
    once, `:partial` while that read left some token never answered (its
    rows are unknown, not absent), `:unavailable` when the first read failed
    (and while a retry of it runs, so the copy does not flip on every
-   retry), else `:loading`. With no account shown there is nothing to wait
-   for, so it is `:ready` (and empty)."
+   retry), `:stalled` when that first read has been pending so long the
+   balance poller retried it (`hyperevm-balances/check-stalled?`), else
+   `:loading`. Readers that only know `:loading` treat `:stalled` as not
+   ready yet. With no account shown there is nothing to wait for, so it is
+   `:ready` (and empty)."
   [state]
   (if-let [address (display-address state)]
     (let [entry (hyperevm-balances/entry state address)]
@@ -100,6 +103,7 @@
                                         :partial
                                         :ready)
         (hyperevm-balances/first-read-failed? entry) :unavailable
+        (hyperevm-balances/check-stalled? state) :stalled
         :else :loading))
     :ready))
 

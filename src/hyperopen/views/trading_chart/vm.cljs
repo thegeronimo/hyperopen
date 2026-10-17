@@ -113,13 +113,16 @@
       :fill-markers fill-markers})))
 
 (defn- legend-display-symbol
-  "`xyz:HO` -> `xyz:DIESEL` when Hyperliquid has a display name for the market."
+  "`xyz:HO` -> `xyz:DIESEL` when Hyperliquid has a display name for the market;
+  a spot pair's wire coin (`@107`) -> its pair (`HYPE/USDC`)."
   [active-asset active-market]
-  (when-let [display-name (and (= active-asset (:coin active-market))
-                               (some-> (:display-name active-market) str not-empty))]
-    (if-let [dex (some-> (:dex active-market) str not-empty)]
-      (str dex ":" display-name)
-      display-name)))
+  (when (= active-asset (:coin active-market))
+    (if-let [display-name (some-> (:display-name active-market) str not-empty)]
+      (if-let [dex (some-> (:dex active-market) str not-empty)]
+        (str dex ":" display-name)
+        display-name)
+      (when (= :spot (:market-type active-market))
+        (some-> (:symbol active-market) str not-empty)))))
 
 (def ^:private memoized-legend-meta
   (memoize-last

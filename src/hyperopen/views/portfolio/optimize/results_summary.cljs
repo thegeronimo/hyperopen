@@ -75,9 +75,12 @@
   what the next screen actually is instead of over-promising execution. Falls back
   to \"Review trades\" when the sendable count is zero (all-blocked plans still
   deserve a path in to see why) or unknown."
-  [{:keys [at-target? trade-count]}]
-  (let [no-trades? (true? at-target?)
+  [{:keys [at-target? trade-count vault-funding?]}]
+  (let [no-trades? (and (true? at-target?) (not vault-funding?))
         label (cond
+                ;; An all-vault run is funded with vault deposits and withdrawals,
+                ;; never orders, so the forward action opens the funding sheet.
+                vault-funding? "Fund this allocation"
                 no-trades? "Already at target"
                 (and (opt-format/finite-number? trade-count) (pos? trade-count))
                 (str "Review " trade-count (if (= 1 trade-count) " trade" " trades"))
@@ -91,14 +94,19 @@
                              ["border-base-300" "bg-base-200/30" "text-trading-muted"]
                              ["optimizer-verdict-cta--live"
                               "border-primary/50" "bg-primary/10" "text-primary" "hover:bg-primary/30"]))
-              :data-role "portfolio-optimizer-recommendation-rebalance-cta"
-              :on {:click [[:actions/open-portfolio-optimizer-execution]]}}
+              :data-role (if vault-funding?
+                           "portfolio-optimizer-vault-funding-cta"
+                           "portfolio-optimizer-recommendation-rebalance-cta")
+              :on {:click (if vault-funding?
+                            [[:actions/portfolio-optimizer-vault-funding-command :open]]
+                            [[:actions/open-portfolio-optimizer-execution]])}}
      [:span {:class ["optimizer-verdict-cta-label" "text-[0.8125rem]" "font-bold" "tracking-wide"]}
       label]
      [:span {:class ["optimizer-verdict-cta-tip"]}
-      (if no-trades?
-        "Your current allocation already matches the target — no trades needed."
-        "Opens the Execution tab to review the staged trades — nothing is sent until you arm and confirm there.")]
+      (cond
+        vault-funding? "Plan deposits into (and withdrawals from) these vaults to match the target — nothing is sent until you confirm."
+        no-trades? "Your current allocation already matches the target — no trades needed."
+        :else "Opens the Execution tab to review the staged trades — nothing is sent until you arm and confirm there.")]
      [:span {:class ["text-sm" "font-semibold"] :aria-hidden "true"} "→"]]))
 
 (defn verdict-headline
@@ -115,7 +123,7 @@
   objective-specific copy (Equal Risk supplies its balance framing, including
   the constraint-determined case)."
   [{:keys [target-vol vol-delta target-return return-delta trade-count
-           blocked-count at-target? objective-body]}]
+           blocked-count at-target? objective-body vault-funding?]}]
   (let [vol-clause (if (opt-format/finite-number? vol-delta)
                      (str "estimated volatility " (opt-format/format-pct target-vol)
                           " (" (opt-format/format-pct-delta vol-delta) " vs current)")
@@ -127,6 +135,7 @@
         body (or objective-body
                  (str "Targets " vol-clause " and " return-clause "."))
         trades-clause (cond
+                        vault-funding? "Vaults are funded with deposits and withdrawals, not orders."
                         (not (opt-format/finite-number? trade-count)) nil
                         ;; Sendable trades only. An all-blocked plan is NOT "at
                         ;; target" — its trades exist but can't be sent yet.
@@ -155,7 +164,7 @@
          [:p {:class ["mt-1" "text-[0.75rem]" "text-trading-muted"]
               :data-role "portfolio-optimizer-recommendation-verdict-trades"}
           trades-clause])]
-      (verdict-cta {:at-target? at-target? :trade-count trade-count})]]))
+      (verdict-cta {:at-target? at-target? :trade-count trade-count :vault-funding? vault-funding?})]]))
 
 (defn- target-shape
   "Long/short counts and the largest |target weight| position, from the solved target
