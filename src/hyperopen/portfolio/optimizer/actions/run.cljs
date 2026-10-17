@@ -4,6 +4,7 @@
             [hyperopen.portfolio.optimizer.actions.default-assumptions :as default-assumptions-actions]
             [hyperopen.portfolio.optimizer.application.run-identity :as run-identity]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
+            [hyperopen.portfolio.optimizer.application.tear-sheet.model :as tear-sheet-model]
             [hyperopen.portfolio.optimizer.application.tear-sheet.sources :as tear-sheet-sources]
             [hyperopen.portfolio.optimizer.black-litterman-actions.common :as bl-common]
             [hyperopen.portfolio.optimizer.black-litterman-actions.editor-model :as bl-editor-model]
@@ -223,9 +224,14 @@
             [:effects/load-portfolio-optimizer-view-library]
             [:effects/load-portfolio-optimizer-assumption-library])
 
-      ;; The hypothetical tear sheet compares against HLP and BTC.
-      (= :tear-sheet (:view route))
-      (into (tear-sheet-sources/benchmark-fetch-effects state)))))
+      ;; The Recommendation tab's hypothetical-performance card compares
+      ;; against HLP; the tear sheet against the user's picked benchmarks.
+      (= :optimize-scenario (:kind route))
+      (into (tear-sheet-sources/benchmark-fetch-effects
+             state
+             (if (= :tear-sheet (:view route))
+               (:compare (tear-sheet-model/options state))
+               [(tear-sheet-sources/hlp-value)]))))))
 
 (defn archive-portfolio-optimizer-scenario
   [_state scenario-id]

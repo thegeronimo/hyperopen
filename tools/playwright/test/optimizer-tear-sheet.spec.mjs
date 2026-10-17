@@ -158,6 +158,15 @@ test.describe("hypothetical tear sheet", () => {
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-range-three-month']").click();
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-return']")).not.toHaveText(oneYear);
 
+    // Benchmarks are removable chips; Equal weight can be added back.
+    const compare = sheet.locator("[data-role='portfolio-optimizer-tear-sheet-compare']");
+    await expect(compare.locator("[data-role='portfolio-optimizer-tear-sheet-benchmark-chip-equal-weight']")).toBeVisible();
+    await compare.getByRole("button", { name: "Remove Equal weight" }).click();
+    await expect(compare.locator("[data-role='portfolio-optimizer-tear-sheet-benchmark-chip-equal-weight']")).toHaveCount(0);
+    await compare.locator("[data-role='portfolio-optimizer-tear-sheet-add-equal-weight']").click();
+    await expect(compare.locator("[data-role='portfolio-optimizer-tear-sheet-benchmark-chip-equal-weight']")).toBeVisible();
+    await expect(compare.locator("[data-role='portfolio-optimizer-tear-sheet-benchmark-search']")).toBeEditable();
+
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-tab-holdings']").click();
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-holding-row']")).toHaveCount(2);
 

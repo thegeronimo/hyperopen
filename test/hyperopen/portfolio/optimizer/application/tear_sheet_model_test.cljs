@@ -75,7 +75,8 @@
     (is (= :strategy (:id (first (:raw-series m)))))
     (is (= ["equal-weight"] (keep :coin (rest (:raw-series m))))
         "HLP is selected but not loaded, so only equal weight is drawn")
-    (is (false? (:available? (some #(when (= :hlp (:key %)) %) (:benchmarks m)))))
+    (is (false? (:available? (some #(when (= (sources/hlp-value) (:value %)) %) (:benchmarks m))))
+        "HLP stays a chip, marked loading")
     (testing "the vault is sampled every few days over 1Y, so path metrics are estimated"
       (is (true? (:sparse? m)))
       (let [rows (mapcat :rows (get-in m [:metrics :groups]))
@@ -96,13 +97,30 @@
   (is (= "/portfolio/optimize/scn-1/tear-sheet" (routes/portfolio-optimize-tear-sheet-path "scn-1")))
   (is (routes/portfolio-optimize-route? "/portfolio/optimize/scn-1/tear-sheet")))
 
+(defn- save
+  [k v]
+  [:effects/save (conj contracts/ui-tear-sheet-path k) v])
+
 (deftest set-option-action-test
-  (is (= [[:effects/save (conj contracts/ui-tear-sheet-path :range) :two-year]]
+  (is (= [(save :range :two-year)]
          (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :range "two-year")))
-  (is (= [[:effects/save (conj contracts/ui-tear-sheet-path :benchmarks) #{:equal-weight :hlp :btc}]]
-         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :toggle-benchmark :btc)))
-  (is (= [[:effects/save (conj contracts/ui-tear-sheet-path :benchmarks) #{:equal-weight}]]
-         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :toggle-benchmark :hlp)))
+  (testing "adding any market or vault saves it, clears the search and fetches its history"
+    (is (= [(save :compare [(sources/hlp-value) "ETH"])
+            (save :benchmark-search "")
+            (save :benchmark-open? false)
+            [:effects/fetch-candle-snapshot :coin "ETH" :interval :1d :bars sources/benchmark-candle-bars]]
+           (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :add-benchmark "ETH")))
+    (is (= [(save :benchmark-search "")]
+           (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :add-benchmark (sources/hlp-value)))
+        "already picked"))
+  (is (= [(save :compare [])]
+         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :remove-benchmark (sources/hlp-value))))
+  (is (= [(save :benchmark-search "so") (save :benchmark-open? true)]
+         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :benchmark-search "so")))
+  (is (= [(save :benchmark-open? false)]
+         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :benchmark-key "Escape")))
+  (is (= [(save :show-all-weights? true)]
+         (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :show-all-weights? true)))
   (is (= [[:effects/save (conj contracts/ui-tear-sheet-path :profit-share?) false]]
          (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :profit-share? false)))
   (is (= [] (tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option {} :range :decade)))
@@ -110,12 +128,29 @@
 
 (deftest benchmark-fetch-effects-test
   (is (= [[:effects/api-fetch-vault-benchmark-details sources/hlp-address]
-          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1d :bars sources/btc-candle-bars]]
-         (sources/benchmark-fetch-effects {})))
+          [:effects/fetch-candle-snapshot :coin "BTC" :interval :1d :bars sources/benchmark-candle-bars]]
+         (sources/benchmark-fetch-effects {} [(sources/hlp-value) "BTC" "BTC"])))
   (is (= [] (sources/benchmark-fetch-effects
              {:candles {"BTC" {:1d [{:t 1 :c 2}]}}
               :vaults {:benchmark-details-by-address
-                       {sources/hlp-address {:portfolio {:all-time (summary 40 5)}}}}}))))
+                       {sources/hlp-address {:portfolio {:all-time (summary 40 5)}}}}}
+             [(sources/hlp-value) "BTC"]))))
+
+(deftest any-market-benchmark-test
+  (let [st (-> (state)
+               (assoc-in contracts/ui-tear-sheet-path {:compare ["ETH"]})
+               (assoc-in [:candles "ETH" :1d]
+                         (mapv (fn [d] {:t (- now-ms (* d day-ms)) :c (str (+ 3000 d))}) (range 400 -1 -1)))
+               (assoc-in [:asset-selector :markets] [{:coin "ETH" :symbol "ETH-USDC" :market-type :perp}]))
+        m (model/backtest-model st result (model/options st))]
+    (is (= ["equal-weight" "ETH"] (keep :coin (rest (:raw-series m)))))
+    (is (true? (:available? (some #(when (= "ETH" (:value %)) %) (:benchmarks m)))))
+    (testing "search offers markets not yet picked"
+      (let [search (model/benchmark-search-model
+                    (assoc-in st [:asset-selector :markets] [{:coin "ETH" :symbol "ETH-USDC"} {:coin "SOL" :symbol "SOL-USDC"}])
+                    (assoc (model/options st) :benchmark-search "so"))]
+        (is (= ["SOL"] (mapv :value (:candidates search))))
+        (is (= "SOL" (:top-value search)))))))
 
 (deftest entry-points-only-for-vault-runs-test
   (let [model {:scenario-id "draft" :result result}

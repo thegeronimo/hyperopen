@@ -6,15 +6,18 @@
             [hyperopen.portfolio.optimizer.application.history-loader.normalization :as normalization]
             [hyperopen.portfolio.optimizer.application.tear-sheet.backtest :as backtest]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
-            [hyperopen.portfolio.optimizer.ids :as ids]))
+            [hyperopen.portfolio.optimizer.ids :as ids]
+            [hyperopen.vaults.detail.types :as detail-types]))
 
 (def hlp-address
   "Hyperliquidity Provider, the protocol vault used as a vault benchmark."
   "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303")
 
-(def btc-candle-interval :1d)
+(def benchmark-candle-interval
+  "Daily candles for market benchmarks."
+  :1d)
 
-(def btc-candle-bars
+(def benchmark-candle-bars
   ;; Covers the 2Y range and all but the oldest vaults' full lives.
   1100)
 
@@ -95,16 +98,6 @@
                 (get-in (history-data state) [:candle-history-by-coin (coin-of instrument-id)])))
        :fee-rate 0})))
 
-(defn hlp-rows
-  [state]
-  (if-let [details (vault-details state hlp-address)]
-    (stitched-vault-rows details)
-    []))
-
-(defn hlp-fee-rate
-  [state]
-  (fee-rate (vault-details state hlp-address)))
-
 (defn- candle-rows
   [value]
   (loop [v value depth 0]
@@ -113,24 +106,41 @@
       (and (map? v) (< depth 4)) (recur (or (:rows v) (:data v) (:candles v)) (inc depth))
       :else [])))
 
-(defn btc-rows
-  [state]
+(defn hlp-value
+  []
+  (detail-types/vault-benchmark-value hlp-address))
+
+(defn- market-rows
+  [state coin]
   (let [rows (normalization/normalize-candle-history
-              (candle-rows (get-in state [:candles "BTC" btc-candle-interval])))]
-    (if (seq rows)
-      rows
-      (normalization/normalize-candle-history
-       (get-in (history-data state) [:candle-history-by-coin "BTC"])))))
+              (candle-rows (get-in state [:candles coin benchmark-candle-interval])))]
+    (cond
+      (seq rows) rows
+      (seq (api-rows state (str "perp:" coin))) (api-rows state (str "perp:" coin))
+      :else (normalization/normalize-candle-history
+             (get-in (history-data state) [:candle-history-by-coin coin])))))
+
+(defn benchmark-rows
+  "{:rows :fee-rate} for a benchmark value as the vault page spells it: a
+  market coin (\"BTC\") or a vault benchmark value."
+  [state value]
+  (if-let [address (detail-types/vault-benchmark-address value)]
+    (let [details (vault-details state address)]
+      {:rows (if details (stitched-vault-rows details) [])
+       :fee-rate (fee-rate details)})
+    {:rows (market-rows state value)
+     :fee-rate 0}))
 
 (defn benchmark-fetch-effects
-  "Fetches for benchmarks that are not in state yet."
-  [state]
-  (cond-> []
-    (empty? (hlp-rows state))
-    (conj [:effects/api-fetch-vault-benchmark-details hlp-address])
-
-    (empty? (get-in state [:candles "BTC" btc-candle-interval]))
-    (conj [:effects/fetch-candle-snapshot
-           :coin "BTC"
-           :interval btc-candle-interval
-           :bars btc-candle-bars])))
+  "Fetches for the benchmark `values` that are not in state yet."
+  [state values]
+  (into []
+        (keep (fn [value]
+                (when (empty? (:rows (benchmark-rows state value)))
+                  (if-let [address (detail-types/vault-benchmark-address value)]
+                    [:effects/api-fetch-vault-benchmark-details address]
+                    [:effects/fetch-candle-snapshot
+                     :coin value
+                     :interval benchmark-candle-interval
+                     :bars benchmark-candle-bars]))))
+        (distinct values)))

@@ -7,6 +7,8 @@
             [hyperopen.portfolio.optimizer.application.tear-sheet.sources :as sources]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.portfolio.optimizer.ids :as ids]
+            [clojure.string :as str]
+            [hyperopen.vaults.detail.benchmarks :as vault-benchmarks]
             [hyperopen.vaults.detail.performance :as performance]))
 
 (def ranges
@@ -17,12 +19,18 @@
    {:value :two-year :label "2Y" :days 730}
    {:value :all-time :label "All" :days nil}])
 
-(def benchmark-defs
-  [{:key :equal-weight :coin "equal-weight" :label "Equal weight" :stroke "#9aa7ad"}
-   {:key :hlp :coin "hlp" :label "HLP" :stroke "#4fd1c1"}
-   {:key :btc :coin "btc" :label "BTC" :stroke "#e2b545"}])
+(def equal-weight-value "equal-weight")
+
+(def equal-weight-stroke "#9aa7ad")
+
+(def benchmark-strokes
+  ["#4fd1c1" "#e2b545" "#7cc2ff" "#ff9d7c" "#8be28b" "#f2a7d8"])
 
 (def strategy-stroke "#a493ff")
+
+(def max-compare
+  "Picked benchmarks besides equal weight."
+  5)
 
 (def defaults
   {:range :one-year
@@ -30,8 +38,15 @@
    :rebalance :daily
    :missing :spread
    :profit-share? true
-   :benchmarks #{:equal-weight :hlp}
+   :equal-weight? true
+   :compare [(sources/hlp-value)]
+   :benchmark-search ""
+   :benchmark-open? false
+   :show-all-weights? false
    :tab :metrics})
+
+(def boolean-options
+  #{:profit-share? :equal-weight? :benchmark-open? :show-all-weights?})
 
 (def option-values
   {:range (set (map :value ranges))
@@ -56,8 +71,9 @@
     (reduce-kv (fn [acc k v]
                  (let [allowed (get option-values k)]
                    (cond
-                     (= k :benchmarks) (assoc acc k (if (set? v) v (:benchmarks defaults)))
-                     (= k :profit-share?) (assoc acc k (boolean v))
+                     (= k :compare) (assoc acc k (if (vector? v) (vec (take max-compare (filter string? v))) (:compare defaults)))
+                     (= k :benchmark-search) (assoc acc k (if (string? v) v ""))
+                     (contains? boolean-options k) (assoc acc k (boolean v))
                      (and allowed (contains? allowed v)) (assoc acc k v)
                      :else acc)))
                defaults
@@ -112,15 +128,62 @@
                    :missing :common
                    :profit-share? (:profit-share? opts)})))
 
+(defn benchmark-options
+  "{:value :label} for every benchmark the vault page offers."
+  [state]
+  (vault-benchmarks/benchmark-options state))
+
+(defn- label-by-value
+  [state]
+  (into {equal-weight-value "Equal weight"} (map (juxt :value :label)) (benchmark-options state)))
+
 (defn- benchmark-runs
+  "{value run} for equal weight (when on) and each picked benchmark."
   [state legs opts win]
   (let [k (count legs)]
-    {:equal-weight (when (> k 1)
-                     (backtest/run (merge win
-                                          (select-keys opts [:rebalance :missing :profit-share?])
-                                          {:legs (mapv #(assoc % :weight (/ 1 k)) legs)})))
-     :hlp (single-leg-run :hlp (sources/hlp-rows state) (sources/hlp-fee-rate state) opts win)
-     :btc (single-leg-run :btc (sources/btc-rows state) 0 {:profit-share? false} win)}))
+    (cond-> (into {}
+                  (map (fn [value]
+                         (let [{:keys [rows fee-rate]} (sources/benchmark-rows state value)]
+                           [value (single-leg-run value rows fee-rate opts win)])))
+                  (:compare opts))
+      (and (:equal-weight? opts) (> k 1))
+      (assoc equal-weight-value
+             (backtest/run (merge win
+                                  (select-keys opts [:rebalance :missing :profit-share?])
+                                  {:legs (mapv #(assoc % :weight (/ 1 k)) legs)}))))))
+
+(defn- benchmark-entries
+  "Chips in display order with label, colour and data availability."
+  [state opts benches]
+  (let [labels (label-by-value state)]
+    (into (if (:equal-weight? opts)
+            [{:value equal-weight-value :label "Equal weight" :stroke equal-weight-stroke
+              :builtin? true :available? (boolean (seq (:rows (get benches equal-weight-value))))}]
+            [])
+          (map-indexed (fn [i value]
+                         {:value value
+                          :label (str/replace (get labels value value) #" \(VAULT\)$" "")
+                          :stroke (nth benchmark-strokes (mod i (count benchmark-strokes)))
+                          :available? (boolean (seq (:rows (get benches value))))}))
+          (:compare opts))))
+
+(defn benchmark-search-model
+  "The compare search box: candidates matching the query, minus picks."
+  [state opts]
+  (let [query (str/lower-case (str/trim (or (:benchmark-search opts) "")))
+        picked (set (:compare opts))
+        candidates (->> (benchmark-options state)
+                        (remove #(contains? picked (:value %)))
+                        (filter #(or (str/blank? query)
+                                     (str/includes? (str/lower-case (str (:label %))) query)
+                                     (str/includes? (str/lower-case (str (:value %))) query)))
+                        (take 40)
+                        vec)]
+    {:query (:benchmark-search opts)
+     :open? (:benchmark-open? opts)
+     :full? (>= (count picked) max-compare)
+     :candidates candidates
+     :top-value (:value (first candidates))}))
 
 (defn- points
   [rows]
@@ -174,19 +237,18 @@
                                    {:legs legs})))]
     (when (seq (:rows run))
       (let [benches (benchmark-runs state legs opts win)
-            selected (filterv #(and (contains? (:benchmarks opts) (:key %))
-                                    (seq (:rows (get benches (:key %)))))
-                              benchmark-defs)
+            entries (benchmark-entries state opts benches)
+            selected (filterv :available? entries)
             coverage (leg-coverage legs (assoc win :start-ms (:start-ms run)) (:contribution run))
             sparse-weight (reduce + 0 (keep (fn [{:keys [gap-days weight]}]
                                               (when (and (number? gap-days) (> gap-days sparse-gap-days))
                                                 (js/Math.abs weight)))
                                             coverage))
             metrics (performance/performance-metrics-model
-                     {:selected-coins (mapv :coin selected)
-                      :label-by-coin (into {} (map (juxt :coin :label)) selected)}
+                     {:selected-coins (mapv :value selected)
+                      :label-by-coin (into {} (map (juxt :value :label)) selected)}
                      (:rows run)
-                     (into {} (map (fn [{:keys [key coin]}] [coin (:rows (get benches key))])) selected))
+                     (into {} (map (fn [{:keys [value]}] [value (:rows (get benches value))])) selected))
             strategy-rows (if (= :drawdown (:mode opts))
                             (backtest/drawdown-rows (:rows run))
                             (:rows run))
@@ -197,21 +259,17 @@
          :sparse? (pos? sparse-weight)
          :sparse-weight sparse-weight
          :max-gap-days (reduce max 0 (keep :gap-days coverage))
-         :benchmarks (mapv (fn [{:keys [key] :as b}]
-                             (assoc b
-                                    :on? (contains? (:benchmarks opts) key)
-                                    :available? (boolean (seq (:rows (get benches key))))))
-                           benchmark-defs)
+         :benchmarks entries
          :raw-series (into [{:id :strategy
                              :label "This target"
                              :stroke strategy-stroke
                              :raw-points (points strategy-rows)}]
-                           (map-indexed (fn [i {:keys [key label stroke]}]
+                           (map-indexed (fn [i {:keys [value label stroke]}]
                                           {:id (keyword (str "benchmark-" i))
-                                           :coin (name key)
+                                           :coin value
                                            :label label
                                            :stroke stroke
-                                           :raw-points (points (series-rows (:rows (get benches key))))}))
+                                           :raw-points (points (series-rows (:rows (get benches value))))}))
                            selected)
          :metrics (update metrics :groups with-estimated-rows (pos? sparse-weight))}))))
 
@@ -221,11 +279,14 @@
 (defn- cache-key
   [state result opts]
   {:result (select-keys result [:instrument-ids :target-weights])
-   :opts opts
+   ;; Typing in the compare search must not recompute the backtest.
+   :opts (if (map? opts) (dissoc opts :benchmark-search :benchmark-open? :show-all-weights?) opts)
    :universe (get-in state contracts/draft-universe-path)
    :history (get-in state contracts/history-data-path)
-   :hlp (get-in state [:vaults :benchmark-details-by-address sources/hlp-address])
-   :btc (get-in state [:candles "BTC" sources/btc-candle-interval])})
+   :vault-benchmarks (get-in state [:vaults :benchmark-details-by-address])
+   :candles (into {}
+                  (map (fn [v] [v (get-in state [:candles v sources/benchmark-candle-interval])]))
+                  (if (map? opts) (:compare opts) []))})
 
 (defn backtest-model
   "Memoized backtest + metrics for `result` under `opts` (nil when no leg has
@@ -256,7 +317,7 @@
   "The Recommendation tab's compact card: the default method over 1Y."
   [state result]
   (when (vault-run? result)
-    (let [opts (assoc defaults :range :one-year :mode :returns)
+    (let [opts (assoc defaults :range :one-year :mode :returns :compare [(sources/hlp-value)])
           model (backtest-model state result opts)]
       {:model model
        :stats (when model (hero-stats model))

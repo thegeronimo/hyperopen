@@ -31,7 +31,7 @@
   (:label (some #(when (= value (:value %)) %) tear-sheet/ranges)))
 
 (defn- chart-section
-  [model opts]
+  [model opts search]
   (let [{:keys [series y-ticks points]} (chart-model/build-chart-model
                                          {:selected-series :returns
                                           :raw-series (:raw-series model)})
@@ -63,20 +63,7 @@
      [:div {:class ["mt-2"]} (chart-view/chart-legend series)]
      (parts/live-strip model)
      [:div {:class ["mt-3" "flex" "flex-wrap" "items-center" "gap-2" "border-t" "border-base-300" "pt-3"]}
-      [:span {:class ["mr-1" "text-xs" "text-trading-muted"]} "Compare"]
-      (for [{:keys [key label stroke on? available?]} (:benchmarks model)]
-        ^{:key (str "benchmark-" (name key))}
-        [:button {:type "button"
-                  :aria-pressed (boolean on?)
-                  :disabled (and on? (not available?))
-                  :class (into ["inline-flex" "min-h-8" "items-center" "gap-1.5" "rounded-full" "border" "px-3" "text-xs"]
-                               (if on?
-                                 ["border-base-content/30" "text-trading-text"]
-                                 ["border-dashed" "border-base-300" "text-trading-muted"]))
-                  :data-role (str "portfolio-optimizer-tear-sheet-benchmark-" (name key))
-                  :on {:click (parts/set-option :toggle-benchmark key)}}
-         [:span {:class ["h-0.5" "w-3"] :style {:background-color stroke}}]
-         (if (and on? (not available?)) (str label " · loading") label)])]]))
+      (parts/compare-row model opts search)]]))
 
 (defn- composition-aside
   [model opts]
@@ -86,7 +73,7 @@
     [:span {:class ["text-sm" "font-medium" "text-trading-text"]} "Composition"]
     [:span {:class ["text-xs" "text-trading-muted"]} "target weights"]]
    [:div {:class ["flex" "flex-col" "gap-2" "px-4" "py-3"]}
-    (for [{:keys [id label weight]} (take 8 (:legs model))]
+    (for [{:keys [id label weight]} (if (:show-all-weights? opts) (:legs model) (take 8 (:legs model)))]
       ^{:key (str "weight-" id)}
       [:div {:class ["flex" "flex-col" "gap-1"]}
        [:div {:class ["flex" "justify-between" "gap-2" "text-xs"]}
@@ -98,11 +85,17 @@
                                                        (max 1e-9 (js/Math.abs (:weight (first (:legs model))))))))
                                    "%")}}]]])
     (let [rest-legs (drop 8 (:legs model))]
-      [:span {:class ["text-xs" "text-trading-muted"]}
-       (if (seq rest-legs)
-         (str "+ " (count rest-legs) " smaller positions · "
-              (.toFixed (* 100 (reduce + 0 (map :weight rest-legs))) 1) "%")
-         "")])]
+      (if (seq rest-legs)
+        [:button {:type "button"
+                  :aria-expanded (boolean (:show-all-weights? opts))
+                  :class ["min-h-8" "self-start" "rounded-md" "text-left" "text-xs" "text-[#c7bdff]" "hover:text-trading-text"]
+                  :data-role "portfolio-optimizer-tear-sheet-show-all-weights"
+                  :on {:click (parts/set-option :show-all-weights? (not (:show-all-weights? opts)))}}
+         (if (:show-all-weights? opts)
+           "Show top 8 only"
+           (str "+ " (count rest-legs) " smaller positions · "
+                (.toFixed (* 100 (reduce + 0 (map :weight rest-legs))) 1) "% — show all"))]
+        [:span {:class ["hidden"]}]))]
    [:div {:class ["mt-auto" "flex" "flex-col" "gap-1.5" "border-t" "border-base-300" "px-4" "py-3" "text-xs"]}
     [:div {:class ["flex" "justify-between" "gap-2"]}
      [:span {:class ["text-trading-muted"]} "Rebalancing"]
@@ -197,7 +190,7 @@
                   "Every asset has history across this range."))]]
             [:div {:class ["flex" "flex-wrap" "items-stretch" "gap-4"]}
              (composition-aside model opts)
-             (chart-section model opts)]
+             (chart-section model opts (tear-sheet/benchmark-search-model state* opts))]
             (tabs model opts)])
          (message scenario-id "Not enough history"
                   "None of this run's assets has history in the selected range yet. Try a longer range.")))]))

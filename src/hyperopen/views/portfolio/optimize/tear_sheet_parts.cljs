@@ -203,3 +203,76 @@
      (hero-stat "Max drawdown" (metrics-view/format-metric-value :percent (:max-drawdown stats))
                 (str "longest " (metrics-view/format-metric-value :integer (:longest-dd-days stats)) " days under water")
                 ["text-trading-red"] "portfolio-optimizer-tear-sheet-drawdown")]))
+
+(defn- benchmark-chip
+  [{:keys [value label stroke builtin? available?]}]
+  [:span {:class ["inline-flex" "min-h-8" "items-center" "gap-1.5" "rounded-full" "border" "border-base-content/30"
+                  "pl-3" "pr-1" "text-xs" "text-trading-text"]
+          :data-role (str "portfolio-optimizer-tear-sheet-benchmark-chip-" value)}
+   [:span {:class ["h-0.5" "w-3"] :style {:background-color stroke}}]
+   (if available? label (str label " · loading"))
+   [:button {:type "button"
+             :aria-label (str "Remove " label)
+             :class ["inline-flex" "h-6" "w-6" "items-center" "justify-center" "rounded-full" "text-trading-muted"
+                     "hover:bg-base-200" "hover:text-trading-text"]
+             :on {:click (if builtin?
+                           (set-option :equal-weight? false)
+                           (set-option :remove-benchmark value))}}
+    [:svg {:viewBox "0 0 16 16" :class ["h-3" "w-3"] :fill "none" :stroke "currentColor"
+           :stroke-width "1.5" :aria-hidden true}
+     [:path {:d "M4 4l8 8M12 4l-8 8"}]]]])
+
+(defn compare-row
+  "Benchmark chips plus a search over every market and vault the vault page
+  offers as a benchmark."
+  [{:keys [benchmarks]} opts {:keys [query open? full? candidates]}]
+  [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"] :data-role "portfolio-optimizer-tear-sheet-compare"}
+   [:span {:class ["mr-1" "text-xs" "text-trading-muted"]} "Compare"]
+   [:span {:class ["inline-flex" "min-h-8" "items-center" "gap-1.5" "rounded-full" "border" "border-[#a493ff]/70"
+                   "px-3" "text-xs" "text-trading-text"]}
+    [:span {:class ["h-0.5" "w-3" "bg-[#a493ff]"]}]
+    "This target"]
+   (for [b benchmarks]
+     ^{:key (str "benchmark-chip-" (:value b))}
+     (benchmark-chip b))
+   ;; Always a node (hidden when unused): a nil hole next to keyed siblings
+   ;; freezes Replicant's renderer.
+   (if (:equal-weight? opts)
+     [:span {:class ["hidden"]}]
+     [:button {:type "button"
+               :class ["min-h-8" "rounded-full" "border" "border-dashed" "border-base-300" "px-3" "text-xs" "text-trading-muted"
+                       "hover:text-trading-text"]
+               :data-role "portfolio-optimizer-tear-sheet-add-equal-weight"
+               :on {:click (set-option :equal-weight? true)}}
+      "+ Equal weight"])
+   [:div {:class ["relative" "min-w-[220px]" "flex-[1_1_260px]"]}
+    [:input {:type "search"
+             :value (or query "")
+             :disabled (boolean full?)
+             :placeholder (if full? "Remove a benchmark to add another" "Add benchmark: any perp, spot market or vault")
+             :aria-label "Search benchmarks"
+             :autocomplete "off"
+             :spellcheck false
+             :class ["h-8" "w-full" "rounded-full" "border" "border-base-300" "bg-base-100" "px-3" "text-xs" "text-trading-text"]
+             :data-role "portfolio-optimizer-tear-sheet-benchmark-search"
+             :on {:input [[:actions/set-portfolio-optimizer-tear-sheet-option :benchmark-search [:event.target/value]]]
+                  :focus (set-option :benchmark-open? true)
+                  :blur (set-option :benchmark-open? false)
+                  :keydown [[:actions/set-portfolio-optimizer-tear-sheet-option :benchmark-key [:event/key]]]}}]
+    (when (and open? (not full?))
+      [:div {:class ["absolute" "left-0" "right-0" "top-full" "z-40" "mt-1" "max-h-60" "overflow-y-auto" "rounded-lg"
+                     "border" "border-base-300" "bg-base-100" "p-1" "shadow-xl"]
+             :role "listbox"
+             :data-role "portfolio-optimizer-tear-sheet-benchmark-suggestions"}
+       (if (seq candidates)
+         (for [{:keys [value label]} candidates]
+           ^{:key (str "benchmark-suggestion-" value)}
+           [:button {:type "button"
+                     :role "option"
+                     :class ["flex" "min-h-8" "w-full" "items-center" "rounded" "px-2" "text-left" "text-xs" "text-trading-text"
+                             "hover:bg-base-200"]
+                     :data-role (str "portfolio-optimizer-tear-sheet-benchmark-suggestion-" value)
+                     ;; mousedown: fires before the input's blur closes the list.
+                     :on {:mousedown (set-option :add-benchmark value)}}
+            label])
+         [:div {:class ["px-2" "py-1.5" "text-xs" "text-trading-muted"]} "No matching markets or vaults."])])]])

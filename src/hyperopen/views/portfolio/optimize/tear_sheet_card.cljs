@@ -36,23 +36,32 @@
     (str (.toFixed (* 100 v) 2) "%")
     "--"))
 
-(defn- sparkline-path
-  [rows width height]
-  (when (>= (count rows) 2)
-    (let [t0 (first (first rows))
-          t1 (first (peek rows))
-          vs (map second rows)
-          lo (apply min vs)
-          hi (apply max vs)
-          span-t (max 1 (- t1 t0))
-          span-v (if (== hi lo) 1 (- hi lo))
-          pad 6]
-      (->> rows
-           (map-indexed (fn [i [t v]]
-                          (str (if (zero? i) "M" "L")
-                               (.toFixed (* width (/ (- t t0) span-t)) 1) " "
-                               (.toFixed (- height pad (* (- height (* 2 pad)) (/ (- v lo) span-v))) 1))))
-           (apply str)))))
+(def ^:private spark-w 600)
+
+(def ^:private spark-h 120)
+
+(defn- spark-scale
+  "x/y scales shared by every line on the card so they compare honestly."
+  [series]
+  (let [pts (mapcat :raw-points series)
+        ts (map :time-ms pts)
+        vs (map :value pts)]
+    (when (seq pts)
+      (let [t0 (apply min ts)
+            span-t (max 1 (- (apply max ts) t0))
+            lo (apply min vs)
+            span-v (let [d (- (apply max vs) lo)] (if (pos? d) d 1))
+            pad 6]
+        {:x (fn [t] (* spark-w (/ (- t t0) span-t)))
+         :y (fn [v] (- spark-h pad (* (- spark-h (* 2 pad)) (/ (- v lo) span-v))))}))))
+
+(defn- spark-path
+  [{:keys [x y]} points]
+  (when (>= (count points) 2)
+    (->> points
+         (map-indexed (fn [i {:keys [time-ms value]}]
+                        (str (if (zero? i) "M" "L") (.toFixed (x time-ms) 1) " " (.toFixed (y value) 1))))
+         (apply str))))
 
 (defn- stat
   [label value data-role tone]
@@ -68,7 +77,9 @@
   [state {:keys [scenario-id result]}]
   (when-let [{:keys [model stats legs]} (tear-sheet/cached-card-model state result)]
     (when model
-      (let [rows (get-in model [:run :rows])
+      (let [series (:raw-series model)
+            scale (spark-scale series)
+            last-join (:time-ms (peek (get-in model [:run :joins])))
             joined (count (filter :joins-in-window? (:legs model)))
             ret (:cumulative-return stats)]
         [:section {:class ["mx-4" "mt-4" "overflow-hidden" "rounded-xl" "border" "border-[#a493ff]/40" "bg-[#a493ff]/5"]
@@ -90,9 +101,28 @@
            "Open tear sheet"]]
          [:svg {:viewBox "0 0 600 120" :preserveAspectRatio "none" :class ["mt-2" "block" "h-[120px]" "w-full"]
                 :role "img" :aria-label "Hypothetical cumulative return over the last year"}
-          [:path {:d (or (sparkline-path rows 600 120) "")
-                  :fill "none" :stroke tear-sheet/strategy-stroke :stroke-width "2"
-                  :vector-effect "non-scaling-stroke"}]]
+          ;; Always present (zero width when every asset is live): a nil hole
+          ;; next to the keyed lines freezes Replicant's renderer.
+          [:rect {:x 0 :y 0 :height spark-h :fill "rgba(164,147,255,0.08)"
+                  :width (if (and scale last-join) (.toFixed ((:x scale) last-join) 1) 0)}]
+          ;; Benchmarks first so the target draws on top.
+          (for [{:keys [id stroke raw-points]} (reverse series)]
+            ^{:key (str "spark-" (name id))}
+            [:path {:d (or (when scale (spark-path scale raw-points)) "")
+                    :fill "none" :stroke stroke
+                    :stroke-width (if (= :strategy id) "2" "1.25")
+                    :stroke-opacity (if (= :strategy id) "1" "0.75")
+                    :vector-effect "non-scaling-stroke"}])]
+         [:div {:class ["flex" "flex-wrap" "gap-x-4" "gap-y-1" "px-4" "pb-2" "text-xs" "text-trading-muted"]
+                :data-role "portfolio-optimizer-tear-sheet-card-legend"}
+          (for [{:keys [id label stroke]} series]
+            ^{:key (str "spark-legend-" (name id))}
+            [:span {:class ["inline-flex" "items-center" "gap-1.5"]}
+             [:span {:class ["h-0.5" "w-3"] :style {:background-color stroke}}]
+             label])
+          [:span {:class (into ["items-center" "gap-1.5"] (if last-join ["inline-flex"] ["hidden"]))}
+           [:span {:class ["h-2.5" "w-3" "rounded-sm" "bg-[#a493ff]/20"]}]
+           "Fewer assets live"]]
          [:div {:class ["grid" "grid-cols-2" "border-t" "border-base-300" "sm:grid-cols-4"]}
           (stat "1Y return" (metrics-view/format-metric-value :percent ret)
                 "portfolio-optimizer-tear-sheet-card-return"
