@@ -44,7 +44,8 @@ Repo artifacts (from the code map, verified):
 - [x] (2026-10-16) Run transitions, view model, actions, effect, registration.
 - [x] (2026-10-16) Sheet UI + entry points (verdict CTA "Fund this allocation" on all-vault runs; "Fund the vaults" on the hypothetical-performance card for mixed runs).
 - [x] (2026-10-16) Adversarial review (5 dimensions, 3 skeptics per finding: 28 findings, 22 confirmed) and fixes; `npm run gates` 34/34; Playwright `optimizer-vault-funding.spec.mjs` (3) + tear-sheet spec green; live render of the design's worked example matches the canvas to the cent.
-- [ ] Owner review.
+- [x] (2026-10-17) Owner follow-up (canvas board 5, approved): choose the split (Optimizer target or Equal weight), a per-vault "Locked until" column, Target beside After, "All withdrawable by" in the footer, and no review screen: the plan's button names the amounts and sends.
+- [ ] Owner review of the split and lock-up build.
 
 ## Surprises & Discoveries
 
@@ -55,6 +56,10 @@ Repo artifacts (from the code map, verified):
 - The order Execution tab keeps no history across reloads either; funding runs are session state (the sheet says to keep the tab open).
 
 ## Decision Log
+
+- (2026-10-17) Equal weight = the tear sheet's Equal weight: the same share for every vault the run gave a non-zero weight; 0% vaults stay at 0 (anything held there comes out). Every other rule is unchanged.
+- (2026-10-17) Lock-up per vault: 4 days for HLP, 1 day otherwise (`transfer-policy/deposit-lockup-days`, shared with the vault page). A deposit restarts the lock on the whole position (Hyperliquid keeps one `lockupUntil` per depositor); an untouched locked position keeps its lock.
+- (2026-10-17) No review screen. Sending from the plan is safe because the button names exactly what is sent; when trading must be unlocked first, the plan on screen is pinned and the replayed send goes out only if the plan is unchanged.
 
 - A failed withdrawal halts the deposits (they may depend on its cash); a failed deposit does not stop the others. Retry re-sends only failed/halted steps.
 - Sign as the owner wallet with no subaccount option (the existing vault flow does the same); funding is blocked while a subaccount is selected so holdings and signer agree.

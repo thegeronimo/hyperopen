@@ -49,9 +49,10 @@
   (apply-saves state (actions/set-portfolio-optimizer-vault-funding-field state :amount-input amount)))
 
 (defn reviewed
-  "State after the user pressed Review."
+  "State the send button acts on. There is no review step: the plan's button
+  sends what it names."
   [state]
-  (apply-saves state (actions/portfolio-optimizer-vault-funding-command state :review now)))
+  state)
 
 (deftest open-fetches-holdings-and-shows-the-plan-test
   (let [effects (actions/portfolio-optimizer-vault-funding-command (base-state) :open now)
@@ -90,13 +91,31 @@
     (is (= "20.000,00" (blurred "20000" "de-DE")))
     (is (= "" (blurred "abc" "en-US")) "unreadable text is left for the user to fix")))
 
-(deftest review-needs-a-sendable-plan-test
+(deftest send-needs-a-sendable-plan-test
   (let [blocked (actions/portfolio-optimizer-vault-funding-command
-                 (assoc-in (base-state) [:vaults :user-equities-for-address] nil) :review now)]
+                 (assoc-in (with-amount (base-state) "100") [:vaults :user-equities-for-address] nil) :confirm now)]
     (is (= [[:effects/save (conj contracts/ui-vault-funding-path :error) "Loading your vault holdings…"]] blocked)
         "holdings must be known before existing deposits can count"))
-  (is (= :review (get-in (apply-saves (base-state) (actions/portfolio-optimizer-vault-funding-command (with-amount (base-state) "100") :review now))
-                         (conj contracts/ui-vault-funding-path :screen)))))
+  (is (= [] (actions/portfolio-optimizer-vault-funding-command (with-amount (base-state) "100") :review now))
+      "there is no review step any more"))
+
+(deftest equal-split-gives-each-picked-vault-the-same-share-test
+  (let [state (with-amount (base-state) "4000")
+        state (apply-saves state (actions/set-portfolio-optimizer-vault-funding-field state :split :equal))
+        funding (model/funding-model state (get-in state contracts/last-successful-run-result-path) now)
+        rows (into {} (map (juxt :address identity)) (get-in funding [:plan :rows]))]
+    (is (= :equal (get-in funding [:options :split])))
+    (is (every? #(< (js/Math.abs (- (/ 1 3) (get-in rows [% :weight]))) 1e-9) [va vb vc]))
+    (testing "10,000 total → 3,333.33 each; Beta's 6,000 is over, so 2,666.66 comes out (floored to the cent)"
+      (is (= 2666.66 (get-in rows [vb :withdraw])))
+      (is (= 3333.33 (get-in rows [va :deposit])))
+      (is (= 3333.33 (get-in rows [vc :deposit]))))
+    (is (= {:withdrawals 1 :deposits 2 :vaults 3}
+           (select-keys (get-in funding [:splits :equal]) [:withdrawals :deposits :vaults])))
+    (is (= {:withdrawals 1 :deposits 2 :vaults 3}
+           (select-keys (get-in funding [:splits :target]) [:withdrawals :deposits :vaults]))
+        "both cards are summarized whichever is picked")
+    (is (= [] (actions/set-portfolio-optimizer-vault-funding-field state :split :bogus)))))
 
 (deftest confirm-starts-a-run-test
   (let [state (reviewed (with-amount (base-state) "4000"))
@@ -113,18 +132,30 @@
     (is (= owner (:owner current)) "the run remembers the wallet that signs it")
     (is (= (model/source-id state) (:source current)))))
 
-(deftest confirm-sends-only-what-was-reviewed-test
-  (let [state (reviewed (with-amount (base-state) "4000"))
-        moved (assoc-in state [:vaults :user-equity-by-address vb :equity] 6500)
+(deftest send-after-unlock-only-sends-the-plan-that-was-shown-test
+  (let [state (assoc-in (with-amount (base-state) "4000") [:wallet :agent :status] :locked)
+        unlocking (apply-saves state (actions/portfolio-optimizer-vault-funding-command state :confirm now))
+        ;; The passkey unlock finished, but the holdings moved meanwhile.
+        moved (-> unlocking
+                  (assoc-in [:wallet :agent :status] :ready)
+                  (assoc-in [:vaults :user-equity-by-address vb :equity] 6500))
         effects (actions/portfolio-optimizer-vault-funding-command moved :confirm now)
         after (apply-saves moved effects)]
+    (is (some? (get-in unlocking (conj contracts/ui-vault-funding-path :reviewed))) "the plan on screen is pinned")
     (is (not-any? #(= :effects/run-portfolio-optimizer-vault-funding (first %)) effects)
-        "holdings moved between Review and Confirm: nothing is sent")
+        "the replayed send does not send a plan the user never saw")
     (is (re-find #"plan changed" (str (get-in after (conj contracts/ui-vault-funding-path :error)))))
-    (is (= :review (:screen (model/options after))) "the new plan is shown for review")
+    (is (= :plan (:screen (model/options after))))
     (is (= [:effects/run-portfolio-optimizer-vault-funding]
            (last (actions/portfolio-optimizer-vault-funding-command after :confirm now)))
-        "confirming the re-reviewed plan sends it")))
+        "pressing send again on the new plan sends it")
+    (testing "the unchanged plan is sent on replay"
+      (let [ready (assoc-in unlocking [:wallet :agent :status] :ready)]
+        (is (= [:effects/run-portfolio-optimizer-vault-funding]
+               (last (actions/portfolio-optimizer-vault-funding-command ready :confirm now))))))
+    (testing "editing the plan drops the pin"
+      (is (nil? (get-in (apply-saves unlocking (actions/set-portfolio-optimizer-vault-funding-field unlocking :amount-input "5000"))
+                        (conj contracts/ui-vault-funding-path :reviewed)))))))
 
 (deftest amounts-follow-the-number-locale-test
   (is (= 1000.5 (model/parse-amount "1,000.50" "en-US")))

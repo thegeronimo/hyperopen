@@ -11,12 +11,13 @@
             [hyperopen.vaults.domain.transfer-policy :as transfer-policy]))
 
 (def screens
-  #{:plan :review :progress})
+  #{:plan :progress})
 
 (def defaults
   {:open? false
    :screen :plan
    :amount-input ""
+   :split :target
    :include-existing? true
    :withdraw-over? true
    :closed-mode :spread
@@ -32,6 +33,7 @@
     (cond-> (merge defaults (select-keys stored (keys defaults)))
       (not (contains? screens (:screen stored))) (assoc :screen :plan)
       (not (contains? plan/closed-modes (:closed-mode stored))) (assoc :closed-mode :spread)
+      (not (contains? plan/splits (:split stored))) (assoc :split :target)
       true (update :include-existing? #(not (false? %)))
       true (update :withdraw-over? #(not (false? %))))))
 
@@ -93,12 +95,12 @@
     (->> (map vector (:instrument-ids result) (:target-weights result))
          (keep (fn [[id weight]]
                  (when-let [address (ids/vault-address-from-value id)]
-                   {:id id
-                    :address address
-                    :label (or (get labels id)
-                               (:name (vault-details state address))
-                               address)
-                    :weight (max 0 (or weight 0))})))
+                   (let [details-name (:name (vault-details state address))]
+                     {:id id
+                      :address address
+                      :label (or (get labels id) details-name address)
+                      :weight (max 0 (or weight 0))
+                      :lock-days (transfer-policy/deposit-lockup-days address details-name)}))))
          vec)))
 
 (defn closed-addresses
@@ -163,15 +165,19 @@
         available (transfer-policy/deposit-available-usdc state)
         amount (parse-amount (:amount-input opts) (get-in state [:ui :locale]))
         closed (closed-addresses state (map :address legs))
-        funding-plan (plan/build-plan {:targets legs
-                                       :holdings (or holdings {})
-                                       :amount (or amount 0)
-                                       :available available
-                                       :include-existing? include?
-                                       :withdraw-over? (:withdraw-over? opts)
-                                       :closed closed
-                                       :closed-mode (:closed-mode opts)
-                                       :now-ms now-ms})
+        plan-for (fn [split]
+                   (plan/build-plan {:targets legs
+                                     :split split
+                                     :holdings (or holdings {})
+                                     :amount (or amount 0)
+                                     :available available
+                                     :include-existing? include?
+                                     :withdraw-over? (:withdraw-over? opts)
+                                     :closed closed
+                                     :closed-mode (:closed-mode opts)
+                                     :now-ms now-ms}))
+        plans (into {} (map (juxt identity plan-for)) plan/splits)
+        funding-plan (get plans (:split opts))
         held-total (reduce + 0 (keep :equity (vals holdings)))
         held-count (count (filter #(pos? (or (:equity (get holdings (:address %))) 0)) legs))
         other-held (reduce + 0 (keep (fn [[address {:keys [equity]}]]
@@ -204,6 +210,14 @@
     {:options opts
      :legs legs
      :plan funding-plan
+     :splits (into {}
+                   (map (fn [[split p]]
+                          [split {:weights (mapv :weight (:rows p))
+                                  :withdrawals (count (filter #(pos? (:withdraw %)) (:rows p)))
+                                  :deposits (count (filter #(pos? (:deposit %)) (:rows p)))
+                                  :drift-after (:drift-after p)
+                                  :vaults (count (filter #(pos? (:weight %)) (:rows p)))}]))
+                   plans)
      :amount amount
      :available available
      :account-mode (get-in state [:account :mode])

@@ -10,6 +10,18 @@
 (def ^:private vault-usdc-micros-scale
   1000000)
 
+(def hlp-vault-address
+  "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303")
+
+(defn deposit-lockup-days
+  "Days a new deposit is locked before it can be withdrawn: 4 for HLP, 1 for
+  every other vault."
+  [vault-address vault-name]
+  (if (or (= hlp-vault-address (some-> vault-address str str/lower-case))
+          (= "hyperliquidity provider (hlp)" (some-> vault-name str str/trim str/lower-case)))
+    4
+    1))
+
 (def ^:private vault-transfer-modes
   #{:deposit :withdraw})
 

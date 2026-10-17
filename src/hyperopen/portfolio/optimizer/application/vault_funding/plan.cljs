@@ -21,6 +21,12 @@
     the open vaults (`:closed-mode :spread`, default: the open vaults' targets
     grow, so none of them is withdrawn from to make room) or kept as cash.
   - No vault is ever both withdrawn from and deposited into.
+  - `:split :equal` replaces the optimizer's weights with an equal share for
+    every vault it gave a non-zero weight (the tear sheet's Equal weight);
+    every other rule is unchanged.
+  - Each row carries when its money can next be withdrawn: a deposit locks
+    the whole position for the vault's lock-up from now; an untouched locked
+    position keeps its lock; anything else is free now.
 
   Amounts are USD floats here; the runner converts each step to integer USDC
   micros, the unit `vaultTransfer` takes."
@@ -33,6 +39,12 @@
 (def closed-modes
   #{:spread :cash})
 
+(def splits
+  #{:target :equal})
+
+(def ^:private day-ms
+  (* 24 60 60 1000))
+
 (defn floor-cents
   "Down to whole cents (never send more than the plan's cash), with a nudge
   so float noise such as 299.99999 still reads as 300.00."
@@ -43,8 +55,9 @@
   "Vault legs, weights rescaled to sum 1 (a mixed run's perp legs are traded
   from the Execution tab, so the vault sleeve is funded on its own). A leg at
   0% stays in: anything held there is above target and can be withdrawn."
-  [targets]
-  (let [legs (filterv #(and (string? (:address %)) (number? (:weight %)) (not (neg? (:weight %)))) targets)
+  [targets split]
+  (let [legs (cond->> (filterv #(and (string? (:address %)) (number? (:weight %)) (not (neg? (:weight %)))) targets)
+               (= split :equal) (mapv #(update % :weight (fn [w] (if (> w 1e-9) 1 0)))))
         total (reduce + 0 (map :weight legs))]
     (if (pos? total)
       (mapv #(assoc % :weight (/ (:weight %) total)) legs)
@@ -102,10 +115,21 @@
             rows))
     (mapv #(* (:weight %) total) rows)))
 
+(defn- unlock-ms
+  "When the row's money can next be withdrawn, or nil when it is free now."
+  [{:keys [deposit after lock-days locked? locked-until-ms]} now-ms]
+  (cond
+    (< after min-step-usd) nil
+    ;; A deposit restarts the lock on the whole position.
+    (and (pos? deposit) (number? now-ms)) (+ now-ms (* day-ms (or lock-days 1)))
+    locked? locked-until-ms
+    :else nil))
+
 (defn build-plan
   "Inputs:
 
-    :targets            [{:address :id :label :weight}] (vault legs of the run)
+    :targets            [{:address :id :label :weight :lock-days}] (vault legs)
+    :split              :target (optimizer weights, default) | :equal
     :holdings           {address {:equity :locked-until-ms}}
     :amount             new cash to add, USD
     :available          USDC the account can spend on deposits, USD (or nil)
@@ -118,9 +142,9 @@
   Returns {:rows [...] :steps [...] :totals {...} :drift-before :drift-after
            :errors [...]} where :steps lists withdrawals first, then deposits,
   each {:kind :withdraw|:deposit :address :label :usd}."
-  [{:keys [targets holdings amount available include-existing? withdraw-over? closed closed-mode now-ms]
+  [{:keys [targets split holdings amount available include-existing? withdraw-over? closed closed-mode now-ms]
     :or {include-existing? true withdraw-over? true closed #{} closed-mode :spread}}]
-  (let [legs (normalize-targets targets)
+  (let [legs (normalize-targets targets (if (contains? splits split) split :target))
         closed-mode* (if (contains? closed-modes closed-mode) closed-mode :spread)
         cash (max 0 (or amount 0))
         rows0 (mapv (fn [{:keys [address] :as leg}]
@@ -153,7 +177,9 @@
                            deposit* (if (>= deposit min-step-usd) deposit 0)
                            after (+ (- held withdraw) deposit*)
                            row* (assoc row :deposit deposit* :after after)]
-                       (assoc row* :status (row-status row*))))
+                       (assoc row*
+                              :status (row-status row*)
+                              :unlock-ms (unlock-ms row* now-ms))))
                    rows1)
         total-deposit (reduce + 0 (map :deposit rows))
         total-withdraw (reduce + 0 (map :withdraw rows))
@@ -176,6 +202,7 @@
      :include-existing? include-existing?
      :drift-before (drift rows :held)
      :drift-after (drift rows :after)
+     :free-by-ms (reduce (fn [acc {:keys [unlock-ms]}] (if (number? unlock-ms) (max (or acc 0) unlock-ms) acc)) nil rows)
      :errors errors}))
 
 (defn usd->micros

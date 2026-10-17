@@ -57,10 +57,7 @@
 
 (defn- default-deposit-lockup-days
   [vault-name]
-  (if (= "hyperliquidity provider (hlp)"
-         (some-> vault-name str str/trim str/lower-case))
-    4
-    1))
+  (vault-transfer-policy/deposit-lockup-days nil vault-name))
 
 (defn- follower-lockup-days
   [details]

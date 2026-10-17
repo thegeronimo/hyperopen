@@ -27,9 +27,11 @@
     (subs text 0 (min 24 (count text)))))
 
 (defn- fingerprint
-  "What the user reviewed: each step's kind, vault and exact micros."
+  "What the user saw on the send button: each step's kind, vault and micros."
   [rows]
   (mapv (juxt :kind :address :usd-micros) rows))
+
+(declare field-effects)
 
 (defn set-portfolio-optimizer-vault-funding-field
   "`field` with its value:
@@ -39,7 +41,18 @@
                         (on blur, so the caret never jumps while typing)
     :amount-fraction    0..1 of the spendable USDC (25%, 50%, Max)
     :include-existing?  :withdraw-over?   booleans
-    :closed-mode        :spread | :cash"
+    :closed-mode        :spread | :cash
+    :split              :target | :equal
+
+  Any edit drops a plan pinned during a trading unlock: the user is now
+  looking at a different plan."
+  [state field value]
+  (let [effects (field-effects state field value)]
+    (if (seq effects)
+      (conj effects (save :reviewed nil))
+      effects)))
+
+(defn- field-effects
   [state field value]
   (let [field* (coercion/normalize-keyword-like field)]
     (cond
@@ -71,6 +84,12 @@
       (let [mode (coercion/normalize-keyword-like value)]
         (if (contains? #{:spread :cash} mode)
           [(save :closed-mode mode)]
+          []))
+
+      (= field* :split)
+      (let [split (coercion/normalize-keyword-like value)]
+        (if (contains? #{:target :equal} split)
+          [(save :split split) (save :error nil)]
           []))
 
       :else
@@ -126,38 +145,35 @@
     [(save :error "The setup changed since this run. Rerun the optimizer before funding.")]
     :else (agent-gate state replay)))
 
-(defn- review-effects
-  [state now-ms]
-  (let [funding (model/funding-model state (result state) now-ms)]
-    (if (:ready? funding)
-      [(save :screen :review)
-       (save :error nil)
-       (save :reviewed (fingerprint (run/rows-from-plan (:plan funding))))]
-      [(save :error (:block funding))])))
-
 (defn- confirm-effects
+  "Send straight from the plan: the button names exactly what goes out. When
+  trading must be unlocked first, the plan on screen is pinned and the replayed
+  confirm only sends if the plan is still the same; otherwise it stays on the
+  plan, now showing the changed amounts, for the user to send again."
   [state now-ms]
   (let [funding (model/funding-model state (result state) now-ms)
         rows (run/rows-from-plan (:plan funding))
-        reviewed (:reviewed (model/funding-state state))]
-    (or (send-gate state :confirm)
-        (cond
-          (not (:ready? funding)) [(save :error (:block funding))]
-          (empty? rows) [(save :error "Nothing to send.")]
-          ;; Send exactly what was reviewed. Holdings or balances that moved in
-          ;; between (or a passkey unlock that replays this confirm later)
-          ;; change the plan; show the new one instead of sending it unseen.
-          (not= reviewed (fingerprint rows))
-          [(save :screen :review)
-           (save :reviewed (fingerprint rows))
-           (save :error "The plan changed since you reviewed it. Check the amounts below and confirm again.")]
-          :else [[:effects/save path (assoc (model/funding-state state)
+        pinned (:reviewed (model/funding-state state))
+        gate (send-gate state :confirm)]
+    (cond
+      (and (seq gate) (some #(= :effects/unlock-agent-trading (first %)) gate) (:ready? funding))
+      (into [(save :reviewed (fingerprint rows))] gate)
+
+      gate gate
+
+      (not (:ready? funding)) [(save :error (:block funding))]
+      (empty? rows) [(save :error "Nothing to send.")]
+      (and pinned (not= pinned (fingerprint rows)))
+      [(save :reviewed nil)
+       (save :error "The plan changed while trading was unlocking. Check the amounts and send again.")]
+      :else [[:effects/save path (assoc (model/funding-state state)
                                             :screen :progress
                                             :error nil
+                                            :reviewed nil
                                             :run (run/new-run rows (str "vfund_" now-ms) now-ms
                                                               {:owner (model/owner state)
                                                                :source (model/source-id state)}))]
-                 [:effects/run-portfolio-optimizer-vault-funding]]))))
+             [:effects/run-portfolio-optimizer-vault-funding]])))
 
 (defn- retry-effects
   [state now-ms]
@@ -173,7 +189,7 @@
           []))))
 
 (defn portfolio-optimizer-vault-funding-command
-  "Commands: :open :close :review :back :confirm :stop :retry :replan :done,
+  "Commands: :open :close :confirm :stop :retry :replan :done,
   and the key name \"Escape\" (closes; a running run keeps going)."
   ([state command]
    (portfolio-optimizer-vault-funding-command state command (.now js/Date)))
@@ -181,8 +197,6 @@
    (case (coercion/normalize-keyword-like command)
      :open (if (model/vault-result? (result state)) (open-effects state) [])
      (:close :escape) [(save :open? false)]
-     :review (review-effects state now-ms)
-     :back (if (model/running? state) [] [(save :screen :plan) (save :error nil)])
      :confirm (confirm-effects state now-ms)
      ;; Only the flag: the runner owns the rows while a run is in flight.
      :stop (if (model/running? state)

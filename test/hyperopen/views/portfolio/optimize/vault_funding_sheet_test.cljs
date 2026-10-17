@@ -18,17 +18,21 @@
 
 (deftest every-screen-renders-test
   (let [state (opened "4000")]
-    (testing "plan"
-      (let [view (sheet/vault-funding-sheet state)]
+    (testing "plan: split cards, target beside after, lock-ups, and a send button that names the amounts"
+      (let [view (sheet/vault-funding-sheet state)
+            header (hiccup/node-text (hiccup/find-first-node view #(= "portfolio-optimizer-vault-funding-rows" (get-in % [1 :data-role]))))]
         (is (= "$3,000.00" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-total-withdraw"))))
         (is (= "$7,000.00" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-total-deposit"))))
-        (is (= "Review 1 withdrawal + 2 deposits"
-               (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-review"))))))
-    (testing "review"
-      (let [view (sheet/vault-funding-sheet (assoc-in state (conj contracts/ui-vault-funding-path :screen) :review))]
-        (is (some? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-review-screen")))
+        (is (re-find #"Target\s+After\s+You hold\s+Action\s+Locked until" header))
+        (is (= "true" (str (get-in (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-split-target") [1 :aria-checked]))))
+        (is (some? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-split-equal")))
+        (is (re-find #"1 day lock-up" (hiccup/node-text view)))
+        (is (re-find #"Hyperliquid locks each deposit" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-lockup"))))
+        (is (re-find #"\w{3} \d+" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-free-by"))))
         (is (= "Withdraw $3,000.00 and deposit $7,000.00"
-               (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-confirm"))))))
+               (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-confirm"))))
+        (is (re-find #"no further confirmation" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-block"))))
+        (is (nil? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-review")) "no review step")))
     (testing "progress, running then partly failed"
       (let [ready (fixture/reviewed state)
             running (fixture/apply-saves ready (actions/portfolio-optimizer-vault-funding-command ready :confirm fixture/now))

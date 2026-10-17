@@ -165,3 +165,36 @@
 (deftest dust-shortfall-is-labelled-test
   (let [rows (by-address (plan/build-plan {:targets [(leg "a" 0.999) (leg "b" 0.001)] :amount 100 :now-ms now}))]
     (is (= :too-small (get-in rows ["b" :status])))))
+
+(deftest equal-split-ignores-the-optimizer-weights-test
+  (let [legs [(leg "a" 0.6) (leg "b" 0.3) (leg "c" 0.1) (leg "zero" 0)]
+        result (plan/build-plan {:targets legs :split :equal :amount 900 :available 900
+                                 :holdings {"zero" {:equity 50}} :now-ms now})
+        rows (by-address result)]
+    (is (= [316.66 316.66 316.66] (mapv #(get-in rows [% :deposit]) ["a" "b" "c"]))
+        "the same share of 950 (900 new + the 50 freed) for every vault the optimizer picked")
+    (is (zero? (get-in rows ["zero" :weight])) "a vault the optimizer left at 0% stays at 0%")
+    (is (= 50 (get-in rows ["zero" :withdraw])) "and what is held there comes out")
+    (is (= (:rows (plan/build-plan {:targets legs :amount 900 :available 900 :now-ms now}))
+           (:rows (plan/build-plan {:targets legs :split :bogus :amount 900 :available 900 :now-ms now})))
+        "an unknown split falls back to the optimizer target")))
+
+(deftest each-row-says-when-its-money-unlocks-test
+  (let [day (* 24 60 60 1000)
+        legs [(assoc (leg "new" 0.4) :lock-days 1)
+              (assoc (leg "hlp" 0.3) :lock-days 4)
+              (assoc (leg "topup" 0.2) :lock-days 1)
+              (assoc (leg "over" 0.05) :lock-days 1)
+              (assoc (leg "stuck" 0.05) :lock-days 1)]
+        holdings {"topup" {:equity 100}
+                  "over" {:equity 400}
+                  "stuck" {:equity 400 :locked-until-ms (+ now (* 2 day))}}
+        result (plan/build-plan {:targets legs :holdings holdings :amount 1000 :available 1000 :now-ms now})
+        rows (by-address result)]
+    (is (= (+ now day) (get-in rows ["new" :unlock-ms])) "a new position locks for its vault's lock-up")
+    (is (= (+ now (* 4 day)) (get-in rows ["hlp" :unlock-ms])) "HLP locks for 4 days")
+    (is (= (+ now day) (get-in rows ["topup" :unlock-ms])) "a top-up restarts the lock on the whole position")
+    (is (= :withdraw (get-in rows ["over" :status])))
+    (is (nil? (get-in rows ["over" :unlock-ms])) "an unlocked position cut back to target is free now")
+    (is (= (+ now (* 2 day)) (get-in rows ["stuck" :unlock-ms])) "an untouched locked position keeps its lock")
+    (is (= (+ now (* 4 day)) (:free-by-ms result)) "everything is withdrawable once the last lock ends")))

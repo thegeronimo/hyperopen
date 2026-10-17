@@ -142,7 +142,7 @@ async function vaultTransfers(page) {
 test.describe("fund an optimizer vault allocation", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("plans, reviews and sends withdrawals before deposits @regression", async ({ page }) => {
+  test("plans and sends withdrawals before deposits straight from the plan @regression", async ({ page }) => {
     await interceptAccountReads(page);
     await visitRoute(page, "/portfolio/optimize/draft");
     await seedSession(page);
@@ -170,9 +170,14 @@ test.describe("fund an optimizer vault allocation", () => {
     await expect(role(page, "portfolio-optimizer-vault-funding-total-deposit")).toHaveText("$7,000.00");
     await expect(sheet.locator(`[data-address='${VB}']`)).toContainText("Withdraw $3,000.00");
 
-    await role(page, "portfolio-optimizer-vault-funding-review").click();
-    await expect(role(page, "portfolio-optimizer-vault-funding-review-screen")).toContainText("1 · Withdraw from vaults above target");
-    await role(page, "portfolio-optimizer-vault-funding-confirm").click();
+    // Each row says when its money unlocks; the new positions lock for a day.
+    await expect(sheet.locator(`[data-address='${VA}'] [data-role='portfolio-optimizer-vault-funding-lock']`)).toContainText("1 day lock-up");
+    await expect(sheet.locator(`[data-address='${VB}'] [data-role='portfolio-optimizer-vault-funding-lock']`)).toContainText("Free now");
+
+    // No review step: the button names what is sent.
+    const send = role(page, "portfolio-optimizer-vault-funding-confirm");
+    await expect(send).toHaveText("Withdraw $3,000.00 and deposit $7,000.00");
+    await send.click();
 
     const progress = role(page, "portfolio-optimizer-vault-funding-progress");
     await expect(progress).toHaveAttribute("data-run-status", "partial", { timeout: 15_000 });
@@ -197,6 +202,20 @@ test.describe("fund an optimizer vault allocation", () => {
     await expect(role(page, "portfolio-optimizer-vault-funding-total-withdraw")).toHaveText("$0.00");
     await expect(role(page, "portfolio-optimizer-vault-funding-total-deposit")).toHaveText("$1,000.00");
     await expect(page.locator(`[data-address='${VB}']`)).toContainText("Deposit $300.00");
+  });
+
+  test("equal weight splits evenly across the picked vaults @regression", async ({ page }) => {
+    await interceptAccountReads(page);
+    await visitRoute(page, "/portfolio/optimize/draft");
+    await seedSession(page);
+    await seedVaultRun(page);
+    await role(page, "portfolio-optimizer-vault-funding-cta").click();
+    await role(page, "portfolio-optimizer-vault-funding-amount").fill("4000");
+    await role(page, "portfolio-optimizer-vault-funding-split-equal").click();
+    await expect(role(page, "portfolio-optimizer-vault-funding-split-equal")).toHaveAttribute("aria-checked", "true");
+    // 10,000 split three ways: Beta's 6,000 is cut to 3,333.33.
+    await expect(role(page, "portfolio-optimizer-vault-funding-total-withdraw")).toHaveText("$2,666.66");
+    await expect(page.locator(`[data-address='${VA}']`)).toContainText("33.3%");
   });
 
   test("a run without vaults keeps Review trades @regression", async ({ page }) => {

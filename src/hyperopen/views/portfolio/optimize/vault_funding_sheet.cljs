@@ -1,11 +1,12 @@
 (ns hyperopen.views.portfolio.optimize.vault-funding-sheet
-  "Fund-this-allocation sheet: plan (amount, rules, per-vault actions),
-  review, then progress. Rendered over any optimizer route; returns nil while
+  "Fund-this-allocation sheet: plan (split, amount, rules, per-vault actions
+  and lock-ups, sent straight from its button), then progress. Rendered over any optimizer route; returns nil while
   closed."
   (:require [clojure.string :as str]
             [hyperopen.portfolio.optimizer.application.vault-funding.model :as model]
             [hyperopen.portfolio.optimizer.application.vault-funding.run :as run]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
+            [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.ui.dialog-focus :as dialog-focus]))
 
 (def ^:private focus-on-render
@@ -27,6 +28,15 @@
   [ms]
   (when (number? ms)
     (.toLocaleDateString (js/Date. ms) "en-US" #js {:month "short" :day "numeric"})))
+
+(defn- date-time
+  [ms]
+  (when (number? ms)
+    (.toLocaleString (js/Date. ms) "en-US" #js {:month "short" :day "numeric" :hour "numeric" :minute "2-digit"})))
+
+(defn- days
+  [n]
+  (str n (if (= 1 n) " day" " days")))
 
 (defn- command
   [c]
@@ -69,23 +79,118 @@
     :too-small [[:span {:class ["text-trading-muted"]} "Skipped"] "Its share is under $1"]
     [[:span {:class ["text-trading-muted"]} "On target"] ""]))
 
+(defn- lock-cell
+  "When this vault's money can next be withdrawn, and why."
+  [{:keys [status deposit held after lock-days locked? unlock-ms]}]
+  (cond
+    (= :withdraw status) ["Free now" "Withdrawn first" :free]
+    (pos? (or deposit 0)) [(date-time unlock-ms)
+                           (str (days (or lock-days 1)) " lock-up"
+                                (when (pos? (or held 0)) (str " · restarts on all " (usd after))))
+                           (if (or (pos? (or held 0)) (> (or lock-days 1) 1)) :warn :locked)]
+    (and locked? (number? unlock-ms)) [(date unlock-ms) "Already locked" :warn]
+    (pos? (or held 0)) ["Free now" "Unchanged" :free]
+    :else ["—" "" :free]))
+
+(def ^:private plan-grid
+  "grid-cols-[minmax(160px,2fr)_64px_64px_100px_minmax(180px,1.8fr)_minmax(170px,1.5fr)]")
+
 (defn- plan-row
-  [{:keys [address label weight held target-usd after] :as row} after-total]
+  [{:keys [address label weight held after] :as row} after-total]
   (let [[action sub] (action-cell row)
+        [lock lock-sub tone] (lock-cell row)
         share (if (pos? after-total) (/ after after-total) 0)]
-    [:div {:class ["grid" "min-h-12" "grid-cols-[minmax(160px,2fr)_70px_100px_100px_minmax(200px,2fr)_70px]"
-                   "items-center" "gap-3" "border-b" "border-base-300/60" "px-5" "text-sm"]
+    [:div {:class ["grid" "min-h-14" plan-grid "items-center" "gap-3" "border-b" "border-base-300/60" "px-5" "text-sm"]
            :data-role "portfolio-optimizer-vault-funding-row"
            :data-address address}
      [:span {:class ["truncate" "text-trading-text"]} label]
      [:span {:class ["num" "text-right"]} (pct weight)]
+     [:span {:class (into ["num" "text-right"] (if (> (js/Math.abs (- share weight)) 0.01) ["text-[#e2b545]"] ["text-trading-text"]))}
+      (pct share)]
      [:span {:class ["num" "text-right" "text-trading-muted"]} (if (pos? (or held 0)) (usd held) "—")]
-     [:span {:class ["num" "text-right" "text-trading-muted"]} (usd target-usd)]
      [:span {:class ["flex" "flex-col" "gap-0.5"]}
       action
       [:span {:class ["text-xs" "text-trading-muted"]} sub]]
-     [:span {:class (into ["num" "text-right"] (if (> (js/Math.abs (- share weight)) 0.01) ["text-[#e2b545]"] ["text-trading-text"]))}
-      (pct share)]]))
+     [:span {:class ["flex" "flex-col" "gap-0.5"] :data-role "portfolio-optimizer-vault-funding-lock"}
+      [:span {:class ["num" (case tone :free "text-trading-muted" :warn "text-[#efe1b5]" "text-trading-text")]} lock]
+      [:span {:class ["text-xs" (if (= tone :warn) "text-[#efe1b5]/80" "text-trading-muted")]} lock-sub]]]))
+
+(defn- split-card
+  [{:keys [split selected? title sub summary]}]
+  (let [{:keys [weights withdrawals deposits drift-after]} summary]
+    [:button {:type "button"
+              :role "radio"
+              :aria-checked (boolean selected?)
+              :class (into ["flex" "min-h-11" "flex-col" "gap-1.5" "rounded-xl" "border" "px-4" "py-3" "text-left"]
+                           (if selected?
+                             ["border-ho-accent-bright/70" "bg-ho-accent-bright/10"]
+                             ["border-base-300" "hover:bg-base-200/40"]))
+              :data-role (str "portfolio-optimizer-vault-funding-split-" (name split))
+              :on {:click (field :split split)}}
+     [:span {:class ["flex" "items-center" "gap-2.5" "text-sm" "font-medium" "text-trading-text"]}
+      [:span {:class (into ["h-3.5" "w-3.5" "shrink-0" "rounded-full" "border"]
+                           (if selected? ["border-[4px]" "border-ho-accent-bright"] ["border-trading-muted"]))}]
+      title]
+     [:span {:class ["pl-6" "text-xs" "leading-5" "text-trading-muted"]} sub]
+     (into [:span {:class ["ml-6" "flex" "h-1.5" "gap-0.5" "overflow-hidden" "rounded-full"] :aria-hidden true}]
+           (map-indexed (fn [i w]
+                          [:span {:class ["bg-ho-accent-bright"]
+                                  :style {:flex-grow w :flex-basis 0 :opacity (- 1 (* 0.07 (mod i 8)))}}]))
+           (filter pos? weights))
+     [:span {:class ["num" "pl-6" "text-xs" "text-trading-muted"]}
+      (str (when (pos? (or withdrawals 0)) (str withdrawals (if (= 1 withdrawals) " withdrawal · " " withdrawals · ")))
+           deposits (if (= 1 deposits) " deposit · " " deposits · ")
+           (pct drift-after) " off target after")]]))
+
+(defn- tear-sheet-link
+  "Compare both splits on the hypothetical tear sheet (it charts Equal weight
+  against the target); hidden when the sheet is already open over it."
+  [state]
+  (let [{:keys [kind view scenario-id]} (portfolio-routes/parse-portfolio-route (get-in state [:router :path]))]
+    (if (and (= :optimize-scenario kind) scenario-id (not= :tear-sheet view))
+      [:button {:type "button"
+                :class ["self-start" "min-h-8" "text-sm" "text-ho-accent-bright" "hover:underline"]
+                :data-role "portfolio-optimizer-vault-funding-compare"
+                :on {:click [[:actions/portfolio-optimizer-vault-funding-command :close]
+                             [:actions/navigate (portfolio-routes/portfolio-optimize-tear-sheet-path scenario-id)]]}}
+       "Compare both on the hypothetical tear sheet ›"]
+      [:span {:class ["hidden"]}])))
+
+(defn- split-picker
+  [{:keys [options splits]} state]
+  (let [n (get-in splits [:equal :vaults] 0)]
+    [:section {:class ["flex" "flex-col" "gap-2" "border-b" "border-base-300" "px-5" "py-4"]}
+     [:span {:id "vault-funding-split" :class ["text-sm" "text-trading-muted"]} "Split the money by"]
+     [:div {:role "radiogroup" :aria-labelledby "vault-funding-split" :class ["grid" "gap-3" "md:grid-cols-2"]}
+      (split-card {:split :target
+                   :selected? (= :target (:split options))
+                   :title "Optimizer target"
+                   :sub "The weights from this run."
+                   :summary (:target splits)})
+      (split-card {:split :equal
+                   :selected? (= :equal (:split options))
+                   :title "Equal weight"
+                   :sub (str "The same share in each of the " n " vaults the run picked ("
+                             (pct (if (pos? n) (/ 1 n) 0)) " each).")
+                   :summary (:equal splits)})]
+     (tear-sheet-link state)]))
+
+(defn- lock-note
+  "How much unlocks when, and which top-ups restart a lock."
+  [rows]
+  (let [deposits (filter #(pos? (:deposit %)) rows)
+        by-day (->> deposits
+                    (group-by #(date (:unlock-ms %)))
+                    (sort-by (fn [[_ rs]] (:unlock-ms (first rs))))
+                    (map (fn [[d rs]] (str (usd (reduce + 0 (map :deposit rs))) " until " d))))
+        top-ups (filter #(pos? (:held %)) deposits)]
+    (if (seq deposits)
+      (note :info "portfolio-optimizer-vault-funding-lockup"
+            (str "Hyperliquid locks each deposit before it can be withdrawn: " (str/join ", " by-day) "."
+                 (when (seq top-ups)
+                   (str " Topping up " (str/join " and " (map :label top-ups))
+                        " restarts the lock on what you already hold there."))))
+      [:span {:class ["hidden"]}])))
 
 (defn- checkbox
   [{:keys [checked? disabled? on title sub data-role]}]
@@ -162,14 +267,22 @@
                                      "portfolio-optimizer-vault-funding-transfer" {:from :spot :to :perps}]]}}
               "Move USDC to perps"]]))))
 
+(defn- send-label
+  [withdraw deposit]
+  (cond
+    (and (pos? withdraw) (pos? deposit)) (str "Withdraw " (usd withdraw) " and deposit " (usd deposit))
+    (pos? withdraw) (str "Withdraw " (usd withdraw) " (kept as cash)")
+    (pos? deposit) (str "Deposit " (usd deposit))
+    :else "Nothing to send"))
+
 (defn- plan-screen
-  [{:keys [plan options available account-mode block] :as funding}]
+  [{:keys [plan options available account-mode block agent-ready?] :as funding} state]
   (let [rows (:rows plan)
         after-total (reduce + 0 (map :after rows))
         {:keys [withdraw deposit leftover]} (:totals plan)
-        n-w (count (filter #(pos? (:withdraw %)) rows))
-        n-d (count (filter #(pos? (:deposit %)) rows))]
+        n-steps (count (:steps plan))]
     [:div {:class ["flex" "flex-col"]}
+     (split-picker funding state)
      [:section {:class ["grid" "gap-6" "border-b" "border-base-300" "px-5" "py-5" "md:grid-cols-2"]}
       [:div {:class ["flex" "flex-col" "gap-2"]}
        [:label {:for "vault-funding-amount" :class ["text-sm" "text-trading-muted"]} "New cash to add"]
@@ -210,15 +323,15 @@
                   :sub "Only unlocked positions. The USDC freed goes into the vaults below target."
                   :data-role "portfolio-optimizer-vault-funding-withdraw-over"})]]
      [:div {:class ["overflow-x-auto"]}
-      (into [:div {:class ["min-w-[760px]"] :data-role "portfolio-optimizer-vault-funding-rows"}
-             [:div {:class ["grid" "grid-cols-[minmax(160px,2fr)_70px_100px_100px_minmax(200px,2fr)_70px]" "gap-3" "border-b"
+      (into [:div {:class ["min-w-[900px]"] :data-role "portfolio-optimizer-vault-funding-rows"}
+             [:div {:class ["grid" plan-grid "gap-3" "border-b"
                             "border-base-300" "px-5" "py-2.5" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.14em]"
                             "text-trading-muted"]}
-              [:span "Vault"] [:span {:class ["text-right"]} "Target"] [:span {:class ["text-right"]} "You hold"]
-              [:span {:class ["text-right"]} "Target $"] [:span "Action"] [:span {:class ["text-right"]} "After"]]]
+              [:span "Vault"] [:span {:class ["text-right"]} "Target"] [:span {:class ["text-right"]} "After"]
+              [:span {:class ["text-right"]} "You hold"] [:span "Action"] [:span "Locked until"]]]
             (map #(plan-row % after-total))
             rows)]
-     (into [:div {:class ["flex" "flex-col" "gap-2" "px-5" "pt-4"]}] (notes funding))
+     (into [:div {:class ["flex" "flex-col" "gap-2" "px-5" "pt-4"]}] (conj (notes funding) (lock-note rows)))
      [:footer {:class ["mt-4" "flex" "flex-wrap" "items-center" "justify-between" "gap-4" "border-t" "border-base-300" "px-5" "py-4"]}
       [:div {:class ["flex" "flex-wrap" "gap-6"]}
        [:div [:div {:class ["text-xs" "text-trading-muted"]} "Withdraw"]
@@ -228,70 +341,24 @@
        [:div [:div {:class ["text-xs" "text-trading-muted"]} "Stays as cash"]
         [:div {:class ["num" "text-base"]} (usd leftover)]]
        [:div [:div {:class ["text-xs" "text-trading-muted"]} "Off target"]
-        [:div {:class ["num" "text-base"]} (str (pct (:drift-before plan)) " → " (pct (:drift-after plan)))]]]
+        [:div {:class ["num" "text-base"]} (str (pct (:drift-before plan)) " → " (pct (:drift-after plan)))]]
+       [:div [:div {:class ["text-xs" "text-trading-muted"]} "All withdrawable by"]
+        [:div {:class ["num" "text-base"] :data-role "portfolio-optimizer-vault-funding-free-by"}
+         (or (date (:free-by-ms plan)) "Now")]]]
       [:div {:class ["flex" "flex-col" "items-end" "gap-1"]}
        [:button {:type "button"
                  :disabled (boolean block)
                  :class primary-button
-                 :data-role "portfolio-optimizer-vault-funding-review"
-                 :on {:click (command :review)}}
-        (str "Review " (when (pos? n-w) (str n-w (if (= 1 n-w) " withdrawal + " " withdrawals + ")))
-             n-d (if (= 1 n-d) " deposit" " deposits"))]
-       [:span {:class ["max-w-[360px]" "text-right" "text-xs" "text-trading-muted"]
+                 :data-role "portfolio-optimizer-vault-funding-confirm"
+                 :on {:click (command :confirm)}}
+        (send-label withdraw deposit)]
+       [:span {:class ["max-w-[420px]" "text-right" "text-xs" "text-trading-muted"]
                :data-role "portfolio-optimizer-vault-funding-block"}
-        (or block "")]]]]))
-
-(defn- step-list
-  [title tone steps]
-  [:section {:class ["px-5" "py-4"]}
-   [:h3 {:class ["text-sm" "font-medium" "text-trading-text"]} title]
-   (into [:div {:class ["mt-2" "rounded-lg" "border" "border-base-300"]}]
-         (map (fn [{:keys [label kind] amount :usd}]
-                [:div {:class ["flex" "min-h-10" "items-center" "justify-between" "gap-3" "border-b" "border-base-300/60" "px-3" "text-sm"]}
-                 [:span {:class ["truncate"]} label]
-                 [:span {:class ["num" tone]} (str (if (= :withdraw kind) "− " "+ ") (usd amount))]]))
-         steps)])
-
-(defn- send-label
-  [withdraw deposit]
-  (cond
-    (and (pos? withdraw) (pos? deposit)) (str "Withdraw " (usd withdraw) " and deposit " (usd deposit))
-    (pos? withdraw) (str "Withdraw " (usd withdraw) " (kept as cash)")
-    :else (str "Deposit " (usd deposit))))
-
-(defn- review-screen
-  [{:keys [plan agent-ready?]}]
-  (let [steps (:steps plan)
-        withdrawals (filter #(= :withdraw (:kind %)) steps)
-        deposits (filter #(= :deposit (:kind %)) steps)
-        {:keys [withdraw deposit]} (:totals plan)]
-    [:div {:class ["flex" "flex-col"] :data-role "portfolio-optimizer-vault-funding-review-screen"}
-     [:p {:class ["px-5" "pt-4" "text-sm" "leading-6" "text-trading-muted"]}
-      (str (count steps) (if (= 1 (count steps)) " transfer, " " transfers, ")
-           (if agent-ready?
-             "signed with your trading key — no wallet pop-ups."
-             "signed with your trading key once trading is enabled or unlocked (Confirm asks for that first).")
-           " They run one at a time; if a withdrawal fails, the deposits wait so you can retry.")]
-     (if (seq withdrawals)
-       (step-list (if (seq deposits) "1 · Withdraw from vaults above target" "Withdraw from vaults above target")
-                  "text-[#e2b545]" withdrawals)
-       [:span {:class ["hidden"]}])
-     (if (seq deposits)
-       (step-list (if (seq withdrawals) "2 · Deposit into vaults below target" "Deposit into vaults below target")
-                  "text-ho-accent-bright" deposits)
-       [:span {:class ["hidden"]}])
-     [:div {:class ["px-5"]}
-      (if (seq deposits)
-        (note :info "portfolio-optimizer-vault-funding-lockup"
-              "New deposits are locked before you can withdraw them again (1 day for most vaults, 4 days for HLP); a new deposit restarts that vault's lock.")
-        [:span {:class ["hidden"]}])]
-     [:footer {:class ["mt-4" "flex" "flex-wrap" "justify-end" "gap-2" "border-t" "border-base-300" "px-5" "py-4"]}
-      [:button {:type "button" :class secondary-button :on {:click (command :back)}} "Edit plan"]
-      [:button {:type "button"
-                :class primary-button
-                :data-role "portfolio-optimizer-vault-funding-confirm"
-                :on {:click (command :confirm)}}
-       (send-label withdraw deposit)]]]))
+        (or block
+            (str n-steps (if (= 1 n-steps) " transfer" " transfers")
+                 ", withdrawals first, signed with your trading key"
+                 (if agent-ready? "." " once trading is enabled.")
+                 " Sends right away; no further confirmation."))]]]]))
 
 (def ^:private status-glyph
   {:queued ["○" "text-trading-muted" "Queued"]
@@ -397,11 +464,11 @@
           [:header {:class ["flex" "items-start" "justify-between" "gap-3" "border-b" "border-base-300" "px-5" "py-4"]}
            [:div
             [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
-             (case screen :review "Review" :progress "Funding vaults" "Plan")]
+             (if (= :progress screen) "Funding vaults" "Plan")]
             [:h2 {:id "vault-funding-title" :class ["mt-1" "text-lg" "font-semibold" "text-trading-text"]}
              "Fund this allocation"]
             [:p {:class ["mt-1" "max-w-2xl" "text-sm" "text-trading-muted"]}
-             "Withdraw from vaults above target, then deposit into vaults below it, so your vault holdings match the optimizer's weights."]]
+             "Withdraw from vaults above target, then deposit into vaults below it, so your vault holdings match the split you choose."]]
            [:button {:type "button" :aria-label "Close"
                      :class ["inline-flex" "h-10" "w-10" "items-center" "justify-center" "rounded-lg" "text-trading-muted" "hover:bg-base-200"]
                      :data-role "portfolio-optimizer-vault-funding-close"
@@ -411,7 +478,6 @@
           (if (:error opts)
             [:div {:class ["px-5" "pt-4"]} (note :error "portfolio-optimizer-vault-funding-error" (:error opts))]
             [:span {:class ["hidden"]}])
-          (case screen
-            :review (review-screen funding)
-            :progress (progress-screen current)
-            (plan-screen funding))]]))))
+          (if (= :progress screen)
+            (progress-screen current)
+            (plan-screen funding state))]]))))
