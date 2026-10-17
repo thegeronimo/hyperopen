@@ -45,7 +45,7 @@ Repo artifacts (from the code map, verified):
 - [x] (2026-10-16) Sheet UI + entry points (verdict CTA "Fund this allocation" on all-vault runs; "Fund the vaults" on the hypothetical-performance card for mixed runs).
 - [x] (2026-10-16) Adversarial review (5 dimensions, 3 skeptics per finding: 28 findings, 22 confirmed) and fixes; `npm run gates` 34/34; Playwright `optimizer-vault-funding.spec.mjs` (3) + tear-sheet spec green; live render of the design's worked example matches the canvas to the cent.
 - [x] (2026-10-17) Owner follow-up (canvas board 5, approved): choose the split (Optimizer target or Equal weight), a per-vault "Locked until" column, Target beside After, "All withdrawable by" in the footer, and no review screen: the plan's button names the amounts and sends.
-- [ ] Owner review of the split and lock-up build.
+- [x] (2026-10-17) Owner review of the split and lock-up build: accepted, with the follow-ups below (leader-share deposit cap, a clear message for reasonless refusals, per-row Include/Skip, an off-by-default "Only fill vaults below their target"); merged to main in `b15fcf20f`.
 
 ## Surprises & Discoveries
 
@@ -72,4 +72,4 @@ Repo artifacts (from the code map, verified):
 
 ## Outcomes & Retrospective
 
-(pending)
+Shipped and merged to main in `b15fcf20f` (2026-10-17). The sheet funds a vault allocation in one batch: withdrawals from over-target vaults first, then deposits, each its own agent-signed `vaultTransfer`, per-vault retryable. The user picks Optimizer target or Equal weight, sees each vault's lock-up and when everything is withdrawable, and sends from the plan. Deposits are capped by the leader's 5% share (a vault at the floor counts as closed; protocol vaults like HLP are exempt), and any vault can be skipped. Remaining risk: the send path has run live only on the owner's own deposits; one refusal (FuturAI Labs, "Vault transfer error") has no known cause, and the sheet now says Hyperliquid gave no reason and leaves it retryable.

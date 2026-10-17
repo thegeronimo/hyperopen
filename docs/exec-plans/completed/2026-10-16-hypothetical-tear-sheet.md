@@ -52,7 +52,7 @@ Repo artifacts:
 - [x] (2026-10-16) Views: `tear_sheet_view.cljs`, `tear_sheet_parts.cljs`, `tear_sheet_card.cljs`; header link + card on the Recommendation tab for vault runs only; the vault chart's plot area extracted as `chart-view/chart-plot` (vault page unchanged).
 - [x] (2026-10-16) Playwright `tools/playwright/test/optimizer-tear-sheet.spec.mjs` (2 tests) green against the worktree dev build; live run on 5 vaults + BTC verified (card, page, ranges, benchmarks incl. live HLP/BTC fetches, method controls, holdings, phone width without horizontal overflow).
 - [x] (2026-10-16) Owner feedback round: the Recommendation card now draws Equal weight and HLP with a legend and a "fewer assets live" shade, as in the mock-up (HLP is fetched on scenario-route load); the composition list expands past the top 8; Compare is chips plus a search over every market and vault the vault page offers as a benchmark (`vaults.detail.benchmarks/benchmark-options`), up to 5 picks, each fetched on add (daily candles or vaultDetails) and shown as its own metrics column. Gates 34/34.
-- [ ] Owner review.
+- [x] (2026-10-17) Owner review: accepted; merged to main in `b15fcf20f`.
 
 ## Surprises & Discoveries
 
