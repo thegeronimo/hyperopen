@@ -74,6 +74,11 @@
                      (qualifies? scope (model/evaluate config* result))))
                  order))))
 
+(defn unfetched-addresses
+  "Addresses in `order` whose history could not be loaded in this run."
+  [order results]
+  (vec (filter #(some? (get-in results [% :error])) order)))
+
 (defn- metrics-for
   [results addresses]
   (into {}
@@ -94,37 +99,57 @@
      :config config
      :members members
      :metrics-by-address (metrics-for results members)
+     :unfetched (unfetched-addresses (:addresses run) results)
      :created-at-ms now-ms
      :refreshed-at-ms now-ms
      :last-diff nil}))
 
 (defn refresh-view
-  "Apply a finished refresh run to a view."
+  "Apply a finished refresh run to a view. A member whose history could not
+  be loaded this time is kept, with its numbers from the last refresh: a
+  failed request says nothing about whether the vault still qualifies."
   [view {:keys [addresses]} results now-ms]
-  (let [members* (if (= :fixed (:membership view))
+  (let [unfetched (unfetched-addresses addresses results)
+        kept (set (filter (set unfetched) (:members view)))
+        members* (if (= :fixed (:membership view))
                    (vec (:members view))
-                   (qualifying-addresses addresses results (:config view) (:scope view)))
+                   (vec (filter #(or (contains? kept %)
+                                     (some #{%} (qualifying-addresses [%] results (:config view) (:scope view))))
+                                addresses)))
         before (set (:members view))
         after (set members*)]
     (assoc view
            :members members*
-           :metrics-by-address (merge (when (= :fixed (:membership view))
-                                        (select-keys (:metrics-by-address view) members*))
+           :metrics-by-address (merge (select-keys (:metrics-by-address view)
+                                                   (if (= :fixed (:membership view)) members* kept))
                                       (metrics-for results members*))
+           :unfetched unfetched
            :refreshed-at-ms now-ms
            :last-diff {:joined (vec (filter (complement before) members*))
                        :left (vec (filter (complement after) (:members view)))})))
 
+(defn unfetched-summary
+  "\"2 vaults couldn't be loaded\", or nil."
+  [unfetched]
+  (let [n (count unfetched)]
+    (when (pos? n)
+      (str n (if (= 1 n) " vault" " vaults") " couldn't be loaded"))))
+
 (defn diff-summary
-  [{:keys [joined left]}]
-  (let [n-joined (count joined)
-        n-left (count left)
-        part (fn [n verb] (str n (if (= 1 n) " vault " " vaults ") verb))]
-    (cond
-      (and (zero? n-joined) (zero? n-left)) "no change in members"
-      (zero? n-left) (str (part n-joined "joined") ", none left")
-      (zero? n-joined) (str "none joined, " (part n-left "left"))
-      :else (str (part n-joined "joined") ", " n-left " left"))))
+  ([diff]
+   (diff-summary diff nil))
+  ([{:keys [joined left]} unfetched]
+   (let [n-joined (count joined)
+         n-left (count left)
+         part (fn [n verb] (str n (if (= 1 n) " vault " " vaults ") verb))
+         base (cond
+                (and (zero? n-joined) (zero? n-left)) "no change in members"
+                (zero? n-left) (str (part n-joined "joined") ", none left")
+                (zero? n-joined) (str "none joined, " (part n-left "left"))
+                :else (str (part n-joined "joined") ", " n-left " left"))]
+     (if-let [u (unfetched-summary unfetched)]
+       (str base "; " u " (members kept)")
+       base))))
 
 (defn- normalize-address
   [value]
@@ -153,6 +178,7 @@
                                  (:metrics-by-address view))
        :created-at-ms (when (number? (:created-at-ms view)) (:created-at-ms view))
        :refreshed-at-ms (when (number? (:refreshed-at-ms view)) (:refreshed-at-ms view))
+       :unfetched (vec (keep normalize-address (:unfetched view)))
        :last-diff (when (map? (:last-diff view))
                     {:joined (vec (keep normalize-address (get-in view [:last-diff :joined])))
                      :left (vec (keep normalize-address (get-in view [:last-diff :left])))})})))

@@ -1,6 +1,7 @@
 (ns hyperopen.vaults.screener.saved-views-test
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.vaults.screener.model :as model]
+            [hyperopen.vaults.application.saved-views-vm :as saved-views-vm]
             [hyperopen.vaults.screener.saved-views :as saved-views]))
 
 (def run
@@ -61,6 +62,21 @@
         (is (= 0.1 (get-in refreshed [:metrics-by-address "0xa" :sharpe])))
         (is (= "no change in members" (saved-views/diff-summary (:last-diff refreshed))))))))
 
+(deftest refresh-keeps-a-member-whose-fetch-failed-test
+  (let [view (saved-views/build-view {:id "v" :run run :results (dissoc results "0xd")
+                                      :ui-config ui-config :scope :pass :now-ms 1000})
+        failed (assoc results "0xa" {:error "rate limited"})
+        refreshed (saved-views/refresh-view view run failed 2000)]
+    (is (= ["0xa"] (:members view)))
+    (is (= ["0xa"] (:members refreshed)) "a failed request is not evidence the vault no longer qualifies")
+    (is (= 2.0 (get-in refreshed [:metrics-by-address "0xa" :sharpe])) "keeps its last numbers")
+    (is (= ["0xa" "0xd"] (:unfetched refreshed)))
+    (is (= {:joined [] :left []} (:last-diff refreshed)))
+    (is (= "no change in members; 2 vaults couldn't be loaded (members kept)"
+           (saved-views/diff-summary (:last-diff refreshed) (:unfetched refreshed))))
+    (is (= ["0xa" "0xd"] (:unfetched (first (saved-views/normalize-views [refreshed]))))
+        "survives storage")))
+
 (deftest normalize-views-reads-back-stored-records-test
   (testing "IndexedDB returns keywordized address keys and string tokens"
     (let [[view] (saved-views/normalize-views
@@ -84,3 +100,29 @@
     (is (= ["A" "B"] (mapv :name views)))
     (is (= ["A2" "B"] (mapv :name (saved-views/upsert-view views {:id "a" :name "A2"}))))
     (is (= ["B"] (mapv :name (saved-views/remove-view views "a"))))))
+
+(deftest view-header-reports-unfetched-members-test
+  (let [day (* 24 60 60 1000)
+        now (* 30 day)
+        view (assoc (saved-views/build-view {:id "v" :run run :results (dissoc results "0xd")
+                                             :ui-config ui-config :scope :pass :now-ms (- now (* 2 day))})
+                    :unfetched ["0xd"])
+        state {:vaults {:saved-views [view]}
+               :vaults-ui {:active-saved-view "v"}}
+        text (get-in (saved-views-vm/saved-views-vm state now) [:active :status :text])]
+    (is (re-find #"1 vault couldn't be loaded last time \(members kept\) — Refresh to retry" text))))
+
+(deftest view-header-shows-the-history-rule-test
+  (let [view (assoc-in (saved-views/build-view {:id "v" :run run :results results
+                                                :ui-config ui-config :scope :pass :now-ms 1000})
+                       [:config :min-history-points] 20)
+        state {:vaults {:saved-views [view]} :vaults-ui {:active-saved-view "v"}}
+        active (:active (saved-views-vm/saved-views-vm state 2000))]
+    (is (some #(= "History ≥ 20 points" (:text %)) (:chips active)))
+    (is (= 20 (:min-history-points active))))
+  (let [view (assoc-in (saved-views/build-view {:id "v" :run run :results results
+                                                :ui-config ui-config :scope :pass :now-ms 1000})
+                       [:config :min-history-points] 0)
+        state {:vaults {:saved-views [view]} :vaults-ui {:active-saved-view "v"}}]
+    (is (not-any? #(re-find #"History" (:text %))
+                  (:chips (:active (saved-views-vm/saved-views-vm state 2000)))))))

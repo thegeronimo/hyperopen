@@ -101,8 +101,25 @@
    :warn ["text-ho-warn"]
    :muted ["text-trading-text-secondary"]})
 
+(defn- min-history-items
+  [current]
+  (into [[:div {:class ["mt-1" "border-t" "border-base-300" "px-2.5" "pb-1" "pt-2" "text-xs" "text-trading-text-secondary"]}
+          "Minimum history in the window"]]
+        (map (fn [[points label]]
+               [:button {:type "button"
+                         :role "menuitemradio"
+                         :aria-checked (= points current)
+                         :class (into ["flex" "min-h-10" "w-full" "items-center" "justify-between" "rounded-md" "px-2.5"
+                                       "text-left" "text-sm" "text-trading-text" "hover:bg-base-200"]
+                                      format/focus-ring-classes)
+                         :data-role (str "vaults-saved-view-menu-min-history-" points)
+                         :on {:click [[:actions/vault-saved-view-command (keyword (str "min-history-" points))]]}}
+                label
+                [:span {:class ["text-ho-accent-bright"]} (if (= points current) "✓" "")]]))
+        [[0 "Any"] [10 "10 points"] [20 "20 points"]]))
+
 (defn view-header
-  [{:keys [name count chips status membership menu-open? confirm-delete?]}]
+  [{:keys [name count chips status membership menu-open? confirm-delete? min-history-points]}]
   [:section {:aria-label (str "Saved view " name)
              :class ["relative" "flex" "flex-col" "gap-3" "rounded-2xl" "border" "border-ho-border-accent"
                      "bg-ho-accent-soft/40" "px-5" "py-4"]
@@ -163,5 +180,6 @@
             :data-role "vaults-saved-view-menu"}
       (menu-item "Rename" :rename false)
       (menu-item (if (= membership :fixed) "Update members on refresh" "Keep these vaults fixed") :toggle-fixed false)
-      (menu-item "Delete view" :request-delete true)]
+      (menu-item "Delete view" :request-delete true)
+      (into [:div {:class ["flex" "flex-col"]}] (min-history-items min-history-points))]
      [:div {:class ["hidden"]}])])

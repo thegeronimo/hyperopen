@@ -152,15 +152,31 @@
       (->promise (sleep-ms! wait))
       (js/Promise.resolve nil))))
 
-(defn- fetch-portfolio!
-  [{:keys [store request-vault-details! persist-record! now-ms] :as deps}
-   run-id address seen-rate-limits]
+(def retry-delay-ms
+  "Wait before retry n is n times this, on top of the run's pacing."
+  5000)
+
+(defn- request-with-retry!
+  [{:keys [store request-vault-details! now-ms sleep-ms!] :as deps}
+   run-id address seen-rate-limits attempt]
   (-> (wait-for-slot! deps run-id seen-rate-limits)
       (.then (fn [_]
                (update-run! store run-id assoc :backoff-until-ms nil)
                (reset! last-request-at-ms (now-ms))
                (request-vault-details! address {:priority :low
                                                 :dedupe-key [:vault-screener address]})))
+      (.catch (fn [error]
+                (if (< attempt model/fetch-attempts)
+                  (do (update-run! store run-id update :retries (fnil inc 0))
+                      (-> (->promise (sleep-ms! (* attempt retry-delay-ms)))
+                          (.then (fn [_]
+                                   (request-with-retry! deps run-id address seen-rate-limits (inc attempt))))))
+                  (js/Promise.reject error))))))
+
+(defn- fetch-portfolio!
+  [{:keys [store persist-record! now-ms] :as deps}
+   run-id address seen-rate-limits]
+  (-> (request-with-retry! deps run-id address seen-rate-limits 1)
       (.then (fn [details]
                (let [portfolio (screener-metrics/cacheable-portfolio (:portfolio details))
                      saved-at (now-ms)]
@@ -221,7 +237,7 @@
         (when (fn? show-toast!)
           (show-toast! store :success
                        (str "Refreshed \u201c" (:name view*) "\u201d: "
-                            (saved-views/diff-summary (:last-diff view*)) ".")))))))
+                            (saved-views/diff-summary (:last-diff view*) (:unfetched view*)) ".")))))))
 
 (defn- finish-run!
   [{:keys [store now-ms show-toast!] :as deps} run-id]
@@ -232,9 +248,13 @@
       (if (:saved-view-id run)
         (finish-view-refresh! deps run)
         (when (fn? show-toast!)
-          (show-toast! store :success
-                       (str "Vault screen ready: " (pass-count @store)
-                            " of " (count (:addresses run)) " vaults pass.")))))))
+          (let [failed (count (saved-views/unfetched-addresses (:addresses run) (get-in @store results-path)))]
+            (show-toast! store :success
+                         (str "Vault screen ready: " (pass-count @store)
+                              " of " (count (:addresses run)) " vaults pass."
+                              (when (pos? failed)
+                                (str " " (saved-views/unfetched-summary (repeat failed nil))
+                                     " — Run again to retry them."))))))))))
 
 (defn- next-pending-address
   [state]

@@ -36,7 +36,9 @@
    :request-vault-details! (fn [address opts]
                              (swap! requests conj [address opts @clock])
                              (when on-request (on-request address))
-                             (if (= address "0xbad")
+                             (if (or (= address "0xbad")
+                                     (and (= address "0xflaky")
+                                          (= 1 (count (filter #(= "0xflaky" (first %)) @requests)))))
                                (js/Promise.reject (js/Error. "boom"))
                                (js/Promise.resolve {:portfolio portfolio})))
    :load-record! (fn [address]
@@ -67,7 +69,8 @@
                          run (get-in state [:vaults :screener :run])
                          results (get-in state [:vaults :screener :results])
                          times (mapv #(nth % 2) @requests)]
-                     (is (= ["0xa" "0xb" "0xbad"] (mapv first @requests)) "the cached vault is never requested")
+                     (is (= ["0xa" "0xb" "0xbad" "0xbad" "0xbad"] (mapv first @requests))
+                         "the cached vault is never requested; a failing one is tried 3 times")
                      (is (every? #(= :low (:priority (second %))) @requests))
                      (is (every? #(>= % model/request-interval-ms) (map - (rest times) times))
                          "consecutive requests are spaced by the interval")
@@ -78,7 +81,25 @@
                      (is (= "boom" (get-in results ["0xbad" :error])))
                      (is (contains? @records "0xa") "fetched histories are persisted")
                      (is (number? (get-in state [:vaults :screener :cache-index "0xb"])))
-                     (is (= [[:success "Vault screen ready: 3 of 4 vaults pass."]] @toasts))
+                     (is (= 2 (:retries run)))
+                     (is (= [[:success (str "Vault screen ready: 3 of 4 vaults pass. "
+                                            "1 vault couldn't be loaded — Run again to retry them.")]]
+                            @toasts))
+                     (done))))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest transient-failure-is-retried-test
+  (async done
+    (let [store (base-store ["0xflaky"])
+          {:keys [requests sleeps] :as h} (harness)]
+      (-> (runner/start-run! (deps store h) 1)
+          (.then (fn [_]
+                   (let [run (get-in @store [:vaults :screener :run])]
+                     (is (= ["0xflaky" "0xflaky"] (mapv first @requests)))
+                     (is (some #{runner/retry-delay-ms} @sleeps) "waits before retrying")
+                     (is (nil? (get-in @store [:vaults :screener :results "0xflaky" :error])))
+                     (is (= 0 (:failed run)))
+                     (is (= 1 (:retries run)))
                      (done))))
           (.catch (async-support/unexpected-error done))))))
 

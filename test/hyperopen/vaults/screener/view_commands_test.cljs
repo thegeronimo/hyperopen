@@ -108,3 +108,21 @@
          (view-commands/load-effects {})))
   (is (= [] (view-commands/load-effects {:vaults {:saved-views-loaded? true
                                                    :screener {:cache-index-loaded? true}}}))))
+
+(deftest min-history-command-updates-the-rule-and-refreshes-test
+  (let [state (-> (screened-state)
+                  (assoc-in [:vaults :saved-views]
+                            [{:id "v1" :name "Calm" :membership :update :scope :pass
+                              :config {:min-age-days 180 :min-tvl 100000 :window :all-time
+                                       :min-history-points 20
+                                       :criteria [{:metric :sharpe :value "1.0"}]}
+                              :members ["0xa"]}])
+                  (assoc-in [:vaults-ui :active-saved-view] "v1"))
+        effects (view-commands/vault-saved-view-command state :min-history-10 now-ms)
+        after (apply-saves state effects)
+        run (get-in after [:vaults :screener :run])]
+    (is (= 10 (get-in after [:vaults :saved-views 0 :config :min-history-points])))
+    (is (some #{[:effects/persist-vault-saved-views]} effects))
+    (is (= "v1" (:saved-view-id run)) "the view refreshes under the new rule")
+    (is (= 10 (get-in run [:config :min-history-points])))
+    (is (= [:effects/run-vault-screener (:id run)] (last effects)))))

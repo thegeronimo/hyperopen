@@ -15,6 +15,12 @@
 (def cache-ttl-ms
   (* 6 60 60 1000))
 
+(def fetch-attempts
+  "Tries per vault before its history counts as unavailable. A transient
+  failure (most often a burst of rate limiting when a run starts alongside
+  the page's own requests) must not silently drop a vault from a screen."
+  3)
+
 (def near-miss-fraction
   0.1)
 

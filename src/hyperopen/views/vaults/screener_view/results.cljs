@@ -1,6 +1,7 @@
 (ns hyperopen.views.vaults.screener-view.results
   "Screener run panel (progress, pacing, backoff) and the grouped results."
   (:require [hyperopen.account.spectate-mode-links :as spectate-mode-links]
+            [hyperopen.vaults.screener.model :as model]
             [hyperopen.views.vaults.list-view.format :as format]
             [hyperopen.wallet.core :as wallet]))
 
@@ -110,7 +111,7 @@
 (defn- progress-panel
   [{:keys [run criteria-summary tab-counts]}]
   (let [{:keys [status done total cached fetched queued cached-pct fetched-pct
-                eta-label interval-label backoff-seconds stale? chips]} run
+                eta-label interval-label backoff-seconds stale? chips failed]} run
         active? (#{:running :paused} status)]
     [:section {:aria-label "Screen run"
                :class ["flex" "flex-col" "gap-5" "rounded-2xl" "border" "border-ho-border-accent" "bg-ho-accent-soft/40" "p-5" "md:p-6"]
@@ -152,6 +153,14 @@
         [:span {:class ["font-medium" "text-ho-warn"]} "Hyperliquid asked us to slow down."]
         [:span {:class ["text-trading-text"]}
          (str "Resuming in " backoff-seconds " s at a slower pace — nothing is lost.")]])
+     (when (and (pos? (or failed 0)) (not active?))
+       [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "rounded-xl" "border" "border-ho-warn/40" "bg-ho-warn/10" "px-4" "py-3" "text-sm"]
+              :data-role "vault-screener-failed"}
+        [:span {:class ["text-trading-text"]}
+         (str failed (if (= 1 failed) " vault's" " vaults'")
+              " history couldn't be loaded after " model/fetch-attempts " tries, so "
+              (if (= 1 failed) "it is" "they are") " under Not enough data. Run again to retry — the rest is cached.")]
+        (secondary-button "Run again" [:actions/run-vault-screener] "vault-screener-failed-rerun")])
      (when (= status :running)
        [:p {:class ["text-sm" "text-trading-text-secondary"]}
         "You can leave this page or keep trading — the screen keeps running in the background and your trading data always goes first."])]))

@@ -166,10 +166,24 @@
                             [menu-path nil]]]
        [:effects/run-vault-screener run-id]])))
 
+(def ^:private min-history-commands
+  {:min-history-0 0 :min-history-10 10 :min-history-20 20})
+
+(defn- set-min-history-effects
+  "Change the view's minimum-history rule and refresh it right away, so its
+  members match the rule (a just-refreshed view is all cached, so instant)."
+  [state view views* points now-ms]
+  (let [view* (assoc-in view [:config :min-history-points] points)]
+    (into [[:effects/save-many [[saved-views-path (saved-views/upsert-view views* view*)]
+                                [menu-path nil]]]
+           persist-effect]
+          (refresh-effects state view* now-ms))))
+
 (defn vault-saved-view-command
   "Commands on the active saved view: :toggle-menu :close-menu :refresh
   :rename :toggle-fixed :open-in-screener :request-delete :cancel-delete
-  :confirm-delete."
+  :confirm-delete, and :min-history-0 / -10 / -20 (set the view's minimum
+  history and refresh)."
   ([state command]
    (vault-saved-view-command state command (.now js/Date)))
   ([state command now-ms]
@@ -180,6 +194,9 @@
      (if-not view
        []
        (case command*
+         (:min-history-0 :min-history-10 :min-history-20)
+         (set-min-history-effects state view views* (get min-history-commands command*) now-ms)
+
          :toggle-menu [[:effects/save menu-path {:open? (not (:open? menu))}]]
          :close-menu [[:effects/save menu-path nil]]
          :refresh (refresh-effects state view now-ms)

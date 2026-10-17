@@ -49,6 +49,10 @@
          {:text (str "TVL ≥ " (tvl-labels (:min-tvl config))) :accent? false}
          {:text (str (window-labels (:window config)) " window") :accent? false}]
         (keep (fn [c] (when-let [t (criterion-chip c)] {:text t :accent? true})) (:criteria config))
+        ;; A hidden history rule silently drops old vaults (their windows are
+        ;; sparsely sampled), so it is always shown when set.
+        (when (pos? (or (:min-history-points config) 0))
+          [{:text (str "History ≥ " (:min-history-points config) " points") :accent? true}])
         [{:text (if (= membership :fixed) "Fixed members" "Members update on refresh") :accent? false}]
         (when (= scope :pass-and-near) [{:text "Includes near misses" :accent? false}]))))
 
@@ -80,7 +84,7 @@
       (and (:last-diff view) (< (- now-ms (or (:refreshed-at-ms view) 0)) (* 10 60 1000)))
       {:tone :success
        :text (str "Refreshed " (format-ago (:refreshed-at-ms view) now-ms) " · "
-                  (saved-views/diff-summary (:last-diff view)))}
+                  (saved-views/diff-summary (:last-diff view) (:unfetched view)))}
 
       :else
       (let [{:keys [to-fetch total seconds]} (refresh-estimate state view now-ms)
@@ -91,7 +95,9 @@
                     " · Refresh takes "
                     (if (zero? to-fetch)
                       "a moment (all cached)"
-                      (str "≈ " (model/format-duration seconds) " (" (- total to-fetch) " of " total " cached)")))}))))
+                      (str "≈ " (model/format-duration seconds) " (" (- total to-fetch) " of " total " cached)"))
+                    (when-let [u (saved-views/unfetched-summary (:unfetched view))]
+                      (str " · " u " last time (members kept) — Refresh to retry")))}))))
 
 (defn saved-views-vm
   ([state]
@@ -105,6 +111,7 @@
                    views)
       :active (when active
                 (merge (select-keys active [:id :name :membership])
+                       {:min-history-points (or (get-in active [:config :min-history-points]) 0)}
                        {:count (count (:members active))
                         :chips (chips active)
                         :status (status state active now-ms)
