@@ -3,6 +3,7 @@
   a header link and a compact performance card. Both render only for solved
   runs that hold at least one vault."
   (:require [hyperopen.portfolio.optimizer.application.tear-sheet.model :as tear-sheet]
+            [hyperopen.portfolio.optimizer.application.vault-funding.model :as vault-funding-model]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.views.vaults.detail.activity.performance-metrics :as metrics-view]))
 
@@ -93,12 +94,24 @@
             [:span {:class hypothetical-badge-classes} "Backtest"]]
            [:p {:class ["mt-1.5" "text-sm" "text-trading-muted"]}
             "These target weights, rebalanced daily, over each vault's own history."]]
-          [:button {:type "button"
-                    :class ["min-h-9" "rounded-md" "bg-[#a493ff]" "px-4" "text-sm" "font-semibold" "text-[#120f26]"
-                            "hover:bg-[#b8aaff]"]
-                    :data-role "portfolio-optimizer-tear-sheet-card-open"
-                    :on {:click (open-actions scenario-id)}}
-           "Open tear sheet"]]
+          [:div {:class ["flex" "flex-wrap" "gap-2"]}
+           ;; A mixed run's verdict CTA stays "Review trades" for its perp legs,
+           ;; so its vault legs get their own way in here. An all-vault run's
+           ;; verdict CTA is already "Fund this allocation".
+           (if (vault-funding-model/all-vault-result? result)
+             [:span {:class ["hidden"]}]
+             [:button {:type "button"
+                       :class ["min-h-9" "rounded-md" "border" "border-base-300" "px-4" "text-sm" "text-trading-text"
+                               "hover:bg-base-200/40"]
+                       :data-role "portfolio-optimizer-tear-sheet-card-fund"
+                       :on {:click [[:actions/portfolio-optimizer-vault-funding-command :open]]}}
+              "Fund the vaults"])
+           [:button {:type "button"
+                     :class ["min-h-9" "rounded-md" "bg-[#a493ff]" "px-4" "text-sm" "font-semibold" "text-[#120f26]"
+                             "hover:bg-[#b8aaff]"]
+                     :data-role "portfolio-optimizer-tear-sheet-card-open"
+                     :on {:click (open-actions scenario-id)}}
+            "Open tear sheet"]]]
          [:svg {:viewBox "0 0 600 120" :preserveAspectRatio "none" :class ["mt-2" "block" "h-[120px]" "w-full"]
                 :role "img" :aria-label "Hypothetical cumulative return over the last year"}
           ;; Always present (zero width when every asset is live): a nil hole

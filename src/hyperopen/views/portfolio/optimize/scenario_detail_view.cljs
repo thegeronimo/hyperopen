@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.scenario-detail-view
   (:require [hyperopen.portfolio.optimizer.application.tear-sheet.model :as tear-sheet-model]
+            [hyperopen.portfolio.optimizer.application.vault-funding.model :as vault-funding-model]
             [hyperopen.portfolio.optimizer.application.view-model :as optimizer-view-model]
             [hyperopen.portfolio.optimizer.application.view-model.equal-risk-results
              :as equal-risk-results]
@@ -347,10 +348,12 @@
            ;; The covariance-only objectives get objective-specific verdict
            ;; copy (incl. Equal Risk's constraint-determined case) instead of
            ;; vol/return framing that implies a frontier choice was made.
-           deltas (if-let [body (or (equal-risk-results/verdict-body result)
-                                    (inverse-volatility-results/verdict-body result))]
-                    (assoc deltas* :objective-body body)
-                    deltas*)
+           deltas (cond-> (if-let [body (or (equal-risk-results/verdict-body result)
+                                            (inverse-volatility-results/verdict-body result))]
+                            (assoc deltas* :objective-body body)
+                            deltas*)
+                    (vault-funding-model/all-vault-result? result)
+                    (assoc :vault-funding? true))
            tear-sheet-card* (when (tear-sheet-model/vault-run? result)
                               (tear-sheet-card/card state model))]
        (cond-> []

@@ -18,6 +18,7 @@
 	    :duplicate-portfolio-optimizer-scenario]
 	   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]
 	   [:effects/execute-portfolio-optimizer-plan :execute-portfolio-optimizer-plan]
+   [:effects/run-portfolio-optimizer-vault-funding :run-portfolio-optimizer-vault-funding]
 	   [:effects/refresh-portfolio-optimizer-open-orders :refresh-portfolio-optimizer-open-orders]
 	   [:effects/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]
 	   [:effects/refresh-portfolio-optimizer-rebalance-slippage-snapshots
@@ -253,6 +254,10 @@
     :set-portfolio-optimizer-constrain-frontier]
    [:actions/set-portfolio-optimizer-tear-sheet-option
     :set-portfolio-optimizer-tear-sheet-option]
+   [:actions/set-portfolio-optimizer-vault-funding-field
+    :set-portfolio-optimizer-vault-funding-field]
+   [:actions/portfolio-optimizer-vault-funding-command
+    :portfolio-optimizer-vault-funding-command]
    [:actions/set-portfolio-optimizer-results-tab
     :set-portfolio-optimizer-results-tab]
    [:actions/set-portfolio-optimizer-selected-risk-instrument

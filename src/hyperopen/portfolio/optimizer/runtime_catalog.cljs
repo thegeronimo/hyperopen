@@ -2,9 +2,11 @@
   (:require [hyperopen.portfolio.optimizer.actions :as actions]
             [hyperopen.portfolio.optimizer.black-litterman-actions :as bl-actions]
             [hyperopen.portfolio.optimizer.actions.tear-sheet :as tear-sheet-actions]
+            [hyperopen.portfolio.optimizer.actions.vault-funding :as vault-funding-actions]
             [hyperopen.portfolio.optimizer.frontier-actions :as frontier-actions]
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as effect-adapters]
-            [hyperopen.runtime.effect-adapters.portfolio-optimizer-io :as effect-adapters-io]))
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-io :as effect-adapters-io]
+            [hyperopen.runtime.effect-adapters.portfolio-optimizer-vault-funding :as vault-funding-effects]))
 
 (defn action-deps
   []
@@ -167,6 +169,10 @@
     frontier-actions/set-portfolio-optimizer-constrain-frontier
     :set-portfolio-optimizer-tear-sheet-option
     tear-sheet-actions/set-portfolio-optimizer-tear-sheet-option
+    :set-portfolio-optimizer-vault-funding-field
+    vault-funding-actions/set-portfolio-optimizer-vault-funding-field
+    :portfolio-optimizer-vault-funding-command
+    vault-funding-actions/portfolio-optimizer-vault-funding-command
     :set-portfolio-optimizer-results-tab
     actions/set-portfolio-optimizer-results-tab
     :set-portfolio-optimizer-selected-risk-instrument
@@ -275,7 +281,9 @@
   (let [optimizer-controller-resolver
         (effect-adapters/make-portfolio-optimizer-controller-resolver runtime)]
     {:portfolio-optimizer
-     {:run-portfolio-optimizer
+     {:run-portfolio-optimizer-vault-funding
+      vault-funding-effects/run-vault-funding-effect
+      :run-portfolio-optimizer
       (effect-adapters/make-run-portfolio-optimizer
        runtime
        optimizer-controller-resolver)
