@@ -241,3 +241,55 @@
     (is (= :failed (run/final-status [{:status :failed} {:status :skipped}])))
     (is (= :done (run/final-status [{:status :done} {:status :done}])))
     (is (= :partial (run/final-status [{:status :done} {:status :failed}])))))
+
+(deftest deposit-limits-follow-the-leader-share-test
+  (let [details (fn [fraction leader-equity]
+                  {:leader "0xLEAD" :allow-deposits? true :leader-fraction fraction
+                   :followers [{:leader? true :vault-equity leader-equity} {:user owner :vault-equity 5}]})]
+    (testing "a leader at exactly 5% leaves no room"
+      (is (zero? (:max-deposit (model/deposit-limit (details 0.05 11732))))))
+    (testing "Cold Process live: 5.0001% leaves under $5, which counts as closed"
+      (is (< 4 (:max-deposit (model/deposit-limit (details 0.050001033980256515 11732))) model/min-useful-room-usd)))
+    (testing "a leader at 12.5% of 171,866 leaves room for about 257k, kept 2% under"
+      (let [room (:max-deposit (model/deposit-limit (details 0.12489 21465)))]
+        (is (< 250000 room 253000))))
+    (testing "HLP live: a protocol vault's leader holds 0.2% and the 5% rule does not apply"
+      (is (nil? (:max-deposit (model/deposit-limit (assoc (details 0.0020361218560814793 362253) :relationship {:type :parent}))))))
+    (is (nil? (:max-deposit (model/deposit-limit {:leader-fraction 0.2 :followers []})))
+        "unknown when the leader's equity is not listed"))
+  (let [state (-> (with-amount (base-state) "4000")
+                  (assoc-in (conj contracts/ui-vault-funding-path :limits)
+                            {:status :ready
+                             :by-address {va {:allow-deposits? true :leader "0xlead" :max-deposit 0}
+                                          vc {:allow-deposits? true :leader "0xlead" :max-deposit 1000}}}))
+        funding (model/funding-model state (get-in state contracts/last-successful-run-result-path) now)
+        rows (into {} (map (juxt :address identity)) (get-in funding [:plan :rows]))]
+    (is (= {va :leader-floor} (:closed-reasons funding)) "a vault at the 5% floor is closed to deposits")
+    (is (zero? (get-in rows [va :deposit])))
+    (is (= 1000 (get-in rows [vc :deposit])) "the other vault is capped at its room")
+    (is (true? (get-in rows [vc :capped?]))))
+  (testing "the vault's own leader is never capped"
+    (let [state (assoc-in (with-amount (base-state) "4000") (conj contracts/ui-vault-funding-path :limits)
+                          {:status :ready :by-address {va {:allow-deposits? true :leader owner :max-deposit 0}}})
+          funding (model/funding-model state (get-in state contracts/last-successful-run-result-path) now)]
+      (is (empty? (:closed-reasons funding)))))
+  (testing "sending waits for the limits"
+    (let [state (assoc-in (with-amount (base-state) "4000") (conj contracts/ui-vault-funding-path :limits) {:status :loading})]
+      (is (re-find #"deposit limit" (:block (model/funding-model state (get-in state contracts/last-successful-run-result-path) now))))))
+  (is (some #{[:effects/fetch-portfolio-optimizer-vault-funding-limits]}
+            (actions/portfolio-optimizer-vault-funding-command (base-state) :open now))
+      "opening the sheet reads each vault's limit"))
+
+(deftest skip-toggles-a-vault-out-of-the-plan-test
+  (let [state (with-amount (base-state) "4000")
+        skipped (apply-saves state (actions/set-portfolio-optimizer-vault-funding-field state :skip va))
+        funding (model/funding-model skipped (get-in skipped contracts/last-successful-run-result-path) now)
+        rows (into {} (map (juxt :address identity)) (get-in funding [:plan :rows]))]
+    (is (= #{va} (:skipped (model/options skipped))))
+    (is (= :skipped (get-in rows [va :status])))
+    (is (zero? (get-in rows [va :deposit])))
+    (is (= #{} (:skipped (model/options (apply-saves skipped (actions/set-portfolio-optimizer-vault-funding-field skipped :skip va)))))
+        "a second click includes it again")
+    (is (= #{} (:skipped (model/options (apply-saves skipped (actions/portfolio-optimizer-vault-funding-command skipped :open now)))))
+        "a fresh plan starts with every vault included")))
+

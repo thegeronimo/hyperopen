@@ -57,6 +57,10 @@ Repo artifacts (from the code map, verified):
 
 ## Decision Log
 
+- (2026-10-17) After a partial run the remaining cash spread over every vault because the closed vault's share was spread (plus a bug: HLP, a protocol vault whose leader holds 0.2%, was flagged at the 5% floor; protocol vaults are now exempt). Owner chose: a per-row Include box (a skipped vault gets no deposit or withdrawal; its holding is its target) and an off-by-default "Only fill vaults below their target" checkbox (closed-mode :cash; replaces the closed-vault radio buttons).
+
+- (2026-10-17) First live run (16 deposits): Cold Process refused "Deposit causes leader share to drop below 5%." (leader at 5.0001%, about $4.75 of room); FuturAI refused with Hyperliquid's reasonless "Vault transfer error" while its live state looked normal (deposits on, leader 12.5%, about $252k of room). Opening the sheet now reads each vault's live vaultDetails; deposits are capped at 98% of the leader-share room (leader equity x (20 - 1/leader fraction)), a vault with under $10 of room counts as closed (:leader-floor), and a reasonless refusal says so. The table's Target column became Current (share of today's holdings).
+
 - (2026-10-17) Equal weight = the tear sheet's Equal weight: the same share for every vault the run gave a non-zero weight; 0% vaults stay at 0 (anything held there comes out). Every other rule is unchanged.
 - (2026-10-17) Lock-up per vault: 4 days for HLP, 1 day otherwise (`transfer-policy/deposit-lockup-days`, shared with the vault page). A deposit restarts the lock on the whole position (Hyperliquid keeps one `lockupUntil` per depositor); an untouched locked position keeps its lock.
 - (2026-10-17) No review screen. Sending from the plan is safe because the button names exactly what is sent; when trading must be unlocked first, the plan on screen is pinned and the replayed send goes out only if the plan is unchanged.

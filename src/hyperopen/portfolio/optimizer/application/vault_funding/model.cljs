@@ -21,6 +21,7 @@
    :include-existing? true
    :withdraw-over? true
    :closed-mode :spread
+   :skipped #{}
    :error nil})
 
 (defn funding-state
@@ -34,6 +35,7 @@
       (not (contains? screens (:screen stored))) (assoc :screen :plan)
       (not (contains? plan/closed-modes (:closed-mode stored))) (assoc :closed-mode :spread)
       (not (contains? plan/splits (:split stored))) (assoc :split :target)
+      (not (set? (:skipped stored))) (assoc :skipped #{})
       true (update :include-existing? #(not (false? %)))
       true (update :withdraw-over? #(not (false? %))))))
 
@@ -88,6 +90,52 @@
   (or (get-in state (conj contracts/history-data-path :vault-details-by-address address))
       (get-in state [:vaults :details-by-address address])))
 
+(def leader-min-fraction
+  "Hyperliquid refuses a deposit that takes the leader's share below this."
+  0.05)
+
+(def min-useful-room-usd
+  "A vault with less room than this before its leader hits 5% counts as
+  closed: a few dollars is not worth a transfer."
+  10)
+
+(def ^:private limit-margin
+  ;; Stay a little under the exact limit: shares move with every deposit and
+  ;; withdrawal between the read and the send.
+  0.98)
+
+(defn deposit-limit
+  "What a vault will accept, from its vaultDetails: whether deposits are on,
+  its leader, and the most a follower can deposit before the leader's share
+  falls under 5% (nil when the leader's equity is not listed, and for a
+  protocol vault such as HLP, whose leader is exempt from the 5% rule)."
+  [details]
+  (let [fraction (:leader-fraction details)
+        protocol? (= :parent (get-in details [:relationship :type]))
+        leader-equity (some #(when (:leader? %) (:vault-equity %)) (:followers details))]
+    {:allow-deposits? (:allow-deposits? details)
+     :leader (some-> (:leader details) str str/lower-case)
+     :leader-fraction fraction
+     :max-deposit (when (and (not protocol?) (number? fraction) (pos? fraction) (number? leader-equity) (pos? leader-equity))
+                    (max 0 (* limit-margin leader-equity (- (/ 1 leader-min-fraction) (/ 1 fraction)))))}))
+
+(defn limits
+  "The sheet's fresh per-vault deposit limits: {:status :by-address}."
+  [state]
+  (:limits (funding-state state)))
+
+(defn- wallet
+  [state]
+  (some-> (get-in state [:wallet :address]) str/lower-case))
+
+(defn- limit-for
+  "This wallet's limit for the vault: none when it leads the vault (its own
+  deposits raise the leader's share)."
+  [state address]
+  (let [limit (get-in (limits state) [:by-address address])]
+    (when (and limit (not= (wallet state) (:leader limit)))
+      limit)))
+
 (defn targets
   "Every vault leg of the run, a 0% leg included (it may hold money to take out)."
   [state result]
@@ -100,23 +148,36 @@
                       :address address
                       :label (or (get labels id) details-name address)
                       :weight (max 0 (or weight 0))
-                      :lock-days (transfer-policy/deposit-lockup-days address details-name)}))))
+                      :lock-days (transfer-policy/deposit-lockup-days address details-name)
+                      :max-deposit (:max-deposit (limit-for state address))}))))
          vec)))
 
-(defn closed-addresses
-  "Vaults whose loaded details say they take no deposits from this wallet.
-  Unknown details count as open; the exchange's answer then shows per step."
+(defn closed-reasons
+  "{address reason} for vaults that take no deposits from this wallet:
+  :deposits-off (the leader turned them off) or :leader-floor (the leader's
+  share is at Hyperliquid's 5% minimum). Fresh limits win over the details
+  loaded with the run's history; unknown counts as open, and the exchange's
+  answer then shows per step."
   [state addresses]
-  (let [wallet (some-> (get-in state [:wallet :address]) str/lower-case)]
-    (into #{}
-          (filter (fn [address]
-                    (let [details (vault-details state address)
-                          name (some-> (:name details) str/trim str/lower-case)]
-                      (or (= "liquidator" name)
-                          (and (map? details)
-                               (false? (:allow-deposits? details))
-                               (not= wallet (some-> (:leader details) str/lower-case)))))))
+  (let [wallet* (wallet state)]
+    (into {}
+          (keep (fn [address]
+                  (let [details (vault-details state address)
+                        limit (limit-for state address)
+                        name (some-> (:name details) str/trim str/lower-case)
+                        allow? (if limit (:allow-deposits? limit) (:allow-deposits? details))
+                        leader (or (:leader limit) (some-> (:leader details) str/lower-case))]
+                    (cond
+                      (= "liquidator" name) [address :deposits-off]
+                      (and (false? allow?) (not= wallet* leader)) [address :deposits-off]
+                      (and limit (number? (:max-deposit limit)) (< (:max-deposit limit) min-useful-room-usd))
+                      [address :leader-floor]
+                      :else nil))))
           addresses)))
+
+(defn closed-addresses
+  [state addresses]
+  (set (keys (closed-reasons state addresses))))
 
 (defn holdings-status
   "Whether the user's vault holdings are known for the account being funded:
@@ -164,7 +225,9 @@
                    (get-in state [:vaults :user-equity-by-address]))
         available (transfer-policy/deposit-available-usdc state)
         amount (parse-amount (:amount-input opts) (get-in state [:ui :locale]))
-        closed (closed-addresses state (map :address legs))
+        closed-reasons* (closed-reasons state (map :address legs))
+        closed (set (keys closed-reasons*))
+        skipped (into #{} (filter (:skipped opts)) (map :address legs))
         plan-for (fn [split]
                    (plan/build-plan {:targets legs
                                      :split split
@@ -174,6 +237,7 @@
                                      :include-existing? include?
                                      :withdraw-over? (:withdraw-over? opts)
                                      :closed closed
+                                     :skipped skipped
                                      :closed-mode (:closed-mode opts)
                                      :now-ms now-ms}))
         plans (into {} (map (juxt identity plan-for)) plan/splits)
@@ -190,7 +254,7 @@
                                (when (and row (not (and (number? (:equity row)) (js/isFinite (:equity row)))))
                                  label)))
                            legs))
-        open-legs (remove #(contains? closed (:address %)) legs)
+        open-legs (remove #(or (contains? closed (:address %)) (contains? skipped (:address %))) legs)
         steps (:steps funding-plan)
         account-block* (account-block state)
         block (cond
@@ -199,11 +263,12 @@
                                     :error "Couldn't load your vault holdings. Close and reopen to retry."
                                     "Loading your vault holdings…")
                 unreadable (str "Couldn't read your holding in " unreadable ". Close and reopen to retry.")
+                (= :loading (:status (limits state))) "Checking each vault's deposit limit…"
                 (some #{:no-vaults} (:errors funding-plan)) "This run holds no vaults."
                 (and amount (pos? amount) (not (number? available))) "Loading your USDC balance…"
                 (some #{:over-available} (:errors funding-plan)) "That is more USDC than you can spend on deposits."
                 (seq steps) nil
-                (and (empty? open-legs) (pos? (or amount 0))) "Every vault in this run is closed to deposits."
+                (and (empty? open-legs) (pos? (or amount 0))) "Every vault is skipped or closed to deposits."
                 (some #(= :too-small (:status %)) (:rows funding-plan)) "Amount too small: each vault would get under $1."
                 (and amount (pos? amount)) "Nothing to send: every vault is already on target."
                 :else "Enter an amount to add.")]
@@ -226,6 +291,8 @@
      :held-count held-count
      :other-held other-held
      :closed closed
+     :closed-reasons closed-reasons*
+     :skipped skipped
      :spot-shortfall (spot-shortfall state amount available)
      :mixed? (not (all-vault-result? result))
      :agent-ready? (= :ready (get-in state [:wallet :agent :status]))

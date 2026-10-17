@@ -19,6 +19,7 @@
 	   [:effects/save-portfolio-optimizer-scenario :save-portfolio-optimizer-scenario]
 	   [:effects/execute-portfolio-optimizer-plan :execute-portfolio-optimizer-plan]
    [:effects/run-portfolio-optimizer-vault-funding :run-portfolio-optimizer-vault-funding]
+   [:effects/fetch-portfolio-optimizer-vault-funding-limits :fetch-portfolio-optimizer-vault-funding-limits]
 	   [:effects/refresh-portfolio-optimizer-open-orders :refresh-portfolio-optimizer-open-orders]
 	   [:effects/refresh-portfolio-optimizer-tracking :refresh-portfolio-optimizer-tracking]
 	   [:effects/refresh-portfolio-optimizer-rebalance-slippage-snapshots

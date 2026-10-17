@@ -32,6 +32,7 @@
                          (case (get answers (:vaultAddress action) :ok)
                            :ok (js/Promise.resolve {:status "ok"})
                            :err (js/Promise.resolve {:status "err" :response "Insufficient balance"})
+                           :generic (js/Promise.resolve {:status "err" :response "Vault transfer error"})
                            :throw (js/Promise.reject (js/Error. "network down"))))
                        effect/*now-ms* (fn [] 99)
                        effect/*toast!* (fn [_ kind message] (swap! toasts conj [kind message]))
@@ -171,3 +172,42 @@
                    (is (= [["deposit:0xa" :queued]] (statuses store)) "left queued for a retry")
                    (done)))
           (.catch (async-support/unexpected-error done))))))
+
+(deftest reasonless-refusal-says-so-test
+  (async done
+    (let [store (store-with [(row :deposit "0xa" 50)])
+          {:keys [bind]} (harness {"0xa" :generic})]
+      (-> (bind #(effect/run-vault-funding-effect nil store))
+          (.then (fn [_]
+                   (is (= [["deposit:0xa" :failed]] (statuses store)) "still a refusal: retryable")
+                   (is (re-find #"without giving a reason" (get-in @store (conj contracts/ui-vault-funding-run-path :rows 0 :error))))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest fetches-each-vaults-deposit-limit-test
+  (async done
+    (let [va "0x1111111111111111111111111111111111111111"
+          vb "0x2222222222222222222222222222222222222222"
+          store (atom (assoc-in {} contracts/last-successful-run-result-path
+                                {:status :solved
+                                 :instrument-ids [(str "vault:" va) (str "vault:" vb)]
+                                 :target-weights [0.5 0.5]}))
+          asked (atom [])]
+      (-> (binding [effect/*now-ms* (fn [] 7)
+                    effect/*request-vault-details!*
+                    (fn [address _opts]
+                      (swap! asked conj address)
+                      (if (= address vb)
+                        (js/Promise.reject (js/Error. "down"))
+                        (js/Promise.resolve {:leader "0xL" :allow-deposits? true :leader-fraction 0.05
+                                             :followers [{:leader? true :vault-equity 100}]})))]
+            (effect/fetch-vault-funding-limits-effect nil store))
+          (.then (fn [_]
+                   (let [limits (get-in @store (conj contracts/ui-vault-funding-path :limits))]
+                     (is (= [va vb] @asked) "one at a time")
+                     (is (= :ready (:status limits)))
+                     (is (zero? (get-in limits [:by-address va :max-deposit])))
+                     (is (nil? (get-in limits [:by-address vb])) "a failed read leaves the vault unlimited"))
+                   (done)))
+          (.catch (async-support/unexpected-error done))))))
+

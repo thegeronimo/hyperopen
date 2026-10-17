@@ -218,6 +218,22 @@ test.describe("fund an optimizer vault allocation", () => {
     await expect(page.locator(`[data-address='${VA}']`)).toContainText("33.3%");
   });
 
+  test("a skipped vault is left alone and gap-only filling keeps its share as cash @regression", async ({ page }) => {
+    await interceptAccountReads(page);
+    await visitRoute(page, "/portfolio/optimize/draft");
+    await seedSession(page);
+    await seedVaultRun(page);
+    await role(page, "portfolio-optimizer-vault-funding-cta").click();
+    await role(page, "portfolio-optimizer-vault-funding-amount").fill("4000");
+    await page.locator(`[data-address='${VA}'] [data-role='portfolio-optimizer-vault-funding-include']`).click();
+    await expect(page.locator(`[data-address='${VA}']`)).toContainText("Left alone");
+    // Alpha's 50% share is spread by default: Gamma's target grows past 20%.
+    await role(page, "portfolio-optimizer-vault-funding-fill-gaps").click();
+    // Gap-only: Beta's 3,000 excess plus 4,000 new; Gamma takes its own 2,000.
+    await expect(page.locator(`[data-address='${VC}']`)).toContainText("Deposit $2,000.00");
+    await expect(role(page, "portfolio-optimizer-vault-funding-confirm")).toHaveText("Withdraw $3,000.00 and deposit $2,000.00");
+  });
+
   test("a run without vaults keeps Review trades @regression", async ({ page }) => {
     await visitRoute(page, "/portfolio/optimize/draft");
     await seedVaultRun(page, { allVault: false, account: false });

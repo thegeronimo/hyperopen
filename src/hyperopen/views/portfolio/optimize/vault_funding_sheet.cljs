@@ -6,7 +6,7 @@
             [hyperopen.portfolio.optimizer.application.vault-funding.model :as model]
             [hyperopen.portfolio.optimizer.application.vault-funding.run :as run]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
-            [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.views.portfolio.optimize.vault-funding-split :as vault-funding-split]
             [hyperopen.views.ui.dialog-focus :as dialog-focus]))
 
 (def ^:private focus-on-render
@@ -65,7 +65,7 @@
    text])
 
 (defn- action-cell
-  [{:keys [status withdraw deposit over locked-until-ms held]}]
+  [{:keys [status withdraw deposit over locked-until-ms held capped? closed-reason]}]
   (case status
     :withdraw [[:span {:class ["font-medium" "text-[#e2b545]"]} (str "Withdraw " (usd withdraw))]
                "Above target · unlocked"]
@@ -74,9 +74,16 @@
     :over-kept [[:span {:class ["text-[#efe1b5]"]} "No new cash"]
                 (str "Above target by " (usd over))]
     :deposit [[:span {:class ["font-medium" "text-ho-accent-bright"]} (str "Deposit " (usd deposit))]
-              (if (pos? (or held 0)) "Tops up toward target" "New position")]
-    :closed [[:span {:class ["text-trading-muted"]} "Closed to deposits"] "Its leader has turned deposits off"]
+              (cond
+                capped? "Capped: the leader must keep 5% of the vault"
+                (pos? (or held 0)) "Tops up toward target"
+                :else "New position")]
+    :closed [[:span {:class ["text-trading-muted"]} "Closed to deposits"]
+             (if (= :leader-floor closed-reason)
+               "The leader's share is at Hyperliquid's 5% minimum"
+               "Its leader has turned deposits off")]
     :too-small [[:span {:class ["text-trading-muted"]} "Skipped"] "Its share is under $1"]
+    :skipped [[:span {:class ["text-trading-muted"]} "Left alone"] "Not part of this funding"]
     [[:span {:class ["text-trading-muted"]} "On target"] ""]))
 
 (defn- lock-cell
@@ -93,87 +100,44 @@
     :else ["—" "" :free]))
 
 (def ^:private plan-grid
-  "grid-cols-[minmax(160px,2fr)_64px_64px_100px_minmax(180px,1.8fr)_minmax(170px,1.5fr)]")
+  "grid-cols-[24px_minmax(160px,2fr)_110px_64px_64px_minmax(180px,1.8fr)_minmax(170px,1.5fr)]")
 
 (defn- plan-row
-  [{:keys [address label weight held after] :as row} after-total]
+  [{:keys [address label weight held after] :as row} held-total after-total]
   (let [[action sub] (action-cell row)
         [lock lock-sub tone] (lock-cell row)
-        share (if (pos? after-total) (/ after after-total) 0)]
-    [:div {:class ["grid" "min-h-14" plan-grid "items-center" "gap-3" "border-b" "border-base-300/60" "px-5" "text-sm"]
+        share (if (pos? after-total) (/ after after-total) 0)
+        off-target? (> (js/Math.abs (- share weight)) 0.01)]
+    [:div {:class (into ["grid" "min-h-14" plan-grid "items-center" "gap-3" "border-b" "border-base-300/60" "px-5" "text-sm"]
+                        (when (= :skipped (:status row)) ["opacity-60"]))
            :data-role "portfolio-optimizer-vault-funding-row"
            :data-address address}
+     ;; The sheet mounts outside the optimizer page's scope, so the shared
+     ;; .optimizer-checkbox style needs its own scope here.
+     [:span {:class ["portfolio-optimizer" "flex"]}
+      [:input {:type "checkbox"
+               :checked (not= :skipped (:status row))
+               :aria-label (str "Include " label)
+               :class ["optimizer-checkbox"]
+               :data-role "portfolio-optimizer-vault-funding-include"
+               :on {:change (field :skip address)}}]]
      [:span {:class ["truncate" "text-trading-text"]} label]
-     [:span {:class ["num" "text-right"]} (pct weight)]
-     [:span {:class (into ["num" "text-right"] (if (> (js/Math.abs (- share weight)) 0.01) ["text-[#e2b545]"] ["text-trading-text"]))}
+     ;; Current → After shows the change this plan makes; the target is on
+     ;; the split cards, and After turns amber (with the target on hover)
+     ;; only when the plan cannot reach it.
+     [:span {:class ["num" "text-right" "text-trading-muted"] :data-role "portfolio-optimizer-vault-funding-held"} (if (pos? (or held 0)) (usd held) "—")]
+     [:span {:class ["num" "text-right" "text-trading-muted"] :data-role "portfolio-optimizer-vault-funding-current"}
+      (if (and (pos? held-total) (pos? (or held 0))) (pct (/ held held-total)) "—")]
+     [:span {:class (into ["num" "text-right"] (if off-target? ["text-[#e2b545]"] ["text-trading-text"]))
+             :title (when off-target? (str "Target " (pct weight)))
+             :data-role "portfolio-optimizer-vault-funding-after"}
       (pct share)]
-     [:span {:class ["num" "text-right" "text-trading-muted"]} (if (pos? (or held 0)) (usd held) "—")]
      [:span {:class ["flex" "flex-col" "gap-0.5"]}
       action
       [:span {:class ["text-xs" "text-trading-muted"]} sub]]
      [:span {:class ["flex" "flex-col" "gap-0.5"] :data-role "portfolio-optimizer-vault-funding-lock"}
       [:span {:class ["num" (case tone :free "text-trading-muted" :warn "text-[#efe1b5]" "text-trading-text")]} lock]
       [:span {:class ["text-xs" (if (= tone :warn) "text-[#efe1b5]/80" "text-trading-muted")]} lock-sub]]]))
-
-(defn- split-card
-  [{:keys [split selected? title sub summary]}]
-  (let [{:keys [weights withdrawals deposits drift-after]} summary]
-    [:button {:type "button"
-              :role "radio"
-              :aria-checked (boolean selected?)
-              :class (into ["flex" "min-h-11" "flex-col" "gap-1.5" "rounded-xl" "border" "px-4" "py-3" "text-left"]
-                           (if selected?
-                             ["border-ho-accent-bright/70" "bg-ho-accent-bright/10"]
-                             ["border-base-300" "hover:bg-base-200/40"]))
-              :data-role (str "portfolio-optimizer-vault-funding-split-" (name split))
-              :on {:click (field :split split)}}
-     [:span {:class ["flex" "items-center" "gap-2.5" "text-sm" "font-medium" "text-trading-text"]}
-      [:span {:class (into ["h-3.5" "w-3.5" "shrink-0" "rounded-full" "border"]
-                           (if selected? ["border-[4px]" "border-ho-accent-bright"] ["border-trading-muted"]))}]
-      title]
-     [:span {:class ["pl-6" "text-xs" "leading-5" "text-trading-muted"]} sub]
-     (into [:span {:class ["ml-6" "flex" "h-1.5" "gap-0.5" "overflow-hidden" "rounded-full"] :aria-hidden true}]
-           (map-indexed (fn [i w]
-                          [:span {:class ["bg-ho-accent-bright"]
-                                  :style {:flex-grow w :flex-basis 0 :opacity (- 1 (* 0.07 (mod i 8)))}}]))
-           (filter pos? weights))
-     [:span {:class ["num" "pl-6" "text-xs" "text-trading-muted"]}
-      (str (when (pos? (or withdrawals 0)) (str withdrawals (if (= 1 withdrawals) " withdrawal · " " withdrawals · ")))
-           deposits (if (= 1 deposits) " deposit · " " deposits · ")
-           (pct drift-after) " off target after")]]))
-
-(defn- tear-sheet-link
-  "Compare both splits on the hypothetical tear sheet (it charts Equal weight
-  against the target); hidden when the sheet is already open over it."
-  [state]
-  (let [{:keys [kind view scenario-id]} (portfolio-routes/parse-portfolio-route (get-in state [:router :path]))]
-    (if (and (= :optimize-scenario kind) scenario-id (not= :tear-sheet view))
-      [:button {:type "button"
-                :class ["self-start" "min-h-8" "text-sm" "text-ho-accent-bright" "hover:underline"]
-                :data-role "portfolio-optimizer-vault-funding-compare"
-                :on {:click [[:actions/portfolio-optimizer-vault-funding-command :close]
-                             [:actions/navigate (portfolio-routes/portfolio-optimize-tear-sheet-path scenario-id)]]}}
-       "Compare both on the hypothetical tear sheet ›"]
-      [:span {:class ["hidden"]}])))
-
-(defn- split-picker
-  [{:keys [options splits]} state]
-  (let [n (get-in splits [:equal :vaults] 0)]
-    [:section {:class ["flex" "flex-col" "gap-2" "border-b" "border-base-300" "px-5" "py-4"]}
-     [:span {:id "vault-funding-split" :class ["text-sm" "text-trading-muted"]} "Split the money by"]
-     [:div {:role "radiogroup" :aria-labelledby "vault-funding-split" :class ["grid" "gap-3" "md:grid-cols-2"]}
-      (split-card {:split :target
-                   :selected? (= :target (:split options))
-                   :title "Optimizer target"
-                   :sub "The weights from this run."
-                   :summary (:target splits)})
-      (split-card {:split :equal
-                   :selected? (= :equal (:split options))
-                   :title "Equal weight"
-                   :sub (str "The same share in each of the " n " vaults the run picked ("
-                             (pct (if (pos? n) (/ 1 n) 0)) " each).")
-                   :summary (:equal splits)})]
-     (tear-sheet-link state)]))
 
 (defn- lock-note
   "How much unlocks when, and which top-ups restart a lock."
@@ -238,22 +202,12 @@
       scaled? (conj (note :warn "portfolio-optimizer-vault-funding-scaled"
                           "There is not enough cash to fill every vault, so each shortfall closes by the same fraction."))
       (seq closed)
-      (conj [:div {:class ["rounded-lg" "border" "border-base-300" "px-4" "py-3" "text-sm"]
-                   :data-role "portfolio-optimizer-vault-funding-closed"}
-             [:p {:class ["text-trading-text"]}
-              (str (count closed) (if (= 1 (count closed)) " vault is" " vaults are") " closed to deposits. Its share:")]
-             [:div {:role "radiogroup" :aria-label "Closed vault's share" :class ["mt-2" "flex" "flex-wrap" "gap-2"]}
-              (for [[mode label] [[:spread "Spread over the open vaults"] [:cash "Keep it as cash"]]]
-                ^{:key (str "closed-" (name mode))}
-                [:button {:type "button"
-                          :role "radio"
-                          :aria-checked (= mode (:closed-mode options))
-                          :class (into ["min-h-9" "rounded-md" "border" "px-3" "text-sm"]
-                                       (if (= mode (:closed-mode options))
-                                         ["border-primary/60" "bg-primary/10" "text-trading-text"]
-                                         ["border-base-300" "text-trading-muted"]))
-                          :on {:click (field :closed-mode mode)}}
-                 label])]])
+      (conj (note :info "portfolio-optimizer-vault-funding-closed"
+                  (str (count closed) (if (= 1 (count closed)) " vault is" " vaults are")
+                       " closed to deposits. "
+                       (if (= :cash (:closed-mode options))
+                         "Its share stays as cash."
+                         "Its share is spread over the others; turn on \u201cOnly fill vaults below their target\u201d to keep it as cash."))))
       spot-shortfall
       (conj [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "rounded-lg" "border" "border-[#e2b545]/40"
                            "bg-[#e2b545]/10" "px-4" "py-3" "text-sm" "text-[#efe1b5]"]
@@ -279,10 +233,11 @@
   [{:keys [plan options available account-mode block agent-ready?] :as funding} state]
   (let [rows (:rows plan)
         after-total (reduce + 0 (map :after rows))
+        held-total (reduce + 0 (map :held rows))
         {:keys [withdraw deposit leftover]} (:totals plan)
         n-steps (count (:steps plan))]
     [:div {:class ["flex" "flex-col"]}
-     (split-picker funding state)
+     (vault-funding-split/split-picker funding state)
      [:section {:class ["grid" "gap-6" "border-b" "border-base-300" "px-5" "py-5" "md:grid-cols-2"]}
       [:div {:class ["flex" "flex-col" "gap-2"]}
        [:label {:for "vault-funding-amount" :class ["text-sm" "text-trading-muted"]} "New cash to add"]
@@ -321,15 +276,24 @@
                   :on (field :withdraw-over? (not (:withdraw-over? options)))
                   :title "Withdraw from vaults above target first"
                   :sub "Only unlocked positions. The USDC freed goes into the vaults below target."
-                  :data-role "portfolio-optimizer-vault-funding-withdraw-over"})]]
+                  :data-role "portfolio-optimizer-vault-funding-withdraw-over"})
+       (checkbox {:checked? (= :cash (:closed-mode options))
+                  :on (field :closed-mode (if (= :cash (:closed-mode options)) :spread :cash))
+                  :title "Only fill vaults below their target"
+                  :sub "Cash goes only to each vault's own shortfall. What a skipped or closed vault would have taken stays as cash instead of topping up the others."
+                  :data-role "portfolio-optimizer-vault-funding-fill-gaps"})]]
      [:div {:class ["overflow-x-auto"]}
       (into [:div {:class ["min-w-[900px]"] :data-role "portfolio-optimizer-vault-funding-rows"}
              [:div {:class ["grid" plan-grid "gap-3" "border-b"
                             "border-base-300" "px-5" "py-2.5" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.14em]"
                             "text-trading-muted"]}
-              [:span "Vault"] [:span {:class ["text-right"]} "Target"] [:span {:class ["text-right"]} "After"]
-              [:span {:class ["text-right"]} "You hold"] [:span "Action"] [:span "Locked until"]]]
-            (map #(plan-row % after-total))
+              ;; Every header cell takes a grid slot (an sr-only cell would
+              ;; drop out of the grid and shift the headers one column left).
+              [:span [:span {:class ["sr-only"]} "Include"]] [:span "Vault"]
+              [:span {:class ["whitespace-nowrap" "text-right"]} "You hold"]
+              [:span {:class ["text-right"]} "Current"] [:span {:class ["text-right"]} "After"]
+              [:span "Action"] [:span {:class ["whitespace-nowrap"]} "Locked until"]]]
+            (map #(plan-row (assoc % :closed-reason (get (:closed-reasons funding) (:address %))) held-total after-total))
             rows)]
      (into [:div {:class ["flex" "flex-col" "gap-2" "px-5" "pt-4"]}] (conj (notes funding) (lock-note rows)))
      [:footer {:class ["mt-4" "flex" "flex-wrap" "items-center" "justify-between" "gap-4" "border-t" "border-base-300" "px-5" "py-4"]}

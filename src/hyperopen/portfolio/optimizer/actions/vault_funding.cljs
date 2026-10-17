@@ -43,6 +43,7 @@
     :include-existing?  :withdraw-over?   booleans
     :closed-mode        :spread | :cash
     :split              :target | :equal
+    :skip               a vault address: leave it alone (again: include it)
 
   Any edit drops a plan pinned during a trading unlock: the user is now
   looking at a different plan."
@@ -86,6 +87,14 @@
           [(save :closed-mode mode)]
           []))
 
+      (= field* :skip)
+      (let [address (some-> value str str/trim str/lower-case not-empty)
+            skipped (:skipped (model/options state))]
+        (if address
+          [(save :skipped (if (contains? skipped address) (disj skipped address) (conj skipped address)))
+           (save :error nil)]
+          []))
+
       (= field* :split)
       (let [split (coercion/normalize-keyword-like value)]
         (if (contains? #{:target :equal} split)
@@ -96,10 +105,12 @@
       [])))
 
 (defn- holdings-fetch
+  "Re-read the account's vault holdings and each vault's deposit limit."
   [state]
-  (if-let [address (account-context/effective-account-address state)]
-    [[:effects/api-fetch-user-vault-equities address]]
-    []))
+  (into [[:effects/fetch-portfolio-optimizer-vault-funding-limits]]
+        (if-let [address (account-context/effective-account-address state)]
+          [[:effects/api-fetch-user-vault-equities address]]
+          [])))
 
 (defn- current-run?
   "The stored run belongs to this wallet and this optimizer result."
@@ -115,7 +126,7 @@
             ;; A finished run from another wallet or another result is history,
             ;; not something to resume: start a fresh plan.
             (and (contains? run/terminal-statuses status) (current-run? state)) [(save :screen :progress)]
-            :else [(save :screen :plan) (save :run nil) (save :reviewed nil)])
+            :else [(save :screen :plan) (save :run nil) (save :reviewed nil) (save :skipped #{})])
           (into [(save :open? true) (save :error nil)]
                 (holdings-fetch state)))))
 

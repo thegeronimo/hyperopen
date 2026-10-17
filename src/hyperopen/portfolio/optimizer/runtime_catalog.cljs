@@ -283,6 +283,8 @@
     {:portfolio-optimizer
      {:run-portfolio-optimizer-vault-funding
       vault-funding-effects/run-vault-funding-effect
+      :fetch-portfolio-optimizer-vault-funding-limits
+      vault-funding-effects/fetch-vault-funding-limits-effect
       :run-portfolio-optimizer
       (effect-adapters/make-run-portfolio-optimizer
        runtime

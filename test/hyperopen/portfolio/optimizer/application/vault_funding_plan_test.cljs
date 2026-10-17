@@ -198,3 +198,44 @@
     (is (nil? (get-in rows ["over" :unlock-ms])) "an unlocked position cut back to target is free now")
     (is (= (+ now (* 2 day)) (get-in rows ["stuck" :unlock-ms])) "an untouched locked position keeps its lock")
     (is (= (+ now (* 4 day)) (:free-by-ms result)) "everything is withdrawable once the last lock ends")))
+
+(deftest leader-share-headroom-caps-a-deposit-test
+  (let [legs [(leg "a" 0.5) (assoc (leg "tight" 0.5) :max-deposit 200)]
+        result (plan/build-plan {:targets legs :amount 1000 :available 1000 :now-ms now})
+        rows (by-address result)]
+    (is (= 200 (get-in rows ["tight" :deposit])) "never more than the vault will take")
+    (is (true? (get-in rows ["tight" :capped?])))
+    (is (= 500 (get-in rows ["a" :deposit])))
+    (is (= 300 (get-in result [:totals :leftover])) "what the capped vault cannot take stays as cash")))
+
+(deftest refill-after-a-partial-run-test
+  ;; The live case: 16 vaults equal-weighted, 14 already hold 1,250, FuturAI
+  ;; got nothing, Cold Process is at its leader's 5% floor, 2,500 to add.
+  (let [held (map #(str "v" %) (range 14))
+        legs (concat (map #(leg % 1) held) [(leg "futurai" 1) (leg "cold" 1)])
+        holdings (zipmap held (repeat {:equity 1250}))
+        base {:targets legs :split :equal :holdings holdings :amount 2500 :available 2500
+              :closed #{"cold"} :now-ms now}]
+    (testing "only fill vaults below their target: the cash goes to FuturAI's gap, the closed share stays cash"
+      (let [result (plan/build-plan (assoc base :closed-mode :cash))
+            rows (by-address result)]
+        (is (= 1250 (get-in rows ["futurai" :deposit])))
+        (is (every? #(zero? (get-in rows [% :deposit])) held) "vaults already at target are not topped up")
+        (is (= 1250 (get-in result [:totals :leftover])))))
+    (testing "the default spreads the closed vault's share over the others"
+      (let [rows (by-address (plan/build-plan base))]
+        (is (approx= (/ 20000 15) (get-in rows ["futurai" :deposit])))
+        (is (pos? (get-in rows ["v0" :deposit])))))
+    (testing "a skipped vault is left alone"
+      (let [rows (by-address (plan/build-plan (assoc base :closed-mode :cash :skipped #{"futurai"})))]
+        (is (= :skipped (get-in rows ["futurai" :status])))
+        (is (zero? (get-in rows ["futurai" :deposit])))))))
+
+(deftest skipped-vault-is-never-withdrawn-from-test
+  (let [legs [(leg "a" 0.5) (leg "big" 0.5)]
+        result (plan/build-plan {:targets legs :holdings {"big" {:equity 5000}} :amount 1000
+                                 :available 1000 :skipped #{"big"} :now-ms now})
+        rows (by-address result)]
+    (is (= :skipped (get-in rows ["big" :status])))
+    (is (zero? (get-in rows ["big" :withdraw])) "over target, unlocked, and still untouched")
+    (is (= 1000 (get-in rows ["a" :deposit])))))

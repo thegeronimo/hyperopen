@@ -23,7 +23,18 @@
             header (hiccup/node-text (hiccup/find-first-node view #(= "portfolio-optimizer-vault-funding-rows" (get-in % [1 :data-role]))))]
         (is (= "$3,000.00" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-total-withdraw"))))
         (is (= "$7,000.00" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-total-deposit"))))
-        (is (re-find #"Target\s+After\s+You hold\s+Action\s+Locked until" header))
+        (is (re-find #"Include\s+Vault\s+You hold\s+Current\s+After\s+Action\s+Locked until" header))
+        (let [rows-node (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-rows")
+              header-row (first (hiccup/node-children rows-node))
+              first-row (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-row")
+              sr-only? #(some #{"sr-only"} (get-in % [1 :class]))]
+          (is (= (count (hiccup/node-children first-row)) (count (hiccup/node-children header-row)))
+              "one header cell per row cell")
+          (is (not-any? sr-only? (hiccup/node-children header-row))
+              "no header cell drops out of the grid"))
+        (is (= ["—" "100.0%" "—"] (mapv hiccup/node-text (hiccup/find-all-nodes view #(= "portfolio-optimizer-vault-funding-current" (get-in % [1 :data-role])))))
+            "only Beta is held today")
+        (is (= ["50.0%" "30.0%" "20.0%"] (mapv hiccup/node-text (hiccup/find-all-nodes view #(= "portfolio-optimizer-vault-funding-after" (get-in % [1 :data-role]))))))
         (is (= "true" (str (get-in (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-split-target") [1 :aria-checked]))))
         (is (some? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-split-equal")))
         (is (re-find #"1 day lock-up" (hiccup/node-text view)))
@@ -32,7 +43,9 @@
         (is (= "Withdraw $3,000.00 and deposit $7,000.00"
                (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-confirm"))))
         (is (re-find #"no further confirmation" (hiccup/node-text (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-block"))))
-        (is (nil? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-review")) "no review step")))
+        (is (nil? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-review")) "no review step")
+        (is (= 3 (count (hiccup/find-all-nodes view #(= "portfolio-optimizer-vault-funding-include" (get-in % [1 :data-role]))))))
+        (is (some? (hiccup/find-by-data-role view "portfolio-optimizer-vault-funding-fill-gaps")))))
     (testing "progress, running then partly failed"
       (let [ready (fixture/reviewed state)
             running (fixture/apply-saves ready (actions/portfolio-optimizer-vault-funding-command ready :confirm fixture/now))

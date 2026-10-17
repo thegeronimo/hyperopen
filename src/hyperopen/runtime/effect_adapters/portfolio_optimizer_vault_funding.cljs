@@ -3,7 +3,9 @@
   one at a time (withdrawals first), agent-signed, recording each outcome in
   the run as it lands. Sequential on purpose: the signer's nonce cursor is
   only saved after each response, and deposits may spend withdrawn cash."
-  (:require [hyperopen.api.trading :as trading-api]
+  (:require [clojure.string :as str]
+            [hyperopen.api.default :as api]
+            [hyperopen.api.trading :as trading-api]
             [hyperopen.order.feedback-runtime :as feedback-runtime]
             [hyperopen.portfolio.optimizer.application.vault-funding.model :as model]
             [hyperopen.portfolio.optimizer.application.vault-funding.run :as run]
@@ -24,6 +26,8 @@
      nil store address {:priority :high :force-refresh? true :skip-route-gate? true})))
 
 (def ^:dynamic *toast!* feedback-runtime/set-order-feedback-toast!)
+
+(def ^:dynamic *request-vault-details!* api/request-vault-details!)
 
 (def ^:private run-path contracts/ui-vault-funding-run-path)
 
@@ -58,6 +62,19 @@
 
 (def ^:private precheck-failed ::precheck-failed)
 
+(def ^:private reasonless-errors
+  "Refusals Hyperliquid sends without saying why."
+  #{"vault transfer error"})
+
+(defn- refusal-message
+  [resp]
+  (let [text (common/exchange-response-error resp)]
+    (cond
+      (nil? text) "Transfer refused."
+      (contains? reasonless-errors (str/lower-case (str/trim text)))
+      (str "Hyperliquid refused it without giving a reason (\u201c" text "\u201d). Retry it, or leave it as cash.")
+      :else text)))
+
 (defn- record-response!
   "An exchange refusal ({:status \"err\" :response text}) means the transfer
   did not happen: :failed, safe to retry. Anything else that is not \"ok\"
@@ -67,8 +84,7 @@
     (= precheck-failed resp) nil
     (and (map? resp) (= "ok" (:status resp))) (swap-run! store attempt-id run/mark-done row-id)
     (and (map? resp) (= "err" (:status resp)) (some? (:response resp)))
-    (swap-run! store attempt-id run/mark-failed row-id
-               (or (common/exchange-response-error resp) "Transfer refused."))
+    (swap-run! store attempt-id run/mark-failed row-id (refusal-message resp))
     :else (swap-run! store attempt-id run/mark-unknown row-id
                      (str "No clear answer from the exchange"
                           (when-let [text (and (map? resp) (common/exchange-response-error resp))]
@@ -163,3 +179,37 @@
           (.catch (fn [err]
                     (swap-run! store attempt-id run/fail-run
                                (common/runtime-error-message err) ((:now-ms deps)))))))))
+
+(def ^:private limits-path
+  (conj contracts/ui-vault-funding-path :limits))
+
+(defn fetch-vault-funding-limits-effect
+  "Read each vault leg's live vaultDetails, one at a time, into the sheet's
+  deposit limits (deposits on/off, leader, and the most it will take before
+  the leader's share falls under 5%). A failed read leaves that vault
+  unlimited: the exchange's answer then shows per step. Always settles."
+  [_ctx store]
+  (let [request! *request-vault-details!*
+        now-ms *now-ms*
+        state @store
+        result (get-in state contracts/last-successful-run-result-path)
+        addresses (distinct (map :address (model/targets state result)))
+        token (str "limits_" (now-ms))
+        current? #(= token (:token %))]
+    (swap! store assoc-in limits-path {:status :loading :token token :by-address {}})
+    (-> (reduce (fn [chain address]
+                  (.then chain
+                         (fn [_]
+                           (-> (request! address {:priority :high :dedupe-key [:vault-funding-limits address]})
+                               (.then (fn [details]
+                                        (swap! store update-in limits-path
+                                               (fn [limits]
+                                                 (if (and (current? limits) (map? details))
+                                                   (assoc-in limits [:by-address address] (model/deposit-limit details))
+                                                   limits)))))
+                               (.catch (fn [_] nil))))))
+                (js/Promise.resolve nil)
+                addresses)
+        (.then (fn [_]
+                 (swap! store update-in limits-path #(if (current? %) (assoc % :status :ready) %)))))))
+
