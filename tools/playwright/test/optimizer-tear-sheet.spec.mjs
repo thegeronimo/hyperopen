@@ -173,6 +173,10 @@ test.describe("hypothetical tear sheet", () => {
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-tab-method']").click();
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-missing-common']").click();
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-missing-common']")).toHaveAttribute("aria-checked", "true");
+    const profitShare = sheet.locator("[data-role='portfolio-optimizer-tear-sheet-profit-share']");
+    await expect(profitShare).toBeChecked();
+    await profitShare.click();
+    await expect(profitShare).not.toBeChecked();
 
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-back']").click();
     await expect(page).toHaveURL(/\/portfolio\/optimize\/draft$/);

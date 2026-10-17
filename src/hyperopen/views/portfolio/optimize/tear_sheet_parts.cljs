@@ -91,7 +91,10 @@
    [:label {:class ["flex" "min-h-11" "cursor-pointer" "items-center" "gap-3" "text-sm" "text-trading-text" "lg:col-span-2"]}
     [:input {:type "checkbox"
              :checked (boolean (:profit-share? opts))
-             :class ["h-4" "w-4" "rounded" "border-base-300" "bg-base-100"]
+             :class ["optimizer-checkbox"]
+             ;; Same purple as the radio cards above it.
+             :style {:--optimizer-accent "#a493ff"
+                     :--optimizer-accent-border "rgb(164 147 255 / 0.7)"}
              :data-role "portfolio-optimizer-tear-sheet-profit-share"
              :on {:change (set-option :profit-share? (not (:profit-share? opts)))}}]
     [:span "Deduct each vault leader's profit share "
