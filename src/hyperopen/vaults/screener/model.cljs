@@ -299,17 +299,21 @@
 (defn evaluate
   "Classify one evaluated vault against the criteria.
 
+  :closed — the leader has switched deposits off (left out of the screen);
   :thin — not enough history (below the minimum point count, a criterion
           metric suppressed by the tear-sheet quality gates, or the fetch
           failed);
   :pass — every criterion met;
   :near — exactly one criterion missed, within 10% of its threshold;
   :fail — otherwise."
-  [{:keys [criteria min-history-points]} {:keys [values point-count error]}]
+  [{:keys [criteria min-history-points]} {:keys [values point-count error deposits-closed?]}]
   (let [results (vec (keep #(criterion-result % values) criteria))
         missing (filter #(= :missing (:outcome %)) results)
         misses (filter #(#{:near :fail} (:outcome %)) results)]
     (cond
+      deposits-closed?
+      {:status :closed :results results}
+
       error
       {:status :thin :reason :error :results results}
 

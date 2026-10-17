@@ -1,5 +1,6 @@
 (ns hyperopen.views.vaults.screener-view-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [clojure.string]
             [hyperopen.test-support.hiccup :as hiccup]
             [hyperopen.vaults.application.list-vm.cache :as list-cache]
             [hyperopen.vaults.application.screener-vm :as screener-vm]
@@ -70,6 +71,17 @@
     (is (false? (get-in (screener-vm/screener-vm (assoc-in (run-state results) [:vaults-ui :screener :criteria]
                                                            [{:metric :sharpe :value "0.1"}]) now-ms)
                         [:run :stale?])))))
+
+(deftest vault-closed-to-deposits-is-left-out-test
+  (let [closed (assoc-in results ["0xa" :deposits-closed?] true)
+        vm (screener-vm/screener-vm (run-state closed) now-ms)
+        view (screener-view/screener-view (run-state closed) {:desktop-layout? true})]
+    (is (= {:pass 0 :near 1 :fail 1 :thin 1} (:tab-counts vm)) "it passes no tab, not even Pass")
+    (is (= 3 (:evaluated-count vm)))
+    (is (= 1 (:closed-count vm)))
+    (is (= "0 of 3 vaults pass" (clojure.string/replace (hiccup/node-text (hiccup/find-by-data-role view "vault-screener-headline")) #"\s+" " ")))
+    (is (= "1 vault left out: closed to new deposits by the leader."
+           (hiccup/node-text (hiccup/find-by-data-role view "vault-screener-closed-note"))))))
 
 (deftest list-view-shows-switch-and-screener-test
   (let [view (list-view/vaults-view (base-state))]

@@ -50,7 +50,7 @@
     [:label {:class ["inline-flex" "items-center" "gap-2" "text-trading-text-secondary"]}
      [:input {:type "checkbox" :checked true :disabled true
               :class ["h-4" "w-4" "rounded" "border-base-300" "text-ho-accent"]}]
-     "Exclude closed vaults"]
+     "Exclude vaults that are closed or not taking deposits"]
     [:label {:class ["inline-flex" "items-center" "gap-2" "text-trading-text"]}
      [:input {:type "checkbox"
               :checked (boolean include-deposited?)

@@ -40,11 +40,12 @@
                                      (and (= address "0xflaky")
                                           (= 1 (count (filter #(= "0xflaky" (first %)) @requests)))))
                                (js/Promise.reject (js/Error. "boom"))
-                               (js/Promise.resolve {:portfolio portfolio})))
+                               (js/Promise.resolve {:portfolio portfolio
+                                                    :allow-deposits? (not= address "0xshut")})))
    :load-record! (fn [address]
                    (js/Promise.resolve (get @records address)))
-   :persist-record! (fn [address portfolio* saved-at]
-                      (swap! records assoc address {:saved-at-ms saved-at :portfolio portfolio*}))
+   :persist-record! (fn [address entry]
+                      (swap! records assoc address entry))
    :persist-index! (fn [_index _now] nil)
    :compute-metrics (fn [_details window]
                       {:point-count 30 :values {:sharpe 2} :window window})
@@ -62,7 +63,7 @@
   (async done
     (let [store (base-store ["0xa" "0xb" "0xcached" "0xbad"])
           {:keys [requests toasts records] :as h} (harness)]
-      (swap! records assoc "0xcached" {:saved-at-ms 999000 :portfolio portfolio})
+      (swap! records assoc "0xcached" {:saved-at-ms 999000 :portfolio portfolio :deposits-closed? false})
       (-> (runner/start-run! (deps store h) 1)
           (.then (fn [_]
                    (let [state @store
@@ -86,6 +87,38 @@
                                             "1 vault couldn't be loaded — Run again to retry them.")]]
                             @toasts))
                      (done))))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest vault-closed-to-deposits-is-left-out-test
+  (async done
+    (let [store (base-store ["0xa" "0xshut" "0xold"])
+          {:keys [requests records] :as h} (harness)]
+      ;; Written before deposits were tracked: fresh, but must be re-read.
+      (swap! records assoc "0xold" {:saved-at-ms 999000 :portfolio portfolio})
+      (-> (runner/start-run! (deps store h) 1)
+          (.then (fn [_]
+                   (let [state @store
+                         results (get-in state [:vaults :screener :results])
+                         config (model/normalize-config (get-in state [:vaults-ui :screener]))]
+                     (is (= ["0xa" "0xshut" "0xold"] (mapv first @requests)))
+                     (is (true? (get-in results ["0xshut" :deposits-closed?])))
+                     (is (= :closed (:status (model/evaluate config (get results "0xshut")))))
+                     (is (= :pass (:status (model/evaluate config (get results "0xa")))))
+                     (is (true? (get-in @records ["0xshut" :deposits-closed?])) "the flag is cached")
+                     (is (false? (get-in @records ["0xold" :deposits-closed?])))
+                     (done))))
+          (.catch (async-support/unexpected-error done))))))
+
+(deftest cached-closed-vault-stays-out-test
+  (async done
+    (let [store (base-store ["0xshut"])
+          {:keys [requests records] :as h} (harness)]
+      (swap! records assoc "0xshut" {:saved-at-ms 999000 :portfolio portfolio :deposits-closed? true})
+      (-> (runner/start-run! (deps store h) 1)
+          (.then (fn [_]
+                   (is (empty? @requests))
+                   (is (true? (get-in @store [:vaults :screener :results "0xshut" :deposits-closed?])))
+                   (done)))
           (.catch (async-support/unexpected-error done))))))
 
 (deftest transient-failure-is-retried-test

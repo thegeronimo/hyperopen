@@ -190,6 +190,8 @@
                                         evaluation (model/evaluate config result)]
                                     (result-row row result evaluation columns)))))
                         vec)
+         closed-count (count (filter #(= :closed (:status %)) evaluated))
+         evaluated (into [] (remove #(= :closed (:status %))) evaluated)
          grouped (group-by :status evaluated)
          tab (:results-tab config)
          used (set (map :metric (:criteria config)))]
@@ -225,6 +227,7 @@
       :results-tab tab
       :tab-counts (into {} (map (fn [t] [t (count (get grouped t))])) model/results-tabs)
       :evaluated-count (count evaluated)
+      :closed-count closed-count
       :result-rows (model/sort-results (get grouped tab []) (:results-sort config))
       :passing-rows (->> (model/sort-results (get grouped :pass []) {:metric :sharpe :direction :desc})
                          (take 8)

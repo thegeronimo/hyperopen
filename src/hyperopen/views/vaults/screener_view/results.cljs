@@ -96,11 +96,11 @@
      (secondary-button "Run again" [:actions/run-vault-screener] "vault-screener-rerun"))])
 
 (defn- headline
-  [{:keys [status total done]} pass-count]
+  [{:keys [status total done]} pass-count closed-count]
   (case status
     :done [:h2 {:class ["text-[28px]" "font-normal" "leading-[34px]"] :data-role "vault-screener-headline"}
            [:span {:class ["num" "text-ho-buy"]} (str pass-count)]
-           " of " [:span {:class ["num"]} (str total)] " vaults pass"]
+           " of " [:span {:class ["num"]} (str (- total closed-count))] " vaults pass"]
     :paused [:h2 {:class ["text-lg" "font-medium"] :data-role "vault-screener-headline"}
              (str "Paused at " done " of " total " vaults")]
     :cancelled [:h2 {:class ["text-lg" "font-medium"] :data-role "vault-screener-headline"}
@@ -109,7 +109,7 @@
      (str "Screening " total " vaults")]))
 
 (defn- progress-panel
-  [{:keys [run criteria-summary tab-counts]}]
+  [{:keys [run criteria-summary tab-counts closed-count]}]
   (let [{:keys [status done total cached fetched queued cached-pct fetched-pct
                 eta-label interval-label backoff-seconds stale? chips failed]} run
         active? (#{:running :paused} status)]
@@ -118,10 +118,15 @@
                :data-role "vault-screener-run-panel"}
      [:div {:class ["flex" "flex-wrap" "items-start" "justify-between" "gap-4"]}
       [:div {:class ["flex" "min-w-0" "flex-col" "gap-2"]}
-       (headline run (get tab-counts :pass 0))
+       (headline run (get tab-counts :pass 0) (or closed-count 0))
        (into [:div {:class ["flex" "flex-wrap" "gap-1.5"]}]
              (concat (map #(chip % false) chips)
-                     (map #(chip % true) criteria-summary)))]
+                     (map #(chip % true) criteria-summary)))
+       (if (pos? (or closed-count 0))
+         [:p {:class ["text-xs" "text-trading-text-secondary"] :data-role "vault-screener-closed-note"}
+          (str closed-count (if (= 1 closed-count) " vault" " vaults")
+               " left out: closed to new deposits by the leader.")]
+         [:span {:class ["hidden"]}])]
       (run-actions run (get tab-counts :pass 0) (get tab-counts :near 0))]
      (when stale?
        [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3" "rounded-xl" "border" "border-base-300" "bg-base-100" "px-4" "py-3" "text-sm"]

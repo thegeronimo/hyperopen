@@ -49,8 +49,9 @@
              (= cache-version (:version record))
              (number? (:saved-at-ms record))
              (map? (:portfolio record)))
-    {:saved-at-ms (:saved-at-ms record)
-     :portfolio (:portfolio record)}))
+    (cond-> {:saved-at-ms (:saved-at-ms record)
+             :portfolio (:portfolio record)}
+      (boolean? (:deposits-closed? record)) (assoc :deposits-closed? (:deposits-closed? record)))))
 
 (defn load-record!
   [vault-address]
@@ -58,12 +59,13 @@
       (.then normalize-record (fn [_error] nil))))
 
 (defn persist-record!
-  [vault-address portfolio now-ms]
+  [vault-address {:keys [saved-at-ms portfolio deposits-closed?]}]
   (-> (indexed-db/put-json! indexed-db/vault-index-store
                             (record-key vault-address)
                             {:version cache-version
-                             :saved-at-ms now-ms
-                             :portfolio portfolio})
+                             :saved-at-ms saved-at-ms
+                             :portfolio portfolio
+                             :deposits-closed? (true? deposits-closed?)})
       (.catch (fn [_error] false))))
 
 (def saved-views-key

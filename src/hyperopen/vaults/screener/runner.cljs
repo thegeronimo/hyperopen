@@ -104,24 +104,27 @@
                           (get-in @store cache-index-path))
                     now-ms)))
 
-(defn- memo-portfolio
+(defn- memo-entry
   [address now-ms]
-  (let [{:keys [saved-at-ms portfolio]} (get @portfolio-memo address)]
+  (let [{:keys [saved-at-ms] :as entry} (get @portfolio-memo address)]
     (when (model/fresh-cache-entry? saved-at-ms now-ms)
-      portfolio)))
+      entry)))
 
-(defn- cached-portfolio!
-  "Resolves the vault's fresh cached portfolio, or nil."
+(defn- cached-entry!
+  "Resolves the vault's fresh cached `{:portfolio :deposits-closed?}`, or nil.
+  Records written before deposits were tracked count as stale, so a vault
+  closed to deposits is never let through on old data."
   [{:keys [load-record! now-ms]} address]
-  (if-let [portfolio (memo-portfolio address (now-ms))]
-    (js/Promise.resolve portfolio)
+  (if-let [entry (memo-entry address (now-ms))]
+    (js/Promise.resolve entry)
     (if (fn? load-record!)
       (-> (->promise (load-record! address))
-          (.then (fn [{:keys [saved-at-ms portfolio]}]
-                   (when (model/fresh-cache-entry? saved-at-ms (now-ms))
-                     (swap! portfolio-memo assoc address {:saved-at-ms saved-at-ms
-                                                          :portfolio portfolio})
-                     portfolio)))
+          (.then (fn [{:keys [saved-at-ms] :as record}]
+                   (when (and (model/fresh-cache-entry? saved-at-ms (now-ms))
+                              (boolean? (:deposits-closed? record)))
+                     (let [entry (select-keys record [:saved-at-ms :portfolio :deposits-closed?])]
+                       (swap! portfolio-memo assoc address entry)
+                       entry))))
           (.catch (fn [_] nil)))
       (js/Promise.resolve nil))))
 
@@ -178,35 +181,38 @@
    run-id address seen-rate-limits]
   (-> (request-with-retry! deps run-id address seen-rate-limits 1)
       (.then (fn [details]
-               (let [portfolio (screener-metrics/cacheable-portfolio (:portfolio details))
-                     saved-at (now-ms)]
-                 (swap! portfolio-memo assoc address {:saved-at-ms saved-at
-                                                      :portfolio portfolio})
+               (let [entry {:saved-at-ms (now-ms)
+                            :portfolio (screener-metrics/cacheable-portfolio (:portfolio details))
+                            ;; The leader has switched deposits off: open, but
+                            ;; nobody can add to it, so the screen leaves it out.
+                            :deposits-closed? (false? (:allow-deposits? details))}]
+                 (swap! portfolio-memo assoc address entry)
                  (when (fn? persist-record!)
-                   (persist-record! address portfolio saved-at))
-                 (remember-cache-entry! deps address saved-at saved-at)
-                 portfolio)))))
+                   (persist-record! address entry))
+                 (remember-cache-entry! deps address (:saved-at-ms entry) (:saved-at-ms entry))
+                 entry)))))
 
-(defn- evaluate-portfolio
-  [compute-metrics portfolio window]
+(defn- evaluate-entry
+  [compute-metrics {:keys [portfolio deposits-closed?]} window]
   (try
-    (compute-metrics {:portfolio portfolio} window)
+    (cond-> (compute-metrics {:portfolio portfolio} window)
+      deposits-closed? (assoc :deposits-closed? true))
     (catch :default error
       {:error (error-message error)})))
 
 (defn- process-address!
   [{:keys [store compute-metrics] :as deps} run-id address seen-rate-limits]
   (let [window (get-in @store (conj run-path :config :window))]
-    (-> (cached-portfolio! deps address)
-        (.then (fn [portfolio]
-                 (if portfolio
+    (-> (cached-entry! deps address)
+        (.then (fn [entry]
+                 (if entry
                    (record-result! store run-id address
-                                   (evaluate-portfolio compute-metrics portfolio window)
+                                   (evaluate-entry compute-metrics entry window)
                                    :cache)
                    (-> (fetch-portfolio! deps run-id address seen-rate-limits)
-                       (.then (fn [portfolio*]
+                       (.then (fn [entry*]
                                 (record-result! store run-id address
-                                                (evaluate-portfolio compute-metrics portfolio* window)
+                                                (evaluate-entry compute-metrics entry* window)
                                                 :fetch)))
                        (.catch (fn [error]
                                  (record-result! store run-id address
