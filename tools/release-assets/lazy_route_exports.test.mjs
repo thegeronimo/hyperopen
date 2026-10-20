@@ -20,6 +20,10 @@ const lazyRouteExports = [
     exportSymbol: "hyperopen.views.referrals_view.route_view",
   },
   {
+    sourcePath: "src/hyperopen/views/earn_view.cljs",
+    exportSymbol: "hyperopen.views.earn_view.route_view",
+  },
+  {
     sourcePath: "src/hyperopen/views/staking_view.cljs",
     exportSymbol: "hyperopen.views.staking_view.route_view",
   },

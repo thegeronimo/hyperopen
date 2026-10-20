@@ -38,10 +38,10 @@
 
 (defn- summary-card
   [label value sub data-role value-classes]
-  [:div {:class (into card-classes ["p-4" "flex" "flex-col" "gap-1.5"]) :data-role data-role}
+  [:div {:class (into card-classes ["p-3" "sm:p-4" "flex" "flex-col" "gap-1.5" "min-w-0"]) :data-role data-role}
    [:div {:class ["text-xs" "text-ho-text-secondary"]} label]
    [:div {:class (into ["num" "text-xl" "font-medium"] (or value-classes ["text-ho-text"]))} value]
-   [:div {:class ["text-xs" "text-ho-text-secondary"]} sub]])
+   [:div {:class ["text-xs" "text-ho-text-secondary" "truncate"]} sub]])
 
 (def ^:private health-classes
   {:safe ["text-ho-buy"] :caution ["text-ho-warn"] :risk ["text-ho-sell"] :none ["text-ho-text"]})
@@ -51,7 +51,7 @@
   (let [{:keys [supplied-usd supply-apy collateral-usd borrow-limit-usd borrowed-usd borrow-apy
                 health-factor health-status health-label liquidation-px primary-collateral-symbol]} summary]
     [:section {:aria-label "Your position"
-               :class ["grid" "gap-3" "grid-cols-1" "sm:grid-cols-2" "xl:grid-cols-4"]}
+               :class ["grid" "gap-2" "sm:gap-3" "grid-cols-2" "xl:grid-cols-4"]}
      (summary-card "Supplied" supplied-usd (str "Earning " supply-apy) "earn-summary-supplied" nil)
      (summary-card "Collateral" collateral-usd (str "Borrow limit " borrow-limit-usd) "earn-summary-collateral" nil)
      (summary-card "Borrowed" borrowed-usd (str "Paying " borrow-apy) "earn-summary-borrowed" nil)
@@ -355,9 +355,9 @@
   ([state]
    (earn-view state (earn-vm/earn-vm state)))
   ([_state {:keys [tab modal] :as vm}]
-   [:div {:class ["flex" "flex-1" "min-h-0" "w-full" "overflow-hidden" "flex-col" "app-shell-gutter" "pt-3"]
+   [:div {:class ["flex" "flex-1" "w-full" "flex-col" "app-shell-gutter" "pt-3"]
           :data-parity-id "earn-root"}
-    [:div {:class ["w-full" "h-full" "min-h-0" "scrollbar-hide" "overflow-y-auto" "pb-16"]}
+    [:div {:class ["w-full" "pb-16"]}
      [:div {:class ["max-w-[1360px]" "mx-auto" "flex" "flex-col" "gap-6" "py-4"]}
       (header vm)
       (notices vm)

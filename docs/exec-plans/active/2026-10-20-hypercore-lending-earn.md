@@ -33,10 +33,13 @@ Local scratch refs (non-authoritative):
 - [x] (2026-10-20 13:10Z) Captured live `allBorrowLendReserveStates`, `borrowLendReserveState`, an empty `borrowLendUserState`, and `spotMeta` token names from mainnet; confirmed the rate model reproduces the live rates exactly.
 - [x] (2026-10-20 13:40Z) Milestone 1: pure model (`borrow_lend/model.cljs`), anti-corruption normalizer (`borrow_lend/normalize.cljs`), info endpoints through every API facade layer, projections, default state, request TTLs. Tests: `model_test`, `normalize_test`.
 - [x] (2026-10-20 14:20Z) Milestone 1 wiring: actions (`borrow_lend/actions.cljs`), selectors (`borrow_lend/account.cljs`), effects (`borrow_lend/effects.cljs`), runtime adapter, registration rows, collaborators, action/effect arg contracts, effect-order policies in CLJS and Lean, regenerated formal vectors. `npm test`: 7243 tests, 0 failures.
-- [ ] Milestone 2: `/earn` route, lazy module, header nav entry, route refresh hooks, Earn page view model and view (markets, positions, history, health, rate curve).
-- [ ] Milestone 3: Earn modal (supply / withdraw / borrow / repay) with previews and submit.
-- [ ] Milestone 4: real Earn Balance on the portfolio; Earn tab in the trade account panel linking into the modal.
-- [ ] Tests for actions, effects, view model; `npm run check`, `npm test`, `npm run test:websocket`; browser QA at desktop and phone widths.
+- [x] (2026-10-20 15:10Z) Milestone 2: `/earn` route, `earn_route` lazy module in both builds, header nav entry and voice label, route-refresh and wallet-connect hooks, release metadata, spot catalog loaded on `/earn` so token indexes resolve to names. View model `views/earn/vm.cljs`, page `views/earn_view.cljs`.
+- [x] (2026-10-20 15:10Z) Milestone 3: Earn modal (`views/earn/modal.cljs`) with Supply/Withdraw and Borrow/Repay tabs, presets, pool-rate or health preview, inline errors, submit.
+- [x] (2026-10-20 15:40Z) Milestone 4 (part): the portfolio Earn balance now reads a real value; Earn data loads on `/portfolio` (not the optimizer) and on account switch, and a switch clears the previous account's positions first.
+- [x] (2026-10-20 15:40Z) Tests: `actions_test`, `effects_test`; existing header, navigation, route-refresh and startup tests updated for the new nav item and portfolio loader. `npm test` 7260 tests, 0 failures. `npm run test:websocket` 604 tests, 0 failures.
+- [x] (2026-10-20 15:50Z) Browser QA (dev server, live mainnet data): desktop and 375 px phone width; pools, collateral, health, rate curve and the Supply modal preview render; no horizontal page scroll at phone width.
+- [x] (2026-10-20 16:20Z) `npm run check` green after the namespace-size split (first run failed on size ratchets; Earn specs, policies and defaults moved to their own namespaces and exceptions recorded) and after adding `earn_route` to the release-asset fixtures.
+- [ ] Deferred to a follow-up: the Earn tab in the trade page's account panel (artboard 4). See Decision Log.
 
 ## Surprises & Discoveries
 
@@ -45,9 +48,19 @@ Local scratch refs (non-authoritative):
 - Observation: there are five reserves on mainnet, not four: token 0 USDC, 150 HYPE, 197 UBTC, 268 USDT0, 360 USDH. Collateral is identified by `ltv > 0` (HYPE 0.65, UBTC 0.5); stablecoins report `ltv 0`.
 - Observation: reserve state carries no caps. The brief's supply and borrow caps are not available from the API, so the UI shows available liquidity (`balance`) instead of cap headroom.
 - Observation: `tokenToState` entries are `[tokenIndex, {"supply": {"basis", "value"}, "borrow": {"basis", "value"}}]`. `value` includes accrued interest; `basis` is principal. `healthFactor` is a string or null and `health` a label such as `"healthy"`. Shape taken from the `df-hyperliquid-core` crate; only the empty response was captured live.
+- Observation: running `npm run check` while `npm run dev` is up breaks the dev page, because check compiles the `app` build into the same `resources/public/js` output. Stop the dev server before running check.
+  Evidence: after check, the dev page failed to boot until the watcher was restarted.
+- Observation: the header test suite asserted that no Earn link exists, left over from "Remove dead header nav links" (8626ebc3e) which removed a placeholder. The assertion was flipped now that the route is real.
 - Observation: the account's raw abstraction is already stored at `[:account :abstraction-raw]`, and `hyperopen.domain.trading.core/portfolio-margin-abstraction?` already recognizes portfolio margin. Splitting `:unified` into a third mode was unnecessary for gating manual borrow.
 
 ## Decision Log
+
+- Decision: defer the trade account panel's Earn tab.
+  Rationale: the account panel is shared by the trade and portfolio routes, lazy-loads each tab body through `hyperopen.account-tab-modules`, memoizes on an explicit list of state keys in `views/trade_view.cljs` and `views/portfolio_view.cljs`, and threads tab state through long positional arities in `views/account_info_view.cljs`. Adding a tab is its own change with its own regression surface; the Earn page already covers every action, and the existing Balances "Repay" button keeps working.
+  Date/Author: 2026-10-20 / Claude.
+- Decision: keep Earn action specs, effect-order policies and default state in feature namespaces (`schema/contracts/borrow_lend_action_args.cljs`, `runtime/effect_order/borrow_lend_policies.cljs`, `borrow_lend/defaults.cljs`) and only add require and merge lines to the central files.
+  Rationale: the central files are at their namespace-size ratchet; this is the pattern the HyperEVM and vault-screener work used. The ratchet maxima were raised by exactly the added lines, with reasons, in `dev/namespace_size_exceptions.edn`.
+  Date/Author: 2026-10-20 / Claude.
 
 - Decision: name the code `borrow-lend` (protocol language) and the user-facing route and label "Earn".
   Rationale: the architecture rules require ubiquitous language aligned with the protocol; "Earn" is what users and the Hyperliquid app call it.
@@ -70,7 +83,11 @@ Local scratch refs (non-authoritative):
 
 ## Outcomes & Retrospective
 
-Not yet complete. To be written at completion, including whether complexity rose or fell.
+(2026-10-20) Milestones 1 to 3 and the portfolio half of milestone 4 are done. A user can open `/earn`, see live pool rates, utilization and collateral terms, see their own supplied, collateral and borrowed amounts with health factor and liquidation price, and supply, withdraw, borrow or repay any amount from one modal that previews the effect before signing. Portfolio-margin accounts cannot open a manual borrow. The portfolio Earn balance is real. All gates pass.
+
+Remaining: the account-panel Earn tab (deferred, see Decision Log), a committed Playwright spec driving the modal against the wallet and exchange simulators, and a testnet check of whether supplied stablecoins still count as trading margin. Until that check, the Supply modal makes no margin claim.
+
+Complexity rose: about 1,700 lines of new namespaces, and roughly a dozen registration points touched, which is the cost of adding any route with signed actions in this codebase. The maths is concentrated in one pure namespace (`borrow_lend/model.cljs`) and wire parsing in one anti-corruption namespace, so a protocol change touches one place.
 
 ## Context and Orientation
 

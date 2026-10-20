@@ -1,5 +1,6 @@
 (ns hyperopen.schema.contracts.action-args
   (:require [cljs.spec.alpha :as s]
+            [hyperopen.schema.contracts.borrow-lend-action-args :as borrow-lend-action-args]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.funding-action-args :as funding-action-args]
             [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]
@@ -137,12 +138,6 @@
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::vault-monte-carlo-control-args
   (s/tuple ::common/keyword-or-string any?))
-(s/def ::borrow-lend-modal-args
-  (s/tuple (s/or :keyword keyword? :string string?)
-           ::common/intish))
-
-(s/def ::borrow-lend-fraction-args (s/tuple number?))
-
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -680,15 +675,6 @@
    :actions/set-funding-comparison-query ::common/single-input-args
    :actions/set-funding-comparison-timeframe ::common/keyword-or-string-args
    :actions/set-funding-comparison-sort ::common/keyword-or-string-args
-   :actions/load-borrow-lend-route ::common/path-args
-   :actions/load-borrow-lend ::common/no-args
-   :actions/set-borrow-lend-tab ::common/keyword-or-string-args
-   :actions/open-borrow-lend-modal ::borrow-lend-modal-args
-   :actions/close-borrow-lend-modal ::common/no-args
-   :actions/set-borrow-lend-modal-kind ::common/keyword-or-string-args
-   :actions/set-borrow-lend-amount ::common/single-input-args
-   :actions/set-borrow-lend-amount-fraction ::borrow-lend-fraction-args
-   :actions/submit-borrow-lend ::common/no-args
    :actions/load-staking-route ::common/path-args
    :actions/load-staking ::common/no-args
    :actions/load-referrals-route ::common/path-args
@@ -765,5 +751,6 @@
 (def action-args-spec-by-id
   (merge core-action-args-spec-by-id
          funding-action-args/funding-action-args-spec-by-id
+         borrow-lend-action-args/borrow-lend-action-args-spec-by-id
          hyperevm-action-args/hyperevm-action-args-spec-by-id
          vault-screener-action-args/vault-screener-action-args-spec-by-id))

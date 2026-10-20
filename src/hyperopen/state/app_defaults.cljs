@@ -1,5 +1,6 @@
 (ns hyperopen.state.app-defaults
-  (:require [hyperopen.account.history.position-margin :as position-margin]
+  (:require [hyperopen.borrow-lend.defaults :as borrow-lend-defaults]
+            [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account-tab-modules :as account-tab-modules]
@@ -328,34 +329,6 @@
    :error-category nil
    :loaded-at-ms nil})
 
-(defn default-borrow-lend-ui-state
-  []
-  {:active-tab :markets
-   :modal {:open? false
-           :kind nil
-           :token nil
-           :amount ""
-           :max? false
-           :submitting? false
-           :error nil}})
-
-(defn default-borrow-lend-state
-  []
-  {:reserves []
-   :user-state nil
-   :user-address nil
-   :interest []
-   :interest-address nil
-   :loading {:reserves false
-             :user-state false
-             :interest false}
-   :errors {:reserves nil
-            :user-state nil
-            :interest nil}
-   :loaded-at-ms {:reserves nil
-                  :user-state nil
-                  :interest nil}})
-
 (defn default-staking-ui-state
   []
   {:active-tab :validator-performance
@@ -529,8 +502,8 @@
    :funding-comparison (default-funding-comparison-state)
    :staking-ui (default-staking-ui-state)
    :staking (default-staking-state)
-   :borrow-lend-ui (default-borrow-lend-ui-state)
-   :borrow-lend (default-borrow-lend-state)
+   :borrow-lend-ui (borrow-lend-defaults/ui-state)
+   :borrow-lend (borrow-lend-defaults/state)
    :api-wallets-ui (default-api-wallets-ui-state)
    :api-wallets (default-api-wallets-state)
    :asset-selector (default-asset-selector-state)
