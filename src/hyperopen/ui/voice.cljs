@@ -54,7 +54,8 @@
    :account-tabs/twap {:default "TWAP" :degen "Fancy Gambling"}
    :account-tabs/trade-history {:default "Trade History" :degen "Bragging Rights"}
    :account-tabs/funding-history {:default "Funding History" :degen "The Slow Bleed"}
-   :account-tabs/order-history {:default "Order History" :degen "Receipts"}})
+   :account-tabs/order-history {:default "Order History" :degen "Receipts"}
+   :account-tabs/earn {:default "Earn" :degen "Yield Farm"}})
 
 (defn active-voice
   [state]

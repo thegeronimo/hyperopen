@@ -165,8 +165,8 @@
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
-    :heavy-effect-ids #{:effects/api-fetch-user-funding-history
-                        :effects/api-fetch-historical-orders}}
+    :heavy-effect-ids #{:effects/api-fetch-user-funding-history :effects/api-fetch-historical-orders
+                        :effects/api-fetch-borrow-lend-reserves :effects/api-fetch-borrow-lend-user-state :effects/api-fetch-borrow-lend-interest}}
 
    :actions/apply-funding-history-filters
    {:required-phase-order [:projection :persistence :heavy-io]

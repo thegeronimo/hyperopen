@@ -41,6 +41,7 @@
    :account-context
    :account-info
    :account-tab-modules
+   :borrow-lend
    :margin-rec
    :orders
    :perp-dex-clearinghouse

@@ -670,6 +670,7 @@
             [hyperopen.views.account-info.tabs.balances.mobile-test]
             [hyperopen.views.account-info.tabs.balances.projection-test]
             [hyperopen.views.account-info.tabs.balances.review-fixes-test]
+            [hyperopen.views.account-info.tabs.earn-test]
             [hyperopen.views.account-info.tabs.funding-history-test]
             [hyperopen.views.account-info.tabs.open-orders-test]
             [hyperopen.views.account-info.tabs.open-orders.projection-test]
@@ -1688,6 +1689,7 @@
              'hyperopen.views.account-info.tabs.balances.mobile-test
              'hyperopen.views.account-info.tabs.balances.projection-test
              'hyperopen.views.account-info.tabs.balances.review-fixes-test
+             'hyperopen.views.account-info.tabs.earn-test
              'hyperopen.views.account-info.tabs.funding-history-test
              'hyperopen.views.account-info.tabs.open-orders-test
              'hyperopen.views.account-info.tabs.open-orders.projection-test

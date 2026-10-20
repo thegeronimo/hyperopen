@@ -39,7 +39,8 @@ Local scratch refs (non-authoritative):
 - [x] (2026-10-20 15:40Z) Tests: `actions_test`, `effects_test`; existing header, navigation, route-refresh and startup tests updated for the new nav item and portfolio loader. `npm test` 7260 tests, 0 failures. `npm run test:websocket` 604 tests, 0 failures.
 - [x] (2026-10-20 15:50Z) Browser QA (dev server, live mainnet data): desktop and 375 px phone width; pools, collateral, health, rate curve and the Supply modal preview render; no horizontal page scroll at phone width.
 - [x] (2026-10-20 16:20Z) `npm run check` green after the namespace-size split (first run failed on size ratchets; Earn specs, policies and defaults moved to their own namespaces and exceptions recorded) and after adding `earn_route` to the release-asset fixtures.
-- [ ] Deferred to a follow-up: the Earn tab in the trade page's account panel (artboard 4). See Decision Log.
+- [x] (2026-10-20 17:10Z) Earn tab in the account panel (artboard 4): built-in eager tab `:earn` (`views/account_info/tabs/earn.cljs`), shown on trade and portfolio. Selecting it, or landing on `/trade?tab=earn`, loads lending data; row actions navigate to `/earn` and open the modal there. `:borrow-lend` added to the trade view's memoized slice. `npm run gates` 34/34 PASS.
+- [ ] Remaining: a committed Playwright spec for the modal against the wallet and exchange simulators; a testnet check of whether supplied stablecoins still count as trading margin.
 
 ## Surprises & Discoveries
 
@@ -50,13 +51,15 @@ Local scratch refs (non-authoritative):
 - Observation: `tokenToState` entries are `[tokenIndex, {"supply": {"basis", "value"}, "borrow": {"basis", "value"}}]`. `value` includes accrued interest; `basis` is principal. `healthFactor` is a string or null and `health` a label such as `"healthy"`. Shape taken from the `df-hyperliquid-core` crate; only the empty response was captured live.
 - Observation: running `npm run check` while `npm run dev` is up breaks the dev page, because check compiles the `app` build into the same `resources/public/js` output. Stop the dev server before running check.
   Evidence: after check, the dev page failed to boot until the watcher was restarted.
+- Observation: a ninth account tab scrambled the tab strip order on the trade route. `tab-registry/merged-tab-definitions` builds its map with `(into (array-map) ...)`, which becomes a hash map past eight entries; order was read from that map's keys. The portfolio route hid this because it passes an explicit `tab-order`. Order now comes from a separate id vector (`merged-tab-ids`).
+  Evidence: `test/hyperopen/views/account_info/tabs/earn_test.cljs` `nine-tabs-keep-declaration-order-test`.
 - Observation: the header test suite asserted that no Earn link exists, left over from "Remove dead header nav links" (8626ebc3e) which removed a placeholder. The assertion was flipped now that the route is real.
 - Observation: the account's raw abstraction is already stored at `[:account :abstraction-raw]`, and `hyperopen.domain.trading.core/portfolio-margin-abstraction?` already recognizes portfolio margin. Splitting `:unified` into a third mode was unnecessary for gating manual borrow.
 
 ## Decision Log
 
-- Decision: defer the trade account panel's Earn tab.
-  Rationale: the account panel is shared by the trade and portfolio routes, lazy-loads each tab body through `hyperopen.account-tab-modules`, memoizes on an explicit list of state keys in `views/trade_view.cljs` and `views/portfolio_view.cljs`, and threads tab state through long positional arities in `views/account_info_view.cljs`. Adding a tab is its own change with its own regression surface; the Earn page already covers every action, and the existing Balances "Repay" button keeps working.
+- Decision: first deferred, then built, the account panel's Earn tab as an eager (non-lazy) built-in tab rather than a lazy tab module or a caller-supplied extra tab.
+  Rationale: the tab is small and reuses `hyperopen.views.earn.vm`, so a separate lazy chunk would add loader wiring for little saving; a built-in tab appears on both trade and portfolio without per-route options. Its view model is computed only while the tab is selected.
   Date/Author: 2026-10-20 / Claude.
 - Decision: keep Earn action specs, effect-order policies and default state in feature namespaces (`schema/contracts/borrow_lend_action_args.cljs`, `runtime/effect_order/borrow_lend_policies.cljs`, `borrow_lend/defaults.cljs`) and only add require and merge lines to the central files.
   Rationale: the central files are at their namespace-size ratchet; this is the pattern the HyperEVM and vault-screener work used. The ratchet maxima were raised by exactly the added lines, with reasons, in `dev/namespace_size_exceptions.edn`.
@@ -85,7 +88,7 @@ Local scratch refs (non-authoritative):
 
 (2026-10-20) Milestones 1 to 3 and the portfolio half of milestone 4 are done. A user can open `/earn`, see live pool rates, utilization and collateral terms, see their own supplied, collateral and borrowed amounts with health factor and liquidation price, and supply, withdraw, borrow or repay any amount from one modal that previews the effect before signing. Portfolio-margin accounts cannot open a manual borrow. The portfolio Earn balance is real. All gates pass.
 
-Remaining: the account-panel Earn tab (deferred, see Decision Log), a committed Playwright spec driving the modal against the wallet and exchange simulators, and a testnet check of whether supplied stablecoins still count as trading margin. Until that check, the Supply modal makes no margin claim.
+Remaining: a committed Playwright spec driving the modal against the wallet and exchange simulators, and a testnet check of whether supplied stablecoins still count as trading margin. Until that check, the Supply modal makes no margin claim.
 
 Complexity rose: about 1,700 lines of new namespaces, and roughly a dozen registration points touched, which is the cost of adding any route with signed actions in this codebase. The maths is concentrated in one pure namespace (`borrow_lend/model.cljs`) and wire parsing in one anti-corruption namespace, so a protocol change touches one place.
 
