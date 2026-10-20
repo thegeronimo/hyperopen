@@ -203,6 +203,19 @@
   ([address] (request-user-webdata2! address {}))
   ([address opts] (account/request-user-webdata2! {:post-info! post-info!} address opts)))
 
+(defn request-borrow-lend-reserve-states!
+  ([] (request-borrow-lend-reserve-states! {}))
+  ([opts] (account/request-borrow-lend-reserve-states! {:post-info! post-info!} opts)))
+
+(defn request-borrow-lend-user-state!
+  ([address] (request-borrow-lend-user-state! address {}))
+  ([address opts] (account/request-borrow-lend-user-state! {:post-info! post-info!} address opts)))
+
+(defn request-borrow-lend-interest!
+  ([address start-time-ms] (request-borrow-lend-interest! address start-time-ms {}))
+  ([address start-time-ms opts]
+   (account/request-borrow-lend-interest! {:post-info! post-info!} address start-time-ms opts)))
+
 (defn request-staking-validator-summaries!
   ([] (request-staking-validator-summaries! {}))
   ([opts] (account/request-staking-validator-summaries! {:post-info! post-info!} opts)))

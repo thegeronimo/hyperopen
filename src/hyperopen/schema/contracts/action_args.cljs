@@ -137,6 +137,12 @@
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::vault-monte-carlo-control-args
   (s/tuple ::common/keyword-or-string any?))
+(s/def ::borrow-lend-modal-args
+  (s/tuple (s/or :keyword keyword? :string string?)
+           ::common/intish))
+
+(s/def ::borrow-lend-fraction-args (s/tuple number?))
+
 (s/def ::staking-action-popover-open-args
   (s/or :kind-only (s/tuple (s/or :keyword keyword?
                                    :string string?))
@@ -674,6 +680,15 @@
    :actions/set-funding-comparison-query ::common/single-input-args
    :actions/set-funding-comparison-timeframe ::common/keyword-or-string-args
    :actions/set-funding-comparison-sort ::common/keyword-or-string-args
+   :actions/load-borrow-lend-route ::common/path-args
+   :actions/load-borrow-lend ::common/no-args
+   :actions/set-borrow-lend-tab ::common/keyword-or-string-args
+   :actions/open-borrow-lend-modal ::borrow-lend-modal-args
+   :actions/close-borrow-lend-modal ::common/no-args
+   :actions/set-borrow-lend-modal-kind ::common/keyword-or-string-args
+   :actions/set-borrow-lend-amount ::common/single-input-args
+   :actions/set-borrow-lend-amount-fraction ::borrow-lend-fraction-args
+   :actions/submit-borrow-lend ::common/no-args
    :actions/load-staking-route ::common/path-args
    :actions/load-staking ::common/no-args
    :actions/load-referrals-route ::common/path-args

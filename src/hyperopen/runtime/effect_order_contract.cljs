@@ -381,6 +381,28 @@
     :heavy-effect-ids #{:effects/api-fetch-predicted-fundings
                         :effects/fetch-asset-selector-markets}}
 
+   :actions/load-borrow-lend
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-borrow-lend-reserves
+                        :effects/api-fetch-borrow-lend-user-state
+                        :effects/api-fetch-borrow-lend-interest}}
+
+   :actions/load-borrow-lend-route
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-fetch-borrow-lend-reserves
+                        :effects/api-fetch-borrow-lend-user-state
+                        :effects/api-fetch-borrow-lend-interest}}
+
+   :actions/submit-borrow-lend
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-borrow-lend}}
+
    :actions/load-staking
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -531,6 +553,9 @@
                         :effects/api-fetch-staking-rewards
                         :effects/api-fetch-staking-history
                         :effects/api-fetch-staking-spot-state
+                        :effects/api-fetch-borrow-lend-reserves
+                        :effects/api-fetch-borrow-lend-user-state
+                        :effects/api-fetch-borrow-lend-interest
                         :effects/api-fetch-referral
                         :effects/api-load-api-wallets
                         :effects/api-load-subaccounts
@@ -561,6 +586,9 @@
                         :effects/api-fetch-staking-rewards
                         :effects/api-fetch-staking-history
                         :effects/api-fetch-staking-spot-state
+                        :effects/api-fetch-borrow-lend-reserves
+                        :effects/api-fetch-borrow-lend-user-state
+                        :effects/api-fetch-borrow-lend-interest
                         :effects/api-fetch-referral
                         :effects/api-load-subaccounts
                         :effects/fetch-asset-selector-markets}}})

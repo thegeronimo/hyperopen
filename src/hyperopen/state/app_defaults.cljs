@@ -328,6 +328,34 @@
    :error-category nil
    :loaded-at-ms nil})
 
+(defn default-borrow-lend-ui-state
+  []
+  {:active-tab :markets
+   :modal {:open? false
+           :kind nil
+           :token nil
+           :amount ""
+           :max? false
+           :submitting? false
+           :error nil}})
+
+(defn default-borrow-lend-state
+  []
+  {:reserves []
+   :user-state nil
+   :user-address nil
+   :interest []
+   :interest-address nil
+   :loading {:reserves false
+             :user-state false
+             :interest false}
+   :errors {:reserves nil
+            :user-state nil
+            :interest nil}
+   :loaded-at-ms {:reserves nil
+                  :user-state nil
+                  :interest nil}})
+
 (defn default-staking-ui-state
   []
   {:active-tab :validator-performance
@@ -501,6 +529,8 @@
    :funding-comparison (default-funding-comparison-state)
    :staking-ui (default-staking-ui-state)
    :staking (default-staking-state)
+   :borrow-lend-ui (default-borrow-lend-ui-state)
+   :borrow-lend (default-borrow-lend-state)
    :api-wallets-ui (default-api-wallets-ui-state)
    :api-wallets (default-api-wallets-state)
    :asset-selector (default-asset-selector-state)
