@@ -125,7 +125,16 @@
     (case kind
       :supply (spot-available state token)
       :withdraw (when (finite? supplied)
-                  (min supplied (or (:available reserve) supplied)))
+                  (let [ltv (:ltv reserve)
+                        pool-cap (min supplied (or (:available reserve) supplied))]
+                    ;; Withdrawing collateral may not push the borrow above
+                    ;; the remaining limit.
+                    (if (and (finite? ltv) (pos? ltv) (finite? px) (pos? px))
+                      (let [{:keys [available-to-borrow-usd borrowed-usd]} (health state)]
+                        (if (pos? borrowed-usd)
+                          (min pool-cap (/ available-to-borrow-usd (* px ltv)))
+                          pool-cap))
+                      pool-cap)))
       :repay (when (finite? borrowed)
                (if-let [free (spot-available state token)] (min borrowed free) borrowed))
       :borrow (let [{:keys [available-to-borrow-usd]} (health state)]

@@ -40,16 +40,34 @@
   "Loads pool reserves and, when an account is in scope, its positions and
   30-day interest history."
   [state]
-  (let [address (bl-account/account-address state)]
-    (into [[:effects/save [:borrow-lend :requested-address] address]
+  (let [address (bl-account/account-address state)
+        stale? (not= (account-context/normalize-address address)
+                     (get-in state [:borrow-lend :user-address]))]
+    (into [(if stale?
+             ;; A different account: drop the previous one's positions so its
+             ;; Earn balance never shows under the new account.
+             [:effects/save-many [[[:borrow-lend :requested-address] address]
+                                  [[:borrow-lend :user-state] nil]
+                                  [[:borrow-lend :user-address] nil]
+                                  [[:borrow-lend :total-supplied-usd] 0]]]
+             [:effects/save [:borrow-lend :requested-address] address])
            [:effects/api-fetch-borrow-lend-reserves]]
           (when (seq address)
             [[:effects/api-fetch-borrow-lend-user-state address]
              [:effects/api-fetch-borrow-lend-interest address]]))))
 
+(defn- portfolio-overview-route?
+  "The portfolio page shows the Earn balance; its optimizer sub-routes do not."
+  [path]
+  (let [p (normalize-route-path path)]
+    (or (= "/portfolio" p)
+        (and (str/starts-with? p "/portfolio/")
+             (not (str/starts-with? p "/portfolio/optimize"))))))
+
 (defn load-borrow-lend-route
+  "Loads Earn data on the routes that show it: /earn and the portfolio page."
   [state path]
-  (if (earn-route? path)
+  (if (or (earn-route? path) (portfolio-overview-route? path))
     (load-borrow-lend state)
     []))
 

@@ -370,7 +370,7 @@
     (is (= "translateX(-18px)" (:transform panel-unmounting)))
     (is (= 0 (:opacity panel-unmounting)))
     (is (contains? trade-classes "text-white"))
-    (is (nil? (find-node-by-role view "mobile-header-menu-link-earn")))
+    (is (some? (find-node-by-role view "mobile-header-menu-link-earn")))
     (is (some? referrals-link))))
 
 (deftest wallet-menu-renders-copy-and-disconnect-controls-test

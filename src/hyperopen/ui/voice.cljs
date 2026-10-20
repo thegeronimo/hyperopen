@@ -26,6 +26,7 @@
    :nav/optimize {:default "Optimize" :degen "Optimize (Cope)"}
    :nav/funding {:default "Funding" :degen "Funding (Brrr)"}
    :nav/vaults {:default "Vaults" :degen "Vaults (LOL)"}
+   :nav/earn {:default "Earn" :degen "Earn (Yield Farm)"}
    :nav/staking {:default "Staking" :degen "Staking (Zzz)"}
    :nav/referrals {:default "Referrals" :degen "Referrals (Spam)"}
    :nav/leaderboard {:default "Leaderboard" :degen "Leaderboard (Flex)"}

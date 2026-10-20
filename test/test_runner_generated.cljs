@@ -111,6 +111,8 @@
             [hyperopen.asset-selector.outcome-actions-test]
             [hyperopen.asset-selector.perp-annotations-test]
             [hyperopen.asset-selector.settings-test]
+            [hyperopen.borrow-lend.actions-test]
+            [hyperopen.borrow-lend.effects-test]
             [hyperopen.borrow-lend.model-test]
             [hyperopen.borrow-lend.normalize-test]
             [hyperopen.chart.settings-test]
@@ -1127,6 +1129,8 @@
              'hyperopen.asset-selector.outcome-actions-test
              'hyperopen.asset-selector.perp-annotations-test
              'hyperopen.asset-selector.settings-test
+             'hyperopen.borrow-lend.actions-test
+             'hyperopen.borrow-lend.effects-test
              'hyperopen.borrow-lend.model-test
              'hyperopen.borrow-lend.normalize-test
              'hyperopen.chart.settings-test

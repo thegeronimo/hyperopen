@@ -1,5 +1,6 @@
 (ns hyperopen.startup.route-refresh
   (:require [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -27,11 +28,15 @@
    name a spot token on the wire as `NAME:0x<hash>`, and spotMeta is the only
    source that joins a balance row's numeric token index to that id. Without it
    every non-USDC token in the dropdown renders as \"unavailable\" and cannot be
-   sent."
+   sent.
+
+   Earn qualifies because lending pools are keyed by spot token index, and only
+   spotMeta turns index 268 into USDT0."
   [route]
   (or (router/trade-route? route)
       (portfolio-routes/portfolio-route? route)
-      (subaccounts-actions/subaccounts-route? route)))
+      (subaccounts-actions/subaccounts-route? route)
+      (borrow-lend-actions/earn-route? route)))
 
 (defn spot-catalog-markets-needed?
   "True when `route` needs the full (spot-inclusive) catalog but its spot
@@ -70,6 +75,9 @@
                      (staking-actions/staking-route? route)
                      [[:actions/load-staking-route route]]
 
+                     (borrow-lend-actions/earn-route? route)
+                     [[:actions/load-borrow-lend-route route]]
+
                      (referrals-actions/referrals-route? route)
                      [[:actions/load-referrals-route route]]
 
@@ -85,7 +93,12 @@
                      :else [])
                    (when (and (portfolio-routes/portfolio-route? route)
                               (seq (portfolio-actions/selected-portfolio-vault-benchmark-addresses state)))
-                     [[:actions/load-vault-route route]])))
+                     [[:actions/load-vault-route route]])
+                   ;; The portfolio's Earn balance comes from the lending
+                   ;; user state, which belongs to the account just switched to.
+                   (when (and (portfolio-routes/portfolio-route? route)
+                              (seq (borrow-lend-actions/load-borrow-lend-route state route)))
+                     [[:actions/load-borrow-lend-route route]])))
       (and new-address
            (portfolio-routes/portfolio-route? route)
            (not (portfolio-routes/portfolio-optimize-route? route)))

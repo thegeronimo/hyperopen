@@ -4,6 +4,23 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.api.errors :as api-errors]))
 
+(defn- total-supplied-usd
+  "Everything the stored account has supplied, stablecoins and collateral, at
+  oracle prices. Read by the portfolio as its Earn balance."
+  [state]
+  (let [px-by-token (into {}
+                          (map (juxt :token :oracle-px))
+                          (get-in state [:borrow-lend :reserves]))]
+    (reduce (fn [acc {:keys [token supplied]}]
+              (let [px (get px-by-token token)]
+                (if (and (number? supplied) (number? px)) (+ acc (* supplied px)) acc)))
+            0
+            (get-in state [:borrow-lend :user-state :positions]))))
+
+(defn- with-total-supplied
+  [state]
+  (assoc-in state [:borrow-lend :total-supplied-usd] (total-supplied-usd state)))
+
 (defn- begin
   [state k]
   (-> state
@@ -29,8 +46,9 @@
 
 (defn apply-borrow-lend-reserves-success
   [state reserves]
-  (success state :reserves [:borrow-lend :reserves]
-           (if (sequential? reserves) (vec reserves) [])))
+  (-> (success state :reserves [:borrow-lend :reserves]
+               (if (sequential? reserves) (vec reserves) []))
+      with-total-supplied))
 
 (defn apply-borrow-lend-reserves-error [state err] (failure state :reserves err))
 
@@ -44,7 +62,8 @@
       (success :user-state [:borrow-lend :user-state]
                (when (map? user-state) user-state))
       (assoc-in [:borrow-lend :user-address]
-                (account-context/normalize-address address))))
+                (account-context/normalize-address address))
+      with-total-supplied))
 
 (defn apply-borrow-lend-user-state-error [state err] (failure state :user-state err))
 

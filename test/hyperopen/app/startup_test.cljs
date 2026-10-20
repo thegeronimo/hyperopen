@@ -289,7 +289,8 @@
       ((:on-route-change @captured-router-opts) "/portfolio"))
     (is (= [store]
            @route-restore-calls))
-    (is (= [[store [[:effects/load-route-module "/portfolio"]]]]
+    (is (= [[store [[:effects/load-route-module "/portfolio"]
+                    [:actions/load-borrow-lend-route "/portfolio"]]]]
            @dispatch-calls))))
 
 (deftest init-route-change-loads-route-data-after-query-restore-test

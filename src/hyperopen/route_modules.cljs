@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [goog.object :as gobj]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
@@ -18,6 +19,7 @@
    :funding-comparison "funding_comparison_route"
    :referrals "referrals_route"
    :staking "staking_route"
+   :earn "earn_route"
    :api-wallets "api_wallets_route"
    :subaccounts "subaccounts_route"
    :vaults "vaults_route"})
@@ -28,6 +30,7 @@
    :funding-comparison [["hyperopen" "views" "funding_comparison_view" "route_view"]]
    :referrals [["hyperopen" "views" "referrals_view" "route_view"]]
    :staking [["hyperopen" "views" "staking_view" "route_view"]]
+   :earn [["hyperopen" "views" "earn_view" "route_view"]]
    :api-wallets [["hyperopen" "views" "api_wallets_view" "route_view"]]
    :subaccounts [["hyperopen" "views" "subaccounts_view" "route_view"]]
    :vaults [["hyperopen" "views" "vaults" "list_view" "route_view"]
@@ -67,6 +70,7 @@
       (funding-comparison-actions/funding-comparison-route? route) :funding-comparison
       (referrals-actions/referrals-route? route) :referrals
       (staking-actions/staking-route? route) :staking
+      (borrow-lend-actions/earn-route? route) :earn
       (api-wallets-actions/api-wallet-route? route) :api-wallets
       (subaccounts-actions/subaccounts-route? route) :subaccounts
       (vault-routes/vault-detail-route? route) :vaults
