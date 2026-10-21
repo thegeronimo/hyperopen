@@ -11,7 +11,7 @@
   ["px-3" "py-2.5" "text-xs" "font-medium" "text-ho-text-secondary" "whitespace-nowrap"])
 
 (def ^:private td-base
-  ["px-3" "py-3.5" "text-sm" "text-ho-text" "border-t" "border-ho-border" "whitespace-nowrap"])
+  ["px-3" "py-3.5" "text-sm" "border-t" "border-ho-border" "whitespace-nowrap"])
 
 (def ^:private th-classes (conj th-base "text-right"))
 
@@ -106,17 +106,17 @@
                     supplied borrowed available]} pools]
         ^{:key token}
         [:tr {:data-role (str "earn-pool-row-" token)}
-         [:td {:class (into td-base ["text-left" "pl-4"])}
+         [:td {:class (into td-base ["text-left" "pl-4" "text-ho-text"])}
           [:div {:class ["flex" "items-center" "gap-2.5"]}
            (token-badge symbol)
            [:span {:class ["font-semibold"]} symbol]]]
          [:td {:class (into td-classes ["num" "text-ho-buy"])} supply-apy]
-         [:td {:class (into td-classes ["num"])} borrow-apy]
-         [:td {:class (into td-base ["text-left"])} (utilization-bar utilization above-kink? utilization-label)]
-         [:td {:class (into td-classes ["num"])} supplied]
-         [:td {:class (into td-classes ["num"])} borrowed]
-         [:td {:class (into td-classes ["num"])} available]
-         [:td {:class (into td-classes ["pr-4"])}
+         [:td {:class (into td-classes ["num" "text-ho-text"])} borrow-apy]
+         [:td {:class (into td-base ["text-left" "text-ho-text"])} (utilization-bar utilization above-kink? utilization-label)]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} supplied]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} borrowed]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} available]
+         [:td {:class (into td-classes ["pr-4" "text-ho-text"])}
           [:div {:class ["flex" "gap-1.5" "justify-end"]}
            (action-button {:label "Supply" :primary? true :disabled? read-only?
                            :action (open-modal-action vm :supply token)
@@ -146,16 +146,16 @@
       (for [{:keys [token symbol oracle-px ltv threshold total-supplied-usd mine has-position?]} collateral]
         ^{:key token}
         [:tr {:data-role (str "earn-collateral-row-" token)}
-         [:td {:class (into td-base ["text-left" "pl-4"])}
+         [:td {:class (into td-base ["text-left" "pl-4" "text-ho-text"])}
           [:div {:class ["flex" "items-center" "gap-2.5"]}
            (token-badge symbol)
            [:span {:class ["font-semibold"]} symbol]]]
-         [:td {:class (into td-classes ["num"])} oracle-px]
-         [:td {:class (into td-classes ["num"])} ltv]
-         [:td {:class (into td-classes ["num"])} threshold]
-         [:td {:class (into td-classes ["num"])} total-supplied-usd]
-         [:td {:class (into td-classes ["num"])} mine]
-         [:td {:class (into td-classes ["pr-4"])}
+         [:td {:class (into td-classes ["num" "text-ho-text"])} oracle-px]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} ltv]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} threshold]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} total-supplied-usd]
+         [:td {:class (into td-classes ["num" "text-ho-text"])} mine]
+         [:td {:class (into td-classes ["pr-4" "text-ho-text"])}
           [:div {:class ["flex" "gap-1.5" "justify-end"]}
            (action-button {:label "Add" :disabled? read-only?
                            :action (open-modal-action vm :supply token)
@@ -192,14 +192,14 @@
                    tone (case kind :supplied "text-ho-buy" :borrowed "text-ho-sell" "text-ho-text-dim")]]
          ^{:key key}
          [:tr {:data-role (str "earn-position-" key)}
-          [:td {:class (into td-base ["text-left" "pl-4"])}
+          [:td {:class (into td-base ["text-left" "pl-4" "text-ho-text"])}
            [:span {:class ["font-semibold"]} symbol]
            [:span {:class ["ml-2" "text-xs" kind-class]} kind-label]]
-          [:td {:class (into td-classes ["num"])} amount]
-          [:td {:class (into td-classes ["num"])} value]
+          [:td {:class (into td-classes ["num" "text-ho-text"])} amount]
+          [:td {:class (into td-classes ["num" "text-ho-text"])} value]
           [:td {:class (conj td-classes "num" tone)} apy]
           [:td {:class (conj td-classes "num" tone)} interest]
-          [:td {:class (into td-classes ["pr-4"])}
+          [:td {:class (into td-classes ["pr-4" "text-ho-text"])}
            [:div {:class ["flex" "gap-1.5" "justify-end"]}
             (if (= :borrowed kind)
               (list
@@ -237,7 +237,7 @@
          ^{:key key}
          [:tr
           [:td {:class (into td-base ["text-left" "pl-4" "text-ho-text-secondary"])} time]
-          [:td {:class (into td-base ["text-left" "font-semibold"])} token]
+          [:td {:class (into td-base ["text-left" "font-semibold" "text-ho-text"])} token]
           [:td {:class (into td-classes ["num" "text-ho-buy"])} supply]
           [:td {:class (into td-classes ["num" "text-ho-sell" "pr-4"])} borrow]])]]]))
 

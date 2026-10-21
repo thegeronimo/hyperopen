@@ -227,6 +227,9 @@ test("earn page shows the account's position and the brief's health maths @regre
 
   await role(page, "earn-tab-positions").click();
   await expect(role(page, "earn-position-0-supply")).toContainText("5,000.00");
+  const paint = (locator) => locator.evaluate((node) => getComputedStyle(node).color);
+  await expect.poll(() => paint(role(page, "earn-position-0-supply").locator("td").nth(3))).toBe("rgb(0, 212, 170)");
+  await expect.poll(() => paint(role(page, "earn-position-0-borrow").locator("td").nth(3))).toBe("rgb(255, 107, 107)");
   await expect(role(page, "earn-position-0-borrow")).toContainText("2,000.00");
   await expect(role(page, "earn-position-150-supply")).toContainText("100.00");
 });
@@ -315,6 +318,24 @@ test("account panel Earn tab lists positions and its Repay opens the modal on /e
   await expect(role(page, "account-earn-tab")).toBeVisible();
   await expect(role(page, "account-earn-summary")).toContainText("130%");
   await expect(role(page, "account-earn-row-0-borrow")).toContainText("2,000.00");
+
+  // The design colors by meaning: Supplied/APY/interest green, Borrowed red,
+  // pool utilization amber above the 80% kink. Check the painted colors, not
+  // the class names, since competing color utilities once hid all of them.
+  const GREEN = "rgb(0, 212, 170)";
+  const RED = "rgb(255, 107, 107)";
+  const AMBER = "rgb(251, 189, 35)";
+  const color = (locator) => locator.evaluate((node) => getComputedStyle(node).color);
+  const cell = (rowRole, index) => role(page, rowRole).locator("td").nth(index);
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 1))).toBe(GREEN); // Type: Supplied
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 4))).toBe(GREEN); // APY
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 5))).toBe(GREEN); // Interest
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 6))).toBe(AMBER); // utilization 83.1%
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 1))).toBe(RED); // Type: Borrowed
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 2))).toBe(RED); // Amount
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 4))).toBe(RED); // APY
+  await expect(cell("account-earn-row-0-borrow", 2)).toHaveText("\u22122,000.00");
+  await expect(cell("account-earn-row-150-supply", 1)).toHaveText("Collateral \u00b7 65% LTV");
 
   await role(page, "account-earn-repay-0").click();
   await expect(page).toHaveURL(/\/earn/);

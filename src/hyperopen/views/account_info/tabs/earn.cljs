@@ -42,7 +42,7 @@
 
 (def ^:private kind-labels
   {:supplied ["Supplied" "text-ho-buy"]
-   :collateral ["Collateral" "text-ho-text-secondary"]
+   :collateral ["Collateral" "text-trading-text-secondary"]
    :borrowed ["Borrowed" "text-ho-sell"]})
 
 (def ^:private health-classes
@@ -51,8 +51,18 @@
 (def ^:private th-base
   ["px-3" "py-2" "text-xs" "font-medium" "text-trading-text-secondary" "whitespace-nowrap"])
 
+;; No text color here on purpose: a base `text-trading-text` and a tone class
+;; are two competing color utilities, and the base won, so Supplied, Borrowed,
+;; APY and interest all rendered in the default text color. Each cell names
+;; exactly one color through `cell-classes`.
 (def ^:private td-base
-  ["px-3" "py-2.5" "text-xs" "text-trading-text" "border-t" "border-base-300" "whitespace-nowrap"])
+  ["px-3" "py-2.5" "text-xs" "border-t" "border-base-300" "whitespace-nowrap"])
+
+(def ^:private neg "\u2212")
+
+(defn- cell-classes
+  [color & more]
+  (-> td-base (conj color) (into more)))
 
 (defn- summary-strip
   [{:keys [health-factor health-status limit-used-label liquidation-px primary-collateral-symbol
@@ -88,23 +98,31 @@
       [:th {:class (into th-base ["text-right"])} "Pool utilization"]
       [:th {:class (into th-base ["text-right" "pr-4"])} [:span {:class ["sr-only"]} "Actions"]]]]
     [:tbody
-     (for [{:keys [key token symbol kind amount value apy interest]} positions
+     (for [{:keys [key token symbol kind amount value apy interest ltv-label]} positions
            :let [[kind-label kind-class] (get kind-labels kind)
                  tone (case kind :supplied "text-ho-buy" :borrowed "text-ho-sell" "text-ho-text-dim")
-                 pool? (not= :collateral kind)]]
+                 debt? (= :borrowed kind)
+                 pool? (not= :collateral kind)
+                 above-kink? (and pool? (get above-kink-by-token token))]]
        ^{:key key}
        [:tr {:data-role (str "account-earn-row-" key)}
-        [:td {:class (into td-base ["text-left" "pl-4" "font-semibold"])} symbol]
-        [:td {:class (into td-base ["text-left" kind-class])} kind-label]
-        [:td {:class (into td-base ["text-right" "num"])} (if (= :borrowed kind) (str "-" amount) amount)]
-        [:td {:class (into td-base ["text-right" "num"])} value]
-        [:td {:class (into td-base ["text-right" "num" tone])} apy]
-        [:td {:class (into td-base ["text-right" "num" tone])} interest]
-        [:td {:class (into td-base ["text-right" "num" (if (and pool? (get above-kink-by-token token))
-                                                          "text-ho-warn"
-                                                          "text-trading-text-secondary")])}
+        [:td {:class (cell-classes "text-trading-text" "text-left" "pl-4" "font-semibold")} symbol]
+        [:td {:class (cell-classes kind-class "text-left")}
+         (if (and (= :collateral kind) ltv-label)
+           (str kind-label " \u00b7 " ltv-label " LTV")
+           kind-label)]
+        [:td {:class (cell-classes (if debt? "text-ho-sell" "text-trading-text") "text-right" "num")}
+         (if debt? (str neg amount) amount)]
+        [:td {:class (cell-classes "text-trading-text" "text-right" "num")}
+         (if debt? (str neg value) value)]
+        [:td {:class (cell-classes tone "text-right" "num")} apy]
+        [:td {:class (cell-classes tone "text-right" "num")} interest]
+        [:td {:class (cell-classes (cond (not pool?) "text-ho-text-dim"
+                                         above-kink? "text-ho-warn"
+                                         :else "text-trading-text-secondary")
+                                   "text-right" "num")}
          (if pool? (get utilization-by-token token "--") "--")]
-        [:td {:class (into td-base ["text-right" "pr-4"])}
+        [:td {:class (cell-classes "text-trading-text" "text-right" "pr-4")}
          (if (= :borrowed kind)
            (list (row-button "Borrow" :borrow token (or read-only? portfolio-margin?))
                  (row-button "Repay" :repay token read-only?))

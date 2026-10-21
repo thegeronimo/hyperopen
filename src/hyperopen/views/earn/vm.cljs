@@ -89,6 +89,7 @@
                             :token token
                             :symbol symbol
                             :kind (if collateral? :collateral :supplied)
+                            :ltv-label (when collateral? (format-pct ltv 0))
                             :amount (format-amount supplied)
                             :value (format-usd (when (finite? oracle-px) (* supplied oracle-px)))
                             :apy (if collateral? dash (format-pct supply-apy))
