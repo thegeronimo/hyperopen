@@ -8,6 +8,7 @@
    unified-only figures live in `hyperopen.views.account-equity.unified`."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
+            [hyperopen.borrow-lend.account :as bl-account]
             [hyperopen.views.account-equity.format :refer [parse-num pnl-display safe-div]]
             [hyperopen.views.account-equity.pricing :as pricing
              :refer [aggregate-clearinghouse-usd balance-rows-by-token
@@ -186,12 +187,18 @@
                        (current-vault-equity state))
         hyperevm-equity (when-not unified?
                           (current-hyperevm-equity state hyperevm-funds-summary))
+        ;; Supplied funds leave the spot balance (and a borrow lands in it),
+        ;; so lending is counted here, net of debt, or the total drops when
+        ;; the account supplies.
+        earn-equity (when-not unified?
+                      (bl-account/net-earn-usd state))
         total-account-value-display (when (and (not unified?)
                                                (number? spot-equity)
                                                (number? perps-value)
                                                (number? vault-equity)
                                                (number? hyperevm-equity))
-                                      (+ spot-equity perps-value vault-equity hyperevm-equity))
+                                      (+ spot-equity perps-value vault-equity hyperevm-equity
+                                         (or earn-equity 0)))
         ;; What the cross-only leverage and maintenance figures leave out. The
         ;; panel prints it beside them so an all-isolated book cannot render a
         ;; bare 0.00x that reads as "no exposure".
@@ -225,6 +232,7 @@
      :portfolio-value portfolio-value
      :account-value-display account-value-display
      :vault-equity vault-equity
+     :earn-equity earn-equity
      :hyperevm-equity hyperevm-equity
      :total-account-value-display total-account-value-display
      :pnl-info pnl-info}))
@@ -235,6 +243,7 @@
         spot-data (:spot state)
         account (:account state)
         vaults (:vaults state)
+        borrow-lend (:borrow-lend state)
         effective-address (account-context/effective-account-address state)
         hyperevm-funds-summary (account-equity-hyperevm-funds-summary state)
         perp-dex-states (:perp-dex-clearinghouse state)
@@ -245,6 +254,7 @@
                         (identical? spot-data (:spot-data cache))
                         (identical? account (:account cache))
                         (identical? vaults (:vaults cache))
+                        (identical? borrow-lend (:borrow-lend cache))
                         (= effective-address (:effective-address cache))
                         (= hyperevm-funds-summary (:hyperevm-funds-summary cache))
                         (identical? perp-dex-states (:perp-dex-states cache))
@@ -256,6 +266,7 @@
                                               :spot-data spot-data
                                               :account account
                                               :vaults vaults
+                                              :borrow-lend borrow-lend
                                               :effective-address effective-address
                                               :hyperevm-funds-summary hyperevm-funds-summary
                                               :perp-dex-states perp-dex-states

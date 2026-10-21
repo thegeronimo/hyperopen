@@ -4,22 +4,28 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.api.errors :as api-errors]))
 
-(defn- total-supplied-usd
-  "Everything the stored account has supplied, stablecoins and collateral, at
-  oracle prices. Read by the portfolio as its Earn balance."
-  [state]
+(defn- total-usd
+  "Sum of `leg` (:supplied or :borrowed) across the stored account's positions
+  at oracle prices."
+  [state leg]
   (let [px-by-token (into {}
                           (map (juxt :token :oracle-px))
                           (get-in state [:borrow-lend :reserves]))]
-    (reduce (fn [acc {:keys [token supplied]}]
-              (let [px (get px-by-token token)]
-                (if (and (number? supplied) (number? px)) (+ acc (* supplied px)) acc)))
+    (reduce (fn [acc position]
+              (let [amount (get position leg)
+                    px (get px-by-token (:token position))]
+                (if (and (number? amount) (number? px)) (+ acc (* amount px)) acc)))
             0
             (get-in state [:borrow-lend :user-state :positions]))))
 
 (defn- with-total-supplied
+  "Supplied value (stablecoins and collateral) and borrowed value, so account
+  totals can count lending net of debt: supplied funds leave the spot balance,
+  and a borrow adds to it."
   [state]
-  (assoc-in state [:borrow-lend :total-supplied-usd] (total-supplied-usd state)))
+  (-> state
+      (assoc-in [:borrow-lend :total-supplied-usd] (total-usd state :supplied))
+      (assoc-in [:borrow-lend :total-borrowed-usd] (total-usd state :borrowed))))
 
 (defn- begin
   [state k]

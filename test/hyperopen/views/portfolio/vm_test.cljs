@@ -66,7 +66,9 @@
                              :user-fees nil}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 60}}
                            :totalVaultEquity 5}
-                 :borrow-lend {:total-supplied-usd 7}}
+                 :wallet {:address "0x1111111111111111111111111111111111111111"}
+                 :borrow-lend {:total-supplied-usd 7
+                               :user-address "0x1111111111111111111111111111111111111111"}}
           view-model (vm/portfolio-vm state)]
       (is (= 0 (:volume-14d-usd view-model)))
       (is (= 5 (get-in view-model [:summary :pnl])))
@@ -122,7 +124,9 @@
                                                       :vlm 10}}}
                  :webdata2 {:clearinghouseState {:marginSummary {:accountValue 200}}
                            :totalVaultEquity 20}
-                 :borrow-lend {:total-supplied-usd 100}}
+                 :wallet {:address "0x1111111111111111111111111111111111111111"}
+                 :borrow-lend {:total-supplied-usd 100
+                               :user-address "0x1111111111111111111111111111111111111111"}}
           view-model (vm/portfolio-vm state)]
       (is (= 70 (get-in view-model [:summary :total-equity])))
       (is (false? (get-in view-model [:summary :show-perps-account-equity?])))

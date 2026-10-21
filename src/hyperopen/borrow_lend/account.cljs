@@ -106,6 +106,20 @@
             0
             (positions state))))
 
+(defn net-earn-usd
+  "The account's lending value for account totals: supplied plus collateral,
+  minus borrowed, at oracle prices. Supplying moves funds out of the spot
+  balance and a borrow lands in it, so a total that sums spot must add this.
+  Zero unless the stored lending state belongs to the account shown, so a
+  previous account's value never leaks into the current total."
+  [state]
+  (if (user-state-current? state)
+    (let [supplied (get-in state [:borrow-lend :total-supplied-usd])
+          borrowed (get-in state [:borrow-lend :total-borrowed-usd])]
+      (- (if (finite? supplied) supplied 0)
+         (if (finite? borrowed) borrowed 0)))
+    0))
+
 (defn spot-available
   "Free spot balance of `token` (total minus hold) for the active account."
   [state token]
