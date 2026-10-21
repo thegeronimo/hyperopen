@@ -30,8 +30,10 @@
 @layer base {
   /*
    * Typography tokens:
-   * - Default UI text uses system fonts for fast first paint.
-   * - `data-ui-font="inter"` opt-in swaps UI text to Inter Variable.
+   * - UI text defaults to Inter Variable (`data-ui-font="inter"` on <html>),
+   *   matching Hyperliquid's UI; the release preloads InterVariable.woff2.
+   *   The system stack is the fallback while it loads (font-display: swap)
+   *   and the `data-ui-font="system"` preference.
    * - Optional fonts should only load when the active UI path actually uses them.
    * - Monospace is reserved for dense numeric views only.
    */

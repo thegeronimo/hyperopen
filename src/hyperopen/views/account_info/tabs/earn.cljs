@@ -49,9 +49,8 @@
   {:safe "text-ho-buy" :caution "text-ho-warn" :risk "text-ho-sell" :none "text-ho-text"})
 
 ;; Sizes and padding follow the design (12px text, 8x12 header and 10x12 body
-;; cells). The design was drawn in Inter; the app renders the system UI font
-;; unless the user opts in to Inter, and SF/Segoe render heavier at the same
-;; weight, so headers use 400 rather than the design's 500 to read alike.
+;; cells). Weights follow Hyperliquid's account panel, which renders Inter
+;; Regular (400) throughout.
 (def ^:private th-base
   ["px-3" "py-2" "text-xs" "leading-4" "font-normal" "text-trading-text-secondary" "whitespace-nowrap"])
 

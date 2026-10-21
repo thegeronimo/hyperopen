@@ -9,15 +9,20 @@
 (def ^:private supported-ui-fonts
   #{"system" "inter"})
 
+;; Inter is the default, matching Hyperliquid's own UI (Inter Regular), and is
+;; already preloaded by every release page. "system" stays available as a
+;; stored preference.
+(def ^:private default-ui-font "inter")
+
 (defn- normalize-ui-font
   [value]
-  (let [candidate (-> (or value "system")
+  (let [candidate (-> (or value default-ui-font)
                       str
                       str/trim
                       str/lower-case)]
     (if (contains? supported-ui-fonts candidate)
       candidate
-      "system")))
+      default-ui-font)))
 
 (defn restore-ui-font-preference!
   []

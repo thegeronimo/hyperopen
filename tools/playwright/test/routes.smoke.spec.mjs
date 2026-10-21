@@ -30,7 +30,7 @@ test.describe("main route smoke @smoke", () => {
   }
 });
 
-test("trade desktop header omits dead Earn and includes Referrals link @smoke", async ({ page }) => {
+test("trade desktop header links Earn to /earn and includes Referrals link @smoke", async ({ page }) => {
   await visitRoute(page, "/trade");
 
   const headerNav = page.locator("[data-parity-id='header-nav']");
@@ -38,7 +38,8 @@ test("trade desktop header omits dead Earn and includes Referrals link @smoke", 
   await expect(headerNav.getByRole("link", { name: "Trade", exact: true })).toBeVisible();
   await expect(headerNav.getByRole("link", { name: "Vaults", exact: true })).toBeVisible();
   await expect(headerNav.getByRole("link", { name: "Referrals", exact: true })).toBeVisible();
-  await expect(headerNav.getByRole("link", { name: "Earn", exact: true })).toHaveCount(0);
+  // Earn was once a dead placeholder link; it now opens the /earn route.
+  await expect(headerNav.getByRole("link", { name: "Earn", exact: true })).toHaveAttribute("href", "/earn");
 });
 
 test("trade desktop Vaults click stays in-app and shows the vault-shaped loader only @smoke", async ({ page }) => {
@@ -236,7 +237,7 @@ test.describe("main route smoke mobile @smoke", () => {
     });
   }
 
-  test("trade mobile header menu omits dead Earn and includes Referrals link @smoke", async ({ page }) => {
+  test("trade mobile header menu lists Earn and includes Referrals link @smoke", async ({ page }) => {
     await visitRoute(page, "/trade");
 
     await page.locator("[data-role='mobile-header-menu-trigger']").click();
@@ -244,7 +245,7 @@ test.describe("main route smoke mobile @smoke", () => {
     await expect(page.locator("[data-role='mobile-header-menu-link-trade']")).toBeVisible();
     await expect(page.locator("[data-role='mobile-header-menu-link-vaults']")).toBeVisible();
     await expect(page.locator("[data-role='mobile-header-menu-link-referrals']")).toBeVisible();
-    await expect(page.locator("[data-role='mobile-header-menu-link-earn']")).toHaveCount(0);
+    await expect(page.locator("[data-role='mobile-header-menu-link-earn']")).toBeVisible();
   });
 });
 

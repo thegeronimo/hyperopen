@@ -155,8 +155,8 @@
       (is (re-find #"--font-mono:\s*ui-monospace" styles-source)))
     (testing "body font is driven by typography token"
       (is (re-find #"body\s*\{[\s\S]*?font-family:\s*var\(--font-ui\);" styles-source)))
-    (testing "html defaults to system UI font mode"
-      (is (re-find #"<html[^>]*data-ui-font=\"system\"" index-source)))))
+    (testing "html defaults to Inter UI font mode, matching Hyperliquid"
+      (is (re-find #"<html[^>]*data-ui-font=\"inter\"" index-source)))))
 
 (deftest numeric-utility-and-inter-font-face-contract-test
   (let [styles-source (styles-source)]
