@@ -89,7 +89,7 @@
    [:div {:class ["flex" "flex-wrap" "justify-between" "items-baseline" "gap-3" "px-4" "pt-4" "pb-1"]}
     [:h2 {:id "earn-pools-heading" :class ["m-0" "text-sm" "font-semibold"]} "Stablecoin pools"]
     [:span {:class ["text-xs" "text-ho-text-dim"]} "Interest accrues hourly · bar marker = 80% kink"]]
-   [:div {:class ["overflow-x-auto"]}
+   [:div {:class ["relative" "overflow-x-auto"]}
     [:table {:class ["w-full" "min-w-[820px]" "border-collapse"]}
      [:thead
       [:tr
@@ -131,7 +131,7 @@
    [:div {:class ["flex" "flex-wrap" "justify-between" "items-baseline" "gap-3" "px-4" "pt-4" "pb-1"]}
     [:h2 {:id "earn-collateral-heading" :class ["m-0" "text-sm" "font-semibold"]} "Collateral"]
     [:span {:class ["text-xs" "text-ho-text-dim"]} "Collateral earns no interest. It sets how much you can borrow."]]
-   [:div {:class ["overflow-x-auto"]}
+   [:div {:class ["relative" "overflow-x-auto"]}
     [:table {:class ["w-full" "min-w-[820px]" "border-collapse"]}
      [:thead
       [:tr
@@ -175,7 +175,7 @@
     [:section {:class (into card-classes ["p-8" "text-center" "text-sm" "text-ho-text-secondary"])
                :data-role "earn-positions-empty"}
      "No lending positions yet. Supply a stablecoin to earn, or add HYPE or UBTC as collateral to borrow."]
-    [:section {:aria-label "Your positions" :class (into card-classes ["overflow-x-auto"])
+    [:section {:aria-label "Your positions" :class (into card-classes ["relative" "overflow-x-auto"])
                :data-role "earn-positions"}
      [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
       [:thead
@@ -188,7 +188,8 @@
         [:th {:class (into th-classes ["pr-4"])} [:span {:class ["sr-only"]} "Actions"]]]]
       [:tbody
        (for [{:keys [key token symbol kind amount value apy interest]} positions
-             :let [[kind-label kind-class] (get kind-labels kind)]]
+             :let [[kind-label kind-class] (get kind-labels kind)
+                   tone (case kind :supplied "text-ho-buy" :borrowed "text-ho-sell" "text-ho-text-dim")]]
          ^{:key key}
          [:tr {:data-role (str "earn-position-" key)}
           [:td {:class (into td-base ["text-left" "pl-4"])}
@@ -196,8 +197,8 @@
            [:span {:class ["ml-2" "text-xs" kind-class]} kind-label]]
           [:td {:class (into td-classes ["num"])} amount]
           [:td {:class (into td-classes ["num"])} value]
-          [:td {:class (into td-classes ["num"] (case kind :supplied ["text-ho-buy"] :borrowed ["text-ho-sell"] ["text-ho-text-dim"]))} apy]
-          [:td {:class (into td-classes ["num"] (case kind :supplied ["text-ho-buy"] :borrowed ["text-ho-sell"] ["text-ho-text-dim"]))} interest]
+          [:td {:class (conj td-classes "num" tone)} apy]
+          [:td {:class (conj td-classes "num" tone)} interest]
           [:td {:class (into td-classes ["pr-4"])}
            [:div {:class ["flex" "gap-1.5" "justify-end"]}
             (if (= :borrowed kind)
@@ -222,7 +223,7 @@
     [:section {:class (into card-classes ["p-8" "text-center" "text-sm" "text-ho-text-secondary"])
                :data-role "earn-history-empty"}
      "No interest in the last 30 days. Supplies, borrows and repays also appear under Account Activity › Earn."]
-    [:section {:aria-label "Interest history" :class (into card-classes ["overflow-x-auto"])
+    [:section {:aria-label "Interest history" :class (into card-classes ["relative" "overflow-x-auto"])
                :data-role "earn-history"}
      [:table {:class ["w-full" "min-w-[560px]" "border-collapse"]}
       [:thead

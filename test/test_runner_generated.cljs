@@ -720,6 +720,7 @@
             [hyperopen.views.degen.illustrations-test]
             [hyperopen.views.degen.order-form-test]
             [hyperopen.views.degen.widgets-test]
+            [hyperopen.views.earn-view-test]
             [hyperopen.views.footer-build-id-test]
             [hyperopen.views.footer-view-test]
             [hyperopen.views.funding-comparison-view-test]
@@ -1739,6 +1740,7 @@
              'hyperopen.views.degen.illustrations-test
              'hyperopen.views.degen.order-form-test
              'hyperopen.views.degen.widgets-test
+             'hyperopen.views.earn-view-test
              'hyperopen.views.footer-build-id-test
              'hyperopen.views.footer-view-test
              'hyperopen.views.funding-comparison-view-test

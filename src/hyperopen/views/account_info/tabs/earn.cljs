@@ -75,7 +75,7 @@
 
 (defn- positions-table
   [{:keys [positions utilization-by-token above-kink-by-token read-only? portfolio-margin?]}]
-  [:div {:class ["overflow-auto" "min-h-0" "flex-1"]}
+  [:div {:class ["relative" "overflow-auto" "min-h-0" "flex-1"]}
    [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
     [:thead
      [:tr

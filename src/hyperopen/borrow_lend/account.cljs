@@ -143,6 +143,15 @@
                        (or (:available reserve) js/Infinity))))
       nil)))
 
+(defn over-max-message
+  "Why an amount above the modal maximum is refused, per operation."
+  [kind]
+  (case kind
+    :borrow "That is more than you can borrow against your collateral."
+    :repay "That is more than you owe."
+    :withdraw "That is more than you have supplied."
+    "That is more than your available balance."))
+
 (defn- trim-decimal
   [s]
   (if (str/includes? s ".")

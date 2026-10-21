@@ -263,7 +263,7 @@
          :borrow-apy (when-not pool-kind? (format-pct (:borrow-apy reserve)))
          :above-kink? (model/above-kink? (:utilization reserve))
          :pm-note (when pm? "Portfolio margin accounts borrow automatically, so manual borrow is off. You can still repay.")
-         :error (or error (when over? "That is more than the maximum for this action."))
+         :error (or error (when over? (bl-account/over-max-message kind)))
          :submitting? (true? submitting?)
          :submit-disabled? (or (true? submitting?) over? (and (not max?) (not (pos? parsed))))
          :cta (cond submitting? "Submitting…"

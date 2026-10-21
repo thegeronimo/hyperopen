@@ -152,11 +152,7 @@
       "Enter an amount greater than zero."
 
       (and (number? max-amount) (> parsed (* max-amount 1.000001)))
-      (case kind
-        :borrow "That is more than you can borrow against your collateral."
-        :repay "That is more than you owe."
-        :withdraw "That is more than you have supplied."
-        "That is more than your available balance.")
+      (bl-account/over-max-message kind)
 
       :else nil)))
 
