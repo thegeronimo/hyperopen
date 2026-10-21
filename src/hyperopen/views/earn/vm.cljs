@@ -35,6 +35,13 @@
   [x]
   (if (finite? x) (fmt/format-fixed-number x (if (< (js/Math.abs x) 1) 6 2)) dash))
 
+(defn format-interest
+  "Interest in token units with a sign: two decimals, or `<0.01` for dust."
+  [sign x]
+  (cond (not (finite? x)) dash
+        (< (js/Math.abs x) 0.005) (str sign "<0.01")
+        :else (str sign (fmt/format-fixed-number x 2))))
+
 (defn format-price
   [x]
   (if (finite? x) (str "$" (fmt/format-fixed-number x (if (< x 10) 4 2))) dash))
@@ -94,7 +101,7 @@
                             :value (format-usd (when (finite? oracle-px) (* supplied oracle-px)))
                             :apy (if collateral? dash (format-pct supply-apy))
                             :interest (if (and (not collateral?) (finite? (:supply interest)))
-                                        (str "+" (format-amount (:supply interest)) " " symbol)
+                                        (str (format-interest "+" (:supply interest)) " " symbol)
                                         dash)})
                      (pos? borrowed)
                      (conj {:key (str token "-borrow")
@@ -105,8 +112,10 @@
                             :value (format-usd (when (finite? oracle-px) (* borrowed oracle-px)))
                             :apy (format-pct borrow-apy)
                             :interest (if (finite? (:borrow interest))
-                                        (str "-" (format-amount (:borrow interest)) " " symbol)
+                                        (str (format-interest "\u2212" (:borrow interest)) " " symbol)
                                         dash)})))))
+       ;; Earning legs first, then collateral, then debt, as in the design.
+       (sort-by (fn [{:keys [kind]}] (case kind :supplied 0 :collateral 1 2)))
        vec))
 
 (def curve-geometry

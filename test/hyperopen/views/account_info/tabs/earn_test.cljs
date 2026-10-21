@@ -33,7 +33,7 @@
 (deftest tab-model-test
   (let [{:keys [positions summary utilization-by-token]} (earn-tab/earn-tab-model state)]
     (is (= 3 (earn-tab/tab-count state)))
-    (is (= [:supplied :borrowed :collateral] (mapv :kind positions)))
+    (is (= [:supplied :collateral :borrowed] (mapv :kind positions)))
     (is (= "130%" (:health-factor summary)))
     (is (= "$24.24" (:liquidation-px summary)))
     (is (= "83.1%" (get utilization-by-token 0)))))

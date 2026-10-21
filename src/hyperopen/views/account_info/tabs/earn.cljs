@@ -48,15 +48,23 @@
 (def ^:private health-classes
   {:safe "text-ho-buy" :caution "text-ho-warn" :risk "text-ho-sell" :none "text-ho-text"})
 
+;; Sizes and padding follow the design (12px text, 8x12 header and 10x12 body
+;; cells). The design was drawn in Inter; the app renders the system UI font
+;; unless the user opts in to Inter, and SF/Segoe render heavier at the same
+;; weight, so headers use 400 rather than the design's 500 to read alike.
 (def ^:private th-base
-  ["px-3" "py-2" "text-xs" "font-medium" "text-trading-text-secondary" "whitespace-nowrap"])
+  ["px-3" "py-2" "text-xs" "leading-4" "font-normal" "text-trading-text-secondary" "whitespace-nowrap"])
 
 ;; No text color here on purpose: a base `text-trading-text` and a tone class
 ;; are two competing color utilities, and the base won, so Supplied, Borrowed,
 ;; APY and interest all rendered in the default text color. Each cell names
 ;; exactly one color through `cell-classes`.
 (def ^:private td-base
-  ["px-3" "py-2.5" "text-xs" "border-t" "border-base-300" "whitespace-nowrap"])
+  ["px-3" "py-2.5" "text-xs" "leading-4" "font-normal" "border-t" "border-base-300" "whitespace-nowrap"])
+
+;; Fixed widths keep the columns together on wide viewports; the actions
+;; column has none, so it takes the spare width and stays at the right edge.
+(def ^:private column-widths-px [96 176 128 128 96 144 120 nil])
 
 (def ^:private neg "\u2212")
 
@@ -67,8 +75,8 @@
 (defn- summary-strip
   [{:keys [health-factor health-status limit-used-label liquidation-px primary-collateral-symbol
            net-apy has-debt?]}]
-  [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-1.5" "px-4" "py-2.5"
-                 "border-b" "border-base-300" "text-xs" "text-trading-text-secondary"]
+  [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-[18px]" "gap-y-1.5" "px-4" "py-3"
+                 "border-b" "border-base-300" "text-xs" "leading-4" "text-trading-text-secondary"]
          :data-role "account-earn-summary"}
    [:span "Health factor "
     [:span {:class ["num" "font-medium" (get health-classes health-status "text-ho-text")]} health-factor]]
@@ -86,7 +94,10 @@
 (defn- positions-table
   [{:keys [positions utilization-by-token above-kink-by-token read-only? portfolio-margin?]}]
   [:div {:class ["relative" "overflow-auto" "min-h-0" "flex-1"]}
-   [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
+   [:table {:class ["w-full" "min-w-[960px]" "table-fixed" "border-collapse"]}
+    [:colgroup
+     (for [[i w] (map-indexed vector column-widths-px)]
+       ^{:key i} [:col (when w {:style {:width (str w "px")}})])]
     [:thead
      [:tr
       [:th {:class (into th-base ["text-left" "pl-4"])} "Asset"]
@@ -106,7 +117,7 @@
                  above-kink? (and pool? (get above-kink-by-token token))]]
        ^{:key key}
        [:tr {:data-role (str "account-earn-row-" key)}
-        [:td {:class (cell-classes "text-trading-text" "text-left" "pl-4" "font-semibold")} symbol]
+        [:td {:class (cell-classes "text-trading-text" "text-left" "pl-4" "font-medium")} symbol]
         [:td {:class (cell-classes kind-class "text-left")}
          (if (and (= :collateral kind) ltv-label)
            (str kind-label " \u00b7 " ltv-label " LTV")
