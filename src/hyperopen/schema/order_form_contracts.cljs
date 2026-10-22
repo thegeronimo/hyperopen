@@ -1,5 +1,6 @@
 (ns hyperopen.schema.order-form-contracts
-  (:require [cljs.spec.alpha :as s]))
+  (:require [cljs.spec.alpha :as s]
+            [hyperopen.schema.vol-range-contracts :as vol-range-contracts]))
 
 (def ^:private required-vm-keys
   #{:form
@@ -10,6 +11,8 @@
     :tpsl-panel-open?
     :pro-dropdown-options
     :pro-tab-label
+    :scale-mode
+    :vol-range
     :controls
     :spot?
     :hip3?
@@ -75,6 +78,7 @@
     :show-tpsl-panel?
     :show-post-only?
     :show-scale-preview?
+    :show-vol-range?
     :show-liquidation-row?
     :show-slippage-row?})
 
@@ -92,6 +96,9 @@
 (s/def :order-form-vm/tpsl-panel-open? boolean?)
 (s/def :order-form-vm/pro-dropdown-options (s/coll-of keyword? :kind vector?))
 (s/def :order-form-vm/pro-tab-label string?)
+(s/def :order-form-vm/scale-mode #{:price-range :volatility-range})
+(s/def :order-form-vm/vol-range
+  (s/nilable #(vol-range-contracts/ticket-model-valid? %)))
 (s/def :order-form-vm/spot? boolean?)
 (s/def :order-form-vm/hip3? boolean?)
 (s/def :order-form-vm/outcome? boolean?)
@@ -174,6 +181,7 @@
 (s/def :order-form-vm.controls/show-post-only? boolean?)
 (s/def :order-form-vm.controls/show-scale-preview? boolean?)
 (s/def :order-form-vm.controls/show-liquidation-row? boolean?)
+(s/def :order-form-vm.controls/show-vol-range? boolean?)
 (s/def :order-form-vm.controls/show-slippage-row? boolean?)
 (s/def :order-form-vm/controls
   (s/and
@@ -183,6 +191,7 @@
                     :order-form-vm.controls/show-tpsl-panel?
                     :order-form-vm.controls/show-post-only?
                     :order-form-vm.controls/show-scale-preview?
+                    :order-form-vm.controls/show-vol-range?
                     :order-form-vm.controls/show-liquidation-row?
                     :order-form-vm.controls/show-slippage-row?])
    #(exact-keys? % required-controls-keys)))
@@ -217,6 +226,8 @@
                     :order-form-vm/tpsl-panel-open?
                     :order-form-vm/pro-dropdown-options
                     :order-form-vm/pro-tab-label
+                    :order-form-vm/scale-mode
+                    :order-form-vm/vol-range
                     :order-form-vm/controls
                     :order-form-vm/spot?
                     :order-form-vm/hip3?

@@ -2,6 +2,11 @@
 
 (goog-define APP_VERSION "0.1.0")
 
+;; Vol Range A0 preview capability (HO-SPEC-014 1.2, 15.1, 15.2). Off by default
+;; so a release build ships ordinary Scale only; dev, test and Playwright builds
+;; turn it on via :closure-defines in shadow-cljs.edn.
+(goog-define VOL_RANGE_PREVIEW false)
+
 (def config
   {:ws-url "wss://api.hyperliquid.xyz/ws"
    :icon-service-worker-path "/sw.js"
@@ -36,5 +41,11 @@
                            ;; never fires on a merely slow response.
                            :request-timeout-ms 60000}
    :diagnostics {:timeline-limit 50}
+   :vol-range {:preview-enabled? VOL_RANGE_PREVIEW}
    :messages {:agent-storage-mode-reset "Trading persistence updated. Enable Trading again."
               :agent-protection-mode-reset "Trading session protection updated. Enable Trading again."}})
+
+(defn vol-range-preview-enabled?
+  "True when the Vol Range A0 preview capability is on for this build."
+  []
+  (boolean (get-in config [:vol-range :preview-enabled?])))

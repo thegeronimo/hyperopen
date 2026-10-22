@@ -1,7 +1,9 @@
 (ns hyperopen.views.trade.order-form-type-extensions
-  (:require [hyperopen.trading.order-type-registry :as order-types]
+  (:require [hyperopen.config :as config]
+            [hyperopen.trading.order-type-registry :as order-types]
             [hyperopen.views.trade.order-form-component-primitives :as primitives]
-            [hyperopen.views.trade.order-form-twap-section :as twap-section]))
+            [hyperopen.views.trade.order-form-twap-section :as twap-section]
+            [hyperopen.views.trade.vol-range.ticket :as vol-range-ticket]))
 
 (def ^:private section-renderers
   {:trigger
@@ -16,22 +18,35 @@
    (fn [form {:keys [on-set-scale-start
                      on-set-scale-end
                      on-set-scale-count
-                     on-set-scale-skew]}]
-     [:div {:class ["space-y-2"]}
-      (primitives/section-label "Scale")
-      (primitives/input (get-in form [:scale :start])
-                        on-set-scale-start
-                        :placeholder "Start price")
-      (primitives/input (get-in form [:scale :end])
-                        on-set-scale-end
-                        :placeholder "End price")
-      [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-       (primitives/inline-labeled-scale-input "Total Orders"
-                                              (get-in form [:scale :count])
-                                              on-set-scale-count)
-       (primitives/inline-labeled-scale-input "Size Skew"
-                                              (get-in form [:scale :skew])
-                                              on-set-scale-skew)]])
+                     on-set-scale-skew
+                     on-select-scale-mode
+                     scale-mode
+                     vol-range-eligible?
+                     vol-range-ineligible-reason]}]
+     (let [preview? (config/vol-range-preview-enabled?)
+           mode (if preview? (or scale-mode :price-range) :price-range)]
+       (cond-> [:div {:class ["space-y-2"]}
+                (primitives/section-label "Scale")]
+         (and on-select-scale-mode preview?)
+         (conj (vol-range-ticket/mode-control {:scale-mode mode
+                                               :eligible? vol-range-eligible?
+                                               :ineligible-reason vol-range-ineligible-reason
+                                               :on-select on-select-scale-mode}))
+
+         (not= :volatility-range mode)
+         (conj (primitives/input (get-in form [:scale :start])
+                                 on-set-scale-start
+                                 :placeholder "Start price")
+               (primitives/input (get-in form [:scale :end])
+                                 on-set-scale-end
+                                 :placeholder "End price")
+               [:div {:class ["grid" "grid-cols-2" "gap-2"]}
+                (primitives/inline-labeled-scale-input "Total Orders"
+                                                       (get-in form [:scale :count])
+                                                       on-set-scale-count)
+                (primitives/inline-labeled-scale-input "Size Skew"
+                                                       (get-in form [:scale :skew])
+                                                       on-set-scale-skew)])))) 
 
    :twap
    (fn [form callbacks]

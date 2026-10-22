@@ -29,6 +29,18 @@
     :heavy-effect-ids #{:effects/sync-active-candle-subscription
                         :effects/fetch-candle-snapshot}}
 
+   :actions/select-scale-mode
+   {:required-phase-order [:projection :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
+   :actions/refresh-vol-range-daily-candles
+   {:required-phase-order [:projection :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
+
    :actions/request-chart-candle-backfill
    {:required-phase-order [:heavy-io]
     :require-projection-before-heavy? false

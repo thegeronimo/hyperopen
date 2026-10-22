@@ -19,7 +19,11 @@
    "--ho-chart-up" "rgba(34, 171, 148, 0.5)"
    "--ho-chart-down" "rgba(247, 82, 95, 0.5)"
    "--ho-chart-long" "#26a69a"
-   "--ho-chart-short" "#ef5350"})
+   "--ho-chart-short" "#ef5350"
+   ;; Semantic tokens are space-separated RGB triplets (see token-rgb).
+   "--ho-buy" "0 212 170"
+   "--ho-sell" "255 107 107"
+   "--ho-warn" "255 210 63"})
 
 (defonce ^:private cache
   (atom {:theme ::none :values {}}))
@@ -54,3 +58,10 @@
                            (assoc-in state [:values token-name] value)
                            {:theme theme :values {token-name value}})))
           value))))
+
+(defn token-rgb
+  "Returns a CSS color for a space-separated RGB triplet token such as
+   --ho-buy (\"0 212 170\") at the given alpha: \"rgb(0 212 170 / 0.35)\"."
+  [token-name alpha]
+  (let [triplet (or (token token-name) "128 128 128")]
+    (str "rgb(" triplet " / " alpha ")")))

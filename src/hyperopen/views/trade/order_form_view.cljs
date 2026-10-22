@@ -11,7 +11,10 @@
             [hyperopen.views.trade.order-form-feedback :as feedback]
             [hyperopen.views.trade.order-form-footer :as footer]
             [hyperopen.views.trade.order-form-handlers :as handlers]
-            [hyperopen.views.trade.order-form-vm :as order-form-vm]))
+            [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.vol-range.application.projections :as vol-range-projections]
+            [hyperopen.views.trade.vol-range.review :as vol-range-review]
+            [hyperopen.views.trade.vol-range.ticket :as vol-range-ticket]))
 
 (defn- action-side-tab
   [label side active? on-click]
@@ -82,6 +85,8 @@
                 quote-symbol
                 base-symbol
                 scale-preview-lines
+                scale-mode
+                vol-range
                 error
                 submitting?
                 submit]} vm
@@ -111,6 +116,7 @@
                 show-tpsl-panel?
                 show-post-only?
                 show-scale-preview?
+                show-vol-range?
                 show-liquidation-row?
                 show-slippage-row?]}
         controls
@@ -125,7 +131,12 @@
         twap-submit (feedback/twap-submit-copy {:order-type type
                                                 :schedule twap-schedule
                                                 :guards twap-guards})
-        section-handlers (cond-> (:order-type-sections handlers)
+        vol? (boolean show-vol-range?)
+        eligibility (:vol-range-eligibility ui)
+        section-handlers (cond-> (assoc (:order-type-sections handlers)
+                                        :scale-mode scale-mode
+                                        :vol-range-eligible? (:eligible? eligibility)
+                                        :vol-range-ineligible-reason (:eligibility-reason eligibility))
                            twap-schedule
                            (assoc :twap-schedule twap-schedule)
 
@@ -136,7 +147,10 @@
         tp-sl-handlers (:tp-sl handlers)
         submit-handlers (:submit handlers)
         fee-copy (footer/fee-row-copy (:fees display))
-        spectate-mode-read-only? (= :spectate-mode-read-only (:reason submit))
+        ;; In Volatility range mode the submit reason is always
+        ;; :vol-range-preview-only, so the read-only cue comes from the ticket.
+        spectate-mode-read-only? (or (= :spectate-mode-read-only (:reason submit))
+                                     (and vol? (boolean (:read-only? vol-range))))
         tpsl-panel (when show-tpsl-panel?
                      (feedback/tpsl-panel-model state form side ui-leverage controls))]
     [:div {:class ["bg-base-100"
@@ -177,7 +191,8 @@
                                  :order-type-label order-form-vm/order-type-label}
                                 entry-mode-handlers)
 
-      (if outcome?
+      (when-not vol?
+       (if outcome?
         (action-side-tabs side side-handlers)
         (let [degen? (voice/degen? state)]
           (controls/side-row side
@@ -186,8 +201,8 @@
                               :sell-label (voice/label state :order-form/sell)
                               :massive? degen?
                               :buy-sublabel (when degen? "(number go up pls)")
-                              :sell-sublabel (when degen? "(get me out)")})))
-      (when outcome?
+                              :sell-sublabel (when degen? "(get me out)")}))))
+      (when (and outcome? (not vol?))
         [:div {:class ["space-y-1.5"]}
          (controls/outcome-side-row outcome-sides
                                     outcome-side-index
@@ -199,12 +214,13 @@
                                                      (if (= 1 (:side-index outcome-side))
                                                        :sell
                                                        :buy))})])
-      (controls/balances-row display)
+      (when-not vol? (controls/balances-row display))
 
       (when show-limit-like-controls?
         (controls/price-row price quote-symbol price-handlers))
 
-      (controls/size-row {:size-display size-display
+      (when-not vol?
+       (controls/size-row {:size-display size-display
                           :size-input-mode size-input-mode
                           :quote-symbol quote-symbol
                           :base-symbol base-symbol
@@ -215,13 +231,13 @@
                           :degen-risk (degen-order-form/size-risk state
                                                                   size-percent
                                                                   ui-leverage)}
-                         size-handlers)
+                         size-handlers))
 
       (sections/render-order-type-sections type
                                            form
                                            section-handlers)
 
-      (when (or (not outcome?) show-limit-like-controls?)
+      (when (and (not vol?) (or (not outcome?) show-limit-like-controls?))
         [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
          ;; Reduce-only is perp-only (spot has no position to reduce).
          (when (and (not outcome?) (not spot?))
@@ -251,6 +267,7 @@
       ;; Isolated perp orders can auto top-up to the modeled margin
       ;; recommendation after the fill (one-shot, background).
       (when (and (not outcome?)
+                 (not vol?)
                  (not spot?)
                  (= :isolated (:margin-mode form)))
         (let [auto-topup? (trading-settings/margin-rec-auto-topup? state)
@@ -274,18 +291,21 @@
                    ", capped by available collateral. It never repeats or chases"
                    " a falling position.")])]))
 
-      (when error
+      (when (and error (not vol?))
         [:div {:class ["text-xs" "text-red-400"]} error])
 
-      (when-let [impact (when show-slippage-row? (book-impact/market-impact state))]
+      (when-let [impact (when (and show-slippage-row? (not vol?)) (book-impact/market-impact state))]
         (book-impact/book-impact-card impact
                                       (get-in state [:orderbooks (:active-asset state)])
                                       base-symbol))
 
+      (when vol?
+        (vol-range-ticket/vol-range-ticket vol-range))
+
       (when spectate-mode-read-only?
         (feedback/spectate-mode-stop-affordance))
 
-      (when-not spectate-mode-read-only?
+      (when-not (or vol? spectate-mode-read-only?)
         (footer/submit-row {:submitting? submitting?
                             :submit-disabled? (:disabled? submit)
                             :submit-tooltip (:tooltip submit)
@@ -295,22 +315,37 @@
                             :submit-recap (:recap twap-submit)
                             :on-submit (:on-submit submit-handlers)}))
 
-      (footer/footer-metrics display
-                             (and show-liquidation-row? (not spot?))
-                             (not spot?)
-                             show-slippage-row?
-                             fee-copy
-                             (when show-scale-preview? scale-preview-lines))]]))
+      (when-not vol?
+        (footer/footer-metrics display
+                               (and show-liquidation-row? (not spot?))
+                               (not spot?)
+                               show-slippage-row?
+                               fee-copy
+                               (when show-scale-preview? scale-preview-lines)))]
+     (when-let [review (:vol-range-review ui)]
+       (vol-range-review/review-dialog review))]))
+
+(defn- vol-range-ui
+  "Vol Range inputs read at the view boundary: eligibility for the mode control
+  and the review model while the review dialog is open."
+  [state vm now-ms]
+  (when (= :scale (:type vm))
+    (cond-> {:vol-range-eligibility (vol-range-projections/eligibility-for-state state now-ms)}
+      (get-in vm [:vol-range :ui :review-open?])
+      (assoc :vol-range-review (vol-range-projections/review-model state now-ms)))))
 
 (defn order-form-view [state]
-  (render-order-form
-   {:state state
-    :vm (order-form-vm/order-form-vm state)
-    :handlers (handlers/build-handlers)
-    :ui {:margin-mode-dropdown-open? (boolean (get-in state [:order-form-ui :margin-mode-dropdown-open?]))
-         :leverage-popover-open? (boolean (get-in state [:order-form-ui :leverage-popover-open?]))
-         :leverage-draft (get-in state [:order-form-ui :leverage-draft])
-         :size-unit-dropdown-open? (boolean (get-in state [:order-form-ui :size-unit-dropdown-open?]))
-         :tif-dropdown-open? (boolean (get-in state [:order-form-ui :tif-dropdown-open?]))
-         :max-leverage (trading/market-max-leverage state)
-         :cross-margin-allowed? (trading/cross-margin-allowed? state)}}))
+  (let [now-ms (.now js/Date)
+        vm (order-form-vm/order-form-vm-at state now-ms)]
+    (render-order-form
+     {:state state
+      :vm vm
+      :handlers (handlers/build-handlers)
+      :ui (merge (vol-range-ui state vm now-ms)
+                 {:margin-mode-dropdown-open? (boolean (get-in state [:order-form-ui :margin-mode-dropdown-open?]))
+                  :leverage-popover-open? (boolean (get-in state [:order-form-ui :leverage-popover-open?]))
+                  :leverage-draft (get-in state [:order-form-ui :leverage-draft])
+                  :size-unit-dropdown-open? (boolean (get-in state [:order-form-ui :size-unit-dropdown-open?]))
+                  :tif-dropdown-open? (boolean (get-in state [:order-form-ui :tif-dropdown-open?]))
+                  :max-leverage (trading/market-max-leverage state)
+                  :cross-margin-allowed? (trading/cross-margin-allowed? state)})})))

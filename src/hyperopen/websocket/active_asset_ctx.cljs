@@ -74,6 +74,8 @@
                                 :change24h change
                                 :change24hPct change-pct
                                 :volume24h (parse-number (:dayNtlVlm ctx))
+                                :dayNtlVlmRaw (:dayNtlVlm ctx)
+                                :dayBaseVlmRaw (:dayBaseVlm ctx)
                                 :openInterest (or (parse-number (:openInterest ctx))
                                                   (parse-number (:circulatingSupply ctx)))
                                 :fundingRate (when (number? funding)

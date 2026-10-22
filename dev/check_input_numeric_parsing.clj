@@ -18,7 +18,9 @@
    "src/hyperopen/vaults/actions.cljs"
    "src/hyperopen/asset_selector/actions.cljs"
    "src/hyperopen/views/account_info/position_tpsl_modal.cljs"
-   "src/hyperopen/views/active_asset_view.cljs"])
+   "src/hyperopen/views/active_asset_view.cljs"
+   "src/hyperopen/trading/vol_range_transitions.cljs"
+   "src/hyperopen/vol_range/actions.cljs"])
 
 (def prohibited-rules
   [{:id :js-parse-float

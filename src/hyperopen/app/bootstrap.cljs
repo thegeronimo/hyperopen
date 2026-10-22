@@ -13,6 +13,7 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.hyperevm.infrastructure.balance-poller :as hyperevm-balance-poller]
             [hyperopen.margin-rec.watcher :as margin-rec-watcher]
+            [hyperopen.vol-range.infrastructure.freshness-watcher :as vol-range-freshness-watcher]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.portfolio.optimizer.contracts :as optimizer-contracts]
             [hyperopen.portfolio.optimizer.infrastructure.draft-autosave :as optimizer-draft-autosave]
@@ -94,6 +95,10 @@
      {:store store}
      :install-margin-rec-watcher! margin-rec-watcher/install-margin-rec-watcher!
      :margin-rec-watcher-deps
+     {:store store
+      :dispatch! nxr/dispatch}
+     :install-vol-range-freshness-watcher! vol-range-freshness-watcher/install-vol-range-freshness-watcher!
+     :vol-range-freshness-watcher-deps
      {:store store
       :dispatch! nxr/dispatch}
      ;; Browser only: a Node test runtime that bootstraps the app must never

@@ -2,6 +2,8 @@
   (:require [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.trading.vol-range-draft :as vol-range-draft]
+            [hyperopen.vol-range.application.projections :as vol-range-projections]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.ui.voice :as voice]
@@ -76,6 +78,7 @@
    :perp-dex-clearinghouse
    :spot
    :trading-settings
+   :vol-range
    :wallet
    :webdata2])
 
@@ -118,7 +121,10 @@
 (defn- trade-chart-view-state
   [state]
   (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
-                 (asset-selector-market-lookup-state state))
+                 (asset-selector-market-lookup-state state)
+                 ;; Draft overlay model (nil outside Volatility range mode) so the
+                 ;; memoized chart decorates on draft edits without remounting.
+                 {:vol-range-chart (vol-range-projections/stable-chart-model state (.now js/Date))})
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
@@ -136,10 +142,31 @@
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
+(defn- vol-range-view-state
+  "Volatility range mode only: the active coin's daily candles, open orders,
+  fee quote, locale, and the account-context roots (:account-context, :router,
+  :hyperevm) for subaccount and spectate state. Otherwise nil (legacy slice)."
+  [state]
+  (let [coin (:active-asset state)]
+    (when (and coin
+               (= :volatility-range (vol-range-draft/scale-mode (:order-form state))))
+      {:candles {coin {:1d (get-in state [:candles coin :1d])}}
+       :orders (select-keys (:orders state)
+                            [:open-orders :open-orders-snapshot
+                             :open-orders-snapshot-by-dex])
+       :portfolio {:user-fees (get-in state [:portfolio :user-fees])}
+       :perp-dex-fee-config-by-name (:perp-dex-fee-config-by-name state)
+       :ui {:theme (get-in state [:ui :theme])
+            :locale (get-in state [:ui :locale])}
+       :account-context (:account-context state)
+       :router (:router state)
+       :hyperevm (:hyperevm state)})))
+
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
-         (ui-voice-state state)))
+         (ui-voice-state state)
+         (vol-range-view-state state)))
 
 (defn- account-surface-export
   [export-id]

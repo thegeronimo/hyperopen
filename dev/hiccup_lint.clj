@@ -14,6 +14,11 @@
   {:all true
    :read-cond :allow
    :features #{:cljs}
+   ;; Auto-resolved keywords (::k, ::alias/k) only need to READ here.
+   :auto-resolve (fn [alias]
+                   (if (= :current alias)
+                     'hiccup-lint.current
+                     (symbol (name alias))))
    :readers {'js identity
              'inst identity
              'uuid identity}})

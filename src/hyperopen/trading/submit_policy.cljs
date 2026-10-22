@@ -1,7 +1,8 @@
 (ns hyperopen.trading.submit-policy
   (:require [clojure.string :as str]
             [hyperopen.domain.trading :as trading-domain]
-            [hyperopen.trading.order-form-state :as order-form-state]))
+            [hyperopen.trading.order-form-state :as order-form-state]
+            [hyperopen.trading.vol-range-draft :as vol-range-draft]))
 
 (def ^:private isolated-only-margin-modes
   #{:no-cross :strict-isolated})
@@ -99,12 +100,17 @@
          prepared-form (:form submit-prep)
          market-price-missing? (:market-price-missing? submit-prep)
          {:keys [errors required-fields]} (validation-summary trading-context prepared-form)
+         ;; Vol Range A0 is preview-only (VR-24): never build a request.
+         vol-range? (and (= :scale (:type normalized-form))
+                         (= :volatility-range (vol-range-draft/scale-mode normalized-form)))
          request (when (and (= mode :submit)
+                            (not vol-range?)
                             (fn? request-builder))
                    (request-builder prepared-form))
          reason (case mode
                   :submit
                   (cond
+                    vol-range? :vol-range-preview-only
                     (seq spectate-mode-message) :spectate-mode-read-only
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
@@ -114,6 +120,7 @@
 
                   :view
                   (cond
+                    vol-range? :vol-range-preview-only
                     submitting? :submitting
                     (seq spectate-mode-message) :spectate-mode-read-only
                     market-price-missing? :market-price-missing
@@ -122,6 +129,7 @@
 
                   nil)
          error-message (case reason
+                         :vol-range-preview-only "Placement isn't available yet."
                          :spectate-mode-read-only spectate-mode-message
                          :market-price-missing "Market price unavailable. Load order book first."
                          :validation-errors (trading-domain/validation-error-message (first errors))

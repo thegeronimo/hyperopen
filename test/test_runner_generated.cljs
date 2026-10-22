@@ -153,6 +153,7 @@
             [hyperopen.domain.trading.indicators.trend-family-coverage-test]
             [hyperopen.domain.trading.indicators.volatility-family-coverage-test]
             [hyperopen.domain.trading.order-values-test]
+            [hyperopen.domain.trading.precision-test]
             [hyperopen.funding-comparison.actions-test]
             [hyperopen.funding-comparison.effects-test]
             [hyperopen.funding.actions-test]
@@ -589,6 +590,7 @@
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.trading.order-form-transitions-update-test]
             [hyperopen.trading.orderbook-price-pick-test]
+            [hyperopen.trading.vol-range-draft-test]
             [hyperopen.ui.fonts-test]
             [hyperopen.ui.fx-test]
             [hyperopen.ui.preferences-test]
@@ -851,6 +853,7 @@
             [hyperopen.views.trade-view.mobile-surface-test]
             [hyperopen.views.trade-view.render-cache-test]
             [hyperopen.views.trade-view.startup-defer-test]
+            [hyperopen.views.trade-view.vol-range-slice-repaint-test]
             [hyperopen.views.trade.order-form-commands-test]
             [hyperopen.views.trade.order-form-component-primitives-test]
             [hyperopen.views.trade.order-form-component-sections-test]
@@ -868,6 +871,8 @@
             [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trade.vol-range.review-test]
+            [hyperopen.views.trade.vol-range.ticket-test]
             [hyperopen.views.trading-chart.actions-test]
             [hyperopen.views.trading-chart.chart-type-dropdown-test]
             [hyperopen.views.trading-chart.core-test]
@@ -896,11 +901,13 @@
             [hyperopen.views.trading-chart.utils.chart-interop.series-test]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms-test]
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.vol-range-overlays-test]
             [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test]
             [hyperopen.views.trading-chart.utils.chart-options-test]
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
+            [hyperopen.views.trading-chart.utils.vol-range-overlay-model-test]
             [hyperopen.views.trading-chart.vm-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.ui.anchored-popover-test]
@@ -930,6 +937,22 @@
             [hyperopen.views.vaults.startup-preview-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
+            [hyperopen.vol-range.a0-boundary-test]
+            [hyperopen.vol-range.actions-test]
+            [hyperopen.vol-range.application.draft-scope-test]
+            [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.planner-test]
+            [hyperopen.vol-range.application.projections-test]
+            [hyperopen.vol-range.application.remediations-test]
+            [hyperopen.vol-range.application.snapshots-test]
+            [hyperopen.vol-range.contracts-test]
+            [hyperopen.vol-range.domain.admission-test]
+            [hyperopen.vol-range.domain.fees-test]
+            [hyperopen.vol-range.domain.grid-test]
+            [hyperopen.vol-range.domain.volatility-test]
+            [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.preview-gate-test]
+            [hyperopen.vol-range.registration-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-lifecycle-test]
             [hyperopen.wallet.address-watcher-test]
@@ -1167,6 +1190,7 @@
              'hyperopen.domain.trading.indicators.trend-family-coverage-test
              'hyperopen.domain.trading.indicators.volatility-family-coverage-test
              'hyperopen.domain.trading.order-values-test
+             'hyperopen.domain.trading.precision-test
              'hyperopen.funding-comparison.actions-test
              'hyperopen.funding-comparison.effects-test
              'hyperopen.funding.actions-test
@@ -1603,6 +1627,7 @@
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.trading.order-form-transitions-update-test
              'hyperopen.trading.orderbook-price-pick-test
+             'hyperopen.trading.vol-range-draft-test
              'hyperopen.ui.fonts-test
              'hyperopen.ui.fx-test
              'hyperopen.ui.preferences-test
@@ -1865,6 +1890,7 @@
              'hyperopen.views.trade-view.mobile-surface-test
              'hyperopen.views.trade-view.render-cache-test
              'hyperopen.views.trade-view.startup-defer-test
+             'hyperopen.views.trade-view.vol-range-slice-repaint-test
              'hyperopen.views.trade.order-form-commands-test
              'hyperopen.views.trade.order-form-component-primitives-test
              'hyperopen.views.trade.order-form-component-sections-test
@@ -1882,6 +1908,8 @@
              'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trade.vol-range.review-test
+             'hyperopen.views.trade.vol-range.ticket-test
              'hyperopen.views.trading-chart.actions-test
              'hyperopen.views.trading-chart.chart-type-dropdown-test
              'hyperopen.views.trading-chart.core-test
@@ -1910,11 +1938,13 @@
              'hyperopen.views.trading-chart.utils.chart-interop.series-test
              'hyperopen.views.trading-chart.utils.chart-interop.transforms-test
              'hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test
+             'hyperopen.views.trading-chart.utils.chart-interop.vol-range-overlays-test
              'hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test
              'hyperopen.views.trading-chart.utils.chart-options-test
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.trading-chart.utils.position-overlay-model-test
+             'hyperopen.views.trading-chart.utils.vol-range-overlay-model-test
              'hyperopen.views.trading-chart.vm-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.ui.anchored-popover-test
@@ -1944,6 +1974,22 @@
              'hyperopen.views.vaults.startup-preview-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test
+             'hyperopen.vol-range.a0-boundary-test
+             'hyperopen.vol-range.actions-test
+             'hyperopen.vol-range.application.draft-scope-test
+             'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.planner-test
+             'hyperopen.vol-range.application.projections-test
+             'hyperopen.vol-range.application.remediations-test
+             'hyperopen.vol-range.application.snapshots-test
+             'hyperopen.vol-range.contracts-test
+             'hyperopen.vol-range.domain.admission-test
+             'hyperopen.vol-range.domain.fees-test
+             'hyperopen.vol-range.domain.grid-test
+             'hyperopen.vol-range.domain.volatility-test
+             'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.preview-gate-test
+             'hyperopen.vol-range.registration-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-lifecycle-test
              'hyperopen.wallet.address-watcher-test

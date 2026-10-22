@@ -31,6 +31,8 @@
 (def effect-order-policy-required-action-ids
   #{:actions/select-asset
     :actions/select-chart-timeframe
+    :actions/select-scale-mode
+    :actions/refresh-vol-range-daily-candles
     :actions/request-chart-candle-backfill
     :actions/select-orderbook-price-aggregation
     :actions/select-account-info-tab

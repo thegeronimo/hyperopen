@@ -95,7 +95,8 @@
         on-liquidation-drag-confirm
         position-overlay
         fill-markers
-        show-fill-markers?]
+        show-fill-markers?
+        vol-range-overlay]
      {:series-options {:price-decimals price-decimals}
       :legend-deps {:format-price fmt/format-trade-price-plain
                     :format-delta fmt/format-trade-price-delta}
@@ -110,6 +111,7 @@
       :on-liquidation-drag-preview on-liquidation-drag-preview
       :on-liquidation-drag-confirm on-liquidation-drag-confirm
       :position-overlay position-overlay
+      :vol-range-overlay vol-range-overlay
       :fill-markers fill-markers})))
 
 (defn- legend-display-symbol
@@ -256,7 +258,8 @@
                                on-liquidation-drag-confirm
                                position-overlay
                                fill-markers
-                               show-fill-markers?)
+                               show-fill-markers?
+                               (:vol-range-chart state))
         legend-meta (memoized-legend-meta symbol display-symbol timeframe-label candle-data)]
     {:has-error? has-error?
      :candle-data candle-data

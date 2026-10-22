@@ -23,4 +23,5 @@ source_of_truth: true
 - [Sente WebSocket Implementation PRD](/hyperopen/docs/product-specs/sente-websocket-implementation-prd.md)
 - [Technical Implementation Guide](/hyperopen/docs/product-specs/technical-implementation-guide.md)
 - [Trading Chart Component PRD](/hyperopen/docs/product-specs/trading-chart-component-prd.md)
+- [Vol Range Implementation Specification (HO-SPEC-014)](/hyperopen/docs/product-specs/vol-range-implementation-spec.md)
 - [WebSocket Subscriptions Product Review](/hyperopen/docs/product-specs/websocket-subscriptions-product-review.md)

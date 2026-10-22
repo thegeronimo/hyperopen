@@ -1,6 +1,7 @@
 (ns hyperopen.views.trade.order-form-handlers
   (:require [hyperopen.views.trade.order-form-commands :as cmd]
-            [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]))
+            [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]
+            [hyperopen.views.trade.vol-range.commands :as vol-range-commands]))
 
 (defn- dispatch-command
   [command]
@@ -75,6 +76,8 @@
                          :on-set-scale-end (dispatch-command (cmd/set-scale-end-input))
                          :on-set-scale-count (dispatch-command (cmd/set-scale-count-input))
                          :on-set-scale-skew (dispatch-command (cmd/set-scale-skew-input))
+                         :on-select-scale-mode (fn [mode]
+                                                 (dispatch-command (vol-range-commands/select-scale-mode mode)))
                          :on-set-twap-days (dispatch-command (cmd/set-twap-days-input))
                          :on-set-twap-hours (dispatch-command (cmd/set-twap-hours-input))
                          :on-set-twap-minutes (dispatch-command (cmd/set-twap-minutes-input))

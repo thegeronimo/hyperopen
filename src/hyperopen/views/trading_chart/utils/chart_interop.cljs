@@ -12,6 +12,7 @@
             [hyperopen.views.trading-chart.utils.chart-interop.series :as series]
             [hyperopen.views.trading-chart.utils.chart-interop.series-sync :as series-sync]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms :as transforms]
+            [hyperopen.views.trading-chart.utils.chart-interop.vol-range-overlays :as vol-range-overlays]
             [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay :as volume-indicator-overlay]
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence :as visible-range-persistence]
             [hyperopen.views.trading-chart.utils.chart-options :as chart-options]))
@@ -178,7 +179,8 @@
     (.applyOptions ^js chart (clj->js (chart-options/base-chart-options))))
   (when-some [main-series (when chart-obj (.-mainSeries ^js chart-obj))]
     (when-some [color-options (series/themed-series-color-options chart-type)]
-      (.applyOptions ^js main-series color-options))))
+      (.applyOptions ^js main-series color-options)))
+  (vol-range-overlays/rerender! chart-obj))
 
 (defn fit-content!
   "Fit content to the chart viewport."
@@ -251,6 +253,18 @@
                                           {:boundary :chart-interop/clear-open-order-overlays}))
   (open-order-overlays/clear-open-order-overlays! chart-obj))
 
+(defn sync-vol-range-overlays!
+  "Attach/update the Vol Range draft overlays (bands, anchor, draft legs)."
+  ([chart-obj container model]
+   (sync-vol-range-overlays! chart-obj container model {}))
+  ([chart-obj container model opts]
+   (vol-range-overlays/sync-vol-range-overlays! chart-obj container model opts)))
+
+(defn clear-vol-range-overlays!
+  "Clear Vol Range draft overlays and remove listeners/DOM."
+  [chart-obj]
+  (vol-range-overlays/clear-vol-range-overlays! chart-obj))
+
 (defn sync-position-overlays!
   "Attach/update chart position overlays aligned to entry/liquidation price coordinates."
   ([chart-obj container overlay]
@@ -308,6 +322,16 @@
   "Clear chart right-click context menu overlay and listeners."
   [chart-obj]
   (chart-context-menu-overlay/clear-chart-context-menu-overlay! chart-obj))
+
+(defn clear-chart-overlays!
+  "Clear every decoration overlay owned by the chart."
+  [chart-obj]
+  (clear-open-order-overlays! chart-obj)
+  (clear-position-overlays! chart-obj)
+  (clear-volume-indicator-overlay! chart-obj)
+  (clear-chart-context-menu-overlay! chart-obj)
+  (clear-chart-navigation-overlay! chart-obj)
+  (clear-vol-range-overlays! chart-obj))
 
 (defn- create-volume-series!
   [chart pane-index]

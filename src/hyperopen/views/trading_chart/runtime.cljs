@@ -270,10 +270,11 @@
 
 (defn- apply-chart-decorations!
   [node chart-obj candle-data chart-type main-series-markers position-overlay position-overlay-deps
-   open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]
+   open-order-overlays overlay-deps volume-indicator-deps context-menu-deps vol-range-overlay]
   (ci/set-main-series-markers! chart-obj main-series-markers)
   (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
   (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
+  (ci/sync-vol-range-overlays! chart-obj node vol-range-overlay)
   (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
   (ci/sync-chart-context-menu-overlay! chart-obj
                                        node
@@ -323,7 +324,7 @@
 
 (defn- run-chart-decoration-pass!
   [node {:keys [candle-data chart-type main-series-markers position-overlay position-overlay-deps
-                open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]}]
+                open-order-overlays overlay-deps volume-indicator-deps context-menu-deps vol-range-overlay]}]
   (let [{:keys [chart-obj chart-accessibility-applied?]} (chart-runtime/get-state node)]
     (when chart-obj
       (apply-chart-decorations! node
@@ -336,7 +337,8 @@
                                 open-order-overlays
                                 overlay-deps
                                 volume-indicator-deps
-                                context-menu-deps)
+                                context-menu-deps
+                                vol-range-overlay)
       (when-not chart-accessibility-applied?
         (apply-chart-accessibility! node)
         (chart-runtime/assoc-state! node :chart-accessibility-applied? true)))))
@@ -458,11 +460,7 @@
       (.disconnect ^js theme-observer))
     (when legend-control
       (.destroy ^js legend-control))
-    (ci/clear-open-order-overlays! chart-obj)
-    (ci/clear-position-overlays! chart-obj)
-    (ci/clear-volume-indicator-overlay! chart-obj)
-    (ci/clear-chart-context-menu-overlay! chart-obj)
-    (ci/clear-chart-navigation-overlay! chart-obj)
+    (ci/clear-chart-overlays! chart-obj)
     (ci/clear-baseline-base-value-subscription! chart-obj)
     (when visible-range-cleanup
       (try

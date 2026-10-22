@@ -30,6 +30,7 @@ inductive Reason where
   | validationErrors
   | requestUnavailable
   | agentNotReady
+  | volRangePreviewOnly
   deriving Repr, DecidableEq, Inhabited
 
 structure MarketFlags where
@@ -54,18 +55,20 @@ def effectiveMarginMode (market : MarketFlags) (mode : MarginMode) : MarginMode 
 -- `Reason` for back-compat but is no longer produced.
 def submitReason
     (mode : SubmitMode)
-    (submitting spectate _spot marketPriceMissing hasErrors requestAvailable agentReady : Bool) :
+    (volRange submitting spectate _spot marketPriceMissing hasErrors requestAvailable agentReady : Bool) :
     Option Reason :=
   match mode with
   | .submit =>
-      if spectate then some .spectateModeReadOnly
+      if volRange then some .volRangePreviewOnly
+      else if spectate then some .spectateModeReadOnly
       else if marketPriceMissing then some .marketPriceMissing
       else if hasErrors then some .validationErrors
       else if !requestAvailable then some .requestUnavailable
       else if !agentReady then some .agentNotReady
       else none
   | .view =>
-      if submitting then some .submitting
+      if volRange then some .volRangePreviewOnly
+      else if submitting then some .submitting
       else if spectate then some .spectateModeReadOnly
       else if marketPriceMissing then some .marketPriceMissing
       else if hasErrors then some .validationErrors
@@ -95,7 +98,7 @@ theorem only_isolated_forces_isolated :
 -- holds for either spot value.
 theorem submit_ready_reason_none_sound :
     ∀ spectate spot marketPriceMissing hasErrors,
-      submitReason .submit false spectate spot marketPriceMissing hasErrors true true = none →
+      submitReason .submit false false spectate spot marketPriceMissing hasErrors true true = none →
         spectate = false ∧
           marketPriceMissing = false ∧
           hasErrors = false := by
@@ -103,7 +106,7 @@ theorem submit_ready_reason_none_sound :
 
 theorem view_submitting_has_precedence
     (spectate spot marketPriceMissing hasErrors : Bool) :
-    submitReason .view true spectate spot marketPriceMissing hasErrors false false =
+    submitReason .view false true spectate spot marketPriceMissing hasErrors false false =
       some .submitting := by
   simp [submitReason]
 
@@ -246,6 +249,15 @@ def scaleClj (start finish : String) (count : Nat) (skew : String) : Clj :=
     ,kv "end" (.str finish)
     ,kv "count" (.nat count)
     ,kv "skew" (.str skew)]
+
+-- Volatility range Scale draft: submission is preview-only in Release A0.
+def scaleVolRangeClj : Clj :=
+  mapClj
+    [kv "start" (.str "90")
+    ,kv "end" (.str "80")
+    ,kv "count" (.nat 4)
+    ,kv "skew" (.str "1")
+    ,kv "mode" (.keyword "volatility-range")]
 
 def options
     (mode : String)
@@ -530,6 +542,17 @@ def submitPolicyVectors : Clj :=
                                       (some "agent-not-ready") true
                                       (some "Enable trading before submitting orders.")
                                       true)]
+    ,mapClj
+       [kv "id" (.keyword "submit-vol-range-preview-only")
+       ,kv "context" spotContext
+       ,kv "identity" (identity true)
+       ,kv "spectate-mode-message" .nil
+       ,kv "form" (form "scale" "buy" "100" "100" none none none none none (some scaleVolRangeClj))
+       ,kv "options" (options "submit" none (some true))
+       ,kv "expected" (submitExpected "scale" "buy" "100" "100" false [] []
+                                      (some "vol-range-preview-only") true
+                                      (some "Placement isn't available yet.")
+                                      false)]
     ,mapClj
        [kv "id" (.keyword "submit-ready")
        ,kv "context" basePerpContext

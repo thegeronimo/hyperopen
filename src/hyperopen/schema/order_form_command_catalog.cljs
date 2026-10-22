@@ -117,7 +117,34 @@
     :handler-key :toggle-order-tpsl-panel}
    {:command-id :order-form/submit-order
     :action-id :actions/submit-order
-    :handler-key :submit-order}])
+    :handler-key :submit-order}
+   {:command-id :order-form/select-scale-mode
+    :action-id :actions/select-scale-mode
+    :handler-key :select-scale-mode}
+   {:command-id :order-form/update-vol-range-draft
+    :action-id :actions/update-vol-range-draft
+    :handler-key :update-vol-range-draft}
+   {:command-id :order-form/set-vol-range-sell-quantity-percent
+    :action-id :actions/set-vol-range-sell-quantity-percent
+    :handler-key :set-vol-range-sell-quantity-percent}
+   {:command-id :order-form/apply-vol-range-remediation
+    :action-id :actions/apply-vol-range-remediation
+    :handler-key :apply-vol-range-remediation}
+   {:command-id :order-form/open-vol-range-review
+    :action-id :actions/open-vol-range-review
+    :handler-key :open-vol-range-review}
+   {:command-id :order-form/close-vol-range-review
+    :action-id :actions/close-vol-range-review
+    :handler-key :close-vol-range-review}
+   {:command-id :order-form/handle-vol-range-review-keydown
+    :action-id :actions/handle-vol-range-review-keydown
+    :handler-key :handle-vol-range-review-keydown}
+   {:command-id :order-form/set-vol-range-ui-flag
+    :action-id :actions/set-vol-range-ui-flag
+    :handler-key :set-vol-range-ui-flag}
+   {:command-id :order-form/refresh-vol-range-daily-candles
+    :action-id :actions/refresh-vol-range-daily-candles
+    :handler-key :refresh-vol-range-daily-candles}])
 
 (defn- duplicate-values
   [entries entry-key]
