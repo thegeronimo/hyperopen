@@ -59,7 +59,32 @@ function userFills(now) {
   ];
 }
 
-async function stubChartTradesInfo(page) {
+/**
+ * HYPE/USDC spot (`@107`): two buys five days ago, fees in HYPE, then a sale
+ * of the whole balance two days ago, fee in USDC. `startPosition` is the
+ * token balance before each fill.
+ */
+function spotFills(now) {
+  const buyDay = dayStart(now) - 5 * DAY_MS + 10 * 3600000;
+  const sellDay = dayStart(now) - 2 * DAY_MS + 14 * 3600000;
+  const fill = (overrides) => ({
+    coin: "@107",
+    crossed: true,
+    hash: "0x" + "0".repeat(64),
+    closedPnl: "0",
+    ...overrides
+  });
+  return [
+    fill({ time: sellDay, px: "61000", sz: "5", side: "A", dir: "Sell", startPosition: "5",
+           fee: "0.25", feeToken: "USDC", oid: 13, tid: 13013 }),
+    fill({ time: buyDay + 60000, px: "60100", sz: "2", side: "B", dir: "Buy", startPosition: "3",
+           fee: "0.002", feeToken: "HYPE", oid: 12, tid: 12012, crossed: false }),
+    fill({ time: buyDay, px: "59900", sz: "1", side: "B", dir: "Buy", startPosition: "2",
+           fee: "0.001", feeToken: "HYPE", oid: 11, tid: 11011 })
+  ];
+}
+
+async function stubChartTradesInfo(page, makeFills = userFills) {
   const now = Date.now();
   await page.route("https://api.hyperliquid.xyz/info", async (route) => {
     const payload = JSON.parse(route.request().postData() || "{}");
@@ -70,7 +95,7 @@ async function stubChartTradesInfo(page) {
       return;
     }
     if (payload?.type === "userFills") {
-      await json(userFills(now));
+      await json(makeFills(now));
       return;
     }
     // older chart windows: nothing before the fixture fills
@@ -208,6 +233,7 @@ test.describe("trades on chart at phone width", () => {
 
 test.describe("older chart fills follow the visible range", () => {
   test("a daily chart pages back only near what is on screen, and further on scroll @regression", async ({ page }) => {
+    test.setTimeout(120_000);
     const now = Date.now();
     // 1200 fills over the last 12 days: a REST page too full to be complete,
     // so older history may exist; four years of daily candles behind them
@@ -248,20 +274,25 @@ test.describe("older chart fills follow the visible range", () => {
         await json([]);
         return;
       }
-      await route.continue();
+      // everything else empty: older-fill pages are low priority, and live
+      // requests retrying a 429 would hold them in the app's request queue
+      await json(payload?.type === "spotMeta" ? { tokens: [], universe: [] } : []);
+      return;
     });
     await page.addInitScript(() => localStorage.setItem("chart-timeframe", "1d"));
     await page.goto(`/trade/BTC?spectate=${SPECTATE_ADDRESS}`, { waitUntil: "commit" });
     await waitForDebugBridge(page);
     await expect.poll(async () => (await chartTrades(page)).groupCount, { timeout: 20_000 }).toBeGreaterThan(0);
-    // let the page-by-page requests settle: the count stops changing
+    // let the page-by-page requests settle: the count stops changing. Each
+    // page waits its turn in the app's request queue for a few seconds.
     const settled = async () => {
       let last = -1;
       while (last !== olderRequests.length) {
         last = olderRequests.length;
-        await page.waitForTimeout(1_500);
+        await page.waitForTimeout(6_000);
       }
     };
+    await expect.poll(async () => olderRequests.length, { timeout: 20_000 }).toBeGreaterThan(0);
     await settled();
 
     const coveredFrom = () =>
@@ -292,5 +323,46 @@ test.describe("older chart fills follow the visible range", () => {
     await expect.poll(async () => olderRequests.length, { timeout: 10_000 }).toBeGreaterThan(firstCount);
     await settled();
     expect(await coveredFrom()).toBeLessThan(firstCovered);
+  });
+});
+
+test.describe("trades on chart for a spot pair", () => {
+  test("spot fills show token balances and fees in the token charged @regression", async ({ page }) => {
+    await stubChartTradesInfo(page, spotFills);
+    await page.goto(`/trade/@107?spectate=${SPECTATE_ADDRESS}`, { waitUntil: "commit" });
+    await waitForDebugBridge(page);
+    await waitForIdle(page, { quietMs: 300, timeoutMs: 10_000, pollMs: 50 });
+    // the HYPE/USDC market as the asset selector resolves it, seeded so the
+    // test does not depend on live market metadata
+    await page.evaluate(() => {
+      const c = globalThis.cljs.core;
+      const kw = (name) => c.keyword(name);
+      const market = c.PersistentArrayMap.fromArray(
+        [kw("coin"), "@107", kw("key"), "spot:@107", kw("symbol"), "HYPE/USDC",
+         kw("display-name"), "HYPE/USDC", kw("base"), "HYPE", kw("quote"), "USDC",
+         kw("market-type"), kw("spot")],
+        true
+      );
+      const store = globalThis.hyperopen.system.store;
+      c.reset_BANG_(store, c.assoc(c.deref(store), kw("active-market"), market));
+    });
+    await waitForIdle(page, { quietMs: 300, timeoutMs: 6_000, pollMs: 50 });
+    const card = page.locator("[data-role='chart-trade-card']");
+
+    const buy = await badgeFor(page, "-buy");
+    await page.mouse.move(buy.x, buy.y);
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("Bought 3 HYPE");
+    await expect(card).toContainText("0.003 HYPE");
+    await expect(card).toContainText("Balance after");
+    await expect(card).toContainText("5 HYPE");
+    await expect(card).not.toContainText("Position after");
+    await expect(card).not.toContainText("Long");
+
+    const sell = await badgeFor(page, "-sell");
+    await page.mouse.move(sell.x, sell.y);
+    await expect(card).toContainText("Sold 5 HYPE");
+    await expect(card).toContainText("$0.25");
+    await expect(card).toContainText("0 HYPE");
   });
 });

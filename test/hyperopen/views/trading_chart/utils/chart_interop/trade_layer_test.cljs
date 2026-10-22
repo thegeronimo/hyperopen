@@ -248,3 +248,12 @@
       (trade-layer/sync-chart-trades! chart-obj container chart-trades
                                       (assoc opts* :older-fills-end-ms 1699980000000))
       (is (= 2 (count @requested*))))))
+
+(deftest an-open-card-picks-up-a-coin-label-that-resolves-later-test
+  ;; spot market data can load after the card is open
+  (let [{:keys [container chart-obj opts] :as env} (setup)]
+    (trade-layer/sync-chart-trades! chart-obj container chart-trades (assoc opts :coin-label "@107"))
+    (click! env (:id buy-group))
+    (is (str/includes? (card-text container) "Bought 3 @107"))
+    (trade-layer/sync-chart-trades! chart-obj container chart-trades (assoc opts :coin-label "HYPE"))
+    (is (str/includes? (card-text container) "Bought 3 HYPE"))))

@@ -135,15 +135,17 @@
 
 (defn- show-card!
   [chart-obj id]
-  (let [{:keys [root groups-by-id doc opts pinned-id shown-id shown-group shown-pinned? primitive]}
+  (let [{:keys [root groups-by-id doc opts pinned-id shown-id shown-group shown-pinned? shown-opts primitive]}
         (layer-state chart-obj)
         group (get groups-by-id id)]
     (if-not (and root group)
       (hide-card! chart-obj)
       (let [pinned? (= id pinned-id)]
+        ;; opts carry the coin label, which resolves once market data loads
         (when-not (and (= id shown-id)
                        (= group shown-group)
-                       (= pinned? shown-pinned?))
+                       (= pinned? shown-pinned?)
+                       (= opts shown-opts))
           (while (.-firstChild ^js root)
             (.removeChild ^js root (.-firstChild ^js root)))
           (doseq [node (trade-card/build-card-content
@@ -155,7 +157,8 @@
                                            (refresh-card! chart-obj))))]
             (.appendChild ^js root node))
           (set! (.. ^js root -style -display) "flex")
-          (swap-layer-state! chart-obj assoc :shown-id id :shown-group group :shown-pinned? pinned?))
+          (swap-layer-state! chart-obj assoc :shown-id id :shown-group group :shown-pinned? pinned?
+                             :shown-opts opts))
         (primitive/set-selected-id! primitive id)
         (position-card! chart-obj)))))
 
