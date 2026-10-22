@@ -400,6 +400,10 @@
    :effects/run-vault-screener ::vault-screener-run-args
    :effects/load-vault-saved-views ::common/no-args
    :effects/persist-vault-saved-views ::common/no-args
+   :effects/api-fetch-borrow-lend-reserves ::common/no-args
+   :effects/api-fetch-borrow-lend-user-state ::common/address-args
+   :effects/api-fetch-borrow-lend-interest ::common/address-args
+   :effects/api-submit-borrow-lend ::api-submit-order-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args

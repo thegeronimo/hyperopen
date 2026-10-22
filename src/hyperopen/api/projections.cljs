@@ -1,5 +1,6 @@
 (ns hyperopen.api.projections
   (:require [hyperopen.api.projections.api-wallets :as api-wallets]
+            [hyperopen.api.projections.borrow-lend :as borrow-lend]
             [hyperopen.api.projections.asset-selector :as asset-selector]
             [hyperopen.api.projections.funding :as funding]
             [hyperopen.api.projections.leaderboard :as leaderboard]
@@ -47,6 +48,15 @@
 (def apply-leaderboard-success leaderboard/apply-leaderboard-success)
 (def apply-leaderboard-cache-hydration leaderboard/apply-leaderboard-cache-hydration)
 (def apply-leaderboard-error leaderboard/apply-leaderboard-error)
+(def begin-borrow-lend-reserves-load borrow-lend/begin-borrow-lend-reserves-load)
+(def apply-borrow-lend-reserves-success borrow-lend/apply-borrow-lend-reserves-success)
+(def apply-borrow-lend-reserves-error borrow-lend/apply-borrow-lend-reserves-error)
+(def begin-borrow-lend-user-state-load borrow-lend/begin-borrow-lend-user-state-load)
+(def apply-borrow-lend-user-state-success borrow-lend/apply-borrow-lend-user-state-success)
+(def apply-borrow-lend-user-state-error borrow-lend/apply-borrow-lend-user-state-error)
+(def begin-borrow-lend-interest-load borrow-lend/begin-borrow-lend-interest-load)
+(def apply-borrow-lend-interest-success borrow-lend/apply-borrow-lend-interest-success)
+(def apply-borrow-lend-interest-error borrow-lend/apply-borrow-lend-interest-error)
 (def begin-staking-validator-summaries-load staking/begin-staking-validator-summaries-load)
 (def apply-staking-validator-summaries-success staking/apply-staking-validator-summaries-success)
 (def apply-staking-validator-summaries-error staking/apply-staking-validator-summaries-error)

@@ -9,7 +9,8 @@
    :twap {:label "TWAP"}
    :trade-history {:label "Trade History"}
    :funding-history {:label "Funding History"}
-   :order-history {:label "Order History"}))
+   :order-history {:label "Order History"}
+   :earn {:label "Earn"}))
 
 (def available-tabs
   (vec (keys base-tab-definitions)))
@@ -74,9 +75,18 @@
                    base-tab-pairs))
      label-overrides)))
 
+(defn- merged-tab-ids
+  "Extra tab ids, then base tab ids, in declaration order. Kept apart from
+  `merged-tab-definitions` because `into` an array-map promotes it to a hash
+  map past eight entries, which loses that order."
+  [extra-tabs]
+  (let [extra-ids (mapv :id (normalized-extra-tabs extra-tabs))
+        extra-set (set extra-ids)]
+    (into extra-ids (remove extra-set) (keys base-tab-definitions))))
+
 (defn- ordered-tab-ids
-  [tab-definitions tab-order]
-  (let [tabs* (vec (keys tab-definitions))
+  [tab-definitions tab-ids tab-order]
+  (let [tabs* (filterv #(contains? tab-definitions %) tab-ids)
         ordered-prefix (->> (or tab-order [])
                             (filter #(contains? tab-definitions %))
                             distinct
@@ -88,6 +98,7 @@
 (defn available-tabs-for
   [extra-tabs tab-order label-overrides]
   (ordered-tab-ids (merged-tab-definitions extra-tabs label-overrides)
+                   (merged-tab-ids extra-tabs)
                    tab-order))
 
 (defn tab-labels-for
@@ -104,7 +115,7 @@
    (let [base (get labels tab (name tab))
          count (get counts tab)]
      (cond
-       (and (contains? #{:positions :outcomes :open-orders :twap} tab)
+       (and (contains? #{:positions :outcomes :open-orders :twap :earn} tab)
             (number? count)
             (pos? count))
        (str base " (" count ")")

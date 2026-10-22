@@ -111,6 +111,10 @@
             [hyperopen.asset-selector.outcome-actions-test]
             [hyperopen.asset-selector.perp-annotations-test]
             [hyperopen.asset-selector.settings-test]
+            [hyperopen.borrow-lend.actions-test]
+            [hyperopen.borrow-lend.effects-test]
+            [hyperopen.borrow-lend.model-test]
+            [hyperopen.borrow-lend.normalize-test]
             [hyperopen.chart.settings-test]
             [hyperopen.config-test]
             [hyperopen.core-bootstrap.account-history-pagination-test]
@@ -639,6 +643,7 @@
             [hyperopen.vaults.screener.saved-views-test]
             [hyperopen.vaults.screener.view-commands-test]
             [hyperopen.views.account-equity-aggregate-test]
+            [hyperopen.views.account-equity-earn-test]
             [hyperopen.views.account-equity-hyperevm-total-test]
             [hyperopen.views.account-equity-parity-test]
             [hyperopen.views.account-equity-unified-metrics-test]
@@ -666,6 +671,7 @@
             [hyperopen.views.account-info.tabs.balances.mobile-test]
             [hyperopen.views.account-info.tabs.balances.projection-test]
             [hyperopen.views.account-info.tabs.balances.review-fixes-test]
+            [hyperopen.views.account-info.tabs.earn-test]
             [hyperopen.views.account-info.tabs.funding-history-test]
             [hyperopen.views.account-info.tabs.open-orders-test]
             [hyperopen.views.account-info.tabs.open-orders.projection-test]
@@ -715,6 +721,7 @@
             [hyperopen.views.degen.illustrations-test]
             [hyperopen.views.degen.order-form-test]
             [hyperopen.views.degen.widgets-test]
+            [hyperopen.views.earn-view-test]
             [hyperopen.views.footer-build-id-test]
             [hyperopen.views.footer-view-test]
             [hyperopen.views.funding-comparison-view-test]
@@ -1125,6 +1132,10 @@
              'hyperopen.asset-selector.outcome-actions-test
              'hyperopen.asset-selector.perp-annotations-test
              'hyperopen.asset-selector.settings-test
+             'hyperopen.borrow-lend.actions-test
+             'hyperopen.borrow-lend.effects-test
+             'hyperopen.borrow-lend.model-test
+             'hyperopen.borrow-lend.normalize-test
              'hyperopen.chart.settings-test
              'hyperopen.config-test
              'hyperopen.core-bootstrap.account-history-pagination-test
@@ -1653,6 +1664,7 @@
              'hyperopen.vaults.screener.saved-views-test
              'hyperopen.vaults.screener.view-commands-test
              'hyperopen.views.account-equity-aggregate-test
+             'hyperopen.views.account-equity-earn-test
              'hyperopen.views.account-equity-hyperevm-total-test
              'hyperopen.views.account-equity-parity-test
              'hyperopen.views.account-equity-unified-metrics-test
@@ -1680,6 +1692,7 @@
              'hyperopen.views.account-info.tabs.balances.mobile-test
              'hyperopen.views.account-info.tabs.balances.projection-test
              'hyperopen.views.account-info.tabs.balances.review-fixes-test
+             'hyperopen.views.account-info.tabs.earn-test
              'hyperopen.views.account-info.tabs.funding-history-test
              'hyperopen.views.account-info.tabs.open-orders-test
              'hyperopen.views.account-info.tabs.open-orders.projection-test
@@ -1729,6 +1742,7 @@
              'hyperopen.views.degen.illustrations-test
              'hyperopen.views.degen.order-form-test
              'hyperopen.views.degen.widgets-test
+             'hyperopen.views.earn-view-test
              'hyperopen.views.footer-build-id-test
              'hyperopen.views.footer-view-test
              'hyperopen.views.funding-comparison-view-test

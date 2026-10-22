@@ -41,6 +41,7 @@
    :account-context
    :account-info
    :account-tab-modules
+   :borrow-lend
    :margin-rec
    :orders
    :perp-dex-clearinghouse
@@ -55,6 +56,7 @@
 (def ^:private account-equity-view-state-keys
   [:account
    :account-context
+   :borrow-lend
    :perp-dex-clearinghouse
    :router
    :spot

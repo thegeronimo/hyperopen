@@ -144,7 +144,8 @@
            fetch-user-fees!
            fetch-user-vault-equities!
            start-user-vault-equity-poller!
-           fetch-staking-delegator-summary!]}]
+           fetch-staking-delegator-summary!
+           fetch-borrow-lend-state!]}]
   (call-when-fn! fetch-spot-clearinghouse-state! store address {:priority :high})
   ;; The base-dex perp book has no webData2 stream anymore; hydrate it via
   ;; REST so positions/balances render before the dex "" stream's first push.
@@ -155,7 +156,8 @@
   (when-not (unified-account? store)
     (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
     (call-when-fn! start-user-vault-equity-poller! store address))
-  (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high}))
+  (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high})
+  (call-when-fn! fetch-borrow-lend-state! store address {:priority :high}))
 
 (defn- bootstrap-open-orders-and-fills!
   [{:keys [store

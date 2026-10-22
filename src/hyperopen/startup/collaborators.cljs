@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [nexus.registry :as nxr]
             [hyperopen.account.context :as account-context]
+            [hyperopen.startup.collaborators.borrow-lend :as borrow-lend-collaborators]
             [hyperopen.api.endpoints.account :as account-endpoints]
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.api.projections :as api-projections]
@@ -432,6 +433,7 @@
                                            (fetch-staking-delegator-summary! api-ops store address))
                                           ([store address opts]
                                            (fetch-staking-delegator-summary! api-ops store address opts)))
+      :fetch-borrow-lend-state! (partial borrow-lend-collaborators/fetch-borrow-lend-state! api-ops)
       :fetch-historical-orders! (fn
                                   ([store request-id]
                                    (account-history-effects/fetch-historical-orders!

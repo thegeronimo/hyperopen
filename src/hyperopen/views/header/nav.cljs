@@ -45,6 +45,11 @@
     :route "/vaults"
     :placements #{:desktop :mobile-primary}
     :active-fn #(exact-or-child-route? % "/vaults")}
+   {:id :earn
+    :label "Earn"
+    :route "/earn"
+    :placements #{:desktop :mobile-secondary}
+    :active-fn #(exact-or-child-route? % "/earn")}
    {:id :staking
     :label "Staking"
     :route "/staking"

@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.vm.equity
   (:require [hyperopen.account.context :as account-context]
+            [hyperopen.borrow-lend.account :as bl-account]
             [hyperopen.staking.account-scope :as account-scope]
             [hyperopen.staking.unstaking :as unstaking]
             [hyperopen.views.account-info.projections :as projections]))
@@ -20,7 +21,7 @@
 
 (defn earn-balance
   [state]
-  (number-or-zero (get-in state [:borrow-lend :total-supplied-usd])))
+  (bl-account/net-earn-usd state))
 
 (defn vault-equity
   [state summary]

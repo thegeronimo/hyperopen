@@ -1,6 +1,7 @@
 (ns hyperopen.runtime.action-adapters.navigation-test
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
@@ -209,7 +210,8 @@
            (navigation-adapters/navigate {} "/trade")))))
 
 (deftest navigate-entering-portfolio-loads-chart-benchmark-effects-test
-  (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state tab]
+  (with-redefs [borrow-lend-actions/load-borrow-lend-route (fn [_state _path] [])
+                portfolio-actions/select-portfolio-chart-tab (fn [_state tab]
                                                                 [[:effects/save-many
                                                                   [[[:portfolio-ui :chart-tab] tab]]]
                                                                  [:effects/fetch-candle-snapshot
@@ -236,7 +238,8 @@
 
 (deftest navigate-inside-portfolio-does-not-rebootstrap-portfolio-chart-test
   (let [chart-bootstrap-calls (atom 0)]
-    (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab]
+    (with-redefs [borrow-lend-actions/load-borrow-lend-route (fn [_state _path] [])
+                portfolio-actions/select-portfolio-chart-tab (fn [_state _tab]
                                                                   (swap! chart-bootstrap-calls inc)
                                                                   [[:effects/save [:portfolio-ui :chart-tab] :returns]])
                   vault-actions/load-vault-route (fn [_state _path]
@@ -251,7 +254,8 @@
       (is (= 0 @chart-bootstrap-calls)))))
 
 (deftest navigate-preserves-spectate-query-when-spectate-mode-is-active-test
-  (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab] [])
+  (with-redefs [borrow-lend-actions/load-borrow-lend-route (fn [_state _path] [])
+                portfolio-actions/select-portfolio-chart-tab (fn [_state _tab] [])
                 vault-actions/load-vault-route (fn [_state _path] [])
                 funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])]
     (is (= [[:effects/save [:router :path] "/portfolio"]
@@ -265,7 +269,8 @@
 
 (deftest navigate-to-trader-portfolio-suppresses-spectate-query-test
   (let [trader-route "/portfolio/trader/0x3333333333333333333333333333333333333333"]
-    (with-redefs [portfolio-actions/select-portfolio-chart-tab (fn [_state _tab] [])
+    (with-redefs [borrow-lend-actions/load-borrow-lend-route (fn [_state _path] [])
+                portfolio-actions/select-portfolio-chart-tab (fn [_state _tab] [])
                   vault-actions/load-vault-route (fn [_state _path] [])
                   funding-comparison-actions/load-funding-comparison-route (fn [_state _path] [])
                   api-wallets-actions/load-api-wallet-route (fn [_state _path] [])

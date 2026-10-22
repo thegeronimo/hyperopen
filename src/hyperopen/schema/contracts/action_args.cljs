@@ -1,5 +1,6 @@
 (ns hyperopen.schema.contracts.action-args
   (:require [cljs.spec.alpha :as s]
+            [hyperopen.schema.contracts.borrow-lend-action-args :as borrow-lend-action-args]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.funding-action-args :as funding-action-args]
             [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]
@@ -750,5 +751,6 @@
 (def action-args-spec-by-id
   (merge core-action-args-spec-by-id
          funding-action-args/funding-action-args-spec-by-id
+         borrow-lend-action-args/borrow-lend-action-args-spec-by-id
          hyperevm-action-args/hyperevm-action-args-spec-by-id
          vault-screener-action-args/vault-screener-action-args-spec-by-id))

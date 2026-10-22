@@ -5,6 +5,7 @@
             [hyperopen.leaderboard.effects :as leaderboard-effects]
             [hyperopen.runtime.collaborators.account-history :as account-history-collaborators]
             [hyperopen.runtime.collaborators.asset-selector :as asset-selector-collaborators]
+            [hyperopen.runtime.collaborators.borrow-lend :as borrow-lend-collaborators]
             [hyperopen.runtime.collaborators.chart :as chart-collaborators]
             [hyperopen.runtime.collaborators.funding-comparison :as funding-comparison-collaborators]
             [hyperopen.runtime.collaborators.hyperevm :as hyperevm-collaborators]
@@ -14,6 +15,7 @@
             [hyperopen.runtime.collaborators.spectate-mode :as spectate-mode-collaborators]
             [hyperopen.runtime.collaborators.staking :as staking-collaborators]
             [hyperopen.runtime.collaborators.wallet :as wallet-collaborators]
+            [hyperopen.runtime.effect-adapters.borrow-lend :as borrow-lend-effect-adapters]
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.staking.effects :as staking-effects]))
 
@@ -45,6 +47,10 @@
           :api-submit-staking-withdraw staking-effects/api-submit-staking-withdraw!
           :api-submit-staking-delegate staking-effects/api-submit-staking-delegate!
           :api-submit-staking-undelegate staking-effects/api-submit-staking-undelegate!
+          :api-fetch-borrow-lend-reserves borrow-lend-effect-adapters/api-fetch-borrow-lend-reserves-effect
+          :api-fetch-borrow-lend-user-state borrow-lend-effect-adapters/api-fetch-borrow-lend-user-state-effect
+          :api-fetch-borrow-lend-interest borrow-lend-effect-adapters/api-fetch-borrow-lend-interest-effect
+          :api-submit-borrow-lend borrow-lend-effect-adapters/api-submit-borrow-lend-effect
           :api-fetch-hyperunit-fee-estimate funding-effects/api-fetch-hyperunit-fee-estimate!
           :api-fetch-hyperunit-withdrawal-queue funding-effects/api-fetch-hyperunit-withdrawal-queue!
           :api-submit-funding-send funding-effects/api-submit-funding-send!
@@ -71,6 +77,7 @@
     :leaderboard (leaderboard-collaborators/action-deps)
     :funding-comparison (funding-comparison-collaborators/action-deps)
     :staking (staking-collaborators/action-deps)
+    :borrow-lend (borrow-lend-collaborators/action-deps)
     :orders (order-collaborators/action-deps)
     :margin-rec (margin-rec-collaborators/action-deps)
     :hyperevm (hyperevm-collaborators/action-deps)}

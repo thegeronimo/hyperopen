@@ -20,7 +20,7 @@
           (set! (.-document js/globalThis) orig-document)
           (js-delete js/globalThis "document"))))))
 
-(deftest restore-ui-font-preference-falls-back-to-system-test
+(deftest restore-ui-font-preference-falls-back-to-inter-test
   (let [orig-document (.-document js/globalThis)
         had-document? (has-own? js/globalThis "document")
         html-el (js-obj "dataset" (js-obj))]
@@ -28,9 +28,23 @@
       (set! (.-document js/globalThis) (js-obj "documentElement" html-el))
       (with-redefs [hyperopen.platform/local-storage-get (fn [_] "not-supported")]
         (preferences/restore-ui-font-preference!)
-        (is (= "system" (.. js/document -documentElement -dataset -uiFont))))
+        (is (= "inter" (.. js/document -documentElement -dataset -uiFont))))
       (with-redefs [hyperopen.platform/local-storage-get (fn [_]
                                                             (throw (js/Error. "boom")))]
+        (preferences/restore-ui-font-preference!)
+        (is (= "inter" (.. js/document -documentElement -dataset -uiFont))))
+      (finally
+        (if had-document?
+          (set! (.-document js/globalThis) orig-document)
+          (js-delete js/globalThis "document"))))))
+
+(deftest restore-ui-font-preference-keeps-a-stored-system-choice-test
+  (let [orig-document (.-document js/globalThis)
+        had-document? (has-own? js/globalThis "document")
+        html-el (js-obj "dataset" (js-obj))]
+    (try
+      (set! (.-document js/globalThis) (js-obj "documentElement" html-el))
+      (with-redefs [hyperopen.platform/local-storage-get (fn [_] "system")]
         (preferences/restore-ui-font-preference!)
         (is (= "system" (.. js/document -documentElement -dataset -uiFont))))
       (finally

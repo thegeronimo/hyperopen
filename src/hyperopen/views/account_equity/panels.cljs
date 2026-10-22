@@ -77,7 +77,7 @@
   [:div {:class ["flex" "items-center" "justify-between" "text-sm"]}
    (tooltip
     [:span.text-sm.font-semibold.text-trading-text "Total Account Value"]
-    "Total value across Spot, Perps, Vaults, and HyperEVM. HyperEVM balances are not margin.")
+    "Total value across Spot, Perps, Vaults, Earn, and HyperEVM. HyperEVM balances are not margin.")
    [:span {:class ["num" "text-sm" "font-semibold"
                   (if (= value "--")
                     "text-trading-text-secondary"
@@ -88,6 +88,7 @@
                                             perps-value
                                             account-value-display
                                             vault-equity
+                                            earn-equity
                                             total-account-value-display
                                             base-balance
                                             maintenance-margin
@@ -113,6 +114,8 @@
     (metric-row "Perps" (display-currency perps-value)
                 :tooltip "Balance + Unrealized PNL (approximate account value if all positions were closed)")
     (metric-row "Vaults" (display-currency vault-equity))
+    (metric-row "Earn" (display-currency earn-equity)
+                :tooltip "Supplied to HyperCore lending, including collateral, at oracle prices, minus borrows.")
     ;; HyperEVM is included in the grouped total but remains separate here:
     ;; it cannot margin a position, and this row keeps its Move action.
     (hyperevm-line hyperevm-line-model)]

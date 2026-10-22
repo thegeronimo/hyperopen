@@ -8,6 +8,7 @@
             [hyperopen.account.history.shared :as history-shared]
             [hyperopen.account.history.surface-actions :as surface-actions]
             [hyperopen.account.history.twap-actions :as twap-actions]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.router :as router]))
 
 (def default-funding-history-state
@@ -98,6 +99,11 @@
 
                        (= tab :order-history)
                        (order-actions/select-order-history-tab state)
+
+                       ;; The Earn tab shows lending positions, fetched on demand.
+                       (= tab :earn)
+                       (into [[:effects/save [:account-info :selected-tab] tab]]
+                             (borrow-lend-actions/load-borrow-lend state))
 
                        :else
                        [[:effects/save [:account-info :selected-tab] tab]])

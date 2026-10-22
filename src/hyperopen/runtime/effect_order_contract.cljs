@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-order-contract
-  (:require [hyperopen.runtime.effect-order.policy-registration :as policy-registration]
+  (:require [hyperopen.runtime.effect-order.borrow-lend-policies :as borrow-lend-policies]
+            [hyperopen.runtime.effect-order.policy-registration :as policy-registration]
             [hyperopen.runtime.validation :as validation]))
 (declare effect-phase assert-action-effect-order!)
 
@@ -164,8 +165,8 @@
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
-    :heavy-effect-ids #{:effects/api-fetch-user-funding-history
-                        :effects/api-fetch-historical-orders}}
+    :heavy-effect-ids #{:effects/api-fetch-user-funding-history :effects/api-fetch-historical-orders
+                        :effects/api-fetch-borrow-lend-reserves :effects/api-fetch-borrow-lend-user-state :effects/api-fetch-borrow-lend-interest}}
 
    :actions/apply-funding-history-filters
    {:required-phase-order [:projection :persistence :heavy-io]
@@ -531,6 +532,7 @@
                         :effects/api-fetch-staking-rewards
                         :effects/api-fetch-staking-history
                         :effects/api-fetch-staking-spot-state
+                        :effects/api-fetch-borrow-lend-reserves :effects/api-fetch-borrow-lend-user-state :effects/api-fetch-borrow-lend-interest
                         :effects/api-fetch-referral
                         :effects/api-load-api-wallets
                         :effects/api-load-subaccounts
@@ -561,12 +563,13 @@
                         :effects/api-fetch-staking-rewards
                         :effects/api-fetch-staking-history
                         :effects/api-fetch-staking-spot-state
+                        :effects/api-fetch-borrow-lend-reserves :effects/api-fetch-borrow-lend-user-state :effects/api-fetch-borrow-lend-interest
                         :effects/api-fetch-referral
                         :effects/api-load-subaccounts
                         :effects/fetch-asset-selector-markets}}})
 
 (def ^:private validated-effect-order-policy-by-action-id
-  (policy-registration/validate-policy-by-action-id! effect-order-policy-by-action-id))
+  (policy-registration/validate-policy-by-action-id! (merge effect-order-policy-by-action-id borrow-lend-policies/policy-by-action-id)))
 (defn action-policy
   [action-id]
   (get validated-effect-order-policy-by-action-id action-id))

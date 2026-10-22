@@ -58,6 +58,8 @@
                                              :depends-on #{:main}}
                   :staking_route {:entries [hyperopen.views.staking-view]
                                   :depends-on #{:main}}
+                  :earn_route {:entries [hyperopen.views.earn-view]
+                               :depends-on #{:main}}
                   :referrals_route {:entries [hyperopen.views.referrals-view]
                                     :depends-on #{:main}}
                   :api_wallets_route {:entries [hyperopen.views.api-wallets-view]
@@ -187,6 +189,8 @@
                                                  :depends-on #{:main}}
                       :staking_route {:entries [hyperopen.views.staking-view]
                                       :depends-on #{:main}}
+                      :earn_route {:entries [hyperopen.views.earn-view]
+                                   :depends-on #{:main}}
                       :referrals_route {:entries [hyperopen.views.referrals-view]
                                         :depends-on #{:main}}
                       :api_wallets_route {:entries [hyperopen.views.api-wallets-view]
