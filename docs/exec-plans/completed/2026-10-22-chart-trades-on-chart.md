@@ -101,7 +101,7 @@ Local scratch refs (non-authoritative):
 
 - Observation (hyperdegen QA): the theme's wider font truncated stat values; a fee in a token lost its token name ("-0.002167 …"). Stat values now wrap. Sub-cent USDC fees (maker rebates) rendered "-$0.00"; they keep up to 4 decimals, and a value that rounds to zero carries no sign.
 
-- Observation (QA): each load of a very active account pages back to the 10000-fill horizon right away (about 25 `userFillsByTime` requests, roughly half of Hyperliquid's per-minute request weight), because paging follows the oldest loaded candle, not the visible range. Repeated reloads during QA hit HTTP 429. Ordinary accounts need one or two requests.
+- Observation (QA): older chart fills were paged back to the oldest loaded candle, not to what is on screen. The loaded candles usually reach only a little past the visible range (about 300 daily candles at first), so on load the difference is small; it grows once more candles are loaded than shown (after scrolling back and returning). With four years of daily candles loaded and 120 days visible, eager paging made 18 `userFillsByTime` requests back to the 2023 floor; paging now stops one screen past the visible range (5 requests) and resumes as the trader scrolls. For a very active account the cost is in the rows themselves (Hyperliquid weighs `userFillsByTime` per 20 rows returned): when the visible range alone holds 10000 fills, all of them are still fetched. Repeated reloads of such an account during QA hit HTTP 429.
 
 
 ## Decision Log
@@ -142,10 +142,14 @@ Local scratch refs (non-authoritative):
   Rationale: The new markers replace both. The entry circle duplicates the opening fill badge and the entry-price line already marks the open position. Keeping them would put two symbols on the same candle.
   Date/Author: 2026-10-22 / Claude
 
+- Decision: Gate older-fill paging in the trade layer on the visible time range (plus one screen of lookahead), re-checked on every visible-range change; the vm still computes the next page's end time from the loaded candles.
+  Rationale: Only the chart layer knows the visible range. Keeping the end-time computation in the vm leaves the action guard and the history namespace unchanged.
+  Date/Author: 2026-10-22 / Claude
+
 
 ## Outcomes & Retrospective
 
-(2026-10-22, implementation complete pending the open Progress items.) Everything in Purpose shipped: badges at execution price merged per candle with counts and three sizes, dots when crowded, liquidation diamonds, the hover/pin card with Trade History link (tap-to-pin on touch), the perp position ribbon, a default-on "Trades on chart" setting with a toolbar toggle, and an uncapped chart fill history that pages back through older fills. The Playwright card spec, multi-theme/spot/HIP-3/phone QA and the gate matrix were completed afterwards and found four more defects (card under the navigation controls, card clipped on phones, no way to close a pinned card on phones, truncated/"-$0.00" fees), all fixed. Open follow-up: page older fills only as the visible range approaches the covered edge instead of eagerly, to spend less request weight on very active accounts.
+(2026-10-22, implementation complete pending the open Progress items.) Everything in Purpose shipped: badges at execution price merged per candle with counts and three sizes, dots when crowded, liquidation diamonds, the hover/pin card with Trade History link (tap-to-pin on touch), the perp position ribbon, a default-on "Trades on chart" setting with a toolbar toggle, and an uncapped chart fill history that pages back through older fills. The Playwright card spec, multi-theme/spot/HIP-3/phone QA and the gate matrix were completed afterwards and found four more defects (card under the navigation controls, card clipped on phones, no way to close a pinned card on phones, truncated/"-$0.00" fees), all fixed. Older fills are then paged only as the visible range approaches the covered edge (see Surprises for the measured effect and its limit for very active accounts).
 
 Complexity rose: about 1,100 lines of source across seven new namespaces (`fill_fields`, `chart_trades_model`, `trade_markers_primitive`, `trade_card`, `trade_layer`, `account.chart_fill_history`, its effects) plus one new action/effect pair, offset by deleting `build-fill-markers`, the entry marker and the positional decoration-pass signature. The rise is concentrated in self-contained, tested namespaces; the riskiest part is the history paging, whose behavior was confirmed against the live API.
 
@@ -485,3 +489,5 @@ Change note (2026-10-22, later): implementation recorded — Progress, Surprises
 Change note (2026-10-22, final): recorded the final review fixes, the Playwright results (with the main-baseline comparison) and the gate matrix.
 
 Change note (2026-10-22, closing): added the Playwright card spec and the `chart-trades` QA oracle, recorded the HIP-3/spot/theme/phone QA and its four fixes, and moved the plan to completed.
+
+Change note (2026-10-22, paging): older chart fills now follow the visible range; recorded the measured request counts and the remaining cost for very active accounts.

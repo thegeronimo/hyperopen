@@ -11,9 +11,9 @@ function dayStart(ms) {
 }
 
 /** Daily BTC candles around 60k covering the requested span. */
-function candleSnapshot(req) {
+function candleSnapshot(req, maxDays = 400) {
   const end = Number(req.endTime) || Date.now();
-  const start = Math.max(Number(req.startTime) || end - 400 * DAY_MS, end - 400 * DAY_MS);
+  const start = Math.max(Number(req.startTime) || end - maxDays * DAY_MS, end - maxDays * DAY_MS);
   const out = [];
   for (let t = dayStart(start); t <= end; t += DAY_MS) {
     const price = 60000 + Math.sin(t / DAY_MS / 9) * 1500;
@@ -203,5 +203,94 @@ test.describe("trades on chart at phone width", () => {
 
     await card.locator("[data-role='chart-trade-card-close']").click();
     await expect(card).toBeHidden();
+  });
+});
+
+test.describe("older chart fills follow the visible range", () => {
+  test("a daily chart pages back only near what is on screen, and further on scroll @regression", async ({ page }) => {
+    const now = Date.now();
+    // 1200 fills over the last 12 days: a REST page too full to be complete,
+    // so older history may exist; four years of daily candles behind them
+    const recentFills = Array.from({ length: 1200 }, (_, i) => ({
+      coin: "BTC",
+      time: now - i * 864000,
+      px: "60000",
+      sz: "0.01",
+      side: i % 2 ? "A" : "B",
+      dir: i % 2 ? "Close Long" : "Open Long",
+      startPosition: i % 2 ? "0.01" : "0",
+      closedPnl: "0",
+      crossed: true,
+      fee: "0.1",
+      feeToken: "USDC",
+      hash: "0x" + "0".repeat(64),
+      oid: i,
+      tid: 10_000 + i
+    }));
+    const olderRequests = [];
+    await page.route("https://api.hyperliquid.xyz/info", async (route) => {
+      const payload = JSON.parse(route.request().postData() || "{}");
+      const json = (body) =>
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+      if (payload?.type === "candleSnapshot") {
+        const req = payload.req || {};
+        // four years of candles whatever the request asks for, as after the
+        // trader scrolled far back once and returned to the present
+        await json(candleSnapshot({ ...req, startTime: now - 1500 * DAY_MS, endTime: now }, 1500));
+        return;
+      }
+      if (payload?.type === "userFills") {
+        await json(recentFills);
+        return;
+      }
+      if (payload?.type === "userFillsByTime") {
+        olderRequests.push(payload);
+        await json([]);
+        return;
+      }
+      await route.continue();
+    });
+    await page.addInitScript(() => localStorage.setItem("chart-timeframe", "1d"));
+    await page.goto(`/trade/BTC?spectate=${SPECTATE_ADDRESS}`, { waitUntil: "commit" });
+    await waitForDebugBridge(page);
+    await expect.poll(async () => (await chartTrades(page)).groupCount, { timeout: 20_000 }).toBeGreaterThan(0);
+    // let the page-by-page requests settle: the count stops changing
+    const settled = async () => {
+      let last = -1;
+      while (last !== olderRequests.length) {
+        last = olderRequests.length;
+        await page.waitForTimeout(1_500);
+      }
+    };
+    await settled();
+
+    const coveredFrom = () =>
+      page.evaluate(() => {
+        const c = globalThis.cljs.core;
+        const path = c.PersistentVector.fromArray(
+          [c.keyword("chart-trades"), c.keyword("covered-from-ms")],
+          true
+        );
+        return c.get_in(c.deref(globalThis.hyperopen.system.store), path);
+      });
+    const firstCount = olderRequests.length;
+    const firstCovered = await coveredFrom();
+    // the candles reach 1500 days back; paging stops about one screen past
+    // the visible range (eager paging went to the 2023 floor: 18 requests)
+    expect(firstCount).toBeGreaterThan(0);
+    expect(firstCovered).toBeGreaterThan(now - 1000 * DAY_MS);
+
+    // drag the chart to the right a few times to look further back
+    const pane = page.locator("[data-role='trading-chart-canvas']").first();
+    const box = await pane.boundingBox();
+    for (let i = 0; i < 4; i += 1) {
+      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.4);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.4, { steps: 8 });
+      await page.mouse.up();
+    }
+    await expect.poll(async () => olderRequests.length, { timeout: 10_000 }).toBeGreaterThan(firstCount);
+    await settled();
+    expect(await coveredFrom()).toBeLessThan(firstCovered);
   });
 });

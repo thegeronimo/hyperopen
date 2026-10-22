@@ -131,7 +131,7 @@
           (set! (.. ^js root -style -left) (str (max card-margin-px left) "px"))
           (set! (.. ^js root -style -top) (str top "px")))))))
 
-(declare refresh-card!)
+(declare refresh-card! request-older-fills!)
 
 (defn- show-card!
   [chart-obj id]
@@ -207,7 +207,9 @@
         range-change (fn [_]
                        (schedule-frame! (fn [_]
                                           (when (:shown-id (layer-state chart-obj))
-                                            (position-card! chart-obj)))))
+                                            (position-card! chart-obj))
+                                          ;; scrolling back may reach the covered edge
+                                          (request-older-fills! chart-obj))))
         keydown (fn [^js e]
                   (when (and (= "Escape" (.-key e))
                              (not (.-defaultPrevented e))
@@ -258,15 +260,43 @@
               (swap-layer-state! chart-obj assoc :primitive primitive* :series main-series)
               primitive*))))
 
+(defn- visible-time-range-ms
+  "[from to] of the visible candles in epoch ms, or nil before data exists."
+  [^js chart]
+  (try
+    (let [^js time-scale (.timeScale chart)
+          ^js visible (when (fn? (unchecked-get time-scale "getVisibleRange"))
+                        (.getVisibleRange time-scale))
+          from (some-> visible .-from)
+          to (some-> visible .-to)]
+      (when (and (number? from) (number? to))
+        [(* 1000 from) (* 1000 to)]))
+    (catch :default _ nil)))
+
+(defn- older-fills-needed?
+  "Older fills are needed once the visible range, plus one more screen of
+  lookahead to the left, reaches past the covered history. Paging follows
+  what the trader looks at rather than every loaded candle: on a daily chart
+  the loaded candles go back years, and fetching that far for an account
+  that never scrolls back spends Hyperliquid request weight for nothing."
+  [chart end-ms]
+  (when-let [[from to] (visible-time-range-ms chart)]
+    (<= (- from (- to from)) end-ms)))
+
 (defn- request-older-fills!
-  "Ask once per page for fills older than the loaded ones when the chart's
-  candles reach further back (the vm computes `:older-fills-end-ms`)."
-  [chart-obj {:keys [older-fills-end-ms on-request-older-fills]}]
-  (when (and (number? older-fills-end-ms)
-             (fn? on-request-older-fills)
-             (not= older-fills-end-ms (:requested-older-end-ms (layer-state chart-obj))))
-    (swap-layer-state! chart-obj assoc :requested-older-end-ms older-fills-end-ms)
-    (on-request-older-fills older-fills-end-ms)))
+  "Ask once per page for fills older than the loaded ones, when the chart's
+  candles reach further back (the vm computes `:older-fills-end-ms`) and the
+  visible range is near that edge. Re-checked as the trader scrolls."
+  [chart-obj]
+  (let [{:keys [chart paging requested-older-end-ms]} (layer-state chart-obj)
+        {:keys [older-fills-end-ms on-request-older-fills]} paging]
+    (when (and (number? older-fills-end-ms)
+               (fn? on-request-older-fills)
+               (not= older-fills-end-ms requested-older-end-ms)
+               chart
+               (older-fills-needed? chart older-fills-end-ms))
+      (swap-layer-state! chart-obj assoc :requested-older-end-ms older-fills-end-ms)
+      (on-request-older-fills older-fills-end-ms))))
 
 (defn clear-chart-trades!
   "Detach the primitive, drop the card and every listener."
@@ -307,11 +337,12 @@
                            :chart chart
                            :doc doc
                            :groups-by-id (or (:groups-by-id chart-trades) {})
-                           :opts (select-keys opts [:perp? :coin-label :format-price :on-open-history]))
+                           :opts (select-keys opts [:perp? :coin-label :format-price :on-open-history])
+                           :paging (select-keys opts [:older-fills-end-ms :on-request-older-fills]))
         (primitive/set-trade-data! primitive* chart-trades)
         (reset! last-chart-obj chart-obj)
         (refresh-card! chart-obj)
-        (request-older-fills! chart-obj opts)))))
+        (request-older-fills! chart-obj)))))
 
 (defn debug-snapshot
   "The painted badges in viewport CSS px, plus the shown/pinned ids, for the
@@ -319,9 +350,15 @@
   the DOM."
   []
   (let [chart-obj @last-chart-obj
-        {:keys [primitive container groups-by-id shown-id pinned-id]} (layer-state chart-obj)
-        ^js rect (some-> ^js container .getBoundingClientRect)]
+        {:keys [primitive container groups-by-id shown-id pinned-id chart paging requested-older-end-ms]}
+        (layer-state chart-obj)
+        ^js rect (some-> ^js container .getBoundingClientRect)
+        [visible-from visible-to] (when chart (visible-time-range-ms chart))]
     {:present (some? primitive)
+     :visibleFromMs visible-from
+     :visibleToMs visible-to
+     :olderFillsEndMs (:older-fills-end-ms paging)
+     :requestedOlderEndMs requested-older-end-ms
      :groupCount (count groups-by-id)
      :shownId shown-id
      :pinnedId pinned-id

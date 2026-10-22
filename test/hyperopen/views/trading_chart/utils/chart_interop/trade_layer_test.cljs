@@ -220,3 +220,31 @@
   (is (= "$0.00" (trade-card/format-fee -0.00001 "USDC")))
   (is (= "$1.25" (trade-card/format-fee 1.2512 "USDC")))
   (is (= "0.5 HYPE" (trade-card/format-fee 0.5 "HYPE"))))
+
+(deftest older-fills-are-requested-only-near-the-visible-range-test
+  ;; covered history starts at 1700000000000 ms; times below are seconds
+  (let [{:keys [container chart chart-obj opts subs*]} (setup)
+        visible* (atom #js {:from 1700500000 :to 1700600000})
+        requested* (atom [])
+        opts* (assoc opts
+                     :older-fills-end-ms 1699999999999
+                     :on-request-older-fills #(swap! requested* conj %))]
+    (aset (.timeScale chart) "getVisibleRange" (fn [] @visible*))
+    (testing "the visible range and one more screen to its left are covered"
+      (trade-layer/sync-chart-trades! chart-obj container chart-trades opts*)
+      (is (= [] @requested*)))
+    (testing "scrolling back to within a screen of the covered edge asks for the next page once"
+      (reset! visible* #js {:from 1700050000 :to 1700150000})
+      ((:range @subs*) nil)
+      ((:range @subs*) nil)
+      (trade-layer/sync-chart-trades! chart-obj container chart-trades opts*)
+      (is (= [1699999999999] @requested*)))
+    (testing "the next page is requested on sync while the edge is still near"
+      (trade-layer/sync-chart-trades! chart-obj container chart-trades
+                                      (assoc opts* :older-fills-end-ms 1699990000000))
+      (is (= [1699999999999 1699990000000] @requested*)))
+    (testing "nothing is requested before the chart has data"
+      (reset! visible* nil)
+      (trade-layer/sync-chart-trades! chart-obj container chart-trades
+                                      (assoc opts* :older-fills-end-ms 1699980000000))
+      (is (= 2 (count @requested*))))))
