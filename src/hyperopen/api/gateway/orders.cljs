@@ -46,6 +46,10 @@
   [{:keys [post-info!]} address opts]
   (order-endpoints/request-user-fills! post-info! address opts))
 
+(defn request-user-fills-by-time!
+  [{:keys [post-info!]} address window opts]
+  (order-endpoints/request-user-fills-by-time! post-info! address window opts))
+
 (defn fetch-user-fills!
   [{:keys [log-fn
            request-user-fills!

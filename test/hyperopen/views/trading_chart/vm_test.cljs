@@ -23,11 +23,7 @@
   {:side :long
    :entry-price 100
    :liquidation-price 90
-   :unrealized-pnl 4
-   :fill-markers [{:time 1700000000
-                   :position "belowBar"
-                   :shape "circle"
-                   :color "#22ab94"}]})
+   :unrealized-pnl 4})
 
 (defn- base-state
   []
@@ -47,7 +43,7 @@
                            :sz "1"
                            :px "100"}]
             :fills []}
-   :trading-settings {:show-fill-markers? true}})
+   :trading-settings {:show-chart-trades? true}})
 
 (deftest chart-view-model-owner-preserves-derived-model-contract-test
   (let [dispatch-fn (fn [_event _actions] nil)
@@ -172,3 +168,35 @@
                                1)
                      dispatch-fn)]
           (is (true? (get-in model [:chart-runtime-options :history-backfill-loading?]))))))))
+
+(def ^:private wallet-address "0xabc0000000000000000000000000000000000001")
+
+(defn- chart-trades-of
+  [state]
+  (get-in (vm/chart-view-model state (fn [_ _] nil)) [:chart-runtime-options :chart-trades]))
+
+(deftest chart-view-model-draws-the-chart-history-only-for-the-effective-account-test
+  (let [shared [{:coin "BTC" :tid 1 :side "B" :px "100" :sz "1" :time 1700000000000}]
+        history [{:coin "BTC" :tid 2 :side "B" :px "100" :sz "1" :time 1700000000000}
+                 {:coin "BTC" :tid 3 :side "A" :px "101" :sz "1" :time 1700000060000}]
+        state (-> (base-state)
+                  (assoc :wallet {:address wallet-address})
+                  (assoc-in [:orders :fills] shared))]
+    (is (= 2 (count (:groups (chart-trades-of
+                              (assoc state :chart-trades {:address wallet-address :fills history})))))
+        "the uncapped chart history wins for its own account")
+    (is (= 1 (count (:groups (chart-trades-of
+                              (assoc state :chart-trades {:address "0xdef0000000000000000000000000000000000002"
+                                                          :fills history})))))
+        "a history left over from another account is never drawn")))
+
+(deftest chart-view-model-asks-for-older-fills-when-candles-predate-coverage-test
+  (let [state (-> (base-state)
+                  (assoc :wallet {:address wallet-address})
+                  (assoc :chart-trades {:address wallet-address
+                                        :fills [{:coin "BTC" :tid 2 :side "B" :px "100" :sz "1"
+                                                 :time 1700000060000}]
+                                        :covered-from-ms 1700000060000}))
+        deps (get-in (vm/chart-view-model state (fn [_ _] nil)) [:chart-runtime-options :chart-trades-deps])]
+    (is (= 1700000059999 (:older-fills-end-ms deps)))
+    (is (fn? (:on-request-older-fills deps)))))

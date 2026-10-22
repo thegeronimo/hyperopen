@@ -53,6 +53,21 @@
                             :chart-volume-indicator-remove
                             [[:actions/hide-volume-indicator]])))
 
+(defn dispatch-open-trade-history!
+  ([]
+   (dispatch-open-trade-history! (current-dispatch-fn)))
+  ([dispatch-fn]
+   (dispatch-chart-actions! dispatch-fn
+                            :chart-trade-card-open-history
+                            [[:actions/select-account-info-tab :trade-history]])))
+
+(defn dispatch-request-older-chart-fills!
+  [dispatch-fn end-ms]
+  (when (and (number? end-ms) (pos? end-ms))
+    (dispatch-chart-actions! dispatch-fn
+                             :chart-trades-older-fills
+                             [[:actions/request-older-chart-fills {:end-ms end-ms}]])))
+
 (defn dispatch-chart-history-backfill!
   ([active-asset selected-timeframe payload]
    (dispatch-chart-history-backfill!
@@ -136,6 +151,18 @@
      (fn []
        (dispatch-hide-volume-indicator! dispatch-fn)))))
 
+(def ^:private memoized-open-trade-history-callback
+  (memoize-last
+   (fn [dispatch-fn]
+     (fn []
+       (dispatch-open-trade-history! dispatch-fn)))))
+
+(def ^:private memoized-request-older-chart-fills-callback
+  (memoize-last
+   (fn [dispatch-fn]
+     (fn [end-ms]
+       (dispatch-request-older-chart-fills! dispatch-fn end-ms)))))
+
 (def ^:private memoized-liquidation-drag-preview-callback
   (memoize-last
    (fn [dispatch-fn active-position-data]
@@ -171,6 +198,14 @@
 (defn hide-volume-indicator-callback
   [dispatch-fn]
   (memoized-hide-volume-indicator-callback dispatch-fn))
+
+(defn open-trade-history-callback
+  [dispatch-fn]
+  (memoized-open-trade-history-callback dispatch-fn))
+
+(defn request-older-chart-fills-callback
+  [dispatch-fn]
+  (memoized-request-older-chart-fills-callback dispatch-fn))
 
 (defn liquidation-drag-preview-callback
   [dispatch-fn active-position-data]

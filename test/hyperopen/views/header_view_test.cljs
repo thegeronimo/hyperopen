@@ -237,13 +237,13 @@
                                                    :settings-confirmation nil}
                                        :trading-settings {:fill-alerts-enabled? true
                                                           :animate-orderbook? true
-                                                          :show-fill-markers? false}})
+                                                          :show-chart-trades? false}})
         display-section (find-node-by-role view "trading-settings-display-section")
         all-text (set (collect-strings view))]
     (is (some? display-section))
     (is (contains? all-text "Display"))
     (is (contains? all-text "Animate order book"))
-    (is (contains? all-text "Fill markers"))
+    (is (contains? all-text "Trades on chart"))
     (is (not (contains? all-text "Order Book")))
     (is (not (contains? all-text "Motion")))
     (is (not (contains? all-text "Chart")))

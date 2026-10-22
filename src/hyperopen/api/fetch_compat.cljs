@@ -107,7 +107,8 @@
   (-> (request-user-fills! address opts)
       (.then (promise-effects/apply-success-and-return
               store
-              apply-user-fills-success))
+              apply-user-fills-success
+              address))
       (.catch (promise-effects/log-apply-error-and-reject
                log-fn
                "Error fetching user fills:"

@@ -117,7 +117,8 @@
          (.then (apply-success-and-return-when-current
                  store
                  requested-address
-                 api-projections/apply-user-fills-success))
+                 api-projections/apply-user-fills-success
+                 requested-address))
          (.catch (apply-error-and-reject-when-current
                   store
                   requested-address

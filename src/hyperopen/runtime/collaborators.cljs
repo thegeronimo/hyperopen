@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.collaborators
-  (:require [hyperopen.account.history.effects :as account-history-effects]
+  (:require [hyperopen.account.chart-fill-history-effects :as chart-fill-history-effects]
+            [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.funding.effects :as funding-effects]
             [hyperopen.funding-comparison.effects :as funding-comparison-effects]
             [hyperopen.leaderboard.effects :as leaderboard-effects]
@@ -34,6 +35,7 @@
   (merge-nested
    {:api {:api-fetch-user-funding-history account-history-effects/api-fetch-user-funding-history-effect
           :api-fetch-historical-orders account-history-effects/api-fetch-historical-orders-effect
+          :fetch-older-chart-fills chart-fill-history-effects/fetch-older-chart-fills-effect
           :export-funding-history-csv account-history-effects/export-funding-history-csv-effect
           :api-fetch-leaderboard leaderboard-effects/api-fetch-leaderboard!
           :api-fetch-predicted-fundings funding-comparison-effects/api-fetch-predicted-fundings!

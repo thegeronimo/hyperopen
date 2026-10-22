@@ -103,6 +103,7 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/select-asset", defaultPolicy false ["effects/fetch-asset-selector-markets", "effects/subscribe-active-asset", "effects/subscribe-orderbook", "effects/subscribe-trades", "effects/sync-active-asset-funding-predictability", "effects/sync-perp-annotations", "effects/unsubscribe-active-asset", "effects/unsubscribe-orderbook", "effects/unsubscribe-trades"])
   ,("actions/select-chart-timeframe", defaultPolicy false ["effects/fetch-candle-snapshot", "effects/sync-active-candle-subscription"])
   ,("actions/request-chart-candle-backfill", heavyOnlyPolicy false ["effects/fetch-candle-snapshot"])
+  ,("actions/request-older-chart-fills", heavyOnlyPolicy false ["effects/fetch-older-chart-fills"])
   ,("actions/select-orderbook-price-aggregation", defaultPolicy false ["effects/subscribe-orderbook"])
   ,("actions/select-subaccount", defaultPolicy false ["effects/api-load-user-data"])
   ,("actions/select-master-account", defaultPolicy false ["effects/api-load-user-data"])

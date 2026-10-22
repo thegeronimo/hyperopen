@@ -115,6 +115,7 @@
     toggle-timeframes-dropdown
     select-chart-timeframe
     request-chart-candle-backfill
+    request-older-chart-fills
     toggle-chart-type-dropdown
     select-chart-type
     toggle-indicators-dropdown

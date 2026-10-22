@@ -173,3 +173,28 @@
         text (str/join " " (collect-strings menu))]
     (is (= "chart-toolbar" (get-in menu [1 :data-parity-id])))
     (is (not (str/includes? text "nil")))))
+
+(defn- find-by-data-role [node role]
+  (cond
+    (vector? node)
+    (let [attrs (when (map? (second node)) (second node))]
+      (if (= role (:data-role attrs))
+        node
+        (some #(find-by-data-role % role) (node-children node))))
+
+    (seq? node)
+    (some #(find-by-data-role % role) node)
+
+    :else nil))
+
+(deftest chart-trades-toggle-defaults-on-and-dispatches-the-shared-setting-action-test
+  (let [default-toggle (find-by-data-role (toolbar/chart-top-menu {}) "chart-toolbar-trades-toggle")
+        off-toggle (find-by-data-role (toolbar/chart-top-menu {:trading-settings {:show-chart-trades? false}})
+                                      "chart-toolbar-trades-toggle")]
+    (is (some? default-toggle))
+    (is (= "true" (get-in default-toggle [1 :aria-pressed])))
+    (is (= [[:actions/set-chart-trades-enabled false]]
+           (get-in default-toggle [1 :on :click])))
+    (is (= "false" (get-in off-toggle [1 :aria-pressed])))
+    (is (= [[:actions/set-chart-trades-enabled true]]
+           (get-in off-toggle [1 :on :click])))))

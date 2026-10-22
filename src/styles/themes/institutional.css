@@ -43,6 +43,7 @@
   --ho-chart-down: rgba(248, 113, 113, 0.35);
   --ho-chart-long: #4ade80;
   --ho-chart-short: #f87171;
+  --ho-chart-liquidation: #f59e0b;
   /* Radius tokens: mapped onto the Tailwind rounded scale. */
   --ho-radius-sm: 0px;
   --ho-radius: 0px;

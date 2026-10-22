@@ -36,6 +36,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/fetch-candle-snapshot}}
 
+   :actions/request-older-chart-fills
+   {:required-phase-order [:heavy-io]
+    :require-projection-before-heavy? false
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/fetch-older-chart-fills}}
+
    :actions/select-portfolio-summary-time-range
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true

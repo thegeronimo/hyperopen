@@ -19,6 +19,10 @@
   [{:keys [post-info!]} address opts]
   (order-gateway/request-user-fills! {:post-info! post-info!} address opts))
 
+(defn request-user-fills-by-time!
+  [{:keys [post-info!]} address window opts]
+  (order-gateway/request-user-fills-by-time! {:post-info! post-info!} address window opts))
+
 (defn fetch-user-fills!
   [{:keys [log-fn request-user-fills!]} store address opts]
   (api-compat/fetch-user-fills!

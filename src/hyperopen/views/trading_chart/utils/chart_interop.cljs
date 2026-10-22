@@ -11,6 +11,7 @@
             [hyperopen.views.trading-chart.utils.chart-interop.position-overlays :as position-overlays]
             [hyperopen.views.trading-chart.utils.chart-interop.series :as series]
             [hyperopen.views.trading-chart.utils.chart-interop.series-sync :as series-sync]
+            [hyperopen.views.trading-chart.utils.chart-interop.trade-layer :as trade-layer]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms :as transforms]
             [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay :as volume-indicator-overlay]
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence :as visible-range-persistence]
@@ -268,6 +269,22 @@
     (chart-contracts/assert-chart-handle! chart-obj
                                           {:boundary :chart-interop/clear-position-overlays}))
   (position-overlays/clear-position-overlays! chart-obj))
+
+(defn sync-chart-trades!
+  "Attach/update the trader's own trades layer (markers, ribbon, fill card);
+  nil `chart-trades` clears it."
+  ([chart-obj container chart-trades]
+   (sync-chart-trades! chart-obj container chart-trades {}))
+  ([chart-obj container chart-trades opts]
+   (when chart-obj
+     (chart-contracts/assert-chart-handle! chart-obj
+                                           {:boundary :chart-interop/sync-chart-trades}))
+   (trade-layer/sync-chart-trades! chart-obj container chart-trades opts)))
+
+(defn clear-chart-trades!
+  "Detach the trades layer primitive, card and listeners."
+  [chart-obj]
+  (trade-layer/clear-chart-trades! chart-obj))
 
 (defn sync-volume-indicator-overlay!
   "Attach/update the volume-pane indicator overlay with value + controls."

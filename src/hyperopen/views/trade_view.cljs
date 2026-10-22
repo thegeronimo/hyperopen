@@ -16,12 +16,18 @@
             [hyperopen.views.trade-view.shell :as shell]))
 
 (def ^:private trade-chart-view-base-state-keys
+  ;; :account-context and :wallet (with :account and :router) let the chart
+  ;; resolve the effective account, so it never draws another account's
+  ;; fill history (:chart-trades); both change rarely
   [:active-asset
    :active-market
    :account
+   :account-context
    :asset-contexts
    :candles
    :chart-options
+   ;; the chart's own uncapped fill history (trades on chart)
+   :chart-trades
    :orders
    :perp-dex-clearinghouse
    :positions-ui
@@ -29,6 +35,7 @@
    :spot
    :trading-settings
    :trade-modules
+   :wallet
    :webdata2])
 
 (def ^:private account-info-view-base-state-keys

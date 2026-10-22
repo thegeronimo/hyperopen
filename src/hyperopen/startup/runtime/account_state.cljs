@@ -13,6 +13,7 @@
       (assoc-in [:orders :open-error] nil)
       (assoc-in [:orders :open-error-category] nil)
       (assoc-in [:orders :fills] [])
+      (dissoc :chart-trades)
       (assoc-in [:orders :fills-error] nil)
       (assoc-in [:orders :fills-error-category] nil)
       (assoc-in [:orders :fundings-raw] [])
