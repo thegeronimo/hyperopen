@@ -8,6 +8,8 @@
             [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive :as primitive]))
 
 (defonce ^:private trade-layer-sidecar (js/WeakMap.))
+;; the chart handle last synced, for the QA oracle only
+(defonce ^:private last-chart-obj (atom nil))
 
 (def ^:private card-width-px 296)
 (def ^:private card-offset-px 24)
@@ -45,12 +47,15 @@
       root
       (let [^js node (.createElement doc "div")]
         (set! (.-className node)
-              (str "absolute z-30 flex flex-col gap-2 rounded-lg border border-ho-border "
+              (str "absolute flex flex-col gap-2 rounded-lg border border-ho-border "
                    "bg-ho-surface p-3 text-xs text-ho-text shadow-xl"))
         (.setAttribute node "role" "dialog")
         (.setAttribute node "aria-label" "Fill details")
         (.setAttribute node "data-role" "chart-trade-card")
         (set! (.. node -style -width) (str card-width-px "px"))
+        ;; above the chart's navigation controls (z 116), which otherwise
+        ;; cover a pinned card's history link near the bottom of the pane
+        (set! (.. node -style -zIndex) "117")
         (set! (.. node -style -display) "none")
         (set! (.. node -style -overflowY) "auto")
         ;; keep chart gestures from starting under the card
@@ -73,6 +78,31 @@
     (or (some-> chart (.priceScale "right") (.width)) 0)
     (catch :default _ 0)))
 
+(defn- visible-height
+  "Height of the container that is actually on screen. On phones the chart
+  container is taller than the panel that clips it, so a card sized to the
+  container would hide its lower rows (and the history link) under the
+  clip. Falls back to clientHeight where layout is unavailable."
+  [^js container]
+  (let [ch (or (.-clientHeight container) 0)
+        rect-of (fn [^js node]
+                  (when (fn? (unchecked-get node "getBoundingClientRect"))
+                    (.getBoundingClientRect node)))
+        ^js own (rect-of container)
+        view (some-> js/globalThis .-getComputedStyle)]
+    (if-not (and own view)
+      ch
+      (loop [^js node (.-parentElement container)
+             bottom (.-bottom own)
+             depth 0]
+        (if (or (nil? node) (> depth 12))
+          (-> (- bottom (.-top own)) (max 0) (min ch))
+          (let [clips? (not= "visible" (.-overflowY (view node)))
+                ^js rect (when clips? (rect-of node))]
+            (recur (.-parentElement node)
+                   (if rect (min bottom (.-bottom rect)) bottom)
+                   (inc depth))))))))
+
 (defn- position-card!
   [chart-obj]
   (let [{:keys [root primitive shown-id container chart]} (layer-state chart-obj)
@@ -85,7 +115,7 @@
       (if-not item
         ;; the badge scrolled off screen: keep a pinned card hidden until it returns
         (set! (.. ^js root -style -visibility) "hidden")
-        (let [ch (or (.-clientHeight ^js container) 0)
+        (let [ch (visible-height container)
               ;; a short chart pane scrolls the card instead of clipping it
               _ (set! (.. ^js root -style -maxHeight) (str (max 120 (- ch (* 2 card-margin-px))) "px"))
               card-h (or (.-offsetHeight ^js root) 0)
@@ -101,6 +131,8 @@
           (set! (.. ^js root -style -left) (str (max card-margin-px left) "px"))
           (set! (.. ^js root -style -top) (str top "px")))))))
 
+(declare refresh-card!)
+
 (defn- show-card!
   [chart-obj id]
   (let [{:keys [root groups-by-id doc opts pinned-id shown-id shown-group shown-pinned? primitive]}
@@ -114,7 +146,13 @@
                        (= pinned? shown-pinned?))
           (while (.-firstChild ^js root)
             (.removeChild ^js root (.-firstChild ^js root)))
-          (doseq [node (trade-card/build-card-content doc group (assoc opts :pinned? pinned?))]
+          (doseq [node (trade-card/build-card-content
+                        doc group
+                        (assoc opts
+                               :pinned? pinned?
+                               :on-close (fn []
+                                           (swap-layer-state! chart-obj assoc :pinned-id nil :hover-id nil)
+                                           (refresh-card! chart-obj))))]
             (.appendChild ^js root node))
           (set! (.. ^js root -style -display) "flex")
           (swap-layer-state! chart-obj assoc :shown-id id :shown-group group :shown-pinned? pinned?))
@@ -244,7 +282,9 @@
         (try (.detachPrimitive ^js series primitive) (catch :default _ nil)))
       (when-let [parent (some-> ^js root .-parentNode)]
         (.removeChild ^js parent root))
-      (.delete trade-layer-sidecar chart-obj))))
+      (.delete trade-layer-sidecar chart-obj)
+      (when (identical? chart-obj @last-chart-obj)
+        (reset! last-chart-obj nil)))))
 
 (defn sync-chart-trades!
   "Show `chart-trades` ({:groups :groups-by-id :ribbon}) on the chart, or clear
@@ -269,5 +309,26 @@
                            :groups-by-id (or (:groups-by-id chart-trades) {})
                            :opts (select-keys opts [:perp? :coin-label :format-price :on-open-history]))
         (primitive/set-trade-data! primitive* chart-trades)
+        (reset! last-chart-obj chart-obj)
         (refresh-card! chart-obj)
         (request-older-fills! chart-obj opts)))))
+
+(defn debug-snapshot
+  "The painted badges in viewport CSS px, plus the shown/pinned ids, for the
+  QA oracle: badges live on a canvas, so browser tests cannot locate them in
+  the DOM."
+  []
+  (let [chart-obj @last-chart-obj
+        {:keys [primitive container groups-by-id shown-id pinned-id]} (layer-state chart-obj)
+        ^js rect (some-> ^js container .getBoundingClientRect)]
+    {:present (some? primitive)
+     :groupCount (count groups-by-id)
+     :shownId shown-id
+     :pinnedId pinned-id
+     :badges (mapv (fn [{:keys [id x cy r dense?]}]
+                     {:id id
+                      :x (+ x (if rect (.-left rect) 0))
+                      :y (+ cy (if rect (.-top rect) 0))
+                      :r r
+                      :dense (boolean dense?)})
+                   (primitive/layout-of primitive))}))

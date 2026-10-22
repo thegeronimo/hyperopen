@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [clojure.string :as str]
             [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]
+            [hyperopen.views.trading-chart.utils.chart-interop.trade-card :as trade-card]
             [hyperopen.views.trading-chart.utils.chart-interop.trade-layer :as trade-layer]
             [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive :as primitive]))
 
@@ -87,6 +88,7 @@
     (is (= #{:crosshair :click :range} (set (keys @subs*))))
     (is (some? (card container)))
     (is (= "none" (.. (card container) -style -display)) "hidden until hovered")
+    (is (= "117" (.. (card container) -style -zIndex)) "above the chart navigation controls")
     (trade-layer/clear-chart-trades! chart-obj)
     (is (= {} @subs*) "all chart subscriptions removed")
     (is (= [:detach "candles" prim] (last @attached*)))
@@ -137,6 +139,18 @@
     (fake-dom/click-dom-node!
      (fake-dom/find-dom-node container #(= "chart-trade-card-history-link" (aget % "data-role"))))
     (is (= 1 @opened*))))
+
+(deftest the-close-button-unpins-a-pinned-card-test
+  (let [{:keys [container chart-obj opts] :as env} (setup)
+        close-button #(fake-dom/find-dom-node container
+                                              (fn [n] (= "chart-trade-card-close" (aget n "data-role"))))]
+    (trade-layer/sync-chart-trades! chart-obj container chart-trades opts)
+    (hover! env (:id buy-group))
+    (is (nil? (close-button)) "a hover card closes by itself")
+    (click! env (:id buy-group))
+    (is (some? (close-button)))
+    (fake-dom/click-dom-node! (close-button))
+    (is (= "none" (.. (card container) -style -display)))))
 
 (deftest pinned-card-closes-when-its-group-disappears-test
   (let [{:keys [container chart-obj opts] :as env} (setup)]
@@ -199,3 +213,10 @@
     (click! env (:id buy-group))
     (is (= "visible" (.. (card container) -style -visibility)))
     (is (= "88px" (.. (card container) -style -left)) "24 px right of the badge at x 64")))
+
+(deftest fees-under-a-cent-keep-their-digits-and-never-read-minus-zero-test
+  (is (= "-$0.0035" (trade-card/format-fee -0.0035 "USDC")) "maker rebate")
+  (is (= "$0.0012" (trade-card/format-fee 0.0012 "USDC")))
+  (is (= "$0.00" (trade-card/format-fee -0.00001 "USDC")))
+  (is (= "$1.25" (trade-card/format-fee 1.2512 "USDC")))
+  (is (= "0.5 HYPE" (trade-card/format-fee 0.5 "HYPE"))))

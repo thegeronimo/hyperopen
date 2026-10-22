@@ -56,10 +56,10 @@ Local scratch refs (non-authoritative):
 - [x] (2026-10-22) `npm test` (7316 tests), `npm run test:websocket` (604), all lints, `test:styles` green; release build compiles with 0 warnings.
 - [x] (2026-10-22) Final Opus review fixes: REST fills seed the chart history only when the request was for the current effective account; REST (aggregated) pages are authoritative for their span over per-trade websocket rows; older windows fetched unaggregated; boundary millisecond kept uncovered; coverage only grows; paging ends at a 2023 floor instead of one empty 90-day window; the chart vm resolves the effective account (chart view state now selects :wallet and :account-context).
 - [x] (2026-10-22) Playwright: updated settings spec passes against a local build of this branch; `--grep @smoke` 41/46, the 5 failures reproduce on an unmodified `main` build served the same way (4 environmental) or pass serially 3/3 (subaccount vaultAddress, flaky only with 2 workers).
-- [ ] Playwright: add a fixture-backed spec for the fill-details card; run the smoke suite against `npm run dev:browser-inspection` on port 8080.
-- [ ] Browser QA in the institutional and hyperdegen themes, on a spot pair, a HIP-3 market and at phone width.
+- [x] (2026-10-22) Playwright: `tools/playwright/test/chart-trades.spec.mjs` (fixture fills and candles; hover card, pin/Escape/re-pin, history link, toolbar toggle, phone tap + card fit + close button), 4/4, and 6/6 with `--repeat-each=2`. Badges are located through a new `chart-trades` QA oracle (they live on a canvas). Smoke suite against `npm run dev:browser-inspection` (served on 8081: 8080 belongs to another checkout's dev server) with one worker: 42/46; the 4 failures are the same optimizer/outcome tests that fail on unmodified `main`.
+- [x] (2026-10-22) Browser QA: HIP-3 (`xyz:MU`), spot (`HYPE/USDC`, "Balance after", no ribbon), institutional and hyperdegen themes, phone width (375 px, tap to pin). Defects found and fixed: see Surprises.
 - [x] (2026-10-22) `npm run gates`: 34/34 PASS, 8122 tests, 44381 assertions.
-- [ ] Move this plan to `completed/` once the two open items above are done.
+- [x] (2026-10-22) Plan moved to `completed/`.
 
 
 ## Surprises & Discoveries
@@ -91,6 +91,17 @@ Local scratch refs (non-authoritative):
 - Observation (browser QA): a marker pane view with zOrder "top" paints on the crosshair canvas, which keeps the last frame after `detachPrimitive` until the cursor moves (toggling the setting off left stale badges). Markers now use zOrder "normal" (main canvas, drawn after the series), and clearing empties the primitive before detaching so its repaint request clears the canvas. This also stops repainting markers on every mouse move.
 
 - Observation: the theme CSS files are generated from `src/styles/themes/palette.js`; the new `--ho-chart-liquidation` token had to be added there (`CHART_TOKEN_KEYS` + each theme's `chart` map) and regenerated, not hand-edited.
+
+
+- Observation (Playwright): the chart's navigation controls (z-index 116) sat above the card (z-30), covering a pinned card's history link near the bottom of the pane. The card now sets z-index 117.
+
+- Observation (Playwright): lightweight-charts drops the second click of a double-click, so unpinning a card and clicking the same badge again within ~500 ms does not re-pin it. Library behavior; the spec waits out the window.
+
+- Observation (phone QA): the chart container is taller than the panel that clips it on phones (container 360 px, about 200 px on screen), so a card sized to the container hid its fills table, position row and history link below the clip. The card now sizes to the visible height (the nearest clipping ancestors). The 296 px card also covers its own marker on a 375 px screen, and phones have no Escape key, so a pinned card now has a close button.
+
+- Observation (hyperdegen QA): the theme's wider font truncated stat values; a fee in a token lost its token name ("-0.002167 …"). Stat values now wrap. Sub-cent USDC fees (maker rebates) rendered "-$0.00"; they keep up to 4 decimals, and a value that rounds to zero carries no sign.
+
+- Observation (QA): each load of a very active account pages back to the 10000-fill horizon right away (about 25 `userFillsByTime` requests, roughly half of Hyperliquid's per-minute request weight), because paging follows the oldest loaded candle, not the visible range. Repeated reloads during QA hit HTTP 429. Ordinary accounts need one or two requests.
 
 
 ## Decision Log
@@ -134,7 +145,7 @@ Local scratch refs (non-authoritative):
 
 ## Outcomes & Retrospective
 
-(2026-10-22, implementation complete pending the open Progress items.) Everything in Purpose shipped: badges at execution price merged per candle with counts and three sizes, dots when crowded, liquidation diamonds, the hover/pin card with Trade History link (tap-to-pin on touch), the perp position ribbon, a default-on "Trades on chart" setting with a toolbar toggle, and an uncapped chart fill history that pages back through older fills. Deferred: a Playwright spec for the card, multi-theme/spot/HIP-3/phone browser QA, and the full gate matrix record.
+(2026-10-22, implementation complete pending the open Progress items.) Everything in Purpose shipped: badges at execution price merged per candle with counts and three sizes, dots when crowded, liquidation diamonds, the hover/pin card with Trade History link (tap-to-pin on touch), the perp position ribbon, a default-on "Trades on chart" setting with a toolbar toggle, and an uncapped chart fill history that pages back through older fills. The Playwright card spec, multi-theme/spot/HIP-3/phone QA and the gate matrix were completed afterwards and found four more defects (card under the navigation controls, card clipped on phones, no way to close a pinned card on phones, truncated/"-$0.00" fees), all fixed. Open follow-up: page older fills only as the visible range approaches the covered edge instead of eagerly, to spend less request weight on very active accounts.
 
 Complexity rose: about 1,100 lines of source across seven new namespaces (`fill_fields`, `chart_trades_model`, `trade_markers_primitive`, `trade_card`, `trade_layer`, `account.chart_fill_history`, its effects) plus one new action/effect pair, offset by deleting `build-fill-markers`, the entry marker and the positional decoration-pass signature. The rise is concentrated in self-contained, tested namespaces; the riskiest part is the history paging, whose behavior was confirmed against the live API.
 
@@ -472,3 +483,5 @@ Change note (2026-10-22): Initial version, written from the user's request and t
 Change note (2026-10-22, later): implementation recorded — Progress, Surprises & Discoveries (Milestone 0 findings and three defects found in browser QA), Decision Log (history namespace placement, windowed paging, size-exception bumps) and Outcomes updated.
 
 Change note (2026-10-22, final): recorded the final review fixes, the Playwright results (with the main-baseline comparison) and the gate matrix.
+
+Change note (2026-10-22, closing): added the Playwright card spec and the `chart-trades` QA oracle, recorded the HIP-3/spot/theme/phone QA and its four fixes, and moved the plan to completed.

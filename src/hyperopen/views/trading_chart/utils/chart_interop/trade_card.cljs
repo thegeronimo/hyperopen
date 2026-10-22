@@ -36,24 +36,30 @@
     "—"))
 
 (defn- format-usd
-  [value signed?]
-  (if (and (number? value) (js/isFinite value))
-    (let [abs-text (.toLocaleString (js/Math.abs value) "en-US"
-                                    #js {:style "currency" :currency "USD"
-                                         :minimumFractionDigits 2 :maximumFractionDigits 2})]
-      (cond
-        (and signed? (pos? value)) (str "+" abs-text)
-        (neg? value) (str "-" abs-text)
-        :else abs-text))
-    "—"))
+  ([value signed?] (format-usd value signed? 2))
+  ([value signed? max-digits]
+   (if (and (number? value) (js/isFinite value))
+     (let [abs-text (.toLocaleString (js/Math.abs value) "en-US"
+                                     #js {:style "currency" :currency "USD"
+                                          :minimumFractionDigits 2 :maximumFractionDigits max-digits})
+           ;; a value that rounds to zero carries no sign ("-$0.00" reads as a loss)
+           zero? (not (re-find #"[1-9]" abs-text))]
+       (cond
+         zero? abs-text
+         (and signed? (pos? value)) (str "+" abs-text)
+         (neg? value) (str "-" abs-text)
+         :else abs-text))
+     "—")))
 
-(defn- format-fee
+(defn format-fee
+  "Fees in their token; USDC fees under a cent (often maker rebates, which
+  are negative) keep up to 4 decimals instead of rounding to $0.00."
   [fees fee-token]
   (cond
     (= :mixed fee-token) "Mixed tokens"
     (and (string? fee-token) (not= "USDC" (str/upper-case fee-token)))
     (str (format-size fees) " " fee-token)
-    :else (format-usd fees false)))
+    :else (format-usd fees false (if (and (number? fees) (< (js/Math.abs fees) 0.01)) 4 2))))
 
 (defn title-text
   [{:keys [side-kind sign size]} coin-label]
@@ -89,7 +95,8 @@
   [doc label value]
   (el doc "div" ["flex" "flex-col" "gap-0.5" "min-w-0"]
       (el doc "span" ["text-xs" "text-ho-text-muted"] label)
-      (el doc "span" ["font-semibold" "text-ho-text" "truncate"] value)))
+      ;; wrap rather than truncate: a fee in a token must keep the token name
+      (el doc "span" ["font-semibold" "text-ho-text" "break-words"] value)))
 
 (defn- side-tone-classes
   [{:keys [side-kind]}]
@@ -100,8 +107,8 @@
 
 (defn build-card-content
   "Returns the card's child DOM nodes for `group`, top to bottom.
-  opts: {:coin-label :perp? :pinned? :format-price :on-open-history}"
-  [^js doc group {:keys [coin-label perp? pinned? format-price on-open-history]}]
+  opts: {:coin-label :perp? :pinned? :format-price :on-open-history :on-close}"
+  [^js doc group {:keys [coin-label perp? pinned? format-price on-open-history on-close]}]
   (let [format-price* (or format-price #(.toLocaleString % "en-US" #js {:maximumFractionDigits 6}))
         {:keys [side-kind count avg-price notional fees fee-token closed-pnl position-after time fills]} group
         badge (el doc "span" (into ["inline-flex" "items-center" "justify-center" "w-5" "h-5"
@@ -113,7 +120,22 @@
                    (el doc "div" ["flex" "flex-col" "min-w-0"]
                        (el doc "span" ["text-sm" "font-semibold" "text-ho-text"]
                            (title-text group coin-label))
-                       (el doc "span" ["text-ho-text-muted"] (format-candle-label time))))
+                       (el doc "span" ["text-ho-text-muted"] (format-candle-label time)))
+                   ;; a pinned card can cover its own marker on a phone, where
+                   ;; there is no Escape key: give it an explicit close
+                   (when (and pinned? (fn? on-close))
+                     (let [button (el doc "button" ["ml-auto" "flex" "items-center" "justify-center"
+                                                    "w-6" "h-6" "rounded" "text-base" "text-ho-text-muted"
+                                                    "hover:text-ho-text" "focus:outline-none"
+                                                    "focus-visible:ring-2" "focus-visible:ring-slate-500/70"]
+                                      "×")]
+                       (set! (.-type button) "button")
+                       (.setAttribute button "aria-label" "Close fill details")
+                       (.setAttribute button "data-role" "chart-trade-card-close")
+                       (.addEventListener button "click" (fn [e]
+                                                           (.stopPropagation e)
+                                                           (on-close)))
+                       button)))
         stats (el doc "div" ["grid" "grid-cols-3" "gap-2"]
                   (stat doc "Avg price" (format-price* avg-price))
                   (stat doc "Notional" (format-usd notional false))
