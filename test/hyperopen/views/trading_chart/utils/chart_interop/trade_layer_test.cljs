@@ -227,6 +227,7 @@
         visible* (atom #js {:from 1700500000 :to 1700600000})
         requested* (atom [])
         opts* (assoc opts
+                     :history-hold-ms 0
                      :older-fills-end-ms 1699999999999
                      :on-request-older-fills #(swap! requested* conj %))]
     (aset (.timeScale chart) "getVisibleRange" (fn [] @visible*))
@@ -257,3 +258,35 @@
     (is (str/includes? (card-text container) "Bought 3 @107"))
     (trade-layer/sync-chart-trades! chart-obj container chart-trades (assoc opts :coin-label "HYPE"))
     (is (str/includes? (card-text container) "Bought 3 HYPE"))))
+
+(deftest older-fills-wait-out-the-page-load-burst-test
+  (let [{:keys [container chart chart-obj opts]} (setup)
+        now* (atom 1000)
+        timers* (atom [])
+        cleared* (atom [])
+        requested* (atom [])
+        opts* (assoc opts
+                     :history-hold-ms 30000
+                     :now-ms-fn #(deref now*)
+                     :set-timeout-fn (fn [f ms] (swap! timers* conj [f ms]) (count @timers*))
+                     :clear-timeout-fn #(swap! cleared* conj %)
+                     :older-fills-end-ms 1699999999999
+                     :on-request-older-fills #(swap! requested* conj %))]
+    ;; the visible range reaches past the covered edge, so a page is needed
+    (aset (.timeScale chart) "getVisibleRange" (fn [] #js {:from 1699900000 :to 1700000000}))
+    (trade-layer/sync-chart-trades! chart-obj container chart-trades opts*)
+    (is (= [] @requested*) "held while the page-load burst runs")
+    (is (= [30000] (mapv second @timers*)) "one re-check scheduled for the end of the hold")
+    (reset! now* 11000)
+    (trade-layer/sync-chart-trades! chart-obj container chart-trades opts*)
+    (is (= 1 (count @timers*)) "later syncs do not stack timers")
+    (reset! now* 31000)
+    ((ffirst @timers*))
+    (is (= [1699999999999] @requested*) "requested when the hold ends")
+    (testing "clearing the layer cancels a pending hold"
+      (let [{:keys [container chart chart-obj opts]} (setup)]
+        (aset (.timeScale chart) "getVisibleRange" (fn [] #js {:from 1699900000 :to 1700000000}))
+        (reset! timers* [])
+        (trade-layer/sync-chart-trades! chart-obj container chart-trades (merge opts* (select-keys opts [:create-primitive :document])))
+        (trade-layer/clear-chart-trades! chart-obj)
+        (is (= [1] @cleared*))))))

@@ -292,7 +292,8 @@ test.describe("older chart fills follow the visible range", () => {
         await page.waitForTimeout(6_000);
       }
     };
-    await expect.poll(async () => olderRequests.length, { timeout: 20_000 }).toBeGreaterThan(0);
+    // older fills wait ~30 s for the page-load burst to pass
+    await expect.poll(async () => olderRequests.length, { timeout: 45_000 }).toBeGreaterThan(0);
     await settled();
 
     const coveredFrom = () =>

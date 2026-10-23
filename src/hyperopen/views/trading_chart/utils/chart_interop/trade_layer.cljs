@@ -286,27 +286,55 @@
   (when-let [[from to] (visible-time-range-ms chart)]
     (<= (- from (- to from)) end-ms)))
 
+;; Page load fires a burst of /info requests that already approaches
+;; Hyperliquid's per-minute request weight; older fills cost weight per row,
+;; so they wait until the burst has passed.
+(def ^:private default-history-hold-ms 30000)
+
+(defn- history-hold-remaining-ms
+  [chart-obj]
+  (let [{:keys [synced-at-ms paging]} (layer-state chart-obj)
+        {:keys [history-hold-ms now-ms-fn]} paging
+        hold (if (number? history-hold-ms) history-hold-ms default-history-hold-ms)
+        now ((or now-ms-fn #(js/Date.now)))]
+    (max 0 (- (+ (or synced-at-ms now) hold) now))))
+
 (defn- request-older-fills!
   "Ask once per page for fills older than the loaded ones, when the chart's
   candles reach further back (the vm computes `:older-fills-end-ms`) and the
-  visible range is near that edge. Re-checked as the trader scrolls."
+  visible range is near that edge. Re-checked as the trader scrolls, and
+  held for the first seconds after the layer appears."
   [chart-obj]
-  (let [{:keys [chart paging requested-older-end-ms]} (layer-state chart-obj)
-        {:keys [older-fills-end-ms on-request-older-fills]} paging]
+  (let [{:keys [chart paging requested-older-end-ms hold-timer]} (layer-state chart-obj)
+        {:keys [older-fills-end-ms on-request-older-fills set-timeout-fn]} paging]
     (when (and (number? older-fills-end-ms)
                (fn? on-request-older-fills)
                (not= older-fills-end-ms requested-older-end-ms)
                chart
                (older-fills-needed? chart older-fills-end-ms))
-      (swap-layer-state! chart-obj assoc :requested-older-end-ms older-fills-end-ms)
-      (on-request-older-fills older-fills-end-ms))))
+      (let [remaining (history-hold-remaining-ms chart-obj)]
+        (cond
+          (zero? remaining)
+          (do (swap-layer-state! chart-obj assoc :requested-older-end-ms older-fills-end-ms)
+              (on-request-older-fills older-fills-end-ms))
+
+          (nil? hold-timer)
+          (swap-layer-state! chart-obj assoc :hold-timer
+                             ((or set-timeout-fn js/setTimeout)
+                              (fn []
+                                (when (contains? (layer-state chart-obj) :hold-timer)
+                                  (swap-layer-state! chart-obj assoc :hold-timer nil)
+                                  (request-older-fills! chart-obj)))
+                              remaining)))))))
 
 (defn clear-chart-trades!
   "Detach the primitive, drop the card and every listener."
   [chart-obj]
   (when chart-obj
-    (let [{:keys [primitive series root subscription]} (layer-state chart-obj)]
+    (let [{:keys [primitive series root subscription hold-timer paging]} (layer-state chart-obj)]
       (unsubscribe! subscription)
+      (when hold-timer
+        ((or (:clear-timeout-fn paging) js/clearTimeout) hold-timer))
       (when (and primitive series)
         ;; empty the primitive before detaching so the frame painted right
         ;; after (by its own request or the detach) cannot show stale badges
@@ -323,7 +351,8 @@
   "Show `chart-trades` ({:groups :groups-by-id :ribbon}) on the chart, or clear
   the layer when it is nil (setting off).
   opts: {:perp? :coin-label :format-price :on-open-history :document
-         :create-primitive}"
+         :create-primitive :older-fills-end-ms :on-request-older-fills
+         :history-hold-ms :now-ms-fn :set-timeout-fn :clear-timeout-fn}"
   [chart-obj container chart-trades {:keys [document create-primitive] :as opts}]
   (let [chart (when chart-obj (.-chart ^js chart-obj))
         doc (resolve-document document)]
@@ -341,7 +370,12 @@
                            :doc doc
                            :groups-by-id (or (:groups-by-id chart-trades) {})
                            :opts (select-keys opts [:perp? :coin-label :format-price :on-open-history])
-                           :paging (select-keys opts [:older-fills-end-ms :on-request-older-fills]))
+                           :paging (select-keys opts [:older-fills-end-ms :on-request-older-fills
+                                                    :history-hold-ms :now-ms-fn
+                                                    :set-timeout-fn :clear-timeout-fn]))
+        (when-not (:synced-at-ms (layer-state chart-obj))
+          (swap-layer-state! chart-obj assoc :synced-at-ms
+                             ((or (:now-ms-fn opts) #(js/Date.now)))))
         (primitive/set-trade-data! primitive* chart-trades)
         (reset! last-chart-obj chart-obj)
         (refresh-card! chart-obj)
