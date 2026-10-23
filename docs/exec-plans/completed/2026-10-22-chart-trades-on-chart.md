@@ -104,6 +104,9 @@ Local scratch refs (non-authoritative):
 - Observation (QA): older chart fills were paged back to the oldest loaded candle, not to what is on screen. The loaded candles usually reach only a little past the visible range (about 300 daily candles at first), so on load the difference is small; it grows once more candles are loaded than shown (after scrolling back and returning). With four years of daily candles loaded and 120 days visible, eager paging made 18 `userFillsByTime` requests back to the 2023 floor; paging now stops one screen past the visible range (5 requests) and resumes as the trader scrolls. For a very active account the cost is in the rows themselves (Hyperliquid weighs `userFillsByTime` per 20 rows returned): when the visible range alone holds 10000 fills, all of them are still fetched. Repeated reloads of such an account during QA hit HTTP 429.
 
 
+- Observation (429 investigation): measured over 60 s with live data, unmodified `main` already sends about 1,950 (perp) and 3,330 (spot) request weight per page load against Hyperliquid's ~1,200 per minute per IP; this feature added about 600–700 on startup. Root cause of most repeats: `info_client/flow.cljs` `request-attempt!` retried the final rejection of each nested retry chain again at every level (a trailing `.catch`), so a request that kept getting 429 was fetched 31 times instead of 5. Also: margin-rec fetched ~46 days of hourly candles per isolated position at high priority; post-fill account refreshes ran after nearly every fill of a continuously filling account; every failed queued request left an unhandled promise rejection. All fixed on this branch (see Decision Log). A clean live before/after could not be measured: this machine's IP stayed rate-limited by other traffic.
+
+
 ## Decision Log
 
 - Decision: Replace the setting key `:show-fill-markers?` (default off) with a new key `:show-chart-trades?` (default on), labelled "Trades on chart". Do not migrate the old value.
@@ -144,6 +147,10 @@ Local scratch refs (non-authoritative):
 
 - Decision: Gate older-fill paging in the trade layer on the visible time range (plus one screen of lookahead), re-checked on every visible-range change; the vm still computes the next page's end time from the loaded candles.
   Rationale: Only the chart layer knows the visible range. Keeping the end-time computation in the vm leaves the action guard and the history namespace unchanged.
+  Date/Author: 2026-10-22 / Claude
+
+- Decision: Hold older-fill paging for 30 s after the trades layer appears, and fix the app-wide request load on this branch (user's call): one retry path per attempt, margin-rec candles at low priority, post-fill refreshes at most every 2 s (still trailing), no unhandled rejection per failed request.
+  Rationale: The page-load minute is the one already over Hyperliquid's request weight; the retry amplification turned every 429 into a burst of up to 31 requests.
   Date/Author: 2026-10-22 / Claude
 
 
@@ -491,3 +498,5 @@ Change note (2026-10-22, final): recorded the final review fixes, the Playwright
 Change note (2026-10-22, closing): added the Playwright card spec and the `chart-trades` QA oracle, recorded the HIP-3/spot/theme/phone QA and its four fixes, and moved the plan to completed.
 
 Change note (2026-10-22, paging): older chart fills now follow the visible range; recorded the measured request counts and the remaining cost for very active accounts.
+
+Change note (2026-10-22, rate limits): recorded the 429 investigation and the fixes made on this branch.

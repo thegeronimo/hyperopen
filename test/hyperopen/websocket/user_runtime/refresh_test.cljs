@@ -39,6 +39,28 @@
       (is (nil? (get-in @runtime [:timeouts :user-account-surface-refresh])))
       (is (= [[store address]] @refresh-calls)))))
 
+(deftest account-surface-refreshes-are-spaced-for-continuously-filling-accounts-test
+  (let [store (make-store "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        runtime (atom (runtime-state/default-runtime-state))
+        now (atom 100000)
+        scheduled (atom [])]
+    (with-redefs [runtime-state/runtime runtime
+                  platform/now-ms (fn [] @now)
+                  platform/set-timeout! (fn [callback ms]
+                                          (swap! scheduled conj [callback ms])
+                                          :timeout)
+                  platform/clear-timeout! (fn [_] nil)
+                  refresh-runtime/refresh-account-surfaces-after-user-fill! (fn [_ _] nil)]
+      (refresh-runtime/schedule-account-surface-refresh-after-fill! store)
+      ((first (last @scheduled)))
+      (reset! now 100500)
+      (refresh-runtime/schedule-account-surface-refresh-after-fill! store)
+      (is (= 1500 (second (last @scheduled)))
+          "the next fill's refresh waits until 2 s after the previous one")
+      (reset! now 103000)
+      (refresh-runtime/schedule-account-surface-refresh-after-fill! store)
+      (is (= 250 (second (last @scheduled))) "a quiet account keeps the short debounce"))))
+
 (deftest scheduled-account-surface-refresh-skips-stale-address-test
   (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         other-address "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

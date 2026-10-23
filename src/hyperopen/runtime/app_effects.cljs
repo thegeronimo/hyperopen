@@ -54,6 +54,7 @@
            interval
            bars
            end-time-ms
+           priority
            active?-fn
            log-fn
            request-candle-snapshot-fn
@@ -78,11 +79,12 @@
       (do
         (when historical-backfill?
           (swap! store update-chart-history-backfill-pending 1))
-        (-> (request-candle-snapshot-fn target-coin
-                                        :interval interval*
-                                        :bars bars*
-                                        :end-time-ms end-time-ms
-                                        :active?-fn active?-fn)
+        (-> (apply request-candle-snapshot-fn target-coin
+                   :interval interval*
+                   :bars bars*
+                   :end-time-ms end-time-ms
+                   :active?-fn active?-fn
+                   (when priority [:priority priority]))
             (.then (fn [rows]
                      (when (request-active? active?-fn)
                        (swap! store apply-candle-snapshot-success target-coin interval* rows))

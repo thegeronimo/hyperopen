@@ -14,6 +14,24 @@
 (def ^:private fill-account-surface-refresh-debounce-ms
   250)
 
+;; An account that fills continuously (a market maker, often the account being
+;; spectated) would otherwise refresh after nearly every fill: each refresh
+;; re-requests open orders and balances, and together they pushed page loads
+;; past Hyperliquid's per-minute request weight. Refreshes stay trailing, so
+;; the last fill's state still loads.
+(def ^:private min-account-surface-refresh-interval-ms
+  2000)
+
+(defonce ^:private last-account-surface-refresh-ms (atom nil))
+
+(defn- account-surface-refresh-delay-ms
+  [now-ms]
+  (let [last-ms @last-account-surface-refresh-ms]
+    (max fill-account-surface-refresh-debounce-ms
+         (if (number? last-ms)
+           (- (+ last-ms min-account-surface-refresh-interval-ms) now-ms)
+           0))))
+
 (def ^:private account-surface-refresh-timeout-path
   [:timeouts :user-account-surface-refresh])
 
@@ -150,8 +168,9 @@
                          account-surface-refresh-timeout-path
                          nil)
                   (when (common/requested-address-active? store address*)
+                    (reset! last-account-surface-refresh-ms (platform/now-ms))
                     (refresh-fn store address*)))
-                fill-account-surface-refresh-debounce-ms))))))
+                (account-surface-refresh-delay-ms (platform/now-ms))))))))
 
 (defn schedule-account-surface-refresh-after-fill!
   [store]

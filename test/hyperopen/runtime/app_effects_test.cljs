@@ -56,6 +56,21 @@
             {:coin "SPY" :interval :1d :bars 50 :end-time-ms 123456789}]
            @calls))))
 
+(deftest fetch-candle-snapshot-passes-priority-only-when-given-test
+  (let [calls (atom [])
+        request-fn (fn [coin & {:as opts}]
+                     (swap! calls conj [coin (contains? opts :priority) (:priority opts)])
+                     (js/Promise.resolve [{:t 1}]))
+        base {:store (atom {:active-asset "BTC"})
+              :log-fn (fn [& _] nil)
+              :request-candle-snapshot-fn request-fn
+              :apply-candle-snapshot-success (fn [state _ _ _] state)
+              :apply-candle-snapshot-error (fn [state _ _ _] state)}]
+    (app-effects/fetch-candle-snapshot! (assoc base :coin "xyz:TSM" :priority :low))
+    (app-effects/fetch-candle-snapshot! base)
+    (is (= [["xyz:TSM" true :low] ["BTC" false nil]] @calls)
+        "background callers ask for :low; others keep the request default")))
+
 (deftest fetch-candle-snapshot-tracks-historical-backfill-pending-state-test
   (async done
     (let [resolve-request (atom nil)
