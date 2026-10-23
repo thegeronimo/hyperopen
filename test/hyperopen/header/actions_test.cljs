@@ -156,7 +156,8 @@
                 :updates {:sound-on-fill? true}}
                {:sym 'set-open-order-safety-mode
                 :args ["extended"]
-                :updates {:open-order-safety-mode :extended}}]]
+                :updates {:open-order-safety-mode :extended
+                          :open-order-safety-chosen? true}}]]
     (doseq [{:keys [args sym updates]} cases]
       (let [action (resolve-action sym)
             expected-settings (trading-settings/normalize-state

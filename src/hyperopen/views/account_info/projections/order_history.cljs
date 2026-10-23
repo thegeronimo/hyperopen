@@ -21,7 +21,7 @@
    "delistedcanceled" "Canceled because the market was delisted."
    "liquidatedcanceled" "Canceled due to liquidation."
    "outcomesettledcanceled" "Canceled because the outcome was settled."
-   "scheduledcancel" "Canceled by schedule."
+   "scheduledcancel" "Canceled by the open order safety timer (Hyperliquid scheduled cancel). Set Open order safety to Off in Trading settings to keep GTC orders open."
    "internalcancel" "Canceled by internal system logic."})
 
 (def ^:private rejected-status-to-tooltip
