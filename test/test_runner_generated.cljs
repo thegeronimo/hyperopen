@@ -3,6 +3,7 @@
 (ns test-runner-generated
   (:require [cljs.test :as cljs-test :refer-macros [run-tests]]
             [hyperopen.account-tab-modules-test]
+            [hyperopen.account.chart-fill-history-test]
             [hyperopen.account.context-test]
             [hyperopen.account.history.actions-test]
             [hyperopen.account.history.effects-csv-export-test]
@@ -901,10 +902,13 @@
             [hyperopen.views.trading-chart.utils.chart-interop.position-overlays-test]
             [hyperopen.views.trading-chart.utils.chart-interop.price-format-test]
             [hyperopen.views.trading-chart.utils.chart-interop.series-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.trade-layer-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive-test]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms-test]
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test]
             [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test]
             [hyperopen.views.trading-chart.utils.chart-options-test]
+            [hyperopen.views.trading-chart.utils.chart-trades-model-test]
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
@@ -1024,6 +1028,7 @@
    (run-generated-tests (cljs-test/empty-env)))
   ([env]
     (run-tests env 'hyperopen.account-tab-modules-test
+             'hyperopen.account.chart-fill-history-test
              'hyperopen.account.context-test
              'hyperopen.account.history.actions-test
              'hyperopen.account.history.effects-csv-export-test
@@ -1922,10 +1927,13 @@
              'hyperopen.views.trading-chart.utils.chart-interop.position-overlays-test
              'hyperopen.views.trading-chart.utils.chart-interop.price-format-test
              'hyperopen.views.trading-chart.utils.chart-interop.series-test
+             'hyperopen.views.trading-chart.utils.chart-interop.trade-layer-test
+             'hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive-test
              'hyperopen.views.trading-chart.utils.chart-interop.transforms-test
              'hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test
              'hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test
              'hyperopen.views.trading-chart.utils.chart-options-test
+             'hyperopen.views.trading-chart.utils.chart-trades-model-test
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.trading-chart.utils.position-overlay-model-test

@@ -80,7 +80,10 @@
                               [:effects/fetch-candle-snapshot
                                :coin coin
                                :interval margin-rec-state/candle-interval
-                               :bars margin-rec-state/candle-fetch-bars])
+                               :bars margin-rec-state/candle-fetch-bars
+                               ;; ~46 days of hourly bars per isolated position:
+                               ;; background work, behind the page's own requests
+                               :priority :low])
                             candle-coins)
         fills-fetches (when fills-address
                         [[:effects/margin-rec-fetch-fills fills-address]])

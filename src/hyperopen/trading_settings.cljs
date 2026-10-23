@@ -15,7 +15,7 @@
                 :else nil)]
     (if (contains? open-order-safety-modes mode*)
       mode*
-      :strict)))
+      :off)))
 
 (def margin-rec-risk-modes
   #{:conservative :balanced :capital-efficient})
@@ -34,11 +34,15 @@
   {:fill-alerts-enabled? true
    :sound-on-fill? false
    :animate-orderbook? true
-   :show-fill-markers? false
+   :show-chart-trades? true
    :confirm-open-orders? false
    :confirm-close-position? false
    :confirm-market-orders? true
-   :open-order-safety-mode :strict
+   ;; Off by default: Strict and Extended arm Hyperliquid's scheduled cancel (a
+   ;; dead-man's switch that cancels every open order, GTC included, unless this
+   ;; tab keeps renewing it), which manual traders do not expect. Opt-in only.
+   :open-order-safety-mode :off
+   :open-order-safety-chosen? false
    :margin-rec-risk-mode :balanced
    :margin-rec-auto-topup? false
    ;; Optimizer execution: stage closing orders (sell longs / buy back shorts) for
@@ -54,24 +58,36 @@
     {:fill-alerts-enabled? (not (false? (:fill-alerts-enabled? settings)))
      :sound-on-fill? (true? (:sound-on-fill? settings))
      :animate-orderbook? (not (false? (:animate-orderbook? settings)))
-     :show-fill-markers? (true? (:show-fill-markers? settings))
+     :show-chart-trades? (not (false? (:show-chart-trades? settings)))
      :confirm-open-orders? (true? (:confirm-open-orders? settings))
      :confirm-close-position? (true? (:confirm-close-position? settings))
      :confirm-market-orders? (not (false? (:confirm-market-orders? settings)))
      :open-order-safety-mode (normalize-open-order-safety-mode
                               (:open-order-safety-mode settings))
+     :open-order-safety-chosen? (true? (:open-order-safety-chosen? settings))
      :margin-rec-risk-mode (normalize-margin-rec-risk-mode
                             (:margin-rec-risk-mode settings))
      :margin-rec-auto-topup? (true? (:margin-rec-auto-topup? settings))
      :optimizer-auto-exit-excluded? (not (false? (:optimizer-auto-exit-excluded?
                                                   settings)))}))
 
+(defn- migrate-stored-settings
+  "Strict used to be the default and was saved with every other setting, so a
+  stored Strict the trader never picked becomes Off. Extended and Off could
+  only have been chosen, and stay."
+  [settings]
+  (if (and (= :strict (normalize-open-order-safety-mode (:open-order-safety-mode settings)))
+           (not (true? (:open-order-safety-chosen? settings))))
+    (assoc settings :open-order-safety-mode :off)
+    settings))
+
 (defn restore-state
   []
   (try
     (let [raw (platform/local-storage-get storage-key)]
       (if (seq raw)
-        (normalize-state (js->clj (js/JSON.parse raw) :keywordize-keys true))
+        (normalize-state
+         (migrate-stored-settings (js->clj (js/JSON.parse raw) :keywordize-keys true)))
         default-state))
     (catch :default _
       default-state)))
@@ -92,9 +108,9 @@
   [state]
   (:animate-orderbook? (state-settings state)))
 
-(defn show-fill-markers?
+(defn show-chart-trades?
   [state]
-  (:show-fill-markers? (state-settings state)))
+  (:show-chart-trades? (state-settings state)))
 
 (defn confirm-open-orders?
   [state]

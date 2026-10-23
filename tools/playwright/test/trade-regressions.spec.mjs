@@ -3999,7 +3999,7 @@ test("trading settings renders compact popover rows without clipping @regression
   const openOrdersRow = settingsSurface
     .locator('[data-role="trading-settings-confirm-open-orders-row"]')
     .first();
-  const fillMarkersRow = settingsSurface.locator('[data-role="trading-settings-fill-markers-row"]').first();
+  const chartTradesRow = settingsSurface.locator('[data-role="trading-settings-chart-trades-row"]').first();
 
   if ((await desktopPanel.count()) > 0) {
     const bounds = await desktopPanel.boundingBox();
@@ -4042,7 +4042,7 @@ test("trading settings renders compact popover rows without clipping @regression
   await expect(settingsSurface.locator('[data-role="trading-settings-footer-note"]').first()).toBeVisible();
   await expect(rememberRow).toContainText("Stay signed in across browser restarts.");
   await expect(openOrdersRow).toContainText("Show a preview before placing.");
-  await expect(fillMarkersRow).toContainText("Show your fills on the price chart.");
+  await expect(chartTradesRow).toContainText("Show your buys, sells and position history on the price chart.");
 });
 
 test("trading settings session toggles gate passkey lock behind remembered sessions @regression", async ({

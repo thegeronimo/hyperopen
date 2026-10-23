@@ -120,9 +120,9 @@
   [state enabled?]
   (persist-trading-settings state {:animate-orderbook? (boolean enabled?)}))
 
-(defn set-fill-markers-enabled
+(defn set-chart-trades-enabled
   [state enabled?]
-  (persist-trading-settings state {:show-fill-markers? (boolean enabled?)}))
+  (persist-trading-settings state {:show-chart-trades? (boolean enabled?)}))
 
 (defn set-confirm-open-orders-enabled
   [state enabled?]
@@ -141,7 +141,9 @@
   (persist-trading-settings
    state
    {:open-order-safety-mode
-    (trading-settings/normalize-open-order-safety-mode mode)}))
+    (trading-settings/normalize-open-order-safety-mode mode)
+    ;; an explicit choice survives the Strict-to-Off migration on restore
+    :open-order-safety-chosen? true}))
 
 (defn set-ui-theme
   [state theme-id]

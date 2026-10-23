@@ -19,7 +19,8 @@
    "--ho-chart-up" "rgba(34, 171, 148, 0.5)"
    "--ho-chart-down" "rgba(247, 82, 95, 0.5)"
    "--ho-chart-long" "#26a69a"
-   "--ho-chart-short" "#ef5350"})
+   "--ho-chart-short" "#ef5350"
+   "--ho-chart-liquidation" "#f5a524"})
 
 (defonce ^:private cache
   (atom {:theme ::none :values {}}))

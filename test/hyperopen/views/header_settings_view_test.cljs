@@ -73,7 +73,7 @@
                                                    :settings-confirmation nil}
                                        :trading-settings {:fill-alerts-enabled? true
                                                           :animate-orderbook? true
-                                                          :show-fill-markers? false
+                                                          :show-chart-trades? true
                                                           :confirm-open-orders? true
                                                           :confirm-close-position? false}})
         remember-row (find-node-by-role view "trading-settings-storage-mode-row")
@@ -86,7 +86,7 @@
         fill-alerts-row (find-node-by-role view "trading-settings-fill-alerts-row")
         sound-row (find-node-by-role view "trading-settings-sound-on-fill-row")
         animate-orderbook-row (find-node-by-role view "trading-settings-animate-orderbook-row")
-        fill-markers-row (find-node-by-role view "trading-settings-fill-markers-row")]
+        chart-trades-row (find-node-by-role view "trading-settings-chart-trades-row")]
     (is (contains? (set (collect-strings remember-row)) "Stay signed in across browser restarts."))
     (is (contains? (set (collect-strings open-order-safety-row)) "Account/vault-wide offline cancel behavior."))
     (is (contains? (class-token-set strict-tooltip) "ts-choice-tooltip"))
@@ -101,7 +101,7 @@
     (is (contains? (set (collect-strings fill-alerts-row)) "Toast when any order fills."))
     (is (contains? (set (collect-strings sound-row)) "Plays a short chime on fill."))
     (is (contains? (set (collect-strings animate-orderbook-row)) "Animate row changes in the book."))
-    (is (contains? (set (collect-strings fill-markers-row)) "Show your fills on the price chart."))))
+    (is (contains? (set (collect-strings chart-trades-row)) "Show your buys, sells and position history on the price chart."))))
 
 (deftest header-renders-group-kickers-and-right-aligned-hints-test
   (let [view (header-view/header-view {:wallet {:connected? false
@@ -111,7 +111,7 @@
                                                    :settings-confirmation nil}
                                        :trading-settings {:fill-alerts-enabled? true
                                                           :animate-orderbook? true
-                                                          :show-fill-markers? false
+                                                          :show-chart-trades? true
                                                           :confirm-open-orders? true
                                                           :confirm-close-position? false}})]
     (is (contains? (set (collect-strings (find-node-by-role view "trading-settings-confirmations-section")))

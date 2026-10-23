@@ -253,6 +253,11 @@
 (s/def ::api-referral-owner-args (s/tuple api-referral-owner-request?))
 (s/def ::request-id ::common/non-negative-int)
 (s/def ::request-id-args (s/tuple ::request-id))
+(s/def ::fetch-older-chart-fills-args
+  (s/tuple (s/and map?
+                  #(string? (:address %))
+                  #(number? (:end-ms %))
+                  #(pos? (:end-ms %)))))
 (s/def ::export-funding-history-csv-args (s/tuple ::common/map-vector))
 (s/def ::portfolio-optimizer-run-args
   (s/or :base (s/tuple map? map?)
@@ -366,6 +371,7 @@
    :effects/api-remove-api-wallet ::common/no-args
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
+   :effects/fetch-older-chart-fills ::fetch-older-chart-fills-args
    :effects/export-funding-history-csv ::export-funding-history-csv-args
    :effects/api-fetch-leaderboard ::api-fetch-leaderboard-args
    :effects/api-fetch-predicted-fundings ::common/no-args

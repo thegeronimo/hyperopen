@@ -20,6 +20,7 @@
    [:effects/sync-active-asset-funding-predictability :sync-active-asset-funding-predictability]
    [:effects/sync-perp-annotations :sync-perp-annotations]
    [:effects/api-fetch-historical-orders :api-fetch-historical-orders]
+   [:effects/fetch-older-chart-fills :fetch-older-chart-fills]
    [:effects/api-load-user-data :api-load-user-data]
    [:effects/api-submit-order :api-submit-order]
    [:effects/confirm-api-submit-order :confirm-api-submit-order]
@@ -32,6 +33,7 @@
   #{:actions/select-asset
     :actions/select-chart-timeframe
     :actions/request-chart-candle-backfill
+    :actions/request-older-chart-fills
     :actions/select-orderbook-price-aggregation
     :actions/select-account-info-tab
     :actions/open-position-reduce-popover
@@ -76,6 +78,7 @@
    [:actions/toggle-timeframes-dropdown :toggle-timeframes-dropdown]
    [:actions/select-chart-timeframe :select-chart-timeframe]
    [:actions/request-chart-candle-backfill :request-chart-candle-backfill]
+   [:actions/request-older-chart-fills :request-older-chart-fills]
    [:actions/toggle-chart-type-dropdown :toggle-chart-type-dropdown]
    [:actions/select-chart-type :select-chart-type]
    [:actions/toggle-indicators-dropdown :toggle-indicators-dropdown]

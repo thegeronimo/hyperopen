@@ -269,9 +269,11 @@
                                               :volume-visible? volume-visible?})))
 
 (defn- apply-chart-decorations!
-  [node chart-obj candle-data chart-type main-series-markers position-overlay position-overlay-deps
-   open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]
+  [node chart-obj {:keys [candle-data main-series-markers chart-trades chart-trades-deps position-overlay
+                          position-overlay-deps open-order-overlays overlay-deps volume-indicator-deps
+                          context-menu-deps]}]
   (ci/set-main-series-markers! chart-obj main-series-markers)
+  (ci/sync-chart-trades! chart-obj node chart-trades chart-trades-deps)
   (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
   (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
   (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
@@ -322,21 +324,10 @@
                                   :visible-range-cleanup nil}))
 
 (defn- run-chart-decoration-pass!
-  [node {:keys [candle-data chart-type main-series-markers position-overlay position-overlay-deps
-                open-order-overlays overlay-deps volume-indicator-deps context-menu-deps]}]
+  [node context]
   (let [{:keys [chart-obj chart-accessibility-applied?]} (chart-runtime/get-state node)]
     (when chart-obj
-      (apply-chart-decorations! node
-                                chart-obj
-                                candle-data
-                                chart-type
-                                main-series-markers
-                                position-overlay
-                                position-overlay-deps
-                                open-order-overlays
-                                overlay-deps
-                                volume-indicator-deps
-                                context-menu-deps)
+      (apply-chart-decorations! node chart-obj context)
       (when-not chart-accessibility-applied?
         (apply-chart-accessibility! node)
         (chart-runtime/assoc-state! node :chart-accessibility-applied? true)))))
@@ -459,6 +450,7 @@
     (when legend-control
       (.destroy ^js legend-control))
     (ci/clear-open-order-overlays! chart-obj)
+    (ci/clear-chart-trades! chart-obj)
     (ci/clear-position-overlays! chart-obj)
     (ci/clear-volume-indicator-overlay! chart-obj)
     (ci/clear-chart-context-menu-overlay! chart-obj)

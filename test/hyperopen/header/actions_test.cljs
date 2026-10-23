@@ -12,7 +12,7 @@
    (resolve 'hyperopen.header.actions/request-agent-local-protection-mode-change)
    'set-fill-alerts-enabled (resolve 'hyperopen.header.actions/set-fill-alerts-enabled)
    'set-animate-orderbook-enabled (resolve 'hyperopen.header.actions/set-animate-orderbook-enabled)
-   'set-fill-markers-enabled (resolve 'hyperopen.header.actions/set-fill-markers-enabled)
+   'set-chart-trades-enabled (resolve 'hyperopen.header.actions/set-chart-trades-enabled)
    'set-confirm-open-orders-enabled (resolve 'hyperopen.header.actions/set-confirm-open-orders-enabled)
    'set-confirm-close-position-enabled (resolve 'hyperopen.header.actions/set-confirm-close-position-enabled)
    'set-confirm-market-orders-enabled (resolve 'hyperopen.header.actions/set-confirm-market-orders-enabled)
@@ -121,7 +121,7 @@
 (deftest header-settings-toggle-actions-persist-bound-local-preferences-test
   (let [base-settings {:fill-alerts-enabled? true
                        :animate-orderbook? true
-                       :show-fill-markers? false
+                       :show-chart-trades? true
                        :confirm-open-orders? true
                        :confirm-close-position? true
                        :confirm-market-orders? true
@@ -139,9 +139,9 @@
                {:sym 'set-animate-orderbook-enabled
                 :args [false]
                 :updates {:animate-orderbook? false}}
-               {:sym 'set-fill-markers-enabled
-                :args [true]
-                :updates {:show-fill-markers? true}}
+               {:sym 'set-chart-trades-enabled
+                :args [false]
+                :updates {:show-chart-trades? false}}
                {:sym 'set-confirm-open-orders-enabled
                 :args [false]
                 :updates {:confirm-open-orders? false}}
@@ -156,7 +156,8 @@
                 :updates {:sound-on-fill? true}}
                {:sym 'set-open-order-safety-mode
                 :args ["extended"]
-                :updates {:open-order-safety-mode :extended}}]]
+                :updates {:open-order-safety-mode :extended
+                          :open-order-safety-chosen? true}}]]
     (doseq [{:keys [args sym updates]} cases]
       (let [action (resolve-action sym)
             expected-settings (trading-settings/normalize-state

@@ -13,6 +13,7 @@
    :public-webdata2 30000
    :frontend-open-orders 2500
    :user-fills 5000
+   :user-fills-by-time 5000
    :extra-agents 5000
    :sub-accounts 5000
    :user-webdata2 5000

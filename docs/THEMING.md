@@ -62,7 +62,7 @@ Names describe role, not color. Default-theme values are the exact hexes the app
 | `--ho-warn` | `#fbbd23` | Warning (daisy `warning`) |
 | `--ho-info` | `#3abff8` | Info (daisy `info`) |
 
-Chart tokens: `--ho-chart-bg`, `--ho-chart-text`, `--ho-chart-grid`, `--ho-chart-grid-strong`, `--ho-chart-grid-soft`, `--ho-chart-border-soft`, `--ho-chart-separator`, `--ho-chart-separator-hover`, `--ho-chart-up`, `--ho-chart-down` (volume fills), `--ho-chart-long`, `--ho-chart-short` (the theme's solid directional pair: position markers AND candle-family series bodies/wicks). A mounted chart restyles live on theme switch via a `data-theme` MutationObserver in the chart runtime.
+Chart tokens: `--ho-chart-bg`, `--ho-chart-text`, `--ho-chart-grid`, `--ho-chart-grid-strong`, `--ho-chart-grid-soft`, `--ho-chart-border-soft`, `--ho-chart-separator`, `--ho-chart-separator-hover`, `--ho-chart-up`, `--ho-chart-down` (volume fills), `--ho-chart-long`, `--ho-chart-short` (the theme's solid directional pair: position markers AND candle-family series bodies/wicks), `--ho-chart-liquidation` (amber liquidation-fill markers in the trades-on-chart layer). A mounted chart restyles live on theme switch via a `data-theme` MutationObserver in the chart runtime.
 
 Radius tokens: `--ho-radius-sm`, `--ho-radius`, `--ho-radius-md`, `--ho-radius-lg`, `--ho-radius-xl`, `--ho-radius-2xl`, `--ho-radius-3xl` (mapped to `rounded-sm` … `rounded-3xl`; `rounded-full` stays unthemed).
 

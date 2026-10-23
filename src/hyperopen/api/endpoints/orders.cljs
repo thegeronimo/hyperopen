@@ -36,6 +36,22 @@
                          :dedupe-key [:user-fills requested-address]}
                         opts)))))
 
+(defn request-user-fills-by-time!
+  "Fills with `startTime <= time <= endTime` (at most 2000, oldest first per
+  Hyperliquid); the chart pages backwards through older history with it."
+  [post-info! address {:keys [start-ms end-ms aggregate?] :or {aggregate? true}} opts]
+  (let [requested-address (normalize-address address)]
+    (post-info! {"type" "userFillsByTime"
+                 "user" address
+                 "startTime" (or start-ms 0)
+                 "endTime" end-ms
+                 "aggregateByTime" (boolean aggregate?)}
+                (request-policy/apply-info-request-policy
+                 :user-fills-by-time
+                 (merge {:priority :low
+                         :dedupe-key [:user-fills-by-time requested-address start-ms end-ms]}
+                        opts)))))
+
 (defn- historical-orders-seq
   [payload]
   (cond

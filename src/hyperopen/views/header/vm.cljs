@@ -392,14 +392,14 @@
                                 [[:actions/set-animate-orderbook-enabled
                                   (not (trading-settings/animate-orderbook? state))]]
                                 :tooltip "Smooth bid and ask depth changes as the book updates.")
-                  (settings-row :fill-markers
-                                "Fill markers"
-                                "Show your fills on the price chart."
-                                (trading-settings/show-fill-markers? state)
+                  (settings-row :chart-trades
+                                "Trades on chart"
+                                "Show your buys, sells and position history on the price chart."
+                                (trading-settings/show-chart-trades? state)
                                 :marker
-                                [[:actions/set-fill-markers-enabled
-                                  (not (trading-settings/show-fill-markers? state))]]
-                                :tooltip "Show buy and sell markers for the active asset on the chart.")])
+                                [[:actions/set-chart-trades-enabled
+                                  (not (trading-settings/show-chart-trades? state))]]
+                                :tooltip "Markers at your fill prices, a details card on hover, and a long/short ribbon.")])
                 (settings-section
                  :appearance
                  "Appearance"

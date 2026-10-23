@@ -90,9 +90,11 @@
           (.then (fn [result]
                    (resolve result)
                    result))
+          ;; the caller gets the failure through `reject`; re-rejecting here
+          ;; left this internal chain as an unhandled rejection per failure
           (.catch (fn [err]
                     (reject err)
-                    (js/Promise.reject err)))
+                    nil))
           (.finally (fn []
                       (mark-request-complete! task))))
       (catch :default e

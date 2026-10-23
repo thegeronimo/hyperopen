@@ -77,7 +77,8 @@
       (is (= [:effects/fetch-candle-snapshot
               :coin "xyz:TSM"
               :interval state/candle-interval
-              :bars state/candle-fetch-bars]
+              :bars state/candle-fetch-bars
+              :priority :low]
              (second effects)))))
   (testing "ready candles: computing save precedes the compute effect"
     (let [ready (assoc-in (base-state)

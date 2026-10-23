@@ -4,10 +4,12 @@
             [hyperopen.wallet.agent-safety :as agent-safety]))
 
 (defn- ready-store []
+  ;; Strict is opt-in (the default is Off); these tests exercise an armed switch
   (atom {:wallet {:connected? true
                   :address "0xowner"
                   :agent {:status :ready
-                          :agent-address "0xagent"}}}))
+                          :agent-address "0xagent"}}
+         :trading-settings {:open-order-safety-mode :strict}}))
 
 (defn- ready-store-with-mode
   [mode]
@@ -67,7 +69,8 @@
                                          {:selected-address subaccount-address
                                           :rows [{:sub-account-user subaccount-address
                                                   :master owner-address
-                                                  :name "Desk A"}]}}})
+                                                  :name "Desk A"}]}}
+                       :trading-settings {:open-order-safety-mode :strict}})
           runtime (atom {:timeouts {:agent-schedule-cancel-refresh nil}})
           schedule-calls (atom [])
           timer-calls (atom [])
@@ -206,4 +209,30 @@
                                              :clear-timeout-fn (fn [_])})
            (is false (str "Unexpected error: " err))
            (done))))
+       0))))
+
+(deftest install-agent-safety-arms-nothing-by-default-test
+  ;; no saved choice: Off, so the switch only clears any scheduled cancel left over
+  (async done
+    (let [store (atom (dissoc @(ready-store) :trading-settings))
+          runtime (atom {:timeouts {:agent-schedule-cancel-refresh nil}})
+          schedule-calls (atom [])
+          original-schedule-cancel! trading-api/schedule-cancel!]
+      (set! trading-api/schedule-cancel!
+            (fn [_store address cancel-at-ms]
+              (swap! schedule-calls conj [address cancel-at-ms])
+              (js/Promise.resolve {:status "ok"})))
+      (agent-safety/install-agent-safety-watch!
+       {:store store
+        :runtime runtime
+        :now-ms-fn (constantly 1000)
+        :set-timeout-fn (fn [_ _] (is false "no renewal timer while Off") :timer)
+        :clear-timeout-fn (fn [_] nil)})
+      (js/setTimeout
+       (fn []
+         (set! trading-api/schedule-cancel! original-schedule-cancel!)
+         (agent-safety/stop-agent-safety! {:runtime runtime :clear-timeout-fn (fn [_] nil)})
+         (remove-watch store :hyperopen.wallet.agent-safety/agent-safety)
+         (is (= [["0xowner" nil]] @schedule-calls))
+         (done))
        0))))

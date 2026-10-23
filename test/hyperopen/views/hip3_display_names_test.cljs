@@ -95,7 +95,7 @@
                    :active-indicators {}
                    :volume-visible? true}
    :orders {:open-orders [] :fills []}
-   :trading-settings {:show-fill-markers? false}})
+   :trading-settings {:show-chart-trades? false}})
 
 (deftest chart-legend-shows-display-name-but-keys-on-the-coin-test
   (chart-derived-cache/reset-derived-cache!)
