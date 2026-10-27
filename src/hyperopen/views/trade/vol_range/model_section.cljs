@@ -19,7 +19,7 @@
       label])])
 
 (defn- volatility-block
-  [{:keys [mode display source-label manual-input caption window-label unavailable-message] :as vol}]
+  [{:keys [mode display source-label manual-input caption window-label unavailable-message] :as vol} fe]
   [:div {:class ["flex" "flex-col" "gap-1.5"] :data-role "vol-range-volatility"}
    [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
     [:div {:class ["text-sm" "text-ho-text"]}
@@ -34,7 +34,8 @@
                     :label "Manual daily volatility"
                     :value manual-input
                     :suffix "%"
-                    :path [:volatility :manual-daily-pct]}))
+                    :path [:volatility :manual-daily-pct]
+                    :field-errors fe}))
    (when caption
      [:div {:class ["text-xs" "text-ho-text-muted"]} caption
       (when window-label [:span " · " window-label])])
@@ -49,7 +50,7 @@
        "Refresh daily candles"]])])
 
 (defn- anchor-block
-  [{:keys [mode options price caption custom-input excursion-text]}]
+  [{:keys [mode options price caption custom-input excursion-text]} fe]
   [:div {:class ["flex" "flex-col" "gap-1.5"] :data-role "vol-range-anchor"}
    [:label {:for "vol-range-anchor-select" :class ["text-xs" "text-ho-text-secondary"]} "Anchor"]
    [:select {:id "vol-range-anchor-select"
@@ -66,7 +67,8 @@
      (p/text-field {:id "vol-range-custom-anchor"
                     :label "Custom anchor price"
                     :value custom-input
-                    :path [:anchor :custom-price]}))
+                    :path [:anchor :custom-price]
+                    :field-errors fe}))
    [:div {:class ["flex" "flex-col" "gap-0.5" "text-xs" "text-ho-text-muted"]}
     (when (or price caption)
       [:span {:data-role "vol-range-anchor-source"}
@@ -75,7 +77,7 @@
       [:span {:class ["num"] :data-role "vol-range-anchor-excursion"} (str excursion-text)])]])
 
 (defn- tilt-block
-  [{:keys [enabled? strength-input caption]} advanced-open?]
+  [{:keys [enabled? strength-input caption]} advanced-open? fe]
   [:div {:class ["flex" "flex-col" "gap-1"] :data-role "vol-range-tilt"}
    (p/switch {:id "vol-range-tilt-enabled"
               :label "Inventory tilt"
@@ -92,11 +94,13 @@
      (p/text-field {:id "vol-range-tilt-strength"
                     :label "Tilt strength"
                     :value strength-input
-                    :path [:inventory :tilt-strength]}))])
+                    :path [:inventory :tilt-strength]
+                    :field-errors fe}))])
 
 (defn model-section
-  [{:keys [volatility anchor tilt]} {:keys [advanced-open?]}]
-  (p/section {:title "Model" :data-role "vol-range-model"}
-             (volatility-block volatility)
-             (anchor-block anchor)
-             (tilt-block tilt advanced-open?)))
+  ([model ui] (model-section model ui {}))
+  ([{:keys [volatility anchor tilt]} {:keys [advanced-open?]} fe]
+   (p/section {:title "Model" :data-role "vol-range-model"}
+              (volatility-block volatility fe)
+              (anchor-block anchor fe)
+              (tilt-block tilt advanced-open? fe))))

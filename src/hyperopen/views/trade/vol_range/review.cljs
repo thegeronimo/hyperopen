@@ -3,16 +3,17 @@
   planned orders and the cash and inventory bounds. Placement is not available
   in Release A0: there is no commit control, only Back to edit."
   (:require [hyperopen.views.trade.vol-range.commands :as commands]
-            [hyperopen.views.trade.vol-range.primitives :as p]))
+            [hyperopen.views.trade.vol-range.primitives :as p]
+            [hyperopen.views.ui.dialog-focus :as dialog-focus]))
 
 (def ^:private title-id "vol-range-review-title")
 
-(defn- focus-dialog-on-mount!
-  "Move focus into the dialog when it opens so Escape reaches its keydown handler."
-  [{:keys [replicant/life-cycle replicant/node]}]
-  (when (= life-cycle :replicant.life-cycle/mount)
-    (when-let [focus! (some-> node (aget "focus"))]
-      (.call focus! node))))
+(def ^:private dialog-focus-on-render
+  "Shared dialog focus behavior: focus moves in on open, Tab is trapped inside,
+  and on close focus returns to the element that opened the review (falling
+  back to the Review button)."
+  (dialog-focus/dialog-focus-on-render
+   {:restore-selector "[data-role='vol-range-review-open']"}))
 
 (defn- legs-table
   [legs base-label]
@@ -58,7 +59,7 @@
             :aria-modal true
             :aria-labelledby title-id
             :tabindex "-1"
-            :replicant/on-render focus-dialog-on-mount!
+            :replicant/on-render dialog-focus-on-render
             :data-role "vol-range-review"
             :class ["flex" "h-full" "w-full" "flex-col" "gap-3" "overflow-y-auto" "bg-base-100" "p-4"
                     "text-ho-text" "sm:h-auto" "sm:max-h-[90vh]" "sm:max-w-[640px]" "sm:rounded-lg"

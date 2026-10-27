@@ -25,27 +25,46 @@
       title])
    (into [:div {:class ["flex" "flex-col" "gap-2"]}] children)])
 
+(defn error-id
+  "DOM id of the error card at index `idx`, referenced by aria-describedby."
+  [idx]
+  (str "vol-range-error-" idx))
+
+(defn field-errors
+  "{draft-path error-dom-id} for the ticket's error rows; the first error for a
+  path wins, so an input points at one message."
+  [errors]
+  (reduce (fn [acc [idx {:keys [path]}]]
+            (if (and (vector? path) (not (contains? acc path))) (assoc acc path (error-id idx)) acc))
+          {}
+          (map-indexed vector errors)))
+
 (defn text-field
   "Labelled plain text input writing the draft at `path`. Enter does nothing:
-  the input is not inside a form and has no key handler."
-  [{:keys [id label value placeholder path suffix disabled? data-role]}]
-  [:div {:class ["flex" "flex-col" "gap-1" "min-w-0"]}
-   [:label {:for id :class ["text-xs" "text-ho-text-secondary"]} label]
-   [:div {:class ["relative"]}
-    [:input {:id id
-             :type "text"
-             :inputmode "decimal"
-             :autocomplete "off"
-             :class (cond-> input-classes suffix (conj "pr-10"))
-             :value (or value "")
-             :placeholder (or placeholder "")
-             :disabled (boolean disabled?)
-             :data-role data-role
-             :on {:input (actions (commands/update-draft-from-input path))}}]
-    (when suffix
-      [:span {:class ["pointer-events-none" "absolute" "right-2" "top-1/2" "-translate-y-1/2"
-                      "text-xs" "text-ho-text-muted"]}
-       suffix])]])
+  the input is not inside a form and has no key handler. When `field-errors`
+  has `path`, the input is marked invalid and described by that error."
+  [{:keys [id label value placeholder path suffix disabled? data-role field-errors]}]
+  (let [error-dom-id (get field-errors path)]
+    [:div {:class ["flex" "flex-col" "gap-1" "min-w-0"]}
+     [:label {:for id :class ["text-xs" "text-ho-text-secondary"]} label]
+     [:div {:class ["relative"]}
+      [:input (cond-> {:id id
+                       :type "text"
+                       :inputmode "decimal"
+                       :autocomplete "off"
+                       :class (cond-> input-classes
+                                suffix (conj "pr-10")
+                                error-dom-id (conj "border-ho-warn"))
+                       :value (or value "")
+                       :placeholder (or placeholder "")
+                       :disabled (boolean disabled?)
+                       :data-role data-role
+                       :on {:input (actions (commands/update-draft-from-input path))}}
+                error-dom-id (assoc :aria-invalid "true" :aria-describedby error-dom-id))]
+      (when suffix
+        [:span {:class ["pointer-events-none" "absolute" "right-2" "top-1/2" "-translate-y-1/2"
+                        "text-xs" "text-ho-text-muted"]}
+         suffix])]]))
 
 (defn switch
   "Labelled boolean draft switch (checkbox with role switch)."

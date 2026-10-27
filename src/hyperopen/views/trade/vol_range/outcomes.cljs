@@ -20,9 +20,12 @@
                  [:p {:class ["text-ho-text-muted"]} (:explanation vwap-gap)]]])))
 
 (defn- error-card
-  [{:keys [code message remediations]}]
+  "Not a live region itself: errors appear and disappear as the book moves, so
+  per-card alerts would re-announce on market ticks. `messages` carries one
+  polite count summary instead; inputs reference their card by id."
+  [idx {:keys [code message remediations]}]
   [:div {:class ["flex" "flex-col" "gap-1.5" "rounded-md" "border" "border-ho-warn" "p-2"]
-         :role "alert"
+         :id (p/error-id idx)
          :data-role "vol-range-error"
          :data-code (when code (name code))}
    [:p {:class ["text-sm" "text-ho-warn"]} message]
@@ -36,15 +39,19 @@
                           :tone :warn}))])])
 
 (defn messages
-  "Error cards (with remediation buttons) followed by plain warnings."
+  "Error cards (with remediation buttons) followed by plain warnings. The polite
+  status node is ALWAYS mounted: screen readers miss the first announcement of
+  a live region that is inserted together with its text."
   [errors warnings]
-  (when (or (seq errors) (seq warnings))
-    [:div {:class ["flex" "flex-col" "gap-1.5"] :data-role "vol-range-messages"}
+  [:div {:class ["flex" "flex-col" "gap-1.5"] :data-role "vol-range-messages"}
+     [:p {:class ["sr-only"] :role "status" :aria-live "polite" :data-role "vol-range-messages-summary"}
+      (let [n (count errors)]
+        (if (zero? n) "" (str n (if (= 1 n) " issue" " issues") " to fix before review")))]
      (for [[idx e] (map-indexed vector errors)]
-       ^{:key (str "e" idx)} (error-card e))
+       ^{:key (str "e" idx)} (error-card idx e))
      (for [[idx {:keys [message]}] (map-indexed vector warnings)]
        ^{:key (str "w" idx)}
-       [:p {:class ["text-xs" "text-ho-warn"] :data-role "vol-range-warning"} message])]))
+       [:p {:class ["text-xs" "text-ho-warn"] :data-role "vol-range-warning"} message])])
 
 (defn footer
   [{:keys [note review-label review-enabled?]}]

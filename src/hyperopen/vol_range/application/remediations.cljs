@@ -19,6 +19,11 @@
                       (assoc input :draft (apply-draft-patch (:draft input) patch)
                              :remediations? false)))))
 
+(defn patch-ready?
+  "Public form of the readiness check used for every offer (VR-23)."
+  [input patch]
+  (ready? input patch))
+
 (defn- offer [id label patch] {:id id :label label :patch patch})
 
 (defn- blank? [x] (or (nil? x) (and (string? x) (= "" (.trim x)))))
@@ -90,13 +95,21 @@
         needs-cap? (and total (or (blank? cap-raw) (and cap (neg? (precision/cmp cap total)))))
         max-patch (when needs-max? [[[:inventory :maximum] (ds n)]])
         cap-patch (when needs-cap? [[[:buy :max-usdc-debit] (precision/to-fixed total 2)]])
-        joint? (and needs-max? needs-cap? max-blank? (blank? cap-raw))
-        ok? (fn [patch] (ready? input (if joint? (into max-patch cap-patch) patch)))]
-    (cond-> []
-      (and needs-max? (ok? max-patch))
-      (conj (offer :set-maximum-all-buys (str "Set maximum to " (ds n) " · all buys filled") max-patch))
-      (and needs-cap? (ok? cap-patch))
-      (conj (offer :use-plan-total "Use plan total" cap-patch)))))
+        joint-patch (when (and max-patch cap-patch) (into max-patch cap-patch))]
+    ;; VR-23: every offer's OWN patch must yield a ready plan. When neither
+    ;; single patch does but both together do (maximum and cap both missing),
+    ;; offer one combined remediation instead of two that each fail alone.
+    (let [max-ok? (and max-patch (ready? input max-patch))
+          cap-ok? (and cap-patch (ready? input cap-patch))]
+      (cond-> []
+        max-ok?
+        (conj (offer :set-maximum-all-buys (str "Set maximum to " (ds n) " · all buys filled") max-patch))
+        cap-ok?
+        (conj (offer :use-plan-total "Use plan total" cap-patch))
+        (and joint-patch (not max-ok?) (not cap-ok?) (ready? input joint-patch))
+        (conj (offer :fill-required-limits
+                     (str "Set maximum to " (ds n) " and USDC cap to " (precision/to-fixed total 2))
+                     joint-patch))))))
 
 (defn offers
   "Remediations for an :invalid plan: crossing, notional, duplicate, then

@@ -123,16 +123,27 @@
 (deftest one-click-offers-and-nothing-to-sell-hint-test
   (with-fees
     (fn []
-      (testing "blank maximum and cap offer Set maximum and Use plan total"
+      (testing "blank maximum and cap offer one combined remediation in both places"
         (let [state (-> (sf/base-state)
                         (assoc-in [:order-form :scale :vol-range :inventory :maximum] "")
                         (assoc-in [:order-form :scale :vol-range :buy :max-usdc-debit] ""))
               m (ticket state)]
           (is (vrc/ticket-model-valid? m) (pr-str m))
-          (is (= {:id :set-maximum-all-buys :label "Set maximum to 190 · all buys filled"}
+          (is (= {:id :fill-required-limits :label "Set maximum to 190 and USDC cap to 2889.16"}
                  (get-in m [:inventory :set-maximum-offer])))
-          (is (= {:id :use-plan-total :label "Use plan total"}
+          (is (= {:id :fill-required-limits :label "Set maximum to 190 and USDC cap to 2889.16"}
                  (get-in m [:buy :use-plan-total-offer])))))
+      (testing "only the cap blank offers Use plan total alone"
+        (let [m (ticket (assoc-in (sf/base-state) [:order-form :scale :vol-range :buy :max-usdc-debit] ""))]
+          (is (= {:id :use-plan-total :label "Use plan total"} (get-in m [:buy :use-plan-total-offer])))
+          (is (nil? (get-in m [:inventory :set-maximum-offer])))))
+      (testing "a corrective starting breach is shown explicitly (spec 6.6)"
+        (let [m (ticket (-> (sf/base-state)
+                            (assoc-in [:spot :clearinghouse-state :balances 1 :total] "195")
+                            (assoc-in [:order-form :scale :vol-range :buy :enabled?] false)))]
+          (is (vrc/ticket-model-valid? m) (pr-str m))
+          (is (= "Inventory 195.00 SYN is above the maximum 190.00 SYN. Only sells that bring it down can be planned."
+                 (get-in m [:inventory :starting-breach])))))
       (testing "sell enabled with the default core shows the hint and no shortcuts"
         (let [state (-> (sf/base-state)
                         (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "")

@@ -2,12 +2,14 @@
   "Read-only Vol Range review model (HO-SPEC-014 v2.1 section 4.4, Release A0).
 
   Built from the FROZEN plan at `[:vol-range :frozen-review]` and the context
-  captured with it at `[:vol-range :frozen-context]` ({:bbo :frozen-at-ms});
+  captured with it at `[:vol-range :frozen-context]` ({:bbo :frozen-at-ms
+  :provenance}); source ages come from the provenance captured at freeze time;
   nothing re-anchors to a newer quote. The footer says placement is not
   available and carries no commit control (VR-24)."
   (:require [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
-            [hyperopen.vol-range.application.ticket-model :as ticket-model]))
+            [hyperopen.vol-range.application.ticket-model :as ticket-model]
+            [hyperopen.vol-range.contracts :as contracts]))
 
 (def placement-text "Placement isn't available yet")
 (def enter-hint "Pressing Enter in a field never places orders.")
@@ -83,6 +85,11 @@
         base (:symbol scope)
         o (:inventory-outcomes plan)
         amt (fn [k] (with-symbol (display/amount (get o k) sz) base))]
+    (cond-> []
+      (:starting-breach o)
+      (conj (row "Starting breach" (ticket-model/starting-breach-text o sz base)))
+      true
+      (into
     [(row "Current inventory" (amt :current))
      (row "Protected core" (amt :core))
      (row "Target" (amt :target))
@@ -91,20 +98,48 @@
      (row "If all sells fill first" (amt :all-sells-first))
      (row "If everything fills" (amt :all-fill))
      (row "Existing buy orders included" (amt :existing-buy-exposure))
-     (row "Existing sell orders included" (amt :existing-sell-exposure))]))
+     (row "Existing sell orders included" (amt :existing-sell-exposure))]))))
+
+(defn source-age-text
+  "\"14:02:10 UTC · 0.4 s before plan\", with \" · stale\" when the age at the
+  frozen plan time exceeds `max-age-ms` (spec 7.3), and \"unknown\" when the
+  source carried no observation time. Ages are measured against the frozen
+  plan time, never the render clock."
+  [observed-ms frozen-ms max-age-ms]
+  (cond
+    (not (number? observed-ms)) "unknown · treated as stale"
+    (not (number? frozen-ms)) (display/utc-clock observed-ms)
+    :else
+    (let [age (max 0 (- frozen-ms observed-ms))
+          secs (/ (js/Math.round (/ age 100)) 10)]
+      (str (display/utc-clock observed-ms) " · " secs " s before plan"
+           (when (and max-age-ms (> age max-age-ms)) " · stale")))))
 
 (defn- detail-rows [plan context]
   (let [v (:source-versions plan)
-        window (:volatility-window v)]
+        window (:volatility-window v)
+        frozen (:frozen-at-ms context)
+        policy contracts/freshness-policy
+        ;; Live provenance captured at freeze; plan source-versions as fallback.
+        prov (merge {:bbo-observed-at-ms (:bbo-observed-at-ms v)
+                     :vwap-observed-at-ms (:anchor-observed-at-ms v)
+                     :fee-loaded-at-ms (:fee-loaded-at-ms v)}
+                    (:provenance context))]
     [(row "Plan" (:plan-id plan))
      (row "Model version" (str (:model-version v)))
      (row "Estimator" (:estimator-version v))
      (row "Volatility window" (when window
                                 (str (display/utc-date (:first-day-ms window)) " – "
                                      (display/utc-date (:last-day-ms window)) " (UTC)")))
-     (row "Book observed" (display/utc-clock (:bbo-observed-at-ms v)))
-     (row "Anchor observed" (display/utc-clock (:anchor-observed-at-ms v)))
-     (row "Fee quote loaded" (display/utc-clock (:fee-loaded-at-ms v)))
+     ;; The store only keeps visually changed books, so this is the time of the
+     ;; last book CHANGE, not proof of a current observation (spec 7.3).
+     (row "Book last changed" (source-age-text (:bbo-observed-at-ms prov) frozen (:bbo-ms policy)))
+     (row "Anchor observed" (case (get-in plan [:model :anchor :mode])
+                              :custom "Custom anchor"
+                              :market-price (source-age-text (:bbo-observed-at-ms prov) frozen (:bbo-ms policy))
+                              :vwap-24h (source-age-text (:vwap-observed-at-ms prov) frozen (:vwap-ms policy))
+                              (source-age-text (:anchor-observed-at-ms v) frozen nil)))
+     (row "Fee quote loaded" (source-age-text (:fee-loaded-at-ms prov) frozen (:fee-ms policy)))
      (row "Frozen at" (display/utc-clock (:frozen-at-ms context)))]))
 
 (def ^:private empty-review

@@ -234,6 +234,27 @@
      :existing-sell-exposure (ds s-existing)
      :starting-breach (corrective-mode {:q q :core core :maximum maximum})}))
 
+(defn existing-commitment-warnings
+  "Spec 6.6: pre-existing conflicting commitments must be surfaced. When the
+  account already breaches a bound, existing orders on the breaching side can
+  deepen that breach; the planner cannot assume they cancel or that the other
+  side fills first."
+  [{:keys [q core maximum b-existing s-existing]}]
+  (let [mode (corrective-mode {:q q :core core :maximum maximum})
+        b (or b-existing zero)
+        s (or s-existing zero)]
+    (cond-> []
+      (and (= mode :above-maximum) (precision/pos-dec? b))
+      (conj (contracts/warning :plan/existing-commitment-worsens-breach
+                               {:starting-breach mode :side :buy :existing (ds b)
+                                :message (str "Existing buy orders for " (ds b)
+                                              " could raise inventory further above the maximum.")}))
+      (and (= mode :below-core) (precision/pos-dec? s))
+      (conj (contracts/warning :plan/existing-commitment-worsens-breach
+                               {:starting-breach mode :side :sell :existing (ds s)
+                                :message (str "Existing sell orders for " (ds s)
+                                              " could take inventory further below the protected core.")})))))
+
 (defn check-bounds
   "Spec 6.6 hard constraints with directional corrective handling. Cash, fee
   and balance checks always apply; corrective plans only get the directional
@@ -258,12 +279,15 @@
       (when (and (= mode :below-core) sells?) [(wrong-way :sell)])
       (when (and maximum (not= mode :above-maximum) (pos? (cmp all-buy maximum)))
         [(contracts/error :plan/max-inventory-breach
-                          {:all-buy-inventory (ds all-buy) :maximum (ds maximum)})])
+                          {:all-buy-inventory (ds all-buy) :maximum (ds maximum)
+                           :path [:inventory :maximum]})])
       (when (and core (not= mode :below-core) (neg? (cmp all-sell core)))
         [(contracts/error :plan/protected-core-breach
-                          {:all-sell-inventory (ds all-sell) :protected-core (ds core)})])
+                          {:all-sell-inventory (ds all-sell) :protected-core (ds core)
+                           :path [:inventory :protected-core]})])
       (when (and buys? cap (pos? (cmp max-debit cap)))
-        [(contracts/error :plan/usdc-cap-exceeded {:required (ds max-debit) :cap (ds cap)})])
+        [(contracts/error :plan/usdc-cap-exceeded {:required (ds max-debit) :cap (ds cap)
+                                                   :path [:buy :max-usdc-debit]})])
       (when (and buys? available-usdc (pos? (cmp max-debit available-usdc)))
         [(contracts/error :plan/insufficient-usdc {:required (ds max-debit) :available (ds available-usdc)})])
       (when (and sells? available-base

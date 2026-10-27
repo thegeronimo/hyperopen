@@ -33,17 +33,17 @@
                              (assoc-in [:order-form :scale :vol-range :buy :max-usdc-debit] "")))
             t (text html)]
         (doseq [s ["Accumulate buys" "Distribute sells" "Protected core" "Maximum USDC debit"
-                   "Quoted buy VWAP" "Quoted sell VWAP" "Use plan total"
-                   "Set maximum to 190 · all buys filled"
+                   "Quoted buy VWAP" "Quoted sell VWAP"
+                   "Set maximum to 190 and USDC cap to 2889.16"
                    "Orders fill independently. Prices stay fixed until you update them."
                    "Review 7 orders" "Model" "Inventory" "If orders fill" "Post-only"
                    "Current spot inventory" "Available to sell" "Daily volatility"
                    "Parkinson · 14-day lookback" "Sale proceeds don't fund the staged buys."]]
           (is (str/includes? t s) (str "missing: " s)))
         (is (some? (hiccup/find-by-data-role html "vol-range-use-plan-total")))
-        (is (= [[:actions/apply-vol-range-remediation :use-plan-total]]
+        (is (= [[:actions/apply-vol-range-remediation :fill-required-limits]]
                (get-in (hiccup/find-by-data-role html "vol-range-use-plan-total") [1 :on :click])))
-        (is (= [[:actions/apply-vol-range-remediation :set-maximum-all-buys]]
+        (is (= [[:actions/apply-vol-range-remediation :fill-required-limits]]
                (get-in (hiccup/find-by-data-role html "vol-range-set-maximum") [1 :on :click])))
         (is (= [[:actions/open-vol-range-review]]
                (get-in (hiccup/find-by-data-role html "vol-range-review-open") [1 :on :click])))))))
@@ -198,3 +198,32 @@
                   (hiccup/find-all-nodes node #(some? (get-in % [1 :on :click])))))
         (is (nil? (hiccup/find-by-data-role (order-form-view/order-form-view (sf/base-state))
                                             "order-form-spectate-mode-stop")))))))
+
+(deftest invalid-inputs-are-marked-and-described-test
+  (with-fees
+    (fn []
+      (let [html (render (assoc-in (sf/base-state) [:order-form :scale :vol-range :inventory :maximum] "180"))
+            input (hiccup/find-first-node html #(= "vol-range-maximum" (get-in % [1 :id])))
+            described-by (get-in input [1 :aria-describedby])]
+        (is (= "true" (get-in input [1 :aria-invalid])))
+        (is (some? (hiccup/find-first-node html #(= described-by (get-in % [1 :id]))))
+            "aria-describedby points at a rendered error card")
+        (is (nil? (get-in (hiccup/find-first-node html #(= "vol-range-target" (get-in % [1 :id])))
+                          [1 :aria-invalid])))))))
+
+(deftest error-cards-are-not-per-card-alerts-test
+  (with-fees
+    (fn []
+      (let [html (render (assoc-in (sf/base-state) [:orderbooks "@107"]
+                                   {:bids [{:px "75.89"}] :asks [{:px "75.91"}]}))
+            summary (hiccup/find-by-data-role html "vol-range-messages-summary")]
+        (is (empty? (hiccup/find-all-nodes html #(= "alert" (get-in % [1 :role])))))
+        (is (= "polite" (get-in summary [1 :aria-live])))
+        (is (str/includes? (text summary) "to fix before review"))))))
+
+(deftest inventory-track-values-are-readable-test
+  (with-fees
+    (fn []
+      (let [track (hiccup/find-by-data-role (render (sf/base-state)) "vol-range-inventory-track")]
+        (is (not= "img" (get-in track [1 :role])) "role=img would hide the labelled values")
+        (is (str/includes? (text track) "Core 120.00"))))))

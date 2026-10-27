@@ -27,11 +27,16 @@
 ;; Capability
 ;; ---------------------------------------------------------------------------
 
-(defn- capability-findings [caps market account]
+(defn- capability-findings
+  "Spec 3.1 / 15.2: the RAW account abstraction must be explicitly allowlisted.
+  A missing raw value (not loaded yet) is unavailable; any other value,
+  including future ones, is unsupported."
+  [caps market account]
   (let [market-type (:market-type market)
         supported? (and (contains? (:market-types caps) market-type)
                         (contains? (:quote-symbols caps) (:quote-symbol market)))
-        mode (:account-mode account)
+        has-account? (and account (some? (:account-address account)))
+        raw-mode (:raw-account-mode account)
         sz (:sz-decimals market)]
     {:errors
      (cond-> []
@@ -39,17 +44,15 @@
        (and (seq market) (not supported?)) (conj (contracts/error :capability/market-unsupported {}))
        (and supported? (nil? sz)) (conj (contracts/error :data/market-metadata-unavailable {}))
        (false? (:preview? caps)) (conj (contracts/error :capability/preview-disabled {}))
-       (contains? (get-in caps [:account-modes :blocked]) mode)
-       (conj (contracts/error :capability/account-mode-unsupported {:mode mode}))
-       (or (nil? account) (nil? (:account-address account)))
+       (and has-account? (nil? raw-mode))
+       (conj (contracts/error :data/account-mode-unavailable {}))
+       (and has-account? raw-mode (not (contains? (:raw-account-modes caps) raw-mode)))
+       (conj (contracts/error :capability/account-mode-unsupported {:mode raw-mode}))
+       (not has-account?)
        (conj (contracts/error :capability/account-required {}))
        (or (nil? (:base account)) (nil? (:quote account)))
        (conj (contracts/error :data/balances-unavailable {})))
-     :warnings
-     (cond-> []
-       (and mode (not (contains? (get-in caps [:account-modes :supported]) mode))
-            (not (contains? (get-in caps [:account-modes :blocked]) mode)))
-       (conj (contracts/warning :capability/raw-account-mode-unverified {:mode mode})))}))
+     :warnings []}))
 
 ;; ---------------------------------------------------------------------------
 ;; Volatility and anchor
@@ -102,11 +105,33 @@
           {:buy zero :sell zero}
           open-orders))
 
-(defn- sellable-excess [{:keys [q s-existing core available-base sz]}]
+(defn- base-sell-fee-fraction
+  "Positive maker fraction when sell fees settle in the base token; nil otherwise."
+  [fees]
+  (when (and (= :ok (:status fees)) (= :base (:sell-fee-token fees)))
+    (let [f (some-> (:maker-fraction fees) d)]
+      (when (and f (precision/pos-dec? f)) f))))
+
+(defn- sell-fee-bound [x f]
+  (precision/quantize (precision/mul x f) (:fee-reserve-scale contracts/product-policy) :ceil))
+
+(defn- sellable-excess
+  "Largest lot multiple `x` with x + base fee bound(x) inside both the room above
+  protected core (after existing sells) and the available base (spec 4.2)."
+  [{:keys [q s-existing core available-base sz fee-f]}]
   (when (and q available-base core sz)
-    (let [room (precision/sub (precision/sub q s-existing) core)
-          m (precision/dec-min available-base room)]
-      (precision/quantize (precision/dec-max zero m) sz :floor))))
+    (let [room (precision/dec-max zero (precision/dec-min available-base
+                                                          (precision/sub (precision/sub q s-existing) core)))]
+      (if-not fee-f
+        (precision/quantize room sz :floor)
+        (let [lot (precision/lots->decimal 1 sz)
+              fits? (fn [x] (<= (precision/cmp (precision/add x (sell-fee-bound x fee-f)) room) 0))
+              guess (precision/quantize (precision/divide room (precision/add (d "1") fee-f) 20 :floor)
+                                        sz :floor)]
+          (loop [x guess]
+            (cond (not (pos? (precision/cmp x zero))) zero
+                  (fits? x) x
+                  :else (recur (precision/sub x lot)))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Totals
@@ -153,8 +178,18 @@
            :else v))
    x))
 
+(def provenance-keys
+  "Observation and load times: provenance that travels beside the plan inputs.
+  They never change the plan's numbers, so they stay out of the fingerprint and
+  every memo key (a new receipt time alone must not re-plan)."
+  #{:observed-at-ms :loaded-at-ms})
+
+(defn without-provenance [x]
+  (walk/postwalk (fn [v] (if (map? v) (apply dissoc v provenance-keys) v)) x))
+
 (defn fingerprint [input]
-  (str "vr1-" (.toString (hash (pr-str (canonical (dissoc input :plan-id :clock :remediations?)))) 16)))
+  (str "vr1-" (.toString (hash (pr-str (canonical (without-provenance
+                                                   (dissoc input :plan-id :clock :remediations?))))) 16)))
 
 ;; ---------------------------------------------------------------------------
 ;; Planner core
@@ -189,11 +224,17 @@
         limit-errors (when (and q (or (nil? (:core resolved)) (nil? (:target resolved))))
                        (admission/check-inventory-limits {:core core :target target :maximum maximum}))
         tilt? (:tilt-enabled? resolved)
+        ;; Spec 5.4 needs a real q_max: never invent one for tilt.
+        ;; Skipped when the maximum is already reported missing on the same field.
+        tilt-errors (when (and tilt? (nil? maximum)
+                               (not-any? #(= :input/maximum-required (:code %)) errors))
+                      [(contracts/error :input/maximum-required-for-tilt
+                                        {:path [:inventory :maximum]})])
         kappa (when tilt? (or (:tilt-strength resolved) (d (get-in contracts/product-policy [:tilt-strength :default]))))
-        delta (when (and tilt? anchor v)
-                (grid/inventory-delta {:q (or q zero) :core (or core zero) :target (or target zero)
-                                       :maximum (or maximum (precision/dec-max (or q zero) (or target zero)))}))
-        shifted (when (and anchor v)
+        delta (when (and tilt? anchor v q maximum)
+                (grid/inventory-delta {:q q :core (or core zero) :target (or target zero)
+                                       :maximum maximum}))
+        shifted (when (and anchor v (or (not tilt?) delta))
                   (grid/shifted-anchor {:anchor (:price anchor) :v v :kappa kappa :delta delta
                                         :tilt-enabled? tilt?}))
         r (:price shifted)
@@ -228,7 +269,12 @@
                          :base-credit-bound base-credit :base-debit-bound base-debit
                          :usdc-debit-bound usdc-bound :buy-notional (sum-by buy-legs :notional)
                          :cap buy-cap :available-usdc avail-usdc :available-base avail-base}))
-        excess (sellable-excess {:q q :s-existing (:sell exposure) :core core :available-base avail-base :sz sz})
+        excess (sellable-excess {:q q :s-existing (:sell exposure) :core core :available-base avail-base
+                                 :sz sz :fee-f (base-sell-fee-fraction fees)})
+        breach-warnings (when (and capable? q)
+                          (admission/existing-commitment-warnings
+                           {:q q :core core :maximum maximum :b-existing (:buy exposure)
+                            :s-existing (:sell exposure)}))
         sell-enabled? (get-in resolved [:sell :enabled?])
         buy-enabled? (get-in resolved [:buy :enabled?])
         all-errors (dedupe-errors
@@ -243,10 +289,11 @@
                         (into (when (and capable? v anchor) (:errors sell-r)))
                         (into (when (and capable? (not fee-ok?)) [(contracts/error :data/fee-quote-unavailable {})]))
                         (into (remove (fn [e] (some #(= (:code e) (:code %)) errors)) limit-errors))
+                        (into tilt-errors)
                         (into leg-errors)
                         (into bound-errors)))
         warnings (dedupe-errors
-                  (cond-> (vec (:warnings cap-f))
+                  (cond-> (into (vec (:warnings cap-f)) breach-warnings)
                     (and fee-ok? (not (:settlement-verified? fees)))
                     (conj (contracts/warning :capability/fee-settlement-unverified {}))
                     (and sell-enabled? account-ok? excess (precision/zero-dec? excess))

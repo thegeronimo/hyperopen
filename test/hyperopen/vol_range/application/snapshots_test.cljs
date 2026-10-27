@@ -15,6 +15,7 @@
             :account-address sf/owner
             :vault-address nil
             :market-type :spot
+            :dex nil
             :spot-pair-index 107
             :asset-id 10107
             :coin "@107"
@@ -43,8 +44,13 @@
                             {:bids [{:px "79.5"} {:px "79.99"} {:px "78"}]
                              :asks [{:px "81"} {:px "80.01"} {:px "90"}]}))
         snap (snapshots/market-snapshot state now)]
-    (is (= {:bid "79.99" :ask "80.01" :observed-at-ms now} (:bbo snap)))
-    (is (= {:price "80" :observed-at-ms now} (get-in snap [:anchors :market-price])))
+    (is (= {:bid "79.99" :ask "80.01" :observed-at-ms nil} (:bbo snap))
+        "a book without a venue timestamp has an UNKNOWN observation time, never the render clock")
+    (is (= {:price "80" :observed-at-ms nil} (get-in snap [:anchors :market-price])))
+    (testing "the venue time of the book is carried through to the BBO and market-price anchor"
+      (let [s (snapshots/market-snapshot (assoc-in state [:orderbooks "@107" :timestamp] 1234) now)]
+        (is (= 1234 (get-in s [:bbo :observed-at-ms])))
+        (is (= 1234 (get-in s [:anchors :market-price :observed-at-ms])))))
     (is (= :ready (:status snap)))
     (is (= "SYN" (:base-symbol snap)))
     (is (= 2 (:sz-decimals snap)))
@@ -58,7 +64,11 @@
 (deftest market-snapshot-vwap-anchor-test
   (let [state (sf/base-state)
         snap (snapshots/market-snapshot state now)]
-    (is (= {:price "80" :observed-at-ms now} (get-in snap [:anchors :vwap-24h])))
+    (is (= {:price "80" :observed-at-ms sf/ctx-received-ms} (get-in snap [:anchors :vwap-24h]))
+        "the context receipt time, not the render clock")
+    (is (nil? (get-in (snapshots/market-snapshot
+                       (update-in state [:market-observations :active-asset-ctx] dissoc "@107") now)
+                      [:anchors :vwap-24h :observed-at-ms])))
     (testing "VWAP divides raw quote volume by raw base volume at 12 places"
       (let [s (snapshots/market-snapshot
                (assoc-in state [:active-assets :contexts "@107"] {:dayNtlVlmRaw "1000" :dayBaseVlmRaw "3"}) now)]
@@ -211,7 +221,7 @@
       (is (= :base (:buy-fee-token snap)))
       (is (= :quote (:sell-fee-token snap)))
       (is (false? (:settlement-verified? snap)))
-      (is (= now (:loaded-at-ms snap)))
+      (is (= sf/fees-loaded-ms (:loaded-at-ms snap)) "the fee quote's own load time")
       (is (contracts/fee-capability-valid? snap))))
   (is (= :ok (:status fx/synthetic-fees))))
 

@@ -40,10 +40,29 @@
   {:network :hyperliquid-mainnet
    :market-types #{:spot}
    :quote-symbols #{"USDC"}
-   :account-modes {:supported #{:classic} :blocked #{:unified}}
+   ;; Spec 3.1: admission inspects the RAW `userAbstraction` value. The
+   ;; normalized `[:account :mode]` maps unknown values to :classic, so it is
+   ;; never used for admission. Missing or unlisted raw values are blocked.
+   :raw-account-modes #{"default" "disabled" "dexAbstraction"}
    :release :a0
    :execution? false
    :reporting? false})
+
+(def freshness-policy
+  "Spec 7.3 maximum source ages in milliseconds. Release A0 reports ages and
+  stale flags in the review; placement admission (Release A) enforces them
+  with awaited reads."
+  {:bbo-ms 2000
+   :vwap-ms 30000
+   :fee-ms 300000
+   :review-ms 60000})
+
+(defn current-network
+  "The one network identity Vol Range scopes and plans carry. HyperOpen's
+  exchange transport is mainnet-only today (spec 3.2); a testnet adapter must
+  change this together with endpoint and signing selection."
+  []
+  (:network capability-matrix))
 
 (defn preview-enabled? []
   (config/vol-range-preview-enabled?))
@@ -96,7 +115,11 @@
    [:capability/fee-settlement-unverified :capability :invalid "Fee settlement currency is not verified"]
    [:capability/raw-account-mode-unverified :capability :invalid "Raw account mode is not verified"]
    [:hint/nothing-to-sell :hint :invalid "No sellable inventory above the protected core"]
-   [:data/volatility-stale :data :unavailable "Daily candles are stale and are being refreshed"]])
+   [:data/volatility-stale :data :unavailable "Daily candles are stale and are being refreshed"]
+   [:data/account-mode-unavailable :data :unavailable "Account mode is not loaded yet"]
+   [:input/maximum-required-for-tilt :input :invalid "Set a maximum inventory to use inventory tilt"]
+   [:plan/existing-commitment-worsens-breach :plan :invalid
+    "Existing open orders could deepen the current inventory breach"]])
 
 (def error-registry
   (into {}
@@ -123,8 +146,12 @@
       (seq statuses) :invalid
       :else :ready)))
 
-(defn scope-key [{:keys [network account-address spot-pair-index]}]
-  (str (name network) "|" (or account-address "none") "|" spot-pair-index))
+(defn scope-key
+  "Draft/plan scope key. Market type and dex are part of the key because perp,
+  HIP-3 and spot markets reuse the same small integer indexes."
+  [{:keys [network account-address market-type dex spot-pair-index]}]
+  (str (name (or network (current-network))) "|" (or account-address "none") "|"
+       (if market-type (name market-type) "unknown") "|" (or dex "") "|" spot-pair-index))
 
 ;; ---------------------------------------------------------------------------
 ;; Specs (exact keys)
@@ -136,14 +163,31 @@
 (defn- decimal-string? [x]
   (some? (precision/parse-decimal x)))
 
+(defn- canonical-positive-decimal?
+  "A clean wire string (spec 6.2): parses, is > 0 and round-trips unchanged, so
+  \"1.50\", \"5.\", \"0\" and \"-1\" are rejected."
+  [x]
+  (when (string? x)
+    (when-let [v (precision/parse-decimal x)]
+      (and (precision/pos-dec? v) (= x (precision/decimal->string v))))))
+
+(defn- canonical-nonnegative-decimal?
+  "Like `canonical-positive-decimal?` but admits \"0\": an :invalid plan keeps
+  zero-lot rungs as diagnostics next to :plan/zero-size-rung (spec 6.1). A
+  :ready plan can never contain one because that error blocks it."
+  [x]
+  (when (string? x)
+    (when-let [v (precision/parse-decimal x)]
+      (and (not (precision/neg-dec? v)) (= x (precision/decimal->string v))))))
+
 (s/def ::leg
   (s/and #(exact-keys? % #{:leg-id :side :rung-index :price :size :notional :actual-sigma :raw-price})
          #(string? (:leg-id %))
          #(contains? #{:buy :sell} (:side %))
-         #(integer? (:rung-index %))
-         #(decimal-string? (:price %))
-         #(decimal-string? (:size %))
-         #(decimal-string? (:notional %))
+         #(and (integer? (:rung-index %)) (<= 0 (:rung-index %)))
+         #(canonical-positive-decimal? (:price %))
+         #(canonical-nonnegative-decimal? (:size %))
+         #(canonical-nonnegative-decimal? (:notional %))
          #(decimal-string? (:raw-price %))
          #(or (nil? (:actual-sigma %)) (string? (:actual-sigma %)))))
 
@@ -171,6 +215,16 @@
                            :inventory-outcomes :fee-reserves :source-versions :remediations
                            :errors :warnings})
          #(contains? #{:ready :invalid :unavailable} (:status %))
+         ;; Status is a function of the errors, and a :ready plan has legs.
+         #(= (:status %) (status-for-errors (:errors %)))
+         #(or (not= :ready (:status %))
+              (and (seq (:legs %))
+                   (every? (fn [l] (and (canonical-positive-decimal? (:size l))
+                                        (canonical-positive-decimal? (:notional l))))
+                           (:legs %))))
+         #(or (nil? (:plan-id %)) (string? (:plan-id %)))
+         #(string? (:input-fingerprint %))
+         #(or (nil? (:scope %)) (map? (:scope %)))
          #(and (sequential? (:legs %)) (every? (fn [l] (s/valid? ::leg l)) (:legs %)))
          #(and (sequential? (:remediations %)) (every? (fn [r] (s/valid? ::remediation r)) (:remediations %)))
          #(and (sequential? (:errors %)) (every? (fn [e] (s/valid? ::error e)) (:errors %)))
@@ -190,8 +244,9 @@
 (defn- balance? [b] (exact-keys? b #{:total :hold :available}))
 
 (s/def ::account-snapshot
-  (s/and #(exact-keys? % #{:status :errors :account-address :account-mode :read-only? :base :quote
-                           :open-orders :observed-at-ms})
+  (s/and #(exact-keys? % #{:status :errors :account-address :account-mode :raw-account-mode
+                           :read-only? :base :quote :open-orders :observed-at-ms})
+         #(or (nil? (:raw-account-mode %)) (string? (:raw-account-mode %)))
          #(contains? #{:ready :invalid :unavailable} (:status %))
          #(or (nil? (:base %)) (balance? (:base %)))
          #(or (nil? (:quote %)) (balance? (:quote %)))

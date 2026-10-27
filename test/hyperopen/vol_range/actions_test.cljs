@@ -41,16 +41,23 @@
   (with-fees
     (fn []
       (let [state (blank-limits-state)
-            {set-max :state set-max-effects :effects} (apply-remediation state :set-maximum-all-buys)]
-        (is (= "190" (get-in (vr-draft set-max) [:inventory :maximum])))
-        (is (= [[:inventory :maximum]] (changed-paths state set-max)))
-        (is (= [:effects/save-many] (mapv first set-max-effects)))
-        (let [{use-total :state} (apply-remediation set-max :use-plan-total)]
-          (is (= "2889.16" (get-in (vr-draft use-total) [:buy :max-usdc-debit])))
-          (is (= [[:buy :max-usdc-debit]] (changed-paths set-max use-total))))
+            {joint :state joint-effects :effects} (apply-remediation state :fill-required-limits)]
+        (testing "both blank: the single offered remediation fills both limits"
+          (is (= "190" (get-in (vr-draft joint) [:inventory :maximum])))
+          (is (= "2889.16" (get-in (vr-draft joint) [:buy :max-usdc-debit])))
+          (is (= [[:inventory :maximum] [:buy :max-usdc-debit]] (changed-paths state joint)))
+          (is (= [:effects/save-many] (mapv first joint-effects))))
+        (testing "single-field remediations are not offered while both are blank (VR-23)"
+          (is (= [] (actions/apply-vol-range-remediation state :set-maximum-all-buys now)))
+          (is (= [] (actions/apply-vol-range-remediation state :use-plan-total now))))
         (testing "the remediation can also be applied by string id"
-          (is (= "190" (get-in (vr-draft (:state (apply-remediation state "set-maximum-all-buys")))
+          (is (= "190" (get-in (vr-draft (:state (apply-remediation state "fill-required-limits")))
                                [:inventory :maximum]))))
+        (testing "Set maximum alone is offered when the cap is already set"
+          (let [only-max (assoc-in state [:order-form :scale :vol-range :buy :max-usdc-debit] "2900")
+                {after :state} (apply-remediation only-max :set-maximum-all-buys)]
+            (is (= "190" (get-in (vr-draft after) [:inventory :maximum])))
+            (is (= [[:inventory :maximum]] (changed-paths only-max after)))))
         (testing "Use plan total alone is offered when maximum is already set"
           (let [only-cap (assoc-in state [:order-form :scale :vol-range :inventory :maximum] "190")
                 {after :state} (apply-remediation only-cap :use-plan-total)]
@@ -166,8 +173,11 @@
         (is (= :ready (get-in opened [:vol-range :frozen-review :status])))
         (is (= 7 (count (get-in opened [:vol-range :frozen-review :legs]))))
         (is (true? (get-in opened [:vol-range :ui :review-open?])))
-        (is (= {:bbo {:bid "79.99" :ask "80.01" :observed-at-ms (* 60000 (js/Math.floor (/ now 60000)))}
-                :frozen-at-ms now}
+        (is (= {:bbo {:bid "79.99" :ask "80.01" :observed-at-ms sf/book-observed-ms}
+                :frozen-at-ms now
+                :provenance {:bbo-observed-at-ms sf/book-observed-ms
+                             :vwap-observed-at-ms sf/ctx-received-ms
+                             :fee-loaded-at-ms sf/fees-loaded-ms}}
                (get-in opened [:vol-range :frozen-context])))
         (let [closed (sf/apply-effects opened (actions/close-vol-range-review opened))]
           (is (false? (get-in closed [:vol-range :ui :review-open?])))

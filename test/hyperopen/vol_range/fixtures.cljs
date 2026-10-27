@@ -56,7 +56,7 @@
 (defn account-snapshot
   ([] (account-snapshot {}))
   ([overrides]
-   (merge {:status :ready :errors [] :account-address "0xabc" :account-mode :classic
+   (merge {:status :ready :errors [] :account-address "0xabc" :account-mode :classic :raw-account-mode "default"
            :read-only? false
            :base {:total "150" :hold "0" :available "150"}
            :quote {:total "3000" :hold "0" :available "3000"}

@@ -148,6 +148,17 @@
                            :position (track-position v low span)})
                         values)}))))
 
+(defn starting-breach-text
+  "Spec 6.6: a corrective plan shows the starting breach explicitly."
+  [outcomes sz base-symbol]
+  (let [amt #(str (display/amount (get outcomes %) sz) (when base-symbol (str " " base-symbol)))]
+    (case (:starting-breach outcomes)
+      :above-maximum (str "Inventory " (amt :current) " is above the maximum " (amt :maximum)
+                          ". Only sells that bring it down can be planned.")
+      :below-core (str "Inventory " (amt :current) " is below the protected core " (amt :core)
+                       ". Only buys that bring it up can be planned.")
+      nil)))
+
 (defn- inventory-section [{:keys [draft market account plan]}]
   (let [sz (:sz-decimals market)
         outcomes (:inventory-outcomes plan)]
@@ -161,7 +172,9 @@
      :target-placeholder "current inventory"
      :maximum-placeholder "required"
      :track (inventory-track outcomes sz)
-     :set-maximum-offer (offer-view (find-offer plan :set-maximum-all-buys))}))
+     :starting-breach (starting-breach-text outcomes sz (:base-symbol market))
+     :set-maximum-offer (offer-view (or (find-offer plan :set-maximum-all-buys)
+                                        (find-offer plan :fill-required-limits)))}))
 
 ;; ---------------------------------------------------------------------------
 ;; Side cards
@@ -205,7 +218,8 @@
                      :cap (display/exact (:cap t))
                      :cap-headroom (when legs? (display/exact (:cap-headroom t)))
                      :vwap (when legs? (display/fixed (:vwap t) 2))}
-            :use-plan-total-offer (offer-view (find-offer plan :use-plan-total))})))
+            :use-plan-total-offer (offer-view (or (find-offer plan :use-plan-total)
+                                                  (find-offer plan :fill-required-limits)))})))
 
 (def ^:private excess-percents [25 50 100])
 
@@ -271,7 +285,9 @@
    :reduce-rung-count #{:plan/duplicate-price}
    :widen-range #{:plan/duplicate-price}
    :set-maximum-all-buys #{:plan/max-inventory-breach :input/maximum-required}
-   :use-plan-total #{:plan/usdc-cap-exceeded :input/max-debit-required}})
+   :use-plan-total #{:plan/usdc-cap-exceeded :input/max-debit-required}
+   :fill-required-limits #{:input/maximum-required :input/max-debit-required
+                           :plan/max-inventory-breach :plan/usdc-cap-exceeded}})
 
 (def ^:private offer-error-side
   {:start-buys-at :buy :start-sells-at :sell})

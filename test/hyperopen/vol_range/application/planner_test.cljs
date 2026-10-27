@@ -71,12 +71,20 @@
     (is (contracts/plan-result-valid? r))))
 
 (deftest one-click-test
-  (testing "maximum and cap both blank are offered jointly"
-    (let [r (plan {:draft (draft [:inventory :maximum] "" [:buy :max-usdc-debit] "")})]
+  (testing "maximum and cap both blank: one combined offer whose own patch is ready (VR-23)"
+    (let [blank (draft [:inventory :maximum] "" [:buy :max-usdc-debit] "")
+          r (plan {:draft blank})
+          joint (by-id r :fill-required-limits)]
       (is (= :invalid (:status r)))
+      (is (nil? (by-id r :set-maximum-all-buys)) "maximum alone would still miss the cap")
+      (is (nil? (by-id r :use-plan-total)) "cap alone would still miss the maximum")
+      (is (= [[[:inventory :maximum] "190"] [[:buy :max-usdc-debit] "2889.16"]] (:patch joint)))
+      (is (= "Set maximum to 190 and USDC cap to 2889.16" (:label joint)))
+      (is (= :ready (:status (plan {:draft (remediations/apply-draft-patch blank (:patch joint))}))))))
+  (testing "maximum blank alone"
+    (let [r (plan {:draft (draft [:inventory :maximum] "")})]
       (is (= [[[:inventory :maximum] "190"]] (:patch (by-id r :set-maximum-all-buys))))
-      (is (= "Set maximum to 190 · all buys filled" (:label (by-id r :set-maximum-all-buys))))
-      (is (= [[[:buy :max-usdc-debit] "2889.16"]] (:patch (by-id r :use-plan-total))))))
+      (is (= "Set maximum to 190 · all buys filled" (:label (by-id r :set-maximum-all-buys))))))
   (testing "cap below the plan total"
     (let [r (plan {:draft (draft [:buy :max-usdc-debit] "2800")})]
       (is (contains? (codes r) :plan/usdc-cap-exceeded))
@@ -137,12 +145,20 @@
                                              :loaded-at-ms nil}}))))
   (is (contains? (codes (plan {:fees nil})) :data/fee-quote-unavailable))
   (is (contains? (codes (plan {:market (fx/market-snapshot {:market-type :perp})})) :capability/market-unsupported))
-  (is (contains? (codes (plan {:account (fx/account-snapshot {:account-mode :unified})}))
-                 :capability/account-mode-unsupported))
+  (testing "raw account mode allowlist (spec 3.1, 15.2)"
+    (doseq [raw ["default" "disabled" "dexAbstraction"]]
+      (is (= :ready (:status (plan {:account (fx/account-snapshot {:raw-account-mode raw})}))) raw))
+    (doseq [raw ["unifiedAccount" "portfolioMargin" "someFutureMode"]]
+      (is (contains? (codes (plan {:account (fx/account-snapshot {:raw-account-mode raw})}))
+                     :capability/account-mode-unsupported) raw))
+    (testing "the normalized mode never admits: unknown raw values normalize to :classic"
+      (is (contains? (codes (plan {:account (fx/account-snapshot {:account-mode :classic
+                                                                  :raw-account-mode "someFutureMode"})}))
+                     :capability/account-mode-unsupported)))
+    (let [r (plan {:account (fx/account-snapshot {:raw-account-mode nil})})]
+      (is (= :unavailable (:status r)) "not loaded yet")
+      (is (contains? (codes r) :data/account-mode-unavailable))))
   (is (contains? (codes (plan {:capabilities {:preview? false}})) :capability/preview-disabled))
-  (let [r (plan {:account (fx/account-snapshot {:account-mode :weird})})]
-    (is (= :ready (:status r)))
-    (is (contains? (set (map :code (:warnings r))) :capability/raw-account-mode-unverified)))
   (let [r (plan {:fees (assoc fx/synthetic-fees :settlement-verified? false)})]
     (is (= :ready (:status r)))
     (is (contains? (set (map :code (:warnings r))) :capability/fee-settlement-unverified)))
@@ -201,17 +217,80 @@
    {:draft (draft [:sell :quantity] "0.12" [:sell :count] 12)}
    {:draft (draft [:buy :end-sigma] "0.75" [:buy :start-sigma] "0.75")}])
 
-(def ^:private one-click-ids #{:set-maximum-all-buys :use-plan-total})
-
 (deftest every-offer-replans-ready-test
+  ;; VR-23 read literally: every offer's OWN patch yields a ready plan.
   (doseq [overrides (fixtures-for-property)
           :let [input (fx/plan-input overrides)
-                r (planner/prepare-plan input)
-                joint? (and (str/blank? (get-in input [:draft :inventory :maximum]))
-                            (str/blank? (get-in input [:draft :buy :max-usdc-debit])))
-                joint-patch (into [] (comp (filter #(one-click-ids (:id %))) (mapcat :patch)) (:remediations r))]
+                r (planner/prepare-plan input)]
           o (:remediations r)]
     (is (contracts/remediation-valid? o))
-    (let [patch (if (and joint? (one-click-ids (:id o))) joint-patch (:patch o))
-          again (planner/prepare-plan (assoc input :draft (remediations/apply-draft-patch (:draft input) patch)))]
+    (let [again (planner/prepare-plan (assoc input :draft (remediations/apply-draft-patch (:draft input) (:patch o))))]
       (is (= :ready (:status again)) (str (:id o) " " (pr-str (:errors again)))))))
+
+(deftest tilt-requires-a-real-maximum-test
+  (let [d (draft [:buy :enabled?] false [:inventory :maximum] "" [:inventory :tilt-enabled?] true)
+        r (plan {:draft d})]
+    (is (contains? (codes r) :input/maximum-required-for-tilt) (pr-str (:errors r)))
+    (is (= [:inventory :maximum]
+           (get-in (first (filter #(= :input/maximum-required-for-tilt (:code %)) (:errors r))) [:data :path])))
+    (is (nil? (get-in r [:model :shifted-anchor])) "no invented maximum, no shifted anchor")
+    (is (contracts/plan-result-valid? r)))
+  (testing "the same sell-only draft without tilt does not need a maximum"
+    (is (= :ready (:status (plan {:draft (draft [:buy :enabled?] false [:inventory :maximum] "")}))))))
+
+(deftest sellable-excess-subtracts-base-fee-bound-test
+  (testing "quote-settled sell fees leave the full room"
+    (is (= "30" (get-in (plan {}) [:totals :sellable-excess]))))
+  (testing "base-settled sell fees: x + ceil(x*f) must fit in the 30 of room (spec 4.2)"
+    (let [r (plan {:fees (assoc fx/synthetic-fees :sell-fee-token :base)})
+          x (p/parse-decimal (get-in r [:totals :sellable-excess]))]
+      (is (= "29.98" (get-in r [:totals :sellable-excess])))
+      (is (<= (p/cmp (p/add x (p/quantize (p/mul x (p/parse-decimal "0.0004")) 8 :ceil))
+                     (p/parse-decimal "30"))
+              0))
+      (testing "100% of that excess is admissible"
+        (is (not (contains? (codes (plan {:fees (assoc fx/synthetic-fees :sell-fee-token :base)
+                                           :draft (draft [:sell :quantity] "29.98")}))
+                            :plan/protected-core-breach)))))))
+
+(deftest existing-commitments-that-deepen-a-breach-are-surfaced-test
+  (let [account (fx/account-snapshot {:base {:total "210" :hold "0" :available "210"}
+                                      :open-orders [{:oid "1" :side :buy :price "60" :remaining "5"}]})
+        r (plan {:account account
+                 :draft (draft [:buy :enabled?] false [:inventory :maximum] "200" [:sell :quantity] "30")})
+        w (first (filter #(= :plan/existing-commitment-worsens-breach (:code %)) (:warnings r)))]
+    (is (= :above-maximum (get-in r [:inventory-outcomes :starting-breach])))
+    (is (some? w) (pr-str (:warnings r)))
+    (is (= :buy (get-in w [:data :side])))
+    (is (str/includes? (:message w) "above the maximum"))))
+
+(deftest lot-multiple-error-suggests-valid-quantities-test
+  (let [r (plan {:draft (draft [:buy :quantity] "40.005")})
+        e (first (filter #(= :input/quantity-not-lot-multiple (:code %)) (:errors r)))]
+    (is (= "40" (get-in e [:data :suggested-down])))
+    (is (= "40.01" (get-in e [:data :suggested-up])))
+    (is (= "Buy quantity must be a multiple of the lot size. Try 40 or 40.01." (:message e)))
+    (is (= [:buy :quantity] (get-in e [:data :path])))))
+
+(deftest zero-size-diagnostic-legs-keep-a-valid-contract-test
+  ;; Spec 13.3: Q=0.02 over three 0.01 lots leaves a zero-size rung. The plan
+  ;; is :invalid, keeps the diagnostic leg, and still satisfies ::plan-result.
+  (let [r (plan {:draft (draft [:sell :enabled?] false [:buy :quantity] "0.02" [:buy :count] 3
+                               [:buy :max-usdc-debit] "3000")})]
+    (is (contains? (codes r) :plan/zero-size-rung))
+    (is (some #(= "0" (:size %)) (:legs r)))
+    (is (contracts/plan-result-valid? r) (pr-str (:legs r)))))
+
+(deftest lot-multiple-errors-belong-to-their-side-test
+  (let [r (plan {:draft (draft [:buy :quantity] "40.005" [:sell :quantity] "40.005")})
+        lot (filter #(= :input/quantity-not-lot-multiple (:code %)) (:errors r))]
+    (is (= 2 (count lot)) "buy and sell errors are no longer merged by de-duplication")
+    (is (= #{[:buy :quantity] [:sell :quantity]} (set (map #(get-in % [:data :path]) lot))))
+    (is (= #{"Buy quantity must be a multiple of the lot size. Try 40 or 40.01."
+             "Sell quantity must be a multiple of the lot size. Try 40 or 40.01."}
+           (set (map :message lot))))))
+
+(deftest tilt-and-maximum-errors-are-not-duplicated-test
+  (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true)})]
+    (is (contains? (codes r) :input/maximum-required))
+    (is (not (contains? (codes r) :input/maximum-required-for-tilt)))))

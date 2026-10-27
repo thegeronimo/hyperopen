@@ -60,16 +60,17 @@
       [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "vol-range-ticket"}
        (identity-strip identity)
        (notice "vol-range-ticket-ineligible" eligibility-reason)]
-      (let [base-symbol (:base-symbol inventory)]
+      (let [base-symbol (:base-symbol inventory)
+            fe (p/field-errors errors)]
         [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "vol-range-ticket"}
          (identity-strip identity)
          (when read-only?
            (notice "vol-range-read-only"
                    "Read-only: you can preview and review this plan, but this account can't place orders."))
-         (model-section/model-section model ui)
-         (inventory/inventory-section inventory)
-         (side-cards/buy-card buy base-symbol)
-         (side-cards/sell-card sell base-symbol)
+         (model-section/model-section model ui fe)
+         (inventory/inventory-section inventory fe)
+         (side-cards/buy-card buy base-symbol fe)
+         (side-cards/sell-card sell base-symbol fe)
          (outcomes/outcomes-section outcomes)
          (outcomes/messages errors warnings)
          (outcomes/footer footer)]))))

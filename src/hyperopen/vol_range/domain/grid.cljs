@@ -3,7 +3,8 @@
   (HO-SPEC-014 v2.1 sections 5.4-5.5, 6.1-6.2). Pure exact-decimal code; inputs
   are decs from `hyperopen.domain.trading.precision`. Nothing here builds an
   order action."
-  (:require [hyperopen.domain.trading.precision :as precision]
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.contracts :as contracts]))
 
 (defn- d [s] (precision/parse-decimal s))
@@ -141,8 +142,15 @@
       (nil? quantity) {:errors [(contracts/error :input/quantity-required {})]}
       (not (precision/pos-dec? quantity)) {:errors [(contracts/error :input/quantity-required {})]}
       (nil? conv) {:errors [(contracts/error :data/market-metadata-unavailable {})]}
+      ;; Spec 6.1: the error carries an explicit suggested valid quantity.
       (:error conv) {:errors [(contracts/error :input/quantity-not-lot-multiple
-                                               (select-keys conv [:suggested-down :suggested-up]))]}
+                                               (let [{:keys [suggested-down suggested-up]} conv
+                                                     down? (precision/pos-dec? (precision/parse-decimal suggested-down))]
+                                                 {:suggested-down suggested-down
+                                                  :suggested-up suggested-up
+                                                  :message (str "Quantity must be a multiple of the lot size. Try "
+                                                                (if down? (str suggested-down " or ") "")
+                                                                suggested-up ".")}))]}
       :else
       (let [n (:lots conv)
             ws (weights skew count)
@@ -185,4 +193,11 @@
                                 :raw-price (ds raw-price)}))))
                    (:prices prices))]
     {:legs legs
-     :errors (vec (concat (:errors prices) (:errors alloc)))}))
+     :errors (vec (concat (:errors prices)
+                          ;; Allocation errors belong to this side's quantity field, so two
+                          ;; sides' identical errors stay distinct and the input is marked.
+                          (map (fn [e]
+                                 (cond-> (update e :data assoc :side side :path [side :quantity])
+                                   (= :input/quantity-not-lot-multiple (:code e))
+                                   (update :message #(str (if (= side :buy) "Buy" "Sell") " " (str/lower-case (subs % 0 1)) (subs % 1)))))
+                               (:errors alloc))))}))

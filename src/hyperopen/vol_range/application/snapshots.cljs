@@ -53,11 +53,12 @@
   (let [market (or (:active-market state) {})
         entry (spot-universe-entry state (:idx market))
         [base-token quote-token] (when (sequential? (:tokens entry)) (:tokens entry))]
-    {:network :hyperliquid-mainnet
+    {:network (contracts/current-network)
      :owner-address (account-context/owner-address state)
      :account-address (account-context/active-trading-account-address state)
      :vault-address (account-context/exchange-vault-address state)
      :market-type (:market-type market)
+     :dex (some-> (:dex market) str)
      :spot-pair-index (:idx market)
      :asset-id (:asset-id market)
      :coin (:coin market)
@@ -83,26 +84,46 @@
           nil
           levels))
 
-(defn- book-bbo [state coin now-ms]
+(defn- epoch-ms
+  "A source timestamp as epoch ms, or nil. Never substitutes the render clock:
+  an unknown observation time stays unknown (spec 7.3)."
+  [x]
+  (when (and (number? x) (js/isFinite x) (pos? x)) x))
+
+(defn- book-bbo
+  "Best bid/ask with the venue time of the book that produced them. The store
+  only receives visually changed books, so this is the time of the last
+  CHANGE; Release A admission must confirm freshness with an awaited read."
+  [state coin]
   (let [book (get-in state [:orderbooks coin])
         bid (extreme-price (:bids book) pos?)
         ask (extreme-price (:asks book) neg?)]
     (when (and bid ask)
-      {:bid (ds bid) :ask (ds ask) :observed-at-ms now-ms})))
+      {:bid (ds bid) :ask (ds ask) :observed-at-ms (epoch-ms (:timestamp book))})))
 
-(defn- vwap-anchor [state coin now-ms]
+(defn- vwap-anchor [state coin]
   (let [ctx (get-in state [:active-assets :contexts coin])
         notional (->dec (:dayNtlVlmRaw ctx))
         base (->dec (:dayBaseVlmRaw ctx))]
     (when (and notional base (precision/pos-dec? notional) (precision/pos-dec? base))
       {:price (ds (precision/divide notional base 12 :half-up))
-       :observed-at-ms now-ms})))
+       :observed-at-ms (epoch-ms (get-in state [:market-observations :active-asset-ctx coin]))})))
 
-(defn- bbo-mid-anchor [bbo now-ms]
+(defn- bbo-mid-anchor [bbo]
   (let [bid (some-> (:bid bbo) d) ask (some-> (:ask bbo) d)]
     (when (and bid ask)
       {:price (ds (precision/mul (precision/add bid ask) (d "0.5")))
-       :observed-at-ms now-ms})))
+       :observed-at-ms (:observed-at-ms bbo)})))
+
+(defn provenance
+  "Live source observation times, captured when a review is frozen (spec 7.3).
+  Kept beside the plan input rather than inside its memo key, so a new
+  receipt time alone never re-plans."
+  [state]
+  (let [coin (get-in state [:active-market :coin])]
+    {:bbo-observed-at-ms (epoch-ms (get-in state [:orderbooks coin :timestamp]))
+     :vwap-observed-at-ms (epoch-ms (get-in state [:market-observations :active-asset-ctx coin]))
+     :fee-loaded-at-ms (epoch-ms (get-in state [:portfolio :user-fees-loaded-at-ms]))}))
 
 (def ^:private auto-volatility-cache (atom nil))
 
@@ -162,12 +183,12 @@
     (if (seq errors)
       base
       (let [rows (get-in state [:candles coin :1d])
-            bbo (book-bbo state coin now-ms)]
+            bbo (book-bbo state coin)]
         (assoc base
                :bbo bbo
-               :anchors {:vwap-24h (vwap-anchor state coin now-ms)
+               :anchors {:vwap-24h (vwap-anchor state coin)
                          :utc-open (volatility/utc-open-anchor rows now-ms coin)
-                         :market-price (bbo-mid-anchor bbo now-ms)}
+                         :market-price (bbo-mid-anchor bbo)}
                :auto-volatility (auto-volatility-for-state state rows coin now-ms))))))
 
 ;; ---------------------------------------------------------------------------
@@ -246,6 +267,8 @@
      :errors errors
      :account-address address
      :account-mode (get-in state [:account :mode])
+     :raw-account-mode (let [raw (get-in state [:account :abstraction-raw])]
+                         (when (string? raw) (str/trim raw)))
      :read-only? (boolean (account-context/mutations-blocked-message state))
      :base (when address (find-balance balances (:base-token-id scope) (:symbol scope)))
      :quote (when address (find-balance balances (:quote-token-id scope) (:quote-symbol scope)))
@@ -259,7 +282,7 @@
 (defn fee-snapshot
   "::fee-capability from the user's fee quote. The generic fallback quote is
   never used for cash admission, so it yields an :unavailable capability."
-  [state now-ms]
+  [state _now-ms]
   (let [ctx (fee-context/select-fee-context state)
         quote (trading-fees/quote-fees (:user-fees ctx)
                                        {:market-type (:market-type ctx)
@@ -269,7 +292,7 @@
                                         :extra-adjustment? (boolean (:special-quote-fee-adjustment? ctx))})]
     (vr-fees/fee-capability {:quote (or quote (trading-fees/default-fee-quote))
                              :fallback? (nil? quote)
-                             :loaded-at-ms now-ms
+                             :loaded-at-ms (epoch-ms (get-in state [:portfolio :user-fees-loaded-at-ms]))
                              :settlement (vr-fees/live-spot-settlement)
                              :settlement-verified? false
                              :source :user-fees})))

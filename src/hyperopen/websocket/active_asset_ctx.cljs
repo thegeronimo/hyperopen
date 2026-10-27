@@ -79,7 +79,8 @@
                                 :openInterest (or (parse-number (:openInterest ctx))
                                                   (parse-number (:circulatingSupply ctx)))
                                 :fundingRate (when (number? funding)
-                                               (* 100 funding))}]
+                                               (* 100 funding))}
+                received-at-ms (.now js/Date)]
             ;; Coalesce market projections so one frame emits one store write.
             (when store
               (market-projection-runtime/queue-market-projection!
@@ -90,6 +91,10 @@
                   (-> state
                       (assoc-in [:active-assets :contexts coin] formatted-data)
                       (assoc-in [:active-assets :loading] false)
+                      ;; Receipt time kept OUTSIDE :active-assets so identical context
+                      ;; payloads stay value-equal for memoized panels; the Vol Range
+                      ;; 24h VWAP anchor reads it as its observation time (spec 7.3).
+                      (assoc-in [:market-observations :active-asset-ctx coin] received-at-ms)
                       (market-live-projection/apply-active-asset-ctx-update coin ctx)))}))))))))
 
 ;; Subscribe to active asset context for a coin

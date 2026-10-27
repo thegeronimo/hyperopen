@@ -1,8 +1,9 @@
 (ns hyperopen.views.trade.vol-range.review-test
   (:require [clojure.string :as str]
-            [cljs.test :refer-macros [deftest is]]
+            [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.test-support.hiccup :as hiccup]
             [hyperopen.vol-range.application.projections :as projections]
+            [hyperopen.vol-range.application.review-model :as review-model]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.state-fixtures :as sf]
             [hyperopen.views.trade.vol-range.review :as review]))
@@ -58,3 +59,19 @@
         t (str/join " " (hiccup/collect-strings (review/review-dialog model)))]
     (is (= "SYN" (:base-symbol model)))
     (is (not (str/includes? t "BASE")))))
+
+(deftest review-dialog-traps-focus-and-returns-it-test
+  (let [html (review/review-dialog (open-review-model))
+        attrs (second (hiccup/find-by-data-role html "vol-range-review"))]
+    (is (fn? (:replicant/on-render attrs))
+        "the shared dialog-focus hook traps Tab and restores focus on close")))
+
+(deftest review-details-report-real-source-ages-test
+  (let [m (open-review-model)
+        detail (fn [label] (:value (first (filter #(= label (:label %)) (:details m)))))]
+    (is (= "13:59:59 UTC · 0.4 s before plan" (detail "Book last changed")))
+    (is (= "Custom anchor" (detail "Anchor observed")))
+    (is (str/ends-with? (detail "Fee quote loaded") "· stale") "the synthetic quote is far older than 5 minutes")
+    (testing "an old source is flagged stale at the frozen plan time"
+      (is (= "13:59:50 UTC · 10 s before plan · stale"
+             (review-model/source-age-text (- sf/now-ms 10000) sf/now-ms 2000))))))

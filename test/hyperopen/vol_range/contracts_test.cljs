@@ -4,10 +4,20 @@
             [hyperopen.vol-range.contracts :as c]))
 
 (deftest scope-key-test
-  (is (= "hyperliquid-mainnet|0xabc|107"
-         (c/scope-key {:network :hyperliquid-mainnet :account-address "0xabc" :spot-pair-index 107})))
-  (is (= "hyperliquid-mainnet|none|107"
-         (c/scope-key {:network :hyperliquid-mainnet :account-address nil :spot-pair-index 107}))))
+  (is (= "hyperliquid-mainnet|0xabc|spot||107"
+         (c/scope-key {:network :hyperliquid-mainnet :account-address "0xabc" :market-type :spot
+                       :spot-pair-index 107})))
+  (is (= "hyperliquid-mainnet|none|spot||107"
+         (c/scope-key {:network :hyperliquid-mainnet :account-address nil :market-type :spot
+                       :spot-pair-index 107})))
+  (testing "markets that reuse the same index never share a key"
+    (let [base {:network :hyperliquid-mainnet :account-address "0xabc" :spot-pair-index 7}]
+      (is (= 3 (count (distinct [(c/scope-key (assoc base :market-type :spot))
+                                 (c/scope-key (assoc base :market-type :perp))
+                                 (c/scope-key (assoc base :market-type :perp :dex "xyz"))]))))))
+  (testing "the network defaults to the single configured network"
+    (is (= (c/scope-key {:network (c/current-network) :market-type :spot :spot-pair-index 1})
+           (c/scope-key {:market-type :spot :spot-pair-index 1})))))
 
 (deftest status-for-errors-test
   (is (= :ready (c/status-for-errors [])))
@@ -56,12 +66,33 @@
   (is (not (c/leg-valid? (assoc sample-leg :extra 1))))
   (is (not (c/leg-valid? (assoc sample-leg :price "1e5"))))
   (is (not (c/leg-valid? (assoc sample-leg :side :hold))))
-  (let [plan {:status :ready :plan-id "p" :scope "s" :input-fingerprint "f" :model {}
+  (testing "wire strings are positive and canonical (spec 6.1, 6.2)"
+    (doseq [bad ["0" "-1" "1.50" "5." "07" ""]]
+      (is (not (c/leg-valid? (assoc sample-leg :price bad))) bad))
+    (doseq [bad ["-1" "1.50" "5." "07" ""]]
+      (is (not (c/leg-valid? (assoc sample-leg :size bad))) bad)
+      (is (not (c/leg-valid? (assoc sample-leg :notional bad))) bad))
+    (is (c/leg-valid? (assoc sample-leg :size "0" :notional "0"))
+        "zero-size diagnostic legs of an :invalid plan are well-formed")
+    (is (not (c/leg-valid? (assoc sample-leg :rung-index -1)))))
+  (let [plan {:status :ready :plan-id "p" :scope {:network :hyperliquid-mainnet}
+              :input-fingerprint "f" :model {}
               :legs [sample-leg] :totals {} :inventory-outcomes {} :fee-reserves {}
               :source-versions {} :remediations [] :errors [] :warnings []}]
     (is (c/plan-result-valid? plan))
     (is (not (c/plan-result-valid? (assoc plan :status :bogus))))
-    (is (not (c/plan-result-valid? (assoc plan :extra 1)))))
+    (is (not (c/plan-result-valid? (assoc plan :extra 1))))
+    (testing "status must agree with the errors"
+      (is (not (c/plan-result-valid? (assoc plan :errors [(c/error :plan/min-notional {})]))))
+      (is (c/plan-result-valid? (assoc plan :status :invalid :errors [(c/error :plan/min-notional {})])))
+      (is (not (c/plan-result-valid? (assoc plan :status :invalid)))))
+    (testing "a ready plan has legs and typed identities"
+      (is (not (c/plan-result-valid? (assoc plan :legs []))))
+      (is (not (c/plan-result-valid? (assoc plan :legs [(assoc sample-leg :size "0" :notional "0")])))
+          "a ready plan never carries a zero-size leg")
+      (is (not (c/plan-result-valid? (assoc plan :plan-id 7))))
+      (is (not (c/plan-result-valid? (assoc plan :input-fingerprint nil))))
+      (is (not (c/plan-result-valid? (assoc plan :scope "s"))))))
   (is (c/remediation-valid? {:id :r :label "x" :patch [[[:buy :distance :start] "0.5"]]}))
   (is (not (c/remediation-valid? {:id :r :label "x" :patch [["bad" 1]]})))
   (is (c/error-valid? (c/error :plan/min-notional {})))
@@ -71,7 +102,8 @@
         :anchors {:vwap-24h {:price "80" :observed-at-ms 1} :utc-open nil :market-price nil}
         :auto-volatility nil :observed-at-ms 1}))
   (is (c/account-snapshot-valid?
-       {:status :ready :errors [] :account-address "0x1" :account-mode :classic :read-only? false
+       {:status :ready :errors [] :account-address "0x1" :account-mode :classic
+        :raw-account-mode "default" :read-only? false
         :base {:total "1" :hold "0" :available "1"} :quote {:total "1" :hold "0" :available "1"}
         :open-orders [{:oid 1 :side :buy :price "1" :remaining "1"}] :observed-at-ms 1}))
   (is (c/fee-capability-valid?

@@ -941,6 +941,7 @@
             [hyperopen.vol-range.actions-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.plan-state-memo-test]
             [hyperopen.vol-range.application.planner-test]
             [hyperopen.vol-range.application.projections-test]
             [hyperopen.vol-range.application.remediations-test]
@@ -1978,6 +1979,7 @@
              'hyperopen.vol-range.actions-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.plan-state-memo-test
              'hyperopen.vol-range.application.planner-test
              'hyperopen.vol-range.application.projections-test
              'hyperopen.vol-range.application.remediations-test

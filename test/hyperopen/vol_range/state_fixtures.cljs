@@ -13,6 +13,12 @@
 
 (def first-window-day (js/Date.UTC 2026 9 5))
 
+;; Real source observation times (spec 7.3), deliberately distinct from now-ms
+;; so tests prove snapshots carry the source time, never the render clock.
+(def book-observed-ms (- now-ms 400))
+(def ctx-received-ms (- now-ms 1500))
+(def fees-loaded-ms (- now-ms 60000))
+
 (defn daily-rows [coin]
   (fx/daily-rows coin first-window-day 14 "103" "97"))
 
@@ -35,13 +41,16 @@
   (let [state {:active-asset "@107"
                :active-market (market "@107" 107 "SYN")
                :wallet {:address owner}
-               :account {:mode :classic}
+               :account {:mode :classic :abstraction-raw "default"}
                :spot {:meta (spot-meta)
                       :clearinghouse-state {:balances [{:coin "USDC" :token 0 :total "3000" :hold "0"}
                                                        {:coin "SYN" :token 150 :total "150" :hold "0"}]}}
                :orderbooks {"@107" {:bids [{:px "79.99" :sz "5"} {:px "79.5" :sz "9"}]
-                                    :asks [{:px "80.01" :sz "5"} {:px "81" :sz "9"}]}}
+                                    :asks [{:px "80.01" :sz "5"} {:px "81" :sz "9"}]
+                                    :timestamp book-observed-ms}}
                :active-assets {:contexts {"@107" {:dayNtlVlmRaw "8000" :dayBaseVlmRaw "100"}}}
+               :market-observations {:active-asset-ctx {"@107" ctx-received-ms}}
+               :portfolio {:user-fees-loaded-at-ms fees-loaded-ms}
                :candles {"@107" {:1d (daily-rows "@107")}}
                :order-form (-> (trading/default-order-form)
                                (assoc :type :scale)

@@ -35,17 +35,17 @@
       (step "+" 1 (str "More " (name side) " rungs") (boolean (and n (< n 12))))]]))
 
 (defn- distance-fields
-  [side {:keys [start-sigma-input end-sigma-input skew-input count-input]}]
+  [side {:keys [start-sigma-input end-sigma-input skew-input count-input]} fe]
   [:div {:class ["flex" "flex-col" "gap-2"]}
    [:div {:class ["grid" "grid-cols-2" "gap-2"]}
     (p/text-field {:id (str "vol-range-" (name side) "-start") :label "Start distance"
-                   :value start-sigma-input :suffix "σ" :path [side :start-sigma]})
+                   :value start-sigma-input :suffix "σ" :path [side :start-sigma] :field-errors fe})
     (p/text-field {:id (str "vol-range-" (name side) "-end") :label "End distance"
-                   :value end-sigma-input :suffix "σ" :path [side :end-sigma]})]
+                   :value end-sigma-input :suffix "σ" :path [side :end-sigma] :field-errors fe})]
    [:div {:class ["grid" "grid-cols-2" "gap-2"]}
     (stepper side count-input)
     (p/text-field {:id (str "vol-range-" (name side) "-skew") :label "Size skew"
-                   :value skew-input :path [side :skew]})]])
+                   :value skew-input :path [side :skew] :field-errors fe})]])
 
 (defn- buy-totals
   [{:keys [quantity gross fee-reserve fee-reserve-token max-debit cap cap-headroom vwap]} base-symbol]
@@ -68,8 +68,9 @@
    (p/stat-row "Quoted sell VWAP" vwap)])
 
 (defn buy-card
-  [{:keys [enabled? quantity-input max-debit-input rows totals use-plan-total-offer] :as buy}
-   base-symbol]
+  ([buy base-symbol] (buy-card buy base-symbol {}))
+  ([{:keys [enabled? quantity-input max-debit-input rows totals use-plan-total-offer] :as buy}
+    base-symbol fe]
   (p/section {:title "Accumulate buys" :data-role "vol-range-buy-card"
               :class ["border-l-2" "border-ho-buy" "pl-2"]}
              (p/switch {:id "vol-range-buy-enabled" :label "Accumulate buys" :checked? enabled?
@@ -77,19 +78,20 @@
              (when enabled?
                [:div {:class ["flex" "flex-col" "gap-2"]}
                 (p/text-field {:id "vol-range-buy-quantity" :label "Quantity" :value quantity-input
-                               :suffix base-symbol :path [:buy :quantity]})
+                               :suffix base-symbol :path [:buy :quantity] :field-errors fe})
                 [:div {:class ["flex" "items-end" "gap-2"]}
                  [:div {:class ["flex-1"]}
                   (p/text-field {:id "vol-range-buy-max-debit" :label "Maximum USDC debit"
-                                 :value max-debit-input :suffix "USDC" :path [:buy :max-usdc-debit]})]
+                                 :value max-debit-input :suffix "USDC" :path [:buy :max-usdc-debit]
+                                 :field-errors fe})]
                  (when use-plan-total-offer
                    (p/action-button {:label (:label use-plan-total-offer)
                                      :command (commands/apply-remediation (:id use-plan-total-offer))
                                      :data-role "vol-range-use-plan-total"
                                      :tone :buy}))]
-                (distance-fields :buy buy)
+                (distance-fields :buy buy fe)
                 (p/rung-rows rows base-symbol :buy)
-                (buy-totals totals base-symbol)])))
+                (buy-totals totals base-symbol)]))))
 
 (defn- hint-link
   "The hint is a label for the Protected core input, so activating it moves
@@ -101,8 +103,9 @@
    hint])
 
 (defn sell-card
-  [{:keys [enabled? quantity-input percent-options nothing-to-sell-hint rows totals note] :as sell}
-   base-symbol]
+  ([sell base-symbol] (sell-card sell base-symbol {}))
+  ([{:keys [enabled? quantity-input percent-options nothing-to-sell-hint rows totals note] :as sell}
+    base-symbol fe]
   (p/section {:title "Distribute sells" :data-role "vol-range-sell-card"
               :class ["border-l-2" "border-ho-sell" "pl-2"]}
              (p/switch {:id "vol-range-sell-enabled" :label "Distribute sells" :checked? enabled?
@@ -110,7 +113,7 @@
              (when enabled?
                [:div {:class ["flex" "flex-col" "gap-2"]}
                 (p/text-field {:id "vol-range-sell-quantity" :label "Quantity" :value quantity-input
-                               :suffix base-symbol :path [:sell :quantity]})
+                               :suffix base-symbol :path [:sell :quantity] :field-errors fe})
                 (when nothing-to-sell-hint (hint-link nothing-to-sell-hint))
                 [:div {:class ["flex" "items-center" "gap-1"] :role "group"
                        :aria-label "Share of sellable excess above protected core"}
@@ -123,8 +126,8 @@
                                      :data-role (str "vol-range-sell-percent-" pct)
                                      :tone :sell}))
                  [:span {:class ["text-xs" "text-ho-text-muted"]} "of sellable excess above core"]]
-                (distance-fields :sell sell)
+                (distance-fields :sell sell fe)
                 (p/rung-rows rows base-symbol :sell)
                 (sell-totals totals base-symbol)
                 (when note [:div {:class ["text-xs" "text-ho-text-muted"]
-                                  :data-role "vol-range-sell-note"} note])])))
+                                  :data-role "vol-range-sell-note"} note])]))))

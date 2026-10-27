@@ -74,6 +74,7 @@
                          :order-form-runtime (trading/default-order-form-runtime))
                   (assoc-in [:wallet :address] wallet-address)
                   (assoc-in [:account :mode] :classic)
+                  (assoc-in [:account :abstraction-raw] "default")
                   (assoc-in [:spot :meta] {:universe [{:name coin :index 9001 :tokens [9001 0]}]
                                            :tokens [{:name "USDC" :index 0 :szDecimals 8}
                                                     {:name "VRT" :index 9001 :szDecimals 2}]})

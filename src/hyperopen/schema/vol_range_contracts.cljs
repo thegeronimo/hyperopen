@@ -46,7 +46,8 @@
 (def anchor-option-keys #{:id :label :available? :price :selected?})
 (def tilt-keys #{:enabled? :strength-input :caption})
 (def inventory-keys #{:base-symbol :current :available-to-sell :core-input :target-input :maximum-input
-                      :core-placeholder :target-placeholder :maximum-placeholder :track :set-maximum-offer})
+                      :core-placeholder :target-placeholder :maximum-placeholder :track :set-maximum-offer
+                      :starting-breach})
 (def track-keys #{:domain-low :domain-high :markers})
 (def marker-keys #{:id :label :value :position})
 (def offer-keys #{:id :label})
@@ -121,7 +122,7 @@
 (s/def ::inventory
   #(and (exact-keys? % inventory-keys)
         (all-str-or-nil? % [:base-symbol :current :available-to-sell :core-input :target-input :maximum-input
-                            :core-placeholder :target-placeholder :maximum-placeholder])
+                            :core-placeholder :target-placeholder :maximum-placeholder :starting-breach])
         (nil-or track? (:track %))
         (nil-or offer? (:set-maximum-offer %))))
 

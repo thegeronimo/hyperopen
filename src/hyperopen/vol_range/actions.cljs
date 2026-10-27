@@ -15,6 +15,7 @@
             [hyperopen.trading.vol-range-transitions :as transitions]
             [hyperopen.vol-range.application.freshness :as freshness]
             [hyperopen.vol-range.application.plan-state :as plan-state]
+            [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.application.ticket-model :as ticket-model]
             [hyperopen.vol-range.contracts :as contracts]))
 
@@ -128,7 +129,8 @@
    (let [id* (cond (keyword? id) id (string? id) (keyword id) :else nil)
          plan (plan-state/plan-for-state state now-ms)
          offer (some #(when (= id* (:id %)) %) (:remediations plan))]
-     (if offer
+     ;; Re-check against the live book: a memoized offer may predate a tick.
+     (if (and offer (plan-state/offer-still-ready? state now-ms offer))
        (save-many-effects state (transitions/apply-patch state (:patch offer)) nil)
        []))))
 
@@ -139,7 +141,8 @@
    (let [{:keys [plan market]} (plan-state/context-for-state state now-ms)]
      (if (= :ready (:status plan))
        (save-many-effects state
-                          (transitions/open-review plan {:bbo (:bbo market) :frozen-at-ms now-ms})
+                          (transitions/open-review plan {:bbo (:bbo market) :frozen-at-ms now-ms
+                                                         :provenance (snapshots/provenance state)})
                           nil)
        []))))
 

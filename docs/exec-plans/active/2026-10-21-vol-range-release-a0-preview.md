@@ -363,3 +363,18 @@ Revision note (2026-10-21): initial version written from the spec and a read of 
   Date/Author: 2026-10-21, Claude.
 - Decision: A negative maker fee yields zero debit bounds and a base credit bound only when settled in base; a base-settled positive buy fee is a reserve amount but not a base debit bound (only the sell-side base fee debits sellable base). The planner's fingerprint excludes plan-id, clock and the remediations flag.
   Date/Author: 2026-10-21, Claude.
+
+## Follow-up: review findings closed (2026-10-27)
+
+All ten A0 review findings were fixed with regression tests, then checked by an independent Opus review whose four major findings were also fixed:
+
+- Source times are real: book venue timestamp, active-asset-context receipt time (kept in `[:market-observations ...]`, outside `:active-assets` so memoized panels stay value-equal), and the fee quote load time. Provenance is excluded from the plan fingerprint and every memo key, and is captured at review freeze; the review shows each source's age and a stale flag against spec 7.3. Placement-time enforcement belongs to Release A admission.
+- The remediation search is memoized; the key includes the live book whenever offers depend on it, and an offer is re-checked against the live book when applied (VR-23).
+- Admission uses the raw `userAbstraction` value against the allowlist; missing is unavailable, anything else is unsupported.
+- Tilt requires a real maximum; sell shortcuts subtract the base fee bound; corrective plans show their starting breach; existing commitments that deepen a breach are surfaced; lot errors carry side, field and a suggested quantity.
+- Scope keys include market type and dex. `::leg` requires canonical strings (zero sizes only as diagnostics of an invalid plan); plan status must agree with its errors.
+- Accessibility: readable inventory track, one always-mounted polite status instead of per-card alerts, `aria-invalid`/`aria-describedby` on inputs, shared dialog focus trap and focus return for the review.
+
+Known A0 limits kept: the book time is the last visual change, the fee quote is not refreshed on a timer, and the raw account mode is the effective account's (spectate is read-only).
+
+Validation: `npm test` 7404 tests 0 failures; `npm run gates` 34/34 PASS. The Playwright spec could not run because port 8080 was held by another local dev server.
