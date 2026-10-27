@@ -63,8 +63,9 @@
 (defn new-grid
   "A grid for a reviewed plan whose legs already carry CLOIDs. Legs keep their
   plan `:leg-id` as the logical member id."
-  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms now-ms]}]
+  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms model now-ms]}]
   {:grid-id grid-id
+   :model model
    :scope scope
    :scope-key scope-key
    :created-at-ms now-ms

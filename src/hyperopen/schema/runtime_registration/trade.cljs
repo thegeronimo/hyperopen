@@ -26,7 +26,8 @@
    [:effects/api-cancel-order :api-cancel-order]
    [:effects/api-submit-position-tpsl :api-submit-position-tpsl]
    [:effects/api-submit-position-margin :api-submit-position-margin]
-   [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]])
+   [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]
+   [:effects/vol-range-execute :vol-range-execute]])
 
 (def effect-order-policy-required-action-ids
   #{:actions/select-asset
@@ -172,6 +173,12 @@
    [:actions/cancel-order :cancel-order]
    [:actions/cancel-twap :cancel-twap]
    [:actions/load-user-data :load-user-data]
+   [:actions/place-vol-range-orders :place-vol-range-orders]
+   [:actions/cancel-vol-ladder :cancel-vol-ladder]
+   [:actions/refresh-vol-ladder :refresh-vol-ladder]
+   [:actions/select-vol-ladder :select-vol-ladder]
+   [:actions/sync-vol-ladders :sync-vol-ladders]
+   [:actions/reconcile-open-vol-ladders :reconcile-open-vol-ladders]
    [:actions/navigate :navigate]])
 
 (def action-binding-rows

@@ -8,6 +8,7 @@
             [hyperopen.runtime.effect-adapters.margin-rec :as margin-rec-effects]
             [hyperopen.runtime.effect-adapters.pnl-share :as pnl-share-effects]
             [hyperopen.runtime.effect-adapters.spectate-mode :as spectate-mode-effects]
+            [hyperopen.runtime.effect-adapters.vol-range-execution :as vol-range-execution]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.schema.runtime-registration.portfolio :as portfolio-registration]
             [hyperopen.schema.runtime-registration.vaults :as vault-registration]))
@@ -102,7 +103,8 @@
               :api-cancel-order (effect-adapters/make-api-cancel-order runtime)
               :api-submit-position-tpsl (effect-adapters/make-api-submit-position-tpsl runtime)
               :api-submit-position-margin (effect-adapters/make-api-submit-position-margin runtime)
-              :clear-order-feedback-toast-timeout (effect-adapters/make-clear-order-feedback-toast-timeout runtime)}
+              :clear-order-feedback-toast-timeout (effect-adapters/make-clear-order-feedback-toast-timeout runtime)
+              :vol-range-execute vol-range-execution/vol-range-execute}
      :margin-rec {:margin-rec-fetch-fills margin-rec-effects/margin-rec-fetch-fills-effect
                   :margin-rec-compute margin-rec-effects/margin-rec-compute-effect}
      :api (merge {:fetch-asset-selector-markets effect-adapters/fetch-asset-selector-markets-effect

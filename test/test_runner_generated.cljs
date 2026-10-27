@@ -876,6 +876,8 @@
             [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trade.vol-range.dock-test]
+            [hyperopen.views.trade.vol-range.review-commit-test]
             [hyperopen.views.trade.vol-range.review-test]
             [hyperopen.views.trade.vol-range.ticket-test]
             [hyperopen.views.trading-chart.actions-test]
@@ -944,6 +946,7 @@
             [hyperopen.views.workbench-render-seams-test]
             [hyperopen.vol-range.a0-boundary-test]
             [hyperopen.vol-range.actions-test]
+            [hyperopen.vol-range.application.dock-model-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.freshness-test]
             [hyperopen.vol-range.application.lifecycle-test]
@@ -957,8 +960,11 @@
             [hyperopen.vol-range.domain.fees-test]
             [hyperopen.vol-range.domain.grid-test]
             [hyperopen.vol-range.domain.volatility-test]
+            [hyperopen.vol-range.execution-actions-test]
+            [hyperopen.vol-range.infrastructure.execution-gate-test]
             [hyperopen.vol-range.infrastructure.fills-window-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
@@ -1923,6 +1929,8 @@
              'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trade.vol-range.dock-test
+             'hyperopen.views.trade.vol-range.review-commit-test
              'hyperopen.views.trade.vol-range.review-test
              'hyperopen.views.trade.vol-range.ticket-test
              'hyperopen.views.trading-chart.actions-test
@@ -1991,6 +1999,7 @@
              'hyperopen.views.workbench-render-seams-test
              'hyperopen.vol-range.a0-boundary-test
              'hyperopen.vol-range.actions-test
+             'hyperopen.vol-range.application.dock-model-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.freshness-test
              'hyperopen.vol-range.application.lifecycle-test
@@ -2004,8 +2013,11 @@
              'hyperopen.vol-range.domain.fees-test
              'hyperopen.vol-range.domain.grid-test
              'hyperopen.vol-range.domain.volatility-test
+             'hyperopen.vol-range.execution-actions-test
+             'hyperopen.vol-range.infrastructure.execution-gate-test
              'hyperopen.vol-range.infrastructure.fills-window-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.infrastructure.lifecycle-safety-test
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test

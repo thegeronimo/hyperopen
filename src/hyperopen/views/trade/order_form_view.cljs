@@ -12,6 +12,7 @@
             [hyperopen.views.trade.order-form-footer :as footer]
             [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.projections :as vol-range-projections]
             [hyperopen.views.trade.vol-range.review :as vol-range-review]
             [hyperopen.views.trade.vol-range.ticket :as vol-range-ticket]))
@@ -332,7 +333,8 @@
   (when (= :scale (:type vm))
     (cond-> {:vol-range-eligibility (vol-range-projections/eligibility-for-state state now-ms)}
       (get-in vm [:vol-range :ui :review-open?])
-      (assoc :vol-range-review (vol-range-projections/review-model state now-ms)))))
+      (assoc :vol-range-review (assoc (vol-range-projections/review-model state now-ms)
+                                      :commit (dock-model/review-commit state))))))
 
 (defn order-form-view [state]
   (let [now-ms (.now js/Date)

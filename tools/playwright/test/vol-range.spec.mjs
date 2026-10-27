@@ -41,6 +41,11 @@ async function stubFixtureAccountInfo(page) {
           dailyUserVlm: []
         };
         break;
+      case "userAbstraction":
+        // The raw account mode gates admission; the live endpoint would answer for a
+        // synthetic address and clear the seeded mode.
+        body = "default";
+        break;
       case "clearinghouseState":
       case "webData2":
         body = { assetPositions: [], marginSummary: {}, crossMarginSummary: {}, spotAssetCtxs: [] };

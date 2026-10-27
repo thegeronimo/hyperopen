@@ -18,7 +18,8 @@
                                        :file "vendor/osqp/osqp_patched.mjs"}}}
         ;; Vol Range A0 preview: on for dev/watch (and so Playwright), never in
         ;; `shadow-cljs release`, which keeps the goog-define default of false.
-        :dev {:closure-defines {hyperopen.config/VOL_RANGE_PREVIEW true}}
+        :dev {:closure-defines {hyperopen.config/VOL_RANGE_PREVIEW true
+                                hyperopen.config/VOL_RANGE_EXECUTION true}}
         :target :browser
         :output-dir "resources/public/js"
         :asset-path "/js"

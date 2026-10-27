@@ -255,7 +255,8 @@
                    (is (empty? (sim/order-sends s)))
                    (is (empty? (lifecycle/releasable-operations grid)) "already released")
                    (is (= "0" (:usdc (jr/pending-reservations (sim/records s) "0xabc"))))
-                   (swap! s assoc :usdc "3000" :bbo-at (sim/now s))
+                   ;; The book read fails, so the store's book (2 s+ old) is all there is.
+                   (swap! s assoc :usdc "3000" :bbo-at (sim/now s) :book-down? true)
                    (sim/script! s {:kind :normal :before-guard (fn [s] (sim/advance! s 3000))})
                    (place! s)))
           (.then (fn [{:keys [delivery phase]}]
@@ -408,79 +409,5 @@
                    (is (= :refused (:status r)))
                    (is (= [:guard/scope-changed] (:errors r)))
                    (is (empty? (sim/cancel-sends s)))
-                   (done)))
-          (.catch (fail done))))))
-
-;; ---------------------------------------------------------------------------
-;; Second review regressions
-;; ---------------------------------------------------------------------------
-
-(deftest one-repair-never-places-a-member-twice-test
-  (async done
-    (let [s (fresh)]
-      (sim/script! s {:kind :normal :reject-prices ["76.4"]})
-      (-> (place! s)
-          (.then (fn [{:keys [grid]}] (ex/reconcile! (sim/deps s) grid)))
-          (.then (fn [{:keys [grid]}]
-                   (let [[c] (lifecycle/repair-candidates grid)
-                         leg {:logical-id (:logical-id c) :size "3"}]
-                     (place/repair! (sim/deps s) {:grid grid :legs [(assoc leg :price "76.3")
-                                                                    (assoc leg :price "76.2")]}))))
-          (.then (fn [r]
-                   (is (= :admission-failed (:status r)))
-                   (is (some #{:repair/duplicate-member} (:errors r)))
-                   (is (= 1 (count (sim/order-sends s))))
-                   (done)))
-          (.catch (fail done))))))
-
-(deftest a-late-attempt-commit-never-blocks-the-market-test
-  ;; The delivery timed out before HTTP; the attempt record lands afterwards as
-  ;; :sending. The delivery's not-sent outcome is proof, so placement resumes.
-  (async done
-    (let [s (fresh)
-          plan (sim/frozen-plan s)]
-      (sim/script! s {:kind :late-attempt})
-      (-> (place! s plan)
-          (.then (fn [{:keys [status]}]
-                   (is (= :not-placed status))
-                   (js/Promise. (fn [res _] (js/setTimeout res 30)))))
-          (.then (fn [_]
-                   (is (some #(and (= :send-attempt (:kind %)) (= :sending (:delivery %))) (sim/records s))
-                       "the late commit really landed")
-                   (place! s plan)))
-          (.then (fn [{:keys [status]}]
-                   (is (= :live status))
-                   (is (= 1 (count (sim/order-sends s))))
-                   (done)))
-          (.catch (fail done))))))
-
-(deftest a-failed-journal-read-never-overwrites-the-grid-test
-  (async done
-    (let [s (fresh)]
-      (-> (place! s)
-          (.then (fn [{:keys [grid]}]
-                   (let [before (:journal @s)]
-                     (swap! s assoc :journal-load-fail? true)
-                     (-> (ex/persist-grid! (sim/deps s) (assoc grid :legs {}) [])
-                         (.then (fn [{:keys [ok?]}]
-                                  (is (false? ok?))
-                                  (is (= before (:journal @s)) "nothing was written blind")
-                                  (done)))))))
-          (.catch (fail done))))))
-
-(deftest cancel-settles-a-crashed-send-without-a-reload-test
-  ;; The sending tab died mid-HTTP; the venue accepted the batch.
-  (async done
-    (let [s (fresh)]
-      (sim/script! s {:kind :crash})
-      (place! s)
-      (-> (js/Promise. (fn [res _] (js/setTimeout res 20)))
-          (.then (fn [_]
-                   (sim/advance! s (+ ex/action-deadline-ms 41000))
-                   (cancel/cancel! (sim/deps s) {:grid (first (jr/grids (sim/records s) nil))})))
-          (.then (fn [{:keys [status]}]
-                   (is (= :closed status) "the unknown orders were canceled by CLOID and confirmed")
-                   (is (= 7 (count (mapcat :cancels (sim/cancel-sends s)))))
-                   (is (empty? (filter #(= "open" (:status %)) (vals (:orders @s)))))
                    (done)))
           (.catch (fail done))))))

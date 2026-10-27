@@ -119,3 +119,26 @@
                                    :else (page newest rows (inc n)))))))
                     (.catch (fn [e] (done rows false (if (instance? js/Error e) (.-message e) (str e)))))))]
         (page start-ms [] 0)))))
+
+(defn read-book!
+  "Fresh best bid and ask for `coin` (spec 7.3: the book must be at most 2 s
+  old at admission and before HTTP; the app store only keeps books that
+  visibly changed, so its timestamp can be older in a quiet market).
+  Resolves to {:bid :ask :observed-at-ms :complete? :error}. Never rejects."
+  [post-info! {:keys [coin barrier-id now-ms!]}]
+  (let [now-ms! (or now-ms! #(.now js/Date))
+        level-px (fn [side] (let [px (:px (first side))] (when (string? px) px)))]
+    (if-not (and (string? coin) barrier-id)
+      (js/Promise.resolve {:bid nil :ask nil :observed-at-ms nil :complete? false
+                           :error "Coin and barrier id are required"})
+      (-> (post-info! {"type" "l2Book" "coin" coin}
+                      {:priority :high :cache-ttl-ms 0 :dedupe-key [:vol-range-barrier :book coin barrier-id]})
+          (.then (fn [resp]
+                   (let [[bids asks] (when (map? resp) (:levels resp))
+                         bid (level-px bids)
+                         ask (level-px asks)]
+                     {:bid bid :ask ask :observed-at-ms (now-ms!)
+                      :complete? (boolean (and bid ask))
+                      :error (when-not (and bid ask) "Unexpected order book shape")})))
+          (.catch (fn [e] {:bid nil :ask nil :observed-at-ms nil :complete? false
+                           :error (if (instance? js/Error e) (.-message e) (str e))}))))))

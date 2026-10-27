@@ -13,6 +13,7 @@
             [hyperopen.views.l2-orderbook.own-orders :as own-orders]
             [hyperopen.views.trade.book-impact :as book-impact]
             [hyperopen.views.trade.order-form-view :as order-form-view]
+            [hyperopen.views.trade.vol-range.dock :as vol-dock]
             [hyperopen.views.trade-view.layout-state :as layout-state]
             [hyperopen.views.trade-view.loading-shell :as loading-shell]
             [hyperopen.views.trade-view.shell :as shell]))
@@ -137,6 +138,7 @@
   (cond-> (merge (select-view-state state account-info-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
                  (ui-voice-state state)
+                 (vol-dock/view-state state)
                  (hyperevm-panel-slice/balances-panel-slice state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
@@ -227,8 +229,7 @@
 
 (defonce ^:private frozen-order-form-view-state* (atom nil))
 
-(defn- viewport-width-px []
-  (some-> js/globalThis .-innerWidth))
+(defn- viewport-width-px [] (some-> js/globalThis .-innerWidth))
 
 (defn- mobile-orderbook-view-state
   [orderbook-view-state mobile-surface]
@@ -264,7 +265,7 @@
   (when-let [render-fn (account-surface-export :account-info-view)]
     (memoized-account-info-view render-fn
                                 view-state
-                                opts)))
+                                (vol-dock/with-tab opts view-state))))
 
 (defn- render-account-equity-panel
   [state equity-metrics opts]

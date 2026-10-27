@@ -12,6 +12,7 @@
   immediately before HTTP -> strict per-leg interpretation -> persist.
   Nothing here retries or resends."
   (:require [hyperopen.api.trading.order-result :as order-result]
+            [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
@@ -37,14 +38,48 @@
     (not (same-scope? scope (get-in live [:input :scope]))) :guard/scope-changed
     :else nil))
 
+(defn- over-cap?
+  "True when the legs' total notional exceeds the local per-ladder cap
+  (`:max-ladder-usdc` from `live!`; no cap when absent)."
+  [live legs]
+  (when-let [cap (some-> (:max-ladder-usdc live) str precision/parse-decimal)]
+    (let [total (reduce precision/add (precision/parse-decimal "0")
+                        (map #(precision/mul (precision/parse-decimal (str (:price %)))
+                                             (precision/parse-decimal (str (:size %))))
+                             legs))]
+      (pos? (precision/cmp total cap)))))
+
+(defn- with-fresh-book
+  "`input` with the market's best bid/ask (and market-price anchor) from an
+  awaited book read. An incomplete read leaves the store's book, whose age
+  the revalidation then judges."
+  [input {:keys [bid ask observed-at-ms complete?]}]
+  (if-not complete?
+    input
+    (let [mid (precision/divide (precision/add (precision/parse-decimal bid) (precision/parse-decimal ask))
+                                (precision/parse-decimal "2") 12 :half-up)]
+      (cond-> (assoc-in input [:market :bbo] {:bid bid :ask ask :observed-at-ms observed-at-ms})
+        (get-in input [:market :anchors :market-price])
+        (assoc-in [:market :anchors :market-price] {:price (precision/decimal->string mid)
+                                                    :observed-at-ms observed-at-ms})))))
+
 (defn- barrier-account!
-  "Awaited raw account read: {:read raw :account ::account-snapshot}."
+  "Awaited raw reads for admission and the final guard: the account (balances
+  and open orders) and the book. Resolves to {:read raw :account
+  ::account-snapshot :input planner-input-with-fresh-book}."
   [deps scope live]
-  (-> (reads/read-account-snapshot! (:post-info! deps)
-                                    {:account-address (:account-address scope)
-                                     :barrier-id ((:random-id! deps) "rb")
-                                     :now-ms! (:now-ms! deps)})
-      (.then (fn [read] {:read read :account (snapshots/account-snapshot-from-read scope read live)}))))
+  (let [barrier-id ((:random-id! deps) "rb")]
+    (-> (js/Promise.all
+         #js [(reads/read-account-snapshot! (:post-info! deps)
+                                            {:account-address (:account-address scope) :barrier-id barrier-id
+                                             :now-ms! (:now-ms! deps)})
+              (reads/read-book! (:post-info! deps) {:coin (:coin scope) :barrier-id barrier-id
+                                                    :now-ms! (:now-ms! deps)})])
+        (.then (fn [arr]
+                 (let [[read book] (array-seq arr)]
+                   {:read read
+                    :account (snapshots/account-snapshot-from-read scope read live)
+                    :input (with-fresh-book (:input live) book)}))))))
 
 (defn- admission-status [{:keys [status value error]}]
   (case status
@@ -64,14 +99,14 @@
         (js/Promise.resolve [r])
         (-> (js/Promise.all #js [(ex/load! deps) (barrier-account! deps scope live)])
             (.then (fn [arr]
-                     (let [[journal {:keys [account]}] (array-seq arr)
+                     (let [[journal {:keys [account input]}] (array-seq arr)
                            stored (when (:ok? journal) (ex/stored-grid (:records journal) grid-id))]
                        (cond
                          (not (:ok? journal)) [:journal/unavailable]
                          (:cancel-requested-at-ms stored) [:grid/cancel-requested]
                          :else
                          (let [pending (jr/pending-reservations (:records journal) (:account-address scope) operation-id)
-                               {:keys [ok? errors]} (check {:input (:input live) :account account
+                               {:keys [ok? errors]} (check {:input input :account account
                                                             :pending pending :now-ms (ex/now deps)})]
                            (if ok? true errors)))))))))))
 
@@ -107,7 +142,7 @@
           :before-send! (final-guard deps {:scope scope :grid-id (:grid-id grid) :operation-id operation-id
                                            :check check})})
         (.then
-         (fn [{:keys [delivery body error phase nonce]}]
+         (fn [{:keys [delivery body error phase nonce http-status]}]
            (let [at (ex/now deps)
                  normalized (when (= :response delivery) (order-result/normalize-order-response legs body))
                  ;; A late attempt commit (pre-send timeout) may still land; the
@@ -125,7 +160,8 @@
                  attempt (some-> base-attempt
                                  (jr/with-outcome {:delivery delivery
                                                    :response-category (:response-category normalized)
-                                                   :leg-results (:leg-results normalized)}
+                                                   :leg-results (:leg-results normalized)
+                                                   :raw-body body :http-status http-status}
                                                   at))]
              (-> (ex/persist-grid! deps grid (if attempt [attempt] []))
                  (.then (fn [{:keys [ok? grid] persist-error :error}]
@@ -175,9 +211,9 @@
              :else
              (.then
               (barrier-account! deps scope live)
-              (fn [{:keys [read account]}]
+              (fn [{:keys [read account input]}]
                 (let [found (ex/discovered-orders (:open-orders read) scope (jr/grids records nil))
-                      {:keys [ok? errors]} (check {:input (:input live) :account account
+                      {:keys [ok? errors]} (check {:input input :account account
                                                    :pending (jr/pending-reservations records (:account-address scope))
                                                    :now-ms (ex/now deps)})
                       plan-legs (wire/ordered-legs (:legs frozen-plan))
@@ -197,6 +233,8 @@
                           grid (lifecycle/new-grid {:grid-id ((:random-id! deps) "grid") :scope scope
                                                     :scope-key scope-key :operation-id operation-id
                                                     :plan-id (:plan-id frozen-plan) :legs legs
+                                                    :model (select-keys (:model frozen-plan)
+                                                                        [:anchor :volatility :tilt :shifted-anchor])
                                                     :expires-after-ms expires :now-ms at})
                           intent (jr/intent-record
                                   {:operation-id operation-id :scope scope :scope-key scope-key
@@ -216,7 +254,9 @@
   [deps {:keys [frozen-plan frozen-scope]}]
   (let [live ((:live! deps))
         scope frozen-scope
-        r (or (when (not= :ready (:status frozen-plan)) :plan/not-ready) (refusal live scope))]
+        r (or (when (not= :ready (:status frozen-plan)) :plan/not-ready)
+              (refusal live scope)
+              (when (over-cap? live (:legs frozen-plan)) :guard/over-ladder-cap))]
     (if r
       (js/Promise.resolve {:status :refused :errors [r]})
       (let [operation-id ((:random-id! deps) "op")
@@ -254,13 +294,13 @@
              :else
              (.then
               (barrier-account! deps scope live)
-              (fn [{:keys [read account]}]
+              (fn [{:keys [read account input]}]
                 (let [check (fn [ctx] (revalidation/revalidate-repair
                                        (merge ctx (repair-context grid) {:grid-scope scope :legs legs})))
                       _ (reset! check-ref check)
                       found (ex/discovered-orders (:open-orders read) scope (jr/grids records nil))
                       {:keys [ok? errors reservations]}
-                      (check {:input (:input live) :account account :now-ms (ex/now deps)
+                      (check {:input input :account account :now-ms (ex/now deps)
                               :pending (jr/pending-reservations records (:account-address scope))})
                       assigned (when ok? (cloid/assign-cloids legs ((:cloid-suffixes! deps) (count legs))))
                       at (ex/now deps)
@@ -298,11 +338,13 @@
   [deps {:keys [grid legs]}]
   (let [live ((:live! deps))
         scope (:scope grid)
-        r (or (when (:recovered? grid) :repair/recovered-grid) (refusal live scope))
         members (:members grid)
         legs (mapv (fn [l] (assoc l :side (get-in members [(:logical-id l) :side])
                                   :rung-index (get-in members [(:logical-id l) :rung-index])))
-                   legs)]
+                   legs)
+        r (or (when (:recovered? grid) :repair/recovered-grid)
+              (refusal live scope)
+              (when (over-cap? live legs) :guard/over-ladder-cap))]
     (if r
       (js/Promise.resolve {:status :refused :errors [r]})
       (let [operation-id ((:random-id! deps) "op")

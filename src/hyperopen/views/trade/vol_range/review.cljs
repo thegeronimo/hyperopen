@@ -1,7 +1,8 @@
 (ns hyperopen.views.trade.vol-range.review
-  "Read-only Vol Range review dialog (spec section 4, VR-24). It lists the exact
-  planned orders and the cash and inventory bounds. Placement is not available
-  in Release A0: there is no commit control, only Back to edit."
+  "Vol Range review dialog (spec section 4). It lists the exact planned orders
+  and the cash and inventory bounds. A commit button renders only when the
+  `:commit` model (dock-model/review-commit) is visible; otherwise the
+  placement-unavailable text stays and there is only Back to edit."
   (:require [hyperopen.views.trade.vol-range.commands :as commands]
             [hyperopen.views.trade.vol-range.primitives :as p]
             [hyperopen.views.ui.dialog-focus :as dialog-focus]))
@@ -47,9 +48,24 @@
    (for [[idx {:keys [label value]}] (map-indexed vector rows)]
      ^{:key idx} (p/stat-row label value))])
 
+(defn- commit-control
+  [{:keys [label enabled? placing? note]}]
+  [:div {:class ["flex" "flex-col" "items-end" "gap-1"]}
+   [:button {:type "button"
+             :disabled (not enabled?)
+             :aria-busy (boolean placing?)
+             :class ["h-9" "min-w-[6rem]" "rounded-lg" "bg-primary" "px-3" "text-sm" "font-semibold"
+                     "text-primary-content" "focus:outline-none" "focus-visible:ring-2"
+                     "focus-visible:ring-ho-text" "disabled:cursor-not-allowed" "disabled:opacity-50"]
+             :data-role "vol-range-submit"
+             :on {:click (commands/place-orders-actions)}}
+    label]
+   (when note
+     [:p {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-range-submit-note"} note])])
+
 (defn review-dialog
   "Dialog for an open review model; nil when closed or unavailable."
-  [{:keys [open? title identity-line plan-as-of base-symbol tiles legs cash inventory details note footer]}]
+  [{:keys [open? title identity-line plan-as-of base-symbol tiles legs cash inventory details note footer commit]}]
   (when open?
    (let [base-label (or base-symbol "base")]
     [:div {:class ["fixed" "inset-0" "z-[300]" "flex" "items-stretch" "justify-center" "bg-black/60"
@@ -101,6 +117,8 @@
                   :data-role "vol-range-review-back"
                   :on {:click (p/actions (commands/close-review))}}
          (:back-label footer)]
-        [:span {:class ["text-sm" "text-ho-text-secondary"]
-                :data-role "vol-range-placement-unavailable"}
-         (:text footer)]]]]])))
+        (if (:visible? commit)
+          (commit-control commit)
+          [:span {:class ["text-sm" "text-ho-text-secondary"]
+                  :data-role "vol-range-placement-unavailable"}
+           (:text footer)])]]]])))

@@ -59,3 +59,17 @@
 
 (defn refresh-daily-candles []
   (command :order-form/refresh-vol-range-daily-candles))
+
+;; ---------------------------------------------------------------------------
+;; Execution actions. These are already-registered runtime actions with no
+;; order-form command id, so they are returned as action vectors directly.
+;; ---------------------------------------------------------------------------
+
+(defn place-orders-actions
+  "Explicit commit click only; Enter in a field never reaches this."
+  []
+  [[:actions/place-vol-range-orders]])
+
+(defn cancel-ladder-actions [grid-id] [[:actions/cancel-vol-ladder grid-id]])
+(defn refresh-ladder-actions [grid-id] [[:actions/refresh-vol-ladder grid-id]])
+(defn select-ladder-actions [grid-id] [[:actions/select-vol-ladder grid-id]])

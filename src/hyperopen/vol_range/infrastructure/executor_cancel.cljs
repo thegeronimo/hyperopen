@@ -16,19 +16,24 @@
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
-            [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.wire :as wire]
             [hyperopen.vol-range.infrastructure.executor :as ex]))
 
+(def ^:private account-identity-keys
+  "Who signs and for which account. The market comes from the grid itself
+  (its own asset id), so a ladder can be canceled from any market view."
+  [:network :owner-address :account-address :vault-address])
+
 (defn- refusal
-  "Cancel needs mutation permission, a ready signer and the SAME account and
-  market as the grid (VR-18); never the execution flag or admission."
+  "Cancel needs mutation permission, a ready signer and the SAME network,
+  owner, account and vault as the grid (VR-18); never the execution flag or
+  admission."
   [live grid]
   (cond
     (:read-only? live) :capability/read-only
     (not (:agent-ready? live)) :signer/agent-not-ready
-    (not= (select-keys (:scope grid) revalidation/identity-keys)
-          (select-keys (get-in live [:input :scope]) revalidation/identity-keys))
+    (not= (select-keys (:scope grid) account-identity-keys)
+          (select-keys (get-in live [:input :scope]) account-identity-keys))
     :guard/scope-changed
     :else nil))
 
@@ -67,14 +72,16 @@
                      (.then (fn [_] true)))))
              :before-send! (fn [_] (if-let [r (refusal ((:live! deps)) grid)] (js/Promise.resolve [r]) true))})))
         (.then
-         (fn [{:keys [delivery body error phase]}]
+         (fn [{:keys [delivery body error phase http-status]}]
            (let [at (ex/now deps)
                  normalized (when (= :response delivery) (order-result/normalize-cancel-response targets body))
                  grid (evidence/apply-cancel-delivery @grid-ref operation-id
                                                       {:delivery delivery :results (:results normalized)}
                                                       at)
                  attempt (some-> @attempt-ref
-                                 (jr/with-cancel-outcome {:delivery delivery :results (:results normalized)} at))]
+                                 (jr/with-cancel-outcome {:delivery delivery :results (:results normalized)
+                                                          :raw-body body :http-status http-status}
+                                                         at))]
              (-> (ex/persist-grid! deps grid (if attempt [attempt] []))
                  (.then (fn [{:keys [grid]}]
                           {:grid grid :delivery delivery :phase phase :error error

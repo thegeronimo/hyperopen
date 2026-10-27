@@ -91,6 +91,8 @@
          {:balances [{:coin "USDC" :total (:usdc @sim) :hold (ds usdc)}
                      {:coin "SYN" :total (:base @sim) :hold (ds base)}]})
        "frontendOpenOrders" (mapv order-row (open-orders sim))
+       "l2Book" (when-not (:book-down? @sim)
+                  {:coin coin :time (now sim) :levels [[{:px "79.99" :sz "100" :n 1}] [{:px "80.01" :sz "100" :n 1}]]})
        "orderStatus"
        (let [id (get body "oid")
              o (if (number? id) (get-in @sim [:orders id]) (order-by-cloid sim id))]

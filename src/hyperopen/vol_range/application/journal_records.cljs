@@ -62,10 +62,23 @@
    :leg-results []
    :saved-at-ms now-ms})
 
+(def ^:private max-raw-chars 16000)
+
+(defn- raw-text
+  "The exchange reply as text, for local diagnostics only (spec 16: never
+  sent to remote telemetry). Replies carry no keys or signatures."
+  [body]
+  (when (some? body)
+    (let [t (binding [*print-length* nil *print-level* nil] (pr-str body))]
+      (if (> (count t) max-raw-chars) (str (subs t 0 max-raw-chars) "…") t))))
+
 (defn with-outcome
-  "The attempt record after its delivery result and normalized leg outcomes."
-  [attempt {:keys [delivery response-category leg-results]} now-ms]
+  "The attempt record after its delivery result and normalized leg outcomes,
+  with the raw exchange reply kept for local diagnostics."
+  [attempt {:keys [delivery response-category leg-results raw-body http-status]} now-ms]
   (assoc attempt
+         :raw-response (raw-text raw-body)
+         :http-status http-status
          :delivery delivery
          :response-category response-category
          :leg-results (mapv #(select-keys % [:cloid :oid :placement-state :order-state :reason
@@ -126,8 +139,10 @@
    :results []
    :saved-at-ms now-ms})
 
-(defn with-cancel-outcome [attempt {:keys [delivery results]} now-ms]
+(defn with-cancel-outcome [attempt {:keys [delivery results raw-body http-status]} now-ms]
   (assoc attempt
+         :raw-response (raw-text raw-body)
+         :http-status http-status
          :delivery delivery
          :results (mapv #(select-keys % [:cloid :oid :cancel-state :reason]) results)
          :saved-at-ms now-ms))
