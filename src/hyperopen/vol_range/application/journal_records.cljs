@@ -93,20 +93,85 @@
        (filter attempt-unresolved?)
        vec))
 
+(defn grid-record
+  "The current lifecycle state of one logical grid (membership, legs,
+  operations, fills). Overwritten in place as evidence arrives."
+  [grid now-ms]
+  {:schema-version schema-version
+   :record-id (str "grid:" (:grid-id grid))
+   :kind :grid
+   :grid-id (:grid-id grid)
+   :scope (:scope grid)
+   :scope-key (:scope-key grid)
+   :grid grid
+   :saved-at-ms now-ms})
+
+(defn cancel-attempt-record
+  "A cancel send attempt (spec 10.1). Best effort: cancellation never waits on
+  a successful journal commit (spec 7.4)."
+  [{:keys [operation-id attempt-id grid-id scope-key nonce expires-after-ms action-digest targets now-ms]}]
+  {:schema-version schema-version
+   :record-id (str "cancel:" attempt-id)
+   :kind :cancel-attempt
+   :operation-id operation-id
+   :attempt-id attempt-id
+   :grid-id grid-id
+   :scope-key scope-key
+   :nonce nonce
+   :expires-after-ms expires-after-ms
+   :action-digest action-digest
+   :targets (mapv #(select-keys % [:cloid :oid]) targets)
+   :attempted-at-ms now-ms
+   :delivery :sending
+   :results []
+   :saved-at-ms now-ms})
+
+(defn with-cancel-outcome [attempt {:keys [delivery results]} now-ms]
+  (assoc attempt
+         :delivery delivery
+         :results (mapv #(select-keys % [:cloid :oid :cancel-state :reason]) results)
+         :saved-at-ms now-ms))
+
+(defn reservation-release-record
+  "The pending reservation of `operation-id` is released: coherent account
+  evidence now includes its hold or settlement (spec 8.1 step 10)."
+  [{:keys [operation-id scope now-ms]}]
+  {:schema-version schema-version
+   :record-id (str "release:" operation-id)
+   :kind :reservation-release
+   :operation-id operation-id
+   :scope scope
+   :saved-at-ms now-ms})
+
+(defn grids
+  "Grid states from journal records, optionally for one scope key."
+  [records scope-key]
+  (->> records
+       (filter #(= :grid (:kind %)))
+       (filter #(or (nil? scope-key) (= scope-key (:scope-key %))))
+       (mapv :grid)))
+
 (defn pending-reservations
   "Sum of reservations still pending for intents on `account-address` (spec
-  3.3: counted until coherent account evidence includes the hold)."
-  [records account-address]
+  3.3: counted until coherent account evidence includes the hold). An intent
+  with a release record no longer counts. `exclude-operation-id` is the
+  caller's own operation, which is the same commitment, not a competing one
+  (spec 8.1)."
+  ([records account-address] (pending-reservations records account-address nil))
+  ([records account-address exclude-operation-id]
   (let [account (some-> account-address str/lower-case)
+        released (->> records (filter #(= :reservation-release (:kind %))) (map :operation-id) set)
         pending (->> records
                      (filter #(= :placement-intent (:kind %)))
                      (filter #(= :pending (:reservation-state %)))
+                     (remove #(contains? released (:operation-id %)))
+                     (remove #(= exclude-operation-id (:operation-id %)))
                      (filter #(= account (some-> (get-in % [:scope :account-address]) str/lower-case))))
         sum (fn [k] (reduce precision/add (precision/parse-decimal "0")
                             (map #(precision/parse-decimal (get-in % [:reservations k])) pending)))]
     {:usdc (precision/decimal->string (sum :usdc))
      :base (precision/decimal->string (sum :base))
-     :operation-ids (mapv :operation-id pending)}))
+     :operation-ids (mapv :operation-id pending)})))
 
 (defn record-valid?
   "Shape and safety check before any write: versioned, keyed, timestamped and

@@ -946,6 +946,7 @@
             [hyperopen.vol-range.actions-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.lifecycle-test]
             [hyperopen.vol-range.application.plan-state-memo-test]
             [hyperopen.vol-range.application.planner-test]
             [hyperopen.vol-range.application.projections-test]
@@ -956,7 +957,9 @@
             [hyperopen.vol-range.domain.fees-test]
             [hyperopen.vol-range.domain.grid-test]
             [hyperopen.vol-range.domain.volatility-test]
+            [hyperopen.vol-range.infrastructure.fills-window-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
@@ -1990,6 +1993,7 @@
              'hyperopen.vol-range.actions-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.lifecycle-test
              'hyperopen.vol-range.application.plan-state-memo-test
              'hyperopen.vol-range.application.planner-test
              'hyperopen.vol-range.application.projections-test
@@ -2000,7 +2004,9 @@
              'hyperopen.vol-range.domain.fees-test
              'hyperopen.vol-range.domain.grid-test
              'hyperopen.vol-range.domain.volatility-test
+             'hyperopen.vol-range.infrastructure.fills-window-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test

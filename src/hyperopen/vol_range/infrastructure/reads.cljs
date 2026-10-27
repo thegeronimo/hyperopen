@@ -78,3 +78,44 @@
                           {:id id :status nil :order nil
                            :error (if (instance? js/Error e) (.-message e) (str e))}))))))
         (.then (fn [arr] (vec (array-seq arr)))))))
+
+(def fills-page-limit
+  "The venue returns at most this many fills per userFillsByTime request."
+  2000)
+
+(def ^:private max-fill-pages 10)
+
+(defn read-fills-window!
+  "Raw, un-aggregated fills for one account in [start-ms, end-ms] (spec 9.2).
+  Pages forward from the newest row's time with overlap; rows are de-duplicated
+  by the caller's durable fill key. Resolves to {:rows [...] :complete? bool
+  :requested-at-ms :received-at-ms :error}. `complete?` is false when a page
+  failed, a full page made no time progress, or the page cap was reached:
+  coverage is never assumed. Never rejects."
+  [post-info! {:keys [account-address start-ms end-ms barrier-id now-ms!]}]
+  (let [address (normalize-address account-address)
+        now-ms! (or now-ms! #(.now js/Date))
+        requested-at (now-ms!)
+        done (fn [rows complete? error]
+               {:rows rows :complete? complete? :requested-at-ms requested-at
+                :received-at-ms (now-ms!) :error error})]
+    (if-not (and address barrier-id (number? start-ms) (number? end-ms))
+      (js/Promise.resolve (done [] false "Account, window and barrier id are required"))
+      (letfn [(page [from rows n]
+                (-> (post-info! {"type" "userFillsByTime" "user" address "startTime" from
+                                 "endTime" end-ms "aggregateByTime" false}
+                                (fresh-opts :fills address [barrier-id from]))
+                    (.then (fn [resp]
+                             (if-not (sequential? resp)
+                               (done rows false "Unexpected fills response shape")
+                               (let [rows (into rows resp)
+                                     newest (reduce max from (keep :time resp))]
+                                 (cond
+                                   (< (count resp) fills-page-limit) (done rows true nil)
+                                   (<= newest from) (done rows false "Fill pagination made no progress")
+                                   (>= (inc n) max-fill-pages) (done rows false "Fill page cap reached")
+                                   ;; Overlap at `newest`: rows sharing that ms are re-read
+                                   ;; and de-duplicated by fill key.
+                                   :else (page newest rows (inc n)))))))
+                    (.catch (fn [e] (done rows false (if (instance? js/Error e) (.-message e) (str e)))))))]
+        (page start-ms [] 0)))))

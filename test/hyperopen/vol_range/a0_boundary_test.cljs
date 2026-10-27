@@ -162,16 +162,27 @@
    "hyperopen.api.gateway.orders" "hyperopen.platform.indexed-db" "api-submit-order" "nonce"])
 
 (def ^:private execution-foundations
-  "Release A execution foundations (journal, entropy, raw reads). They may
-  touch storage and nonces; the A0 preview must never require them."
+  "Release A execution code (journal, entropy, raw reads, wire mapping, the
+  order lifecycle and its executor). It may touch storage, nonces and
+  signing; the A0 preview must never require it."
   #{"src/hyperopen/vol_range/infrastructure/journal.cljs"
     "src/hyperopen/vol_range/infrastructure/entropy.cljs"
     "src/hyperopen/vol_range/infrastructure/reads.cljs"
-    "src/hyperopen/vol_range/application/journal_records.cljs"})
+    "src/hyperopen/vol_range/infrastructure/executor.cljs"
+    "src/hyperopen/vol_range/infrastructure/executor_place.cljs"
+    "src/hyperopen/vol_range/infrastructure/executor_cancel.cljs"
+    "src/hyperopen/vol_range/application/journal_records.cljs"
+    "src/hyperopen/vol_range/application/lifecycle.cljs"
+    "src/hyperopen/vol_range/application/lifecycle_evidence.cljs"
+    "src/hyperopen/vol_range/application/lifecycle_recovery.cljs"
+    "src/hyperopen/vol_range/application/revalidation.cljs"
+    "src/hyperopen/vol_range/application/wire.cljs"})
 
 (def ^:private execution-foundation-namespaces
   ["hyperopen.vol-range.infrastructure.journal" "hyperopen.vol-range.infrastructure.entropy"
    "hyperopen.vol-range.infrastructure.reads" "hyperopen.vol-range.application.journal-records"
+   "hyperopen.vol-range.infrastructure.executor" "hyperopen.vol-range.application.lifecycle"
+   "hyperopen.vol-range.application.revalidation" "hyperopen.vol-range.application.wire"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

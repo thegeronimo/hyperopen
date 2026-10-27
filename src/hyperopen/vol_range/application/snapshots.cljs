@@ -275,6 +275,35 @@
      :open-orders (if (and address (:coin scope)) (open-orders state (:coin scope)) [])
      :observed-at-ms now-ms}))
 
+(defn account-snapshot-from-read
+  "::account-snapshot from an awaited raw barrier read
+  (`reads/read-account-snapshot!`) instead of app state, for the final
+  pre-send guard (spec 8.1 step 8). Raw open orders are used before any
+  optimistic cancel filtering; an incomplete read is :unavailable."
+  [scope {:keys [account-address balances open-orders complete? received-at-ms]}
+   {:keys [raw-account-mode read-only?]}]
+  (let [ok? (and complete? (some? account-address))]
+    {:status (if ok? :ready :unavailable)
+     :errors (if ok? [] [(contracts/error :data/balances-unavailable {})])
+     :account-address account-address
+     :account-mode nil
+     :raw-account-mode raw-account-mode
+     :read-only? (boolean read-only?)
+     :base (when ok? (find-balance balances (:base-token-id scope) (:symbol scope)))
+     :quote (when ok? (find-balance balances (:quote-token-id scope) (:quote-symbol scope)))
+     :open-orders (if ok?
+                    (->> open-orders
+                         (filter #(= (:coin scope) (:coin %)))
+                         (keep (fn [o]
+                                 (let [side (order-side (:side o))
+                                       price (->dec-string (:limitPx o))
+                                       remaining (->dec-string (:sz o))]
+                                   (when (and side price remaining)
+                                     {:oid (str (:oid o)) :side side :price price :remaining remaining}))))
+                         vec)
+                    [])
+     :observed-at-ms received-at-ms}))
+
 ;; ---------------------------------------------------------------------------
 ;; Fee snapshot
 ;; ---------------------------------------------------------------------------

@@ -93,9 +93,29 @@ Existing manual `submit-outcome` behavior is unchanged in this PR.
 `hyperopen.vol-range.infrastructure.reads/read-account-snapshot!` return raw rows with provenance
 (`:requested-at-ms`, `:received-at-ms`, `:account-address`, `:complete?`) without writing to the app store.
 
+### 8. Grid lifecycle records (stage 5)
+
+One `grid:<id>` journal record holds a logical grid: explicit membership (every CLOID ever sent for a
+rung, the last one current), per-leg evidence, operations, ingested fills and released reservations.
+Every write is load + merge + write under a per-grid lock (`hyperopen:vol-range-grid:<id>`), and
+`lifecycle-recovery/merge-grids` is monotonic: membership, operations, fills and releases are unions,
+operations only advance, and a leg keeps its most advanced evidence. A flow holding an older copy can
+therefore never erase another flow's operation, repair or fill. Recovery after a reload treats any
+operation with a committed send-attempt record as possibly sent, whatever the grid record says, and
+decides an operation only after its action deadline plus the HTTP timeout, so a live tab's send is never
+declared unsent.
+
+Pending reservations are released only for resolved operations, and only after a balance read
+REQUESTED after the newest evidence that changed the operation's legs. Fill evidence is stamped with the
+fills window's end, and fills are read last in a reconciliation so a complete read covers every state
+change seen before it. Cancelling records a request first; a placement or repair still before its final
+pre-send guard is then refused, and cancel returns `:busy` while one is between the guard and its outcome.
+Cancel never takes the admission section and never needs a journal commit.
+
 ## Consequences
 
 - Manual and optimizer submits now reserve nonces before signing; behavior is otherwise unchanged.
 - No Vol Range UI is enabled by this PR; the foundations are exercised by unit tests and fakes.
 - Browser-only storage still cannot give a global lock across devices (spec 3.3); conflicts are detected by
   reconciliation, not prevented.
+- Stage 5 adds the grid lifecycle and executor; it is not wired to any UI or effect adapter yet.

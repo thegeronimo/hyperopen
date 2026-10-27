@@ -55,6 +55,7 @@
   {:bbo-ms 2000
    :vwap-ms 30000
    :fee-ms 300000
+   :account-ms 5000
    :review-ms 60000})
 
 (defn current-network
