@@ -953,6 +953,7 @@
             [hyperopen.vol-range.application.plan-state-memo-test]
             [hyperopen.vol-range.application.planner-test]
             [hyperopen.vol-range.application.projections-test]
+            [hyperopen.vol-range.application.quote-sizing-test]
             [hyperopen.vol-range.application.remediations-test]
             [hyperopen.vol-range.application.snapshots-test]
             [hyperopen.vol-range.contracts-test]
@@ -2006,6 +2007,7 @@
              'hyperopen.vol-range.application.plan-state-memo-test
              'hyperopen.vol-range.application.planner-test
              'hyperopen.vol-range.application.projections-test
+             'hyperopen.vol-range.application.quote-sizing-test
              'hyperopen.vol-range.application.remediations-test
              'hyperopen.vol-range.application.snapshots-test
              'hyperopen.vol-range.contracts-test

@@ -58,19 +58,27 @@
   (if-not (:enabled? sd)
     {:resolved {:enabled? false} :errors []}
     (let [p (fn [k] [side k])
-          qty (positive-field (:quantity sd) (p :quantity) :input/quantity-required)
+          quote? (= :quote (:amount-unit sd))
+          ;; In USDC mode the amount sizes the side (and, for buys, is the
+          ;; maximum USDC debit); the base quantity is solved by the planner.
+          amount (when quote?
+                   (positive-field (:quote-amount sd) (p :quote-amount) :input/quote-amount-required))
+          qty (when-not quote?
+                (positive-field (:quantity sd) (p :quantity) :input/quantity-required))
           cnt (count-field (:count sd) (p :count) (:rung-count policy))
           start (ranged-field (:start-sigma sd) (p :start-sigma) :input/distance-out-of-range (:distance-sigma policy))
           end (ranged-field (:end-sigma sd) (p :end-sigma) :input/distance-out-of-range (:distance-sigma policy))
           skew (ranged-field (:skew sd) (p :skew) :input/skew-out-of-range (:skew policy))
-          debit (when (= side :buy)
+          debit (when (and (= side :buy) (not quote?))
                   (positive-field (:max-usdc-debit sd) (p :max-usdc-debit) :input/max-debit-required))
           order-error (when (and (:value start) (:value end) (pos? (cmp (:value start) (:value end))))
                         [(err :input/start-above-end (p :start-sigma))])]
       {:resolved (cond-> {:enabled? true :quantity (:value qty) :count (:value cnt)
                           :start (:value start) :end (:value end) :skew (:value skew)}
-                   debit (assoc :max-usdc-debit (:value debit)))
-       :errors (vec (concat (:errors qty) (:errors cnt) (:errors start) (:errors end)
+                   debit (assoc :max-usdc-debit (:value debit))
+                   quote? (assoc :amount-unit :quote :quote-amount (:value amount))
+                   (and quote? (= side :buy)) (assoc :max-usdc-debit (:value amount)))
+       :errors (vec (concat (:errors amount) (:errors qty) (:errors cnt) (:errors start) (:errors end)
                             (:errors skew) (:errors debit) order-error))})))
 
 (defn check-inventory-limits

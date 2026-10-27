@@ -193,9 +193,21 @@
 (defn- token-label [token market]
   (case token :quote (:quote-symbol market) :base (:base-symbol market) nil))
 
+(defn- amount-note
+  "In USDC mode, what the amount means and the base quantity it buys or sells."
+  [side t sz market]
+  (when (= :quote (:amount-unit t))
+    (str (if (= side :buy)
+           "Spend up to this amount, fee reserve included"
+           "Sell up to this much order value")
+         (when (pos? (:rung-count t 0))
+           (str " · " (display/amount (:quantity t) sz) " " (:base-symbol market))))))
+
 (defn- side-inputs [draft side]
   (let [sd (get draft side)]
     {:enabled? (boolean (:enabled? sd))
+     :amount-unit (if (= :quote (:amount-unit sd)) :quote :base)
+     :quote-amount-input (:quote-amount sd)
      :quantity-input (:quantity sd)
      :count-input (str (:count sd))
      :start-sigma-input (:start-sigma sd)
@@ -209,6 +221,7 @@
         reserve (:fee-reserve t)]
     (merge (side-inputs draft :buy)
            {:max-debit-input (get-in draft [:buy :max-usdc-debit])
+            :amount-note (amount-note :buy t sz market)
             :rows (rows plan :buy sz)
             :totals {:quantity (when legs? (display/amount (:quantity t) sz))
                      :gross (when legs? (display/fixed (:gross t) 2))
@@ -245,6 +258,7 @@
                (some #(when (= :hint/nothing-to-sell (:code %)) (:message %)) (:warnings plan)))]
     (merge (side-inputs draft :sell)
            {:percent-options (percent-options excess sz)
+            :amount-note (amount-note :sell t sz market)
             :sellable-excess (display/amount excess sz)
             :nothing-to-sell-hint hint
             :rows (rows plan :sell sz)

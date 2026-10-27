@@ -47,6 +47,42 @@
     (p/text-field {:id (str "vol-range-" (name side) "-skew") :label "Size skew"
                    :value skew-input :path [side :skew] :field-errors fe})]])
 
+(defn- unit-toggle
+  "Base / USDC switch for how a side's size is entered."
+  [side unit base-symbol]
+  [:div {:class ["inline-flex" "rounded-md" "border" "border-ho-border" "overflow-hidden"]
+         :role "group"
+         :aria-label (str (if (= side :buy) "Buy" "Sell") " size unit")
+         :data-role (str "vol-range-" (name side) "-unit")}
+   (for [[u label] [[:base base-symbol] [:quote "USDC"]]]
+     ^{:key (name u)}
+     [:button {:type "button"
+               :aria-pressed (str (= u unit))
+               :class (into ["px-2" "py-0.5" "text-xs"]
+                            (if (= u unit)
+                              ["bg-base-300" "text-ho-text"]
+                              ["text-ho-text-muted"]))
+               :data-role (str "vol-range-" (name side) "-unit-" (name u))
+               :on {:click (p/actions (commands/update-draft [side :amount-unit] u))}}
+      label])])
+
+(defn- amount-field
+  "The side's size: a base quantity, or a USDC amount the plan is sized to."
+  [side {:keys [amount-unit quantity-input quote-amount-input amount-note]} base-symbol fe]
+  (let [quote? (= :quote amount-unit)
+        id (str "vol-range-" (name side) (if quote? "-quote-amount" "-quantity"))]
+    [:div {:class ["flex" "flex-col" "gap-1"]}
+     (p/text-field (merge {:id id :field-errors fe
+                           :label-accessory (unit-toggle side amount-unit base-symbol)}
+                          (if quote?
+                            {:label "Amount" :value quote-amount-input :suffix "USDC"
+                             :path [side :quote-amount]}
+                            {:label "Quantity" :value quantity-input :suffix base-symbol
+                             :path [side :quantity]})))
+     (when amount-note
+       [:div {:class ["text-xs" "text-ho-text-muted"] :data-role (str "vol-range-" (name side) "-amount-note")}
+        amount-note])]))
+
 (defn- buy-totals
   [{:keys [quantity gross fee-reserve fee-reserve-token max-debit cap cap-headroom vwap]} base-symbol]
   [:div {:class ["flex" "flex-col" "gap-0.5"] :data-role "vol-range-buy-totals"}
@@ -69,7 +105,7 @@
 
 (defn buy-card
   ([buy base-symbol] (buy-card buy base-symbol {}))
-  ([{:keys [enabled? quantity-input max-debit-input rows totals use-plan-total-offer] :as buy}
+  ([{:keys [enabled? amount-unit max-debit-input rows totals use-plan-total-offer] :as buy}
     base-symbol fe]
   (p/section {:title "Accumulate buys" :data-role "vol-range-buy-card"
               :class ["border-l-2" "border-ho-buy" "pl-2"]}
@@ -77,18 +113,22 @@
                         :path [:buy :enabled?]})
              (when enabled?
                [:div {:class ["flex" "flex-col" "gap-2"]}
-                (p/text-field {:id "vol-range-buy-quantity" :label "Quantity" :value quantity-input
-                               :suffix base-symbol :path [:buy :quantity] :field-errors fe})
-                [:div {:class ["flex" "items-end" "gap-2"]}
-                 [:div {:class ["flex-1"]}
-                  (p/text-field {:id "vol-range-buy-max-debit" :label "Maximum USDC debit"
-                                 :value max-debit-input :suffix "USDC" :path [:buy :max-usdc-debit]
-                                 :field-errors fe})]
-                 (when use-plan-total-offer
-                   (p/action-button {:label (:label use-plan-total-offer)
-                                     :command (commands/apply-remediation (:id use-plan-total-offer))
-                                     :data-role "vol-range-use-plan-total"
-                                     :tone :buy}))]
+                (amount-field :buy buy base-symbol fe)
+                ;; In USDC mode the amount is the debit ceiling.
+                (when-not (= :quote amount-unit)
+                  [:div {:class ["flex" "flex-col" "gap-1"]}
+                   [:div {:class ["flex" "items-end" "gap-2"]}
+                    [:div {:class ["flex-1"]}
+                     (p/text-field {:id "vol-range-buy-max-debit" :label "Maximum USDC debit"
+                                    :value max-debit-input :suffix "USDC" :path [:buy :max-usdc-debit]
+                                    :field-errors fe})]
+                    (when use-plan-total-offer
+                      (p/action-button {:label (:label use-plan-total-offer)
+                                        :command (commands/apply-remediation (:id use-plan-total-offer))
+                                        :data-role "vol-range-use-plan-total"
+                                        :tone :buy}))]
+                   [:div {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-range-max-debit-hint"}
+                    "Ceiling on what these buys can spend, fee reserve included"]])
                 (distance-fields :buy buy fe)
                 (p/rung-rows rows base-symbol :buy)
                 (buy-totals totals base-symbol)]))))
@@ -104,7 +144,7 @@
 
 (defn sell-card
   ([sell base-symbol] (sell-card sell base-symbol {}))
-  ([{:keys [enabled? quantity-input percent-options nothing-to-sell-hint rows totals note] :as sell}
+  ([{:keys [enabled? percent-options nothing-to-sell-hint rows totals note] :as sell}
     base-symbol fe]
   (p/section {:title "Distribute sells" :data-role "vol-range-sell-card"
               :class ["border-l-2" "border-ho-sell" "pl-2"]}
@@ -112,8 +152,7 @@
                         :path [:sell :enabled?]})
              (when enabled?
                [:div {:class ["flex" "flex-col" "gap-2"]}
-                (p/text-field {:id "vol-range-sell-quantity" :label "Quantity" :value quantity-input
-                               :suffix base-symbol :path [:sell :quantity] :field-errors fe})
+                (amount-field :sell sell base-symbol fe)
                 (when nothing-to-sell-hint (hint-link nothing-to-sell-hint))
                 [:div {:class ["flex" "items-center" "gap-1"] :role "group"
                        :aria-label "Share of sellable excess above protected core"}

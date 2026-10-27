@@ -105,6 +105,8 @@
                      (swap! store user-fees/apply-success address payload))))
           (.catch (fn [_] nil))))))
 
+(declare sync!)
+
 (defn- place! [store]
   (let [plan (get-in @store [:vol-range :frozen-review])]
     (-> (refresh-fees! store)
@@ -132,8 +134,6 @@
   "Every journal grid for the active trading account, any market."
   [records account]
   (filterv #(= (lower account) (lower (get-in % [:scope :account-address]))) (jr/grids records nil)))
-
-(declare sync!)
 
 (defn- sync-once!
   "Load this account's grids from the journal; then settle and discover for

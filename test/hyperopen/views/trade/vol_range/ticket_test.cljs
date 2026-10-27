@@ -227,3 +227,26 @@
       (let [track (hiccup/find-by-data-role (render (sf/base-state)) "vol-range-inventory-track")]
         (is (not= "img" (get-in track [1 :role])) "role=img would hide the labelled values")
         (is (str/includes? (text track) "Core 120.00"))))))
+
+(deftest amount-unit-toggle-test
+  (with-fees
+    (fn []
+      (testing "base mode: quantity field, unit toggle, debit field with its hint"
+        (let [html (render (sf/base-state))
+              unit-base (hiccup/find-by-data-role html "vol-range-buy-unit-base")
+              unit-quote (hiccup/find-by-data-role html "vol-range-buy-unit-quote")]
+          (is (= "true" (get-in unit-base [1 :aria-pressed])))
+          (is (= "false" (get-in unit-quote [1 :aria-pressed])))
+          (is (= [[:actions/update-vol-range-draft [:buy :amount-unit] :quote]]
+                 (get-in unit-quote [1 :on :click])))
+          (is (some? (hiccup/find-by-data-role html "vol-range-max-debit-hint")))
+          (is (str/includes? (text html) "Maximum USDC debit"))))
+      (testing "USDC mode: amount field, no separate debit field, note with the solved quantity"
+        (let [html (render (-> (sf/base-state)
+                               (assoc-in [:order-form :scale :vol-range :buy :amount-unit] :quote)
+                               (assoc-in [:order-form :scale :vol-range :buy :quote-amount] "2889.16")))
+              t (text html)]
+          (is (= "true" (get-in (hiccup/find-by-data-role html "vol-range-buy-unit-quote") [1 :aria-pressed])))
+          (is (not (str/includes? t "Maximum USDC debit")))
+          (is (re-find #"Spend up to this amount, fee reserve included · 40(\.0+)? SYN" t))
+          (is (some? (hiccup/find-all-nodes html #(= "vol-range-buy-quote-amount" (get-in % [1 :id]))))))))))

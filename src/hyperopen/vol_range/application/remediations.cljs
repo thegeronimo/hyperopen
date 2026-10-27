@@ -90,9 +90,11 @@
         needs-max? (and n (or max-blank? (and maximum (neg? (precision/cmp maximum n)))))
         total (when buys?
                 (some-> (:max-debit buy-t) d (precision/quantize 2 :ceil)))
+        ;; In USDC mode the amount is the cap and the plan is sized to fit it.
+        usdc-mode? (= :quote (get-in draft [:buy :amount-unit]))
         cap-raw (get-in draft [:buy :max-usdc-debit])
         cap (d (str cap-raw))
-        needs-cap? (and total (or (blank? cap-raw) (and cap (neg? (precision/cmp cap total)))))
+        needs-cap? (and total (not usdc-mode?) (or (blank? cap-raw) (and cap (neg? (precision/cmp cap total)))))
         max-patch (when needs-max? [[[:inventory :maximum] (ds n)]])
         cap-patch (when needs-cap? [[[:buy :max-usdc-debit] (precision/to-fixed total 2)]])
         joint-patch (when (and max-patch cap-patch) (into max-patch cap-patch))]
@@ -120,7 +122,8 @@
   (if-not (= :invalid (:status plan-result))
     []
     (let [crossing (error-sides plan-result :plan/post-only-cross)
-          notional (error-sides plan-result :plan/min-notional)
+          notional (distinct (concat (error-sides plan-result :plan/min-notional)
+                                     (error-sides plan-result :input/quote-amount-too-small)))
           duplicate (error-sides plan-result :plan/duplicate-price)
           anchor-patch [[[:anchor :mode] :market-price]]]
       (vec

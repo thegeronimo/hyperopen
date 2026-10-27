@@ -47,7 +47,10 @@ localStorage.removeItem('hyperopen.volRange.execution');
 
 1. Connect your wallet and press Enable Trading (the agent must be ready).
 2. Select the spot market. In the order form choose Scale, then Volatility range.
-3. Keep the ladder small: few rungs per side, small quantities. Check the fee reserve, protected core and
+3. Keep the ladder small: few rungs per side, small quantities. Each side's size can be typed as a base
+   quantity or, with the unit switch above the field, as a USDC amount: buys then spend at most that amount
+   (fee reserve included, and it is the debit cap), sells place at most that much order value. The line
+   under the field shows the base quantity it works out to. Check the fee reserve, protected core and
    maximum. Fix anything listed under "issues to fix before review".
 4. Press Review N orders. Check the prices, sizes and costs. Press Place N orders.
    - Pressing Enter never places orders; only the button does.

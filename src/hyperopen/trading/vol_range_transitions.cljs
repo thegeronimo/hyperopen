@@ -21,7 +21,9 @@
 
 (def enum-draft-paths
   {[:anchor :mode] vol-range-draft/anchor-modes
-   [:volatility :mode] vol-range-draft/volatility-modes})
+   [:volatility :mode] vol-range-draft/volatility-modes
+   [:buy :amount-unit] vol-range-draft/amount-units
+   [:sell :amount-unit] vol-range-draft/amount-units})
 
 (def boolean-draft-paths
   #{[:inventory :tilt-enabled?] [:buy :enabled?] [:sell :enabled?]})

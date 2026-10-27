@@ -37,9 +37,9 @@
           :volatility {:mode :auto :manual-daily-pct ""}
           :inventory {:protected-core "" :target "" :maximum ""
                       :tilt-enabled? false :tilt-strength "0.45"}
-          :buy {:enabled? true :quantity "" :max-usdc-debit "" :count 4
+          :buy {:enabled? true :amount-unit :base :quantity "" :quote-amount "" :max-usdc-debit "" :count 4
                 :start-sigma "0.75" :end-sigma "2.25" :skew "1.00"}
-          :sell {:enabled? false :quantity "" :count 3
+          :sell {:enabled? false :amount-unit :base :quantity "" :quote-amount "" :count 3
                  :start-sigma "1.25" :end-sigma "2.25" :skew "1.00"}}
          (draft/default-vol-range-draft)))
   (is (= (draft/default-vol-range-draft) (draft/normalize-vol-range-draft nil)))
@@ -112,7 +112,7 @@
                  (assoc-in [:scale :vol-range :sell :quantity] "5")
                  (assoc-in [:scale :vol-range :buy :count] 6))
         projected (draft/unscoped-export-projection form)]
-    (is (= ["" "" "" "" "" "" ""]
+    (is (= ["" "" "" "" "" "" "" "" ""]
            (mapv #(get-in projected (into [:scale :vol-range] %)) draft/scoped-draft-paths)))
     (testing "every other path is untouched"
       (let [blank (fn [f] (reduce (fn [acc path] (assoc-in acc (into [:scale :vol-range] path) ""))

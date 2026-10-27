@@ -20,6 +20,11 @@
 
 (def volatility-modes #{:auto :manual})
 
+(def amount-units
+  "How a side's size is entered: base quantity, or a USDC amount the planner
+  sizes the ladder to."
+  #{:base :quote})
+
 (defn default-vol-range-draft
   "Spec 7.1 defaults for a new account/market draft."
   []
@@ -31,14 +36,18 @@
                :tilt-enabled? false
                :tilt-strength "0.45"}
    :buy {:enabled? true
+         :amount-unit :base
          :quantity ""
+         :quote-amount ""
          :max-usdc-debit ""
          :count 4
          :start-sigma "0.75"
          :end-sigma "2.25"
          :skew "1.00"}
    :sell {:enabled? false
+          :amount-unit :base
           :quantity ""
+          :quote-amount ""
           :count 3
           :start-sigma "1.25"
           :end-sigma "2.25"
@@ -94,7 +103,9 @@
 (defn- normalize-buy [raw defaults]
   (let [raw (if (map? raw) raw {})]
     {:enabled? (if (contains? raw :enabled?) (boolean (:enabled? raw)) (:enabled? defaults))
+     :amount-unit (enum-value (:amount-unit raw) amount-units (:amount-unit defaults))
      :quantity (numeric-string (:quantity raw) (:quantity defaults))
+     :quote-amount (numeric-string (:quote-amount raw) (:quote-amount defaults))
      :max-usdc-debit (numeric-string (:max-usdc-debit raw) (:max-usdc-debit defaults))
      :count (count-value (:count raw) (:count defaults))
      :start-sigma (numeric-string (:start-sigma raw) (:start-sigma defaults))
@@ -104,7 +115,9 @@
 (defn- normalize-sell [raw defaults]
   (let [raw (if (map? raw) raw {})]
     {:enabled? (if (contains? raw :enabled?) (boolean (:enabled? raw)) (:enabled? defaults))
+     :amount-unit (enum-value (:amount-unit raw) amount-units (:amount-unit defaults))
      :quantity (numeric-string (:quantity raw) (:quantity defaults))
+     :quote-amount (numeric-string (:quote-amount raw) (:quote-amount defaults))
      :count (count-value (:count raw) (:count defaults))
      :start-sigma (numeric-string (:start-sigma raw) (:start-sigma defaults))
      :end-sigma (numeric-string (:end-sigma raw) (:end-sigma defaults))
@@ -144,8 +157,10 @@
    [:inventory :target]
    [:inventory :maximum]
    [:buy :quantity]
+   [:buy :quote-amount]
    [:buy :max-usdc-debit]
    [:sell :quantity]
+   [:sell :quote-amount]
    [:anchor :custom-price]])
 
 (def localized-numeric-draft-paths

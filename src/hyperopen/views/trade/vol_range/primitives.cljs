@@ -43,17 +43,21 @@
   "Labelled plain text input writing the draft at `path`. Enter does nothing:
   the input is not inside a form and has no key handler. When `field-errors`
   has `path`, the input is marked invalid and described by that error."
-  [{:keys [id label value placeholder path suffix disabled? data-role field-errors]}]
-  (let [error-dom-id (get field-errors path)]
+  [{:keys [id label label-accessory value placeholder path suffix disabled? data-role field-errors]}]
+  (let [error-dom-id (get field-errors path)
+        label-node [:label {:for id :class ["text-xs" "text-ho-text-secondary"]} label]]
     [:div {:class ["flex" "flex-col" "gap-1" "min-w-0"]}
-     [:label {:for id :class ["text-xs" "text-ho-text-secondary"]} label]
+     (if label-accessory
+       [:div {:class ["flex" "items-center" "justify-between" "gap-2"]} label-node label-accessory]
+       label-node)
      [:div {:class ["relative"]}
       [:input (cond-> {:id id
                        :type "text"
                        :inputmode "decimal"
                        :autocomplete "off"
                        :class (cond-> input-classes
-                                suffix (conj "pr-10")
+                                ;; Room for a unit like USDC or HYPE so it never touches the digits.
+                                suffix (conj (if (>= (count (str suffix)) 3) "pr-14" "pr-10"))
                                 error-dom-id (conj "border-ho-warn"))
                        :value (or value "")
                        :placeholder (or placeholder "")

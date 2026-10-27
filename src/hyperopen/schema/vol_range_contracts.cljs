@@ -52,10 +52,11 @@
 (def marker-keys #{:id :label :value :position})
 (def offer-keys #{:id :label})
 (def row-keys #{:leg-id :price :size :notional :sigma})
-(def buy-keys #{:enabled? :quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input
+(def buy-keys #{:enabled? :amount-unit :quote-amount-input :amount-note
+                :quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input
                 :max-debit-input :rows :totals :use-plan-total-offer})
 (def buy-totals-keys #{:quantity :gross :fee-reserve :fee-reserve-token :max-debit :cap :cap-headroom :vwap})
-(def sell-keys #{:enabled? :quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input
+(def sell-keys #{:enabled? :amount-unit :quote-amount-input :amount-note :quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input
                  :percent-options :sellable-excess :nothing-to-sell-hint :rows :totals :note})
 (def sell-totals-keys #{:quantity :base-committed :fee-reserve :fee-reserve-token :gross :est-net-proceeds :vwap})
 (def percent-option-keys #{:pct :label :quantity :enabled?})
@@ -131,7 +132,8 @@
 
 (defn- side-inputs? [c]
   (and (boolean? (:enabled? c))
-       (all-str-or-nil? c [:quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input])
+       (contains? #{:base :quote} (:amount-unit c))
+       (all-str-or-nil? c [:quote-amount-input :amount-note :quantity-input :count-input :start-sigma-input :end-sigma-input :skew-input])
        (each row? (:rows c))))
 
 (s/def ::buy

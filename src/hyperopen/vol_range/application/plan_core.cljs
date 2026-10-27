@@ -9,7 +9,8 @@
             [hyperopen.vol-range.contracts :as contracts]
             [hyperopen.vol-range.domain.admission :as admission]
             [hyperopen.vol-range.domain.fees :as fees]
-            [hyperopen.vol-range.domain.grid :as grid]))
+            [hyperopen.vol-range.domain.grid :as grid]
+            [hyperopen.vol-range.domain.quote-sizing :as quote-sizing]))
 
 (defn- d [s] (precision/parse-decimal s))
 (defn- ds [x] (precision/decimal->string x))
@@ -195,13 +196,26 @@
 ;; Planner core
 ;; ---------------------------------------------------------------------------
 
-(defn- side-legs [side sd {:keys [r v sz market-type]}]
+(defn- side-legs
+  "Legs for one side. In USDC mode the base quantity is first solved from the
+  amount (`quote-sizing`); the solved quantity is reported as :solved-quantity."
+  [side sd {:keys [r v sz market-type fees]}]
   (when (and (:enabled? sd) r v sz (not (neg? sz))
-             (every? some? [(:quantity sd) (:count sd) (:start sd) (:end sd) (:skew sd)])
+             (some? (if (= :quote (:amount-unit sd)) (:quote-amount sd) (:quantity sd)))
+             (every? some? [(:count sd) (:start sd) (:end sd) (:skew sd)])
              (<= (precision/cmp (:start sd) (:end sd)) 0))
-    (grid/build-side-legs {:side side :r r :v v :quantity (:quantity sd) :skew (:skew sd)
-                           :sz-decimals sz :count (:count sd) :z-start (:start sd)
-                           :z-end (:end sd) :market-type market-type})))
+    (let [params {:side side :r r :v v :skew (:skew sd) :sz-decimals sz :count (:count sd)
+                  :z-start (:start sd) :z-end (:end sd) :market-type market-type}
+          solved (when (= :quote (:amount-unit sd))
+                   ;; Without a fee quote the plan is not admissible anyway;
+                   ;; size it without a reserve so the preview still renders.
+                   (quote-sizing/solve-quantity (assoc params :amount (:quote-amount sd)
+                                                       :fee-capability fees)))]
+      (cond
+        (:errors solved) {:legs [] :errors (:errors solved)}
+        solved (assoc (grid/build-side-legs (assoc params :quantity (:quantity solved)))
+                      :solved-quantity (:quantity solved))
+        :else (grid/build-side-legs (assoc params :quantity (:quantity sd)))))))
 
 (defn prepare-plan-core
   "Plan without remediations. See `planner/prepare-plan` for the contract."
@@ -238,7 +252,7 @@
                   (grid/shifted-anchor {:anchor (:price anchor) :v v :kappa kappa :delta delta
                                         :tilt-enabled? tilt?}))
         r (:price shifted)
-        geo {:r r :v v :sz sz :market-type (:market-type market)}
+        geo {:r r :v v :sz sz :market-type (:market-type market) :fees fees}
         capable? (empty? (filter #(contains? #{:capability/market-unsupported :capability/preview-disabled
                                               :capability/account-mode-unsupported
                                               :data/market-metadata-unavailable}
@@ -292,6 +306,14 @@
                         (into tilt-errors)
                         (into leg-errors)
                         (into bound-errors)))
+        ;; In USDC mode the side's field is the amount: point quantity
+        ;; errors there so they stay attached to a rendered input.
+        all-errors (mapv (fn [e]
+                           (let [[side k] (get-in e [:data :path])]
+                             (if (and (= :quantity k) (= :quote (get-in resolved [side :amount-unit])))
+                               (assoc-in e [:data :path] [side :quote-amount])
+                               e)))
+                         all-errors)
         warnings (dedupe-errors
                   (cond-> (into (vec (:warnings cap-f)) breach-warnings)
                     (and fee-ok? (not (:settlement-verified? fees)))
@@ -300,8 +322,14 @@
                     (conj (contracts/warning :hint/nothing-to-sell
                                              {:message "Nothing to sell above protected core. Lower protected core to distribute inventory."
                                               :path [:inventory :protected-core]}))))
-        buy-t (side-totals :buy buy-enabled? buy-legs (:buy reserves) usdc-bound base-debit buy-cap avail-usdc)
-        sell-t (side-totals :sell sell-enabled? sell-legs (:sell reserves) usdc-bound base-debit nil nil)
+        entered (fn [t side]
+                  (let [sd (get resolved side)]
+                    (cond-> (assoc t :amount-unit (if (= :quote (:amount-unit sd)) :quote :base))
+                      (= :quote (:amount-unit sd)) (assoc :quote-amount (some-> (:quote-amount sd) ds)))))
+        buy-t (entered (side-totals :buy buy-enabled? buy-legs (:buy reserves) usdc-bound base-debit buy-cap avail-usdc)
+                       :buy)
+        sell-t (entered (side-totals :sell sell-enabled? sell-legs (:sell reserves) usdc-bound base-debit nil nil)
+                        :sell)
         legs (into buy-legs sell-legs)]
     {:status (contracts/status-for-errors all-errors)
      :plan-id plan-id

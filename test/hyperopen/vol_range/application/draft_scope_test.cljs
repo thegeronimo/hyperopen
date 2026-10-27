@@ -27,7 +27,7 @@
         b (switch-market a)
         b-draft (scope/effective-draft b)]
     (testing "unbound scope shows blank quantities and limits but keeps preferences"
-      (is (= ["" "" "" "" "" "" ""]
+      (is (= ["" "" "" "" "" "" "" "" ""]
              (mapv #(get-in b-draft %) draft/scoped-draft-paths)))
       (is (= :custom (get-in b-draft [:anchor :mode])))
       (is (= :manual (get-in b-draft [:volatility :mode])))
@@ -65,7 +65,7 @@
         other (switch-account a)
         other-draft (scope/effective-draft other)]
     (is (not= (scope/current-scope-key a) (scope/current-scope-key other)))
-    (is (= ["" "" "" "" "" "" ""] (mapv #(get-in other-draft %) draft/scoped-draft-paths)))
+    (is (= ["" "" "" "" "" "" "" "" ""] (mapv #(get-in other-draft %) draft/scoped-draft-paths)))
     (let [other* (write other [:inventory :maximum] "55")
           back (assoc-in other* [:wallet :address] sf/owner)]
       (is (= "55" (get-in (scope/effective-draft other*) [:inventory :maximum])))

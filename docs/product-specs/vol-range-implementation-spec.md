@@ -32,7 +32,7 @@ This specification replaces the mathematical, execution, and placement assumptio
 | Volatility | Daily Parkinson estimate from exactly 14 completed UTC daily candles. |
 | Inventory adjustment | Optional **Inventory tilt**, off by default; strength 0.45 when enabled. |
 | Inventory controls | Current spot inventory, protected core minimum, target, and maximum are separate values. Target is a preference; minimum and maximum constrain order admission. |
-| Sizing | Requested base quantity on each enabled side. Buys additionally require a maximum USDC debit. Skew distributes base quantity. |
+| Sizing | Requested base quantity on each enabled side, or a USDC amount per side (Section 4.3). In base mode buys additionally require a maximum USDC debit. Skew distributes base quantity. |
 | Execution | One order action containing all admitted legs. Each leg has an independent outcome. |
 | Order behavior | Fixed prices and sizes; post-only is mandatory. No automatic repricing, replenishment, or taker fallback. |
 | Replacement | Cancel the selected revision, confirm terminal outcomes, refresh account state, then review and place a new revision. |
@@ -48,7 +48,7 @@ This specification replaces the mathematical, execution, and placement assumptio
 
 **Release B adds analytical reporting:** cross-asset health, campaign accounting, coverage-aware P&L, a holding comparison, execution exports, and descriptive cycle statistics. Capture the necessary manifests and fills during Release A so this can be added without fabricating earlier history.
 
-**Later extensions require their own capability gates:** perpetuals, short inventory, unified or portfolio-margin buying power, non-USDC quotes, quote-budget-only sizing, automatic funding or weekend adjustments, and the Spectate volatility lens. They are not implicit consequences of a generic market flag.
+**Later extensions require their own capability gates:** perpetuals, short inventory, unified or portfolio-margin buying power, non-USDC quotes, automatic funding or weekend adjustments, and the Spectate volatility lens. They are not implicit consequences of a generic market flag.
 
 No new top-level route is required. Keep the Portfolio optimizer’s existing route family and implementation independent.
 
@@ -272,7 +272,7 @@ At least one side must be enabled with a positive quantity. Disabled-side drafts
 
 **Use plan total** sets the cap to the current plan’s maximum buy debit, rounded up to the cent. It is a draft edit: the cap does not follow later plan changes, and a later plan above the cap fails admission as usual.
 
-Base quantity is authoritative in Release A. A USDC cap does not mean “spend the entire cap.” Quote-budget-only allocation is a later, explicitly different mode.
+Each side's size can be entered as a base quantity or as a USDC amount (a unit switch on the quantity field). Base quantity stays authoritative for everything after planning: in USDC mode the planner solves the largest whole-lot base quantity whose ladder fits the amount, and allocation, admission, review and revalidation then run on that quantity unchanged. For buys the amount bounds gross order value plus the USDC fee reserve and is also the maximum USDC debit, so no separate cap is entered. For sells it bounds gross order value. A base-mode USDC cap still does not mean "spend the entire cap". Switching units carries the current plan's size across (the buy maximum debit or sell gross, rounded up to the cent; or the solved quantity). Because the solved quantity depends on the fee rate when buy fees settle in USDC, a fee change between review and send changes the legs and the pre-send check refuses; review again.
 
 ### 4.4 Review
 

@@ -72,12 +72,15 @@
                                     (display/fixed (:gross buy) 2) " " quote))
              (row "Total sells" (str (display/amount (:quantity sell) sz) " " base " · "
                                      (display/fixed (:gross sell) 2) " " quote))
-             (row "USDC debit cap" (with-symbol (display/exact (:cap buy)) quote))
+             (row "USDC debit cap" (some-> (with-symbol (display/exact (:cap buy)) quote)
+                                           (str (when (= :quote (:amount-unit buy)) " · buy amount entered"))))
              (row "Maximum buy debit" (with-symbol (display/exact (:max-debit buy)) quote))
              (row "Buy fee reserve" (reserve (:fee-reserve buy)))
              (row "Sell fee reserve" (reserve (:fee-reserve sell)))
              (row "Headroom to cap" (with-symbol (display/exact (:cap-headroom buy)) quote))
              (row "Headroom to available balance" (with-symbol (display/exact (:available-headroom buy)) quote))]
+      (= :quote (:amount-unit sell))
+      (conj (row "Sell amount entered" (with-symbol (display/exact (:quote-amount sell)) quote)))
       true vec)))
 
 (defn- inventory-rows [plan scope]

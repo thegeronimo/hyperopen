@@ -10,9 +10,11 @@
   and are emitted as ONE save-many together with the `[:vol-range ...]` path
   values. Draft numeric text is parsed only at the locale-aware boundary inside
   `hyperopen.trading.vol-range-transitions`."
-  (:require [hyperopen.domain.trading.precision :as precision]
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.precision :as precision]
             [hyperopen.trading.order-form-ownership :as ownership]
             [hyperopen.trading.vol-range-transitions :as transitions]
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.freshness :as freshness]
             [hyperopen.vol-range.application.plan-state :as plan-state]
             [hyperopen.vol-range.application.snapshots :as snapshots]
@@ -91,12 +93,38 @@
          fetch? (conj (fetch-effect coin))))
      [])))
 
+(defn- unit-switch-patch
+  "Carry the current plan's size across a unit switch, so the other unit's
+  field starts at the same ladder: USDC mode gets the plan's maximum debit
+  (buys) or gross order value (sells) rounded up to the cent; base mode gets
+  the plan's quantity. Nothing is carried without legs on that side."
+  [plan draft side unit]
+  (let [t (get-in plan [:totals side])]
+    (when (and (pos? (:rung-count t 0)) (not= unit (:amount-unit t)))
+      (if (= :quote unit)
+        (when-let [x (some-> (if (= side :buy) (:max-debit t) (:gross t)) precision/parse-decimal)]
+          [[[side :quote-amount] (precision/decimal->string (precision/quantize x 2 :ceil))]])
+        (cond-> [[[side :quantity] (:quantity t)]]
+          ;; The amount was the buy cap; keep it as the cap if none is set.
+          (and (= side :buy) (some? (:quote-amount t)) (str/blank? (str (:max-usdc-debit draft))))
+          (conj [[:buy :max-usdc-debit] (:quote-amount t)]))))))
+
 (defn update-vol-range-draft
-  "Write one whitelisted draft path; unknown paths and invalid values are no-ops."
-  [state path value]
-  (if-let [transition (transitions/update-draft state path value)]
-    (save-many-effects state transition nil)
-    []))
+  "Write one whitelisted draft path; unknown paths and invalid values are no-ops.
+  Switching a side's amount unit also carries the current size across."
+  ([state path value] (update-vol-range-draft state path value (now)))
+  ([state path value now-ms]
+   (let [path* (transitions/normalize-path path)
+         unit-side (when (and (= 2 (count path*)) (= :amount-unit (second path*))) (first path*))
+         unit (when unit-side (:value (transitions/coerce-draft-value state path* value)))
+         carry (when unit (unit-switch-patch (plan-state/plan-for-state state now-ms)
+                                              (get (draft-scope/effective-draft state) unit-side)
+                                              unit-side unit))]
+     (if-let [transition (if (seq carry)
+                           (transitions/apply-patch state (into [[path* unit]] carry))
+                           (transitions/update-draft state path value))]
+       (save-many-effects state transition nil)
+       []))))
 
 (defn- percent-of-excess [excess pct sz]
   (precision/quantize (precision/divide (precision/mul excess (precision/parse-decimal (str pct)))
@@ -116,7 +144,8 @@
        (let [q (percent-of-excess excess pct* sz)]
          (if (precision/pos-dec? q)
            (save-many-effects state
-                              (transitions/apply-patch state [[[:sell :quantity] (precision/decimal->string q)]])
+                              (transitions/apply-patch state [[[:sell :amount-unit] :base]
+                                                              [[:sell :quantity] (precision/decimal->string q)]])
                               nil)
            []))
        []))))

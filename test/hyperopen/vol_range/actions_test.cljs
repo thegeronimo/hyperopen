@@ -163,6 +163,37 @@
             (is (= "0.08" (get-in (vr-draft (sf/apply-effects odd (actions/set-vol-range-sell-quantity-percent odd 25 now)))
                                   [:sell :quantity])))))))))
 
+(deftest amount-unit-switch-test
+  (with-fees
+    (fn []
+      (let [state (sf/base-state)
+            switch (fn [st side unit] (sf/apply-effects st (actions/update-vol-range-draft st [side :amount-unit] unit now)))
+            to-usdc (switch state :buy :quote)]
+        (testing "switching to USDC carries the plan's maximum debit, rounded up to the cent"
+          (is (= :quote (get-in (vr-draft to-usdc) [:buy :amount-unit])))
+          (is (= "2889.16" (get-in (vr-draft to-usdc) [:buy :quote-amount]))))
+        (testing "switching back carries the solved quantity"
+          (let [back (switch (assoc-in to-usdc [:order-form :scale :vol-range :buy :quote-amount] "2889.15")
+                             :buy "base")]
+            (is (= :base (get-in (vr-draft back) [:buy :amount-unit])))
+            (is (= "39.99" (get-in (vr-draft back) [:buy :quantity])))
+            (is (= "2900" (get-in (vr-draft back) [:buy :max-usdc-debit])) "an existing cap is kept")))
+        (testing "a blank cap takes the amount when switching back"
+          (let [blank (-> to-usdc
+                          (assoc-in [:order-form :scale :vol-range :buy :quote-amount] "1000")
+                          (assoc-in [:order-form :scale :vol-range :buy :max-usdc-debit] ""))
+                back (switch blank :buy :base)]
+            (is (= "1000" (get-in (vr-draft back) [:buy :max-usdc-debit])))))
+        (testing "sells carry gross order value"
+          (is (= "2652" (get-in (vr-draft (switch state :sell :quote)) [:sell :quote-amount]))))
+        (testing "an unknown unit is a no-op"
+          (is (= [] (actions/update-vol-range-draft state [:buy :amount-unit] :eth now))))
+        (testing "percent shortcuts set a base quantity"
+          (let [usdc-sells (switch state :sell :quote)
+                after (sf/apply-effects usdc-sells (actions/set-vol-range-sell-quantity-percent usdc-sells 50 now))]
+            (is (= :base (get-in (vr-draft after) [:sell :amount-unit])))
+            (is (= "15" (get-in (vr-draft after) [:sell :quantity])))))))))
+
 (deftest review-open-and-close-test
   (with-fees
     (fn []
