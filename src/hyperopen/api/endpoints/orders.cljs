@@ -24,6 +24,26 @@
                          :dedupe-key [:frontend-open-orders requested-address requested-dex]}
                         opts)))))
 
+(defn request-order-status!
+  "Order status by original identity: an oid (number or numeric string) or a
+  CLOID hex string (HO-SPEC-014 section 8.6). Resolves to the venue payload
+  ({\"status\" \"order\" ...} or {\"status\" \"unknownOid\"}). An unknown
+  oid is NOT proof that an order was never placed."
+  [post-info! address oid-or-cloid opts]
+  (let [numeric? (and (string? oid-or-cloid) (re-matches #"\d+" oid-or-cloid))
+        id (if numeric? (js/Number oid-or-cloid) oid-or-cloid)]
+    (if (and numeric? (not (js/Number.isSafeInteger id)))
+      ;; Never query a rounded oid: it could match a different order.
+      (js/Promise.reject (js/Error. (str "Order id " oid-or-cloid " exceeds safe integer precision.")))
+    (post-info! {"type" "orderStatus"
+                 "user" address
+                 "oid" id}
+                (request-policy/apply-info-request-policy
+                 :order-status
+                 (merge {:priority :high
+                         :dedupe-key [:order-status (normalize-address address) oid-or-cloid]}
+                        opts))))))
+
 (defn request-user-fills!
   [post-info! address opts]
   (let [requested-address (normalize-address address)]

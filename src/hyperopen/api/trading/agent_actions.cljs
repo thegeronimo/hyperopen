@@ -1,6 +1,7 @@
 (ns hyperopen.api.trading.agent-actions
   (:require [clojure.string :as str]
             [hyperopen.api.trading.http :as http]
+            [hyperopen.api.trading.nonce-coordinator :as nonce-coordinator]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
@@ -229,34 +230,98 @@
 
 (defn- next-retry-callback [attempt! nonce retries-left]
   #(attempt! nonce (dec retries-left)))
+
+(defn signer-address
+  "The address whose nonce sequence an agent-signed action uses: the agent key's
+  address, derived from the private key when possible so every tab agrees.
+  Every subaccount or vault signed by the same agent shares it. Never the owner
+  address, whose wallet signs a different sequence; nil when unknown."
+  [crypto session]
+  (or (when crypto (safe-private-key->agent-address crypto (:private-key session)))
+      (http/normalize-address (:agent-address session))))
+
+(defn session-nonce-floor
+  "The highest nonce this tab already knows for the session, as a reservation floor."
+  [store session]
+  (let [a (:nonce-cursor session)
+        b (get-in @store [:wallet :agent :nonce-cursor])]
+    (cond (and (number? a) (number? b)) (max a b)
+          (number? a) a
+          (number? b) b
+          :else nil)))
+
+(defn- network-mismatch-rejection
+  "HyperOpen's exchange transport is mainnet-only (HO-SPEC-014 section 3.2):
+  a testnet signature must never be sent to the mainnet endpoint."
+  [options]
+  (when (false? (:is-mainnet options))
+    (js/Promise.reject
+     (js/Error. "Refusing to send a testnet-signed action to the mainnet exchange."))))
+
+(defn resolve-signing-context!
+  "Promise of {:crypto :session} for a ready agent session, or a rejection with
+  the same messages `sign-and-post-agent-action!` uses."
+  [store owner-address]
+  (-> (trading-crypto-modules/load-trading-crypto-module!)
+      (.then (fn [crypto]
+               (let [session (resolve-agent-session store owner-address crypto)]
+                 (or (missing-agent-session-rejection store session)
+                     {:crypto crypto :session session}))))))
+
+(defn sign-action!
+  [crypto session action nonce options]
+  (sign-agent-action! crypto session action nonce options))
+
+(defn post-signed!
+  "POST a signed action and resolve to the raw fetch Response (unparsed)."
+  [action nonce sig {:keys [vault-address expires-after]}]
+  (let [{:keys [r s v]} (js->clj sig :keywordize-keys true)]
+    (http/post-signed-action! action nonce {:r r :s s :v v}
+                              {:vault-address vault-address :expires-after expires-after})))
+
+(defn record-nonce-cursor!
+  "Persist `nonce` as the session cursor (as every agent action already does)."
+  [store owner-address session nonce]
+  (persist-agent-nonce-cursor! store owner-address session nonce))
+
 (defn sign-and-post-agent-action!
   ([store owner-address action]
    (sign-and-post-agent-action! store owner-address action {}))
   ([store owner-address action raw-options]
    (let [options (normalize-agent-action-options raw-options)]
-     (-> (trading-crypto-modules/load-trading-crypto-module!)
-         (.then
-          (fn [crypto]
-            (let [session (resolve-agent-session store owner-address crypto)]
-              (if-let [rejection (missing-agent-session-rejection store session)]
-                rejection
-                (letfn [(attempt! [cursor retries-left]
-                          (let [nonce (http/next-nonce cursor)]
-                            (-> (sign-agent-action! crypto session action nonce options)
-                                (.then (fn [sig]
-                                         (post-signed-agent-action! action nonce sig options)))
-                                (.then (fn [resp]
-                                         (handle-agent-action-response!
-                                          store
-                                          owner-address
-                                          session
-                                          nonce
-                                          resp
-                                          retries-left
-                                          (next-retry-callback attempt! nonce retries-left)))))))]
-                  (attempt! (or (:nonce-cursor session)
-                                (get-in @store [:wallet :agent :nonce-cursor]))
-                            (:max-nonce-retries options)))))))))))
+     (or
+      (network-mismatch-rejection options)
+      (-> (trading-crypto-modules/load-trading-crypto-module!)
+          (.then
+           (fn [crypto]
+             (let [session (resolve-agent-session store owner-address crypto)]
+               (if-let [rejection (missing-agent-session-rejection store session)]
+                 rejection
+                 (letfn [(attempt! [floor retries-left]
+                           ;; Reserve BEFORE signing through the shared per-signer
+                           ;; coordinator (HO-SPEC-014 8.2): concurrent producers in
+                           ;; any tab never sign with the same nonce. A retry reserves
+                           ;; a new nonce strictly above the rejected one.
+                           (-> (nonce-coordinator/reserve-nonce!
+                                {:network (nonce-coordinator/network-for-options options)
+                                 :signer (signer-address crypto session)
+                                 :floor floor})
+                               (.then
+                                (fn [{:keys [nonce]}]
+                                  (-> (sign-agent-action! crypto session action nonce options)
+                                      (.then (fn [sig]
+                                               (post-signed-agent-action! action nonce sig options)))
+                                      (.then (fn [resp]
+                                               (handle-agent-action-response!
+                                                store
+                                                owner-address
+                                                session
+                                                nonce
+                                                resp
+                                                retries-left
+                                                (next-retry-callback attempt! nonce retries-left)))))))))]
+                   (attempt! (session-nonce-floor store session)
+                             (:max-nonce-retries options))))))))))))
 
 (defn submit-order!
   ([store address action]

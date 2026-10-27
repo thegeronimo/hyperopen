@@ -71,7 +71,7 @@
                (is (= expected-action signed-action))
                (is (= normalized-subaccount (:vault-address sign-opts-map)))
                (is (= fixed-expires-after (:expires-after sign-opts-map)))
-               (is (false? (:is-mainnet sign-opts-map)))
+               (is (true? (:is-mainnet sign-opts-map)))
                (is (= expected-action (:action payload)))
                (is (= normalized-subaccount (:vaultAddress payload)))
                (is (= fixed-expires-after (:expiresAfter payload))))
@@ -97,7 +97,7 @@
                                           action
                                           {:vault-address vault-address
                                            :expires-after expires-after
-                                           :is-mainnet false
+                                           :is-mainnet true
                                            :max-nonce-retries 0}))}))))
 
 (deftest cancel-order-public-facade-propagates-vault-options-test
@@ -114,7 +114,7 @@
                                           action
                                           {:vault-address vault-address
                                            :expires-after expires-after
-                                           :is-mainnet false
+                                           :is-mainnet true
                                            :max-nonce-retries 0}))}))))
 
 (deftest schedule-cancel-public-facade-propagates-vault-options-test
@@ -131,7 +131,7 @@
                                              cancel-at-ms
                                              {:vault-address vault-address
                                               :expires-after expires-after
-                                              :is-mainnet false
+                                              :is-mainnet true
                                               :max-nonce-retries 0}))}))))
 
 (deftest clear-schedule-cancel-public-facade-omits-time-and-propagates-vault-options-test
@@ -146,5 +146,5 @@
                                              nil
                                              {:vault-address vault-address
                                               :expires-after expires-after
-                                              :is-mainnet false
+                                              :is-mainnet true
                                               :max-nonce-retries 0}))}))))

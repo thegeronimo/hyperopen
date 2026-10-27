@@ -85,10 +85,14 @@
             [hyperopen.api.runtime-test]
             [hyperopen.api.service-test]
             [hyperopen.api.trading-test]
+            [hyperopen.api.trading.action-coordinator-test]
             [hyperopen.api.trading.approve-agent-test]
             [hyperopen.api.trading.cancel-request-test]
+            [hyperopen.api.trading.coordinated-signing-test]
             [hyperopen.api.trading.debug-exchange-simulator-test]
             [hyperopen.api.trading.internal-seams-test]
+            [hyperopen.api.trading.nonce-coordinator-test]
+            [hyperopen.api.trading.order-result-test]
             [hyperopen.api.trading.referral-signing-test]
             [hyperopen.api.trading.session-invalidation-test]
             [hyperopen.api.trading.sign-and-submit-test]
@@ -249,6 +253,7 @@
             [hyperopen.orderbook.settings-test]
             [hyperopen.outcome-side-market-switch-test]
             [hyperopen.platform-test]
+            [hyperopen.platform.indexed-db-committed-test]
             [hyperopen.platform.indexed-db-test]
             [hyperopen.platform.webauthn-test]
             [hyperopen.pnl-share.actions-test]
@@ -952,6 +957,7 @@
             [hyperopen.vol-range.domain.grid-test]
             [hyperopen.vol-range.domain.volatility-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
             [hyperopen.wallet.actions-test]
@@ -1123,10 +1129,14 @@
              'hyperopen.api.runtime-test
              'hyperopen.api.service-test
              'hyperopen.api.trading-test
+             'hyperopen.api.trading.action-coordinator-test
              'hyperopen.api.trading.approve-agent-test
              'hyperopen.api.trading.cancel-request-test
+             'hyperopen.api.trading.coordinated-signing-test
              'hyperopen.api.trading.debug-exchange-simulator-test
              'hyperopen.api.trading.internal-seams-test
+             'hyperopen.api.trading.nonce-coordinator-test
+             'hyperopen.api.trading.order-result-test
              'hyperopen.api.trading.referral-signing-test
              'hyperopen.api.trading.session-invalidation-test
              'hyperopen.api.trading.sign-and-submit-test
@@ -1287,6 +1297,7 @@
              'hyperopen.orderbook.settings-test
              'hyperopen.outcome-side-market-switch-test
              'hyperopen.platform-test
+             'hyperopen.platform.indexed-db-committed-test
              'hyperopen.platform.indexed-db-test
              'hyperopen.platform.webauthn-test
              'hyperopen.pnl-share.actions-test
@@ -1990,6 +2001,7 @@
              'hyperopen.vol-range.domain.grid-test
              'hyperopen.vol-range.domain.volatility-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
              'hyperopen.wallet.actions-test

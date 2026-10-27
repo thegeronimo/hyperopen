@@ -4,7 +4,7 @@
   "hyperopen-persistence")
 
 (def app-db-version
-  7)
+  8)
 
 (def asset-selector-markets-store
   "asset-selector-markets-cache")
@@ -30,6 +30,11 @@
 (def portfolio-optimizer-store
   "portfolio-optimizer")
 
+(def vol-range-journal-store
+  "Vol Range intents, send attempts and outcomes (HO-SPEC-014 section 7.4).
+  Written only through `put-many-committed!`."
+  "vol-range-journal")
+
 (def ^:private app-store-names
   [asset-selector-markets-store
    funding-history-store
@@ -38,7 +43,8 @@
    leaderboard-preferences-store
    leaderboard-cache-store
    agent-locked-session-store
-   portfolio-optimizer-store])
+   portfolio-optimizer-store
+   vol-range-journal-store])
 
 (defonce ^:private open-db-cache (atom {}))
 
@@ -223,6 +229,77 @@
                      (.put ^js store (clj->js value) key))
                    (fn [_]
                      true))))))))
+
+(defn put-many-committed!
+  "Write every [key value] in `entries` to `store-name` in ONE readwrite
+  transaction and resolve true only on `transaction.oncomplete`.
+
+  Unlike `put-json!`, request-level success is never treated as durability: a
+  transaction that later aborts (quota, constraint, a closing connection)
+  rejects, and so does missing IndexedDB, a missing store or a blocked open.
+  Either all entries are written or none are."
+  ([store-name entries]
+   (put-many-committed! store-name entries {}))
+  ([store-name entries opts]
+   (if-not (indexed-db-supported?)
+     (js/Promise.reject (js/Error. "IndexedDB is unavailable; nothing was written."))
+     (-> (open-db! opts)
+         (.then
+          (fn [db]
+            (js/Promise.
+             (fn [resolve reject]
+               (try
+                 (cond
+                   (nil? db)
+                   (reject (js/Error. "IndexedDB is unavailable; nothing was written."))
+
+                   (not (.contains (.-objectStoreNames db) store-name))
+                   (reject (js/Error. (str "IndexedDB store " store-name " is missing; nothing was written.")))
+
+                   :else
+                   (let [;; "strict": oncomplete only after the data is flushed to disk
+                         ;; (browsers default to relaxed durability).
+                         tx (.transaction db (clj->js [store-name]) "readwrite" #js {:durability "strict"})
+                         store (.objectStore tx store-name)]
+                     (set! (.-oncomplete tx) (fn [_] (resolve true)))
+                     ;; A request error is NOT cancelled (no preventDefault), so the
+                     ;; transaction aborts as a whole and onabort rejects.
+                     (set! (.-onabort tx)
+                           (fn [_]
+                             (reject (or (some-> tx .-error)
+                                         (js/Error. (str "IndexedDB transaction aborted for " store-name))))))
+                     (try
+                       (doseq [[k v] entries]
+                         (.put ^js store (clj->js v) k))
+                       (catch :default e
+                         ;; A synchronous put failure (bad key, uncloneable value)
+                         ;; must not let earlier puts auto-commit.
+                         (try (.abort tx) (catch :default _ nil))
+                         (reject e)))))
+                 (catch :default e
+                   (reject e)))))))))))
+
+(defn get-all-json-strict!
+  "`get-all-json!` that REJECTS when IndexedDB or the store is unavailable,
+  instead of returning an empty vector. For journals, an unreadable store must
+  block new work rather than look empty."
+  ([store-name]
+   (get-all-json-strict! store-name {}))
+  ([store-name opts]
+   (if-not (indexed-db-supported?)
+     (js/Promise.reject (js/Error. "IndexedDB is unavailable."))
+     (-> (open-db! opts)
+         (.then (fn [db]
+                  (cond
+                    (nil? db) (js/Promise.reject (js/Error. "IndexedDB is unavailable."))
+                    (not (.contains (.-objectStoreNames db) store-name))
+                    (js/Promise.reject (js/Error. (str "IndexedDB store " store-name " is missing.")))
+                    :else (transact-request! db store-name "readonly"
+                                             (fn [store] (.getAll ^js store))
+                                             (fn [result]
+                                               (if (some? result)
+                                                 (js->clj result :keywordize-keys true)
+                                                 []))))))))))
 
 (defn delete-key!
   ([store-name key]

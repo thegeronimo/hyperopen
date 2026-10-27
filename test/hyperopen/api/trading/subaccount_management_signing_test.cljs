@@ -69,7 +69,7 @@
                (is (= expected-action signed-action))
                (is (nil? (:vault-address sign-opts-map)))
                (is (= fixed-expires-after (:expires-after sign-opts-map)))
-               (is (false? (:is-mainnet sign-opts-map)))
+               (is (true? (:is-mainnet sign-opts-map)))
                (is (= expected-action (:action payload)))
                (is (false? (contains? payload :vaultAddress)))
                (is (= fixed-expires-after (:expiresAfter payload))))
@@ -94,7 +94,7 @@
                                                 "Desk"
                                                 {:vault-address vault-address
                                                  :expires-after expires-after
-                                                 :is-mainnet false
+                                                 :is-mainnet true
                                                  :max-nonce-retries 0}))}))))
 
 (deftest modify-sub-account-public-facade-signs-master-scoped-action-without-vault-test
@@ -113,7 +113,7 @@
                                                 "Ops"
                                                 {:vault-address vault-address
                                                  :expires-after expires-after
-                                                 :is-mainnet false
+                                                 :is-mainnet true
                                                  :max-nonce-retries 0}))}))))
 
 (deftest transfer-sub-account-public-facade-signs-master-scoped-action-with-raw-usd-test
@@ -134,7 +134,7 @@
                                                   1230000
                                                   {:vault-address vault-address
                                                    :expires-after expires-after
-                                                   :is-mainnet false
+                                                   :is-mainnet true
                                                    :max-nonce-retries 0}))}))))
 
 (deftest transfer-sub-account-spot-public-facade-signs-master-scoped-action-test
@@ -157,5 +157,5 @@
                                                        "4.63"
                                                        {:vault-address vault-address
                                                         :expires-after expires-after
-                                                        :is-mainnet false
+                                                        :is-mainnet true
                                                         :max-nonce-retries 0}))}))))

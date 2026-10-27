@@ -335,7 +335,7 @@
             :grouping "na"}
            {:vault-address "0xABCDEF1234"
             :expires-after 1700000019000
-            :is-mainnet false
+            :is-mainnet true
             :max-nonce-retries 0})
           (.then (fn [resp]
                    (is (= "ok" (:status resp)))
@@ -348,7 +348,7 @@
                          payload (support/fetch-body->map fetch-opts)]
                      (is (= "0xabcdef1234" (:vault-address sign-opts-map)))
                      (is (= 1700000019000 (:expires-after sign-opts-map)))
-                     (is (false? (:is-mainnet sign-opts-map)))
+                     (is (true? (:is-mainnet sign-opts-map)))
                      (is (= "0xabcdef1234" (:vaultAddress payload)))
                      (is (= 1700000019000 (:expiresAfter payload))))
                    (done)))

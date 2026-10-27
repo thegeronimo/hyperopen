@@ -70,7 +70,7 @@
                (is (= expected-action signed-action))
                (is (nil? (:vault-address sign-opts-map)))
                (is (= fixed-expires-after (:expires-after sign-opts-map)))
-               (is (false? (:is-mainnet sign-opts-map)))
+               (is (true? (:is-mainnet sign-opts-map)))
                (is (= expected-action (:action payload)))
                (is (false? (contains? payload :vaultAddress)))
                (is (= fixed-expires-after (:expiresAfter payload))))
@@ -94,7 +94,7 @@
                                         "ABC123"
                                         {:vault-address vault-address
                                          :expires-after expires-after
-                                         :is-mainnet false
+                                         :is-mainnet true
                                          :max-nonce-retries 0}))})))
 
 (deftest register-referrer-signs-master-scoped-action-without-vault-test
@@ -109,7 +109,7 @@
                                              "MYCODE"
                                              {:vault-address vault-address
                                               :expires-after expires-after
-                                              :is-mainnet false
+                                              :is-mainnet true
                                               :max-nonce-retries 0}))})))
 
 (deftest claim-rewards-signs-master-scoped-action-without-vault-test
@@ -122,5 +122,5 @@
                                          owner-address
                                          {:vault-address vault-address
                                           :expires-after expires-after
-                                          :is-mainnet false
+                                          :is-mainnet true
                                           :max-nonce-retries 0}))})))

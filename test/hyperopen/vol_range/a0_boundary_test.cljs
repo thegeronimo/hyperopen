@@ -161,10 +161,25 @@
   ["hyperopen.api.trading" "hyperopen.order.effects" "hyperopen.utils.hl-signing"
    "hyperopen.api.gateway.orders" "hyperopen.platform.indexed-db" "api-submit-order" "nonce"])
 
+(def ^:private execution-foundations
+  "Release A execution foundations (journal, entropy, raw reads). They may
+  touch storage and nonces; the A0 preview must never require them."
+  #{"src/hyperopen/vol_range/infrastructure/journal.cljs"
+    "src/hyperopen/vol_range/infrastructure/entropy.cljs"
+    "src/hyperopen/vol_range/infrastructure/reads.cljs"
+    "src/hyperopen/vol_range/application/journal_records.cljs"})
+
+(def ^:private execution-foundation-namespaces
+  ["hyperopen.vol-range.infrastructure.journal" "hyperopen.vol-range.infrastructure.entropy"
+   "hyperopen.vol-range.infrastructure.reads" "hyperopen.vol-range.application.journal-records"
+   "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
+   "hyperopen.api.trading.action-coordinator"])
+
 (deftest vol-range-sources-reference-no-order-signing-or-storage-test
   (let [trading-dir "src/hyperopen/trading"
         files (-> []
-                  (into (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/vol_range")))
+                  (into (remove execution-foundations
+                                (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/vol_range"))))
                   (into (filter #(str/starts-with? (.basename path %) "vol_range_")
                                 (list-files trading-dir)))
                   (into (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/views/trade/vol_range")))
@@ -180,3 +195,18 @@
             :let [text (.readFileSync fs file "utf8")]
             needle forbidden-substrings]
       (is (not (str/includes? text needle)) (str file " mentions " needle)))))
+
+(deftest preview-sources-never-require-execution-foundations-test
+  ;; VR-24 stays true while stage 4 foundations exist: nothing on an A0
+  ;; preview path can reach a journal write, a nonce reservation or a send.
+  (let [files (-> []
+                  (into (remove execution-foundations
+                                (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/vol_range"))))
+                  (into (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/views/trade/vol_range")))
+                  (into (filter #(str/starts-with? (.basename path %) "vol_range_")
+                                (list-files "src/hyperopen/trading"))))]
+    (is (some #(str/ends-with? % "trading/vol_range_transitions.cljs") files))
+    (doseq [file files
+            :let [text (.readFileSync fs file "utf8")]
+            ns-name execution-foundation-namespaces]
+      (is (not (str/includes? text ns-name)) (str file " requires " ns-name)))))
