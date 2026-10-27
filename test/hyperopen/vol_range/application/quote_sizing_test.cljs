@@ -98,3 +98,43 @@
                                                   :market (fx/market-snapshot {:sz-decimals 0})}))]
       (is (contains? (codes r) :input/quote-amount-too-small))
       (is (some #(= :use-fewer-rungs (:id %)) (:remediations r))))))
+
+(defn- usdc-limits [core target maximum]
+  (draft [:inventory :limit-unit] :quote
+         [:inventory :protected-core-quote] core [:inventory :target-quote] target
+         [:inventory :maximum-quote] maximum
+         [:inventory :protected-core] "" [:inventory :target] "" [:inventory :maximum] ""))
+
+(deftest usdc-limits-convert-at-the-anchor-test
+  (let [base (plan fx/draft-13-2)
+        r (plan (usdc-limits "9600" "12800" "15200"))]
+    (is (= :ready (:status r)) (pr-str (:errors r)))
+    (is (= (:legs base) (:legs r)) "120 / 160 / 190 SYN at the 80 anchor")
+    (is (= ["120" "160" "190"] (mapv #(get-in r [:inventory-outcomes %]) [:core :target :maximum])))
+    (is (= :quote (get-in r [:inventory-outcomes :limit-unit])))
+    (is (= "80" (get-in r [:inventory-outcomes :limit-price]))))
+  (testing "core rounds up and maximum down to the lot, toward protection"
+    (let [r (plan (usdc-limits "9600.3" "12800" "15200.5"))]
+      (is (= ["120.01" "190"] (mapv #(get-in r [:inventory-outcomes %]) [:core :maximum])))))
+  (testing "a maximum below one lot is an input error on the USDC field"
+    (let [r (plan (usdc-limits "" "" "0.001"))
+          e (first (filter #(= :input/limit-below-lot (:code %)) (:errors r)))]
+      (is (= [:inventory :maximum-quote] (get-in e [:data :path])))))
+  (testing "core above maximum after rounding is an order error"
+    (let [r (plan (usdc-limits "15200.5" "15200.5" "15200.6"))]
+      (is (some #(and (= :input/inventory-limits-order (:code %))
+                      (= [:inventory :protected-core-quote] (get-in % [:data :path])))
+                (:errors r))))))
+
+(deftest usdc-limit-errors-and-offers-test
+  (let [r (plan (usdc-limits "9600" "12800" ""))
+        e (first (filter #(= :input/maximum-required (:code %)) (:errors r)))
+        offer (first (filter #(= :set-maximum-all-buys (:id %)) (:remediations r)))]
+    (is (= [:inventory :maximum-quote] (get-in e [:data :path])))
+    (is (some? offer))
+    (is (= [[[:inventory :maximum-quote] "15200.00"]] (:patch offer)))
+    (is (= "Set maximum to 15200.00 USDC · all buys filled" (:label offer))))
+  (testing "inventory-order errors point at the USDC fields"
+    (let [r (plan (usdc-limits "13000" "12800" "15200"))]
+      (is (some #(= [:inventory :protected-core-quote] (get-in % [:data :path])) (:errors r)))
+      (is (not-any? #(= [:inventory :protected-core] (get-in % [:data :path])) (:errors r))))))

@@ -194,6 +194,25 @@
             (is (= :base (get-in (vr-draft after) [:sell :amount-unit])))
             (is (= "15" (get-in (vr-draft after) [:sell :quantity])))))))))
 
+(deftest limit-unit-switch-test
+  (with-fees
+    (fn []
+      (let [state (sf/base-state)
+            switch (fn [st unit] (sf/apply-effects st (actions/update-vol-range-draft st [:inventory :limit-unit] unit now)))
+            to-usdc (switch state :quote)
+            inv #(get (vr-draft %) :inventory)]
+        (is (= :quote (:limit-unit (inv to-usdc))))
+        (is (= ["9600" "12800" "15200"]
+               (mapv #(get (inv to-usdc) %) [:protected-core-quote :target-quote :maximum-quote])))
+        (let [back (switch (assoc-in to-usdc [:order-form :scale :vol-range :inventory :maximum-quote] "16000") :base)]
+          (is (= :base (:limit-unit (inv back))))
+          (is (= ["120" "160" "200"] (mapv #(get (inv back) %) [:protected-core :target :maximum]))))
+        (testing "a cleared field carries as blank, never a stale value"
+          (let [cleared (assoc-in to-usdc [:order-form :scale :vol-range :inventory :protected-core-quote] "")
+                back (switch cleared :base)]
+            (is (= "" (:protected-core (inv back))))
+            (is (= "" (:protected-core-quote (inv (switch back :quote)))))))))))
+
 (deftest review-open-and-close-test
   (with-fees
     (fn []

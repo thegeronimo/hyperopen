@@ -22,6 +22,7 @@
 (def enum-draft-paths
   {[:anchor :mode] vol-range-draft/anchor-modes
    [:volatility :mode] vol-range-draft/volatility-modes
+   [:inventory :limit-unit] vol-range-draft/amount-units
    [:buy :amount-unit] vol-range-draft/amount-units
    [:sell :amount-unit] vol-range-draft/amount-units})
 

@@ -29,7 +29,7 @@
 
 (defn inventory-section
   ([inventory] (inventory-section inventory {}))
-  ([{:keys [base-symbol current available-to-sell core-input target-input maximum-input
+  ([{:keys [base-symbol current available-to-sell limit-unit limit-note core-input target-input maximum-input
             core-placeholder target-placeholder maximum-placeholder track set-maximum-offer
             starting-breach]}
     fe]
@@ -41,16 +41,27 @@
                [:p {:class ["rounded-md" "border" "border-ho-warn" "p-2" "text-xs" "text-ho-warn"]
                     :data-role "vol-range-starting-breach"}
                 starting-breach])
-             [:div {:class ["grid" "grid-cols-3" "gap-2"]}
-              (p/text-field {:id protected-core-input-id :label "Protected core" :value core-input
-                             :placeholder core-placeholder :path [:inventory :protected-core]
-                             :field-errors fe})
-              (p/text-field {:id "vol-range-target" :label "Target" :value target-input
-                             :placeholder target-placeholder :path [:inventory :target]
-                             :field-errors fe})
-              (p/text-field {:id "vol-range-maximum" :label "Maximum" :value maximum-input
-                             :placeholder maximum-placeholder :path [:inventory :maximum]
-                             :field-errors fe})]
+             (let [quote? (= :quote limit-unit)
+                   ;; The three fields are narrow; the switch above names the unit.
+                   field (fn [k] [:inventory (if quote? (keyword (str (name k) "-quote")) k)])]
+               [:div {:class ["flex" "flex-col" "gap-1"]}
+                [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
+                 [:span {:class ["text-xs" "text-ho-text-secondary"]} "Limits in"]
+                 (p/unit-toggle {:path [:inventory :limit-unit] :unit limit-unit :base-symbol base-symbol
+                                 :data-role "vol-range-limit-unit" :aria-label "Inventory limit unit"})]
+                [:div {:class ["grid" "grid-cols-3" "gap-2"]}
+                 (p/text-field {:id protected-core-input-id :label "Protected core" :value core-input
+                                :placeholder core-placeholder :path (field :protected-core)
+                                :field-errors fe})
+                 (p/text-field {:id "vol-range-target" :label "Target" :value target-input
+                                :placeholder target-placeholder :path (field :target)
+                                :field-errors fe})
+                 (p/text-field {:id "vol-range-maximum" :label "Maximum" :value maximum-input
+                                :placeholder maximum-placeholder :path (field :maximum)
+                                :field-errors fe})]
+                (when limit-note
+                  [:div {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-range-limit-note"}
+                   limit-note])])
              (when track (track-bar track))
              (when set-maximum-offer
                (p/action-button {:label (:label set-maximum-offer)

@@ -93,7 +93,10 @@
       (conj (row "Starting breach" (ticket-model/starting-breach-text o sz base)))
       true
       (into
+    (remove nil?)
     [(row "Current inventory" (amt :current))
+     (when (= :quote (:limit-unit o))
+       (row "Limits entered in USDC" (str "converted at anchor " (display/exact (:limit-price o)))))
      (row "Protected core" (amt :core))
      (row "Target" (amt :target))
      (row "Maximum" (amt :maximum))

@@ -119,15 +119,20 @@
                    (if error
                      {:errors [(err error [:volatility :manual-daily-pct])]}
                      {:value daily-fraction})))
-        core (optional-nonneg (:protected-core inventory) [:inventory :protected-core])
-        target (optional-nonneg (:target inventory) [:inventory :target])
-        maximum-parsed (parse-field (:maximum inventory))
+        ;; In USDC mode the limits are USDC values; the planner converts them
+        ;; to base at the anchor price. Errors point at the USDC fields.
+        limits-quote? (= :quote (:limit-unit inventory))
+        limit-key (fn [k] (if limits-quote? (keyword (str (name k) "-quote")) k))
+        limit-path (fn [k] [:inventory (limit-key k)])
+        core (optional-nonneg (get inventory (limit-key :protected-core)) (limit-path :protected-core))
+        target (optional-nonneg (get inventory (limit-key :target)) (limit-path :target))
+        maximum-parsed (parse-field (get inventory (limit-key :maximum)))
         buys? (boolean (:enabled? buy))
         maximum (cond
-                  (:invalid? maximum-parsed) {:errors [(err :input/invalid-number [:inventory :maximum])]}
-                  (:blank? maximum-parsed) (when buys? {:errors [(err :input/maximum-required [:inventory :maximum])]})
+                  (:invalid? maximum-parsed) {:errors [(err :input/invalid-number (limit-path :maximum))]}
+                  (:blank? maximum-parsed) (when buys? {:errors [(err :input/maximum-required (limit-path :maximum))]})
                   (precision/pos-dec? (:value maximum-parsed)) {:value (:value maximum-parsed)}
-                  :else {:errors [(err :input/maximum-required [:inventory :maximum])]})
+                  :else {:errors [(err :input/maximum-required (limit-path :maximum))]})
         tilt? (boolean (:tilt-enabled? inventory))
         strength (when tilt?
                    (let [{:keys [value blank? invalid?]} (parse-field (:tilt-strength inventory))]
@@ -145,6 +150,7 @@
                             (:errors custom) (:errors manual) (:errors strength)
                             (:errors core) (:errors target) (:errors maximum) limits))]
     {:resolved {:anchor-mode anchor-mode
+                :limit-unit (if limits-quote? :quote :base)
                 :custom-price (:value custom)
                 :vol-mode vol-mode
                 :manual-daily-fraction (:value manual)

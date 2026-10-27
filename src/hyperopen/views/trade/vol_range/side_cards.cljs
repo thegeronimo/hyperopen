@@ -47,25 +47,6 @@
     (p/text-field {:id (str "vol-range-" (name side) "-skew") :label "Size skew"
                    :value skew-input :path [side :skew] :field-errors fe})]])
 
-(defn- unit-toggle
-  "Base / USDC switch for how a side's size is entered."
-  [side unit base-symbol]
-  [:div {:class ["inline-flex" "rounded-md" "border" "border-ho-border" "overflow-hidden"]
-         :role "group"
-         :aria-label (str (if (= side :buy) "Buy" "Sell") " size unit")
-         :data-role (str "vol-range-" (name side) "-unit")}
-   (for [[u label] [[:base base-symbol] [:quote "USDC"]]]
-     ^{:key (name u)}
-     [:button {:type "button"
-               :aria-pressed (str (= u unit))
-               :class (into ["px-2" "py-0.5" "text-xs"]
-                            (if (= u unit)
-                              ["bg-base-300" "text-ho-text"]
-                              ["text-ho-text-muted"]))
-               :data-role (str "vol-range-" (name side) "-unit-" (name u))
-               :on {:click (p/actions (commands/update-draft [side :amount-unit] u))}}
-      label])])
-
 (defn- amount-field
   "The side's size: a base quantity, or a USDC amount the plan is sized to."
   [side {:keys [amount-unit quantity-input quote-amount-input amount-note]} base-symbol fe]
@@ -73,7 +54,11 @@
         id (str "vol-range-" (name side) (if quote? "-quote-amount" "-quantity"))]
     [:div {:class ["flex" "flex-col" "gap-1"]}
      (p/text-field (merge {:id id :field-errors fe
-                           :label-accessory (unit-toggle side amount-unit base-symbol)}
+                           :label-accessory (p/unit-toggle {:path [side :amount-unit] :unit amount-unit
+                                                            :base-symbol base-symbol
+                                                            :data-role (str "vol-range-" (name side) "-unit")
+                                                            :aria-label (str (if (= side :buy) "Buy" "Sell")
+                                                                             " size unit")})}
                           (if quote?
                             {:label "Amount" :value quote-amount-input :suffix "USDC"
                              :path [side :quote-amount]}

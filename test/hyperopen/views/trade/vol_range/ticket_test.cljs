@@ -250,3 +250,21 @@
           (is (not (str/includes? t "Maximum USDC debit")))
           (is (re-find #"Spend up to this amount, fee reserve included · 40(\.0+)? SYN" t))
           (is (some? (hiccup/find-all-nodes html #(= "vol-range-buy-quote-amount" (get-in % [1 :id]))))))))))
+
+(deftest limit-unit-toggle-test
+  (with-fees
+    (fn []
+      (let [html (render (sf/base-state))]
+        (is (= "true" (get-in (hiccup/find-by-data-role html "vol-range-limit-unit-base") [1 :aria-pressed])))
+        (is (= [[:actions/update-vol-range-draft [:inventory :limit-unit] :quote]]
+               (get-in (hiccup/find-by-data-role html "vol-range-limit-unit-quote") [1 :on :click])))
+        (is (nil? (hiccup/find-by-data-role html "vol-range-limit-note"))))
+      (let [html (render (-> (sf/base-state)
+                             (assoc-in [:order-form :scale :vol-range :inventory :limit-unit] :quote)
+                             (assoc-in [:order-form :scale :vol-range :inventory :protected-core-quote] "9600")
+                             (assoc-in [:order-form :scale :vol-range :inventory :target-quote] "12800")
+                             (assoc-in [:order-form :scale :vol-range :inventory :maximum-quote] "15200")))
+            note (text (hiccup/find-by-data-role html "vol-range-limit-note"))]
+        (is (str/includes? note "Converted at the anchor price 80 ·"))
+        (is (re-find #"max 190(\.0+)? SYN" note))
+        (is (str/includes? (text html) "Review 7 orders"))))))

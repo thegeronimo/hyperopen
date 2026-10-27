@@ -85,9 +85,21 @@
         n (when-let [o (:all-buys-first (:inventory-outcomes result))]
             (when buys?
               (precision/quantize (d o) (:sz-decimals (:market input)) :ceil)))
-        maximum (d (str (get-in draft [:inventory :maximum])))
-        max-blank? (blank? (get-in draft [:inventory :maximum]))
-        needs-max? (and n (or max-blank? (and maximum (neg? (precision/cmp maximum n)))))
+        ;; USDC limits: compare in base (the plan's converted maximum) and
+        ;; write the USDC field, rounded up to the cent so it converts back
+        ;; to at least n.
+        limits-quote? (= :quote (get-in draft [:inventory :limit-unit]))
+        limit-price (when limits-quote? (some-> (get-in result [:inventory-outcomes :limit-price]) d))
+        limit-path [:inventory (if limits-quote? :maximum-quote :maximum)]
+        maximum (if limit-price
+                  (some-> (get-in result [:inventory-outcomes :maximum]) d)
+                  (d (str (get-in draft [:inventory :maximum]))))
+        max-blank? (blank? (get-in draft limit-path))
+        needs-max? (and n (or (not limits-quote?) limit-price) (or max-blank? (and maximum (neg? (precision/cmp maximum n)))))
+        max-value (when n (if limit-price
+                            (precision/to-fixed (precision/quantize (precision/mul n limit-price) 2 :ceil) 2)
+                            (ds n)))
+        max-label (when n (if limit-price (str max-value " USDC") (ds n)))
         total (when buys?
                 (some-> (:max-debit buy-t) d (precision/quantize 2 :ceil)))
         ;; In USDC mode the amount is the cap and the plan is sized to fit it.
@@ -95,7 +107,7 @@
         cap-raw (get-in draft [:buy :max-usdc-debit])
         cap (d (str cap-raw))
         needs-cap? (and total (not usdc-mode?) (or (blank? cap-raw) (and cap (neg? (precision/cmp cap total)))))
-        max-patch (when needs-max? [[[:inventory :maximum] (ds n)]])
+        max-patch (when needs-max? [[limit-path max-value]])
         cap-patch (when needs-cap? [[[:buy :max-usdc-debit] (precision/to-fixed total 2)]])
         joint-patch (when (and max-patch cap-patch) (into max-patch cap-patch))]
     ;; VR-23: every offer's OWN patch must yield a ready plan. When neither
@@ -105,12 +117,12 @@
           cap-ok? (and cap-patch (ready? input cap-patch))]
       (cond-> []
         max-ok?
-        (conj (offer :set-maximum-all-buys (str "Set maximum to " (ds n) " · all buys filled") max-patch))
+        (conj (offer :set-maximum-all-buys (str "Set maximum to " max-label " · all buys filled") max-patch))
         cap-ok?
         (conj (offer :use-plan-total "Use plan total" cap-patch))
         (and joint-patch (not max-ok?) (not cap-ok?) (ready? input joint-patch))
         (conj (offer :fill-required-limits
-                     (str "Set maximum to " (ds n) " and USDC cap to " (precision/to-fixed total 2))
+                     (str "Set maximum to " max-label " and USDC cap to " (precision/to-fixed total 2))
                      joint-patch))))))
 
 (defn offers

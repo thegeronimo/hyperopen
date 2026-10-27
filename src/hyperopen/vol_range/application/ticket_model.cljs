@@ -161,13 +161,23 @@
 
 (defn- inventory-section [{:keys [draft market account plan]}]
   (let [sz (:sz-decimals market)
-        outcomes (:inventory-outcomes plan)]
+        outcomes (:inventory-outcomes plan)
+        quote? (= :quote (get-in draft [:inventory :limit-unit]))]
     {:base-symbol (:base-symbol market)
      :current (display/amount (get-in account [:base :total]) sz)
      :available-to-sell (display/amount (get-in account [:base :available]) sz)
-     :core-input (get-in draft [:inventory :protected-core])
-     :target-input (get-in draft [:inventory :target])
-     :maximum-input (get-in draft [:inventory :maximum])
+     :limit-unit (if quote? :quote :base)
+     :core-input (get-in draft [:inventory (if quote? :protected-core-quote :protected-core)])
+     :target-input (get-in draft [:inventory (if quote? :target-quote :target)])
+     :maximum-input (get-in draft [:inventory (if quote? :maximum-quote :maximum)])
+     :limit-note (when quote?
+                   (str "Converted at the anchor price"
+                        (when-let [px (:limit-price outcomes)] (str " " (display/exact px)))
+                        (when (:maximum outcomes)
+                          (str " · core " (display/amount (:core outcomes) sz)
+                               " · target " (display/amount (:target outcomes) sz)
+                               " · max " (display/amount (:maximum outcomes) sz)
+                               " " (:base-symbol market)))))
      :core-placeholder "current inventory"
      :target-placeholder "current inventory"
      :maximum-placeholder "required"

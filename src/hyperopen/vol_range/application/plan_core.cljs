@@ -217,6 +217,20 @@
                       :solved-quantity (:quantity solved))
         :else (grid/build-side-legs (assoc params :quantity (:quantity sd)))))))
 
+(def ^:private limit-fields #{:protected-core :target :maximum})
+
+(defn- usdc-field-path
+  "Errors name base fields; in USDC mode the rendered input is the USDC one,
+  so point the error there and keep it attached to a field."
+  [[section k :as path] resolved]
+  (cond
+    (and (contains? #{:buy :sell} section) (= :quantity k)
+         (= :quote (get-in resolved [section :amount-unit])))
+    [section :quote-amount]
+    (and (= :inventory section) (contains? limit-fields k) (= :quote (:limit-unit resolved)))
+    [:inventory (keyword (str (name k) "-quote"))]
+    :else path))
+
 (defn prepare-plan-core
   "Plan without remediations. See `planner/prepare-plan` for the contract."
   [{:keys [plan-id scope draft market account fees capabilities model-version precision-version] :as input}]
@@ -232,10 +246,32 @@
         anchor-error (when (and (nil? anchor) (not= :custom (:anchor-mode resolved)))
                        [(contracts/error :data/anchor-unavailable {:mode (:anchor-mode resolved)})])
         q (when account-ok? (some-> (get-in account [:base :total]) d))
-        core (or (:core resolved) q)
-        target (or (:target resolved) q)
-        maximum (:maximum resolved)
-        limit-errors (when (and q (or (nil? (:core resolved)) (nil? (:target resolved))))
+        ;; USDC limits become base at the unshifted anchor price, rounded to
+        ;; the lot toward protection: core up, maximum down. Target rounds to
+        ;; the nearest lot and is kept between them.
+        limits-quote? (= :quote (:limit-unit resolved))
+        limit-price (when limits-quote? (:price anchor))
+        ->base (fn [x mode]
+                 (if limits-quote?
+                   (when (and x limit-price sz)
+                     (precision/quantize (precision/divide x limit-price 20 mode) sz mode))
+                   x))
+        core-in (->base (:core resolved) :ceil)
+        maximum (->base (:maximum resolved) :floor)
+        target-in (let [t (->base (:target resolved) :half-up)]
+                    (cond-> t
+                      (and t limits-quote? core-in) (precision/dec-max core-in)
+                      (and t limits-quote? maximum) (precision/dec-min maximum)))
+        core (or core-in q)
+        target (or target-in q)
+        converted-limit-errors
+        (when limits-quote?
+          (concat
+           (when (and core-in maximum (pos? (precision/cmp core-in maximum)))
+             [(contracts/error :input/inventory-limits-order {:path [:inventory :protected-core]})])
+           (when (and (:maximum resolved) maximum (not (precision/pos-dec? maximum)))
+             [(contracts/error :input/limit-below-lot {:path [:inventory :maximum]})])))
+        limit-errors (when (and q (or (nil? core-in) (nil? target-in)))
                        (admission/check-inventory-limits {:core core :target target :maximum maximum}))
         tilt? (:tilt-enabled? resolved)
         ;; Spec 5.4 needs a real q_max: never invent one for tilt.
@@ -303,16 +339,11 @@
                         (into (when (and capable? v anchor) (:errors sell-r)))
                         (into (when (and capable? (not fee-ok?)) [(contracts/error :data/fee-quote-unavailable {})]))
                         (into (remove (fn [e] (some #(= (:code e) (:code %)) errors)) limit-errors))
+                        (into (remove (fn [e] (some #(= (:code e) (:code %)) errors)) converted-limit-errors))
                         (into tilt-errors)
                         (into leg-errors)
                         (into bound-errors)))
-        ;; In USDC mode the side's field is the amount: point quantity
-        ;; errors there so they stay attached to a rendered input.
-        all-errors (mapv (fn [e]
-                           (let [[side k] (get-in e [:data :path])]
-                             (if (and (= :quantity k) (= :quote (get-in resolved [side :amount-unit])))
-                               (assoc-in e [:data :path] [side :quote-amount])
-                               e)))
+        all-errors (mapv #(update % :data (fn [data] (cond-> data (:path data) (update :path usdc-field-path resolved))))
                          all-errors)
         warnings (dedupe-errors
                   (cond-> (into (vec (:warnings cap-f)) breach-warnings)
@@ -326,6 +357,8 @@
                   (let [sd (get resolved side)]
                     (cond-> (assoc t :amount-unit (if (= :quote (:amount-unit sd)) :quote :base))
                       (= :quote (:amount-unit sd)) (assoc :quote-amount (some-> (:quote-amount sd) ds)))))
+        warnings (mapv #(update % :data (fn [data] (cond-> data (:path data) (update :path usdc-field-path resolved))))
+                       warnings)
         buy-t (entered (side-totals :buy buy-enabled? buy-legs (:buy reserves) usdc-bound base-debit buy-cap avail-usdc)
                        :buy)
         sell-t (entered (side-totals :sell sell-enabled? sell-legs (:sell reserves) usdc-bound base-debit nil nil)
@@ -353,10 +386,12 @@
               :sellable-excess (some-> excess ds)
               :quoted-vwap-gap (quoted-gap buy-t sell-t)}
      :inventory-outcomes (when q
-                           (admission/inventory-outcomes
+                           (cond->
+                            (admission/inventory-outcomes
                             {:q q :b-existing (:buy exposure) :s-existing (:sell exposure)
                              :b-new buy-total :s-new sell-total :base-credit-bound base-credit
-                             :base-debit-bound base-debit :core core :target target :maximum maximum}))
+                             :base-debit-bound base-debit :core core :target target :maximum maximum})
+                            limits-quote? (assoc :limit-unit :quote :limit-price (some-> limit-price ds))))
      :fee-reserves reserves
      :source-versions {:model-version (or model-version contracts/model-version)
                        :precision-version (or precision-version contracts/precision-version)

@@ -135,3 +135,23 @@
         [:span {:class ["text-right" "text-ho-text"]} (str size (when base-symbol (str " " base-symbol)))]
         [:span {:class ["text-right" "text-ho-text-secondary"]} notional]
         [:span {:class ["text-right" "text-ho-text-muted"]} sigma]])]))
+
+(defn unit-toggle
+  "Base / USDC switch writing the draft at `path`; `data-role` prefixes the
+  per-unit buttons (`<data-role>-base`, `<data-role>-quote`)."
+  [{:keys [path unit base-symbol data-role aria-label]}]
+  [:div {:class ["inline-flex" "rounded-md" "border" "border-ho-border" "overflow-hidden"]
+         :role "group"
+         :aria-label aria-label
+         :data-role data-role}
+   (for [[u label] [[:base base-symbol] [:quote "USDC"]]]
+     ^{:key (name u)}
+     [:button {:type "button"
+               :aria-pressed (str (= u unit))
+               :class (into ["px-2" "py-0.5" "text-xs"]
+                            (if (= u unit)
+                              ["bg-base-300" "text-ho-text"]
+                              ["text-ho-text-muted"]))
+               :data-role (str data-role "-" (name u))
+               :on {:click (actions (commands/update-draft path u))}}
+      label])])

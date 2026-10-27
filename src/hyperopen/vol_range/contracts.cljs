@@ -83,6 +83,7 @@
    [:input/skew-out-of-range :input :invalid "Size skew is out of range"]
    [:input/max-debit-required :input :invalid "Enter a maximum USDC debit"]
    [:input/quote-amount-required :input :invalid "Enter a USDC amount"]
+   [:input/limit-below-lot :input :invalid "Maximum is less than one lot at the anchor price"]
    [:input/quote-amount-too-small :input :invalid "The USDC amount is too small for these rungs"]
    [:input/maximum-required :input :invalid "Enter a maximum inventory"]
    [:input/inventory-limits-order :input :invalid "Protected core must not exceed target, and target must not exceed maximum"]

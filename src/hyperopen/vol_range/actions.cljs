@@ -109,6 +109,42 @@
           (and (= side :buy) (some? (:quote-amount t)) (str/blank? (str (:max-usdc-debit draft))))
           (conj [[:buy :max-usdc-debit] (:quote-amount t)]))))))
 
+(defn- carry-scale
+  "Decimals for a USDC value that converts back to the same lot: at least
+  cents, more when a cent is worth more than a tenth of a lot."
+  [lot-value]
+  (loop [scale 2]
+    (if (or (>= scale 12)
+            (<= (precision/cmp (precision/lots->decimal 1 scale) (precision/divide lot-value (precision/parse-decimal "10") 20 :floor)) 0))
+      scale
+      (recur (inc scale)))))
+
+(defn- limit-switch-patch
+  "Carry the inventory limits across a unit switch at the plan's anchor price.
+  Base -> USDC rounds core down and maximum up (the planner rounds them back
+  up and down to the same lot), at enough decimals to round-trip. USDC ->
+  base takes the plan's converted values. A blank field, or one that cannot
+  be converted, becomes blank: it never keeps a stale value."
+  [plan draft unit sz]
+  (let [inv (:inventory draft)
+        outcomes (:inventory-outcomes plan)
+        anchor (some-> (get-in plan [:model :anchor :price]) precision/parse-decimal)
+        quote-key #(keyword (str (name %) "-quote"))
+        fields [[:protected-core :core :floor] [:target :target :half-up] [:maximum :maximum :ceil]]
+        filled (fn [k] (let [x (get inv k)] (when-not (str/blank? (str x)) (precision/parse-decimal (str x)))))]
+    (when (not= unit (:limit-unit inv))
+      (vec
+       (if (= :quote unit)
+         (let [scale (when (and anchor (number? sz))
+                       (carry-scale (precision/mul anchor (precision/lots->decimal 1 sz))))]
+           (for [[k _ mode] fields]
+             [[:inventory (quote-key k)]
+              (if-let [v (and scale (filled k))]
+                (precision/decimal->string (precision/quantize (precision/mul v anchor) scale mode))
+                "")]))
+         (for [[k o _] fields]
+           [[:inventory k] (if (filled (quote-key k)) (or (get outcomes o) "") "")]))))))
+
 (defn update-vol-range-draft
   "Write one whitelisted draft path; unknown paths and invalid values are no-ops.
   Switching a side's amount unit also carries the current size across."
@@ -116,10 +152,13 @@
   ([state path value now-ms]
    (let [path* (transitions/normalize-path path)
          unit-side (when (and (= 2 (count path*)) (= :amount-unit (second path*))) (first path*))
-         unit (when unit-side (:value (transitions/coerce-draft-value state path* value)))
-         carry (when unit (unit-switch-patch (plan-state/plan-for-state state now-ms)
-                                              (get (draft-scope/effective-draft state) unit-side)
-                                              unit-side unit))]
+         limits? (= [:inventory :limit-unit] path*)
+         unit (when (or unit-side limits?) (:value (transitions/coerce-draft-value state path* value)))
+         draft (when unit (draft-scope/effective-draft state))
+         plan (when unit (plan-state/plan-for-state state now-ms))
+         carry (cond
+                 (and unit limits?) (limit-switch-patch plan draft unit (get-in plan [:scope :sz-decimals]))
+                 unit (unit-switch-patch plan (get draft unit-side) unit-side unit))]
      (if-let [transition (if (seq carry)
                            (transitions/apply-patch state (into [[path* unit]] carry))
                            (transitions/update-draft state path value))]

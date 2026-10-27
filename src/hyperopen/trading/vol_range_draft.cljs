@@ -21,8 +21,8 @@
 (def volatility-modes #{:auto :manual})
 
 (def amount-units
-  "How a side's size is entered: base quantity, or a USDC amount the planner
-  sizes the ladder to."
+  "How a side's size (or the inventory limits) is entered: base quantity, or
+  USDC that the planner converts."
   #{:base :quote})
 
 (defn default-vol-range-draft
@@ -30,9 +30,13 @@
   []
   {:anchor {:mode :vwap-24h :custom-price ""}
    :volatility {:mode :auto :manual-daily-pct ""}
-   :inventory {:protected-core ""
+   :inventory {:limit-unit :base
+               :protected-core ""
                :target ""
                :maximum ""
+               :protected-core-quote ""
+               :target-quote ""
+               :maximum-quote ""
                :tilt-enabled? false
                :tilt-strength "0.45"}
    :buy {:enabled? true
@@ -138,9 +142,13 @@
               :custom-price (numeric-string (:custom-price anchor) "")}
      :volatility {:mode (enum-value (:mode vol) volatility-modes (get-in defaults [:volatility :mode]))
                   :manual-daily-pct (numeric-string (:manual-daily-pct vol) "")}
-     :inventory {:protected-core (numeric-string (:protected-core inv) "")
+     :inventory {:limit-unit (enum-value (:limit-unit inv) amount-units (:limit-unit inv-defaults))
+                 :protected-core (numeric-string (:protected-core inv) "")
                  :target (numeric-string (:target inv) "")
                  :maximum (numeric-string (:maximum inv) "")
+                 :protected-core-quote (numeric-string (:protected-core-quote inv) "")
+                 :target-quote (numeric-string (:target-quote inv) "")
+                 :maximum-quote (numeric-string (:maximum-quote inv) "")
                  :tilt-enabled? (boolean (:tilt-enabled? inv))
                  :tilt-strength (numeric-string (:tilt-strength inv) (:tilt-strength inv-defaults))}
      :buy (normalize-buy (:buy raw) (:buy defaults))
@@ -156,6 +164,9 @@
   [[:inventory :protected-core]
    [:inventory :target]
    [:inventory :maximum]
+   [:inventory :protected-core-quote]
+   [:inventory :target-quote]
+   [:inventory :maximum-quote]
    [:buy :quantity]
    [:buy :quote-amount]
    [:buy :max-usdc-debit]

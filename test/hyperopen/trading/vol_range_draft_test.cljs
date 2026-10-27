@@ -35,7 +35,8 @@
 (deftest default-draft-matches-spec-7-1-test
   (is (= {:anchor {:mode :vwap-24h :custom-price ""}
           :volatility {:mode :auto :manual-daily-pct ""}
-          :inventory {:protected-core "" :target "" :maximum ""
+          :inventory {:limit-unit :base :protected-core "" :target "" :maximum ""
+                      :protected-core-quote "" :target-quote "" :maximum-quote ""
                       :tilt-enabled? false :tilt-strength "0.45"}
           :buy {:enabled? true :amount-unit :base :quantity "" :quote-amount "" :max-usdc-debit "" :count 4
                 :start-sigma "0.75" :end-sigma "2.25" :skew "1.00"}
@@ -112,7 +113,7 @@
                  (assoc-in [:scale :vol-range :sell :quantity] "5")
                  (assoc-in [:scale :vol-range :buy :count] 6))
         projected (draft/unscoped-export-projection form)]
-    (is (= ["" "" "" "" "" "" "" "" ""]
+    (is (= ["" "" "" "" "" "" "" "" "" "" "" ""]
            (mapv #(get-in projected (into [:scale :vol-range] %)) draft/scoped-draft-paths)))
     (testing "every other path is untouched"
       (let [blank (fn [f] (reduce (fn [acc path] (assoc-in acc (into [:scale :vol-range] path) ""))
