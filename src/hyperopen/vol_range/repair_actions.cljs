@@ -37,20 +37,29 @@
           (not (busy? state [:repair-preview grid-id]))
           (not (busy? state [:repair grid-id]))))))
 
-(defn open-vol-ladder-repair
-  "Open the rejected-order review for `grid-id` and read a fresh proposal."
-  [state grid-id]
+(defn- read-proposal
+  "Effects that mark the review loading for `grid-id` and read a proposal.
+  `excluded` logical ids stay unselected in it."
+  [state grid-id excluded]
   (if (repairable? state grid-id)
-    [[:effects/save-many [[[:vol-range :repair] {:grid-id grid-id :status :loading}]]]
+    [[:effects/save-many [[[:vol-range :repair] (cond-> {:grid-id grid-id :status :loading}
+                                                  (seq excluded) (assoc :excluded excluded))]]]
      [:effects/vol-range-execute :repair-preview {:grid-id grid-id}]]
     []))
 
+(defn open-vol-ladder-repair
+  "Open the rejected-order review for `grid-id` and read a fresh proposal."
+  [state grid-id]
+  (read-proposal state grid-id nil))
+
 (defn refresh-vol-ladder-repair
-  "Re-read the book and balances and replace the proposal."
+  "Re-read the book and balances and replace the proposal. Orders the user
+  left out stay left out: a refresh never re-selects them."
   [state]
-  (if-let [grid-id (:grid-id (repair state))]
-    (open-vol-ladder-repair state grid-id)
-    []))
+  (let [r (repair state)]
+    (if-let [grid-id (:grid-id r)]
+      (read-proposal state grid-id (repair-plan/excluded-ids r))
+      [])))
 
 (defn toggle-vol-ladder-repair-leg
   "Include or exclude one repairable leg. Unknown ids, a proposal that is not

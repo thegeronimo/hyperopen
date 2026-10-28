@@ -258,3 +258,63 @@
                         (is (= :error (get-in @store [:vol-range :repair :status]))))))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))
+
+(deftest the-review-judges-funds-like-admission-test
+  ;; Right after a partial placement the placement's own reservation is still
+  ;; pending (spec 3.3) until a reconciliation reads the venue holds. The
+  ;; review must not offer a send that admission refuses for funds.
+  (async done
+    (let [s (sim/new-sim)
+          state (atom nil)]
+      (locks/reset-in-tab-state!)
+      (sim/script! s {:kind :normal :reject-prices ["76.4"]})
+      (let [plan (sim/frozen-plan s)]
+        (-> (place/place! (sim/deps s) {:frozen-plan plan :frozen-scope sim/scope
+                                        :settings (ladder-settings/settings-from-plan plan fixtures/draft-13-2)})
+            (.then (fn [{:keys [grid]}]
+                     (swap! s assoc :book {:bid "76.00" :ask "76.35"})
+                     (reset! state {:grid grid :store (store-for grid)})
+                     (with-runtime s {} #(preview! (:store @state) grid))))
+            (.then (fn [_]
+                     (let [{:keys [store grid]} @state
+                           r (get-in @store [:vol-range :repair])]
+                       (is (= :ready (:status r)))
+                       (is (= {:status :invalid :errors [:repair/funds-pending] :warnings []}
+                              (repair-plan/proposal-status r))
+                           "the venue balance covers 533.12 but the pending reservation is subtracted, as at admission")
+                       (with-runtime s {} #(execute! store :repair (repair-params store))))))
+            (.then (fn [_]
+                     (let [{:keys [store grid]} @state]
+                       (is (= {:op :repair :status :admission-failed :errors [:repair/funds-pending]}
+                              (select-keys (get-in @store [:vol-range :execution :last]) [:op :status :errors]))
+                           "admission gives the same reason")
+                       (is (= 1 (count (sim/order-sends s))) "nothing was sent")
+                       (ex/reconcile! (sim/deps s) grid))))
+            (.then (fn [{:keys [grid]}]
+                     (let [store (store-for grid)]
+                       (swap! state assoc :grid grid :store store)
+                       (with-runtime s {} #(preview! store grid)))))
+            (.then (fn [_]
+                     (is (= :ready (:status (repair-plan/proposal-status (get-in @(:store @state) [:vol-range :repair])))))
+                     "once the reservation is released the same review is ready"))
+            (.then (fn [_] (done)))
+            (.catch (fail done)))))))
+
+(deftest a-refreshed-proposal-keeps-the-orders-the-user-left-out-test
+  (async done
+    (let [s (sim/new-sim)]
+      (-> (place-partial! s)
+          (.then (fn [grid]
+                   (let [store (store-for grid)]
+                     (swap! store assoc-in [:vol-range :repair :excluded] #{"buy-0"})
+                     (with-runtime s {}
+                       #(-> (preview! store grid)
+                            (.then (fn [_]
+                                     (let [r (get-in @store [:vol-range :repair])]
+                                       (is (= :ready (:status r)))
+                                       (is (= ["buy-0"] (map :logical-id (:legs r))) "still proposed and shown")
+                                       (is (= #{} (:selected r)) "but not re-selected")
+                                       (is (= #{"buy-0"} (:excluded r)))
+                                       (is (= [] (repair-plan/selected-legs r)))))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))

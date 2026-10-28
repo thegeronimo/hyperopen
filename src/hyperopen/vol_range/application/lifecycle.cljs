@@ -250,11 +250,20 @@
 ;; Repair (spec 8.6, 13.4)
 ;; ---------------------------------------------------------------------------
 
+(def closed-statuses
+  "Statuses of a ladder whose every current leg is terminal: it filled, was
+  canceled or was never placed. Such a ladder is never repaired."
+  #{:closed :not-placed})
+
+(defn closed? [grid] (contains? closed-statuses (status grid)))
+
 (defn repair-candidates
   "Logical members whose CURRENT leg was definitively not placed. Empty while
-  anything is unresolved: a possibly-live order can never be repaired."
+  anything is unresolved (a possibly-live order can never be repaired) and
+  for a closed or never-placed ladder, which the executor refuses to repair
+  (`:grid/closed`); every repair control and the proposal go through here."
   [grid]
-  (if (unresolved? grid)
+  (if (or (unresolved? grid) (closed? grid))
     []
     (->> (vals (:members grid))
          (keep (fn [m]

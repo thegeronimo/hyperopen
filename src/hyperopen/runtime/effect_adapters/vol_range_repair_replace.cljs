@@ -16,7 +16,8 @@
   `[:vol-range :execution :last]`. Each writes `[:vol-range :repair]` only
   while it still refers to the same ladder (and, for a send, the same
   proposal)."
-  (:require [hyperopen.vol-range.application.repair-plan :as repair-plan]
+  (:require [hyperopen.vol-range.application.journal-records :as jr]
+            [hyperopen.vol-range.application.repair-plan :as repair-plan]
             [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.infrastructure.executor :as ex]
@@ -46,7 +47,8 @@
                                     %))))
 
 (defn- barrier-reads!
-  "Awaited, uncached account and book reads for the ladder's scope."
+  "Awaited, uncached account and book reads for the ladder's scope, and the
+  journal (for pending reservations, judged like admission)."
   [deps scope]
   (let [barrier-id ((:random-id! deps) "rb")]
     (-> (js/Promise.all
@@ -54,15 +56,19 @@
                                             {:account-address (:account-address scope) :barrier-id barrier-id
                                              :now-ms! (:now-ms! deps)})
               (reads/read-book! (:post-info! deps) {:coin (:coin scope) :barrier-id barrier-id
-                                                    :now-ms! (:now-ms! deps)})])
-        (.then (fn [arr] (let [[read book] (array-seq arr)] {:read read :book book}))))))
+                                                    :now-ms! (:now-ms! deps)})
+              (ex/load! deps)])
+        (.then (fn [arr] (let [[read book journal] (array-seq arr)] {:read read :book book :journal journal}))))))
 
 (defn repair-preview!
   "Op `:repair-preview {:grid-id}`: freeze a fresh repair proposal for the
   ladder. Refused unless the live scope (the ticket's market and account) is
   the ladder's scope. An incomplete book read leaves every rejected order
-  not repairable (`:repair/book-unavailable`); an incomplete account read is
-  an error. Failures are written to the review by `settle-preview!`."
+  not repairable (`:repair/book-unavailable`); an incomplete account read or
+  an unreadable journal is an error. Funds are judged net of the account's
+  pending reservations, exactly as admission judges them. Orders the user
+  excluded before **Refresh prices** stay excluded. Failures are written to
+  the review by `settle-preview!`."
   [store deps {:keys [grid-id]}]
   (let [grid (grid-in-state store grid-id)
         live ((:live! deps))]
@@ -76,19 +82,29 @@
       :else
       (-> (barrier-reads! deps (:scope grid))
           (.then
-           (fn [{:keys [read book]}]
-             (if-not (:complete? read)
+           (fn [{:keys [read book journal]}]
+             (cond
+               (not (:complete? read))
                {:status :error :errors [:guard/account-unavailable] :error (:error read)}
+
+               (not (:ok? journal))
+               {:status :error :errors [:journal/unavailable] :error (:error journal)}
+
+               :else
                (let [market (assoc (get-in live [:input :market]) :bbo
                                    (when (:complete? book) (select-keys book [:bid :ask :observed-at-ms])))
                      proposal (repair-plan/propose
                                {:grid grid :market market
                                 :account (snapshots/account-snapshot-from-read (:scope grid) read live)
+                                :pending (jr/pending-reservations (:records journal)
+                                                                  (get-in grid [:scope :account-address]))
                                 :fees (get-in live [:input :fees]) :now-ms (ex/now deps)})
                      proposal-id ((:random-id! deps) "rp")]
                  (write-repair! store grid-id
-                                (fn [_] (assoc proposal :grid-id grid-id :status :ready :error nil :errors []
-                                               :proposal-id proposal-id)))
+                                (fn [prev] (-> proposal
+                                                (repair-plan/keep-exclusions (:excluded prev))
+                                                (assoc :grid-id grid-id :status :ready :error nil :errors []
+                                                       :proposal-id proposal-id))))
                  {:status :ok :proposal-id proposal-id}))))))))
 
 (defn- may-have-sent? [{:keys [delivery status]}]

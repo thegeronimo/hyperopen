@@ -126,18 +126,41 @@
 ;; Inventory and cash bounds (spec 6.6)
 ;; ---------------------------------------------------------------------------
 
+(defn- less-pending [balance pending]
+  (when balance
+    (let [available (precision/dec-max zero (precision/sub (d (:available balance)) (d pending)))]
+      (assoc balance :available (ds available)))))
+
+(defn account-with-pending
+  "`account` (an ::account-snapshot) with pending reservations {:usdc :base}
+  removed from the available balances (spec 3.3: counted until the venue
+  hold is coherent)."
+  [account {:keys [usdc base]}]
+  (cond-> account
+    (:quote account) (update :quote less-pending usdc)
+    (:base account) (update :base less-pending base)))
+
 (defn account-summary
   "The account facts the bounds need, from an ::account-snapshot (balances
-  and the market's open orders, survivors included). nil unless :ready."
-  [account]
-  (when (= :ready (:status account))
-    (let [exposure (fn [side] (ds (sum (keep #(when (= side (:side %)) (dn (:remaining %)))
-                                             (:open-orders account)))))]
-      {:base-total (get-in account [:base :total])
-       :available-base (get-in account [:base :available])
-       :available-usdc (get-in account [:quote :available])
-       :buy-exposure (exposure :buy)
-       :sell-exposure (exposure :sell)})))
+  and the market's open orders, survivors included). nil unless :ready.
+  With `pending` reservations {:usdc :base} the available balances are net
+  of them, exactly as admission and the final guard judge them, and
+  `:venue-available-usdc`/`:venue-available-base` keep the venue's own
+  figures, so a shortfall caused only by pending reservations is told apart
+  (`:repair/funds-pending`)."
+  ([account] (account-summary account nil))
+  ([account pending]
+   (when (= :ready (:status account))
+     (let [available (account-with-pending account pending)
+           exposure (fn [side] (ds (sum (keep #(when (= side (:side %)) (dn (:remaining %)))
+                                              (:open-orders account)))))]
+       (cond-> {:base-total (get-in account [:base :total])
+                :available-base (get-in available [:base :available])
+                :available-usdc (get-in available [:quote :available])
+                :buy-exposure (exposure :buy)
+                :sell-exposure (exposure :sell)}
+         pending (assoc :venue-available-usdc (get-in account [:quote :available])
+                        :venue-available-base (get-in account [:base :available])))))))
 
 (def ^:private bound-codes
   {:plan/max-inventory-breach :repair/max-inventory-breach
@@ -175,6 +198,15 @@
        :available-usdc (d (:available-usdc account))
        :available-base (d (:available-base account))})))
 
+(def ^:private funds-codes #{:repair/insufficient-usdc :repair/insufficient-base})
+
+(defn funds-code
+  "`code` when `need` exceeds the `venue` available balance too, else
+  `:repair/funds-pending`: only pending reservations of earlier operations
+  stand in the way, and they are released once the venue holds are read."
+  [code need venue]
+  (if (and venue (not (pos? (precision/cmp (d need) (d venue))))) :repair/funds-pending code))
+
 (defn bound-errors
   "Spec 6.6 bounds for repair `legs` ({:side :price :size}): keywords
   `:repair/max-inventory-breach`, `:repair/protected-core-breach`,
@@ -183,11 +215,20 @@
   be judged). `account` is an `account-summary` whose open orders (the
   ladder's survivors included) are the existing exposure, counted once;
   `limits` {:core :maximum} or nil, in which case only cash and balances are
-  checked."
-  [{:keys [fees] :as args}]
+  checked. A funds shortfall that the venue's own available balances
+  (`:venue-available-*`) would cover is `:repair/funds-pending` instead."
+  [{:keys [fees account] :as args}]
   (if-let [input (bound-input args)]
-    (vec (distinct (concat (when (not= :ok (:status fees)) [:guard/fees-unavailable])
-                           (map bound-code (admission/check-bounds input)))))
+    (let [codes (map bound-code (admission/check-bounds input))
+          venue (when (and (some funds-codes codes) (:venue-available-usdc account))
+                  (set (map bound-code
+                            (admission/check-bounds
+                             (assoc input
+                                    :available-usdc (d (:venue-available-usdc account))
+                                    :available-base (d (:venue-available-base account)))))))]
+      (vec (distinct (concat (when (not= :ok (:status fees)) [:guard/fees-unavailable])
+                             (map #(if (and venue (funds-codes %) (not (venue %))) :repair/funds-pending %)
+                                  codes)))))
     [:guard/account-unavailable]))
 
 (defn inventory-outcomes
@@ -274,12 +315,14 @@
 (defn propose
   "Repair proposal for every definitively rejected current member of `grid`
   against the fresh `market` (planner market: :bbo, :market-type,
-  :sz-decimals), `account` (::account-snapshot from a barrier read) and
-  `fees`. Returns the frozen proposal without its id and status:
+  :sz-decimals), `account` (::account-snapshot from a barrier read), the
+  account's `pending` reservations {:usdc :base} (judged like admission;
+  nil for none) and `fees`. Returns the frozen proposal without its id and status:
   {:legs [...] :unrepairable [...] :selected #{logical-id ...} :bbo
   :account (account-summary) :limits (nil without recorded settings) :fees
-  :proposed-at-ms}. Every repairable leg is selected by default."
-  [{:keys [grid market account fees now-ms]}]
+  :proposed-at-ms}. Every repairable leg is selected by default
+  (`keep-exclusions` then applies what the user left out before a refresh)."
+  [{:keys [grid market account pending fees now-ms]}]
   (let [{:keys [candidates survivors limits]} (repair-context grid)
         model (model-inputs grid)
         ordered (->> (vals candidates) (sort-by (juxt (comp name :side) :rung-index)))
@@ -297,7 +340,7 @@
      :unrepairable (:unrepairable result)
      :selected (set (map :logical-id (:legs result)))
      :bbo (select-keys (:bbo market) [:bid :ask :observed-at-ms])
-     :account (account-summary account)
+     :account (account-summary account pending)
      :limits limits
      :fees fees
      :proposed-at-ms now-ms}))
@@ -311,6 +354,25 @@
     (->> (:legs proposal)
          (filter #(contains? selected (:logical-id %)))
          (mapv #(select-keys % [:logical-id :price :size])))))
+
+(defn excluded-ids
+  "Logical ids the user left out of `proposal`: its unselected legs plus the
+  exclusions it carried from an earlier review of the ladder, minus anything
+  selected now."
+  [{:keys [legs selected excluded]}]
+  (let [selected (set selected)]
+    (into (set (remove selected (map :logical-id legs))) (remove selected excluded))))
+
+(defn keep-exclusions
+  "`proposal` with the `excluded` logical ids unselected and remembered, so
+  a refreshed proposal never re-selects an order the user left out."
+  [proposal excluded]
+  (if (seq excluded)
+    (let [excluded (set excluded)]
+      (-> proposal
+          (update :selected #(set (remove excluded %)))
+          (assoc :excluded excluded)))
+    proposal))
 
 (defn proposal-status
   "{:status :ready|:invalid :errors [kw ...] :warnings [kw ...]} for the

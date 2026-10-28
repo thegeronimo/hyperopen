@@ -285,7 +285,7 @@
              (not ok?) {:status :journal-unavailable}
              (seq unreadable) {:status :blocked :errors [:journal/unreadable-records]}
              (:cancel-requested-at-ms grid) {:status :blocked :errors [:grid/cancel-requested]}
-             (contains? #{:closed :not-placed} (lifecycle/status grid)) {:status :blocked :errors [:grid/closed]}
+             (lifecycle/closed? grid) {:status :blocked :errors [:grid/closed]}
              (lifecycle/unresolved? grid) {:status :blocked :errors [:grid/unresolved]}
              (seq blockers) {:status :blocked :errors blockers}
              :else

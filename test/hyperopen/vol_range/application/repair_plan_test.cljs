@@ -242,3 +242,81 @@
     (testing "repair-reservations still delegates"
       (is (= (repair-plan/repair-reservations buy-repair fixtures/synthetic-fees)
              (revalidation/repair-reservations buy-repair fixtures/synthetic-fees))))))
+
+(deftest no-candidates-for-a-closed-or-never-placed-ladder-test
+  (testing "every leg rejected: the ladder was never placed"
+    (let [g (partial-grid {:rejected (set (map :leg-id (:legs plan)))})]
+      (is (= :not-placed (lifecycle/status g)))
+      (is (= [] (lifecycle/repair-candidates g)))
+      (is (= [] (:legs (propose g "76.00" "76.35"))))))
+  (testing "the final guard refused the send: every leg not sent"
+    (let [legs (vec (map-indexed (fn [i l] (assoc l :cloid (cloid (inc i)))) (:legs plan)))
+          g (-> (lifecycle/new-grid {:grid-id "g" :scope scope :scope-key "k" :operation-id "op" :plan-id "plan-1"
+                                     :legs legs :expires-after-ms 31000 :now-ms 1000})
+                (lifecycle/mark-sending "op" "a1" 1500)
+                (evidence/apply-placement-delivery "op" {:delivery :not-sent :error "book moved"} 2000))]
+      (is (= :not-placed (lifecycle/status g)))
+      (is (= 7 (:rejected (lifecycle/counts g))))
+      (is (= [] (lifecycle/repair-candidates g)))))
+  (testing "every surviving leg filled or was canceled elsewhere: the ladder is closed"
+    (let [g (reduce (fn [g l] (if (lifecycle/live-leg? l)
+                                (assoc-in g [:legs (:cloid l)] (assoc l :order-state :terminal :terminal-reason :canceled))
+                                g))
+                    (partial-grid) (lifecycle/current-legs (partial-grid)))]
+      (is (= :closed (lifecycle/status g)))
+      (is (nil? (:cancel-requested-at-ms g)))
+      (is (= [] (lifecycle/repair-candidates g)))
+      (is (= {:error :repair/not-a-candidate}
+             (lifecycle/add-repair g {:operation-id "op2" :legs [{:logical-id "buy-0" :cloid (cloid 99)
+                                                                    :price "76.16" :size "7"}]
+                                      :expires-after-ms 1 :now-ms 3000}))))))
+
+(deftest pending-reservations-are-judged-like-admission-test
+  (let [g (partial-grid)
+        ;; Right after placement: the venue holds the resting buys, and the
+        ;; placement's own reservation is still pending.
+        acct (account g {:quote {:total "3000" :hold "2366" :available "634"}})
+        pending {:usdc "2900" :base "0"}]
+    (testing "the summary is net of pending reservations and keeps the venue figures"
+      (is (= {:base-total "150" :available-base "150" :available-usdc "0" :buy-exposure "33" :sell-exposure "30"
+              :venue-available-usdc "634" :venue-available-base "150"}
+             (repair-plan/account-summary acct pending)))
+      (is (= "634" (:available-usdc (repair-plan/account-summary acct)))))
+    (testing "the review refuses what admission refuses, and says why"
+      (let [p (assoc (repair-plan/propose {:grid g :market (market "76.00" "76.35") :account acct :pending pending
+                                           :fees fixtures/synthetic-fees :now-ms 5000})
+                     :status :ready)]
+        (is (= {:status :invalid :errors [:repair/funds-pending] :warnings []} (repair-plan/proposal-status p)))))
+    (testing "a shortfall the venue balance would not cover either stays insufficient"
+      (is (= [:repair/insufficient-usdc]
+             (repair-plan/bound-errors {:account (repair-plan/account-summary
+                                                  (account g {:quote {:total "3000" :hold "2600" :available "400"}})
+                                                  pending)
+                                        :limits nil :legs buy-repair :fees fixtures/synthetic-fees}))))
+    (testing "admission and the final guard say the same"
+      (let [r (revalidation/revalidate-repair
+               (merge (repair-plan/repair-context g)
+                      {:grid-scope scope :input (check-input "76.00" "76.35") :account acct
+                       :pending pending :legs buy-repair :now-ms 1500}))]
+        (is (false? (:ok? r)))
+        (is (= [:repair/funds-pending] (:errors r))))
+      (is (:ok? (revalidation/revalidate-repair
+                 (merge (repair-plan/repair-context g)
+                        {:grid-scope scope :input (check-input "76.00" "76.35") :account acct
+                         :pending {:usdc "0" :base "0"} :legs buy-repair :now-ms 1500})))
+          "once the reservation is released the same repair passes"))))
+
+(deftest a-refresh-keeps-the-user's-exclusions-test
+  (let [p (assoc (propose (partial-grid {:rejected #{"buy-0" "sell-2"}}) "76.00" "76.35") :status :ready)]
+    (is (= #{"buy-0" "sell-2"} (:selected p)))
+    (is (= #{} (repair-plan/excluded-ids p)))
+    (let [excluded (repair-plan/excluded-ids (assoc p :selected #{"buy-0"}))
+          fresh (repair-plan/keep-exclusions p excluded)]
+      (is (= #{"sell-2"} excluded))
+      (is (= #{"buy-0"} (:selected fresh)) "the excluded sell is not re-selected")
+      (is (= [{:logical-id "buy-0" :price "76.16" :size "7"}] (repair-plan/selected-legs fresh)))
+      (testing "an exclusion survives a refresh in which that order was not repairable"
+        (is (= #{"sell-2"} (repair-plan/excluded-ids (assoc fresh :legs (take 1 (:legs fresh)))))))
+      (testing "an order the user selected again is no longer excluded"
+        (is (= #{} (repair-plan/excluded-ids (assoc fresh :selected #{"buy-0" "sell-2"}))))))
+    (is (= p (repair-plan/keep-exclusions p #{})) "nothing excluded leaves the proposal as proposed")))

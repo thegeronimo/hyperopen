@@ -132,3 +132,43 @@
     (testing "placement off in this browser"
       (is (= [] (a/submit-vol-ladder-repair (assoc-in s [:vol-range :execution :enabled?] false)))))
     (is (= [] (a/submit-vol-ladder-repair (state-with (partial-grid)))) "no review open")))
+
+(defn- close-survivors
+  "Every surviving leg filled or was canceled outside the ladder (Open Orders
+  tab): the ladder is :closed without a cancel request."
+  [g]
+  (reduce (fn [g l] (if (lifecycle/live-leg? l)
+                      (assoc-in g [:legs (:cloid l)] (assoc l :order-state :terminal :terminal-reason :filled))
+                      g))
+          g (lifecycle/current-legs g)))
+
+(deftest no-review-for-a-closed-or-never-placed-ladder-test
+  (let [all (set (map :leg-id (:legs plan)))
+        not-placed (partial-grid all)
+        closed (close-survivors (partial-grid))]
+    (is (= :not-placed (lifecycle/status not-placed)))
+    (is (= :closed (lifecycle/status closed)))
+    (doseq [g [not-placed closed]]
+      (is (= [] (a/open-vol-ladder-repair (state-with g) "g1")))
+      (is (= [] (a/refresh-vol-ladder-repair (state-with g proposal)))
+          "a review left open when the ladder closed reads nothing"))))
+
+(def two-leg-proposal
+  (-> proposal
+      (update :legs conj {:logical-id "sell-2" :side :sell :rung-index 2 :rejected-price "90.8" :price "90.8"
+                          :size "10" :notional "908" :repriced? false})
+      (assoc :selected #{"buy-0" "sell-2"})))
+
+(deftest refresh-keeps-the-orders-the-user-left-out-test
+  (let [s (state-with (partial-grid #{"buy-0" "sell-2"}) (assoc two-leg-proposal :selected #{"buy-0"}))]
+    (is (= [[:effects/save-many [[[:vol-range :repair] {:grid-id "g1" :status :loading :excluded #{"sell-2"}}]]]
+            [:effects/vol-range-execute :repair-preview {:grid-id "g1"}]]
+           (a/refresh-vol-ladder-repair s)))
+    (testing "a review that failed to load keeps the exclusions it carried"
+      (is (= {:grid-id "g1" :status :loading :excluded #{"sell-2"}}
+             (get-in (a/refresh-vol-ladder-repair
+                      (state-with (partial-grid #{"buy-0" "sell-2"})
+                                  {:grid-id "g1" :status :error :errors [] :excluded #{"sell-2"}}))
+                     [0 1 0 1]))))
+    (testing "opening the review from the dock starts with every repairable order selected"
+      (is (= open-effects (a/open-vol-ladder-repair s "g1"))))))

@@ -250,3 +250,44 @@
   (is (str/starts-with? (rm/status-message {:op :repair :status :error :error "boom"})
                         "Something went wrong with the repair. Refresh status")
       "an error after admission never claims nothing was sent"))
+
+(deftest no-repair-control-for-a-closed-or-never-placed-ladder-test
+  (let [base {:vol-range {:execution {:enabled? true}} :vol-range-dock {:current-scope-key "k"}}
+        not-placed (partial-grid {:rejected (set (map :leg-id (:legs plan)))})
+        closed (reduce (fn [g l] (if (lifecycle/live-leg? l)
+                                   (assoc-in g [:legs (:cloid l)] (assoc l :order-state :terminal
+                                                                         :terminal-reason :canceled))
+                                   g))
+                       (partial-grid) (lifecycle/current-legs (partial-grid)))]
+    (is (= :not-placed (lifecycle/status not-placed)))
+    (is (= 7 (:rejected (lifecycle/counts not-placed))))
+    (is (= :closed (lifecycle/status closed)))
+    (doseq [g [not-placed closed]]
+      (is (= {:visible? false :enabled? false :busy? false :count 0}
+             (select-keys (rm/row-control base g) [:visible? :enabled? :busy? :count]))))))
+
+(deftest refusal-texts-name-the-reason-test
+  (is (= "Nothing was sent. This ladder has no active orders left, so it can't be repaired."
+         (rm/status-message {:op :repair :status :blocked :errors [:grid/closed]})))
+  (is (= (str "Nothing was sent. Funds held for an earlier placement are still being confirmed. "
+              "Refresh prices in a few seconds.")
+         (rm/status-message {:op :repair :status :admission-failed :errors [:repair/funds-pending]})))
+  (is (= "Nothing was sent. Repairs need browser storage, which is unavailable."
+         (rm/status-message {:op :repair :status :partially-deployed :delivery :not-sent
+                             :error [:journal/unavailable]})))
+  (testing "a review whose funds are only held by a pending reservation cannot be sent"
+    (let [g (partial-grid)
+          p (assoc (repair-plan/propose {:grid g
+                                         :market (fixtures/market-snapshot
+                                                  {:bbo {:bid "76.00" :ask "76.35" :observed-at-ms 1000}})
+                                         :account (fixtures/account-snapshot
+                                                   {:open-orders (survivor-orders g)
+                                                    :quote {:total "3000" :hold "2366" :available "634"}})
+                                         :pending {:usdc "2900" :base "0"}
+                                         :fees fixtures/synthetic-fees :now-ms 1700000000000})
+                   :grid-id "g" :status :ready :proposal-id "rp-1" :error nil :errors [])
+          m (rm/repair-model (state g p))]
+      (is (contracts/repair-model-valid? m))
+      (is (false? (get-in m [:submit :enabled?])))
+      (is (= ["Funds held for an earlier placement are still being confirmed. Refresh prices in a few seconds."]
+             (:errors m))))))

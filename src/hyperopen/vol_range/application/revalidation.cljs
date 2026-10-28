@@ -15,25 +15,17 @@
 
 (def ^:private zero (precision/parse-decimal "0"))
 (defn- d [x] (or (some-> x str precision/parse-decimal) zero))
-(defn- ds [x] (precision/decimal->string x))
 
 (def identity-keys
   "Scope fields an operation can never be retargeted across (VR-18)."
   [:network :owner-address :account-address :vault-address :market-type :dex :spot-pair-index :asset-id :coin
    :base-token-id :quote-token-id :sz-decimals])
 
-(defn- less-pending [balance pending]
-  (when balance
-    (let [available (precision/dec-max zero (precision/sub (d (:available balance)) (d pending)))]
-      (assoc balance :available (ds available)))))
-
-(defn account-with-pending
+(def account-with-pending
   "`account` with OTHER operations' pending reservations removed from the
-  available balances (spec 3.3: counted until the venue hold is coherent)."
-  [account {:keys [usdc base]}]
-  (cond-> account
-    (:quote account) (update :quote less-pending usdc)
-    (:base account) (update :base less-pending base)))
+  available balances (spec 3.3: counted until the venue hold is coherent).
+  See `repair-plan/account-with-pending`."
+  repair-plan/account-with-pending)
 
 (defn fixed-vector [legs]
   (mapv #(select-keys % [:leg-id :side :rung-index :price :size]) legs))
@@ -94,7 +86,8 @@
   within the product distance from mid. Every leg must rest post-only on the
   fresh book, use a legal price and an exact lot size, meet the minimum
   notional, and fit the available balances after other operations' pending
-  reservations. Fees must be the user's quote. Inventory bounds use the
+  reservations (`:repair/funds-pending` when only those reservations stand
+  in the way). Fees must be the user's quote. Inventory bounds use the
   ladder's recorded `limits` ({:core :maximum}, nil when none were recorded)
   through `repair-plan/bound-errors`, so the review and this final guard run
   the same check. Leg checks are `repair-plan/leg-error`."
@@ -133,11 +126,13 @@
                       (keep leg-error legs)
                       (when (and ready?
                                  (pos? (precision/cmp (d (:usdc reservations)) (d (get-in available [:quote :available])))))
-                        [:repair/insufficient-usdc])
+                        [(repair-plan/funds-code :repair/insufficient-usdc (:usdc reservations)
+                                                 (get-in account [:quote :available]))])
                       (when (and ready?
                                  (pos? (precision/cmp (d (:base reservations)) (d (get-in available [:base :available])))))
-                        [:repair/insufficient-base])
+                        [(repair-plan/funds-code :repair/insufficient-base (:base reservations)
+                                                 (get-in account [:base :available]))])
                       (when (and ready? (seq legs))
-                        (repair-plan/bound-errors {:account (repair-plan/account-summary available)
+                        (repair-plan/bound-errors {:account (repair-plan/account-summary account pending)
                                                    :limits limits :legs legs :fees fees})))))]
     {:ok? (empty? errors) :errors errors :reservations reservations}))

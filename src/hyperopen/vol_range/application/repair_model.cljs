@@ -47,7 +47,10 @@
     :repair/protected-core-breach "These orders could take inventory below this ladder's protected core."
     :repair/insufficient-usdc "Not enough available USDC for these orders."
     :repair/insufficient-base (str "Not enough available " (or base "base") " for these orders.")
+    :repair/funds-pending "Funds held for an earlier placement are still being confirmed. Refresh prices in a few seconds."
     :grid/cancel-requested "This ladder is being canceled, so it can't be repaired."
+    :grid/closed "This ladder has no active orders left, so it can't be repaired."
+    :journal/unavailable "Repairs need browser storage, which is unavailable."
     (:grid/unresolved :grid/unresolved-attempt)
     "Some orders in this ladder are still being checked. Refresh status first."
     (:guard/book-stale :guard/account-stale :guard/fees-stale) stale-text
@@ -138,8 +141,9 @@
 
 (defn row-control
   "The dock row's repair button: shown only with definitively rejected
-  current members, placement enabled, a ladder that is neither recovered nor
-  being canceled, and no update in progress for it; enabled only when the
+  current members (none for a closed or never-placed ladder, see
+  `lifecycle/repair-candidates`), placement enabled, a ladder that is neither
+  recovered nor being canceled, and no update in progress for it; enabled only when the
   ticket is on the ladder's market and account (`current-scope-key`);
   `:busy?` while its review is read or its repair is sent."
   [state grid]
