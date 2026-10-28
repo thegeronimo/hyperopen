@@ -31,7 +31,7 @@ Repo artifacts:
 - [x] (2026-10-28) Stage 2 `repair-R2`: pure repair proposal and shared repair checks.
 - [x] (2026-10-28) Stage 3 `repair-R3`: repair actions, effect ops, whitelists and adapter.
 - [x] (2026-10-28) Stage 4 `repair-R4`: repair dialog, dock control and result messaging.
-- [ ] Stage 5 `repair-R5`: repair browser coverage.
+- [x] (2026-10-28) Stage 5 `repair-R5`: repair browser coverage.
 - [ ] Stage 6 `live-S1`: pure evidence envelope, routing and fill identity.
 - [ ] Stage 7 `live-S2`: monotonic store merge for ladders.
 - [ ] Stage 8 `live-S3`: raw user-stream taps in the account runtime.
