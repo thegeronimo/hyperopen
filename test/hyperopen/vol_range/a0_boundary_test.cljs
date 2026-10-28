@@ -180,6 +180,7 @@
     "src/hyperopen/vol_range/application/wire.cljs"
     "src/hyperopen/vol_range/application/dock_model.cljs"
     "src/hyperopen/vol_range/execution_actions.cljs"
+    "src/hyperopen/vol_range/repair_actions.cljs"
     "src/hyperopen/vol_range/infrastructure/execution_gate.cljs"
     "src/hyperopen/vol_range/infrastructure/execution_watcher.cljs"})
 

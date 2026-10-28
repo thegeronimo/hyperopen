@@ -156,7 +156,7 @@
                                                                 :file "test/shims/lightweight_charts_stub.cjs"}
                                           "osqp" {:target :file
                                                   :file "vendor/osqp/osqp_patched.mjs"}}}
-                   :ns-regexp "^hyperopen\\.(domain\\.trading\\..*|vol-range\\..*|trading\\..*|state\\.trading.*|schema\\..*|views\\.trade\\..*|views\\.trade-view\\..*|views\\.trading-chart\\.(?!core-test$).*|core-bootstrap\\.order-entry-actions|websocket\\.active-asset-ctx)-test$"}
+                   :ns-regexp "^hyperopen\\.(domain\\.trading\\..*|vol-range\\..*|trading\\..*|state\\.trading.*|schema\\..*|views\\.trade\\..*|views\\.trade-view\\..*|views\\.trading-chart\\.(?!core-test$).*|core-bootstrap\\.order-entry-actions|websocket\\.active-asset-ctx|runtime\\.effect-adapters\\.vol-range.*)-test$"}
   
   :release {:js-options {:resolve {"osqp" {:target :file
                                            :file "vendor/osqp/osqp_patched.mjs"}}}

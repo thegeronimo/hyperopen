@@ -12,6 +12,7 @@
             [hyperopen.schema.order-form-command-catalog :as catalog]
             [hyperopen.vol-range.actions :as actions]
             [hyperopen.vol-range.application.snapshots :as snapshots]
+            [hyperopen.vol-range.repair-actions :as repair-actions]
             [hyperopen.vol-range.state-fixtures :as sf]
             [hyperopen.views.trade.order-form-runtime-gateway :as gateway]
             [hyperopen.views.trade.vol-range.commands :as commands]))
@@ -143,3 +144,60 @@
         (is (some? (contracts/assert-emitted-effects! effects {:action-id action-id})) (str action-id))
         (when (effect-order/covered-action? action-id)
           (is (some? (effect-order/assert-action-effect-order! action-id effects {}))))))))
+
+;; ---------------------------------------------------------------------------
+;; Release A repair (stage R3)
+;; ---------------------------------------------------------------------------
+
+(def repair-handlers
+  {:actions/open-vol-ladder-repair :open-vol-ladder-repair
+   :actions/refresh-vol-ladder-repair :refresh-vol-ladder-repair
+   :actions/toggle-vol-ladder-repair-leg :toggle-vol-ladder-repair-leg
+   :actions/close-vol-ladder-repair :close-vol-ladder-repair
+   :actions/handle-vol-ladder-repair-keydown :handle-vol-ladder-repair-keydown
+   :actions/submit-vol-ladder-repair :submit-vol-ladder-repair})
+
+(deftest repair-actions-are-registered-and-contracted-test
+  (let [ids (set (keys repair-handlers))]
+    (is (set/subset? ids (runtime-registry/registered-action-ids)))
+    (is (set/subset? ids (contracts/contracted-action-ids)))
+    (is (every? #(contains? action-args/action-args-spec-by-id %) ids)))
+  (testing "handlers are in the Release A group, never in the A0 catalog"
+    (let [deps (collaborators/runtime-action-deps {})]
+      (is (every? #(fn? (get-in deps [:vol-range-execution %])) (vals repair-handlers)))
+      (is (not-any? #(contains? (vol-range-collaborators/action-deps) %) (vals repair-handlers)))
+      (is (not-any? #(contains? (set (map :action-id (catalog/catalog-entries))) %) (keys repair-handlers))))))
+
+(deftest repair-action-arg-specs-test
+  (let [ok! (fn [action-id args] (is (some? (contracts/assert-action-args! action-id args {})) (pr-str [action-id args])))
+        bad! (fn [action-id args] (is (thrown? js/Error (contracts/assert-action-args! action-id args {}))
+                                      (pr-str [action-id args])))]
+    (ok! :actions/open-vol-ladder-repair ["grid-1"])
+    (bad! :actions/open-vol-ladder-repair [])
+    (bad! :actions/open-vol-ladder-repair [""])
+    (ok! :actions/refresh-vol-ladder-repair [])
+    (bad! :actions/refresh-vol-ladder-repair ["grid-1"])
+    (ok! :actions/toggle-vol-ladder-repair-leg ["buy-0"])
+    (bad! :actions/toggle-vol-ladder-repair-leg [:buy-0])
+    (bad! :actions/toggle-vol-ladder-repair-leg [])
+    (ok! :actions/close-vol-ladder-repair [])
+    (ok! :actions/handle-vol-ladder-repair-keydown ["Escape"])
+    (bad! :actions/handle-vol-ladder-repair-keydown [])
+    (ok! :actions/submit-vol-ladder-repair [])
+    (bad! :actions/submit-vol-ladder-repair [{:legs []}])))
+
+(deftest repair-effects-satisfy-effect-contracts-test
+  (doseq [effects [[[:effects/save-many [[[:vol-range :repair] {:grid-id "g1" :status :loading}]]]
+                    [:effects/vol-range-execute :repair-preview {:grid-id "g1"}]]
+                   [[:effects/save-many [[[:vol-range :repair :selected] #{"buy-0"}]]]]
+                   [[:effects/vol-range-execute :repair {:grid-id "g1" :proposal-id "rp-1"
+                                                         :legs [{:logical-id "buy-0" :price "76.16" :size "7"}]}]]
+                   (repair-actions/close-vol-ladder-repair {})
+                   (repair-actions/handle-vol-ladder-repair-keydown {} "Escape")]]
+    (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/open-vol-ladder-repair}))
+        (pr-str effects)))
+  (testing "the operation set grows only by the repair ops"
+    (doseq [op [:place :cancel :refresh :sync :reconcile-open :repair-preview :repair]]
+      (is (some? (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))
+    (doseq [op [:replace :replace-cancel :replace-confirm :resync :nonsense]]
+      (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))))

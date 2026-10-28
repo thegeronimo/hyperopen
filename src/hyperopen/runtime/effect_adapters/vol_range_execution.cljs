@@ -10,9 +10,10 @@
 
     {:grids {grid-id grid} :busy {op-key true} :last {...} :selected-grid-id id}
 
-  Placement requires the execution gate (build flag AND armed in this
-  browser) and respects the local per-ladder cap. Cancel, refresh and sync do
-  not need the gate: turning placement off must never strand live orders."
+  Placement and repair (and the repair preview) require the execution gate
+  (build flag AND armed in this browser) and respect the local per-ladder
+  cap. Cancel, refresh and sync do not need the gate: turning placement off
+  must never strand live orders."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.api.default.state :as api-state]
@@ -21,6 +22,7 @@
             [hyperopen.api.trading.action-coordinator :as action-coordinator]
             [hyperopen.api.trading.delivery :as delivery]
             [hyperopen.platform :as platform]
+            [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
@@ -73,6 +75,8 @@
   (cond-> state grid (assoc-in [:vol-range :execution :grids (:grid-id grid)] grid)))
 
 (defn- finish! [store busy-key {:keys [grid] :as result} op]
+  (when (= :repair-preview op)
+    (repair-replace/settle-preview! store (second busy-key) result))
   (swap! store (fn [state]
                  (-> state
                      (put-grid grid)
@@ -112,6 +116,15 @@
 
 (declare sync!)
 
+(defn- sync-after-send
+  "Anything past admission may have committed a grid (and sent orders); load
+  it from the journal so it is visible and cancelable even if the result was
+  lost."
+  [store result]
+  (if (contains? #{:refused :busy :coordination-unavailable} (:status result))
+    result
+    (.then (sync! store) (fn [_] result))))
+
 (defn- place! [store]
   (let [plan (get-in @store [:vol-range :frozen-review])
         ;; Recorded on the grid only; never part of what is sent.
@@ -129,12 +142,15 @@
                                      (assoc-in [:vol-range :frozen-context] nil)
                                      (assoc-in [:vol-range :execution :selected-grid-id]
                                                (get-in result [:grid :grid-id])))))
-                 ;; Anything past admission may have committed a grid (and
-                 ;; sent orders); load it from the journal so it is visible
-                 ;; and cancelable even if the placement result was lost.
-                 (if (contains? #{:refused :busy :coordination-unavailable} (:status result))
-                   result
-                   (.then (sync! store) (fn [_] result))))))))
+                 (sync-after-send store result))))))
+
+(defn- repair!
+  "Send the frozen repair selection (fees refreshed first, like placement);
+  the repair adapter closes the review once anything may have been sent."
+  [store params]
+  (-> (refresh-fees! store)
+      (.then (fn [_] (repair-replace/repair! store (executor-deps store) params)))
+      (.then (fn [result] (sync-after-send store result)))))
 
 (defn- grid-in-state [store grid-id] (get-in @store [:vol-range :execution :grids grid-id]))
 
@@ -190,13 +206,17 @@
             open)))
 
 (def op-timeout-ms
-  "Cancel, refresh and sync give up waiting after this long, so a stuck
-  storage or lock never leaves their buttons disabled. Placement is bounded
-  by the delivery path's own timeouts instead."
+  "Cancel, refresh, sync and the repair preview give up waiting after this
+  long, so a stuck storage or lock never leaves their buttons disabled.
+  Placement and repair are bounded by the delivery path's own timeouts
+  instead: a signed action may still be in flight, and reporting a failure
+  would invite a second click."
   60000)
 
+(def ^:private unbounded-ops #{:place :repair})
+
 (defn- bounded [op p]
-  (if (= :place op)
+  (if (contains? unbounded-ops op)
     p
     (js/Promise.race
      #js [p (js/Promise. (fn [resolve _]
@@ -205,7 +225,8 @@
 
 (defn vol-range-execute
   "Effect `[:effects/vol-range-execute op params]`. Ops: :place, :cancel
-  {:grid-id}, :refresh {:grid-id}, :sync, :reconcile-open."
+  {:grid-id}, :refresh {:grid-id}, :sync, :reconcile-open, :repair-preview
+  {:grid-id}, :repair {:grid-id :proposal-id :legs}."
   [_ctx store op params]
   (let [grid-id (:grid-id params)
         busy-key (if grid-id [op grid-id] [op])]
@@ -226,6 +247,12 @@
                                    {:status :error :error "Unknown ladder"})
                         :sync (sync! store)
                         :reconcile-open (.then (reconcile-open! store) (fn [_] {:status :ok}))
+                        :repair-preview (if (gate/enabled?)
+                                          (repair-replace/repair-preview! store (executor-deps store) params)
+                                          {:status :refused :errors [:capability/execution-disabled]})
+                        :repair (if (gate/enabled?)
+                                  (repair! store params)
+                                  {:status :refused :errors [:capability/execution-disabled]})
                         {:status :error :error (str "Unknown operation " op)})))))
         (.then (fn [result] (finish! store busy-key result op)))
         (.catch (fn [e] (fail! store busy-key op e))))))

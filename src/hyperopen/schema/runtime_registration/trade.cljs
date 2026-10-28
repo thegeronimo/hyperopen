@@ -179,6 +179,12 @@
    [:actions/select-vol-ladder :select-vol-ladder]
    [:actions/sync-vol-ladders :sync-vol-ladders]
    [:actions/reconcile-open-vol-ladders :reconcile-open-vol-ladders]
+   [:actions/open-vol-ladder-repair :open-vol-ladder-repair]
+   [:actions/refresh-vol-ladder-repair :refresh-vol-ladder-repair]
+   [:actions/toggle-vol-ladder-repair-leg :toggle-vol-ladder-repair-leg]
+   [:actions/close-vol-ladder-repair :close-vol-ladder-repair]
+   [:actions/handle-vol-ladder-repair-keydown :handle-vol-ladder-repair-keydown]
+   [:actions/submit-vol-ladder-repair :submit-vol-ladder-repair]
    [:actions/navigate :navigate]])
 
 (def action-binding-rows

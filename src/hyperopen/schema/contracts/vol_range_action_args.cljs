@@ -23,6 +23,9 @@
 (s/def ::grid-id ::common/non-empty-string)
 (s/def ::grid-id-args (s/tuple ::grid-id))
 
+(s/def ::logical-id ::common/non-empty-string)
+(s/def ::logical-id-args (s/tuple ::logical-id))
+
 (def vol-range-action-args-spec-by-id
   {:actions/select-scale-mode ::select-scale-mode-args
    :actions/update-vol-range-draft ::update-vol-range-draft-args
@@ -39,4 +42,11 @@
    :actions/refresh-vol-ladder ::grid-id-args
    :actions/select-vol-ladder ::grid-id-args
    :actions/sync-vol-ladders ::common/no-args
-   :actions/reconcile-open-vol-ladders ::common/no-args})
+   :actions/reconcile-open-vol-ladders ::common/no-args
+   ;; Release A repair of definitively rejected orders.
+   :actions/open-vol-ladder-repair ::grid-id-args
+   :actions/refresh-vol-ladder-repair ::common/no-args
+   :actions/toggle-vol-ladder-repair-leg ::logical-id-args
+   :actions/close-vol-ladder-repair ::common/no-args
+   :actions/handle-vol-ladder-repair-keydown ::common/key-args
+   :actions/submit-vol-ladder-repair ::common/no-args})

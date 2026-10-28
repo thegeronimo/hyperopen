@@ -29,7 +29,7 @@ Repo artifacts:
 - [x] (2026-10-28) Integration review of the three item plans against the code at `dd19bd749`; plan files corrected; this build order written.
 - [x] (2026-10-28) Stage 1 `repair-R1`: record ladder settings at placement.
 - [x] (2026-10-28) Stage 2 `repair-R2`: pure repair proposal and shared repair checks.
-- [ ] Stage 3 `repair-R3`: repair actions, effect ops, whitelists and adapter.
+- [x] (2026-10-28) Stage 3 `repair-R3`: repair actions, effect ops, whitelists and adapter.
 - [ ] Stage 4 `repair-R4`: repair dialog, dock control and result messaging.
 - [ ] Stage 5 `repair-R5`: repair browser coverage.
 - [ ] Stage 6 `live-S1`: pure evidence envelope, routing and fill identity.
@@ -201,6 +201,7 @@ After each stage record: stage id, commit hash, gates result (`npm run gates` ma
 
 - Stage 1 `repair-R1` (commit `feat(vol-range): record ladder settings at placement`): `npm run test:vol-range` 1021 tests 0 failures; `npm run gates` 34/34 PASS (8333 tests, 48375 assertions). Playwright: `vol-range-execution.spec.mjs` 7/7, `vol-range.spec.mjs` 5/5, no flakes; `npm run browser:cleanup` clean. Deviations: `merge-grids` keeps stored `:settings` when the caller's copy lacks them; `:settings :limits :target` is the plan's outcome (current holdings with tilt off). Both in the item plan's Decision Log.
 - Stage 2 `repair-R2` (commit `feat(vol-range): pure repair proposal and inventory bounds in the repair guard`): `npm run test:vol-range` 1037 tests 0 failures; `npm run gates` 34/34 PASS (8349 tests, 48456 assertions). Playwright: `vol-range-execution.spec.mjs` 7/7, `vol-range.spec.mjs` 5/5, no flakes; `npm run browser:cleanup` clean. Deviations: `propose` returns the whole frozen proposal minus ids and status; leg checks gained `:repair/self-cross` with the notional checked last; unrepairable codes add `:repair/book-unavailable` (R4 needs a text); the 13.4 partial-grid builder lives in `repair_plan_test`. All in the item plan's Decision Log.
+- Stage 3 `repair-R3` (commit `feat(vol-range): repair actions, effect ops and adapter`): `npm run test:vol-range` 1051 tests 0 failures; `npm test` 7561 tests 0 failures; `npm run check` PASS; `npm run test:websocket` 604 tests 0 failures. Playwright: `vol-range-execution.spec.mjs` 7/7, `vol-range.spec.mjs` 5/5, no flakes; `npm run browser:cleanup` clean. Deviations: one `:repair/proposal-mismatch` code for stale or edited proposals; preview failures written by `settle-preview!` from `finish!`; extra pure guards on open/toggle/submit; `:repair` refreshes fees first; simulator `:book`. All in the item plan's Decision Log.
 
 ## Validation and Acceptance
 
