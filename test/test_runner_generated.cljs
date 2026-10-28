@@ -977,6 +977,7 @@
             [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
             [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
+            [hyperopen.vol-range.infrastructure.live-ingress-test]
             [hyperopen.vol-range.infrastructure.repair-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
@@ -2044,6 +2045,7 @@
              'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
              'hyperopen.vol-range.infrastructure.lifecycle-safety-test
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
+             'hyperopen.vol-range.infrastructure.live-ingress-test
              'hyperopen.vol-range.infrastructure.repair-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test

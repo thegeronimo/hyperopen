@@ -176,6 +176,30 @@
                             :attempt-recorded? false})))))))
 
 ;; ---------------------------------------------------------------------------
+;; WebSocket frames (built from the venue state, as the account streams would
+;; deliver them)
+;; ---------------------------------------------------------------------------
+
+(defn ws-fills-frame
+  "A raw `userFills` message holding the venue's fills (only those with a tid
+  above `:after-tid` when given). `:snapshot?` marks a subscription snapshot."
+  ([sim] (ws-fills-frame sim {}))
+  ([sim {:keys [after-tid snapshot? user]}]
+   {:channel "userFills"
+    :data {:isSnapshot (boolean snapshot?)
+           :user (or user (:account-address scope))
+           :fills (cond->> (vec (sort-by :tid (:fills @sim)))
+                    after-tid (filterv #(> (:tid %) after-tid)))}}))
+
+(defn ws-open-orders-frame
+  "A raw default-dex `openOrders` message listing the venue's open orders."
+  ([sim] (ws-open-orders-frame sim {}))
+  ([sim {:keys [user dex]}]
+   {:channel "openOrders"
+    :data {:user (or user (:account-address scope)) :dex (or dex "")
+           :orders (mapv order-row (open-orders sim))}}))
+
+;; ---------------------------------------------------------------------------
 ;; Journal
 ;; ---------------------------------------------------------------------------
 
