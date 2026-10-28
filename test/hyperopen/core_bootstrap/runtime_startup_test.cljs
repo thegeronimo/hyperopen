@@ -32,7 +32,7 @@
                   active-ctx/init! (fn [_] nil)
                   orderbook/init! (fn [_] nil)
                   trades/init! (fn [_] nil)
-                  user-ws/init! (fn [_] nil)
+                  user-ws/init! (fn ([_] nil) ([_ _] nil))
                   webdata2/init! (fn [_] nil)
                   address-watcher/start-watching! (fn [& _] nil)
                   address-watcher/add-handler! (fn [& _] nil)

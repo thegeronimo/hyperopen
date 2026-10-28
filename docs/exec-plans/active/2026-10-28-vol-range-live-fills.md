@@ -38,7 +38,7 @@ Local scratch refs (non-authoritative):
 - [x] (2026-10-28) Read spec section 9 and related sections, the lifecycle, executor, effect adapter, watcher, dock, journal, IndexedDB platform, WebSocket user runtime, health projection and runtime reducer; wrote this ExecPlan.
 - [x] (2026-10-28) Stage 1: pure evidence envelope, routing and fill identity (`vol_range/application/live_evidence.cljs`). `fills-envelope`, `open-orders-envelope`, `route`, `apply-envelope` plus the public `informative-rows`; `lifecycle-evidence/fill-key` canonicalizes time and tid through a private `int-text`; synthetic frames in `test/hyperopen/vol_range/live_fixtures.cljs`; `live_evidence_test.cljs` (16 tests); `live_evidence.cljs` classified in `a0_boundary_test`.
 - [x] (2026-10-28) Stage 2: monotonic store merge for ladders in the execution adapter. New pure `vol_range/application/grid_store.cljs` (`merge-grid-into-state`, `merge-account-grids`), classified in `a0_boundary_test`; the adapter's `put-grid` delegates to it (so `finish!`, `reconcile-open!` and the sync's recovered grids all merge) and `sync-once!` uses `merge-account-grids`; `reconcile-open!` resolves to the vector of `reconcile!` results. Tests: `grid_store_test.cljs` (2 tests) and the new `runtime/effect_adapters/vol_range_execution_test.cljs` (3 tests, each shown to fail against the old replace-wholesale code).
-- [ ] Stage 3: raw user-stream taps in the account runtime (no Vol Range behavior yet).
+- [x] (2026-10-28) Stage 3: raw user-stream taps in the account runtime (no Vol Range behavior yet). `user-fills-handler` and `open-orders-handler` gained a two-arity `(handler store {:on-raw-message f})` whose guarded tap runs first for every message on the channel (before the live-address filter, empty-snapshot skip, `novel-fills`/200-row truncation and cancel-guard pruning); `websocket.user/init!` gained `(init! store {:on-raw-user-fills :on-raw-open-orders})`; startup passes `(vol-range-live-ingress/user-stream-taps)`, which returns `{}` in this stage. Tests: 3 new in `handlers_test.cljs`; the 2 `init!` tests live in the new `test/hyperopen/websocket/user_taps_test.cljs` (see Decision Log).
 - [ ] Stage 4: live ingress applies WebSocket evidence to ladders in memory.
 - [ ] Stage 5: pure monitoring model (`vol_range/application/monitoring.cljs`).
 - [ ] Stage 6: monitoring wiring and the resync operation.
@@ -67,6 +67,9 @@ Local scratch refs (non-authoritative):
   Evidence: the build-order plan's Surprises ("every successful background reconcile writes ... `:last`") and the spec's assertion order (counts first, message last).
 - Observation (Stage 2): the simulator's account `0xabc` is not a 40-hex address, so `account-context/active-trading-account-address` (which normalizes and validates) returns nil for a store built around it, and an adapter-level `:sync` would see no trading account. `vol_range_execution_test.cljs` stubs that one function to the simulator account for the duration of each test (restored in `finally`); the pure merges compare addresses lower-cased without validation, like `lifecycle-evidence`.
   Evidence: the first run of `sync-keeps-store-evidence-and-drops-other-accounts-test` left `:grids` empty.
+
+- Observation (Stage 3): `user-ws/init!` is now multi-arity and startup calls its two-arity, which ClojureScript compiles to a direct `cljs$core$IFn$_invoke$arity$2` call. A test that `with-redefs` the var with a one-arity or variadic `fn` therefore throws "arity$2 is not a function". `core_bootstrap/runtime_startup_test.cljs` now stubs it with `(fn ([_] nil) ([_ _] nil))`. Later stages that make a redefined function multi-arity need the same care.
+  Evidence: the first `npm test` run after the change had 1 error in `initialize-remote-data-streams-keeps-full-selector-expansion-demand-driven-test`.
 
 ## Decision Log
 
@@ -136,10 +139,17 @@ Local scratch refs (non-authoritative):
   Rationale: one place decides which grids belong to the account; behavior for real (40-hex) accounts is unchanged apart from the merge.
   Date/Author: 2026-10-28, Claude (live-S2).
 
+- Decision (Stage 3): a failing tap is logged through `hyperopen.telemetry/log!` once per failed call (channel name and error text), not once per session. `telemetry/log!` is dev-only, so a release build never logs, and a dev build that breaks a tap sees every failure. The tap receives `received-at-ms` from `platform/now-ms` at the handler, and the ingress stub stays out of the A0 boundary test's `execution-foundations` until Stage 4 gives it requires.
+  Date/Author: 2026-10-28, Claude (live-S3).
+
+- Decision (Stage 3): the plan put the `init!` tap tests in `test/hyperopen/websocket/user_test.cljs`, but that namespace sits exactly at its 781-line size exception. They live in the new `test/hyperopen/websocket/user_taps_test.cljs` (picked up by the `ws-test` ns-regexp) instead of raising the ceiling.
+  Date/Author: 2026-10-28, Claude (live-S3).
+
 ## Outcomes & Retrospective
 
 - Stage 1 (live-S1, commit `feat(vol-range): normalize WebSocket order and fill evidence for ladders`): new pure `live_evidence.cljs` (envelopes, routing, application) and canonical fill-key inputs; numeric keys are byte-identical (asserted). Complexity: one new pure namespace under 250 lines that reuses `lifecycle-evidence` for every state change, so the WebSocket path adds no second set of leg rules. Gates and Playwright results are recorded in the build-order plan's Outcomes.
 - Stage 2 (live-S2, commit `fix(vol-range): merge ladder copies in the store instead of replacing them`): no writer of `[:vol-range :execution :grids]` replaces a copy wholesale any more; a reconcile, cancel or placement that finishes with an older copy keeps evidence only the store holds, and a journal sync keeps it for the account's journal grids while still dropping other accounts' ladders. Pure merge in under 60 lines; the adapter shrank its own filtering. Gates and Playwright results are recorded in the build-order plan's Outcomes.
+- Stage 3 (live-S3, commit `feat(websocket): raw evidence taps for user fills and open orders`): the account runtime now offers every raw `userFills` and `openOrders` message to an optional tap before any display filtering, truncation or pruning, guarded so a throwing tap changes nothing on the display path (asserted against the untapped handler). No Vol Range behavior yet: startup injects the empty taps from the new `live_ingress.cljs` stub. Gates and Playwright results are recorded in the build-order plan's Outcomes.
 
 ## Context and Orientation
 

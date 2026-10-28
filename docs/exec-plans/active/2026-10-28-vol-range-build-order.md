@@ -34,7 +34,7 @@ Repo artifacts:
 - [x] (2026-10-28) Stage 5 `repair-R5`: repair browser coverage.
 - [x] (2026-10-28) Stage 6 `live-S1`: pure evidence envelope, routing and fill identity.
 - [x] (2026-10-28) Stage 7 `live-S2`: monotonic store merge for ladders.
-- [ ] Stage 8 `live-S3`: raw user-stream taps in the account runtime.
+- [x] (2026-10-28) Stage 8 `live-S3`: raw user-stream taps in the account runtime.
 - [ ] Stage 9 `live-S4`: live ingress applies WebSocket evidence to ladders in memory.
 - [ ] Stage 10 `live-S5`: pure monitoring model.
 - [ ] Stage 11 `live-S6`: monitoring wiring and the resync operation.
@@ -206,6 +206,7 @@ After each stage record: stage id, commit hash, gates result (`npm run gates` ma
 
 - Stage 6 `live-S1` (commit `feat(vol-range): normalize WebSocket order and fill evidence for ladders`): `npm run test:vol-range` 1100 tests 0 failures; `npm run gates` 34/34 PASS (8412 tests, 48927 assertions; `npm test` 7610 tests, `npm run test:websocket` 604 tests). Playwright (no spec required by the stage; run because `fill-key` changed): `vol-range.spec.mjs`, `vol-range-execution.spec.mjs`, `vol-range-repair-replace.spec.mjs`. First run 16/17: the repair test failed at its final "Repair sent. 7 of 7 orders active." assertion (not the wallet-connect setup flake). A full rerun passed 17/17 and `--repeat-each=4` of the repair spec passed 20/20. Stage 6 code is not reachable from the app bundle (`live_evidence.cljs` has no caller yet; `fill-key` is byte-identical for numeric inputs), so this is the known background-reconcile overwrite of `:last` (Surprises above; fixed in stage 11), recorded in the live-fills plan's Surprises. `npm run browser:cleanup` clean. Deviations: fills are not routed to pending legs; open-order informativeness compares against the effective remaining; `:order-coins`/`:absent` only for default-dex frames. All in the live-fills plan's Decision Log.
 - Stage 7 `live-S2` (commit `fix(vol-range): merge ladder copies in the store instead of replacing them`): `npm run test:vol-range` 1105 tests 0 failures; `npm run gates` 34/34 PASS (8417 tests, 48999 assertions; `npm test` 7615 tests, `npm run test:websocket` 604 tests). Playwright (no spec required by the stage; run because the adapter's store writes changed): `vol-range.spec.mjs`, `vol-range-execution.spec.mjs`, `vol-range-repair-replace.spec.mjs` 17/17 on the first run, no flakes. `npm run browser:cleanup` clean. Deviation: `merge-account-grids` filters the journal grids by account itself and yields nothing for a nil account (live-fills plan's Decision Log).
+- Stage 8 `live-S3` (commit `feat(websocket): raw evidence taps for user fills and open orders`): `npm run test:websocket` 609 tests 0 failures; `npm test` 7620 tests 0 failures; `npm run test:vol-range` 1105 tests 0 failures; `npm run check` PASS. Playwright (no spec required by the stage; run because startup's user-stream wiring changed): `vol-range.spec.mjs`, `vol-range-execution.spec.mjs`, `vol-range-repair-replace.spec.mjs` 17/17 on the first run, no flakes. `npm run browser:cleanup` clean. Deviations: the `init!` tap tests live in the new `user_taps_test.cljs` because `user_test.cljs` is at its size exception; `runtime_startup_test.cljs` stubs the now multi-arity `user-ws/init!` with a multi-arity fn (live-fills plan's Decision Log and Surprises).
 
 ## Validation and Acceptance
 

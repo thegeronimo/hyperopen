@@ -1056,6 +1056,7 @@
             [hyperopen.websocket.user-runtime.handlers-test]
             [hyperopen.websocket.user-runtime.refresh-test]
             [hyperopen.websocket.user-runtime.subscriptions-test]
+            [hyperopen.websocket.user-taps-test]
             [hyperopen.websocket.user-test]
             [hyperopen.websocket.webdata2-test]
             [hyperopen.workbench.portfolio-client-test]
@@ -2122,6 +2123,7 @@
              'hyperopen.websocket.user-runtime.handlers-test
              'hyperopen.websocket.user-runtime.refresh-test
              'hyperopen.websocket.user-runtime.subscriptions-test
+             'hyperopen.websocket.user-taps-test
              'hyperopen.websocket.user-test
              'hyperopen.websocket.webdata2-test
              'hyperopen.workbench.portfolio-client-test
