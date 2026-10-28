@@ -147,14 +147,18 @@
   (if (nil? stored)
     ours
     (let [union-by (fn [k f] (merge-with f (get stored k) (get ours k)))]
-      (assoc ours
-             :members (merge-with (fn [a b] (assoc a :cloids (merge-cloids (:cloids a) (:cloids b))))
-                                  (:members stored) (:members ours))
-             :legs (union-by :legs merge-leg)
-             :operations (union-by :operations merge-operation)
-             :fills (merge (:fills stored) (:fills ours))
-             :released-operation-ids (into (or (:released-operation-ids stored) #{}) (:released-operation-ids ours))
-             :balance-requested-at-ms (max (or (:balance-requested-at-ms stored) 0)
-                                           (or (:balance-requested-at-ms ours) 0))
-             :fills-through-ms (max (or (:fills-through-ms stored) 0) (or (:fills-through-ms ours) 0))
-             :cancel-requested-at-ms (or (:cancel-requested-at-ms stored) (:cancel-requested-at-ms ours))))))
+      (cond-> (assoc ours
+               :members (merge-with (fn [a b] (assoc a :cloids (merge-cloids (:cloids a) (:cloids b))))
+                                    (:members stored) (:members ours))
+               :legs (union-by :legs merge-leg)
+               :operations (union-by :operations merge-operation)
+               :fills (merge (:fills stored) (:fills ours))
+               :released-operation-ids (into (or (:released-operation-ids stored) #{}) (:released-operation-ids ours))
+               :balance-requested-at-ms (max (or (:balance-requested-at-ms stored) 0)
+                                             (or (:balance-requested-at-ms ours) 0))
+               :fills-through-ms (max (or (:fills-through-ms stored) 0) (or (:fills-through-ms ours) 0))
+               :cancel-requested-at-ms (or (:cancel-requested-at-ms stored) (:cancel-requested-at-ms ours)))
+        ;; Settings are immutable once placed; a copy that lacks them never
+        ;; erases them.
+        (and (nil? (:settings ours)) (some? (:settings stored)))
+        (assoc :settings (:settings stored))))))

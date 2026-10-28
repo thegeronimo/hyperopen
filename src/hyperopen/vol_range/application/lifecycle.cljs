@@ -62,26 +62,30 @@
 
 (defn new-grid
   "A grid for a reviewed plan whose legs already carry CLOIDs. Legs keep their
-  plan `:leg-id` as the logical member id."
-  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms model now-ms]}]
-  {:grid-id grid-id
-   :model model
-   :scope scope
-   :scope-key scope-key
-   :created-at-ms now-ms
-   :members (into {} (map (fn [{:keys [leg-id side rung-index cloid]}]
-                            [leg-id {:logical-id leg-id :side side :rung-index rung-index
-                                     :cloids [cloid]}]))
-                  legs)
-   :legs (into {} (map (fn [l] [(:cloid l) (new-leg (assoc l :logical-id (:leg-id l)
-                                                           :operation-id operation-id))]))
-               legs)
-   :operations {operation-id (operation {:operation-id operation-id :kind :place
-                                         :cloids (map :cloid legs) :plan-id plan-id
-                                         :expires-after-ms expires-after-ms :now-ms now-ms})}
-   :fills {}
-   :balance-requested-at-ms nil
-   :released-operation-ids #{}})
+  plan `:leg-id` as the logical member id. `:settings` (optional, see
+  `ladder-settings`) records what the ladder was placed with; it is
+  immutable, and absent on grids placed before it was recorded."
+  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms model settings now-ms]}]
+  (cond->
+   {:grid-id grid-id
+    :model model
+    :scope scope
+    :scope-key scope-key
+    :created-at-ms now-ms
+    :members (into {} (map (fn [{:keys [leg-id side rung-index cloid]}]
+                             [leg-id {:logical-id leg-id :side side :rung-index rung-index
+                                      :cloids [cloid]}]))
+                   legs)
+    :legs (into {} (map (fn [l] [(:cloid l) (new-leg (assoc l :logical-id (:leg-id l)
+                                                            :operation-id operation-id))]))
+                legs)
+    :operations {operation-id (operation {:operation-id operation-id :kind :place
+                                          :cloids (map :cloid legs) :plan-id plan-id
+                                          :expires-after-ms expires-after-ms :now-ms now-ms})}
+    :fills {}
+    :balance-requested-at-ms nil
+    :released-operation-ids #{}}
+    (map? settings) (assoc :settings settings)))
 
 ;; ---------------------------------------------------------------------------
 ;; Queries

@@ -228,8 +228,13 @@
                 :frozen-at-ms now
                 :provenance {:bbo-observed-at-ms sf/book-observed-ms
                              :vwap-observed-at-ms sf/ctx-received-ms
-                             :fee-loaded-at-ms sf/fees-loaded-ms}}
+                             :fee-loaded-at-ms sf/fees-loaded-ms}
+                :draft (vr-draft state)}
                (get-in opened [:vol-range :frozen-context])))
+        (testing "the frozen draft is the effective draft the plan was computed from"
+          (is (= "190" (get-in opened [:vol-range :frozen-context :draft :inventory :maximum])))
+          (is (= (draft/normalize-vol-range-draft (get-in opened [:vol-range :frozen-context :draft]))
+                 (get-in opened [:vol-range :frozen-context :draft]))))
         (let [closed (sf/apply-effects opened (actions/close-vol-range-review opened))]
           (is (false? (get-in closed [:vol-range :ui :review-open?])))
           (is (nil? (get-in closed [:vol-range :frozen-review]))))

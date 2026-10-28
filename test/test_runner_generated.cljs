@@ -950,6 +950,7 @@
             [hyperopen.vol-range.application.dock-model-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.ladder-settings-test]
             [hyperopen.vol-range.application.lifecycle-test]
             [hyperopen.vol-range.application.plan-state-memo-test]
             [hyperopen.vol-range.application.planner-test]
@@ -966,6 +967,7 @@
             [hyperopen.vol-range.infrastructure.execution-gate-test]
             [hyperopen.vol-range.infrastructure.fills-window-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
             [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
@@ -2005,6 +2007,7 @@
              'hyperopen.vol-range.application.dock-model-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.ladder-settings-test
              'hyperopen.vol-range.application.lifecycle-test
              'hyperopen.vol-range.application.plan-state-memo-test
              'hyperopen.vol-range.application.planner-test
@@ -2021,6 +2024,7 @@
              'hyperopen.vol-range.infrastructure.execution-gate-test
              'hyperopen.vol-range.infrastructure.fills-window-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
              'hyperopen.vol-range.infrastructure.lifecycle-safety-test
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test

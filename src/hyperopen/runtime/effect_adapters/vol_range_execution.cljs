@@ -22,6 +22,7 @@
             [hyperopen.api.trading.delivery :as delivery]
             [hyperopen.platform :as platform]
             [hyperopen.vol-range.application.journal-records :as jr]
+            [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.plan-state :as plan-state]
             [hyperopen.vol-range.application.snapshots :as snapshots]
@@ -112,9 +113,12 @@
 (declare sync!)
 
 (defn- place! [store]
-  (let [plan (get-in @store [:vol-range :frozen-review])]
+  (let [plan (get-in @store [:vol-range :frozen-review])
+        ;; Recorded on the grid only; never part of what is sent.
+        settings (ladder-settings/settings-from-plan plan (get-in @store [:vol-range :frozen-context :draft]))]
     (-> (refresh-fees! store)
-        (.then (fn [_] (executor-place/place! (executor-deps store) {:frozen-plan plan :frozen-scope (:scope plan)})))
+        (.then (fn [_] (executor-place/place! (executor-deps store) {:frozen-plan plan :frozen-scope (:scope plan)
+                                                                     :settings settings})))
         (.then (fn [{:keys [delivery] :as result}]
                  ;; Once anything may have been sent, the review is over: the
                  ;; dock now owns the outcome.

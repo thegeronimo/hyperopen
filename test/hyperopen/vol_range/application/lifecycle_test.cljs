@@ -133,3 +133,32 @@
               (evidence/apply-cancel-delivery "cy" {:delivery :not-sent} 20001))]
     (is (= :unknown (get-in g [:legs c1 :cancel-state])))
     (is (= :checking (lifecycle/status g)))))
+
+(def ^:private settings
+  {:plan-id "p" :draft {:buy {:quantity "40"}} :limits {:core "120" :target "150" :maximum "190"}
+   :totals {:leg-count 2} :inventory-outcomes {:maximum "190"}})
+
+(defn- grid-with-settings []
+  (-> (lifecycle/new-grid {:grid-id "g" :scope scope :scope-key "k" :operation-id "op" :plan-id "p"
+                           :expires-after-ms 31000 :now-ms 1000 :settings settings
+                           :legs [{:leg-id "buy-0" :side :buy :rung-index 0 :price "76.4" :size "7" :cloid c1}
+                                  {:leg-id "sell-0" :side :sell :rung-index 0 :price "84" :size "10" :cloid c2}]})
+      (lifecycle/mark-sending "op" "a1" 1500)))
+
+(deftest new-grid-records-settings-test
+  (is (= settings (:settings (grid-with-settings))))
+  (is (not (contains? (grid) :settings)) "a grid placed without settings has no key at all")
+  (is (= (dissoc (grid-with-settings) :settings) (grid)) "settings change nothing else"))
+
+(deftest merge-grids-keeps-settings-test
+  (let [old-copy (grid-with-settings)
+        new-copy (resting-response old-copy)]
+    (testing "an older copy and a newer copy of a ladder placed with settings"
+      (is (= settings (:settings (recovery/merge-grids old-copy new-copy))))
+      (is (= settings (:settings (recovery/merge-grids new-copy old-copy)))))
+    (testing "a copy without settings never erases them"
+      (let [merged (recovery/merge-grids new-copy (dissoc old-copy :settings))]
+        (is (= settings (:settings merged)))
+        (is (= :resolved (get-in merged [:operations "op" :state])) "evidence still merges")))
+    (testing "a ladder placed before settings were recorded stays without them"
+      (is (not (contains? (recovery/merge-grids (grid) (resting-response (grid))) :settings))))))

@@ -220,14 +220,18 @@
        []))))
 
 (defn open-vol-range-review
-  "Freeze the current plan for the read-only review. Only a :ready plan opens."
+  "Freeze the current plan for the read-only review. Only a :ready plan opens.
+  The context also freezes the effective draft the plan was computed from
+  (`draft-scope/effective-draft`); a ladder placed from this review records
+  it in its settings."
   ([state] (open-vol-range-review state (now)))
   ([state now-ms]
-   (let [{:keys [plan market]} (plan-state/context-for-state state now-ms)]
+   (let [{:keys [plan market draft]} (plan-state/context-for-state state now-ms)]
      (if (= :ready (:status plan))
        (save-many-effects state
                           (transitions/open-review plan {:bbo (:bbo market) :frozen-at-ms now-ms
-                                                         :provenance (snapshots/provenance state)})
+                                                         :provenance (snapshots/provenance state)
+                                                         :draft draft})
                           nil)
        []))))
 

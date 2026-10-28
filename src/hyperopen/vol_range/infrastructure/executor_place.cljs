@@ -200,7 +200,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- admit-placement!
-  [deps {:keys [frozen-plan scope scope-key live operation-id check]}]
+  [deps {:keys [frozen-plan scope scope-key live operation-id check settings]}]
   (-> (ex/load! deps)
       (.then
        (fn [{:keys [ok? records] :as journal}]
@@ -235,6 +235,7 @@
                                                     :plan-id (:plan-id frozen-plan) :legs legs
                                                     :model (select-keys (:model frozen-plan)
                                                                         [:anchor :volatility :tilt :shifted-anchor])
+                                                    :settings settings
                                                     :expires-after-ms expires :now-ms at})
                           intent (jr/intent-record
                                   {:operation-id operation-id :scope scope :scope-key scope-key
@@ -248,10 +249,12 @@
 
 (defn place!
   "Place a reviewed :ready plan. `frozen-plan` and `frozen-scope` come from
-  the review; nothing in them is amended. Resolves to a typed result:
+  the review; nothing in them is amended. `settings` (optional, from
+  `ladder-settings/settings-from-plan`) is recorded on the new grid and never
+  affects what is sent. Resolves to a typed result:
   {:status :refused|:blocked|:busy|:admission-failed|:journal-unavailable|...}
   before anything is sent, else the grid status after the send."
-  [deps {:keys [frozen-plan frozen-scope]}]
+  [deps {:keys [frozen-plan frozen-scope settings]}]
   (let [live ((:live! deps))
         scope frozen-scope
         r (or (when (not= :ready (:status frozen-plan)) :plan/not-ready)
@@ -263,7 +266,8 @@
             check (fn [ctx] (revalidation/revalidate (assoc ctx :frozen-plan frozen-plan :frozen-scope scope)))]
         (admit-and-send! deps scope operation-id check
               #(admit-placement! deps {:frozen-plan frozen-plan :scope scope :scope-key (contracts/scope-key scope)
-                                       :live live :operation-id operation-id :check check}))))))
+                                       :live live :operation-id operation-id :check check
+                                       :settings settings}))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Repair (spec 8.6, 13.4)

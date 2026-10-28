@@ -25,7 +25,7 @@ Repo artifacts:
 ## Progress
 
 - [x] (2026-10-28) Read the spec sections in scope, the lifecycle, executors, effect adapter, actions, dock model and views, whitelists, size exceptions and the Playwright execution suite; wrote this plan.
-- [ ] Stage R1: record ladder settings on the grid at placement.
+- [x] (2026-10-28) Stage R1: record ladder settings on the grid at placement. New `ladder_settings.cljs`; `open-vol-range-review` freezes `:draft`; `new-grid` records optional `:settings`; `executor-place/place!` threads `:settings`; the adapter builds them from the frozen review and context; `merge-grids` never drops them.
 - [ ] Stage R2: pure repair proposal and shared repair checks (including inventory bounds in the final guard).
 - [ ] Stage R3: repair actions, effect ops, whitelists and adapter.
 - [ ] Stage R4: repair dialog, dock control and result messaging.
@@ -49,6 +49,10 @@ Repo artifacts:
 - There is no spot balance stream; `src/hyperopen/order/effects/spot_refresh.cljs` refetches `spotClearinghouseState` after ordinary order mutations. The replacement refresh step must read balances explicitly.
 - (Integration review, 2026-10-28) `test/hyperopen/vol_range/a0_boundary_test.cljs` statically scans every file under `src/hyperopen/vol_range/**` that is NOT in its `execution-foundations` path set, and EVERY file under `src/hyperopen/views/trade/vol_range/**`, and fails when one mentions `hyperopen.vol-range.application.lifecycle`, `...revalidation`, `...journal-records`, `...wire`, `hyperopen.vol-range.infrastructure.executor` (a substring of `executor-place`, `executor-cancel` and `executor-replace`), `...journal`, `...entropy`, `...reads`, `hyperopen.api.trading.*`, `hyperopen.platform.indexed-db`, or the word `nonce`. So every new namespace in this plan under `src/hyperopen/vol_range/` that requires one of those (`repair_plan`, `repair_model`, `repair_actions`, `replace_flow`, `replace_model`, `replace_actions`, `executor_replace`) must be added to `execution-foundations` in the stage that creates it, and the A0-scanned `vol_range/actions.cljs` and `vol_range/application/plan_state.cljs` may only require the lifecycle-free `replace_state.cljs` (see Decision Log). New views (`repair_dialog.cljs`, `replace_dialog.cljs`) read models only and never require those namespaces or contain the word "nonce".
 - (Integration review) `vol-range-execute`'s `bounded` races every op except `:place` against a 60 s timer that resolves `{:status :error}`, clears the busy key and lets `finish!` report a failure while the real promise keeps running. A signed repair must not be raced: `:repair` joins `:place` as unbounded (the delivery path has its own timeouts).
+- (Stage R1) With tilt off the planner ignores the target: `:inventory-outcomes :target` is the current holdings (150 for the 13.2 fixture), not the entered 160. `:settings :limits :target` therefore records the outcome the plan actually used; the entered value stays in `:settings :draft :inventory :target`. Repair bounds only use `:core` and `:maximum`, so nothing depends on the difference.
+  Evidence: `usdc-limits-convert-at-the-anchor-test` ("target is ignored with tilt off") and `ladder_settings_test`.
+- (Stage R1) `merge-grids` keeps the caller's top-level keys, so a copy without `:settings` (a store copy loaded before this change, or any future writer that drops the key) merged over a journal copy with settings would silently erase them.
+  Evidence: `lifecycle_recovery.cljs` `merge-grids` (`assoc ours ...`).
 - (Integration review) `test/hyperopen/vol_range/infrastructure/lifecycle_scenarios_test.cljs` is 413 lines; new simulator scenarios go in new test namespaces, not there. The focused `:vol-range-test` build's `:ns-regexp` in `shadow-cljs.edn` does not match `hyperopen.runtime.effect-adapters.*`, so adapter tests would only run under `npm test` until Stage R3 extends it. Every Playwright spec must import `test` from `../support/guarded_test.mjs` (`tools/playwright/support/spec_imports.test.mjs`, run by `npm run check`, enforces it).
 
 ## Decision Log
@@ -114,9 +118,17 @@ Repo artifacts:
 - Decision (integration review): this plan runs as stages 1-5 (Repair) and 16-19 (Replace) of the global order in `/hyperopen/docs/exec-plans/active/2026-10-28-vol-range-build-order.md`. Live fills stages 6-15 land between them, so P1-P4 build on the monitoring gate (`refusal` already refuses when monitoring is not live), the store merge (`grid-store/merge-grid-into-state`), the narrowed order-form slice and the WebSocket simulator installed by `vol_range_world.mjs`.
   Date/Author: 2026-10-28, Claude (integrator).
 
+- Decision (Stage R1): `merge-grids` keeps the stored copy's `:settings` when the caller's copy has none (settings are immutable once placed). All other top-level keys still come from the caller's copy.
+  Rationale: the plan relied on "both copies carry the immutable settings", which holds only for copies created after R1; a copy without the key must never erase them. Additive and monotonic; grids placed before R1 stay without settings.
+  Date/Author: 2026-10-28, Claude (stage R1).
+- Decision (Stage R1): `open-vol-range-review` freezes the `:draft` that `plan-state/context-for-state` returns, which is `draft-scope/effective-draft` of the same state, so the recorded draft is exactly the planner input of the frozen plan. `settings-from-plan` records `:draft nil` (never the defaults) when no draft was frozen, and `:limits` are the plan's `:inventory-outcomes` `:core :target :maximum` (base units, USDC limits already converted; `:target` is the outcome, i.e. current holdings with tilt off).
+  Date/Author: 2026-10-28, Claude (stage R1).
+
 ## Outcomes & Retrospective
 
-Not started. Record per-stage outcomes, gate results and any deviation from this plan here.
+Record per-stage outcomes, gate results and any deviation from this plan here.
+
+- Stage R1 (record ladder settings at placement): new `src/hyperopen/vol_range/application/ladder_settings.cljs` (`settings-from-plan [plan draft]`, A0-scan safe, requires only `trading.vol-range-draft`); `vol_range/actions.cljs` `open-vol-range-review` adds `:draft` to the frozen context; `lifecycle/new-grid` records `:settings` only when given (old callers produce identical grids); `lifecycle_recovery/merge-grids` keeps the stored `:settings` when the caller's copy lacks them; `executor_place.cljs` `place!`/`admit-placement!` thread `:settings` into `new-grid` (never into the action, the intent or any check); `vol_range_execution.cljs` `place!` builds them from `[:vol-range :frozen-review]` and `[:vol-range :frozen-context :draft]`. Tests: `ladder_settings_test` (13.2 fixture, USDC limits recorded in base, journal encoding round-trip, missing inputs), `lifecycle_test` (`new-grid-records-settings-test`, `merge-grids-keeps-settings-test`), `ladder_settings_scenario_test` (simulator placement: journal grid has `[:settings :limits :maximum] "190"`, sent orders unchanged; placement without settings still works and records no key), `actions_test` (frozen context has `:draft`). `npm run test:vol-range` (1021 tests, 0 failures) and `npm run gates` 34/34 PASS (8333 tests). Playwright: `vol-range-execution.spec.mjs` 7/7 and `vol-range.spec.mjs` 5/5 (the adapter's place path and the review open path changed), no flakes; `npm run browser:cleanup` clean. Deviations: `merge-grids` change and `:limits :target` meaning (Decision Log).
 
 ## Context and Orientation
 
