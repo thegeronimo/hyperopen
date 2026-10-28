@@ -41,6 +41,7 @@
                   (boolean (get-in state [:vol-range :ui :show-bands?]))
                   true)
    :advanced-open? (boolean (get-in state [:vol-range :ui :advanced-open?]))
+   :limits-open? (boolean (get-in state [:vol-range :ui :limits-open?]))
    :review-open? (and (boolean (get-in state [:vol-range :ui :review-open?]))
                       (draft-scope/frozen-review-current? state))})
 
@@ -132,8 +133,14 @@
       (/ (js/Math.round (* 10000 (js/Number (precision/decimal->string r)))) 100))
     50))
 
-(defn- inventory-track [outcomes sz]
-  (let [values (keep (fn [[id k]] (when-let [v (d (get outcomes k))] [id v]))
+(defn- inventory-track [outcomes sz tilt?]
+  (let [values (keep (fn [[id k]]
+                       (when-let [v (d (get outcomes k))]
+                         ;; The default core of 0 would only stretch the track;
+                         ;; target matters only with tilt.
+                         (when-not (or (and (= id :core) (precision/zero-dec? v))
+                                       (and (= id :target) (not tilt?)))
+                           [id v])))
                      [[:all-sells-first :all-sells-first] [:core :core] [:now :current]
                       [:target :target] [:max :maximum] [:all-buys-first :all-buys-first]])]
     (when (seq values)
@@ -159,29 +166,76 @@
                        ". Only buys that bring it up can be planned.")
       nil)))
 
-(defn- inventory-section [{:keys [draft market account plan]}]
+(def ^:private limit-fields
+  #{:protected-core :target :maximum :protected-core-quote :target-quote :maximum-quote})
+
+(defn- limit-issue?
+  "Whether an error or warning points at an inventory limit field, so the
+  limits must stay open."
+  [plan]
+  (some #(let [[section k] (get-in % [:data :path])]
+           (and (= :inventory section) (contains? limit-fields k)))
+        (concat (:errors plan) (:warnings plan))))
+
+(defn- limits-summary
+  "One line for the folded limits: what sells may use, how much can be held,
+  and the tilt target when tilt is on."
+  [outcomes tilt? sz base-symbol]
+  (let [amt #(str (display/amount (get outcomes %) sz) " " base-symbol)
+        core (d (:core outcomes))]
+    (if-not outcomes
+      "Limits are checked once your balances load"
+      (str/join " · "
+                (cond-> [(if (or (nil? core) (precision/zero-dec? core))
+                           "Sells can go down to 0"
+                           (str "Keeps at least " (amt :core)))
+                         (if (:maximum outcomes)
+                           (str "holds at most " (amt :maximum))
+                           "no holding limit")]
+                  (and tilt? (:target outcomes)) (conj (str "leans toward " (amt :target))))))))
+
+(defn- quote-placeholder
+  "A base outcome shown in USDC at the plan's conversion price."
+  [outcomes k]
+  (when-let [px (d (:limit-price outcomes))]
+    (when-let [v (d (get outcomes k))]
+      (precision/to-fixed (precision/quantize (precision/mul v px) 2 :half-up) 2))))
+
+(defn- inventory-section [{:keys [draft market account plan]} {:keys [limits-open?]}]
   (let [sz (:sz-decimals market)
         outcomes (:inventory-outcomes plan)
-        quote? (= :quote (get-in draft [:inventory :limit-unit]))]
+        quote? (= :quote (get-in draft [:inventory :limit-unit]))
+        tilt? (boolean (get-in draft [:inventory :tilt-enabled?]))
+        forced? (boolean (or (limit-issue? plan) (:starting-breach outcomes)))]
     {:base-symbol (:base-symbol market)
      :current (display/amount (get-in account [:base :total]) sz)
      :available-to-sell (display/amount (get-in account [:base :available]) sz)
      :limit-unit (if quote? :quote :base)
+     :summary (limits-summary outcomes tilt? sz (:base-symbol market))
+     :open? (or forced? limits-open?)
+     :collapsible? (not forced?)
+     :tilt? tilt?
      :core-input (get-in draft [:inventory (if quote? :protected-core-quote :protected-core)])
      :target-input (get-in draft [:inventory (if quote? :target-quote :target)])
      :maximum-input (get-in draft [:inventory (if quote? :maximum-quote :maximum)])
      :limit-note (when quote?
                    (str "Converted at the anchor price"
                         (when-let [px (:limit-price outcomes)] (str " " (display/exact px)))
-                        (when (:maximum outcomes)
-                          (str " · core " (display/amount (:core outcomes) sz)
-                               " · target " (display/amount (:target outcomes) sz)
-                               " · max " (display/amount (:maximum outcomes) sz)
+                        (when (:core outcomes)
+                          (str " · at least " (display/amount (:core outcomes) sz)
+                               (when tilt? (str " · toward " (display/amount (:target outcomes) sz)))
+                               (if (:maximum outcomes)
+                                 (str " · at most " (display/amount (:maximum outcomes) sz))
+                                 " · no limit")
                                " " (:base-symbol market)))))
-     :core-placeholder "current inventory"
-     :target-placeholder "current inventory"
-     :maximum-placeholder "required"
-     :track (inventory-track outcomes sz)
+     ;; Blank fields use these defaults; the placeholder shows the value in use.
+     :core-placeholder "0"
+     :target-placeholder (or (if quote?
+                               (quote-placeholder outcomes :target)
+                               (some-> (:target outcomes) (display/amount sz)))
+                             "current holdings")
+     :maximum-placeholder "No limit"
+     :track (inventory-track outcomes sz tilt?)
      :starting-breach (starting-breach-text outcomes sz (:base-symbol market))
      :set-maximum-offer (offer-view (or (find-offer plan :set-maximum-all-buys)
                                         (find-offer plan :fill-required-limits)))}))
@@ -308,7 +362,8 @@
    :use-fewer-rungs #{:plan/min-notional}
    :reduce-rung-count #{:plan/duplicate-price}
    :widen-range #{:plan/duplicate-price}
-   :set-maximum-all-buys #{:plan/max-inventory-breach :input/maximum-required}
+   :set-maximum-all-buys #{:plan/max-inventory-breach :input/maximum-required
+                          :input/maximum-required-for-tilt}
    :use-plan-total #{:plan/usdc-cap-exceeded :input/max-debit-required}
    :fill-required-limits #{:input/maximum-required :input/max-debit-required
                            :plan/max-inventory-breach :plan/usdc-cap-exceeded}})
@@ -386,7 +441,7 @@
                 :model {:volatility (volatility-section ctx)
                         :anchor (anchor-section ctx)
                         :tilt (tilt-section ctx)}
-                :inventory (inventory-section ctx)
+                :inventory (inventory-section ctx (ui-flags state))
                 :buy (buy-card ctx)
                 :sell (sell-card ctx)
                 :outcomes (outcomes-section ctx)

@@ -46,9 +46,11 @@ these are set to.
 3. Keep the ladder small: few rungs per side, small quantities. Each side's size can be typed as a base
    quantity or, with the unit switch above the field, as a USDC amount: buys then spend at most that amount
    (fee reserve included, and it is the debit cap), sells place at most that much order value. The line
-   under the field shows the base quantity it works out to. Inventory limits have the same switch ("Limits
-   in"); USDC limits are converted at the anchor price, shown under the fields. Check the fee reserve, protected core and
-   maximum. Fix anything listed under "issues to fix before review".
+   under the field shows the base quantity it works out to. Inventory limits are folded into one line under
+   Inventory; by default sells may use all holdings and there is no holding limit. "Edit limits" opens Keep
+   at least and Hold at most (and Lean toward when tilt is on), with the same unit switch ("Limits in");
+   USDC limits are converted at the anchor price, shown under the fields. Check the fee reserve and the
+   limits line. Fix anything listed under "issues to fix before review".
 4. Press Review N orders. Check the prices, sizes and costs. Press Place N orders.
    - Pressing Enter never places orders; only the button does.
    - Before sending, the app re-reads your balances, open orders, the order book and your fee rate, and

@@ -143,7 +143,20 @@
                 (precision/decimal->string (precision/quantize (precision/mul v anchor) scale mode))
                 "")]))
          (for [[k o _] fields]
-           [[:inventory k] (if (filled (quote-key k)) (or (get outcomes o) "") "")]))))))
+           [[:inventory k]
+            (if-let [v (filled (quote-key k))]
+              (if (and (= :target k) (not (:tilt-enabled? inv)))
+                ;; With tilt off the plan ignores target, so its outcome is
+                ;; the default; convert the entered value directly.
+                (or (when (and anchor (number? sz) (precision/pos-dec? anchor))
+                      (precision/decimal->string
+                       (precision/quantize (precision/divide v anchor 20 :half-up) sz :half-up)))
+                    "")
+                (or (get outcomes o) ""))
+              "")]))))))
+
+(def ^:private limit-edit-keys
+  #{:protected-core :target :maximum :protected-core-quote :target-quote :maximum-quote :limit-unit})
 
 (defn update-vol-range-draft
   "Write one whitelisted draft path; unknown paths and invalid values are no-ops.
@@ -162,7 +175,11 @@
      (if-let [transition (if (seq carry)
                            (transitions/apply-patch state (into [[path* unit]] carry))
                            (transitions/update-draft state path value))]
-       (save-many-effects state transition nil)
+       ;; Editing a limit keeps the limits open, so the section never folds
+       ;; under the cursor once an edit clears the issue that opened it.
+       (save-many-effects state transition
+                          (when (and (= :inventory (first path*)) (contains? limit-edit-keys (second path*)))
+                            [[[:vol-range :ui :limits-open?] true]]))
        []))))
 
 (defn- percent-of-excess [excess pct sz]

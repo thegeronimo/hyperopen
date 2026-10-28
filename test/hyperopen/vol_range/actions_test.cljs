@@ -41,23 +41,24 @@
   (with-fees
     (fn []
       (let [state (blank-limits-state)
-            {joint :state joint-effects :effects} (apply-remediation state :fill-required-limits)]
-        (testing "both blank: the single offered remediation fills both limits"
-          (is (= "190" (get-in (vr-draft joint) [:inventory :maximum])))
-          (is (= "2889.16" (get-in (vr-draft joint) [:buy :max-usdc-debit])))
-          (is (= [[:inventory :maximum] [:buy :max-usdc-debit]] (changed-paths state joint)))
-          (is (= [:effects/save-many] (mapv first joint-effects))))
-        (testing "single-field remediations are not offered while both are blank (VR-23)"
+            {after-cap :state cap-effects :effects} (apply-remediation state :use-plan-total)]
+        (testing "both blank: a blank maximum is no limit, so only the cap is filled"
+          (is (= "" (get-in (vr-draft after-cap) [:inventory :maximum])))
+          (is (= "2889.16" (get-in (vr-draft after-cap) [:buy :max-usdc-debit])))
+          (is (= [[:buy :max-usdc-debit]] (changed-paths state after-cap)))
+          (is (= [:effects/save-many] (mapv first cap-effects)))
           (is (= [] (actions/apply-vol-range-remediation state :set-maximum-all-buys now)))
-          (is (= [] (actions/apply-vol-range-remediation state :use-plan-total now))))
+          (is (= [] (actions/apply-vol-range-remediation state :fill-required-limits now))))
         (testing "the remediation can also be applied by string id"
-          (is (= "190" (get-in (vr-draft (:state (apply-remediation state "fill-required-limits")))
-                               [:inventory :maximum]))))
-        (testing "Set maximum alone is offered when the cap is already set"
-          (let [only-max (assoc-in state [:order-form :scale :vol-range :buy :max-usdc-debit] "2900")
-                {after :state} (apply-remediation only-max :set-maximum-all-buys)]
+          (is (= "2889.16" (get-in (vr-draft (:state (apply-remediation state "use-plan-total")))
+                                   [:buy :max-usdc-debit]))))
+        (testing "Set maximum is offered when tilt needs one"
+          (let [tilt (-> state
+                         (assoc-in [:order-form :scale :vol-range :buy :max-usdc-debit] "3000")
+                         (assoc-in [:order-form :scale :vol-range :inventory :tilt-enabled?] true))
+                {after :state} (apply-remediation tilt :set-maximum-all-buys)]
             (is (= "190" (get-in (vr-draft after) [:inventory :maximum])))
-            (is (= [[:inventory :maximum]] (changed-paths only-max after)))))
+            (is (= [[:inventory :maximum]] (changed-paths tilt after)))))
         (testing "Use plan total alone is offered when maximum is already set"
           (let [only-cap (assoc-in state [:order-form :scale :vol-range :inventory :maximum] "190")
                 {after :state} (apply-remediation only-cap :use-plan-total)]
@@ -152,7 +153,7 @@
         (is (= [] (actions/set-vol-range-sell-quantity-percent state 33 now)))
         (testing "no sellable excess above the core is a no-op"
           (let [no-excess (-> state
-                              (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "")
+                              (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "150")
                               (assoc-in [:order-form :scale :vol-range :inventory :target] ""))]
             (is (= [] (actions/set-vol-range-sell-quantity-percent no-excess 100 now)))))
         (testing "the result is floored to the lot"
@@ -348,3 +349,10 @@
   (with-redefs [config/vol-range-preview-enabled? (fn [] false)]
     (is (= [] (actions/select-scale-mode (sf/base-state) :volatility-range now)))
     (is (= [:effects/save-many] (mapv first (actions/select-scale-mode (sf/base-state) :price-range now))))))
+
+(deftest editing-a-limit-keeps-the-limits-open-test
+  (let [state (sf/base-state)
+        saves (fn [path v] (second (first (actions/update-vol-range-draft state path v now))))]
+    (is (some #(= [[:vol-range :ui :limits-open?] true] %) (saves [:inventory :protected-core] "12")))
+    (is (some #(= [[:vol-range :ui :limits-open?] true] %) (saves [:inventory :maximum-quote] "500")))
+    (is (not-any? #(= [:vol-range :ui :limits-open?] (first %)) (saves [:buy :quantity] "41")))))

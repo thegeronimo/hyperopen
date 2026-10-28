@@ -262,8 +262,11 @@
                     (cond-> t
                       (and t limits-quote? core-in) (precision/dec-max core-in)
                       (and t limits-quote? maximum) (precision/dec-min maximum)))
-        core (or core-in q)
-        target (or target-in q)
+        ;; Defaults: protected core 0 (sells may use all holdings), no
+        ;; maximum, target = current holdings kept within the limits.
+        core (or core-in zero)
+        target (or target-in
+                   (some-> q (cond-> core (precision/dec-max core)) (cond-> maximum (precision/dec-min maximum))))
         converted-limit-errors
         (when limits-quote?
           (concat
@@ -284,9 +287,12 @@
         delta (when (and tilt? anchor v q maximum)
                 (grid/inventory-delta {:q q :core (or core zero) :target (or target zero)
                                        :maximum maximum}))
-        shifted (when (and anchor v (or (not tilt?) delta))
+        ;; Without a delta (tilt on but no maximum yet) the legs are built
+        ;; untilted so the plan still shows them and can size the Set maximum
+        ;; offer; the tilt error keeps the plan from review.
+        shifted (when (and anchor v)
                   (grid/shifted-anchor {:anchor (:price anchor) :v v :kappa kappa :delta delta
-                                        :tilt-enabled? tilt?}))
+                                        :tilt-enabled? (boolean (and tilt? delta))}))
         r (:price shifted)
         geo {:r r :v v :sz sz :market-type (:market-type market) :fees fees}
         capable? (empty? (filter #(contains? #{:capability/market-unsupported :capability/preview-disabled
@@ -351,8 +357,11 @@
                     (conj (contracts/warning :capability/fee-settlement-unverified {}))
                     (and sell-enabled? account-ok? excess (precision/zero-dec? excess))
                     (conj (contracts/warning :hint/nothing-to-sell
-                                             {:message "Nothing to sell above protected core. Lower protected core to distribute inventory."
-                                              :path [:inventory :protected-core]}))))
+                                             (if (precision/pos-dec? core)
+                                               {:message "Nothing to sell above protected core. Lower protected core to distribute inventory."
+                                                :path [:inventory :protected-core]}
+                                               {:message "Nothing available to sell."
+                                                :path [:sell :quantity]})))))
         entered (fn [t side]
                   (let [sd (get resolved side)]
                     (cond-> (assoc t :amount-unit (if (= :quote (:amount-unit sd)) :quote :base))

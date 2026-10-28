@@ -17,7 +17,7 @@
 (s/def ::remediation-id (s/or :keyword keyword? :string ::common/non-empty-string))
 (s/def ::apply-vol-range-remediation-args (s/tuple ::remediation-id))
 
-(s/def ::ui-flag #{:show-bands? :advanced-open?})
+(s/def ::ui-flag #{:show-bands? :advanced-open? :limits-open?})
 (s/def ::set-vol-range-ui-flag-args (s/tuple ::ui-flag boolean?))
 
 (s/def ::grid-id ::common/non-empty-string)

@@ -46,6 +46,7 @@
 (def anchor-option-keys #{:id :label :available? :price :selected?})
 (def tilt-keys #{:enabled? :strength-input :caption})
 (def inventory-keys #{:base-symbol :current :available-to-sell :limit-unit :limit-note
+                      :summary :open? :collapsible? :tilt?
                       :core-input :target-input :maximum-input
                       :core-placeholder :target-placeholder :maximum-placeholder :track :set-maximum-offer
                       :starting-breach})
@@ -66,7 +67,7 @@
 (def error-keys #{:code :message :path :remediations})
 (def warning-keys #{:code :message})
 (def footer-keys #{:note :review-label :review-enabled?})
-(def ui-keys #{:show-bands? :advanced-open? :review-open?})
+(def ui-keys #{:show-bands? :advanced-open? :limits-open? :review-open?})
 
 (def review-keys #{:open? :available? :title :identity-line :plan-as-of :base-symbol :tiles :legs :cash :inventory
                    :details :note :footer})
@@ -124,7 +125,8 @@
 (s/def ::inventory
   #(and (exact-keys? % inventory-keys)
         (contains? #{:base :quote} (:limit-unit %))
-        (all-str-or-nil? % [:base-symbol :current :available-to-sell :limit-note :core-input :target-input :maximum-input
+        (boolean? (:open? %)) (boolean? (:collapsible? %)) (boolean? (:tilt? %))
+        (all-str-or-nil? % [:base-symbol :current :available-to-sell :limit-note :summary :core-input :target-input :maximum-input
                             :core-placeholder :target-placeholder :maximum-placeholder :starting-breach])
         (nil-or track? (:track %))
         (nil-or offer? (:set-maximum-offer %))))

@@ -94,7 +94,9 @@
         maximum (if limit-price
                   (some-> (get-in result [:inventory-outcomes :maximum]) d)
                   (d (str (get-in draft [:inventory :maximum]))))
-        max-blank? (blank? (get-in draft limit-path))
+        ;; A blank maximum is no limit; offer one only where tilt needs it.
+        max-blank? (and (blank? (get-in draft limit-path))
+                        (some #(= :input/maximum-required-for-tilt (:code %)) (:errors result)))
         needs-max? (and n (or (not limits-quote?) limit-price) (or max-blank? (and maximum (neg? (precision/cmp maximum n)))))
         max-value (when n (if limit-price
                             (precision/to-fixed (precision/quantize (precision/mul n limit-price) 2 :ceil) 2)

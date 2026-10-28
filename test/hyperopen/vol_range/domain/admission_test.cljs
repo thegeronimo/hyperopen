@@ -61,16 +61,24 @@
     (is (= #{[:anchor :custom-price]}
            (paths (:errors (validate (assoc-in fx/draft-13-2 [:anchor :custom-price] "0")))
                   :input/custom-anchor-invalid))))
-  (testing "buys need cap and maximum"
+  (testing "buys need a cap; a blank maximum is no limit"
     (let [errs (:errors (validate (-> fx/draft-13-2 (assoc-in [:buy :max-usdc-debit] "")
                                       (assoc-in [:inventory :maximum] ""))))]
       (is (= #{[:buy :max-usdc-debit]} (paths errs :input/max-debit-required)))
-      (is (= #{[:inventory :maximum]} (paths errs :input/maximum-required))))
+      (is (empty? (paths errs :input/maximum-required))))
+    (is (= #{[:inventory :maximum]}
+           (paths (:errors (validate (assoc-in fx/draft-13-2 [:inventory :maximum] "0"))) :input/maximum-required)))
     (is (empty? (:errors (validate (-> fx/draft-13-2 (assoc-in [:buy :enabled?] false)
                                        (assoc-in [:inventory :maximum] "")))))))
   (testing "limits order; blank core and target are fine"
-    (is (contains? (codes (:errors (validate (assoc-in fx/draft-13-2 [:inventory :protected-core] "170"))))
+    (is (contains? (codes (:errors (validate (assoc-in fx/draft-13-2 [:inventory :protected-core] "200"))))
                    :input/inventory-limits-order))
+    (testing "target is ignored with tilt off and checked with tilt on"
+      (is (empty? (:errors (validate (assoc-in fx/draft-13-2 [:inventory :protected-core] "170")))))
+      (is (contains? (codes (:errors (validate (-> fx/draft-13-2
+                                                   (assoc-in [:inventory :protected-core] "170")
+                                                   (assoc-in [:inventory :tilt-enabled?] true)))))
+                     :input/inventory-limits-order)))
     (is (empty? (:errors (validate (-> fx/draft-13-2 (assoc-in [:inventory :protected-core] "")
                                        (assoc-in [:inventory :target] ""))))))))
 

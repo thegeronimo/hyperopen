@@ -75,10 +75,13 @@
             (is (= "150.00" (:current inv)))
             (is (= "150.00" (:available-to-sell inv)))
             (is (= ["120" "160" "190"] [(:core-input inv) (:target-input inv) (:maximum-input inv)]))
-            (is (= "current inventory" (:core-placeholder inv)))
+            (is (= ["0" "150.00" "No limit"]
+                   [(:core-placeholder inv) (:target-placeholder inv) (:maximum-placeholder inv)]))
+            (is (= "Keeps at least 120.00 SYN · holds at most 190.00 SYN" (:summary inv)))
+            (is (= [false true false] [(:open? inv) (:collapsible? inv) (:tilt? inv)]))
             (is (= "120.00" (get-in inv [:track :domain-low])))
             (is (= "190.00" (get-in inv [:track :domain-high])))
-            (is (= [:all-sells-first :core :now :target :max :all-buys-first]
+            (is (= [:all-sells-first :core :now :max :all-buys-first]
                    (mapv :id (get-in inv [:track :markers]))))
             (is (= 0 (:position (:all-sells-first markers))))
             (is (= 100 (:position (:all-buys-first markers))))
@@ -123,16 +126,31 @@
 (deftest one-click-offers-and-nothing-to-sell-hint-test
   (with-fees
     (fn []
-      (testing "blank maximum and cap offer one combined remediation in both places"
+      (testing "blank limits use the defaults and stay folded"
         (let [state (-> (sf/base-state)
-                        (assoc-in [:order-form :scale :vol-range :inventory :maximum] "")
-                        (assoc-in [:order-form :scale :vol-range :buy :max-usdc-debit] ""))
-              m (ticket state)]
+                        (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "")
+                        (assoc-in [:order-form :scale :vol-range :inventory :target] "")
+                        (assoc-in [:order-form :scale :vol-range :inventory :maximum] ""))
+              m (ticket state)
+              inv (:inventory m)]
           (is (vrc/ticket-model-valid? m) (pr-str m))
-          (is (= {:id :fill-required-limits :label "Set maximum to 190 and USDC cap to 2889.16"}
-                 (get-in m [:inventory :set-maximum-offer])))
-          (is (= {:id :fill-required-limits :label "Set maximum to 190 and USDC cap to 2889.16"}
-                 (get-in m [:buy :use-plan-total-offer])))))
+          (is (= :ready (:status m)))
+          (is (= "Sells can go down to 0 · no holding limit" (:summary inv)))
+          (is (= ["0" "150.00" "No limit"]
+                 [(:core-placeholder inv) (:target-placeholder inv) (:maximum-placeholder inv)]))
+          (is (false? (:open? inv)))
+          (is (nil? (:set-maximum-offer inv)))))
+      (testing "the limits open when one needs attention and cannot be folded"
+        (let [m (ticket (assoc-in (sf/base-state) [:order-form :scale :vol-range :inventory :maximum] "180"))]
+          (is (vrc/ticket-model-valid? m) (pr-str m))
+          (is (= [true false] [(get-in m [:inventory :open?]) (get-in m [:inventory :collapsible?])]))))
+      (testing "the limits open on request"
+        (let [m (ticket (assoc-in (sf/base-state) [:vol-range :ui :limits-open?] true))]
+          (is (= [true true] [(get-in m [:inventory :open?]) (get-in m [:inventory :collapsible?])]))))
+      (testing "tilt adds the lean-toward value to the summary"
+        (let [m (ticket (assoc-in (sf/base-state) [:order-form :scale :vol-range :inventory :tilt-enabled?] true))]
+          (is (= "Keeps at least 120.00 SYN · holds at most 190.00 SYN · leans toward 160.00 SYN"
+                 (get-in m [:inventory :summary])))))
       (testing "only the cap blank offers Use plan total alone"
         (let [m (ticket (assoc-in (sf/base-state) [:order-form :scale :vol-range :buy :max-usdc-debit] ""))]
           (is (= {:id :use-plan-total :label "Use plan total"} (get-in m [:buy :use-plan-total-offer])))
@@ -144,9 +162,9 @@
           (is (vrc/ticket-model-valid? m) (pr-str m))
           (is (= "Inventory 195.00 SYN is above the maximum 190.00 SYN. Only sells that bring it down can be planned."
                  (get-in m [:inventory :starting-breach])))))
-      (testing "sell enabled with the default core shows the hint and no shortcuts"
+      (testing "sell enabled with a core at current holdings shows the hint and no shortcuts"
         (let [state (-> (sf/base-state)
-                        (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "")
+                        (assoc-in [:order-form :scale :vol-range :inventory :protected-core] "150")
                         (assoc-in [:order-form :scale :vol-range :inventory :target] ""))
               m (ticket state)]
           (is (vrc/ticket-model-valid? m) (pr-str m))

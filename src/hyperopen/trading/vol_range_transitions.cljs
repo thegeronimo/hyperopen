@@ -41,7 +41,7 @@
    [[:vol-range :frozen-context] nil]
    [[:vol-range :ui :review-open?] false]])
 
-(def ui-flags #{:show-bands? :advanced-open?})
+(def ui-flags #{:show-bands? :advanced-open? :limits-open?})
 
 (defn- keywordize [x]
   (cond (keyword? x) x

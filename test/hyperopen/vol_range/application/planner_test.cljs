@@ -71,19 +71,24 @@
     (is (contracts/plan-result-valid? r))))
 
 (deftest one-click-test
-  (testing "maximum and cap both blank: one combined offer whose own patch is ready (VR-23)"
+  (testing "maximum and cap both blank: a blank maximum is no limit, so only the cap is offered"
     (let [blank (draft [:inventory :maximum] "" [:buy :max-usdc-debit] "")
-          r (plan {:draft blank})
-          joint (by-id r :fill-required-limits)]
+          r (plan {:draft blank})]
       (is (= :invalid (:status r)))
-      (is (nil? (by-id r :set-maximum-all-buys)) "maximum alone would still miss the cap")
-      (is (nil? (by-id r :use-plan-total)) "cap alone would still miss the maximum")
-      (is (= [[[:inventory :maximum] "190"] [[:buy :max-usdc-debit] "2889.16"]] (:patch joint)))
-      (is (= "Set maximum to 190 and USDC cap to 2889.16" (:label joint)))
-      (is (= :ready (:status (plan {:draft (remediations/apply-draft-patch blank (:patch joint))}))))))
-  (testing "maximum blank alone"
+      (is (nil? (by-id r :set-maximum-all-buys)))
+      (is (nil? (by-id r :fill-required-limits)))
+      (is (= [[[:buy :max-usdc-debit] "2889.16"]] (:patch (by-id r :use-plan-total))))
+      (is (= :ready (:status (plan {:draft (remediations/apply-draft-patch blank (:patch (by-id r :use-plan-total)))}))))))
+  (testing "maximum blank alone is ready: no holding limit"
     (let [r (plan {:draft (draft [:inventory :maximum] "")})]
-      (is (= [[[:inventory :maximum] "190"]] (:patch (by-id r :set-maximum-all-buys))))
+      (is (= :ready (:status r)) (pr-str (:errors r)))
+      (is (nil? (get-in r [:inventory-outcomes :maximum])))
+      (is (empty? (:remediations r)))))
+  (testing "tilt needs a maximum; blank offers all buys filled"
+    ;; Tilt raises the buy prices here, so the cap leaves room for that.
+    (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true
+                                 [:buy :max-usdc-debit] "3000")})]
+      (is (contains? (codes r) :input/maximum-required-for-tilt))
       (is (= "Set maximum to 190 · all buys filled" (:label (by-id r :set-maximum-all-buys))))))
   (testing "cap below the plan total"
     (let [r (plan {:draft (draft [:buy :max-usdc-debit] "2800")})]
@@ -176,12 +181,20 @@
     (is (= "Nothing to sell above protected core. Lower protected core to distribute inventory." (:message w)))
     (is (= "0" (get-in r [:totals :sellable-excess])))))
 
-(deftest blank-core-target-resolve-to-inventory-test
-  (let [r (plan {:draft (draft [:inventory :protected-core] "" [:inventory :target] "" [:sell :enabled?] false
-                               [:inventory :maximum] "190")})]
-    (is (= :ready (:status r)) (pr-str (:errors r)))
-    (is (= "150" (get-in r [:inventory-outcomes :core])))
-    (is (= "150" (get-in r [:inventory-outcomes :target])))))
+(deftest blank-limits-use-defaults-test
+  (testing "blank core is 0, blank target is current holdings, blank maximum is no limit"
+    (let [r (plan {:draft (draft [:inventory :protected-core] "" [:inventory :target] ""
+                                 [:inventory :maximum] "")})]
+      (is (= :ready (:status r)) (pr-str (:errors r)))
+      (is (= "0" (get-in r [:inventory-outcomes :core])))
+      (is (= "150" (get-in r [:inventory-outcomes :target])))
+      (is (nil? (get-in r [:inventory-outcomes :maximum])))
+      (is (= "150" (get-in r [:totals :sellable-excess])) "sells may use all holdings")))
+  (testing "the default target stays within entered limits"
+    (let [r (plan {:draft (draft [:inventory :protected-core] "" [:inventory :target] "" [:buy :enabled?] false
+                                 [:inventory :maximum] "140")})]
+      (is (= "140" (get-in r [:inventory-outcomes :target])))
+      (is (not-any? #(= :input/inventory-limits-order (:code %)) (:errors r))))))
 
 (deftest corrective-plan-test
   (let [acct (fx/account-snapshot {:base {:total "210" :hold "0" :available "210"}})
@@ -233,7 +246,8 @@
     (is (contains? (codes r) :input/maximum-required-for-tilt) (pr-str (:errors r)))
     (is (= [:inventory :maximum]
            (get-in (first (filter #(= :input/maximum-required-for-tilt (:code %)) (:errors r))) [:data :path])))
-    (is (nil? (get-in r [:model :shifted-anchor])) "no invented maximum, no shifted anchor")
+    (is (nil? (get-in r [:model :tilt :delta])) "no invented maximum, no tilt")
+    (is (= "80" (get-in r [:model :shifted-anchor])) "legs are shown untilted")
     (is (contracts/plan-result-valid? r)))
   (testing "the same sell-only draft without tilt does not need a maximum"
     (is (= :ready (:status (plan {:draft (draft [:buy :enabled?] false [:inventory :maximum] "")}))))))
@@ -291,6 +305,11 @@
            (set (map :message lot))))))
 
 (deftest tilt-and-maximum-errors-are-not-duplicated-test
-  (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true)})]
+  (let [r (plan {:draft (draft [:inventory :maximum] "0" [:inventory :tilt-enabled?] true)})]
     (is (contains? (codes r) :input/maximum-required))
-    (is (not (contains? (codes r) :input/maximum-required-for-tilt)))))
+    (is (not (contains? (codes r) :input/maximum-required-for-tilt))))
+  (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true)})]
+    (is (not (contains? (codes r) :input/maximum-required)))
+    (is (contains? (codes r) :input/maximum-required-for-tilt))))
+
+

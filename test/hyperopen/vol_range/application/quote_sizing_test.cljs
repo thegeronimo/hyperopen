@@ -9,7 +9,7 @@
 (defn- codes [r] (set (map :code (:errors r))))
 (defn- draft [& kvs] (reduce (fn [d [path v]] (assoc-in d path v)) fx/draft-13-2 (partition 2 kvs)))
 (defn- legs [r side] (mapv (juxt :leg-id :price :size) (filter #(= side (:side %)) (:legs r))))
-(defn- dec [s] (p/parse-decimal s))
+(defn- dd [s] (p/parse-decimal s))
 
 (defn- usdc-buys [amount]
   (draft [:buy :amount-unit] :quote [:buy :quote-amount] amount [:buy :max-usdc-debit] ""))
@@ -31,13 +31,13 @@
 (deftest buy-amount-picks-the-largest-fitting-quantity-test
   (let [r (plan (usdc-buys "2889.15"))
         q (get-in r [:totals :buy :quantity])
-        one-more (plan (draft [:buy :quantity] (p/decimal->string (p/add (dec q) (dec "0.01")))
+        one-more (plan (draft [:buy :quantity] (p/decimal->string (p/add (dd q) (dd "0.01")))
                               [:buy :max-usdc-debit] "100000"))]
     (is (= :ready (:status r)) (pr-str (:errors r)))
     (is (= "39.99" q) "one cent short of the 40-unit plan drops one lot")
-    (is (<= (p/cmp (dec (get-in r [:totals :buy :max-debit])) (dec "2889.15")) 0)
+    (is (<= (p/cmp (dd (get-in r [:totals :buy :max-debit])) (dd "2889.15")) 0)
         "fee reserve included")
-    (is (pos? (p/cmp (dec (get-in one-more [:totals :buy :max-debit])) (dec "2889.15")))
+    (is (pos? (p/cmp (dd (get-in one-more [:totals :buy :max-debit])) (dd "2889.15")))
         "one more lot would not fit")))
 
 (deftest buy-amount-needs-no-separate-cap-test
@@ -70,8 +70,8 @@
     (is (= (legs base :sell) (legs r :sell)) "sells are sized on gross order value")
     (testing "a smaller amount sells less"
       (let [r2 (plan (draft [:sell :amount-unit] :quote [:sell :quote-amount] "1500" [:sell :quantity] ""))]
-        (is (<= (p/cmp (dec (get-in r2 [:totals :sell :gross])) (dec "1500")) 0))
-        (is (neg? (p/cmp (dec (get-in r2 [:totals :sell :quantity])) (dec "30"))))))))
+        (is (<= (p/cmp (dd (get-in r2 [:totals :sell :gross])) (dd "1500")) 0))
+        (is (neg? (p/cmp (dd (get-in r2 [:totals :sell :quantity])) (dd "30"))))))))
 
 (deftest base-mode-ignores-the-amount-test
   (let [r (plan (draft [:buy :quote-amount] "5"))]
@@ -82,10 +82,10 @@
   (testing "lot counts above 2^53 are searched exactly"
     (let [amount "100000000000000000"
           r (plan (usdc-buys amount))
-          max-debit (dec (get-in r [:totals :buy :max-debit]))]
+          max-debit (dd (get-in r [:totals :buy :max-debit]))]
       (is (= 4 (count (legs r :buy))))
-      (is (<= (p/cmp max-debit (dec amount)) 0))
-      (is (pos? (p/cmp max-debit (dec "99999999999999000"))) "uses nearly all of the amount")
+      (is (<= (p/cmp max-debit (dd amount)) 0))
+      (is (pos? (p/cmp max-debit (dd "99999999999999000"))) "uses nearly all of the amount")
       (is (contains? (codes r) :plan/insufficient-usdc)))))
 
 (deftest usdc-mode-error-paths-and-offers-test
@@ -110,7 +110,8 @@
         r (plan (usdc-limits "9600" "12800" "15200"))]
     (is (= :ready (:status r)) (pr-str (:errors r)))
     (is (= (:legs base) (:legs r)) "120 / 160 / 190 SYN at the 80 anchor")
-    (is (= ["120" "160" "190"] (mapv #(get-in r [:inventory-outcomes %]) [:core :target :maximum])))
+    (is (= ["120" "150" "190"] (mapv #(get-in r [:inventory-outcomes %]) [:core :target :maximum]))
+        "target is ignored with tilt off: current holdings")
     (is (= :quote (get-in r [:inventory-outcomes :limit-unit])))
     (is (= "80" (get-in r [:inventory-outcomes :limit-price]))))
   (testing "core rounds up and maximum down to the lot, toward protection"
@@ -127,14 +128,15 @@
                 (:errors r))))))
 
 (deftest usdc-limit-errors-and-offers-test
-  (let [r (plan (usdc-limits "9600" "12800" ""))
-        e (first (filter #(= :input/maximum-required (:code %)) (:errors r)))
+  (let [r (plan (-> (usdc-limits "9600" "12800" "") (assoc-in [:inventory :tilt-enabled?] true)
+                     (assoc-in [:buy :max-usdc-debit] "3000")))
+        e (first (filter #(= :input/maximum-required-for-tilt (:code %)) (:errors r)))
         offer (first (filter #(= :set-maximum-all-buys (:id %)) (:remediations r)))]
-    (is (= [:inventory :maximum-quote] (get-in e [:data :path])))
+    (is (= [:inventory :maximum-quote] (get-in e [:data :path])) "tilt needs a maximum")
     (is (some? offer))
     (is (= [[[:inventory :maximum-quote] "15200.00"]] (:patch offer)))
     (is (= "Set maximum to 15200.00 USDC · all buys filled" (:label offer))))
   (testing "inventory-order errors point at the USDC fields"
-    (let [r (plan (usdc-limits "13000" "12800" "15200"))]
+    (let [r (plan (usdc-limits "16000" "12800" "15200"))]
       (is (some #(= [:inventory :protected-core-quote] (get-in % [:data :path])) (:errors r)))
       (is (not-any? #(= [:inventory :protected-core] (get-in % [:data :path])) (:errors r))))))

@@ -124,16 +124,18 @@
         limits-quote? (= :quote (:limit-unit inventory))
         limit-key (fn [k] (if limits-quote? (keyword (str (name k) "-quote")) k))
         limit-path (fn [k] [:inventory (limit-key k)])
+        tilt? (boolean (:tilt-enabled? inventory))
         core (optional-nonneg (get inventory (limit-key :protected-core)) (limit-path :protected-core))
-        target (optional-nonneg (get inventory (limit-key :target)) (limit-path :target))
+        ;; Target only centers tilt; with tilt off it is hidden and ignored.
+        target (when tilt? (optional-nonneg (get inventory (limit-key :target)) (limit-path :target)))
         maximum-parsed (parse-field (get inventory (limit-key :maximum)))
-        buys? (boolean (:enabled? buy))
+        ;; Blank maximum means no holding limit; buys are bounded by their
+        ;; own size and the USDC cap.
         maximum (cond
                   (:invalid? maximum-parsed) {:errors [(err :input/invalid-number (limit-path :maximum))]}
-                  (:blank? maximum-parsed) (when buys? {:errors [(err :input/maximum-required (limit-path :maximum))]})
+                  (:blank? maximum-parsed) nil
                   (precision/pos-dec? (:value maximum-parsed)) {:value (:value maximum-parsed)}
                   :else {:errors [(err :input/maximum-required (limit-path :maximum))]})
-        tilt? (boolean (:tilt-enabled? inventory))
         strength (when tilt?
                    (let [{:keys [value blank? invalid?]} (parse-field (:tilt-strength inventory))]
                      (cond blank? {:value (d (get-in policy [:tilt-strength :default]))}
@@ -143,7 +145,7 @@
         buy-r (validate-side :buy buy policy)
         sell-r (validate-side :sell sell policy)
         limits (check-inventory-limits {:core (:value core) :target (:value target) :maximum (:value maximum)})
-        no-side (when-not (or buys? (:enabled? sell))
+        no-side (when-not (or (:enabled? buy) (:enabled? sell))
                   [(err :input/no-side-enabled [:buy :enabled?])])
         errors (vec (concat no-side
                             (:errors buy-r) (:errors sell-r)

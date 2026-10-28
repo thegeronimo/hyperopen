@@ -79,7 +79,7 @@ Internal identifiers keep the engineering term *grid* (`:grids`, grid IDs, the g
 | --- | --- |
 | Inventory tilt | Normalized by the distance from target to the relevant bound (Section 5.4), so full strength is reached at protected core or maximum. Under 2.0 the shift was negligible (0.024σ in the reference fixture). |
 | Post-only crossing | Planner offers explicit **Anchor to market price** and **Start buys/sells at Xσ** remediations (Section 6.3). |
-| Required inputs | One-click **Set to N (all buys filled)** for maximum and **Use plan total** for the USDC cap; inline guidance when protected core leaves nothing to sell (Section 4). The values remain explicit user choices. |
+| Required inputs | Inventory limits default to keep at least 0, no holding limit and lean toward current inventory, so none must be entered. One-click **Set to N (all buys filled)** for maximum when tilt needs one and **Use plan total** for the USDC cap; inline guidance when protected core leaves nothing to sell (Section 4). |
 | Naming | User-facing “grid” becomes “ladder”; Recycle sells becomes Distribute sells (Section 1.4). |
 | Release plan | New Release A0 preview milestone (Section 1.2, Section 15.1). |
 | Dock | Release A shows filled quantity and fill VWAP per side, explicitly not P&L (Section 11.2). |
@@ -232,9 +232,9 @@ Defaults for a new account/market draft:
 | Anchor | 24h VWAP when available. If unavailable, display that state and let the user explicitly select another source. |
 | Volatility | Auto; manual override blank. |
 | Inventory tilt | Off; advanced strength 0.45, allowed 0–1. |
-| Protected core | Initialize to current confirmed spot inventory, then require review if the user lowers it. |
-| Target | Initialize to current inventory; editable. |
-| Maximum inventory | Blank until explicitly set; must be positive. Offer a one-click **Set to N (all buys filled)** where N = current inventory + existing buy exposure + enabled buy quantity + conservative base-credit bound, rounded up to the base lot. The button only fills the draft. |
+| Protected core ("Keep at least") | Blank means 0: sells may use all holdings. Editable. |
+| Target ("Lean toward") | Blank means current inventory, kept between protected core and maximum. Shown only while inventory tilt is on. |
+| Maximum inventory ("Hold at most") | Blank means no holding limit; buys are bounded by their own size and the USDC cap. An entered value must be positive. Inventory tilt needs a maximum: with tilt on and maximum blank, offer a one-click **Set to N (all buys filled)** where N = current inventory + existing buy exposure + enabled buy quantity + conservative base-credit bound, rounded up to the base lot. The button only fills the draft. |
 | Buy card | Enabled; 4 rungs; distances 0.75–2.25; base-size skew 1.00×; quantity and USDC cap blank. Once a valid buy plan exists, offer **Use plan total** for the cap (Section 4.3). |
 | Sell card | Disabled; 3 rungs; distances 1.25–2.25; base-size skew 1.00×; quantity blank. |
 | Bands | Visible while the mode is focused. |
@@ -250,13 +250,15 @@ Use numeric entry alongside sliders. Parse user text through the repository’s 
 
 Show **Current spot inventory** read-only, including units held in open orders, and **Available to sell** separately. Explain:
 
-- **Protected core:** the minimum the new orders should leave after all sells execute.
-- **Target:** the inventory around which optional tilt is centered.
-- **Maximum:** the ceiling after all buys execute.
+- **Protected core** (labelled "Keep at least"): the minimum the new orders should leave after all sells execute.
+- **Target** (labelled "Lean toward", shown only with tilt): the inventory around which optional tilt is centered.
+- **Maximum** (labelled "Hold at most"): the ceiling after all buys execute.
 
-Require `0 ≤ core ≤ target ≤ maximum`. Account-specific quantities and limits must not carry over to another wallet, subaccount, or market.
+The limits are folded by default into one summary line (for example "Sells may use all 132.26 HYPE · no holding limit") with an **Edit limits** control. Open fields show the value a blank field uses as its placeholder. The limits open, without a fold control, whenever an error or warning points at a limit field or the account starts in breach.
 
-When the Sell card is enabled and sellable excess above protected core is zero (the default, because protected core starts at current inventory), show **Nothing to sell above protected core. Lower protected core to distribute inventory.** next to the quantity, and focus-link it to the protected-core field. Do not lower protected core automatically.
+Require `0 ≤ core ≤ target ≤ maximum` over the values in use. With tilt off, target is hidden and ignored. Editing any limit keeps the limits open, so the section never folds under the cursor. Account-specific quantities and limits must not carry over to another wallet, subaccount, or market.
+
+When the Sell card is enabled, protected core is 0 and nothing is available to sell, show **Nothing available to sell.** next to the quantity. When protected core is positive and sellable excess above it is zero, show **Nothing to sell above protected core. Lower protected core to distribute inventory.** next to the quantity, and focus-link it to the protected-core field. Do not lower protected core automatically.
 
 Sell quantity shortcuts may select 25%, 50%, or 100% of **currently sellable excess above protected core**, after existing commitments and fee bounds. They update the visible quantity and generate a new plan. Do not label these as percentages of total holdings.
 
