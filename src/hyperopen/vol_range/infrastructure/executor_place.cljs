@@ -17,6 +17,7 @@
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
             [hyperopen.vol-range.application.lifecycle-recovery :as recovery]
+            [hyperopen.vol-range.application.repair-plan :as repair-plan]
             [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.application.wire :as wire]
@@ -273,14 +274,6 @@
 ;; Repair (spec 8.6, 13.4)
 ;; ---------------------------------------------------------------------------
 
-(defn- repair-context
-  "What a repair check needs from the CURRENT grid."
-  [grid]
-  {:candidates (into {} (map (juxt :logical-id identity)) (lifecycle/repair-candidates grid))
-   :survivor-prices (->> (lifecycle/current-legs grid)
-                         (remove lifecycle/definitively-not-placed?)
-                         (map :price))})
-
 (defn- admit-repair!
   [deps {:keys [grid legs scope live operation-id check-ref]}]
   (-> (ex/load! deps)
@@ -300,7 +293,7 @@
               (barrier-account! deps scope live)
               (fn [{:keys [read account input]}]
                 (let [check (fn [ctx] (revalidation/revalidate-repair
-                                       (merge ctx (repair-context grid) {:grid-scope scope :legs legs})))
+                                       (merge ctx (repair-plan/repair-context grid) {:grid-scope scope :legs legs})))
                       _ (reset! check-ref check)
                       found (ex/discovered-orders (:open-orders read) scope (jr/grids records nil))
                       {:keys [ok? errors reservations]}
@@ -338,7 +331,9 @@
   `grid` (spec 8.6, 13.4). `legs` are [{:logical-id :price :size}] with a
   newly reviewed price and at most the rejected quantity; each gets a NEW
   CLOID appended to its member. Only these legs are sent: surviving legs are
-  never replayed. Refused once the ladder is canceled or closed."
+  never replayed. Refused once the ladder is canceled or closed, and when the
+  legs could breach the ladder's recorded inventory limits (checked at
+  admission and again by the final guard)."
   [deps {:keys [grid legs]}]
   (let [live ((:live! deps))
         scope (:scope grid)

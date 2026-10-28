@@ -957,6 +957,7 @@
             [hyperopen.vol-range.application.projections-test]
             [hyperopen.vol-range.application.quote-sizing-test]
             [hyperopen.vol-range.application.remediations-test]
+            [hyperopen.vol-range.application.repair-plan-test]
             [hyperopen.vol-range.application.snapshots-test]
             [hyperopen.vol-range.contracts-test]
             [hyperopen.vol-range.domain.admission-test]
@@ -970,6 +971,7 @@
             [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
             [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
+            [hyperopen.vol-range.infrastructure.repair-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
@@ -2014,6 +2016,7 @@
              'hyperopen.vol-range.application.projections-test
              'hyperopen.vol-range.application.quote-sizing-test
              'hyperopen.vol-range.application.remediations-test
+             'hyperopen.vol-range.application.repair-plan-test
              'hyperopen.vol-range.application.snapshots-test
              'hyperopen.vol-range.contracts-test
              'hyperopen.vol-range.domain.admission-test
@@ -2027,6 +2030,7 @@
              'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
              'hyperopen.vol-range.infrastructure.lifecycle-safety-test
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
+             'hyperopen.vol-range.infrastructure.repair-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test

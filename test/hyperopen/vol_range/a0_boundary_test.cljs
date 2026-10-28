@@ -176,6 +176,7 @@
     "src/hyperopen/vol_range/application/lifecycle_evidence.cljs"
     "src/hyperopen/vol_range/application/lifecycle_recovery.cljs"
     "src/hyperopen/vol_range/application/revalidation.cljs"
+    "src/hyperopen/vol_range/application/repair_plan.cljs"
     "src/hyperopen/vol_range/application/wire.cljs"
     "src/hyperopen/vol_range/application/dock_model.cljs"
     "src/hyperopen/vol_range/execution_actions.cljs"

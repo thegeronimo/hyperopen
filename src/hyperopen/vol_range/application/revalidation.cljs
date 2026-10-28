@@ -10,6 +10,7 @@
   Source ages are checked against the spec 7.3 policy."
   (:require [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.planner :as planner]
+            [hyperopen.vol-range.application.repair-plan :as repair-plan]
             [hyperopen.vol-range.contracts :as contracts]))
 
 (def ^:private zero (precision/parse-decimal "0"))
@@ -79,73 +80,46 @@
 
 (defn- norm-price [x] (some-> x str precision/parse-decimal precision/decimal->string))
 
-(defn- base-fee? [fees side]
-  (= :base (get fees (if (= :buy side) :buy-fee-token :sell-fee-token))))
-
 (defn repair-reservations
-  "Funds a repair commits: buy notional plus the maker fee bound in USDC, sell
-  size plus the base fee bound (spec 6.5). Decimal strings."
+  "Funds a repair commits (see `repair-plan/repair-reservations`)."
   [legs fees]
-  (let [f (if (= :ok (:status fees)) (d (:maker-fraction fees)) zero)
-        one (d "1")
-        cost (fn [l] (precision/mul (d (:price l)) (d (:size l))))
-        buys (filter #(= :buy (:side %)) legs)
-        sells (filter #(= :sell (:side %)) legs)
-        sum (fn [xs] (reduce precision/add zero xs))]
-    {:usdc (ds (sum (map #(if (base-fee? fees :buy) (cost %) (precision/mul (cost %) (precision/add one f))) buys)))
-     :base (ds (sum (map #(if (base-fee? fees :sell) (precision/mul (d (:size %)) (precision/add one f)) (d (:size %)))
-                         sells)))}))
+  (repair-plan/repair-reservations legs fees))
 
 (defn revalidate-repair
   "{:ok? bool :errors [kw ...] :reservations {:usdc :base}} for repair legs
-  ({:logical-id :side :price :size}) of a grid in `grid-scope` (spec 8.6,
-  13.4). Each leg repairs one rejected member (`candidates`, keyed by logical
-  id) with AT MOST its rejected quantity, at a price no surviving leg
-  (`survivor-prices`) already uses and within the product distance from mid.
-  Every leg must rest post-only on the fresh book, use a legal price and an
-  exact lot size, meet the minimum notional, and fit the available balances
-  after other operations' pending reservations. Fees must be the user's
-  quote. Inventory bounds (spec 6.6) are re-checked by the repair review that
-  produces these legs (stage 6), not here."
-  [{:keys [grid-scope input account pending legs candidates survivor-prices now-ms]}]
+  ({:logical-id :side :price :size}) of a grid in `grid-scope` (spec 6.6,
+  8.6, 13.4). Each leg repairs one rejected member (`candidates`, keyed by
+  logical id) with AT MOST its rejected quantity, at a price no surviving or
+  other repair leg (`survivors`, {:side :price}) already uses or crosses and
+  within the product distance from mid. Every leg must rest post-only on the
+  fresh book, use a legal price and an exact lot size, meet the minimum
+  notional, and fit the available balances after other operations' pending
+  reservations. Fees must be the user's quote. Inventory bounds use the
+  ladder's recorded `limits` ({:core :maximum}, nil when none were recorded)
+  through `repair-plan/bound-errors`, so the review and this final guard run
+  the same check. Leg checks are `repair-plan/leg-error`."
+  [{:keys [grid-scope input account pending legs candidates survivors limits now-ms]}]
   (let [policy contracts/freshness-policy
         scope (:scope input)
         market (:market input)
         fees (:fees input)
-        bid (some-> (get-in market [:bbo :bid]) d)
-        ask (some-> (get-in market [:bbo :ask]) d)
-        precision-ctx {:market-type (:market-type market) :sz-decimals (:sz-decimals market)}
-        min-notional (d (:min-leg-notional-usdc contracts/product-policy))
-        max-distance (d (:max-distance-from-mid-fraction contracts/product-policy))
-        mid (when (and bid ask) (precision/divide (precision/add bid ask) (d "2") 12 :half-up))
-        leg-error (fn [{:keys [logical-id side price size]}]
-                    (let [p (precision/parse-decimal (str price))
-                          s (precision/parse-decimal (str size))
-                          candidate (get candidates logical-id)]
-                      (cond
-                        (or (nil? p) (nil? s) (not (precision/pos-dec? s))) :repair/invalid-leg
-                        (or (nil? candidate) (not= side (:side candidate))) :repair/not-a-candidate
-                        (pos? (precision/cmp s (d (:original-base candidate)))) :repair/exceeds-rejected-quantity
-                        (contains? (set (keep norm-price survivor-prices)) (precision/decimal->string p))
-                        :repair/duplicate-price
-                        (or (nil? mid)
-                            (pos? (precision/cmp (precision/abs-dec (precision/sub p mid))
-                                                 (precision/mul mid max-distance))))
-                        :repair/too-far-from-mid
-                        (not (precision/legal-price? p precision-ctx)) :repair/illegal-price
-                        (not (:lots (precision/decimal->lots s (:sz-decimals market)))) :repair/not-lot-multiple
-                        (neg? (precision/cmp (precision/mul p s) min-notional)) :repair/below-min-notional
-                        (and (= :buy side) (or (nil? ask) (>= (precision/cmp p ask) 0))) :repair/crosses-book
-                        (and (= :sell side) (or (nil? bid) (<= (precision/cmp p bid) 0))) :repair/crosses-book
-                        :else nil)))
+        leg-error (fn [leg]
+                    (repair-plan/leg-error
+                     {:market market :candidates candidates
+                      :survivors (concat survivors
+                                         (keep #(when (not= (:logical-id %) (:logical-id leg))
+                                                  (select-keys % [:side :price]))
+                                               legs))}
+                     leg))
         repair-prices (keep (comp norm-price :price) legs)
         reservations (repair-reservations legs fees)
         available (account-with-pending account pending)
+        ready? (= :ready (:status account))
         errors (vec (distinct
                      (concat
                       (when (not= (select-keys grid-scope identity-keys) (select-keys scope identity-keys))
                         [:guard/scope-changed])
-                      (when (not= :ready (:status account)) [:guard/account-unavailable])
+                      (when-not ready? [:guard/account-unavailable])
                       (when (not= :ok (:status fees)) [:guard/fees-unavailable])
                       (keep identity
                             [(age-error now-ms (get-in market [:bbo :observed-at-ms]) (:bbo-ms policy) :guard/book-stale)
@@ -157,10 +131,13 @@
                       (when (and (seq repair-prices) (not (apply distinct? repair-prices)))
                         [:repair/duplicate-price])
                       (keep leg-error legs)
-                      (when (and (= :ready (:status account))
+                      (when (and ready?
                                  (pos? (precision/cmp (d (:usdc reservations)) (d (get-in available [:quote :available])))))
                         [:repair/insufficient-usdc])
-                      (when (and (= :ready (:status account))
+                      (when (and ready?
                                  (pos? (precision/cmp (d (:base reservations)) (d (get-in available [:base :available])))))
-                        [:repair/insufficient-base]))))]
+                        [:repair/insufficient-base])
+                      (when (and ready? (seq legs))
+                        (repair-plan/bound-errors {:account (repair-plan/account-summary available)
+                                                   :limits limits :legs legs :fees fees})))))]
     {:ok? (empty? errors) :errors errors :reservations reservations}))
