@@ -1,0 +1,529 @@
+# Vol Range: repair rejected orders and replace a ladder
+
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds. It is maintained in accordance with `/hyperopen/docs/PLANS.md` and the detailed template in `/hyperopen/.agents/PLANS.md`.
+
+## Purpose / Big Picture
+
+Vol Range can place a ladder of post-only spot orders, show it in the Vol ladders dock, refresh it and cancel it. Two Release A flows from HO-SPEC-014 v2.1 are still missing, and the local test runbook tells users to "cancel and place a new ladder instead":
+
+1. **Repair** (spec 8.6, 13.4). When the exchange definitively rejects some legs of a ladder (usually a post-only order that would have crossed), the user can review just those rejected orders, re-priced away from the current book, and send them as one new action with new CLOIDs. Surviving orders are never resent, and the repaired orders join the same logical ladder instead of creating a second one.
+2. **Replace** (spec 10.2, 13.4). The user can update a ladder in six explicit steps: preview old versus proposed; cancel the current ladder (freezing its exact membership across revisions and repairs); confirm the cancellation, reconciling every old leg including fills that happen during the cancel; refresh balances and fees; review a replacement that defaults to the unfilled remainder of the canceled working orders; place it through the normal lifecycle. The replacement records its predecessor, so the dock shows the lineage. Stopping after the cancel places nothing.
+
+How to see it working: in the dev build, run `tools/playwright/test/vol-range-repair-replace.spec.mjs`. One test places the seven-order fixture with the 76.4 buy rejected, clicks **Repair 1 rejected order**, and checks that the second signed `order` action contains exactly one order with a new CLOID and a price below the simulated best ask, after which the dock shows 7 live orders. Another places a live ladder, clicks **Preview update**, cancels, lets 3 of the 10-unit sell fill during the cancel, sees "Old ladder canceled. Review the updated quantities before placing the replacement." with a sell remainder of 27, places the replacement, and checks the dock lineage. Every test uses the debug exchange simulator and stubbed `/info` reads; no test or agent ever places, cancels or modifies a live order.
+
+## Context References
+
+Public refs:
+- Direct user request in this session (2026-10-28): start the planning workflow, then implement the plans and report back for testing.
+
+Repo artifacts:
+- Product spec: `/hyperopen/docs/product-specs/vol-range-implementation-spec.md` (HO-SPEC-014 v2.1). Sections implemented here: 7.5 (repair CLOIDs and membership), 8.1 (admission, journal-before-send, final guard for every new send), 8.6 (unknown outcomes, Review rejected orders), 10.1 (cancel membership, reused), 10.2 (Replace), 11.2 (dock actions Review rejected orders and Preview update, partial message), 11.4 (live region, focus, keyboard), 13.4 (partial deployment and replacement fixtures), 14.1 VR-15 and VR-16, 14.2 (rejected-leg review, cancel-before-replacement barriers).
+- Parent ExecPlans: `/hyperopen/docs/exec-plans/completed/2026-10-27-vol-range-order-lifecycle.md` (stage 5: lifecycle, `executor-place/repair!`, `lifecycle/replacement-basis`) and `/hyperopen/docs/exec-plans/completed/2026-10-27-vol-range-local-placement.md` (stage 6: effect adapter, commit action, dock). Both list "repair and replacement screens" as remaining work.
+- Earlier plan for house format and A0 decisions: `/hyperopen/docs/exec-plans/active/2026-10-21-vol-range-release-a0-preview.md`.
+- Runbook to update in the last stage: `/hyperopen/docs/runbooks/vol-range-local-money-test.md` (lines 97-98 say repair and replace are missing).
+
+## Progress
+
+- [x] (2026-10-28) Read the spec sections in scope, the lifecycle, executors, effect adapter, actions, dock model and views, whitelists, size exceptions and the Playwright execution suite; wrote this plan.
+- [ ] Stage R1: record ladder settings on the grid at placement.
+- [ ] Stage R2: pure repair proposal and shared repair checks (including inventory bounds in the final guard).
+- [ ] Stage R3: repair actions, effect ops, whitelists and adapter.
+- [ ] Stage R4: repair dialog, dock control and result messaging.
+- [ ] Stage R5: repair browser coverage.
+- [ ] Stage P1: replacement core (frozen membership basis, replace flow, predecessor admission, confirm executor).
+- [ ] Stage P2: replace actions, effect ops, whitelists, adapter and planner hooks.
+- [ ] Stage P3: replace dialog, ticket banner, review lineage and dock lineage.
+- [ ] Stage P4: replace browser coverage, runbook update, full gates and plan close-out.
+
+## Surprises & Discoveries
+
+- `executor-place/repair!` (`src/hyperopen/vol_range/infrastructure/executor_place.cljs`) already runs the full placement discipline for a repair: account admission section, journal-before-send (`commit-admitted!` writes intent and grid in one transaction), the final pre-HTTP guard (re-reads the grid and refuses if a cancel was requested), strict per-leg interpretation, new CLOIDs per repaired member, and refusal for recovered, canceled, closed or unresolved grids. Nothing calls it. Its tests are in `test/hyperopen/vol_range/infrastructure/lifecycle_scenarios_test.cljs` (`partial-deployment-repair-then-cancel-test`, `repair-is-refused-after-cancel-and-bounded-by-the-rejected-quantity-test`, `a-stale-copy-never-erases-a-repair-test`) and `lifecycle_safety_test.cljs`.
+- `revalidation/revalidate-repair` checks rejected quantity, member and price distinctness, the 50% product distance from mid, post-only, legal price, lot, minimum notional and funds, but NOT inventory bounds (spec 6.6). The stage 5 plan deferred bounds to "the repair review that stage 6 adds"; the final guard must check them too, so this plan adds them to `revalidate-repair`.
+- The grid stores only `:model` (`anchor`, `volatility`, `tilt`, `shifted-anchor`). It does not store the draft (rung counts, sigma ranges, skew, anchor mode, units) or the inventory limits (core, target, maximum). Preview update needs the former and repair bounds need the latter, so stage R1 records them at placement.
+- `lifecycle/replacement-basis` already returns `{:ready? :blocking :remaining :filled :rejected}` and is tested against the 13.4 cancel/fill race (`cancel-fill-race-and-replacement-basis-test`: remaining sell 27, buy 40, filled sell 3). It sums the canceled remainder of every accepted canceled leg in the grid, so a leg canceled outside the update before the user started it would still count. Stage P1 adds a frozen-membership arity.
+- Repair and cancel already require the active ticket market to be the ladder's market for repair (`executor-place/refusal` compares every identity key, including coin and asset id, with the live scope), while cancel compares only network, owner, account and vault. Repair and Replace therefore both need the ticket on the ladder's market.
+- A definitively rejected leg is stored with `:order-state :terminal :terminal-reason :rejected` (`lifecycle_evidence.cljs` `apply-leg-result`), so a canceled ladder whose only other legs were rejected reaches `:closed`, and `executor/placement-blockers` stops blocking the market.
+- `src/hyperopen/views/trade_view.cljs` is exactly 500 lines (the default limit) and `src/hyperopen/runtime/effect_order_contract.cljs` and `src/hyperopen/schema/contracts/action_args.cljs` sit at their size-exception ceilings. None of them can grow. The dock's slice comes from `vol-dock/view-state` in `src/hyperopen/views/trade/vol_range/dock.cljs`, and the order-form slice already includes the whole `:vol-range` root, `:spot` and `:orderbooks`, so no edit to `trade_view.cljs` is needed. No new action emits a heavy-IO effect that needs an effect-order policy (see Decision Log).
+- `src/hyperopen/vol_range/application/ticket_model.cljs` is 453 lines; the replace banner and footer swap must live in a new namespace and reach the ticket view at the view boundary, not as new ticket-model keys.
+- `dev/check_docs.clj` rejects machine-specific absolute home-directory paths in governed markdown and validates markdown links; this plan uses `/hyperopen/...` paths and no markdown links.
+- There is no spot balance stream; `src/hyperopen/order/effects/spot_refresh.cljs` refetches `spotClearinghouseState` after ordinary order mutations. The replacement refresh step must read balances explicitly.
+- (Integration review, 2026-10-28) `test/hyperopen/vol_range/a0_boundary_test.cljs` statically scans every file under `src/hyperopen/vol_range/**` that is NOT in its `execution-foundations` path set, and EVERY file under `src/hyperopen/views/trade/vol_range/**`, and fails when one mentions `hyperopen.vol-range.application.lifecycle`, `...revalidation`, `...journal-records`, `...wire`, `hyperopen.vol-range.infrastructure.executor` (a substring of `executor-place`, `executor-cancel` and `executor-replace`), `...journal`, `...entropy`, `...reads`, `hyperopen.api.trading.*`, `hyperopen.platform.indexed-db`, or the word `nonce`. So every new namespace in this plan under `src/hyperopen/vol_range/` that requires one of those (`repair_plan`, `repair_model`, `repair_actions`, `replace_flow`, `replace_model`, `replace_actions`, `executor_replace`) must be added to `execution-foundations` in the stage that creates it, and the A0-scanned `vol_range/actions.cljs` and `vol_range/application/plan_state.cljs` may only require the lifecycle-free `replace_state.cljs` (see Decision Log). New views (`repair_dialog.cljs`, `replace_dialog.cljs`) read models only and never require those namespaces or contain the word "nonce".
+- (Integration review) `vol-range-execute`'s `bounded` races every op except `:place` against a 60 s timer that resolves `{:status :error}`, clears the busy key and lets `finish!` report a failure while the real promise keeps running. A signed repair must not be raced: `:repair` joins `:place` as unbounded (the delivery path has its own timeouts).
+- (Integration review) `test/hyperopen/vol_range/infrastructure/lifecycle_scenarios_test.cljs` is 413 lines; new simulator scenarios go in new test namespaces, not there. The focused `:vol-range-test` build's `:ns-regexp` in `shadow-cljs.edn` does not match `hyperopen.runtime.effect-adapters.*`, so adapter tests would only run under `npm test` until Stage R3 extends it. Every Playwright spec must import `test` from `../support/guarded_test.mjs` (`tools/playwright/support/spec_imports.test.mjs`, run by `npm run check`, enforces it).
+
+## Decision Log
+
+- Decision: Stage Repair before Replace, serially, one commit per stage.
+  Rationale: both touch the effect adapter, the effect-arg op set, the collaborator map, `dock_model.cljs`, `dock.cljs` and the review; serial stages avoid merge conflicts and let Replace reuse Repair's dialog primitives and Playwright support.
+  Date/Author: 2026-10-28, Claude (planning agent).
+- Decision: Record `:settings` on every new grid at placement: `{:draft <normalized effective draft at review freeze> :limits {:core :target :maximum} :totals <plan totals> :inventory-outcomes <plan outcomes> :plan-id}`. The draft reaches the adapter through `[:vol-range :frozen-context :draft]`, captured by `open-vol-range-review`. Grids placed before this change have no `:settings`.
+  Rationale: Preview update needs the deployed parameters (spec 10.2 step 1, "old versus proposed"); repair bounds need the deployed limits (spec 6.6). Strings only, no secrets (spec 7.4); `merge-grids` keeps top-level keys of the caller's copy, and both copies carry the immutable settings.
+  Date/Author: 2026-10-28, Claude.
+- Decision: Repair price is derived from the DEPLOYED model, never from the touch. For each rejected member: keep the rejected price if it now passes every leg check against a fresh book; otherwise step the sigma distance away from the book in the policy's 0.05 increments (`:remediation-step-sigma`), starting at the first step strictly beyond the rejected leg's actual distance from the deployed shifted anchor, up to the policy maximum of 4.00 (`:distance-sigma :max`), quantizing side-aware (buy floor, sell ceil), and take the first price that passes post-only, self-cross, distinct-price, 50%-of-mid, legal-price and minimum-notional checks. If none passes, the member is shown as not repairable with its reason. The size is always the full rejected quantity (never more).
+  Rationale: spec 8.6 asks for a "newly reviewed safe price" and spec 6.3 forbids shifting rejected ALO orders to the touch or a percentage-of-BBO clamp; stepping outward in the model's own sigma units keeps the leg inside the deployed model and moves it away from the book. A full-quantity repair keeps logical membership simple; partial quantities are a non-goal.
+  Date/Author: 2026-10-28, Claude.
+- Decision: The repair proposal is computed in the effect adapter from awaited barrier reads (book and account, the same `reads` used at admission), frozen at `[:vol-range :repair]`, and shown read-only. The final guard re-checks the exact frozen legs; any failure returns the user to a refreshed proposal ("Refresh prices"). The frozen legs are never amended.
+  Rationale: spec 4.4 and 8.1 step 8: revalidate the fixed vector, never amend it. The store's book is only the last visual change (A0 discovery), so a fresh read gives an honest proposal.
+  Date/Author: 2026-10-28, Claude.
+- Decision: Inventory bounds for a repair use the deployed `:settings :limits` with existing open orders for the market (which include the ladder's survivors) counted once, through `admission/check-bounds`. When the grid has no `:settings`, bounds are skipped and the dialog shows a warning; balances, post-only and every other check still apply. The same pure function runs in the review and in `revalidate-repair` at the final guard.
+  Rationale: closes the stage 5 deferral; restoring at most the originally admitted membership at a price further from the book cannot raise worst-case inventory above what was admitted except through external balance changes, which the balance checks catch.
+  Date/Author: 2026-10-28, Claude.
+- Decision (deviation): the dock button reads **Repair N rejected orders** (task wording); the dialog it opens is titled **Review rejected orders** (spec 8.6 and 11.2 wording).
+  Date/Author: 2026-10-28, Claude.
+- Decision: Repair and Preview update are enabled only when the ticket's active market and account match the ladder's scope; otherwise the dock shows "Open VRT/USDC to repair or update this ladder." Both are shown only when placement is enabled in this browser (`[:vol-range :execution :enabled?]`); Cancel this ladder and Refresh status keep working when placement is off (spec 15.2).
+  Rationale: the executor already refuses a repair across scopes, and a replacement is planned in the ticket of the ladder's market.
+  Date/Author: 2026-10-28, Claude.
+- Decision: Replace state lives in memory at `[:vol-range :replace]` and is not persisted. A reload, an account or market change, or **Stop updating** abandons the update: the old ladder stays as it is (canceled if the cancel ran) and nothing is placed.
+  Rationale: spec 10.2 "If the user leaves after cancellation, the old grid remains canceled and no new orders are placed." Placement only ever happens on the explicit commit click.
+  Date/Author: 2026-10-28, Claude.
+- Decision: Preview update loads the ladder into the ticket. The dock button dispatches, in order, the existing `[:actions/select-pro-order-type :scale]` and `[:actions/select-scale-mode :volatility-range]` (which binds the scoped draft and fetches daily candles under its existing effect-order policy) and then the new `[:actions/preview-vol-ladder-update grid-id]`, which writes the deployed draft with base quantities equal to the live remainder of each side's current members and opens the update dialog. If the grid has no `:settings`, the current ticket draft is kept with the same quantity patch and the dialog says so.
+  Rationale: avoids a new heavy-IO effect in a new action (no effect-order policy, whose namespace is at its ceiling) and reuses the ticket, planner and validation for the proposal.
+  Date/Author: 2026-10-28, Claude.
+- Decision: While an update is in preview, the planner excludes the old ladder's own open orders from existing exposure (they will be canceled first). After cancellation is confirmed, the planner uses the account snapshot from the post-cancel barrier read (`snapshots/account-snapshot-from-read`) for this scope until the replacement is placed or the update stops. The adapter also refreshes the fee quote and, best effort, the store's spot balances (`spot-refresh/refresh-spot-clearinghouse-snapshot!`).
+  Rationale: spec 10.2 step 4 and 13.4 "No replacement order may use the old pre-fill inventory snapshot." A read taken after the cancel is confirmed includes fills during the cancel; admission re-reads again before sending.
+  Date/Author: 2026-10-28, Claude.
+- Decision: The replacement default is computed only from the frozen membership: the CLOIDs that were accepted or unknown and not terminal when the user clicked "Cancel current ladder to update". `remaining` is the canceled remainder of those legs (fills during the cancel excluded); legs canceled before the freeze do not count; rejected current members are listed separately and add their full base quantity to their side only when explicitly selected.
+  Rationale: spec 10.2 "uniquely identified canceled working membership", "do not sum duplicate historic revision copies or replenish already filled quantity", "include them only through explicit selection".
+  Date/Author: 2026-10-28, Claude.
+- Decision (deviation): Clicking **Review replacement** after the cancel always rewrites both side quantities to the frozen remainder (plus selected rejected quantities), even if the user edited quantities during the preview; the user may then edit the ticket before opening the review. A side whose amount is zero is disabled.
+  Rationale: quantities edited before the cancel may predate fills during the cancel; the spec's intermediate message asks the user to review updated quantities.
+  Date/Author: 2026-10-28, Claude.
+- Decision: The replacement grid stores `:predecessor {:grid-id :frozen-cloids :remaining :filled :included-rejected}`. Placement admission (inside the account admission section, after loading the journal) refuses a replacement unless the predecessor exists in the same scope, its `replacement-basis` for the frozen membership is `:ready?`, and no other grid already names it as predecessor. The old grid record is not rewritten; the dock derives "Replaced by" from the successor.
+  Rationale: prevents a stale tab or a double click from placing two replacements and keeps the old grid's record monotonic.
+  Date/Author: 2026-10-28, Claude.
+- Decision: New actions emit only `:effects/save-many` and `:effects/vol-range-execute`; none emits `:effects/fetch-candle-snapshot` or another heavy-IO effect, so none needs an entry in `runtime/effect_order_contract.cljs` (which is at its size ceiling). The existing execution actions follow the same pattern.
+  Date/Author: 2026-10-28, Claude.
+- Decision: New pure handlers go in new namespaces `vol_range/repair_actions.cljs` and `vol_range/replace_actions.cljs` and are registered in `runtime/collaborators/vol_range.cljs` `execution-action-deps` (the Release A group), not in the A0 `action-deps` group that `a0_boundary_test` sweeps. The effect adapter delegates the new ops to `runtime/effect_adapters/vol_range_repair_replace.cljs`, which takes the store and an already-built deps map so there is no require cycle.
+  Date/Author: 2026-10-28, Claude.
+- Decision: The repair dialog is mounted from the dock panel (its model is frozen state only); the replace dialog is mounted from the order-form view next to the review dialog (its proposed column needs the live plan). If a fixed overlay inside the dock is clipped by an ancestor in Playwright, move the repair dialog mount to `order_form_view.cljs` beside the review dialog (same model; also add the repair grid to the order-form slice helper, see Stage P3).
+  Date/Author: 2026-10-28, Claude.
+- Decision (integration review): `:repair` is NOT wrapped by `bounded`; `bounded` exempts `#{:place :repair}`. `:repair-preview`, `:replace-cancel` and `:replace-confirm` stay bounded at 60 s.
+  Rationale: a timeout would clear `[:repair grid-id]` and report an error while the signed action may still be in flight, inviting a second click. Admission would still refuse (the in-flight repair leaves the grid unresolved), but the UI must not claim failure.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): split the replace helpers by dependency. `vol_range/application/replace_state.cljs` holds only predicates over `[:vol-range :replace]` and raw grid maps: `current?`, `phase`, `review-blocked?`, `frozen-lineage`, `account-for-plan` (it drops open orders whose oid is in the old grid's `:legs` map by reading the map directly). It requires nothing from the execution foundations, so the A0-scanned `vol_range/actions.cljs` and `plan_state.cljs` can require it. `replace_flow.cljs` (lifecycle-dependent: `preview-patch`, `quantities-patch`, `phase-after-confirm`, `predecessor-blockers`) is added to the A0 test's `execution-foundations` set.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): frozen membership is computed in the adapter from the grid returned by `ex/refresh-grid!` (journal-merged), not from the store copy, immediately before `executor-cancel/cancel!` is called with that same refreshed grid. At the same moment the adapter records `:filled-at-freeze {cloid filled}` from `lifecycle/leg-quantities`. The frozen basis keeps ALL blocking checks over the whole grid (any unresolved or open leg, or missing fill coverage, blocks); only `:remaining` and the new `:filled-during-update` (filled now minus filled at freeze, per frozen leg) use the frozen membership.
+  Rationale: a repair committed from another tab after Preview but before the click would otherwise be missing from the freeze; whole-grid blocking means such a leg can only make the replacement more conservative, never let it place over a live order. "Filled while canceling" must not include fills from before the update started.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): the predecessor check is a pure function `replace-flow/predecessor-blockers [records predecessor scope-key]` called from `executor-place/admit-placement!`; `executor_replace.cljs` (which only reads and never sends) does not become a dependency of `executor_place.cljs`.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): when a replace op finishes with `{:status :error}` (including the 60 s bound) the adapter sets phase `:blocked` with blocking `[:replace/check-failed]`, so **Check again** and **Stop updating** are offered; an update never stays in `:canceling` indefinitely. **Stop updating** is available in every phase, and when the frozen review context carries `:replace` it also closes that review (`transitions/close-review`), so a stopped update cannot place a replacement with lineage.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): the `:repair` adapter rebuilds the legs from the frozen proposal (`repair-plan/selected-legs` of `[:vol-range :repair]`) and refuses with `:repair/proposal-mismatch`, sending nothing, when they differ from the effect params.
+  Date/Author: 2026-10-28, Claude (integrator).
+- Decision (integration review): this plan runs as stages 1-5 (Repair) and 16-19 (Replace) of the global order in `/hyperopen/docs/exec-plans/active/2026-10-28-vol-range-build-order.md`. Live fills stages 6-15 land between them, so P1-P4 build on the monitoring gate (`refusal` already refuses when monitoring is not live), the store merge (`grid-store/merge-grid-into-state`), the narrowed order-form slice and the WebSocket simulator installed by `vol_range_world.mjs`.
+  Date/Author: 2026-10-28, Claude (integrator).
+
+## Outcomes & Retrospective
+
+Not started. Record per-stage outcomes, gate results and any deviation from this plan here.
+
+## Context and Orientation
+
+HyperOpen is a ClojureScript single-page trading client for Hyperliquid. Source is under `/hyperopen/src/hyperopen/`, tests under `/hyperopen/test/hyperopen/`, browser tests under `/hyperopen/tools/playwright/test/`. Views are Replicant hiccup (class attributes are vectors of strings, style keys are keywords). User interactions dispatch action vectors; action handlers are pure functions of state that return effect vectors; effect interpreters do I/O. `:effects/save-many` paths must contain only keywords.
+
+Terms:
+
+- Ladder: the user-facing name of a deployed set of Vol Range orders. Internally a grid (`:grids`, `grid-id`). Never show "grid" to users.
+- Logical member: one rung of a ladder, keyed by `:logical-id` (the plan leg id such as `"buy-0"`), holding every CLOID ever sent for it in `:cloids`; the last one is current.
+- Leg: one CLOID's order with independent placement, order, cancel state and quantities (spec 8.5).
+- Definitively rejected: a leg whose `:placement-state` is `:rejected` or `:not-sent`. Only current members in that state are repair candidates, and only while nothing in the grid is unresolved (`lifecycle/repair-candidates`).
+- Frozen membership: the CLOIDs captured when the user clicks "Cancel current ladder to update".
+- Barrier read: an awaited, uncached info read (`vol_range/infrastructure/reads.cljs`) used for admission and the final guard.
+
+Existing pieces this plan builds on:
+
+- `src/hyperopen/vol_range/application/lifecycle.cljs`: grid model, `new-grid`, `counts`, `status`, `cancel-targets`, `repair-candidates`, `add-repair`, `replacement-basis`, `fills-covered?`, `current-legs`, `leg-quantities`.
+- `src/hyperopen/vol_range/application/lifecycle_recovery.cljs`: `merge-grids` (monotonic; keeps top-level keys of the caller's copy).
+- `src/hyperopen/vol_range/application/revalidation.cljs`: `revalidate` (fixed-vector placement check), `revalidate-repair`, `repair-reservations`, `identity-keys`.
+- `src/hyperopen/vol_range/infrastructure/executor_place.cljs`: `place!`, `repair!` (admission section, commit intent + grid, final guard, send, interpret).
+- `src/hyperopen/vol_range/infrastructure/executor_cancel.cljs`: `cancel!` (best-effort journaling, freezes nonterminal membership, one cancel per order, then `reconcile!`).
+- `src/hyperopen/vol_range/infrastructure/executor.cljs`: `reconcile!`, `refresh-grid!`, `persist-grid!`, `load!`, `placement-blockers`, `discovered-orders`, `recover!`.
+- `src/hyperopen/runtime/effect_adapters/vol_range_execution.cljs`: `[:effects/vol-range-execute op params]`, `executor-deps`, `live-inputs`, busy keys, `finish!` writing `[:vol-range :execution :last]`.
+- `src/hyperopen/vol_range/execution_actions.cljs`: place, cancel, refresh, select, sync, reconcile-open handlers.
+- `src/hyperopen/vol_range/application/dock_model.cljs` and `src/hyperopen/views/trade/vol_range/dock.cljs`: dock rows, status messages, `view-state`, `with-tab`.
+- `src/hyperopen/vol_range/actions.cljs` (`open-vol-range-review`), `src/hyperopen/trading/vol_range_transitions.cljs` (`apply-patch`, `open-review`), `src/hyperopen/vol_range/application/plan_state.cljs` (`context-for-state`, memoized planner), `src/hyperopen/vol_range/application/review_model.cljs`, `src/hyperopen/views/trade/vol_range/review.cljs`, `src/hyperopen/views/trade/vol_range/ticket.cljs`, `src/hyperopen/views/trade/order_form_view.cljs` (`vol-range-ui`).
+- Whitelists: `src/hyperopen/schema/contracts/vol_range_action_args.cljs` (merged into `action_args.cljs`; no edit there), `src/hyperopen/schema/contracts/effect_args.cljs` (`::vol-range-execute-args` op set), `src/hyperopen/schema/runtime_registration/trade.cljs` (`post-order-form-action-binding-rows`), `src/hyperopen/runtime/collaborators/vol_range.cljs`, `src/hyperopen/schema/vol_range_contracts.cljs` (exact-key review contract). `src/hyperopen/trading/vol_range_transitions.cljs` owns the draft path whitelist; this plan adds no new draft paths.
+- Test support: `test/hyperopen/vol_range/simulator.cljs` (deterministic venue, journal, clock; `sim/deps`, `sim/script!`, `sim/fill!`, `sim/order-sends`, `sim/cancel-sends`, `sim/frozen-plan`), `test/hyperopen/vol_range/state_fixtures.cljs`, `test/hyperopen/vol_range/fixtures.cljs`.
+
+## Scope and Non-goals
+
+In scope:
+
+- Repair: action and effect op wiring to `executor-place/repair!`; a **Repair N rejected orders** control on a ladder row only when definitively rejected current members exist; a **Review rejected orders** dialog that re-prices rejected legs off a fresh book under the post-only and distance rules, at no more than the rejected quantity, with inventory bounds; result messaging in the dialog and the dock's live region.
+- Replace: the six-step flow; frozen membership across revisions and repairs; confirmation that reconciles every old leg including fills during the cancel; blocking on unknown or surviving legs; refresh; replacement review defaulting to the unfilled remainder with rejected legs shown separately and included only by explicit selection; placement through the normal lifecycle; predecessor lineage in the grid and the dock; abandonment that places nothing.
+- Recording deployed settings on new grids (needed by both).
+
+Non-goals:
+
+- Editable repair prices or partial repair quantities.
+- Persisting an in-progress update across reloads.
+- Batch modify (spec 10.2 forbids it until contract-tested), automatic repricing, replenishment or taker fallback.
+- The WebSocket fill tap, a protocol-proven rule for expired unknown orders, drift flags and "Current comparison" in the dock, chart overlays for deployed ladders, Portfolio reporting. (They may consume `:settings` and `:predecessor`; see Interfaces.)
+- Repair or update of recovered ladders (no deployed settings; the executor already refuses recovered repairs). Recovered ladders keep Cancel this ladder.
+- Any change to ordinary order placement, the shared delivery path, nonce coordination or signing.
+
+## Data Shapes
+
+Grid additions (journal `:grid` record, inside `:grid`; schema version unchanged because the keys are additive and optional):
+
+    {:grid-id "grid-3f..."
+     ;; ... existing keys ...
+     :settings {:plan-id "vr-plan-9a..."
+                :draft {:anchor {:mode :vwap-24h :custom-price ""}
+                        :volatility {:mode :auto :manual-daily-pct ""}
+                        :inventory {:limit-unit :base :protected-core "120" :target "160" :maximum "190"
+                                    :protected-core-quote "" :target-quote "" :maximum-quote ""
+                                    :tilt-enabled? false :tilt-strength "0.45"}
+                        :buy {:enabled? true :amount-unit :base :quantity "40" :quote-amount ""
+                              :max-usdc-debit "2900" :count 4 :start-sigma "0.75" :end-sigma "2.25" :skew "1.86"}
+                        :sell {:enabled? true :amount-unit :base :quantity "30" :quote-amount ""
+                               :count 3 :start-sigma "1.25" :end-sigma "2.25" :skew "1.00"}}
+                :limits {:core "120" :target "160" :maximum "190"}   ; base units, from plan outcomes
+                :totals {...plan :totals, strings...}
+                :inventory-outcomes {...plan :inventory-outcomes, strings...}}
+     :predecessor nil}
+
+A replacement grid:
+
+    {:grid-id "grid-8c..."
+     :predecessor {:grid-id "grid-3f..."
+                   :frozen-cloids ["0x484f5652..." "..."]
+                   :remaining {:buy "40" :sell "27"}
+                   :filled-during-update {:buy "0" :sell "3"}   ; filled now minus :filled-at-freeze, frozen legs only
+                   :included-rejected []}}
+
+Repair proposal, frozen at `[:vol-range :repair]`:
+
+    {:grid-id "grid-3f..."
+     :status :ready                       ; :loading | :ready | :error
+     :error nil                           ; text when :error
+     :proposal-id "rp-5d..."
+     :proposed-at-ms 1700000012000
+     :bbo {:bid "76.00" :ask "76.35" :observed-at-ms 1700000011900}
+     :legs [{:logical-id "buy-0" :side :buy :rung-index 0
+             :rejected-price "76.4" :price "76.16" :size "7" :notional "533.12"
+             :actual-sigma "-0.8" :repriced? true
+             :reason "Post only order would have immediately matched, bbo was 76.00@76.35."}]
+     :unrepairable [{:logical-id "sell-2" :side :sell :rung-index 2 :rejected-price "90.8" :size "10"
+                     :code :repair/no-safe-price}]
+     :selected #{"buy-0"}                 ; defaults to every repairable leg
+     :account {:base-total "150" :available-base "150" :available-usdc "3000"
+               :buy-exposure "33" :sell-exposure "30"}   ; open orders in this market, survivors included
+     :limits {:core "120" :maximum "190"} ; nil when the grid has no :settings
+     :fees {:maker-fraction "0.0004" :buy-fee-token :quote :sell-fee-token :quote :status :ok}}
+
+Replace state at `[:vol-range :replace]`:
+
+    {:grid-id "grid-3f..."
+     :scope-key "<contracts/scope-key of the ladder>"
+     :phase :preview                      ; :preview | :canceling | :blocked | :canceled | :ready
+     :dialog-open? true
+     :started-at-ms 1700000000000
+     :settings-recorded? true
+     :frozen-cloids nil                   ; vector of CLOIDs once the cancel starts (from the journal-refreshed grid)
+     :filled-at-freeze nil                ; {cloid "filled base"} captured with :frozen-cloids
+     :basis nil                           ; lifecycle/replacement-basis result once confirmed or blocked
+     :include-rejected #{}                ; logical ids the user selected
+     :refreshed nil                       ; {:requested-at-ms n :account <::account-snapshot from read>}
+     :confirmed-at-ms nil}
+
+The `:basis` value is the `replacement-basis` map. The 2-arity `(replacement-basis grid {:frozen-cloids :filled-at-freeze})` computes `:blocking` over the WHOLE grid exactly like the 1-arity, and `:remaining` and `:filled-during-update` over the frozen legs only (`:filled` keeps its 1-arity meaning, whole-grid lifetime fills):
+
+    {:ready? true :blocking []
+     :remaining {:buy "40" :sell "27"} :filled {:buy "0" :sell "3"}
+     :filled-during-update {:buy "0" :sell "3"}
+     :rejected [{:logical-id "buy-0" :side :buy :rung-index 0 :price "76.4" :original-base "7" :reason "..."}]}
+
+Blocking codes: `:replace/unresolved-outcomes`, `:replace/legs-still-open`, `:replace/fills-incomplete` (existing) and `:replace/check-failed` (the confirm op errored or timed out; set by the adapter, not by `replacement-basis`).
+
+Frozen review context addition (`[:vol-range :frozen-context]`):
+
+    {:bbo {...} :frozen-at-ms n :provenance {...}
+     :draft {...effective draft...}                ; new (R1)
+     :replace {:predecessor {...as on the grid...}}}  ; new (P2), only when the update is :ready
+
+Effect ops on `[:effects/vol-range-execute op params]` (new ops in bold):
+
+- `:repair-preview {:grid-id}`; busy key `[:repair-preview grid-id]`.
+- `:repair {:grid-id :proposal-id :legs [{:logical-id :price :size}]}`; busy key `[:repair grid-id]`.
+- `:replace-cancel {:grid-id}`; busy key `[:replace-cancel grid-id]`.
+- `:replace-confirm {:grid-id}`; busy key `[:replace-confirm grid-id]`.
+
+`[:vol-range :execution :last]` gains `:op` values `:repair-preview`, `:repair`, `:replace-cancel`, `:replace-confirm` with the existing keys (`:status :errors :delivery :phase :error :counts :grid-id :at-ms`).
+
+## Plan of Work (file by file)
+
+### New namespaces
+
+- `src/hyperopen/vol_range/application/ladder_settings.cljs` (R1): `(settings-from-plan plan draft)` -> the `:settings` map (normalizes the draft with `trading.vol-range-draft/normalize-vol-range-draft`, limits from `(:inventory-outcomes plan)` core/target/maximum); `(settings->draft-patch settings)` (P1) -> patch pairs over `transitions/draft-path-whitelist` paths.
+- `src/hyperopen/vol_range/application/repair_plan.cljs` (R2): `leg-error` and `repair-reservations` moved here from `revalidation.cljs` (revalidation keeps thin delegating names so callers and tests are unchanged); `(propose {:grid :market :account :fees :now-ms})` -> `{:legs :unrepairable}`; `(bound-errors {:account :limits :legs :fees})` -> keywords `:repair/max-inventory-breach`, `:repair/protected-core-breach`, `:repair/insufficient-usdc`, `:repair/insufficient-base` (wraps `admission/check-bounds`, existing exposure counted once); `(selected-legs proposal)`; `(proposal-status proposal)` -> `{:status :ready|:invalid :errors [...] :warnings [...]}` with warning `:repair/limits-unrecorded` when `:limits` is nil.
+- `src/hyperopen/vol_range/application/repair_model.cljs` (R4): pure dialog model from `[:vol-range :repair]`, the grid and busy/last state.
+- `src/hyperopen/vol_range/repair_actions.cljs` (R3): repair handlers (below).
+- `src/hyperopen/runtime/effect_adapters/vol_range_repair_replace.cljs` (R3, extended in P2): `(repair-preview! store deps params)`, `(repair! store deps params)`, `(replace-cancel! store deps params sync!)`, `(replace-confirm! store deps params sync!)`. Each resolves to the result map that `finish!` stores; each writes `[:vol-range :repair]` or `[:vol-range :replace]` only if that state still refers to the same grid (and, for repair, the same proposal id).
+- `src/hyperopen/views/trade/vol_range/repair_dialog.cljs` (R4).
+- `src/hyperopen/vol_range/application/replace_state.cljs` (P1, extended in P2): state-only predicates with NO execution-foundation requires (A0-scan safe): `current?` (same scope key and the grid still in state), `phase`, `review-blocked?` (true in `:preview :canceling :blocked :canceled`), `frozen-lineage` (the `:predecessor` map for the frozen context, from `[:vol-range :replace]`), `account-for-plan` (in `:preview`, drop open orders whose oid appears in the old grid's `:legs` map; in `:canceled`/`:ready`, use `:refreshed :account`; otherwise the snapshot unchanged).
+- `src/hyperopen/vol_range/application/replace_flow.cljs` (P1, extended in P2; in the A0 test's `execution-foundations`): `quantities-patch` (basis plus selected rejected -> `[[[:buy :amount-unit] :base] [[:buy :quantity] "40"] [[:buy :enabled?] true] ...]`, zero side disabled), `preview-patch` (settings patch plus live-remainder quantities, buy cap rule below), `phase-after-confirm` (basis -> `:canceled` or `:blocked`), `freeze` (grid -> `{:frozen-cloids :filled-at-freeze}` via `lifecycle/replace-membership` and `leg-quantities`), `predecessor-blockers` (pure; journal records, predecessor map, scope key -> `[]` or the `:replace/*` codes below).
+- `src/hyperopen/vol_range/infrastructure/executor_replace.cljs` (P1): `(confirm! deps {:grid :frozen-cloids :filled-at-freeze})` -> refresh-grid, `reconcile!` when needed, `replacement-basis` with frozen membership; when ready, an awaited account barrier read -> `{:grid :basis :refreshed {:requested-at-ms :account}}`. Never sends anything. Never required by `executor_place.cljs`.
+- `src/hyperopen/vol_range/replace_actions.cljs` (P2): replace handlers (below).
+- `src/hyperopen/vol_range/application/replace_model.cljs` (P3): dialog model (old vs proposed), ticket banner model, review lineage model, dock lineage text.
+- `src/hyperopen/views/trade/vol_range/replace_dialog.cljs` (P3): dialog and ticket banner views.
+- `src/hyperopen/schema/vol_range_repair_replace_contracts.cljs` (R4, extended in P3): exact-key contracts `repair-model-valid?`, `replace-model-valid?`, `replace-banner-valid?`.
+- `tools/playwright/support/vol_range_world.mjs` (R5): shared `newWorld`, `stubInfo` (with an adjustable `world.book`), `bootstrap`, `installExchange`, `exchangeCalls`, `actionsOfType`, `openOrderRows`, `openVolLaddersTab`, `placeLive`, row helpers, moved from `vol-range-execution.spec.mjs`.
+- `tools/playwright/test/vol-range-repair-replace.spec.mjs` (R5, extended in P4).
+
+### Modified namespaces
+
+- `src/hyperopen/vol_range/actions.cljs`: `open-vol-range-review` puts `:draft (draft-scope/effective-draft state)` in the frozen context (R1); refuses while `replace-state/review-blocked?` and adds `:replace (replace-state/frozen-lineage state)` in `:ready` (P2). It requires only `replace_state`, never `replace_flow` (A0 scan).
+- `src/hyperopen/vol_range/application/lifecycle.cljs`: `new-grid` accepts `:settings` and `:predecessor` (R1, P1); `replacement-basis` gains a 2-arity with `{:frozen-cloids :filled-at-freeze}` (P1; the 1-arity is unchanged; blocking stays whole-grid); new `replace-membership` (P1) returns the CLOIDs of legs with placement `:accepted` or `:unknown` that are not terminal, cancel-requested included; new `live-remaining` (P2) -> `{:buy :sell}` remaining of current live members. If the file would pass 470 lines, move the replacement functions to a new `lifecycle_replacement.cljs` (also added to the A0 foundations set).
+- `src/hyperopen/vol_range/application/revalidation.cljs` (R2): `revalidate-repair` takes `:limits` and adds `repair-plan/bound-errors`; leg checks delegate to `repair-plan`.
+- `src/hyperopen/vol_range/infrastructure/executor_place.cljs`: `place!` accepts `:settings` (R1) and `:predecessor` (P1). With a predecessor, `admit-placement!` (after the journal load, before the barrier read, inside the account admission section) calls the pure `replace-flow/predecessor-blockers` and refuses with `{:status :blocked :errors [...]}` for `:replace/predecessor-missing`, `:replace/predecessor-scope`, `:replace/predecessor-not-settled` (basis not ready for the frozen membership, judged on the JOURNAL copy), `:replace/already-replaced` (another grid names it). The existing `placement-blockers` still applies (the old grid must be `:closed`). `repair-context` passes `(get-in grid [:settings :limits])` into the check (R2).
+- `src/hyperopen/runtime/effect_adapters/vol_range_execution.cljs`: `place!` passes `:settings (ladder-settings/settings-from-plan plan draft)` (R1) and `:predecessor` from the frozen context, and clears `[:vol-range :replace]` once anything may have been sent (P2); `vol-range-execute` dispatches the four new ops to the new adapter namespace (R3, P2); `:repair-preview` and `:repair` require `gate/enabled?` like `:place`; `:replace-cancel` and `:replace-confirm` do not (cancellation must never depend on the gate). `bounded` exempts `#{:place :repair}`; `:repair-preview`, `:replace-cancel` and `:replace-confirm` are bounded (Decision Log).
+- `src/hyperopen/vol_range/application/plan_state.cljs` (P2): `context-for-state` passes the account snapshot through `replace-state/account-for-plan` before planning (memo key already includes the account). It requires only `replace_state` (A0 scan).
+- `test/hyperopen/vol_range/a0_boundary_test.cljs` (R2, R3, R4, P1, P2, P3): add each new execution-dependent namespace's path to `execution-foundations` in the stage that creates it: `application/repair_plan.cljs` (R2), `repair_actions.cljs` (R3), `application/repair_model.cljs` (R4), `application/replace_flow.cljs` and `infrastructure/executor_replace.cljs` (P1), `replace_actions.cljs` (P2), `application/replace_model.cljs` (P3). `ladder_settings.cljs` and `replace_state.cljs` stay scanned and must not require foundations.
+- `shadow-cljs.edn` (R3): extend the `:vol-range-test` `:ns-regexp` alternation with `runtime\\.effect-adapters\\.vol-range.*` so `npm run test:vol-range` runs the adapter tests.
+- `src/hyperopen/vol_range/application/dock_model.cljs`: row keys `:repair` `{:visible? :enabled? :count :label :hint}` (R4), `:update` `{:visible? :enabled? :hint}` and `:lineage` text (P3); `status-message` texts for the new ops (R4, P3).
+- `src/hyperopen/views/trade/vol_range/dock.cljs`: repair button and market hint (R4), Preview update button and lineage line (P3), repair dialog mount (R4); `view-state` adds `[:vol-range :repair]`, `[:vol-range :replace]` and `:vol-range-dock {:current-scope-key ...}` (R4).
+- `src/hyperopen/views/trade/vol_range/commands.cljs`: action-vector constructors for every new action (R4, P3), including the three-action Preview update vector.
+- `src/hyperopen/vol_range/application/review_model.cljs` and `src/hyperopen/views/trade/vol_range/review.cljs` (P3): new review key `:replacement` (nil, or `{:lineage-text :remaining-text :filled-text :rejected-rows [...] :edited? bool}`), rendered as a section above the legs table.
+- `src/hyperopen/schema/vol_range_contracts.cljs` (P3): `review-keys` gains `:replacement` with its nested spec.
+- `src/hyperopen/views/trade/vol_range/ticket.cljs` (P3): optional second argument, the replace banner model; when the update is in `:preview :canceling :blocked :canceled` the banner's controls replace `outcomes/footer`; in `:ready` the normal footer renders under the banner.
+- `src/hyperopen/views/trade/order_form_view.cljs` (P3): `vol-range-ui` adds `:vol-range-replace` (dialog model while `:dialog-open?`) and `:vol-range-replace-banner`; renders the replace dialog beside the review dialog and passes the banner to the ticket.
+- Whitelists (R3 and P2): `schema/contracts/vol_range_action_args.cljs` (new arg specs `::logical-id-args` = tuple of non-empty string; reuse `::grid-id-args`, `::common/no-args`, `::common/key-args`), `schema/contracts/effect_args.cljs` (op set), `schema/runtime_registration/trade.cljs` (binding rows after `[:actions/reconcile-open-vol-ladders ...]`), `runtime/collaborators/vol_range.cljs` (`execution-action-deps`).
+
+### Actions (all pure; ids, args, effects)
+
+Repair (R3), handlers in `vol_range/repair_actions.cljs`:
+
+| Action id | Args | Effects |
+| --- | --- | --- |
+| `:actions/open-vol-ladder-repair` | `[grid-id]` | When placement is enabled, the grid exists in this scope, has repair candidates, is not cancel-requested, no update is active for it and `[:repair-preview id]` is not busy: `[[:effects/save-many [[[:vol-range :repair] {:grid-id id :status :loading}]]] [:effects/vol-range-execute :repair-preview {:grid-id id}]]`; else `[]`. |
+| `:actions/refresh-vol-ladder-repair` | `[]` | Same as open for the current repair grid. |
+| `:actions/toggle-vol-ladder-repair-leg` | `[logical-id]` | Toggle membership of a repairable leg in `:selected`; ids not in `:legs` are no-ops. |
+| `:actions/close-vol-ladder-repair` | `[]` | `[[:effects/save-many [[[:vol-range :repair] nil]]]]` |
+| `:actions/handle-vol-ladder-repair-keydown` | `[key]` | Escape closes; any other key `[]`. |
+| `:actions/submit-vol-ladder-repair` | `[]` | When status `:ready`, `proposal-status` is `:ready`, at least one leg is selected and `[:repair id]` is not busy: `[[:effects/vol-range-execute :repair {:grid-id id :proposal-id pid :legs [{:logical-id "buy-0" :price "76.16" :size "7"}]}]]`; else `[]`. |
+
+Replace (P2), handlers in `vol_range/replace_actions.cljs`:
+
+| Action id | Args | Effects |
+| --- | --- | --- |
+| `:actions/preview-vol-ladder-update` | `[grid-id]` | When placement is enabled, the grid is `:live` or `:partially-deployed`, not recovered, not cancel-requested, in the current scope, no repair dialog is open for it and the ticket is visible: one save-many with the draft patch (through `transitions/apply-patch` and ownership) and `[[:vol-range :replace] {...phase :preview, dialog-open? true}]`; else `[]`. |
+| `:actions/open-vol-ladder-update` | `[]` | Set `:dialog-open? true` when current. |
+| `:actions/close-vol-ladder-update` | `[]` | Set `:dialog-open? false` (phase kept). |
+| `:actions/handle-vol-ladder-update-keydown` | `[key]` | Escape closes the dialog. |
+| `:actions/cancel-vol-ladder-for-update` | `[]` | In `:preview` (or `:blocked` with `:replace/legs-still-open`) and not busy: `[[:effects/save-many [[[:vol-range :replace] (assoc r :phase :canceling)]]] [:effects/vol-range-execute :replace-cancel {:grid-id id}]]`. |
+| `:actions/check-vol-ladder-update` | `[]` | In `:blocked` (any blocking code, including `:replace/check-failed`), `:canceled` or `:ready` (Refresh balances) and not busy: `[[:effects/vol-range-execute :replace-confirm {:grid-id id}]]`. |
+| `:actions/toggle-vol-ladder-update-rejected` | `[logical-id]` | In `:canceled`, toggle a listed rejected member in `:include-rejected`. |
+| `:actions/review-vol-ladder-replacement` | `[]` | In `:canceled` with `(:ready? basis)`: one save-many with `replace-flow/quantities-patch` through `transitions/apply-patch` and phase `:ready`, `:dialog-open? false`. |
+| `:actions/stop-vol-ladder-update` | `[]` | Allowed in every phase. `[[:effects/save-many [[[:vol-range :replace] nil] ...]]]` plus a `[:vol-range :execution :last]` note `{:op :replace-stop ...}` for the live region; when `[:vol-range :frozen-context :replace]` is set, the same save-many also applies `transitions/close-review` so a stopped update cannot place a replacement with lineage. Never any order effect. |
+
+Every replace handler first checks `replace-state/current?` (same scope key and the grid still in state); a stale update only offers Stop updating.
+
+Buy cap rule for the preview patch: keep the deployed `[:buy :max-usdc-debit]` when non-blank; otherwise, if the deployed buy side was entered in USDC, use its `:quote-amount` as the cap; otherwise leave it blank so the existing **Use plan total** remediation applies.
+
+## UI copy and data-roles
+
+Repair (dock row and dialog):
+
+- Row button `vol-ladder-repair`: "Repair 1 rejected order" / "Repair N rejected orders"; `aria-label` "Repair N rejected orders in the VRT/USDC ladder". Shown only when the row has repair candidates, placement is enabled, the ladder is not recovered or being canceled and no update is active for it.
+- Scope hint `vol-ladder-market-hint` (also used by Preview update): "Open VRT/USDC to repair or update this ladder." The button is disabled and `aria-describedby` points at the hint.
+- Dialog `vol-ladder-repair-dialog` (`role="dialog"`, `aria-modal`, labelled by its title, shared `dialog-focus` focus trap and focus return to `vol-ladder-repair`): title "Review rejected orders"; identity line "VRT/USDC · 0x1234…5678 · Post-only"; intro "Only the selected orders are sent. The 6 active orders in this ladder are not touched."
+- Loading `vol-ladder-repair-loading`: "Reading the current book…".
+- Leg row `vol-ladder-repair-leg` (`data-logical-id`) with checkbox `vol-ladder-repair-leg-select` labelled "Include Buy 7 VRT"; columns Side, Rejected at, New price (`vol-ladder-repair-price`), Size, Notional (USDC), Distance; note "Moved away from the book: 76.4 would cross the best ask 76.35." or "The original price no longer crosses the book."; the original rejection reason in muted text.
+- Not repairable `vol-ladder-repair-unrepairable`: "Can't repair Sell 10 at 90.8: no post-only price within 50% of the mid." / "…: below the 10.50 USDC minimum at a safe price." / "…: the ladder's model at placement is unavailable."
+- Bounds panel `vol-ladder-repair-bounds`: "If all buys fill first: 190 VRT", "If all sells fill first: 120 VRT", "Hold at most: 190 VRT", "Keep at least: 120 VRT"; warning `vol-ladder-repair-limits-warning`: "This ladder's inventory limits weren't recorded when it was placed. Only balance checks apply."
+- Errors `vol-ladder-repair-error` (`role="alert"`): ":repair/crosses-book" -> "The market moved since these prices were set. Refresh prices and review again."; ":repair/max-inventory-breach" -> "These orders could take inventory above the maximum set for this ladder."; ":repair/protected-core-breach" -> "These orders could take inventory below this ladder's protected core."; ":repair/insufficient-usdc" / ":repair/insufficient-base" -> "Not enough available USDC for these orders." / "Not enough available VRT for these orders."; ":grid/cancel-requested" -> "This ladder is being canceled, so it can't be repaired."; ":grid/unresolved" -> "Some orders in this ladder are still being checked. Refresh status first."; ":guard/book-stale", ":guard/account-stale", ":guard/fees-stale" -> "Prices or balances are out of date. Refresh prices and try again."; anything else -> the existing generic text plus the error names.
+- Footer: `vol-ladder-repair-as-of` "Prices as of 14:02:10 UTC"; `vol-ladder-repair-refresh` "Refresh prices"; `vol-ladder-repair-close` "Back"; commit `vol-ladder-repair-submit` "Place 1 repair order" / "Place N repair orders", busy "Placing…" with `aria-busy`, disabled when nothing is selected or the selection is invalid; Enter in the dialog never submits.
+- Dock live region after a repair: "Repair sent. 7 of 7 orders active." / with a new rejection the existing partial message "1 order was not placed. 6 other orders remain active."; unknown delivery: "Checking the repair's outcome. Nothing will be resent." The dialog closes once anything may have been sent (`:delivery` `:response`/`:unknown` or `:status :error`), like placement.
+
+Replace:
+
+- Row button `vol-ladder-preview-update`: "Preview update" (`aria-label` "Preview an update of the VRT/USDC ladder"); same visibility rules and hint as repair.
+- Dialog `vol-range-replace-dialog`, title "Update ladder", step indicator `vol-range-replace-steps` "1 Preview · 2 Cancel old ladder · 3 Review replacement" with the current step marked by text, not color only.
+- Explanation `vol-range-replace-explainer`: "Updating takes two separate steps. First this ladder's open orders are canceled. Then you review and place a new ladder. If you stop after canceling, no new orders are placed."
+- Comparison table `vol-range-replace-compare` with rows `vol-range-replace-compare-row` (`data-field`): Anchor; Daily volatility; Inventory tilt; Buys (orders, nearest to farthest price, quantity); Sells; Buy fee reserve; Maximum buy debit; If all buys fill first; If all sells fill first. Columns "Current ladder" and "Proposed". When settings were not recorded: `vol-range-replace-settings-note` "This ladder's original settings weren't recorded; the proposal uses the ticket's current settings."
+- Quantity note: "Proposed quantities are the unfilled remainder of this ladder. Edit the ticket to change them."
+- Preview controls: primary `vol-range-replace-cancel-old` "Cancel current ladder to update" (`aria-label` "Cancel the 7 open orders of the VRT/USDC ladder"); `vol-range-replace-edit` "Edit in ticket"; `vol-range-replace-abandon` "Stop updating".
+- Canceling `vol-range-replace-phase`: "Canceling the old ladder…" (`aria-busy`).
+- Blocked `vol-range-replace-blocking`: `:replace/unresolved-outcomes` -> "Some old orders have an unknown status. The replacement can't be reviewed until they are settled."; `:replace/legs-still-open` -> "N old orders are still open." with `vol-range-replace-cancel-remaining` "Cancel remaining orders"; `:replace/fills-incomplete` -> "Fills during the cancel aren't confirmed yet."; plus `vol-range-replace-check` "Check again".
+- Canceled `vol-range-replace-message`, exactly: "Old ladder canceled. Review the updated quantities before placing the replacement." Then `vol-range-replace-remaining` "Unfilled remainder: buys 40 VRT, sells 27 VRT." and `vol-range-replace-filled` "Filled while canceling: sells 3 VRT." (omitted when nothing filled); rejected section `vol-range-replace-rejected` titled "Orders that were never placed", note "These are not included unless you select them.", one checkbox per member `vol-range-replace-rejected-select` labelled "Include Buy 7 at 76.4"; primary `vol-range-replace-use-quantities` "Review replacement"; `vol-range-replace-abandon` "Stop updating".
+- Ticket banner `vol-range-replace-banner` (`role="status"`): preview "Updating the VRT/USDC ladder · step 1 of 3" with `vol-range-replace-open` "Open update" and "Stop updating"; canceled/ready shows the exact intermediate message, "Replacing the ladder created 2026-10-28 14:02 UTC", and in `:ready` `vol-range-replace-refresh-balances` "Refresh balances" plus "Stop updating". In preview the ticket's normal "Review N orders" footer is replaced by "Open update".
+- Review section `vol-range-review-lineage`: "Replaces the ladder created 2026-10-28 14:02 UTC. Unfilled remainder: buys 40 VRT, sells 27 VRT. Filled while canceling: sells 3 VRT." and `vol-range-review-rejected` "Rejected orders included: Buy 7 (old price 76.4)" or "Rejected orders from the old ladder are not included." When the side quantities differ from the default: "You changed the quantities from the remainder." The commit label stays "Place N post-only orders".
+- Dock lineage `vol-ladder-lineage`: "Replaces the ladder created 2026-10-28 14:02 UTC" on the new row; "Replaced by the ladder created 2026-10-28 14:09 UTC" on the old row.
+- Live region: stop before cancel "Update stopped. Your ladder was not changed."; stop after cancel "Update stopped. The old ladder stays canceled; no new orders were placed."; cancel confirmed: the exact intermediate message.
+
+All copy says "ladder", never "grid".
+
+## Stages
+
+Each stage is one commit, leaves `npm test`, `npm run check` and `npm run test:websocket` green (`npm run gates`), runs `npm run test:runner:generate` when it adds test namespaces, and touches no live exchange. Commit messages follow the repository's existing style (for example `feat(vol-range): ...`), with no attribution lines. Never push, never `git pull --rebase`, never bare `git stash`.
+
+### Stage R1: record ladder settings at placement
+
+Files: new `vol_range/application/ladder_settings.cljs`; modify `vol_range/actions.cljs` (`open-vol-range-review` context `:draft`), `vol_range/application/lifecycle.cljs` (`new-grid` `:settings`), `vol_range/infrastructure/executor_place.cljs` (`place!` and `admit-placement!` thread `:settings`), `runtime/effect_adapters/vol_range_execution.cljs` (`place!` builds settings from the frozen plan and context draft). Tests: new `test/hyperopen/vol_range/application/ladder_settings_test.cljs`; extend `lifecycle_test.cljs` (new-grid keeps `:settings`; `merge-grids` of an old copy and a new copy keeps it), new `test/hyperopen/vol_range/infrastructure/ladder_settings_scenario_test.cljs` (after a simulator placement with settings, the journal grid has `[:settings :limits :maximum] "190"` for the 13.2 fixture), `actions_test.cljs` (frozen context has `:draft`).
+
+Acceptance: 13.2 fixture settings round-trip through the journal; a placement without settings still works (old callers); VR-24 boundary test still passes (the A0 handler only adds a save-many value).
+
+### Stage R2: pure repair proposal and shared repair checks
+
+Files: new `vol_range/application/repair_plan.cljs`; modify `vol_range/application/revalidation.cljs` (delegate leg checks, add `:limits` bounds), `executor_place.cljs` (`repair-context` passes the grid's limits) and `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `repair_plan.cljs` to `execution-foundations`). Tests: new `test/hyperopen/vol_range/application/repair_plan_test.cljs`; new `test/hyperopen/vol_range/infrastructure/repair_scenarios_test.cljs` for the simulator cases (`lifecycle_scenarios_test.cljs` is already 413 lines and is not extended).
+
+Fixture cases (13.2/13.4 numbers, `r = 80`, `v = 0.06`, size decimals 2):
+
+- Rejected buy 76.4 (actual distance 0.75) with BBO 76.00/76.35 -> first step 0.80 -> 80 x (1 - 0.8 x 0.06) = 76.16, size 7, notional 533.12, `:repriced? true`.
+- Same with BBO 75.00/76.50 -> 76.4 no longer crosses -> kept, `:repriced? false`.
+- A step whose price equals a surviving buy's price is skipped to the next step.
+- A sell needing more than 4.00 sigma or beyond 50% of the mid -> `:unrepairable` `:repair/no-safe-price`.
+- A leg below 10.50 USDC at its safe price -> `:repair/below-min-notional`.
+- Grid without `:model` shifted anchor or volatility -> `:repair/model-unavailable`.
+- Bounds: q 190 with limit maximum 190 and a buy repair -> `:repair/max-inventory-breach`; no limits -> no bound errors and warning `:repair/limits-unrecorded`.
+- `revalidate-repair` with the grid's limits refuses the breach at the final guard; existing `revalidate-repair` tests unchanged.
+- Simulator: `repair!` on a grid whose settings maximum would be breached resolves `{:status :admission-failed}` with `:repair/max-inventory-breach` and sends nothing (`(count (sim/order-sends s))` unchanged).
+
+Acceptance: all stage 5 repair tests unchanged and green; `revalidation.cljs` and `repair_plan.cljs` under 500 lines.
+
+### Stage R3: repair actions, effect ops, whitelists and adapter
+
+Files: new `vol_range/repair_actions.cljs`, `runtime/effect_adapters/vol_range_repair_replace.cljs`; modify `runtime/effect_adapters/vol_range_execution.cljs` (dispatch `:repair-preview` and `:repair`, gate check, close the dialog and `sync!` after a possible send, `bounded` exempts `#{:place :repair}`), `schema/contracts/effect_args.cljs`, `schema/contracts/vol_range_action_args.cljs`, `schema/runtime_registration/trade.cljs` (rows in `post-order-form-action-binding-rows`, after `:reconcile-open-vol-ladders`), `runtime/collaborators/vol_range.cljs` (`execution-action-deps` only), `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `repair_actions.cljs`), `shadow-cljs.edn` (`:vol-range-test` ns-regexp gains `runtime\\.effect-adapters\\.vol-range.*`).
+
+Adapter behavior: `:repair-preview` takes `live!`, refuses unless the live scope equals the grid scope, runs the awaited book and account barrier reads, builds the account snapshot with `snapshots/account-snapshot-from-read`, calls `repair-plan/propose`, and writes `[:vol-range :repair]` with a fresh `proposal-id` (from `entropy/random-id!`) only if `[:vol-range :repair :grid-id]` still equals the grid id. `:repair` verifies the proposal id still matches state and that `repair-plan/selected-legs` of the frozen proposal equals the params legs (else `{:status :refused :errors [:repair/proposal-mismatch]}`, nothing sent), then calls `executor-place/repair!` with the grid from state and those legs; it never edits the legs. `:repair` is not raced by `bounded`.
+
+Tests: new `test/hyperopen/vol_range/repair_actions_test.cljs` (exact effects for every handler, busy double-click returns `[]`, gate off returns `[]`, candidates absent returns `[]`, cancel-requested returns `[]`), new `test/hyperopen/runtime/effect_adapters/vol_range_repair_replace_test.cljs` (store atom plus `with-redefs` of `vol-range-execution/executor-deps` to `sim/deps` and `gate/enabled?` to true: preview writes a proposal; a stale proposal id refuses without sending; params legs that differ from the frozen proposal refuse with `:repair/proposal-mismatch` without sending; a successful repair sends exactly one order action with one order and a new CLOID and leaves 7 live; the six survivors are never resent; a repair whose send outlasts 60 s keeps `[:repair grid-id]` busy until the delivery resolves), extend `test/hyperopen/vol_range/registration_test.cljs` (ids registered and contracted; arg specs ok/bad; emitted effects satisfy `assert-emitted-effects!`; `::vol-range-execute-args` accepts the new ops and rejects `:replace`).
+
+Acceptance: VR-16 repair half holds end to end through the adapter; `a0_boundary_test` green with `repair_actions.cljs` classified as execution code (the A0 `action-deps` group is unchanged); `npm run test:vol-range` runs the new adapter test.
+
+### Stage R4: repair dialog, dock control and result messaging
+
+Files: new `vol_range/application/repair_model.cljs`, `views/trade/vol_range/repair_dialog.cljs`, `schema/vol_range_repair_replace_contracts.cljs`; modify `vol_range/application/dock_model.cljs` (row `:repair`, status texts), `views/trade/vol_range/dock.cljs` (button, hint, dialog mount, `view-state`), `views/trade/vol_range/commands.cljs`, `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `repair_model.cljs`; `repair_dialog.cljs` stays scanned and must not require foundations or contain "nonce").
+
+Tests: new `test/hyperopen/vol_range/application/repair_model_test.cljs` (labels and pluralization, selection defaults, error texts, limits warning, contract validity), new `test/hyperopen/views/trade/vol_range/repair_dialog_test.cljs` (hiccup: data-roles, checkbox labels, disabled submit with no selection, `role="alert"` errors, class vectors), extend `test/hyperopen/views/trade/vol_range/dock_test.cljs` and `test/hyperopen/vol_range/application/dock_model_test.cljs` (button only with candidates; hidden for recovered, cancel-requested, unresolved, placement-off; disabled with hint on another market; messages for `:repair` results).
+
+Acceptance: `npm run lint:hiccup`, `lint:class-attrs`, `lint:style-keys`, `lint:theme-colors`, `lint:namespace-sizes` green; the dock's outer dimensions unchanged.
+
+### Stage R5: repair browser coverage
+
+Files: new `tools/playwright/support/vol_range_world.mjs` (helpers moved out of `vol-range-execution.spec.mjs`, which now imports them; add `world.book` used by the `l2Book` stub; export one `bootstrap(page, world)` that every Vol Range spec calls before navigation, so later stages can install more page routes, such as the live-fills WebSocket simulator, in one place), new `tools/playwright/test/vol-range-repair-replace.spec.mjs`. Every spec imports `{ expect, test }` from `../support/guarded_test.mjs` (enforced by `spec_imports.test.mjs`).
+
+Tests (`@regression`): (1) partial deployment with the 76.4 buy rejected; book stub 76.00/76.35; **Repair 1 rejected order** visible; dialog shows New price 76.16 and Size 7; submit; exactly two signed `order` actions, the second with one order whose `c` differs from the rejected CLOID and `p` is "76.16"; the dock shows "7 live" and the old leg row marked "earlier attempt"; the repair button is gone. (2) No rejected legs: no repair button. (3) Refresh prices after moving the stubbed book re-proposes. (4) Escape closes the dialog and focus returns to the repair button. (5) A refused repair (book moved past the frozen price before submit) sends nothing and shows the crosses-book text.
+
+Acceptance: `npx playwright test tools/playwright/test/vol-range-repair-replace.spec.mjs` and `npx playwright test tools/playwright/test/vol-range-execution.spec.mjs` pass; `npm run browser:cleanup` leaves no sessions.
+
+### Stage P1: replacement core
+
+Files: modify `vol_range/application/lifecycle.cljs` (`replace-membership`, `replacement-basis` 2-arity with whole-grid blocking, `new-grid` `:predecessor`), `vol_range/application/ladder_settings.cljs` (`settings->draft-patch`), `vol_range/infrastructure/executor_place.cljs` (predecessor admission through `replace-flow/predecessor-blockers`), `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `replace_flow.cljs` and `executor_replace.cljs`); new `vol_range/application/replace_state.cljs` (lifecycle-free), `vol_range/application/replace_flow.cljs`, `vol_range/infrastructure/executor_replace.cljs`.
+
+Tests: new `test/hyperopen/vol_range/application/replace_flow_test.cljs` (preview patch from 13.2 settings with live remainder; USDC-entered sides become base; buy cap rule; quantities patch 40/27 by default, 47/27 with the rejected buy included, a zero side disabled; `replace-flow/freeze` captures `:frozen-cloids` and `:filled-at-freeze`; `predecessor-blockers` for each `:replace/*` code), new `test/hyperopen/vol_range/application/replace_state_test.cljs` (`review-blocked?` per phase; `account-for-plan` excludes the old oids in preview and substitutes the refreshed account after confirm; stale scope is not current; the namespace requires no execution foundation), extend `lifecycle_test.cljs` (a leg canceled before the freeze is not in the frozen remainder; a repaired member counts once; frozen basis ignores historical rejected copies), new `test/hyperopen/vol_range/infrastructure/replace_scenarios_test.cljs` with the simulator:
+
+- 13.4 replacement: place; 3 of the 10-unit sell fill while the cancel is pending; `cancel!` then `executor-replace/confirm!` -> basis ready, remaining sell 27, buy 40, filled sell 3, refreshed account base equals the venue's post-fill base; a replacement `place!` with that predecessor succeeds and its grid carries `:predecessor`.
+- A replacement frozen from the pre-fill account (inventory tilt on, so the legs depend on inventory) is refused at admission with `:guard/plan-changed` or `:admission-failed` and sends nothing.
+- Unknown cancel outcome -> basis not ready -> `place!` with that predecessor returns `{:status :blocked :errors [:replace/predecessor-not-settled]}` (also blocked by `:grid/active-in-market` while the old grid is not closed).
+- A second replacement naming the same predecessor -> `:replace/already-replaced`.
+- Predecessor from another scope -> `:replace/predecessor-scope`.
+- Abandon after cancel: `cancel!` and `confirm!` only; the order send count stays 1.
+- A leg already 2-filled before the freeze and 3-filled during the cancel: `:filled-during-update` is 3, `:remaining` is the canceled remainder; a leg canceled before the freeze adds nothing; a new leg added after the freeze keeps the basis blocked while it is open and never adds to `:remaining`.
+- With monitoring not live (live-fills stage 12 gate already in `refusal`), the replacement `place!` is refused before admission and `replace-cancel`/`confirm!` still run.
+
+Acceptance: VR-15 and VR-16 replacement halves hold at the executor level; `executor_place.cljs` stays under 500 lines (the predecessor logic itself lives in `replace_flow.cljs`); `a0_boundary_test` green.
+
+### Stage P2: replace actions, effect ops, whitelists, adapter and planner hooks
+
+Files: new `vol_range/replace_actions.cljs`; modify `runtime/effect_adapters/vol_range_repair_replace.cljs` (`replace-cancel!`: `ex/refresh-grid!`, `replace-flow/freeze` on the refreshed grid, write `:frozen-cloids` and `:filled-at-freeze`, `executor-cancel/cancel!` with that refreshed grid, then the confirm path; any `{:status :error}` result, including the 60 s bound, sets phase `:blocked` with `[:replace/check-failed]`; `replace-confirm!`: `executor-replace/confirm!`, the adapter's `refresh-fees!` (passed in as an argument together with `sync!`; `vol_range_repair_replace.cljs` never requires `vol_range_execution`, which requires it), best-effort store spot refresh, write `:basis`, `:refreshed`, `:phase` via `replace-flow/phase-after-confirm`, only if `[:vol-range :replace :grid-id]` still matches), `runtime/effect_adapters/vol_range_execution.cljs` (ops, `place!` passes `:predecessor` from the frozen context and clears the update after a possible send), `vol_range/application/plan_state.cljs` and `vol_range/actions.cljs` (review guard and lineage, both through `replace_state` only), the four whitelist files, `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `replace_actions.cljs`).
+
+Tests: new `test/hyperopen/vol_range/replace_actions_test.cljs` (exact effects; scope mismatch; busy; Stop updating never emits `:effects/vol-range-execute`), extend `vol_range_repair_replace_test.cljs` (adapter replace scenario with the simulator through `vol-range-execute`: phases `:canceling` -> `:canceled` with the intermediate state; blocked path; the replacement place carries the predecessor), extend `registration_test.cljs`, extend `actions_test.cljs` (open-review refused in preview; lineage in the frozen context in `:ready`), extend `test/hyperopen/vol_range/application/plan_state_memo_test.cljs` (override changes the plan only for the matching scope).
+
+Acceptance: the full six steps run headless against the simulator; leaving at any step places nothing.
+
+### Stage P3: replace dialog, ticket banner, review lineage and dock lineage
+
+Files: new `vol_range/application/replace_model.cljs`, `views/trade/vol_range/replace_dialog.cljs`; modify `schema/vol_range_repair_replace_contracts.cljs`, `schema/vol_range_contracts.cljs` (`:replacement` review key), `vol_range/application/review_model.cljs`, `views/trade/vol_range/review.cljs`, `views/trade/vol_range/ticket.cljs`, `views/trade/order_form_view.cljs`, `vol_range/application/dock_model.cljs`, `views/trade/vol_range/dock.cljs` (including `order-form-slice`, added by live-fills stage 13: while `[:vol-range :replace :grid-id]` is set it must also carry `[:vol-range :execution :grids <that id>]`, because the update dialog's Current column and the review lineage read the old grid; `trade_view.cljs` itself is not edited), `views/trade/vol_range/commands.cljs`, `test/hyperopen/vol_range/a0_boundary_test.cljs` (add `replace_model.cljs`).
+
+Tests: new `test/hyperopen/vol_range/application/replace_model_test.cljs` (compare rows from the 13.2 grid against a proposed plan; exact intermediate message; remaining and filled texts; rejected rows unchecked by default; lineage texts; contract validity), new `test/hyperopen/views/trade/vol_range/replace_dialog_test.cljs`, extend `review_test.cljs` (lineage section; contract), `ticket_test.cljs` (banner swaps the footer in preview; normal footer in ready), `dock_test.cljs` and `dock_model_test.cljs` (Preview update visibility and hint; lineage both directions), `test/hyperopen/views/trade_view/vol_range_slice_repaint_test.cljs` (the dock repaints when `[:vol-range :replace]` or `[:vol-range :repair]` changes; the order-form slice carries the replace grid while an update is active and still ignores fills on other ladders).
+
+Acceptance: UI lints green; desktop dock geometry unchanged; dialogs usable at 375 px (full-screen sheet pattern like the review).
+
+### Stage P4: replace browser coverage, runbook, full gates and close-out
+
+Files: extend `tools/playwright/test/vol-range-repair-replace.spec.mjs`; update `/hyperopen/docs/runbooks/vol-range-local-money-test.md` (replace the "no repair screen" note with how to repair and update, and that leaving after the cancel places nothing); update this plan's living sections; move it to `docs/exec-plans/completed/` only if every acceptance item below passes (otherwise keep an unchecked item).
+
+Tests (`@regression`; the shared `bootstrap` already installs the live-fills WebSocket simulator, without which placement is refused while monitoring is not live): (1) Live ladder -> Preview update -> compare table visible -> Cancel current ladder to update -> exactly one cancel action targeting all 7 -> the stub reports the 10-unit sell 3 filled and the rest canceled -> "Check again" if needed -> exact intermediate message, "sells 27" -> Review replacement -> ticket shows the sell quantity 27 -> Review shows the lineage section -> Place -> a second `order` action whose sell sizes sum to 27 -> dock shows "Replaces the ladder created …" and "Replaced by …". (2) Leaving after cancel: Stop updating after the message, and separately a reload after the cancel; in both, the count of signed `order` actions stays 1. (3) Rejected leg from a partial deployment is listed unchecked and only adds 7 to the buy quantity when checked. (4) An unknown cancel outcome shows the blocked text and no Review replacement control. (5) Keyboard: Escape closes the dialog and focus returns to the opener; the intermediate message is announced in a polite live region. (6) Layout at 375 and 1280 CSS pixels: dialog fits with no horizontal scroll.
+
+Acceptance: `npm run gates` PASS; `vol-range-repair-replace.spec.mjs`, `vol-range-execution.spec.mjs`, `vol-range-live.spec.mjs` and `vol-range.spec.mjs` pass; `npm run browser:cleanup` clean.
+
+## Test Plan Summary
+
+- Unit (`npm run test:vol-range` for the fast loop, `npm test` for the full build): `ladder_settings_test`, `repair_plan_test`, `repair_model_test`, `repair_actions_test`, `replace_flow_test`, `replace_model_test`, `replace_actions_test`, `replace_state_test`, `replace_scenarios_test`, `repair_scenarios_test`, `ladder_settings_scenario_test`, `vol_range_repair_replace_test`; extensions of `lifecycle_test`, `revalidation` cases, `actions_test`, `plan_state_memo_test`, `dock_model_test`, `dock_test`, `review_test`, `ticket_test`, `vol_range_slice_repaint_test`.
+- Contract: `registration_test` (registered, contracted, arg specs, emitted effects, effect op set), exact-key contracts for the repair dialog, replace dialog, ticket banner and the review's `:replacement` key, `a0_boundary_test` (the A0 handler group still emits only save, save-many and candle fetch; each new execution-dependent namespace is added to `execution-foundations` in its stage, and the scan still covers `actions.cljs`, `plan_state.cljs`, `replace_state.cljs`, `ladder_settings.cljs` and every view under `views/trade/vol_range/`).
+- Playwright: `tools/playwright/test/vol-range-repair-replace.spec.mjs` (imports `test` from `../support/guarded_test.mjs`) with shared support `tools/playwright/support/vol_range_world.mjs`; real signing against the debug exchange simulator, stubbed `/info`, and from live-fills stage 12 on the WebSocket simulator installed by `bootstrap`; asserts on recorded signed actions only.
+- Fixtures to create: in `test/hyperopen/vol_range/fixtures.cljs` a `settings-13-2` map and a `grid-13-4-partial` builder (six live, `buy-0` rejected, settings present) and a settings-less variant; in the simulator, a scripted "fill N of a CLOID during cancel" helper if `sim/fill!` before `cancel!` is not enough, and a book setter for repair pricing; in Playwright support, `world.book`, a canceled-with-partial-fill `orderStatus` builder and `userFillsByTime` rows for the 3-unit sell fill.
+
+## Risks and Prevention
+
+- Resending survivors or replaying the original batch. Prevented by `repair!` sending only the frozen selected legs (adapter passes them unmodified), `add-repair` rejecting non-candidates and duplicates, and tests asserting the second action has exactly the selected orders.
+- A repair or replacement bypassing admission, journal-before-send, the final guard or unknown-outcome rules. Both go through `admit-and-send!` (account admission section, `commit-admitted!`, `final-guard`, strict interpretation); no new send path is added anywhere else. Tests assert nothing is sent on refusal, journal failure or stale books.
+- Repairing into an inventory breach. Bounds in the review and in `revalidate-repair` at the final guard (R2).
+- A repair reported as failed while its signed action is still in flight. `:repair` is exempt from the 60 s `bounded` race, like `:place`; the busy key clears only when delivery resolves.
+- A proposal edited between review and send. The adapter rebuilds legs from the frozen proposal and refuses on any mismatch (`:repair/proposal-mismatch`).
+- Breaking VR-24 by reaching execution code from the A0 preview. New execution-dependent namespaces are classified in `a0_boundary_test` in their own stage; A0 sources require only the lifecycle-free `replace_state.cljs`.
+- Placing while live monitoring is stale (after live-fills lands). Repair and the replacement go through `refusal`, which includes the monitoring blocker; cancel and the replace cancel/confirm ops do not.
+- Repricing toward the touch. The search only moves away from the book in model sigma steps; tests assert the proposed buy is below the rejected price and the proposed sell above it.
+- Placing a replacement while old legs might still be live. `placement-blockers` (old grid not closed), predecessor admission (`replacement-basis` ready for the frozen membership), and the UI blocked phase; tests for unknown cancel and still-open legs.
+- Replenishing filled quantity or using pre-fill inventory. Remainder from frozen membership only; planner uses the post-cancel barrier read; admission re-reads and requires the identical fixed vector; the tilt-on stale-inventory test.
+- Two replacements from two tabs or a double click. `:replace/already-replaced` inside the admission section; busy keys; commit button disabled while placing.
+- Abandonment placing orders. No automatic placement exists; Stop updating and reload tests assert the order action count.
+- Account or market switch mid-flow retargeting an operation (VR-18). Replace and repair state carry the grid id and scope key; handlers and adapter writes check them; the executor compares identity keys.
+- Cancellation disabled by the placement gate. `:replace-cancel` and `:replace-confirm` do not consult the gate; the dock's Cancel this ladder is unchanged.
+- Size ceilings. New logic lives in new namespaces; `trade_view.cljs` (500 lines, no exception), `effect_order_contract.cljs` and `action_args.cljs` are not edited; the order-form slice change goes through `vol-dock/order-form-slice`; check `npm run lint:namespace-sizes` at every stage.
+- Real money in tests. Every test uses the simulator or the debug exchange simulator; no agent runs the dev app against a real wallet with placement armed.
+
+## Concrete Steps
+
+From the worktree root (`/hyperopen` in repo-root notation):
+
+    npm run setup:worktree
+    npm run test:vol-range
+    node out/vol-range-test.js --test=hyperopen.vol-range.application.repair-plan-test
+    npm run test:runner:generate          # after adding test namespaces
+    npm run lint:namespace-sizes
+    npm run lint:hiccup && npm run lint:class-attrs && npm run lint:style-keys && npm run lint:theme-colors
+    npm run lint:docs
+    npm test
+    npm run gates                         # check, test, test:websocket
+    npx playwright test tools/playwright/test/vol-range-repair-replace.spec.mjs
+    npx playwright test tools/playwright/test/vol-range-execution.spec.mjs
+    npm run browser:cleanup
+
+If port 8080 is held by another checkout, use the static build and `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4180 PLAYWRIGHT_WEB_PORT=4180 PLAYWRIGHT_WEB_SERVER_COMMAND="node tools/playwright/static_server.mjs"` as recorded in the A0 plan.
+
+## Validation and Acceptance
+
+- Spec 13.4 steps 1-7: 6 live / 1 rejected; 33 live buy units and 30 live sell units; reviewing the rejected leg never resends the six; the repair sends one order with a new CLOID at a reviewed safe price; the ladder then has 7 current live members and 1 historical rejection and is Live, not Partially deployed; Cancel this ladder targets all 7 exactly once.
+- Spec 13.4 replacement: with 3 of a 10-unit sell filled during the cancel, the 7 remaining are canceled, the fill is preserved, current inventory reflects the 3 units and their fees, the default replacement sell quantity is 27 (buys 40), and no replacement plan uses the pre-fill account.
+- VR-15: unknown or still-open old legs block the replacement review and its placement.
+- VR-16: repair keeps all surviving members; cancel and replace target each member once; the replacement uses refreshed remaining quantities; abandonment after the cancel never places.
+- VR-18: switching account or market mid-repair or mid-update never sends for the other scope.
+- The dock shows Repair N rejected orders only with definitively rejected current members; Preview update only for live or partially deployed, non-recovered ladders with placement enabled; lineage in both directions.
+- The intermediate message is exactly "Old ladder canceled. Review the updated quantities before placing the replacement."
+- `npm run gates` PASS and the Vol Range Playwright suites pass.
+
+## Idempotence and Recovery
+
+Every stage is additive and can be re-run. A failed stage is reverted with `git checkout -- <files>` or a temporary WIP commit on the branch, never a bare stash. Registration drift (missing collaborator, arg spec, binding row or effect op) fails at load with an explicit message; add the missing entry. Never hand-edit `test/test_runner_generated.cljs`; regenerate it. Journal records written by older builds lack `:settings` and `:predecessor`; every reader treats them as optional. If the repair dialog is clipped inside the dock, move its mount to `order_form_view.cljs` (see Decision Log).
+
+## Interfaces and Dependencies
+
+No new libraries. Interfaces that must exist at the end of each stage:
+
+- R1: `ladder-settings/settings-from-plan [plan draft]`; `lifecycle/new-grid` key `:settings`; `executor-place/place! deps {:frozen-plan :frozen-scope :settings}`.
+- R2: `repair-plan/propose`, `repair-plan/bound-errors`, `repair-plan/proposal-status`, `repair-plan/selected-legs`; `revalidation/revalidate-repair` key `:limits`.
+- R3: actions in the repair table; effect ops `:repair-preview`, `:repair`; `vol-range-repair-replace/repair-preview!`, `repair!`.
+- R4: `repair-model/repair-model [state]`, `dock-model/grid-row` key `:repair`; `repair-dialog/repair-dialog`.
+- P1: `lifecycle/replace-membership`, `lifecycle/replacement-basis [grid {:frozen-cloids :filled-at-freeze}]`, `lifecycle/new-grid` key `:predecessor`, `replace-state/*` and `replace-flow/*` listed above (including `replace-flow/predecessor-blockers` and `replace-flow/freeze`), `executor-replace/confirm!`, `executor-place/place!` key `:predecessor`.
+- P2: actions in the replace table; effect ops `:replace-cancel`, `:replace-confirm`.
+- P3: `replace-model/replace-dialog-model`, `replace-model/banner-model`, `replace-model/review-replacement`, review key `:replacement`, `dock-model/grid-row` keys `:update` and `:lineage`.
+
+Shared shapes other Release A items must respect: the grid's `:settings` and `:predecessor` keys (drift flags, "Model at deployment", Portfolio campaigns and exports can read them), the `::vol-range-execute-args` op set and `execution-action-deps` map (other items adding ops or actions must merge, not overwrite), `dock-model/grid-row` keys and the dock row action area, and `[:vol-range :execution :last]` `:op` values used by `status-message`. A WebSocket fill tap must keep `lifecycle/fills-covered?` meaning "a complete fills read covered the grid's life", because the replacement confirmation depends on it.
+
+Revision note (2026-10-28): initial plan written from the spec and a read of branch `feature/vol-range-a0` at `dd19bd749`.
+
+Revision note (2026-10-28, integration review): `:repair` exempted from `bounded`; the A0 boundary test classification made explicit per stage and `replace_state.cljs` split out for A0-scanned callers; frozen membership taken from the journal-refreshed grid with `:filled-at-freeze`, whole-grid blocking; predecessor check made a pure `replace-flow` function; replace op errors map to a `:blocked` phase; Stop updating closes a lineage review; repair legs re-checked against the frozen proposal; new scenario tests moved out of the 413-line scenario suite; focused test build extended to adapter tests; Playwright guard import and shared `bootstrap`; P1-P4 sequenced after the live-fills stages (see the build-order plan).
