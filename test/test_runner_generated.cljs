@@ -519,6 +519,7 @@
             [hyperopen.runtime.effect-adapters.referrals-test]
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
+            [hyperopen.runtime.effect-adapters.vol-range-execution-test]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
             [hyperopen.runtime.effect-adapters.websocket-health-test]
@@ -952,6 +953,7 @@
             [hyperopen.vol-range.application.dock-model-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.grid-store-test]
             [hyperopen.vol-range.application.ladder-settings-test]
             [hyperopen.vol-range.application.lifecycle-test]
             [hyperopen.vol-range.application.live-evidence-test]
@@ -1583,6 +1585,7 @@
              'hyperopen.runtime.effect-adapters.referrals-test
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
+             'hyperopen.runtime.effect-adapters.vol-range-execution-test
              'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
              'hyperopen.runtime.effect-adapters.wallet-test
              'hyperopen.runtime.effect-adapters.websocket-health-test
@@ -2016,6 +2019,7 @@
              'hyperopen.vol-range.application.dock-model-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.grid-store-test
              'hyperopen.vol-range.application.ladder-settings-test
              'hyperopen.vol-range.application.lifecycle-test
              'hyperopen.vol-range.application.live-evidence-test

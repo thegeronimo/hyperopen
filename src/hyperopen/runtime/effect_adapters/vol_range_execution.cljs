@@ -23,6 +23,7 @@
             [hyperopen.api.trading.delivery :as delivery]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
+            [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
@@ -71,8 +72,11 @@
 ;; Store writes
 ;; ---------------------------------------------------------------------------
 
-(defn- put-grid [state grid]
-  (cond-> state grid (assoc-in [:vol-range :execution :grids (:grid-id grid)] grid)))
+(defn- put-grid
+  "Merge, never replace: a flow that finishes after another one changed the
+  store copy (a stream fill, a cancel) must not erase that change."
+  [state grid]
+  (grid-store/merge-grid-into-state state grid))
 
 (defn- finish! [store busy-key {:keys [grid] :as result} op]
   (when (= :repair-preview op)
@@ -157,11 +161,6 @@
 
 (defn- grid-in-state [store grid-id] (get-in @store [:vol-range :execution :grids grid-id]))
 
-(defn- account-grids
-  "Every journal grid for the active trading account, any market."
-  [records account]
-  (filterv #(= (lower account) (lower (get-in % [:scope :account-address]))) (jr/grids records nil)))
-
 (defn- sync-once!
   "Load this account's grids from the journal; then settle and discover for
   the active spot market (spec 7.6: restore the journal before a new grid)."
@@ -174,8 +173,9 @@
         (.then (fn [{:keys [ok? records error]}]
                  (if-not ok?
                    {:status :journal-unavailable :error error}
-                   (do (swap! store assoc-in [:vol-range :execution :grids]
-                              (into {} (map (juxt :grid-id identity)) (account-grids records account)))
+                   ;; Every journal grid for the trading account, any market,
+                   ;; merged with the store copy so store-only evidence survives.
+                   (do (swap! store grid-store/merge-account-grids account (jr/grids records nil))
                        (if (and account (= :spot (:market-type scope)))
                          (ex/recover! deps {:scope scope :scope-key (contracts/scope-key scope)})
                          {:status :ok :grids []})))))
@@ -197,15 +197,19 @@
                 r))))))
 
 (defn- reconcile-open!
-  "Reconcile each of the account's grids that is not closed, one at a time."
+  "Reconcile each of the account's grids that is not closed, one at a time.
+  Resolves to the vector of `ex/reconcile!` results, one per open grid."
   [store]
   (let [deps (executor-deps store)
         open (remove #(contains? #{:closed :not-placed} (lifecycle/status %))
                      (vals (get-in @store [:vol-range :execution :grids])))]
     (reduce (fn [p g]
-              (.then p (fn [_] (.then (ex/reconcile! deps g)
-                                      (fn [{:keys [grid]}] (swap! store put-grid grid))))))
-            (js/Promise.resolve nil)
+              (.then p (fn [results]
+                         (.then (ex/reconcile! deps g)
+                                (fn [{:keys [grid] :as result}]
+                                  (swap! store put-grid grid)
+                                  (conj results result))))))
+            (js/Promise.resolve [])
             open)))
 
 (def op-timeout-ms

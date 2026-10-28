@@ -37,7 +37,7 @@ Local scratch refs (non-authoritative):
 
 - [x] (2026-10-28) Read spec section 9 and related sections, the lifecycle, executor, effect adapter, watcher, dock, journal, IndexedDB platform, WebSocket user runtime, health projection and runtime reducer; wrote this ExecPlan.
 - [x] (2026-10-28) Stage 1: pure evidence envelope, routing and fill identity (`vol_range/application/live_evidence.cljs`). `fills-envelope`, `open-orders-envelope`, `route`, `apply-envelope` plus the public `informative-rows`; `lifecycle-evidence/fill-key` canonicalizes time and tid through a private `int-text`; synthetic frames in `test/hyperopen/vol_range/live_fixtures.cljs`; `live_evidence_test.cljs` (16 tests); `live_evidence.cljs` classified in `a0_boundary_test`.
-- [ ] Stage 2: monotonic store merge for ladders in the execution adapter.
+- [x] (2026-10-28) Stage 2: monotonic store merge for ladders in the execution adapter. New pure `vol_range/application/grid_store.cljs` (`merge-grid-into-state`, `merge-account-grids`), classified in `a0_boundary_test`; the adapter's `put-grid` delegates to it (so `finish!`, `reconcile-open!` and the sync's recovered grids all merge) and `sync-once!` uses `merge-account-grids`; `reconcile-open!` resolves to the vector of `reconcile!` results. Tests: `grid_store_test.cljs` (2 tests) and the new `runtime/effect_adapters/vol_range_execution_test.cljs` (3 tests, each shown to fail against the old replace-wholesale code).
 - [ ] Stage 3: raw user-stream taps in the account runtime (no Vol Range behavior yet).
 - [ ] Stage 4: live ingress applies WebSocket evidence to ladders in memory.
 - [ ] Stage 5: pure monitoring model (`vol_range/application/monitoring.cljs`).
@@ -65,6 +65,8 @@ Local scratch refs (non-authoritative):
 - Observation (Stage 1): `lifecycle-evidence/ingest-fills` and `apply-orders-snapshot` end with `refresh-operations`, which can return a different grid even when no row applied (an operation still marked `:unresolved` whose legs all resolved). `apply-envelope` therefore returns the input grid untouched when no informative row is left, and also when the result is `=` to it, so "nothing applied" is always `identical?`.
 - Observation (Stage 1): the Repair Playwright test "repairing the rejected buy sends one new order and the ladder becomes live" failed once at its last assertion ("Repair sent. 7 of 7 orders active.") in a first run of the three Vol Range specs, then passed in a full rerun (17/17) and in `--repeat-each=4` (20/20). Nothing from Stage 1 runs in the app yet. The likely cause is the known 15 s background reconcile writing `{:op :reconcile-open :status :ok}` to `[:vol-range :execution :last]` between the repair and the assertion, which Stage 6 removes.
   Evidence: the build-order plan's Surprises ("every successful background reconcile writes ... `:last`") and the spec's assertion order (counts first, message last).
+- Observation (Stage 2): the simulator's account `0xabc` is not a 40-hex address, so `account-context/active-trading-account-address` (which normalizes and validates) returns nil for a store built around it, and an adapter-level `:sync` would see no trading account. `vol_range_execution_test.cljs` stubs that one function to the simulator account for the duration of each test (restored in `finally`); the pure merges compare addresses lower-cased without validation, like `lifecycle-evidence`.
+  Evidence: the first run of `sync-keeps-store-evidence-and-drops-other-accounts-test` left `:grids` empty.
 
 ## Decision Log
 
@@ -130,10 +132,14 @@ Local scratch refs (non-authoritative):
   Date/Author: 2026-10-28, Claude (live-S1).
 - Decision (Stage 1): `route` reports `:order-coins` (and `:absent`) only for default-dex (`:dex` nil) open-order frames; a builder-dex frame says nothing about spot orders, so its coins must not arm the Stage 4 absence guard. Addresses are compared lower-cased and trimmed, like `lifecycle-evidence` (no 40-hex validation, so simulator accounts such as `0xabc` route). `informative-rows grid envelope` is public: `route` uses it per grid and `apply-envelope` re-checks the rows against the grid it is given, which may have moved on between routing and the store write.
   Date/Author: 2026-10-28, Claude (live-S1).
+- Decision (Stage 2): `merge-account-grids state account journal-grids` takes ALL journal grids (`jr/grids records nil`) and filters them by account itself (lower-cased, trimmed), so the adapter's private `account-grids` helper is gone. A nil trading account yields no grids (before, it kept grids whose account was also nil, which never exist). The adapter keeps a private `put-grid` as a one-line delegate so every existing writer (`finish!`, `reconcile-open!`, the sync's recovered grids) merges without call-site churn. The merge order follows the plan: store write = `(merge-grids store-copy incoming)`, sync = `(merge-grids journal-copy store-copy)`.
+  Rationale: one place decides which grids belong to the account; behavior for real (40-hex) accounts is unchanged apart from the merge.
+  Date/Author: 2026-10-28, Claude (live-S2).
 
 ## Outcomes & Retrospective
 
 - Stage 1 (live-S1, commit `feat(vol-range): normalize WebSocket order and fill evidence for ladders`): new pure `live_evidence.cljs` (envelopes, routing, application) and canonical fill-key inputs; numeric keys are byte-identical (asserted). Complexity: one new pure namespace under 250 lines that reuses `lifecycle-evidence` for every state change, so the WebSocket path adds no second set of leg rules. Gates and Playwright results are recorded in the build-order plan's Outcomes.
+- Stage 2 (live-S2, commit `fix(vol-range): merge ladder copies in the store instead of replacing them`): no writer of `[:vol-range :execution :grids]` replaces a copy wholesale any more; a reconcile, cancel or placement that finishes with an older copy keeps evidence only the store holds, and a journal sync keeps it for the account's journal grids while still dropping other accounts' ladders. Pure merge in under 60 lines; the adapter shrank its own filtering. Gates and Playwright results are recorded in the build-order plan's Outcomes.
 
 ## Context and Orientation
 
