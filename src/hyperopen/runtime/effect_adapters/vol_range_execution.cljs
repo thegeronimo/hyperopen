@@ -81,7 +81,11 @@
                      (assoc-in [:vol-range :execution :last]
                                (-> result
                                    (select-keys [:status :errors :delivery :phase :error :counts :in-flight?])
-                                   (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))))))))
+                                   (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))
+                                   ;; A refused placement leaves the review open; this
+                                   ;; lets the review show the refusal for its own plan.
+                                   (cond-> (= :place op)
+                                     (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))))))))
 
 (defn- fail! [store busy-key op e]
   (finish! store busy-key {:status :error :error (ex/error-text e)} op))

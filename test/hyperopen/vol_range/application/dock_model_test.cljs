@@ -56,7 +56,7 @@
   (let [state {:vol-range {:execution {:enabled? true :max-ladder-usdc "150"}
                            :frozen-review {:status :ready :legs [{:price "60" :size "1" :notional "60"}
                                                                  {:price "60" :size "1" :notional "60"}]}}}]
-    (is (= {:visible? true :enabled? true :placing? false :label "Place 2 orders"}
+    (is (= {:visible? true :enabled? true :placing? false :label "Place 2 orders" :error nil}
            (dissoc (dm/review-commit state) :note)))
     (testing "over the cap"
       (is (false? (:enabled? (dm/review-commit (assoc-in state [:vol-range :execution :max-ladder-usdc] "100"))))))
@@ -70,6 +70,19 @@
       (let [m (dm/review-commit (assoc-in state [:vol-range :execution :busy [:place]] true))]
         (is (:placing? m))
         (is (false? (:enabled? m)))))))
+
+(deftest review-commit-shows-why-its-own-plan-did-not-place-test
+  (let [state {:vol-range {:execution {:enabled? true
+                                       :last {:op :place :status :journal-unavailable :plan-id "p1"}}
+                           :frozen-review {:status :ready :plan-id "p1"
+                                           :legs [{:price "60" :size "1" :notional "60"}]}}}]
+    (is (re-find #"browser storage" (:error (dm/review-commit state))))
+    (testing "another plan's refusal is not shown"
+      (is (nil? (:error (dm/review-commit (assoc-in state [:vol-range :frozen-review :plan-id] "p2"))))))
+    (testing "hidden while a new attempt is in flight"
+      (is (nil? (:error (dm/review-commit (assoc-in state [:vol-range :execution :busy [:place]] true))))))
+    (testing "a cancel result is not a placement refusal"
+      (is (nil? (:error (dm/review-commit (assoc-in state [:vol-range :execution :last :op] :cancel))))))))
 
 (deftest status-message-explains-a-refused-send-test
   (is (re-find #"Nothing was sent"

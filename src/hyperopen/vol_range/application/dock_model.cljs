@@ -31,6 +31,8 @@
 ;; Review commit button
 ;; ---------------------------------------------------------------------------
 
+(declare status-message)
+
 (defn review-commit
   "The review dialog's commit control. Hidden unless placement is enabled in
   this browser; disabled unless the frozen plan is :ready and within the
@@ -42,8 +44,14 @@
         ;; Same arithmetic as the executor's cap check: price x size.
         total (reduce precision/add zero (map #(precision/mul (d (:price %)) (d (:size %))) (:legs plan)))
         over-cap? (and max-ladder-usdc (pos? (precision/cmp total (d max-ladder-usdc))))
-        placing? (busy? state [:place])]
+        placing? (busy? state [:place])
+        last-op (get-in state [:vol-range :execution :last])]
     {:visible? (boolean enabled?)
+     ;; Why the last click on THIS plan did not place; the dock's status line
+     ;; is behind the dialog.
+     :error (when (and (not placing?) (= :place (:op last-op)) (:plan-id plan)
+                       (= (:plan-id plan) (:plan-id last-op)))
+              (status-message state))
      :enabled? (boolean (and enabled? (= :ready (:status plan)) (pos? n) (not over-cap?) (not placing?)))
      :placing? placing?
      :label (if placing? "Placing orders…" (str "Place " (plural n "order")))

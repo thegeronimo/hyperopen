@@ -255,6 +255,7 @@
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-committed-test]
             [hyperopen.platform.indexed-db-test]
+            [hyperopen.platform.indexed-db-versioning-test]
             [hyperopen.platform.webauthn-test]
             [hyperopen.pnl-share.actions-test]
             [hyperopen.portfolio.account-activity-actions-test]
@@ -1309,6 +1310,7 @@
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-committed-test
              'hyperopen.platform.indexed-db-test
+             'hyperopen.platform.indexed-db-versioning-test
              'hyperopen.platform.webauthn-test
              'hyperopen.pnl-share.actions-test
              'hyperopen.portfolio.account-activity-actions-test

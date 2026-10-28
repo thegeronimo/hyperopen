@@ -49,8 +49,11 @@
      ^{:key idx} (p/stat-row label value))])
 
 (defn- commit-control
-  [{:keys [label enabled? placing? note]}]
+  [{:keys [label enabled? placing? note error]}]
   [:div {:class ["flex" "flex-col" "items-end" "gap-1"]}
+   (when error
+     [:p {:role "alert" :class ["text-right" "text-xs" "text-error"] :data-role "vol-range-submit-error"}
+      error])
    [:button {:type "button"
              :disabled (not enabled?)
              :aria-busy (boolean placing?)
