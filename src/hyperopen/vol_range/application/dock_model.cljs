@@ -34,7 +34,7 @@
 (defn review-commit
   "The review dialog's commit control. Hidden unless placement is enabled in
   this browser; disabled unless the frozen plan is :ready and within the
-  local ladder cap."
+  ladder cap, when this browser set one."
   [state]
   (let [{:keys [enabled? max-ladder-usdc]} (execution state)
         plan (get-in state [:vol-range :frozen-review])
@@ -48,8 +48,9 @@
      :placing? placing?
      :label (if placing? "Placing orders…" (str "Place " (plural n "order")))
      :note (cond
-             over-cap? (str "This ladder is " (ds total) " USDC; the local test cap is " max-ladder-usdc " USDC.")
-             :else (str "Post-only orders. Local test cap " max-ladder-usdc " USDC per ladder."))}))
+             over-cap? (str "This ladder is " (ds total) " USDC; this browser's ladder cap is " max-ladder-usdc " USDC.")
+             max-ladder-usdc (str "Post-only orders. Ladder cap " max-ladder-usdc " USDC in this browser.")
+             :else "Post-only orders.")}))
 
 ;; ---------------------------------------------------------------------------
 ;; Dock

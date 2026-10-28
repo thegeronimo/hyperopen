@@ -3,8 +3,8 @@ import { debugCall, dispatch, expectOracle, visitRoute, waitForIdle } from "../s
 
 // Vol Range placement, cancel and recovery (HO-SPEC-014 v2.1 sections 8-10, 15.2).
 //
-// Placement needs the dev build AND `localStorage hyperopen.volRange.execution = armed` set
-// before the page loads. The fixture wallet address is connected through the wallet
+// Placement is on in the dev build unless `localStorage hyperopen.volRange.execution = off`
+// is set before the page loads. The fixture wallet address is connected through the wallet
 // simulator so owner/active account match the seeded state. Barrier reads (balances, open
 // orders, l2Book, userFees, orderStatus, userFillsByTime) go through the api service
 // `fetch` to /info and are answered by a stateful page.route stub (`world`). Signed actions
@@ -116,13 +116,15 @@ function trackExchange(page) {
   return urls;
 }
 
-async function armInitScript(page, { armed = true, cap = "100000" } = {}) {
+async function armInitScript(page, { armed = true, cap = null } = {}) {
   await page.addInitScript(
     ({ armed: a, cap: c }) => {
       try {
-        if (a) window.localStorage.setItem("hyperopen.volRange.execution", "armed");
-        else window.localStorage.removeItem("hyperopen.volRange.execution");
-        window.localStorage.setItem("hyperopen.volRange.maxLadderUsdc", c);
+        // Defaults: placement on, no cap.
+        if (a) window.localStorage.removeItem("hyperopen.volRange.execution");
+        else window.localStorage.setItem("hyperopen.volRange.execution", "off");
+        if (c) window.localStorage.setItem("hyperopen.volRange.maxLadderUsdc", c);
+        else window.localStorage.removeItem("hyperopen.volRange.maxLadderUsdc");
       } catch (_e) { /* storage unavailable */ }
     },
     { armed, cap }
@@ -178,7 +180,7 @@ async function seedTicket(page) {
 }
 
 /** Full bootstrap: arm, stub reads, load, connect + enable agent, seed the fixture. */
-async function bootstrap(page, world, { armed = true, cap = "100000" } = {}) {
+async function bootstrap(page, world, { armed = true, cap = null } = {}) {
   await armInitScript(page, { armed, cap });
   await stubInfo(page, world);
   await loadTrade(page);
@@ -261,7 +263,7 @@ async function placeLive(page, world, extra = {}) {
   return orders[0];
 }
 
-test("not armed hides placement and never reaches the exchange @regression", async ({ page }) => {
+test("opted out hides placement and never reaches the exchange @regression", async ({ page }) => {
   const exchange = trackExchange(page);
   const world = newWorld();
   await bootstrap(page, world, { armed: false });
@@ -275,7 +277,7 @@ test("not armed hides placement and never reaches the exchange @regression", asy
   expect(exchange).toEqual([]);
 });
 
-test("armed placement sends one post-only ladder and the dock shows it live @regression", async ({ page }) => {
+test("placement (on by default, no cap) sends one post-only ladder and the dock shows it live @regression", async ({ page }) => {
   const exchange = trackExchange(page);
   const world = newWorld();
   await bootstrap(page, world);

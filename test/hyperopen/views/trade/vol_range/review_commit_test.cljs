@@ -52,7 +52,7 @@
   (let [html (render {:enabled? true :max-ladder-usdc "100"} ready)]
     (is (true? (get-in (hiccup/find-by-data-role html "vol-range-submit") [1 :disabled])))
     (is (str/includes? (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-note")))
-                       "local test cap"))))
+                       "ladder cap is 100"))))
 
 (deftest placing-is-busy-and-disabled-test
   (let [html (render {:enabled? true :max-ladder-usdc "150" :busy {[:place] true}} ready)

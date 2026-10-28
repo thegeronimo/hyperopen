@@ -3,12 +3,13 @@
 ## Scope
 
 How to run a first, small, real-money test of Vol Range placement (HO-SPEC-014 Release A) from a local
-development build, and what to collect afterwards. Placement exists only in the dev build and stays off
-until you arm it in your own browser. Release builds never include it.
+development build, and what to collect afterwards. Placement exists only in the dev build, where it is on
+by default with no per-ladder cap. Release builds never include it.
 
 ## Before you start
 
-- Use a wallet or subaccount holding only what you are willing to lose in a test: a small amount of USDC
+- With no cap, a ladder can use everything the account holds. Use a wallet or subaccount holding only
+  what you are willing to lose in a test: a small amount of USDC
   and, if you want sell orders, a small amount of one spot token.
 - Pick a liquid USDC spot market. The app supports spot markets quoted in USDC only.
 - The account's raw mode must be `default`, `disabled` or `dexAbstraction` (the review tells you if not).
@@ -24,24 +25,19 @@ npm run dev
 
 It serves http://localhost:8080. Stop any other HyperOpen dev server first: only one can hold port 8080.
 
-## Arm placement (this browser only)
+## Optional: turn placement off or set a cap (this browser only)
 
-In the browser's DevTools console on http://localhost:8080:
-
-```js
-localStorage.setItem('hyperopen.volRange.execution', 'armed');
-// Optional: per-ladder cap in USDC (default 150).
-localStorage.setItem('hyperopen.volRange.maxLadderUsdc', '60');
-```
-
-Reload the page. The cap is the sum of price × size over every order in one ladder; a ladder above it
-cannot be placed.
-
-To disarm at any time (cancelling keeps working while disarmed):
+Placement needs no setup in the dev build. To turn it off, or to cap each ladder's total order value
+(the sum of price × size over every order), run in the DevTools console on http://localhost:8080 and
+reload:
 
 ```js
-localStorage.removeItem('hyperopen.volRange.execution');
+localStorage.setItem('hyperopen.volRange.execution', 'off');      // placement off
+localStorage.setItem('hyperopen.volRange.maxLadderUsdc', '60');   // cap each ladder at 60 USDC
 ```
+
+Remove either key to go back to the default (placement on, no cap). Cancelling always works, whatever
+these are set to.
 
 ## Test steps
 

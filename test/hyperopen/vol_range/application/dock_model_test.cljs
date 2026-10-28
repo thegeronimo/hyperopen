@@ -60,7 +60,11 @@
            (dissoc (dm/review-commit state) :note)))
     (testing "over the cap"
       (is (false? (:enabled? (dm/review-commit (assoc-in state [:vol-range :execution :max-ladder-usdc] "100"))))))
-    (testing "not armed"
+    (testing "no cap set"
+      (let [m (dm/review-commit (assoc-in state [:vol-range :execution :max-ladder-usdc] nil))]
+        (is (:enabled? m))
+        (is (= "Post-only orders." (:note m)))))
+    (testing "opted out"
       (is (false? (:visible? (dm/review-commit (assoc-in state [:vol-range :execution :enabled?] false))))))
     (testing "placing"
       (let [m (dm/review-commit (assoc-in state [:vol-range :execution :busy [:place]] true))]

@@ -176,9 +176,9 @@ test("review is read-only and closes @regression", async ({ page }) => {
   await open();
   const dialog = page.getByRole("dialog");
   await expect(dialog.locator("tr[data-leg-id]")).toHaveCount(7);
-  await expect(dialog.getByText("Placement isn't available yet")).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /Place/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Place/ })).toHaveCount(0);
+  // The dev build has placement on by default; opening, Escape and Back never place.
+  await expect(dialog.getByRole("button", { name: "Place 7 orders" })).toBeVisible();
+  await expect(dialog.getByText("Placement isn't available yet")).toHaveCount(0);
 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
