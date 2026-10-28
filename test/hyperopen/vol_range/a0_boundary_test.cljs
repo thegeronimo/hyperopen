@@ -175,6 +175,7 @@
     "src/hyperopen/vol_range/application/lifecycle.cljs"
     "src/hyperopen/vol_range/application/lifecycle_evidence.cljs"
     "src/hyperopen/vol_range/application/lifecycle_recovery.cljs"
+    "src/hyperopen/vol_range/application/live_evidence.cljs"
     "src/hyperopen/vol_range/application/revalidation.cljs"
     "src/hyperopen/vol_range/application/repair_plan.cljs"
     "src/hyperopen/vol_range/application/repair_model.cljs"
@@ -190,6 +191,7 @@
    "hyperopen.vol-range.infrastructure.reads" "hyperopen.vol-range.application.journal-records"
    "hyperopen.vol-range.infrastructure.executor" "hyperopen.vol-range.application.lifecycle"
    "hyperopen.vol-range.application.revalidation" "hyperopen.vol-range.application.wire"
+   "hyperopen.vol-range.application.live-evidence"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

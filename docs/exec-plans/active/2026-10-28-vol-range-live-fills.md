@@ -36,7 +36,7 @@ Local scratch refs (non-authoritative):
 ## Progress
 
 - [x] (2026-10-28) Read spec section 9 and related sections, the lifecycle, executor, effect adapter, watcher, dock, journal, IndexedDB platform, WebSocket user runtime, health projection and runtime reducer; wrote this ExecPlan.
-- [ ] Stage 1: pure evidence envelope, routing and fill identity (`vol_range/application/live_evidence.cljs`).
+- [x] (2026-10-28) Stage 1: pure evidence envelope, routing and fill identity (`vol_range/application/live_evidence.cljs`). `fills-envelope`, `open-orders-envelope`, `route`, `apply-envelope` plus the public `informative-rows`; `lifecycle-evidence/fill-key` canonicalizes time and tid through a private `int-text`; synthetic frames in `test/hyperopen/vol_range/live_fixtures.cljs`; `live_evidence_test.cljs` (16 tests); `live_evidence.cljs` classified in `a0_boundary_test`.
 - [ ] Stage 2: monotonic store merge for ladders in the execution adapter.
 - [ ] Stage 3: raw user-stream taps in the account runtime (no Vol Range behavior yet).
 - [ ] Stage 4: live ingress applies WebSocket evidence to ladders in memory.
@@ -59,6 +59,12 @@ Local scratch refs (non-authoritative):
 - Observation: the runtime sends no pings. Transport freshness is `:live` while frames arrive within 10 s (or when no subscribed stream expects traffic). A WebSocket simulator in Playwright must push a frame at least every few seconds or the transport goes `:delayed`.
 - Observation: the committed Playwright specs live under `tools/playwright/test/` (not `tests/playwright/`): `vol-range.spec.mjs` (A0 preview) and `vol-range-execution.spec.mjs` (placement against the debug exchange simulator, `**/info` answered by a stateful `world` stub).
 - Observation (to verify in Stage 1 and during the local money test, not yet confirmed): whether Hyperliquid `userFills` WebSocket frames carry `data.user`, whether fill rows carry `cloid`, whether the default-dex `openOrders` frame includes spot orders with `cloid`, `origSz` and `oid`, and whether `time`/`tid` are numbers in both WebSocket and REST rows. The plan is written so that each answer only changes coverage, never safety (see Decision Log).
+
+- Observation (Stage 1): a leg whose placement is `:unknown` has no oid yet, so a stream row can only identify it by CLOID. An `openOrders` row or a fill row without `cloid` cannot resolve an unknown leg; whether the venue's stream rows carry `cloid` (open question above) therefore decides how fast the stream resolves Checking ladders, never safety.
+  Evidence: `presence-resolves-an-unknown-leg-test` and `checking-ladders-are-reported-test` in `test/hyperopen/vol_range/application/live_evidence_test.cljs`.
+- Observation (Stage 1): `lifecycle-evidence/ingest-fills` and `apply-orders-snapshot` end with `refresh-operations`, which can return a different grid even when no row applied (an operation still marked `:unresolved` whose legs all resolved). `apply-envelope` therefore returns the input grid untouched when no informative row is left, and also when the result is `=` to it, so "nothing applied" is always `identical?`.
+- Observation (Stage 1): the Repair Playwright test "repairing the rejected buy sends one new order and the ladder becomes live" failed once at its last assertion ("Repair sent. 7 of 7 orders active.") in a first run of the three Vol Range specs, then passed in a full rerun (17/17) and in `--repeat-each=4` (20/20). Nothing from Stage 1 runs in the app yet. The likely cause is the known 15 s background reconcile writing `{:op :reconcile-open :status :ok}` to `[:vol-range :execution :last]` between the repair and the assertion, which Stage 6 removes.
+  Evidence: the build-order plan's Surprises ("every successful background reconcile writes ... `:last`") and the spec's assertion order (counts first, message last).
 
 ## Decision Log
 
@@ -116,9 +122,18 @@ Local scratch refs (non-authoritative):
 - Decision (integration review): this plan runs as stages 6-15 of the global order in `/hyperopen/docs/exec-plans/active/2026-10-28-vol-range-build-order.md`, after Repair (stages 1-5) and before Replace and Reporting. Repair stage R5 already created `tools/playwright/support/vol_range_world.mjs` with a shared `bootstrap`; Stage 7 installs the WebSocket simulator there, so every Vol Range spec (execution, repair-replace, live, report) gets it.
   Date/Author: 2026-10-28, Claude (integrator).
 
+- Decision (Stage 1): a fill row is not routed to a leg whose placement is still `:pending` (sent, no HTTP response yet). The plan's routing rule excluded pending legs only for open-order rows; Stage 4's acceptance ("a fill arriving before the placement's HTTP response ... is not applied") needs the same for fills. The fill is counted once afterwards by the reconciliation that follows the response (the REST fills window re-reads it) or by the next stream frame.
+  Rationale: the in-flight placement owns the leg until its delivery is recorded; VR-14 still holds through the shared fill key.
+  Date/Author: 2026-10-28, Claude (live-S1).
+- Decision (Stage 1): an open-order row is informative for an accepted, resting leg only when its `:sz` is strictly below the leg's EFFECTIVE remaining (`(:remaining (lifecycle/leg-quantities grid leg))`, the minimum of original minus filled and `:observed-remaining`), not merely below `:observed-remaining` "or when it has none". A row equal to the current remaining (every leg of an untouched ladder in every frame) is a repeat and is dropped, and a stream row from before a stream fill can never look informative.
+  Rationale: tightens the plan's rule without changing its intent (never raise a remaining size, never bump evidence on repeats).
+  Date/Author: 2026-10-28, Claude (live-S1).
+- Decision (Stage 1): `route` reports `:order-coins` (and `:absent`) only for default-dex (`:dex` nil) open-order frames; a builder-dex frame says nothing about spot orders, so its coins must not arm the Stage 4 absence guard. Addresses are compared lower-cased and trimmed, like `lifecycle-evidence` (no 40-hex validation, so simulator accounts such as `0xabc` route). `informative-rows grid envelope` is public: `route` uses it per grid and `apply-envelope` re-checks the rows against the grid it is given, which may have moved on between routing and the store write.
+  Date/Author: 2026-10-28, Claude (live-S1).
+
 ## Outcomes & Retrospective
 
-Not started. Fill in after each stage: what landed, gates run with counts, and whether complexity went up or down and why.
+- Stage 1 (live-S1, commit `feat(vol-range): normalize WebSocket order and fill evidence for ladders`): new pure `live_evidence.cljs` (envelopes, routing, application) and canonical fill-key inputs; numeric keys are byte-identical (asserted). Complexity: one new pure namespace under 250 lines that reuses `lifecycle-evidence` for every state change, so the WebSocket path adds no second set of leg rules. Gates and Playwright results are recorded in the build-order plan's Outcomes.
 
 ## Context and Orientation
 

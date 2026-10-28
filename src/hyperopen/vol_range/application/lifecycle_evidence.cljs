@@ -258,11 +258,22 @@
 ;; Fills (spec 9.2, VR-14)
 ;; ---------------------------------------------------------------------------
 
+(defn- int-text
+  "Venue time and trade id as integer text, whether they arrive as numbers
+  (WebSocket and REST rows today) or numeric strings, so both sources give
+  the same key. Integer numbers render exactly as `str` did before."
+  [x]
+  (cond (and (number? x) (js/isFinite x)) (.toFixed (js/Math.trunc x) 0)
+        (and (string? x) (re-matches #"\d+" x)) x
+        :else (str x)))
+
 (defn fill-key
-  "Durable fill identity. Never the display timestamp, price or tid alone."
+  "Durable fill identity. Never the display timestamp, price or tid alone.
+  Time and tid are canonicalized to integer text (`int-text`)."
   [network account-address row]
   (str (name (or network :hyperliquid-mainnet)) "|" (lower account-address) "|" (:coin row) "|"
-       (:time row) "|" (:tid row) "|" (or (oid-string (:oid row)) (lower (:cloid row)))))
+       (int-text (:time row)) "|" (int-text (:tid row)) "|"
+       (or (oid-string (:oid row)) (lower (:cloid row)))))
 
 (defn- normalize-fill [k leg row]
   {:fill-key k
