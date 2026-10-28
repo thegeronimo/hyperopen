@@ -104,24 +104,26 @@
   (let [proposal (get-in @store [:vol-range :repair])
         grid (grid-in-state store grid-id)
         frozen (repair-plan/selected-legs proposal)]
-    (cond
-      (not (and (= grid-id (:grid-id proposal))
-                (= proposal-id (:proposal-id proposal))
-                (= :ready (:status proposal))
-                (seq frozen)
-                (= frozen legs)))
-      (js/Promise.resolve {:status :refused :errors [:repair/proposal-mismatch]})
+    (-> (cond
+          (not (and (= grid-id (:grid-id proposal))
+                    (= proposal-id (:proposal-id proposal))
+                    (= :ready (:status proposal))
+                    (seq frozen)
+                    (= frozen legs)))
+          (js/Promise.resolve {:status :refused :errors [:repair/proposal-mismatch]})
 
-      (nil? grid)
-      (js/Promise.resolve {:status :error :error "Unknown ladder"})
+          (nil? grid)
+          (js/Promise.resolve {:status :error :error "Unknown ladder"})
 
-      :else
-      (-> (executor-place/repair! deps {:grid grid :legs frozen})
-          (.catch (fn [e] {:status :error :error (ex/error-text e)}))
-          (.then (fn [result]
-                   (when (may-have-sent? result)
-                     (swap! store (fn [state]
-                                    (if (= proposal-id (get-in state [:vol-range :repair :proposal-id]))
-                                      (assoc-in state [:vol-range :repair] nil)
-                                      state))))
-                   result))))))
+          :else
+          (-> (executor-place/repair! deps {:grid grid :legs frozen})
+              (.catch (fn [e] {:status :error :error (ex/error-text e)}))
+              (.then (fn [result]
+                       (when (may-have-sent? result)
+                         (swap! store (fn [state]
+                                        (if (= proposal-id (get-in state [:vol-range :repair :proposal-id]))
+                                          (assoc-in state [:vol-range :repair] nil)
+                                          state))))
+                       result))))
+        ;; Every result names the proposal it answers (the review shows only its own).
+        (.then #(assoc % :proposal-id proposal-id)))))

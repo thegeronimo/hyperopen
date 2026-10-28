@@ -73,3 +73,12 @@
 (defn cancel-ladder-actions [grid-id] [[:actions/cancel-vol-ladder grid-id]])
 (defn refresh-ladder-actions [grid-id] [[:actions/refresh-vol-ladder grid-id]])
 (defn select-ladder-actions [grid-id] [[:actions/select-vol-ladder grid-id]])
+
+;; Repair (spec 8.6): review a ladder's rejected orders and send the frozen
+;; selection. Enter never submits; only the explicit commit click does.
+(defn open-repair-actions [grid-id] [[:actions/open-vol-ladder-repair grid-id]])
+(defn refresh-repair-actions [] [[:actions/refresh-vol-ladder-repair]])
+(defn toggle-repair-leg-actions [logical-id] [[:actions/toggle-vol-ladder-repair-leg logical-id]])
+(defn close-repair-actions [] [[:actions/close-vol-ladder-repair]])
+(defn repair-keydown-actions [] [[:actions/handle-vol-ladder-repair-keydown [:event/key]]])
+(defn submit-repair-actions [] [[:actions/submit-vol-ladder-repair]])

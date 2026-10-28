@@ -102,3 +102,22 @@
 (deftest cancel-messages-are-about-the-ladder-test
   (is (re-find #"still in flight"
                (dm/status-message {:vol-range {:execution {:last {:op :cancel :status :busy}}}}))))
+
+(deftest rows-carry-the-repair-control-test
+  (let [state {:vol-range {:execution {:enabled? true}} :vol-range-dock {:current-scope-key "k"}}]
+    (is (= {:visible? true :enabled? true :count 1}
+           (select-keys (:repair (dm/grid-row state (placed #{(c 1)}))) [:visible? :enabled? :count])))
+    (is (false? (get-in (dm/grid-row state (placed #{})) [:repair :visible?])))
+    (is (false? (get-in (dm/grid-row {} (placed #{(c 1)})) [:repair :visible?])) "placement off")))
+
+(deftest repair-status-messages-test
+  (let [msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
+    (is (= "Repair sent. 7 of 7 orders active."
+           (msg {:op :repair :status :live :delivery :response :counts {:members 7 :live 7 :rejected 0}})))
+    (is (= "1 order was not placed. 6 other orders remain active."
+           (msg {:op :repair :status :partially-deployed :delivery :response
+                 :counts {:members 7 :live 6 :rejected 1}})))
+    (is (= "Checking the repair's outcome. Nothing will be resent."
+           (msg {:op :repair :status :checking :delivery :unknown})))
+    (is (nil? (msg {:op :repair-preview :status :ok})) "never \"Ladder ok.\" for a review")
+    (is (re-find #"Nothing was sent" (msg {:op :repair :status :refused :errors [:repair/proposal-mismatch]})))))

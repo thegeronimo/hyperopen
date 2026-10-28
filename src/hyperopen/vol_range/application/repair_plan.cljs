@@ -155,6 +155,26 @@
 (defn- with-notional [l]
   {:side (:side l) :size (ds (d (:size l))) :notional (ds (precision/mul (d (:price l)) (d (:size l))))})
 
+(defn- bound-input
+  "The `admission/check-bounds` input for repair `legs` against `account`
+  (an `account-summary`) and `limits`, or nil without a base total."
+  [{:keys [account limits legs fees]}]
+  (when-let [q (dn (:base-total account))]
+    (let [legs (map with-notional legs)
+          buy-legs (filter #(= :buy (:side %)) legs)
+          sell-legs (filter #(= :sell (:side %)) legs)
+          reserves (fees/fee-reserves {:buy-legs buy-legs :sell-legs sell-legs :capability fees})]
+      {:q q :core (dn (:core limits)) :maximum (dn (:maximum limits))
+       :b-existing (d (:buy-exposure account)) :s-existing (d (:sell-exposure account))
+       :b-new (sum (map (comp d :size) buy-legs)) :s-new (sum (map (comp d :size) sell-legs))
+       :base-credit-bound (d (:base-credit-bound reserves))
+       :base-debit-bound (d (:base-debit-bound reserves))
+       :usdc-debit-bound (d (:usdc-debit-bound reserves))
+       :buy-notional (sum (map (comp d :notional) buy-legs))
+       :cap nil
+       :available-usdc (d (:available-usdc account))
+       :available-base (d (:available-base account))})))
+
 (defn bound-errors
   "Spec 6.6 bounds for repair `legs` ({:side :price :size}): keywords
   `:repair/max-inventory-breach`, `:repair/protected-core-breach`,
@@ -164,27 +184,22 @@
   ladder's survivors included) are the existing exposure, counted once;
   `limits` {:core :maximum} or nil, in which case only cash and balances are
   checked."
-  [{:keys [account limits legs fees]}]
-  (let [q (dn (:base-total account))]
-    (if (nil? q)
-      [:guard/account-unavailable]
-      (let [legs (map with-notional legs)
-            buy-legs (filter #(= :buy (:side %)) legs)
-            sell-legs (filter #(= :sell (:side %)) legs)
-            reserves (fees/fee-reserves {:buy-legs buy-legs :sell-legs sell-legs :capability fees})
-            errors (admission/check-bounds
-                    {:q q :core (dn (:core limits)) :maximum (dn (:maximum limits))
-                     :b-existing (d (:buy-exposure account)) :s-existing (d (:sell-exposure account))
-                     :b-new (sum (map (comp d :size) buy-legs)) :s-new (sum (map (comp d :size) sell-legs))
-                     :base-credit-bound (d (:base-credit-bound reserves))
-                     :base-debit-bound (d (:base-debit-bound reserves))
-                     :usdc-debit-bound (d (:usdc-debit-bound reserves))
-                     :buy-notional (sum (map (comp d :notional) buy-legs))
-                     :cap nil
-                     :available-usdc (d (:available-usdc account))
-                     :available-base (d (:available-base account))})]
-        (vec (distinct (concat (when (not= :ok (:status fees)) [:guard/fees-unavailable])
-                               (map bound-code errors))))))))
+  [{:keys [fees] :as args}]
+  (if-let [input (bound-input args)]
+    (vec (distinct (concat (when (not= :ok (:status fees)) [:guard/fees-unavailable])
+                           (map bound-code (admission/check-bounds input)))))
+    [:guard/account-unavailable]))
+
+(defn inventory-outcomes
+  "Worst-case inventory endpoints ({:all-buys-first :all-sells-first ...},
+  base strings, `admission/inventory-outcomes`) for the selected legs of a
+  frozen proposal: the same arithmetic `bound-errors` judges. nil without a
+  base total."
+  [proposal]
+  (let [selected (set (:selected proposal))]
+    (some-> (bound-input {:account (:account proposal) :limits (:limits proposal) :fees (:fees proposal)
+                          :legs (filter #(contains? selected (:logical-id %)) (:legs proposal))})
+            admission/inventory-outcomes)))
 
 ;; ---------------------------------------------------------------------------
 ;; Proposal

@@ -171,3 +171,77 @@
     (is (str/includes? t "Vol ladders"))
     (is (str/includes? t "No Vol Range ladders yet."))
     (is (some? (hiccup/find-by-data-role html "vol-ladder-dock")))))
+
+;; ---------------------------------------------------------------------------
+;; Repair (spec 8.6, 11.2)
+;; ---------------------------------------------------------------------------
+
+(defn- repair-state [grids & [extra]]
+  (assoc (state-with grids extra) :vol-range-dock {:current-scope-key "k"}))
+
+(deftest repair-button-only-with-rejected-orders-test
+  (let [html (panel (repair-state [(response (sent-grid) #{(cloid 1)})]))
+        button (hiccup/find-by-data-role html "vol-ladder-repair")
+        attrs (hiccup/node-attrs button)]
+    (is (= "Repair 1 rejected order" (text button)))
+    (is (= "Repair 1 rejected order in the SYN/USDC ladder" (:aria-label attrs)))
+    (is (false? (:disabled attrs)))
+    (is (nil? (:aria-describedby attrs)))
+    (is (= [[:actions/open-vol-ladder-repair "g1"]] (get-in attrs [:on :click])))
+    (is (nil? (hiccup/find-by-data-role html "vol-ladder-market-hint"))))
+  (is (= "Repair 2 rejected orders"
+         (text (hiccup/find-by-data-role (panel (repair-state [(response (sent-grid) #{(cloid 1) (cloid 3)})]))
+                                         "vol-ladder-repair"))))
+  (testing "hidden for a live ladder, placement off, a recovered, canceling or unresolved ladder"
+    (doseq [[label s] [["live" (repair-state [(response (sent-grid) #{})])]
+                       ["placement off" (repair-state [(response (sent-grid) #{(cloid 1)})] {:enabled? false})]
+                       ["canceling" (repair-state [(assoc (response (sent-grid) #{(cloid 1)}) :cancel-requested-at-ms 9)])]
+                       ["unresolved" (repair-state [(evidence/apply-placement-delivery (sent-grid) "op"
+                                                                                       {:delivery :unknown} 2000)])]
+                       ["recovered" (repair-state [(assoc (response (sent-grid) #{(cloid 1)}) :recovered? true)])]]]
+      (is (nil? (hiccup/find-by-data-role (panel s) "vol-ladder-repair")) label))))
+
+(deftest repair-on-another-market-is-disabled-with-a-hint-test
+  (let [html (panel (assoc-in (repair-state [(response (sent-grid) #{(cloid 1)})])
+                              [:vol-range-dock :current-scope-key] "other"))
+        attrs (hiccup/node-attrs (hiccup/find-by-data-role html "vol-ladder-repair"))
+        hint (hiccup/find-by-data-role html "vol-ladder-market-hint")]
+    (is (true? (:disabled attrs)))
+    (is (= "Open SYN/USDC to repair or update this ladder." (text hint)))
+    (is (= (:id (hiccup/node-attrs hint)) (:aria-describedby attrs)))))
+
+(deftest repair-dialog-mounts-in-the-dock-test
+  (is (nil? (hiccup/find-by-data-role (panel (repair-state [(response (sent-grid) #{(cloid 1)})]))
+                                      "vol-ladder-repair-dialog")))
+  (let [s (assoc-in (repair-state [(response (sent-grid) #{(cloid 1)})]) [:vol-range :repair]
+                    {:grid-id "g1" :status :loading})
+        html (panel s)]
+    (is (some? (hiccup/find-by-data-role html "vol-ladder-repair-dialog")))
+    (is (= "Reading the current book…" (text (hiccup/find-by-data-role html "vol-ladder-repair-loading"))))
+    (is (some? (hiccup/find-by-data-role html "vol-ladder-status-message")) "the live region stays")))
+
+(deftest repair-results-reach-the-live-region-test
+  (let [msg (fn [last-result]
+              (text (hiccup/find-by-data-role (panel (repair-state [] {:last last-result}))
+                                              "vol-ladder-status-message")))]
+    (is (= "Repair sent. 3 of 3 orders active."
+           (msg {:op :repair :status :live :delivery :response :counts {:members 3 :live 3 :rejected 0}})))
+    (is (= "Checking the repair's outcome. Nothing will be resent."
+           (msg {:op :repair :status :checking :delivery :unknown})))
+    (is (= "" (msg {:op :repair-preview :status :ok})))))
+
+(deftest view-state-carries-the-repair-and-the-ticket-scope-test
+  (let [g (response (sent-grid) #{(cloid 1)})
+        s (assoc (state-with [g]) :vol-range (merge (:vol-range (state-with [g]))
+                                                    {:repair {:grid-id "g1" :status :loading}
+                                                     :replace {:grid-id "g1"}
+                                                     :drafts {:ignored true}}))
+        v (dock/view-state s)]
+    (is (= {:grid-id "g1" :status :loading} (get-in v [:vol-range :repair])))
+    (is (= {:grid-id "g1"} (get-in v [:vol-range :replace])))
+    (is (nil? (get-in v [:vol-range :drafts])) "only the dock's roots")
+    (is (string? (get-in v [:vol-range-dock :current-scope-key])))
+    (is (not= v (dock/view-state (assoc-in s [:vol-range :repair :status] :ready)))
+        "the dock repaints when the review changes")
+    (is (nil? (get-in (dock/view-state {:vol-range {:execution {:enabled? true}}}) [:vol-range-dock :current-scope-key]))
+        "no scope work without a ladder")))

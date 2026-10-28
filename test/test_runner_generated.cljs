@@ -879,6 +879,7 @@
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
             [hyperopen.views.trade.vol-range.dock-test]
+            [hyperopen.views.trade.vol-range.repair-dialog-test]
             [hyperopen.views.trade.vol-range.review-commit-test]
             [hyperopen.views.trade.vol-range.review-test]
             [hyperopen.views.trade.vol-range.ticket-test]
@@ -958,6 +959,7 @@
             [hyperopen.vol-range.application.projections-test]
             [hyperopen.vol-range.application.quote-sizing-test]
             [hyperopen.vol-range.application.remediations-test]
+            [hyperopen.vol-range.application.repair-model-test]
             [hyperopen.vol-range.application.repair-plan-test]
             [hyperopen.vol-range.application.snapshots-test]
             [hyperopen.vol-range.contracts-test]
@@ -1940,6 +1942,7 @@
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
              'hyperopen.views.trade.vol-range.dock-test
+             'hyperopen.views.trade.vol-range.repair-dialog-test
              'hyperopen.views.trade.vol-range.review-commit-test
              'hyperopen.views.trade.vol-range.review-test
              'hyperopen.views.trade.vol-range.ticket-test
@@ -2019,6 +2022,7 @@
              'hyperopen.vol-range.application.projections-test
              'hyperopen.vol-range.application.quote-sizing-test
              'hyperopen.vol-range.application.remediations-test
+             'hyperopen.vol-range.application.repair-model-test
              'hyperopen.vol-range.application.repair-plan-test
              'hyperopen.vol-range.application.snapshots-test
              'hyperopen.vol-range.contracts-test

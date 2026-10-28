@@ -3,12 +3,15 @@
   (HO-SPEC-014 v2.1 sections 8.5, 11.2).
 
   Reads `[:vol-range :execution]`: {:enabled? :max-ladder-usdc :grids :busy
-  :last :selected-grid-id}. Counts always come with the aggregate label, and
+  :last :selected-grid-id}, plus `[:vol-range :repair]`, `[:vol-range :replace]`
+  and `[:vol-range-dock :current-scope-key]` (the ticket's scope) for the
+  repair control and dialog (`repair-model`). Counts always come with the aggregate label, and
   an unknown outcome is never shown as reassuring (spec 8.5)."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.domain.trading.precision :as precision]
-            [hyperopen.vol-range.application.lifecycle :as lifecycle]))
+            [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.application.repair-model :as repair-model]))
 
 (def ^:private zero (precision/parse-decimal "0"))
 (defn- d [x] (or (some-> x str precision/parse-decimal) zero))
@@ -135,6 +138,7 @@
      :canceling? (busy? state [:cancel id])
      :refreshing? (busy? state [:refresh id])
      :selected? (= id (get-in state [:vol-range :execution :selected-grid-id]))
+     :repair (repair-model/row-control state grid)
      :legs (leg-rows grid)}))
 
 (def ^:private ladder-result-text
@@ -155,10 +159,16 @@
 (defn status-message
   "The polite live-region text for the latest operation (spec 11.4)."
   [state]
-  (let [{:keys [op status delivery errors error]} (get-in state [:vol-range :execution :last])
+  (let [{:keys [op status delivery errors error grid-id] :as last-result} (get-in state [:vol-range :execution :last])
         texts (if (contains? #{:cancel :refresh} op) ladder-result-text result-text)]
     (when op
       (cond
+        (contains? #{:repair-preview :repair} op)
+        (repair-model/status-message
+         last-result
+         (repair-model/scope-context
+          (get-in state [:vol-range :execution :grids (or grid-id (get-in state [:vol-range :repair :grid-id]))])))
+
         (= :not-sent delivery) (str "Nothing was sent: " (or (some->> errors (map name) (str/join ", ")) error))
         (contains? texts status) (str (get texts status)
                                       (when (and (= :error status) error) (str " " error))
@@ -175,4 +185,5 @@
     {:enabled? (boolean (get-in state [:vol-range :execution :enabled?]))
      :syncing? (busy? state [:sync])
      :rows (mapv #(grid-row state %) (sort-by (comp - (fnil identity 0) :created-at-ms) grids))
-     :message (status-message state)}))
+     :message (status-message state)
+     :repair-dialog (repair-model/repair-model state)}))

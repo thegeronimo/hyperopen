@@ -6,8 +6,10 @@
   (:require [clojure.string :as str]
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.dock-model :as dock-model]
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.views.account-info.tab-registry :as tab-registry]
-            [hyperopen.views.trade.vol-range.commands :as commands]))
+            [hyperopen.views.trade.vol-range.commands :as commands]
+            [hyperopen.views.trade.vol-range.repair-dialog :as repair-dialog]))
 
 (def tab-id :vol-ladders)
 
@@ -108,9 +110,24 @@
          (when historical? [:span {:class ["ml-1" "italic" "text-ho-text-muted"]} "earlier attempt"])]
         [:td {:class ["py-1" "text-ho-text-secondary"]} (or reason "")]])]]])
 
+(defn- market-hint-id [grid-id] (str "vol-ladder-market-hint-" grid-id))
+
+(defn- repair-button
+  "\"Repair N rejected orders\": opens the rejected-order review. Disabled,
+  and described by the market hint, while the ticket is on another market."
+  [grid-id {:keys [enabled? busy? label aria-label hint]}]
+  [:button {:type "button" :class button-classes :disabled (not enabled?)
+            :aria-busy (boolean busy?)
+            :aria-label aria-label
+            :aria-describedby (when hint (market-hint-id grid-id))
+            :data-role "vol-ladder-repair"
+            :data-grid-id grid-id
+            :on {:click (commands/open-repair-actions grid-id)}}
+   label])
+
 (defn- row-actions
-  [{:keys [grid-id market can-cancel? canceling? refreshing? selected? counts]}]
-  [:div {:class ["flex" "flex-wrap" "gap-2"]}
+  [{:keys [grid-id market can-cancel? canceling? refreshing? selected? counts repair]}]
+  [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
    [:button {:type "button" :class button-classes :aria-expanded (boolean selected?)
              :data-role "vol-ladder-view-orders"
              :on {:click (commands/select-ladder-actions grid-id)}}
@@ -128,7 +145,12 @@
                                 (when (not= 1 (:live counts)) "s") ")")
                :data-role "vol-ladder-cancel"
                :on {:click (commands/cancel-ladder-actions grid-id)}}
-      "Cancel this ladder"])])
+      "Cancel this ladder"])
+   (when (:visible? repair) (repair-button grid-id repair))
+   (when (and (:visible? repair) (:hint repair))
+     [:span {:id (market-hint-id grid-id) :class ["text-xs" "text-ho-text-secondary"]
+             :data-role "vol-ladder-market-hint"}
+      (:hint repair)])])
 
 (defn- ladder-row
   [{:keys [grid-id market account counts partial-message selected? legs] :as row}]
@@ -150,8 +172,9 @@
    (when selected? (legs-table legs))])
 
 (defn dock-panel
-  "The tab body for a `dock-model/dock` model."
-  [{:keys [rows message]}]
+  "The tab body for a `dock-model/dock` model. The rejected-order review
+  dialog mounts here; its model is frozen state only."
+  [{:keys [rows message] dialog :repair-dialog}]
   [:div {:class ["flex" "h-full" "min-h-0" "flex-col" "overflow-y-auto" "bg-base-100"]
          :data-role "vol-ladder-dock"}
    [:div {:class ["px-3" "py-1" "text-xs" "text-ho-text-secondary"]
@@ -162,16 +185,25 @@
    (if (seq rows)
      (for [row rows] ^{:key (:grid-id row)} (ladder-row row))
      [:p {:class ["p-3" "text-sm" "text-ho-text-secondary"] :data-role "vol-ladder-empty"}
-      "No Vol Range ladders yet."])])
+      "No Vol Range ladders yet."])
+   (repair-dialog/repair-dialog dialog)])
 
 ;; ---------------------------------------------------------------------------
 ;; Injection into the account-info panel (trade route)
 ;; ---------------------------------------------------------------------------
 
 (defn view-state
-  "The slice the trade account panel needs to build the tab."
+  "The slice the trade account panel needs to build the tab: the execution
+  root, the open repair review, the update in progress and the ticket's
+  scope key (only computed while a ladder exists), so the dock repaints when
+  any of them changes."
   [state]
-  {:vol-range {:execution (get-in state [:vol-range :execution])}})
+  (let [execution (get-in state [:vol-range :execution])]
+    {:vol-range {:execution execution
+                 :repair (get-in state [:vol-range :repair])
+                 :replace (get-in state [:vol-range :replace])}
+     :vol-range-dock {:current-scope-key (when (seq (:grids execution))
+                                           (draft-scope/current-scope-key state))}}))
 
 (defn tab-visible?
   [state]

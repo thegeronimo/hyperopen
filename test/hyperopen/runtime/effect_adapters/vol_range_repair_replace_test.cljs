@@ -10,6 +10,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.platform.locks :as locks]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vre]
+            [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.repair-plan :as repair-plan]
@@ -146,8 +147,11 @@
                        #(-> (preview! store grid)
                             (.then (fn [_] (execute! store :repair (assoc (repair-params store) :proposal-id "rp-old"))))
                             (.then (fn [_]
-                                     (is (= {:op :repair :status :refused :errors [:repair/proposal-mismatch]}
-                                            (select-keys (get-in @store [:vol-range :execution :last]) [:op :status :errors])))
+                                     (is (= {:op :repair :status :refused :errors [:repair/proposal-mismatch]
+                                             :proposal-id "rp-old"}
+                                            (select-keys (get-in @store [:vol-range :execution :last])
+                                                         [:op :status :errors :proposal-id]))
+                                         "the result names the proposal it answers")
                                      (is (= 1 (count (sim/order-sends s))) "nothing is sent")
                                      (is (= :ready (get-in @store [:vol-range :repair :status])) "the review stays open")
                                      (execute! store :repair (assoc (repair-params store)
@@ -196,6 +200,8 @@
                                        (is (= {:op :repair :status :live :delivery :response}
                                               (select-keys (get-in @store [:vol-range :execution :last])
                                                            [:op :status :delivery])))
+                                       (is (= "Repair sent. 7 of 7 orders active." (dock-model/status-message @store))
+                                           "the dock's live region")
                                        (testing "the six survivors are never resent"
                                          (is (= 7 (count (:orders first-send))))
                                          (is (empty? (filter (cloids first-send) (map :c (:orders second-send)))))

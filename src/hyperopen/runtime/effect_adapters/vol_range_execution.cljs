@@ -90,7 +90,10 @@
                                    ;; A refused placement leaves the review open; this
                                    ;; lets the review show the refusal for its own plan.
                                    (cond-> (= :place op)
-                                     (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))))))))
+                                     (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))
+                                   ;; Lets the open repair review show why ITS send was refused.
+                                   (cond-> (= :repair op)
+                                     (assoc :proposal-id (:proposal-id result)))))))))
 
 (defn- fail! [store busy-key op e]
   (finish! store busy-key {:status :error :error (ex/error-text e)} op))
