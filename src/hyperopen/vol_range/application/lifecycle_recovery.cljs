@@ -158,7 +158,10 @@
                                              (or (:balance-requested-at-ms ours) 0))
                :fills-through-ms (max (or (:fills-through-ms stored) 0) (or (:fills-through-ms ours) 0))
                :cancel-requested-at-ms (or (:cancel-requested-at-ms stored) (:cancel-requested-at-ms ours)))
-        ;; Settings are immutable once placed; a copy that lacks them never
-        ;; erases them.
+        ;; Settings and a replacement's predecessor are immutable once
+        ;; placed; a copy that lacks them never erases them.
         (and (nil? (:settings ours)) (some? (:settings stored)))
-        (assoc :settings (:settings stored))))))
+        (assoc :settings (:settings stored))
+
+        (and (nil? (:predecessor ours)) (some? (:predecessor stored)))
+        (assoc :predecessor (:predecessor stored))))))

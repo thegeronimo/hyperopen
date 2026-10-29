@@ -18,6 +18,7 @@
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
             [hyperopen.vol-range.application.lifecycle-recovery :as recovery]
             [hyperopen.vol-range.application.repair-plan :as repair-plan]
+            [hyperopen.vol-range.application.replace-flow :as replace-flow]
             [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.application.wire :as wire]
@@ -216,11 +217,16 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- admit-placement!
-  [deps {:keys [frozen-plan scope scope-key live operation-id check settings]}]
+  [deps {:keys [frozen-plan scope scope-key live operation-id check settings predecessor]}]
   (-> (ex/load! deps)
       (.then
        (fn [{:keys [ok? records] :as journal}]
-         (let [blockers (when ok? (ex/placement-blockers journal scope-key))]
+         ;; A replacement also needs its predecessor settled and not yet
+         ;; replaced, judged on the journal inside this admission section.
+         (let [blockers (when ok? (into (if predecessor
+                                          (replace-flow/predecessor-blockers records predecessor scope-key)
+                                          [])
+                                        (ex/placement-blockers journal scope-key)))]
            (cond
              (not ok?) {:status :journal-unavailable}
              (seq blockers) {:status :blocked :errors blockers}
@@ -251,7 +257,7 @@
                                                     :plan-id (:plan-id frozen-plan) :legs legs
                                                     :model (select-keys (:model frozen-plan)
                                                                         [:anchor :volatility :tilt :shifted-anchor])
-                                                    :settings settings
+                                                    :settings settings :predecessor predecessor
                                                     :expires-after-ms expires :now-ms at})
                           intent (jr/intent-record
                                   {:operation-id operation-id :scope scope :scope-key scope-key
@@ -267,10 +273,14 @@
   "Place a reviewed :ready plan. `frozen-plan` and `frozen-scope` come from
   the review; nothing in them is amended. `settings` (optional, from
   `ladder-settings/settings-from-plan`) is recorded on the new grid and never
-  affects what is sent. Resolves to a typed result:
+  affects what is sent. `predecessor` (optional, spec 10.2) makes this a
+  replacement: admission refuses it unless the named canceled ladder is
+  settled for its frozen membership and not already replaced
+  (`replace-flow/predecessor-blockers`), and the new grid records it.
+  Resolves to a typed result:
   {:status :refused|:blocked|:busy|:admission-failed|:journal-unavailable|...}
   before anything is sent, else the grid status after the send."
-  [deps {:keys [frozen-plan frozen-scope settings]}]
+  [deps {:keys [frozen-plan frozen-scope settings predecessor]}]
   (let [live ((:live! deps))
         scope frozen-scope
         r (or (when (not= :ready (:status frozen-plan)) :plan/not-ready)
@@ -283,7 +293,7 @@
         (admit-and-send! deps scope operation-id check
               #(admit-placement! deps {:frozen-plan frozen-plan :scope scope :scope-key (contracts/scope-key scope)
                                        :live live :operation-id operation-id :check check
-                                       :settings settings}))))))
+                                       :settings settings :predecessor predecessor}))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Repair (spec 8.6, 13.4)

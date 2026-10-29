@@ -13,7 +13,8 @@
   Pure and A0-scan safe: requires nothing from the execution foundations. The
   values are plain data (decimal strings, keywords, booleans, counts), so they
   round-trip through the journal unchanged. Nothing here is a secret."
-  (:require [hyperopen.trading.vol-range-draft :as vol-range-draft]))
+  (:require [hyperopen.trading.vol-range-draft :as vol-range-draft]
+            [hyperopen.trading.vol-range-transitions :as transitions]))
 
 (defn- limits
   "{:core :target :maximum} in base units as strings (nil when absent)."
@@ -34,3 +35,14 @@
      :limits (limits plan)
      :totals (:totals plan)
      :inventory-outcomes (:inventory-outcomes plan)}))
+
+(defn settings->draft-patch
+  "Patch pairs [[path value] ...] that write the deployed draft back into the
+  ticket (Preview update, spec 10.2 step 1), one pair per path in the draft
+  path whitelist, in a stable order. Empty when no draft was recorded."
+  [settings]
+  (if-let [draft (when (map? (:draft settings)) (vol-range-draft/normalize-vol-range-draft (:draft settings)))]
+    (->> transitions/draft-path-whitelist
+         (sort-by #(mapv name %))
+         (mapv (fn [path] [path (get-in draft path)])))
+    []))

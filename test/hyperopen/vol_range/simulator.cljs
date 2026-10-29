@@ -223,9 +223,12 @@
 ;; Live inputs and deps
 ;; ---------------------------------------------------------------------------
 
-(defn live-input [sim]
+(defn live-input
+  "Planner input from live state; `:draft` in the sim replaces the 13.2 draft
+  (a replacement's quantities, tilt)."
+  [sim]
   (let [t (now sim)]
-    {:plan-id nil :scope scope :draft fixtures/draft-13-2
+    {:plan-id nil :scope scope :draft (or (:draft @sim) fixtures/draft-13-2)
      :market (fixtures/market-snapshot {:coin coin
                                         :bbo {:bid "79.99" :ask "80.01" :observed-at-ms (or (:bbo-at @sim) t)}})
      :fees (assoc fixtures/synthetic-fees :loaded-at-ms t)

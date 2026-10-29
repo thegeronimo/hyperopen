@@ -162,3 +162,145 @@
         (is (= :resolved (get-in merged [:operations "op" :state])) "evidence still merges")))
     (testing "a ladder placed before settings were recorded stays without them"
       (is (not (contains? (recovery/merge-grids (grid) (resting-response (grid))) :settings))))))
+
+;; ---------------------------------------------------------------------------
+;; Replacement over a frozen membership (spec 10.2, 13.4)
+;; ---------------------------------------------------------------------------
+
+(def c3 "0x484f5652000000000000000000000003")
+(def c4 "0x484f5652000000000000000000000004")
+
+(defn- three-leg-grid
+  "buy-0 (7, oid 11), sell-0 (10, oid 12) and sell-1 (10, oid 14), all resting."
+  []
+  (-> (lifecycle/new-grid {:grid-id "g" :scope scope :scope-key "k" :operation-id "op" :plan-id "p"
+                           :expires-after-ms 31000 :now-ms 1000
+                           :legs [{:leg-id "buy-0" :side :buy :rung-index 0 :price "76.4" :size "7" :cloid c1}
+                                  {:leg-id "sell-0" :side :sell :rung-index 0 :price "84" :size "10" :cloid c2}
+                                  {:leg-id "sell-1" :side :sell :rung-index 1 :price "86" :size "10" :cloid c4}]})
+      (lifecycle/mark-sending "op" "a1" 1500)
+      (evidence/apply-placement-delivery "op" {:delivery :response
+                                               :leg-results [{:cloid c1 :oid "11" :placement-state :accepted
+                                                              :order-state :resting}
+                                                             {:cloid c2 :oid "12" :placement-state :accepted
+                                                              :order-state :resting}
+                                                             {:cloid c4 :oid "14" :placement-state :accepted
+                                                              :order-state :resting}]}
+                                         2000)))
+
+(defn- canceled-status [oid sz orig]
+  {:id oid :status "canceled" :order {:order {:coin "SYN/USDC" :oid (js/parseInt oid) :sz sz :origSz orig}}})
+
+(defn- fill [tid sz time]
+  (assoc fill-row :tid tid :sz sz :time time))
+
+(defn- ingest [g rows at]
+  (evidence/ingest-fills g {:account-address "0xabc" :rows rows :received-at-ms at}))
+
+(deftest replace-membership-freezes-working-legs-across-repairs-test
+  (let [g (-> (three-leg-grid)
+              (evidence/apply-order-statuses [(canceled-status "14" "10" "10")] 3000)
+              (lifecycle/add-cancel-operation {:operation-id "cx" :cloids [c2] :expires-after-ms 40000
+                                               :now-ms 3100}))]
+    (is (= [c1 c2] (lifecycle/replace-membership g))
+        "a leg canceled earlier is out; a leg whose cancel was requested is in")))
+
+(deftest frozen-basis-counts-only-the-frozen-legs-test
+  (let [before (-> (three-leg-grid)
+                   ;; Canceled from Open Orders before the update started.
+                   (evidence/apply-order-statuses [(canceled-status "14" "10" "10")] 3000)
+                   ;; 2 of sell-0 filled before the update started.
+                   (ingest [(fill 1 "2" 2500)] 3000))
+        frozen {:frozen-cloids (lifecycle/replace-membership before)
+                :filled-at-freeze {c1 "0" c2 "2"}}
+        after (-> before
+                  ;; 3 more fill while the cancel is pending, then both cancels land.
+                  (ingest [(fill 2 "3" 3500)] 4000)
+                  (evidence/apply-order-statuses [(canceled-status "11" "7" "7") (canceled-status "12" "5" "10")]
+                                                 5000)
+                  (lifecycle/note-fills-read 9000))
+        basis (lifecycle/replacement-basis after frozen)]
+    (is (= [c1 c2] (:frozen-cloids frozen)))
+    (is (:ready? basis) (pr-str (:blocking basis)))
+    (is (= {:buy "7" :sell "5"} (:remaining basis)) "the earlier-canceled sell-1 adds nothing")
+    (is (= {:buy "0" :sell "3"} (:filled-during-update basis)) "fills before the freeze are not during the update")
+    (is (= {:buy "0" :sell "5"} (:filled basis)) "lifetime fills are kept for the record")
+    (testing "the 1-arity still sums every canceled leg"
+      (is (= "15" (get-in (lifecycle/replacement-basis after) [:remaining :sell]))))
+    (testing "a missing freeze record means nothing had filled at the freeze"
+      (is (= "5" (get-in (lifecycle/replacement-basis after (dissoc frozen :filled-at-freeze))
+                         [:filled-during-update :sell]))))))
+
+(deftest a-leg-added-after-the-freeze-blocks-and-never-adds-test
+  (let [g (three-leg-grid)
+        frozen {:frozen-cloids [c1 c2] :filled-at-freeze {}}
+        canceled (-> g
+                     (evidence/apply-order-statuses [(canceled-status "11" "7" "7") (canceled-status "12" "10" "10")
+                                                     (canceled-status "14" "10" "10")]
+                                                    5000)
+                     (lifecycle/note-fills-read 9000))
+        ;; c4 was not in the freeze (say, a repair from another tab) and is still open.
+        open-extra (update-in canceled [:legs c4] assoc :order-state :resting :terminal-reason nil)]
+    (is (:ready? (lifecycle/replacement-basis canceled frozen)))
+    (is (= {:buy "7" :sell "10"} (:remaining (lifecycle/replacement-basis canceled frozen)))
+        "c4 is canceled but was not frozen, so it adds nothing")
+    (let [basis (lifecycle/replacement-basis open-extra frozen)]
+      (is (not (:ready? basis)))
+      (is (= [:replace/legs-still-open] (:blocking basis)) "blocking is judged over the whole ladder"))))
+
+(deftest a-repaired-member-counts-once-and-historical-rejections-are-ignored-test
+  (let [g (-> (lifecycle/new-grid {:grid-id "g" :scope scope :scope-key "k" :operation-id "op" :plan-id "p"
+                                   :expires-after-ms 31000 :now-ms 1000
+                                   :legs [{:leg-id "buy-0" :side :buy :rung-index 0 :price "76.4" :size "7" :cloid c1}
+                                          {:leg-id "sell-0" :side :sell :rung-index 0 :price "84" :size "10"
+                                           :cloid c2}]})
+              (lifecycle/mark-sending "op" "a1" 1500)
+              (evidence/apply-placement-delivery "op" {:delivery :response
+                                                       :leg-results [{:cloid c1 :placement-state :rejected
+                                                                      :reason "Post only order would have immediately matched"}
+                                                                     {:cloid c2 :oid "12" :placement-state :accepted
+                                                                      :order-state :resting}]}
+                                                 2000))
+        repaired (-> (:grid (lifecycle/add-repair g {:operation-id "rp" :legs [{:logical-id "buy-0" :cloid c3
+                                                                                 :price "76.16" :size "7"}]
+                                                     :expires-after-ms 40000 :now-ms 3000}))
+                     (lifecycle/mark-sending "rp" "a2" 3100)
+                     (evidence/apply-placement-delivery "rp" {:delivery :response
+                                                              :leg-results [{:cloid c3 :oid "13" :placement-state :accepted
+                                                                             :order-state :resting}]}
+                                                        3200))
+        frozen-cloids (lifecycle/replace-membership repaired)
+        done (-> repaired
+                 (evidence/apply-order-statuses [(canceled-status "12" "10" "10") (canceled-status "13" "7" "7")] 5000)
+                 (lifecycle/note-fills-read 9000))
+        basis (lifecycle/replacement-basis done {:frozen-cloids frozen-cloids :filled-at-freeze {}})]
+    (is (= [c3 c2] frozen-cloids) "the repaired member's current leg, never its rejected copy")
+    (is (:ready? basis))
+    (is (= {:buy "7" :sell "10"} (:remaining basis)) "the repaired member counts once")
+    (is (= [] (:rejected basis)) "the historical rejected copy is not offered for revival")
+    (testing "a current rejected member is listed separately"
+      (let [basis (lifecycle/replacement-basis
+                   (-> g
+                       (evidence/apply-order-statuses [(canceled-status "12" "10" "10")] 5000)
+                       (lifecycle/note-fills-read 9000))
+                   {:frozen-cloids [c2]})]
+        (is (= {:buy "0" :sell "10"} (:remaining basis)))
+        (is (= ["buy-0"] (mapv :logical-id (:rejected basis))))))))
+
+(deftest new-grid-records-a-predecessor-test
+  (let [p {:grid-id "old" :frozen-cloids [c1] :remaining {:buy "7" :sell "0"}
+           :filled-during-update {:buy "0" :sell "0"} :included-rejected []}
+        g (lifecycle/new-grid {:grid-id "g" :scope scope :scope-key "k" :operation-id "op" :plan-id "p"
+                               :expires-after-ms 31000 :now-ms 1000 :predecessor p
+                               :legs [{:leg-id "buy-0" :side :buy :rung-index 0 :price "76.4" :size "7" :cloid c1}]})]
+    (is (= p (:predecessor g)))
+    (is (not (contains? (grid) :predecessor)) "an ordinary ladder has no key at all")))
+
+(deftest merge-grids-keeps-the-predecessor-test
+  (let [p {:grid-id "old" :frozen-cloids [c1] :remaining {:buy "7" :sell "0"}
+           :filled-during-update {:buy "0" :sell "0"} :included-rejected []}
+        with-p (assoc (resting-response (grid)) :predecessor p)]
+    (is (= p (:predecessor (recovery/merge-grids with-p (dissoc with-p :predecessor))))
+        "a copy without the lineage never erases it")
+    (is (= p (:predecessor (recovery/merge-grids nil with-p))))
+    (is (not (contains? (recovery/merge-grids (grid) (resting-response (grid))) :predecessor)))))

@@ -182,6 +182,8 @@
     "src/hyperopen/vol_range/application/revalidation.cljs"
     "src/hyperopen/vol_range/application/repair_plan.cljs"
     "src/hyperopen/vol_range/application/repair_model.cljs"
+    "src/hyperopen/vol_range/application/replace_flow.cljs"
+    "src/hyperopen/vol_range/infrastructure/executor_replace.cljs"
     "src/hyperopen/vol_range/application/wire.cljs"
     "src/hyperopen/vol_range/application/dock_model.cljs"
     "src/hyperopen/vol_range/execution_actions.cljs"
@@ -198,6 +200,7 @@
    "hyperopen.vol-range.application.grid-store"
    "hyperopen.vol-range.infrastructure.live-ingress"
    "hyperopen.vol-range.application.fill-records"
+   "hyperopen.vol-range.application.replace-flow"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 
@@ -232,6 +235,8 @@
                   (into (filter #(str/starts-with? (.basename path %) "vol_range_")
                                 (list-files "src/hyperopen/trading"))))]
     (is (some #(str/ends-with? % "trading/vol_range_transitions.cljs") files))
+    (is (some #(str/ends-with? % "application/replace_state.cljs") files) "the update predicates stay scanned")
+    (is (some #(str/ends-with? % "application/ladder_settings.cljs") files))
     (doseq [file files
             :let [text (.readFileSync fs file "utf8")]
             ns-name execution-foundation-namespaces]

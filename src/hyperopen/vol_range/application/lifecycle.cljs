@@ -64,8 +64,12 @@
   "A grid for a reviewed plan whose legs already carry CLOIDs. Legs keep their
   plan `:leg-id` as the logical member id. `:settings` (optional, see
   `ladder-settings`) records what the ladder was placed with; it is
-  immutable, and absent on grids placed before it was recorded."
-  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms model settings now-ms]}]
+  immutable, and absent on grids placed before it was recorded.
+  `:predecessor` (optional, spec 10.2) names the canceled ladder a
+  replacement was built from: {:grid-id :frozen-cloids :remaining
+  :filled-during-update :included-rejected}. The old grid is never rewritten."
+  [{:keys [grid-id scope scope-key operation-id plan-id legs expires-after-ms model settings predecessor
+           now-ms]}]
   (cond->
    {:grid-id grid-id
     :model model
@@ -85,7 +89,8 @@
     :fills {}
     :balance-requested-at-ms nil
     :released-operation-ids #{}}
-    (map? settings) (assoc :settings settings)))
+    (map? settings) (assoc :settings settings)
+    (map? predecessor) (assoc :predecessor predecessor)))
 
 ;; ---------------------------------------------------------------------------
 ;; Queries
@@ -317,30 +322,65 @@
   [grid through-ms]
   (update grid :fills-through-ms #(max (or % 0) through-ms)))
 
+(defn replace-membership
+  "The frozen membership of an update (spec 10.2 step 2): the CLOID of every
+  leg, across revisions and repairs, that was accepted or has an unknown
+  placement and is not terminal, including legs whose cancel was already
+  requested. Each CLOID once, in a stable order."
+  [grid]
+  (->> (vals (:legs grid))
+       (filter #(contains? #{:accepted :unknown} (:placement-state %)))
+       (remove #(= :terminal (:order-state %)))
+       (sort-by (juxt (comp name :side) :rung-index :cloid))
+       (mapv :cloid)))
+
+(defn- side-sum [grid legs side k]
+  (ds (sum (map #(k (leg-quantities grid %)) (filter #(= side (:side %)) legs)))))
+
+(defn- filled-since
+  "Base filled on `leg` since `filled-at-freeze` recorded it (never negative)."
+  [grid leg filled-at-freeze]
+  (let [now (d (:filled (leg-quantities grid leg)))
+        before (d (get filled-at-freeze (:cloid leg) "0"))]
+    (precision/dec-max zero (precision/sub now before))))
+
 (defn replacement-basis
   "What a replacement may be built from once the old ladder is canceled.
   `:ready?` only when every leg is terminal or definitively not placed and
   nothing is unresolved (VR-15). Remaining quantity is the canceled remainder
   of uniquely identified working legs (fills during cancellation already
-  excluded); rejected legs are listed separately and never revived silently."
-  [grid]
-  (let [legs (vals (:legs grid))
-        open (remove #(or (= :terminal (:order-state %)) (definitively-not-placed? %)) legs)
-        canceled (filter #(and (= :accepted (:placement-state %)) (= :canceled (:terminal-reason %))) legs)
-        per-side (fn [side] (ds (sum (map #(:canceled (leg-quantities grid %))
-                                          (filter #(= side (:side %)) canceled)))))
-        blocking (cond-> []
-                   (unresolved? grid) (conj :replace/unresolved-outcomes)
-                   (seq open) (conj :replace/legs-still-open)
-                   (not (fills-covered? grid)) (conj :replace/fills-incomplete))]
-    {:ready? (empty? blocking)
-     :blocking blocking
-     :remaining {:buy (per-side :buy) :sell (per-side :sell)}
-     :filled {:buy (ds (sum (map #(:filled (leg-quantities grid %)) (filter #(= :buy (:side %)) legs))))
-              :sell (ds (sum (map #(:filled (leg-quantities grid %)) (filter #(= :sell (:side %)) legs))))}
-     :rejected (->> (current-legs grid)
-                    (filter definitively-not-placed?)
-                    (mapv #(select-keys % [:logical-id :side :rung-index :price :original-base :reason])))}))
+  excluded); rejected legs are listed separately and never revived silently.
+
+  With `frozen` ({:frozen-cloids :filled-at-freeze}, from the moment the user
+  started the cancel) `:blocking` is still judged over the WHOLE grid, so a
+  leg added after the freeze blocks while it may be open; `:remaining` and
+  `:filled-during-update` count the frozen legs only, so legs canceled
+  before the freeze and fills from before the update add nothing. `:filled`
+  is always the whole grid's lifetime fills."
+  ([grid]
+   (let [legs (vals (:legs grid))
+         open (remove #(or (= :terminal (:order-state %)) (definitively-not-placed? %)) legs)
+         canceled (filter #(and (= :accepted (:placement-state %)) (= :canceled (:terminal-reason %))) legs)
+         blocking (cond-> []
+                    (unresolved? grid) (conj :replace/unresolved-outcomes)
+                    (seq open) (conj :replace/legs-still-open)
+                    (not (fills-covered? grid)) (conj :replace/fills-incomplete))]
+     {:ready? (empty? blocking)
+      :blocking blocking
+      :remaining {:buy (side-sum grid canceled :buy :canceled) :sell (side-sum grid canceled :sell :canceled)}
+      :filled {:buy (side-sum grid legs :buy :filled) :sell (side-sum grid legs :sell :filled)}
+      :rejected (->> (current-legs grid)
+                     (filter definitively-not-placed?)
+                     (mapv #(select-keys % [:logical-id :side :rung-index :price :original-base :reason])))}))
+  ([grid {:keys [frozen-cloids filled-at-freeze]}]
+   (let [frozen (keep #(get-in grid [:legs %]) (distinct frozen-cloids))
+         canceled (filter #(and (= :accepted (:placement-state %)) (= :canceled (:terminal-reason %))) frozen)
+         during (fn [side] (ds (reduce precision/add zero
+                                       (map #(filled-since grid % filled-at-freeze)
+                                            (filter #(= side (:side %)) frozen)))))]
+     (assoc (replacement-basis grid)
+            :remaining {:buy (side-sum grid canceled :buy :canceled) :sell (side-sum grid canceled :sell :canceled)}
+            :filled-during-update {:buy (during :buy) :sell (during :sell)}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Pending reservations (spec 3.3, 8.1 step 10, VR-06)

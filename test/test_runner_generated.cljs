@@ -966,6 +966,8 @@
             [hyperopen.vol-range.application.remediations-test]
             [hyperopen.vol-range.application.repair-model-test]
             [hyperopen.vol-range.application.repair-plan-test]
+            [hyperopen.vol-range.application.replace-flow-test]
+            [hyperopen.vol-range.application.replace-state-test]
             [hyperopen.vol-range.application.snapshots-test]
             [hyperopen.vol-range.contracts-test]
             [hyperopen.vol-range.domain.admission-test]
@@ -983,6 +985,7 @@
             [hyperopen.vol-range.infrastructure.live-ingress-test]
             [hyperopen.vol-range.infrastructure.monitoring-gate-test]
             [hyperopen.vol-range.infrastructure.repair-scenarios-test]
+            [hyperopen.vol-range.infrastructure.replace-scenarios-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
@@ -2038,6 +2041,8 @@
              'hyperopen.vol-range.application.remediations-test
              'hyperopen.vol-range.application.repair-model-test
              'hyperopen.vol-range.application.repair-plan-test
+             'hyperopen.vol-range.application.replace-flow-test
+             'hyperopen.vol-range.application.replace-state-test
              'hyperopen.vol-range.application.snapshots-test
              'hyperopen.vol-range.contracts-test
              'hyperopen.vol-range.domain.admission-test
@@ -2055,6 +2060,7 @@
              'hyperopen.vol-range.infrastructure.live-ingress-test
              'hyperopen.vol-range.infrastructure.monitoring-gate-test
              'hyperopen.vol-range.infrastructure.repair-scenarios-test
+             'hyperopen.vol-range.infrastructure.replace-scenarios-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
