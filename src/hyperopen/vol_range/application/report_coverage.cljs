@@ -2,18 +2,25 @@
   "Coverage, breaks and balance checks for Vol Range reporting (HO-SPEC-014
   v2.1 sections 9.2, 12.4, 12.6, 13.5 row 8).
 
-  Coverage is proven ONLY by complete REST reads, per account, stream
-  (:fills or :ledger) and tracked base token: a complete read of `[s, now]`
-  requested at R covers `[s, R - :read-settle-ms)` for the tokens whose rows
-  it classified and persisted. A fills read whose rows hold at least
-  `:venue-fill-retention-count` DISTINCT fill keys (all coins, overlap
-  duplicates counted once) proves nothing (`:coverage/retention`). An
-  incomplete read records a failure interval. Over a needed interval:
+  Coverage is proven ONLY by REST reads, per account, stream (:fills or
+  :ledger) and tracked base token: a complete read of `[s, now]` requested
+  at R covers `[s, R - :read-settle-ms)` for the tokens whose rows it
+  classified and persisted; one stopped by the page cap or no progress
+  covers `[s, newest row)`, so backfill always moves forward. A fills read
+  whose rows hold at least `:venue-fill-retention-count` DISTINCT fill keys
+  (all coins, overlap duplicates counted once) proves only what follows its
+  oldest row; the time before is PERMANENTLY lost (`:coverage/retention`),
+  is never read again and never proven by a later read. A relevant row that
+  cannot be parsed ends the proof at its time (`:coverage/unparsed-row`).
+  The unproven rest of a read records a failure interval. Over a needed
+  interval:
 
   - covered by a complete read        -> :complete
   - in a recorded failure, uncovered  -> :gap (heals only when a later
                                          complete read covers it)
   - never read                        -> :partial (:coverage/backfill-pending)
+  - from a stored row that no longer
+    decodes                           -> :gap (:storage/unreadable-rows)
   - from a break onward               -> :attribution-break
 
   combined with precedence :unavailable > :attribution-break > :gap >
@@ -41,6 +48,8 @@
 ;; Reads -> coverage deltas
 ;; ---------------------------------------------------------------------------
 
+;; Reads that stopped early paged forward from their start, so they still
+;; prove everything before their newest row.
 (def ^:private read-reasons
   {:fills/no-progress :coverage/no-progress :fills/page-cap :coverage/page-cap
    :ledger/no-progress :coverage/no-progress :ledger/page-cap :coverage/page-cap})
@@ -50,54 +59,123 @@
   [network account-address rows]
   (count (into #{} (map #(evidence/fill-key network account-address %)) rows)))
 
-(defn- deltas [stream base-token-ids complete failure]
-  (mapv (fn [b] {:stream stream :base-token-id (str b) :complete complete :failure failure})
-        (sort (distinct (map str base-token-ids)))))
+(defn- row-times [rows] (filter number? (map :time rows)))
 
-(defn- read->coverage [stream {:keys [read start-ms base-token-ids]} retained?]
+(defn- read->coverage
+  "Per tracked token, what one read over `[start-ms, ...]` proves:
+
+  - a complete read, `[from, R - settle)`; one cut short by the page cap or
+    no progress, `[from, newest row time)`; a failed one, nothing;
+  - `from` is `start-ms`, or just after the oldest row when the venue's
+    retention may have dropped older fills (`oldest-retained`): the part
+    before it is recorded as a PERMANENT `:coverage/retention` failure,
+    since the venue never serves those fills again;
+  - a row that could not be parsed and could concern the token (`unparsed`,
+    {token-id earliest-time}) ends the proof at its time
+    (`:coverage/unparsed-row`).
+
+  The unproven tail `[end, R)` is a failure with the read's reason."
+  [stream {:keys [read start-ms base-token-ids unparsed]} oldest-retained]
   (let [r (:requested-at-ms read)
-        end (- r (policy :read-settle-ms))
-        failure (fn [reason] {:from-ms start-ms :to-ms (max r (inc start-ms)) :reason reason
-                              :at-ms (or (:received-at-ms read) r)})]
-    (cond
-      (not (and (number? start-ms) (number? r))) []
-      (not (:complete? read))
-      (deltas stream base-token-ids [] (failure (get read-reasons (:reason read) :coverage/read-error)))
-      (not retained?) (deltas stream base-token-ids [] (failure :coverage/retention))
-      :else (deltas stream base-token-ids (iv/normalize [[start-ms end]]) nil))))
+        at (or (:received-at-ms read) r)
+        times (row-times (:rows read))
+        read-end (cond (:complete? read) (- r (policy :read-settle-ms))
+                       (and (contains? read-reasons (:reason read)) (seq times)) (apply max times))
+        from (if (number? oldest-retained) (max start-ms (inc oldest-retained)) start-ms)
+        read-failure (when-not (:complete? read) (get read-reasons (:reason read) :coverage/read-error))
+        failure (fn [a reason] {:from-ms a :to-ms (max r (inc a)) :reason reason :at-ms at})
+        token-deltas
+        (fn [token]
+          (let [u (get unparsed token)
+                cut? (and (number? u) (or (nil? read-end) (< u read-end)))
+                end (if cut? u read-end)
+                reason (cond cut? :coverage/unparsed-row read-failure read-failure)]
+            (cond-> []
+              (> from start-ms)
+              (conj {:stream stream :base-token-id token :complete []
+                     :failure (assoc (failure start-ms :coverage/retention) :to-ms from :permanent? true)})
+              :always
+              (conj {:stream stream :base-token-id token
+                     :complete (if (number? end) (iv/normalize [[from end]]) [])
+                     :failure (when reason (failure (if (and (number? end) (> end from)) end from) reason))}))))]
+    (if-not (and (number? start-ms) (number? r))
+      []
+      (into [] (mapcat token-deltas) (sort (distinct (map str base-token-ids)))))))
 
 (defn fills-read->coverage
   "Coverage deltas [{:stream :fills :base-token-id :complete :failure}] for a
-  `reads/read-fills-window!` result over `[start-ms, now]`, one per base
-  token in `base-token-ids` (the tokens tracked BEFORE the read was
-  requested; only their rows were persisted)."
+  `reads/read-fills-window!` result over `[start-ms, now]`, one or two per
+  base token in `base-token-ids` (the tokens tracked BEFORE the read was
+  requested; only their rows were persisted). A read holding at least
+  `:venue-fill-retention-count` DISTINCT fill keys (all coins) proves only
+  what lies after its oldest row. `unparsed` is {token-id earliest time} of
+  relevant rows that could not be parsed."
   [{:keys [read network account-address] :as args}]
   (read->coverage :fills args
-                  (< (distinct-fill-count network account-address (:rows read))
-                     (policy :venue-fill-retention-count))))
+                  (when (>= (distinct-fill-count network account-address (:rows read))
+                            (policy :venue-fill-retention-count))
+                    (let [times (row-times (:rows read))]
+                      (if (seq times) (apply min times) (:requested-at-ms read))))))
 
 (defn ledger-read->coverage
   "Coverage deltas for a `report-reads/read-ledger-window!` result. The
-  ledger's retention is unknown, so only completeness applies."
+  ledger's retention is unknown, so only completeness and unparsed rows
+  apply."
   [args]
-  (read->coverage :ledger args true))
+  (read->coverage :ledger args nil))
 
 (defn coverage-record-id [account stream base-token-id]
   (str "coverage:" account "|" (name stream) "|" base-token-id))
 
+(defn lost-intervals
+  "The PERMANENT failures of a coverage record (time the venue no longer
+  serves), as intervals."
+  [record]
+  (iv/normalize (keep #(when (:permanent? %) [(:from-ms %) (:to-ms %)]) (:failures record))))
+
 (defn merge-coverage
   "`existing` coverage record (or nil) with `delta` merged: complete
-  intervals only grow; failures keep the newest 20."
+  intervals only grow. A delta's complete intervals never add time already
+  known to be lost (a permanent failure): a read made after the venue
+  dropped those fills cannot prove them, while what an earlier read proved
+  stays proven. Failures keep the newest 20 permanent ones and the newest 20
+  others."
   [existing {:keys [stream base-token-id complete failure]} {:keys [account-address now-ms]}]
-  {:schema-version contracts/ledger-schema-version
-   :record-id (coverage-record-id account-address stream base-token-id)
-   :kind :coverage
-   :account-address account-address
-   :stream stream
-   :base-token-id base-token-id
-   :complete (iv/union (:complete existing) complete)
-   :failures (vec (take-last max-failures (cond-> (vec (:failures existing)) failure (conj failure))))
-   :saved-at-ms now-ms})
+  (let [all (cond-> (vec (:failures existing)) failure (conj failure))
+        failures (into (vec (take-last max-failures (filter :permanent? all)))
+                       (take-last max-failures (remove :permanent? all)))]
+    {:schema-version contracts/ledger-schema-version
+     :record-id (coverage-record-id account-address stream base-token-id)
+     :kind :coverage
+     :account-address account-address
+     :stream stream
+     :base-token-id base-token-id
+     :complete (iv/union (:complete existing) (iv/subtract complete (lost-intervals {:failures failures})))
+     :failures failures
+     :saved-at-ms now-ms}))
+
+(defn- campaign-start [c]
+  (- (:t0-ms c) (or (get-in c [:baseline :boundary :skew-ms]) (policy :boundary-skew-ms))))
+
+(defn read-start
+  "Where the next backfill read of one stream starts: the earliest point any
+  tracked token still needs, minus `overlap`. A token needs `[T0 - skew,
+  end)` of each of its campaigns (`end` is the closure time, or `now-ms`
+  while open), less what its `coverage` record ({base-token-id record})
+  proves complete and less what the venue no longer serves (permanent
+  failures), so a gap that can never heal does not hold every later read
+  back. `now-ms - overlap` when nothing is needed."
+  [{:keys [campaigns closures coverage overlap now-ms]}]
+  (let [token-of #(some-> (get-in % [:scope :base-token-id]) str)
+        starts (for [[token cs] (group-by token-of (vals campaigns))
+                     :when token
+                     :let [rec (get coverage token)
+                           need (for [c cs]
+                                  [(campaign-start c) (or (get-in closures [(:campaign-id c) :ended-at-ms]) now-ms)])
+                           gaps (iv/subtract need (iv/union (:complete rec) (lost-intervals rec)))]
+                     :when (seq gaps)]
+                 (ffirst gaps))]
+    (max 0 (- (if (seq starts) (apply min starts) now-ms) overlap))))
 
 ;; ---------------------------------------------------------------------------
 ;; Intervals
@@ -124,7 +202,9 @@
   (if-not (< from to)
     []
     (let [complete (:complete record)
-          failures (reverse (:failures record))
+          ;; Newest first, permanent losses before transient failures.
+          failures (let [newest (reverse (:failures record))]
+                     (concat (filter :permanent? newest) (remove :permanent? newest)))
           points (concat (mapcat identity complete) (mapcat (juxt :from-ms :to-ms) failures))]
       (merge-adjacent
        (for [[a b] (segments [from to] points)]
@@ -159,8 +239,11 @@
   :headline-allowed?}. `coverage` is {:fills record :ledger record} for the
   campaign's base token; `breaks` come from `report-attribution/
   campaign-findings`; mismatched `balance-checks` add breaks.
-  `storage-ok?` false (the ledger could not be read) is `:unavailable`."
-  [{:keys [campaign coverage breaks balance-checks until-ms storage-ok?] :or {storage-ok? true}}]
+  `storage-ok?` false (the ledger could not be read) is `:unavailable`.
+  `unreadable` ([{:time}] from `campaign-findings`) are stored rows that no
+  longer decode: from the earliest one on, coverage is a
+  `:storage/unreadable-rows` gap."
+  [{:keys [campaign coverage breaks balance-checks until-ms storage-ok? unreadable] :or {storage-ok? true}}]
   (let [skew (or (get-in campaign [:baseline :boundary :skew-ms]) (policy :boundary-skew-ms))
         from (- (:t0-ms campaign) skew)
         to until-ms]
@@ -175,12 +258,18 @@
                             (sort-by (juxt :at-ms :time #(str (:event-id %))))
                             vec)
             first-break (first all-breaks)
+            unreadable-from (some->> (seq (filter #(and (number? %) (< % to)) (map :time unreadable)))
+                                     (apply min)
+                                     (max from))
             fills (stream-intervals (:fills coverage) [from to])
             ledger-ivs (stream-intervals (:ledger coverage) [from to])
-            points (concat (mapcat (juxt :from-ms :to-ms) (concat fills ledger-ivs)) (map :at-ms all-breaks))
+            points (concat (mapcat (juxt :from-ms :to-ms) (concat fills ledger-ivs)) (map :at-ms all-breaks)
+                           (when unreadable-from [unreadable-from]))
             intervals (merge-adjacent
                        (for [[a b] (segments [from to] points)]
                          (let [candidates (cond-> [(state-at fills a) (state-at ledger-ivs a)]
+                                            (and unreadable-from (>= a unreadable-from))
+                                            (conj {:state :gap :reason :storage/unreadable-rows})
                                             (and first-break (>= a (:at-ms first-break)))
                                             (conj {:state :attribution-break :reason (:reason first-break)}))
                                top (last (sort-by (comp rank :state) candidates))]

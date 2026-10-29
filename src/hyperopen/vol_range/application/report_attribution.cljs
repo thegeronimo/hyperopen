@@ -128,6 +128,22 @@
     :spot (boolean (some (set token-ids) (:token-ids classification)))
     false))
 
+(defn unparsed-fill-token-ids
+  "The tracked base tokens (`token-ids`) a raw fill row that failed
+  normalization could have changed: none for a perp or HIP-3 coin, the
+  pair's tokens for a known spot market, and every one for a missing coin or
+  a spot market the metadata cannot resolve."
+  [markets token-ids row]
+  (let [tokens (set token-ids)
+        coin (:coin row)]
+    (if-not (and (string? coin) (seq (str/trim coin)))
+      tokens
+      (let [c (classify-fill markets nil {:coin coin})]
+        (case (:status c)
+          :unknown-market tokens
+          :spot (into #{} (filter (:token-ids c)) tokens)
+          #{})))))
+
 ;; ---------------------------------------------------------------------------
 ;; Non-funding ledger updates
 ;; ---------------------------------------------------------------------------
@@ -149,6 +165,32 @@
 
 (defn- ledger-key [account time hash type symbol]
   (str "ledger:" account "|" time "|" hash "|" type "|" symbol))
+
+(def native-token-name
+  "The venue's native token, in which `nativeTokenFee` is paid."
+  "HYPE")
+
+(defn- nonzero-amount? [x]
+  (boolean (and (some? x) (re-find #"[1-9]" (str x)))))
+
+(defn- fee-token-labels
+  "Tokens a ledger delta's fees are paid in, which the delta never names as
+  its `:token`: `feeToken` for a non-zero `fee`, and the native token for a
+  non-zero `nativeTokenFee`."
+  [delta]
+  (cond-> []
+    (and (nonzero-amount? (:fee delta)) (some? (:feeToken delta))) (conj (:feeToken delta))
+    (nonzero-amount? (:nativeTokenFee delta)) (conj native-token-name)))
+
+(defn unparsed-ledger-row?
+  "True when a ledger row cannot be classified (no numeric time, no delta
+  map or no type) and is not a USDC-only type: it may hide a base change, so
+  the read that returned it proves nothing from its time on."
+  [row]
+  (let [delta (:delta row)
+        type (when (map? delta) (some-> (:type delta) str))]
+    (and (not (and (number? (:time row)) (map? delta) type))
+         (not (contains? ignored-ledger-types type)))))
 
 (defn ledger-update-records
   "Ledger update records for one venue `userNonFundingLedgerUpdates` row
@@ -180,15 +222,59 @@
     (cond
       (not (and account (number? time) (map? delta) type)) []
       (contains? ignored-ledger-types type) []
-      (contains? base-transfer-ledger-types type)
-      (let [id (id-of (:token delta))]
-        (if (contains? tracked id) [(record id :base-transfer)] []))
       :else
-      (->> (strings-in delta)
-           (keep id-of)
-           (filter tracked)
-           distinct
-           (mapv #(record % :unrecognized-ledger-entry))))))
+      (let [fee-ids (keep id-of (fee-token-labels delta))
+            moved (if (contains? base-transfer-ledger-types type)
+                    ;; The moved token and the fee tokens; a transfer that does
+                    ;; not name its token is classified by the tokens it names.
+                    (concat (map vector (keep id-of [(:token delta)]) (repeat :base-transfer))
+                            (when-not (some? (:token delta))
+                              (map vector (keep id-of (strings-in delta)) (repeat :unrecognized-ledger-entry))))
+                    (map vector (keep id-of (strings-in delta)) (repeat :unrecognized-ledger-entry)))]
+        (->> (concat moved (map vector fee-ids (repeat :base-transfer)))
+             (filter (comp tracked first))
+             (reduce (fn [[seen out] [id c]]
+                       (if (contains? seen id) [seen out] [(conj seen id) (conj out (record id c))]))
+                     [#{} []])
+             second)))))
+
+;; ---------------------------------------------------------------------------
+;; Unreadable stored rows
+;; ---------------------------------------------------------------------------
+
+(defn- int-or-nil [x]
+  (when (and (string? x) (re-matches #"-?\d+" x)) (js/parseInt x 10)))
+
+(defn unreadable-row
+  "What the record id of a stored ledger row that no longer decodes still
+  says (ids are built by `ledger-store/fill-record`, `ledger-update-records`,
+  `report-coverage/coverage-record-id` and the balance checks):
+  {:record-id :kind (:fill, :ledger-update, :coverage, :balance-check or
+  :unknown) :time (venue ms or nil) :token-ids (a set, or :any when it
+  cannot be told) :campaign-id}."
+  [markets record-id]
+  (let [id (str record-id)
+        [prefix body] (let [i (.indexOf id ":")] (if (neg? i) [nil id] [(subs id 0 i) (subs id (inc i))]))
+        parts (str/split body #"\|" -1)
+        base {:record-id record-id :kind :unknown :time nil :token-ids :any :campaign-id nil}]
+    (case prefix
+      "fill" (let [[_ _ coin time] parts
+                   c (when (seq coin) (classify-fill markets nil {:coin coin}))]
+               (assoc base :kind :fill :time (int-or-nil time)
+                      :token-ids (case (:status c) :ignored #{} :spot (:token-ids c) :any)))
+      "ledger" (let [[_ time _ _ symbol] parts
+                     token (get-in markets [:token-ids (ledger/token-name symbol)])]
+                 (assoc base :kind :ledger-update :time (int-or-nil time) :token-ids (if token #{token} :any)))
+      "coverage" (let [[_ _ token] parts]
+                   (assoc base :kind :coverage :token-ids (if (seq token) #{token} :any)))
+      "balance-check" (assoc base :kind :balance-check :campaign-id (first parts))
+      base)))
+
+(defn unreadable-touches?
+  "True when parsed unreadable row `u` could concern base token `token-id`."
+  [u token-id]
+  (let [ids (:token-ids u)]
+    (or (= :any ids) (contains? ids token-id))))
 
 ;; ---------------------------------------------------------------------------
 ;; Per-campaign findings
@@ -203,8 +289,14 @@
   `fills` and ledger `updates`. `:events` are the campaign's tracked fill
   events (`report-ledger/fill-event`), sorted. Each break is {:at-ms
   (max t T0) :time t :reason :source (:fill or :ledger) :event-id}, sorted
-  by `:at-ms`. `ended-at-ms` is the closure time or nil."
-  [{:keys [campaign ended-at-ms fills updates markets index]}]
+  by `:at-ms`. `ended-at-ms` is the closure time or nil. `:unreadable` are
+  the stored rows (record ids) that no longer decode and could concern the
+  campaign, as [{:time :record-id}] (`:time` is T0 - skew when the row's own
+  time cannot be told): what they held is unknown, so coverage cannot be
+  complete from there on. A tracked fill inside the inception boundary is a
+  break and stays in `:events` (activity), except before T0 of a campaign
+  that superseded another one, whose interval already holds it."
+  [{:keys [campaign ended-at-ms fills updates markets index unreadable]}]
   (let [scope (:scope campaign)
         base-id (some-> (:base-token-id scope) str)
         k (:campaign-key campaign)
@@ -235,21 +327,26 @@
                         tracked? (and att (not (:recovered? att)) (= k (:campaign-key att)) same-pair?)
                         early? (or (< t t0)
                                    (and (ambiguous? t)
-                                        (not (and (number? (:sent-after-ms att)) (>= (:sent-after-ms att) t0)))))]
+                                        (not (and (number? (:sent-after-ms att)) (>= (:sent-after-ms att) t0)))))
+                        e (when tracked?
+                            (ledger/fill-event fill (merge (names m)
+                                                           {:tracked? true :campaign-id (:campaign-id campaign)
+                                                            :grid-id (:grid-id att)
+                                                            :operation-id (:operation-id att)
+                                                            :logical-id (:logical-id att)})))]
                     (cond
+                      ;; The fill stays in the activity unless it is before T0
+                      ;; of a campaign that superseded another one, whose
+                      ;; interval (it ends at this T0) already shows it.
                       (and tracked? early?)
-                      {:break (brk t :break/ambiguous-boundary :fill (:fill-key fill))}
+                      (cond-> {:break (brk t :break/ambiguous-boundary :fill (:fill-key fill))}
+                        (and e (or (>= t t0) (nil? (:supersedes-campaign-id campaign)))) (assoc :event e))
 
                       tracked?
-                      (let [e (ledger/fill-event fill (merge (names m)
-                                                             {:tracked? true :campaign-id (:campaign-id campaign)
-                                                              :grid-id (:grid-id att)
-                                                              :operation-id (:operation-id att)
-                                                              :logical-id (:logical-id att)}))]
-                        (cond-> {:event e}
-                          (or (nil? e) (= :unsupported (:fee-kind e)))
-                          (assoc :break (brk t (if e :break/unsupported-fee-token :break/untracked-same-base-trade)
-                                             :fill (:fill-key fill)))))
+                      (cond-> {:event e}
+                        (or (nil? e) (= :unsupported (:fee-kind e)))
+                        (assoc :break (brk t (if e :break/unsupported-fee-token :break/untracked-same-base-trade)
+                                           :fill (:fill-key fill))))
 
                       (ambiguous? t) {:break (brk t :break/ambiguous-boundary :fill (:fill-key fill))}
                       same-pair? {:break (brk t :break/untracked-same-base-trade :fill (:fill-key fill))}
@@ -263,6 +360,17 @@
                                :break/ambiguous-boundary
                                (get update-reasons (:classification u) :break/unrecognized-ledger-entry))
                            :ledger (:record-id u))})))
+        unreadable-finding
+        (fn [u]
+          (let [t (:time u)
+                found {:time (if (number? t) (max t start) start) :record-id (:record-id u)}]
+            (case (:kind u)
+              (:fill :ledger-update) (when (and (unreadable-touches? u base-id) (or (nil? t) (in-campaign? t))) found)
+              :coverage (when (unreadable-touches? u base-id) found)
+              :balance-check (when (= (:campaign-id u) (:campaign-id campaign)) found)
+              found)))
         found (concat (keep fill-finding fills) (keep update-finding updates))]
     {:events (ledger/events (keep :event found))
-     :breaks (vec (sort-by (juxt :at-ms :time #(str (:event-id %))) (keep :break found)))}))
+     :breaks (vec (sort-by (juxt :at-ms :time #(str (:event-id %))) (keep :break found)))
+     :unreadable (vec (sort-by (juxt :time #(str (:record-id %)))
+                               (keep (comp unreadable-finding #(unreadable-row markets %)) unreadable)))}))

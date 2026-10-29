@@ -49,6 +49,14 @@
     (is (= [] (:complete d)))
     (is (= :coverage/retention (get-in d [:failure :reason])) "perp rows count toward the venue's 10,000"))
   (let [r (+ t0 (* 5 hour))
+        many (rows 10000 #(if (even? %) "@9001" "BTC"))
+        [lost proven] (fills-delta (read r many) #{"9001"})]
+    (is (= {:from-ms start :to-ms (inc t0) :reason :coverage/retention :permanent? true :at-ms (+ r 200)}
+           (:failure lost))
+        "only the time up to the oldest row the venue still served is lost, permanently")
+    (is (= [[(inc t0) (- r 5000)]] (:complete proven)) "what follows the oldest row is proven")
+    (is (nil? (:failure proven))))
+  (let [r (+ t0 (* 5 hour))
         dupes (into (rows 9999 (constantly "@9001")) [(first (rows 1 (constantly "@9001")))])
         [d] (fills-delta (read r dupes) #{"9001"})]
     (is (= 10000 (count dupes)))
@@ -214,3 +222,87 @@
     (is (= :inconclusive (:state (evaluate p :breaks [{:at-ms (+ t0 hour) :time (+ t0 hour)
                                                        :reason :break/untracked-same-base-trade}])))
         "the campaign already has an untracked event")))
+
+;; ---------------------------------------------------------------------------
+;; Review fixes (Reporting 1)
+;; ---------------------------------------------------------------------------
+
+(deftest reads-cut-short-still-prove-what-they-paged-through-test
+  (let [r (+ t0 (* 5 hour))
+        rs (rows 3 (constantly "@9001"))
+        [d] (fills-delta (read r rs :complete? false :reason :fills/page-cap) #{"9001"})]
+    (is (= [[start (+ t0 2)]] (:complete d)) "pages run forward from the start, up to the newest row")
+    (is (= {:from-ms (+ t0 2) :to-ms r :reason :coverage/page-cap :at-ms (+ r 200)} (:failure d))))
+  (let [[d] (fills-delta (read (+ t0 hour) (rows 3 (constantly "@9001")) :complete? false
+                               :reason :fills/read-error)
+                         #{"9001"})]
+    (is (= [] (:complete d)) "a failed page proves nothing")))
+
+(deftest unparsed-rows-end-the-proof-for-their-tokens-test
+  (let [r (+ t0 (* 5 hour))
+        ds (coverage/fills-read->coverage {:read (read r []) :start-ms start :base-token-ids #{"9001" "9002"}
+                                           :network fx/network :account-address fx/account
+                                           :unparsed {"9001" (+ t0 hour)}})]
+    (is (= [{:stream :fills :base-token-id "9001" :complete [[start (+ t0 hour)]]
+             :failure {:from-ms (+ t0 hour) :to-ms r :reason :coverage/unparsed-row :at-ms (+ r 200)}}
+            {:stream :fills :base-token-id "9002" :complete [[start (- r 5000)]] :failure nil}]
+           ds))
+    (is (= :coverage/unparsed-row
+           (:reason (state (assoc (covered r) :fills (record :fills (take 1 ds))) (- r 5000)))))))
+
+(deftest lost-time-is-never-proven-later-and-never-read-again-test
+  (let [r1 (+ t0 (* 2 hour))
+        lost {:from-ms start :to-ms (+ t0 hour) :reason :coverage/retention :permanent? true :at-ms r1}
+        opts {:account-address fx/account :now-ms 1}
+        rec (-> nil
+                (coverage/merge-coverage {:stream :fills :base-token-id "9001" :complete [[(+ t0 hour) (- r1 5000)]]
+                                          :failure lost} opts)
+                (coverage/merge-coverage {:stream :fills :base-token-id "9001" :complete [[start (+ t0 (* 3 hour))]]
+                                          :failure nil} opts))
+        c1 (fx/campaign-record)
+        c2 (fx/campaign-record {:campaign-id "cmp-vrt-2" :at (+ t0 (* 3 hour))})
+        vrs (fx/vrs-campaign)]
+    (is (= [[(+ t0 hour) (+ t0 (* 3 hour))]] (:complete rec)) "a later read cannot prove time the venue dropped")
+    (is (= :gap (:state (state {:fills rec :ledger (:ledger (covered (+ t0 (* 6 hour))))} (+ t0 (* 3 hour))))))
+    (is (= :coverage/retention
+           (:reason (state {:fills rec :ledger (:ledger (covered (+ t0 (* 6 hour))))} (+ t0 (* 3 hour))))))
+    (is (= (- (+ t0 (* 3 hour)) 60000)
+           (coverage/read-start {:campaigns {"cmp-vrt" c1} :closures {} :coverage {"9001" rec}
+                                 :overlap 60000 :now-ms (+ t0 (* 4 hour))}))
+        "the next read starts after the lost time, not at the campaign start")
+    (testing "an ended campaign needs only its own interval; another token's gap does not move this start"
+      (let [full (assoc rec :complete [[(+ t0 hour) (+ t0 (* 4 hour))]])
+            campaigns {"cmp-vrt" c1 "cmp-vrt-2" c2}]
+        (is (= (- (+ t0 (* 4 hour)) 60000)
+               (coverage/read-start {:campaigns campaigns :closures {"cmp-vrt" {:ended-at-ms (+ t0 (* 3 hour))}}
+                                     :coverage {"9001" full} :overlap 60000 :now-ms (+ t0 (* 5 hour))})))
+        (is (= (- (:t0-ms vrs) fx/skew 60000)
+               (coverage/read-start {:campaigns (assoc campaigns "cmp-vrs" vrs) :closures {}
+                                     :coverage {"9001" full} :overlap 60000 :now-ms (+ t0 (* 5 hour))}))
+            "a token never read yet starts at its own campaign start")))))
+
+(deftest permanent-failures-outlive-transient-ones-test
+  (let [lost {:from-ms 0 :to-ms 10 :reason :coverage/retention :permanent? true :at-ms 0}
+        rec (reduce (fn [rec i]
+                      (coverage/merge-coverage rec {:stream :fills :base-token-id "9001" :complete []
+                                                    :failure {:from-ms (+ 5 i) :to-ms (+ 6 i)
+                                                              :reason :coverage/read-error :at-ms i}}
+                                               {:account-address fx/account :now-ms i}))
+                    (coverage/merge-coverage nil {:stream :fills :base-token-id "9001" :complete [] :failure lost}
+                                             {:account-address fx/account :now-ms 0})
+                    (range 25))]
+    (is (= lost (first (:failures rec))))
+    (is (= 21 (count (:failures rec))))
+    (is (= :coverage/retention (:reason (first (coverage/stream-intervals rec [0 10]))))
+        "the permanent loss explains its time even under newer failures")))
+
+(deftest unreadable-rows-are-a-gap-from-their-time-test
+  (let [cov (covered (+ t0 (* 6 hour)))
+        s (coverage/campaign-coverage {:campaign (fx/campaign-record) :coverage cov :until-ms (+ t0 (* 5 hour))
+                                       :unreadable [{:time (+ t0 (* 2 hour)) :record-id "fill:x"}]})]
+    (is (= :gap (:state s)))
+    (is (= :storage/unreadable-rows (:reason s)))
+    (is (false? (:headline-allowed? s)))
+    (is (= [{:from-ms start :to-ms (+ t0 (* 2 hour)) :state :complete :reason nil}
+            {:from-ms (+ t0 (* 2 hour)) :to-ms (+ t0 (* 5 hour)) :state :gap :reason :storage/unreadable-rows}]
+           (:intervals s)))))

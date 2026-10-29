@@ -47,11 +47,14 @@
           fail! (async-support/unexpected-error done)]
       (-> (store/put-records! io [(fill-rec fx/buy-7-row) other])
           (.then (fn [_]
-                   (swap! (:rows io) assoc "junk" {:record-id "junk" :edn "{:not"})
+                   (swap! (:rows io) assoc "junk" {:record-id "junk" :edn "{:not"}
+                          "other-junk" {:record-id "other-junk" :account-address "0xother" :edn "{:not"}
+                          "mine-junk" {:record-id "mine-junk" :account-address "0xabc" :edn "{:not"})
                    (store/load-account! io "0xABC")))
           (.then (fn [{:keys [records unreadable]}]
                    (is (= [(fill-rec fx/buy-7-row)] records) "EDN round-trips exactly; other accounts are left out")
-                   (is (= ["junk"] unreadable))
+                   (is (= #{"junk" "mine-junk"} (set unreadable))
+                       "rows that no longer decode are the account's unless their envelope names another one")
                    (is (= {(:fill-key (fx/fill fx/buy-7-row)) (fx/fill fx/buy-7-row)}
                           (:fills (store/group-records records))))
                    (done)))

@@ -135,16 +135,19 @@
         token (some-> (get-in c [:scope :base-token-id]) str)
         found (attribution/campaign-findings {:campaign c :ended-at-ms ended
                                               :fills (vals (:fills led)) :updates (vals (:updates led))
-                                              :markets markets :index (:attribution report)})
+                                              :markets markets :index (:attribution report)
+                                              :unreadable (:unreadable report)})
         records {:fills (get-in led [:coverage :fills token]) :ledger (get-in led [:coverage :ledger token])}
         through (checked-through records)
         checks (:balance-checks led)
-        later-break? (some #(>= (:at-ms %) (or through 0))
-                           (concat (:breaks found) (coverage/balance-check-breaks c checks)))
+        later-break? (or (some #(>= (:at-ms %) (or through 0))
+                               (concat (:breaks found) (coverage/balance-check-breaks c checks)))
+                         (some #(>= (:time %) (or through 0)) (:unreadable found)))
         until (cond-> (if (and through (not later-break?)) through now-ms)
                 (number? ended) (min ended))
         result (coverage/campaign-coverage {:campaign c :coverage records :breaks (:breaks found)
                                             :balance-checks checks :until-ms until
+                                            :unreadable (:unreadable found)
                                             :storage-ok? (not (false? (:storage-ok? report)))})
         ctx (break-context c led markets (first (:breaks result)))
         open? (nil? ended)]

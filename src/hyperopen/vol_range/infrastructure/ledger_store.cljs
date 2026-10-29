@@ -97,7 +97,8 @@
                (reduce (fn [acc row]
                          (if-let [r (decode row)]
                            (update acc :records conj r)
-                           (update acc :unreadable conj (:record-id row))))
+                           (update acc :unreadable conj (when (map? row)
+                                                          (select-keys row [:record-id :account-address])))))
                        {:records [] :unreadable []}
                        rows)))))
 
@@ -117,15 +118,19 @@
           records))
 
 (defn load-account!
-  "{:records [...] :unreadable [...]} for `account` (compared lower-cased).
-  Rejects when the store cannot be read."
+  "{:records [...] :unreadable [record-id ...]} for `account` (compared
+  lower-cased). A row that no longer decodes is the account's when its
+  stored envelope names the account or names none (it cannot be told whose
+  it is). Rejects when the store cannot be read."
   ([account] (load-account! default-io account))
   ([io account]
    (let [account (lower account)]
      (.then (load-all! io)
             (fn [{:keys [records unreadable]}]
               {:records (filterv #(= account (lower (:account-address %))) records)
-               :unreadable unreadable})))))
+               :unreadable (into [] (comp (filter #(let [a (lower (:account-address %))] (or (nil? a) (= account a))))
+                                          (map :record-id))
+                                 unreadable)})))))
 
 (defn merge-coverage!
   "Merge coverage `deltas` ({:stream :base-token-id :complete :failure}) into

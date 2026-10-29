@@ -33,11 +33,30 @@
                    (is (nil? reason))
                    (is (= 50 requested-at-ms))
                    (is (= 4500 (count rows)) "overlap rows appear once")
-                   (is (= 3 (count @calls)))
+                   (is (= 4 (count @calls)) "the last page only repeats the overlap row: nothing is left")
                    (is (every? #(= :low (:priority (second %))) @calls) "background reads are low priority")
                    (is (every? #(= 0 (:cache-ttl-ms (second %))) @calls))
                    (is (= "0xabc" (get (ffirst @calls) "user")))
                    (is (= "userNonFundingLedgerUpdates" (get (ffirst @calls) "type")))
+                   (done)))))))
+
+(deftest ledger-short-pages-do-not-end-the-read-test
+  ;; The venue's page size is not known: a page shorter than the assumed
+  ;; 2,000 rows is not taken as the end of the window.
+  (async done
+    (let [calls (atom [])
+          venue (fn [body opts]
+                  (swap! calls conj [body opts])
+                  (js/Promise.resolve
+                   (->> (ledger-rows 1200 identity)
+                        (filter #(<= (get body "startTime") (:time %) (get body "endTime")))
+                        (take 500)
+                        vec)))]
+      (-> (read-ledger! venue)
+          (.then (fn [{:keys [rows complete?]}]
+                   (is complete?)
+                   (is (= 1200 (count rows)) "every row after the 500th is read too")
+                   (is (= [0 499 998] (take 3 (map #(get (first %) "startTime") @calls))))
                    (done)))))))
 
 (deftest ledger-no-progress-and-page-cap-are-incomplete-test

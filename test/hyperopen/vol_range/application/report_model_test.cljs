@@ -109,6 +109,12 @@
     (let [row (only (vm (state {:rows [fx/other-pair-row]})))]
       (is (= "Outside activity from Oct 21, 16:42 UTC: a VRT trade in VRT/VRS."
              (get-in row [:coverage :detail])))))
+  (testing "a stored fill that no longer decodes is a gap, never complete"
+    (let [id (str "fill:" (:fill-key (fill fx/manual-row)))
+          row (only (vm (assoc-in (state {}) [:vol-range :report :unreadable] [id])))]
+      (is (= :gap (get-in row [:coverage :state])))
+      (is (some #(str/ends-with? (:text %) "Fills couldn't be confirmed (some saved fill records in this browser can't be read)")
+                (get-in row [:coverage :intervals])))))
   (testing "an unreadable ledger is unavailable"
     (let [row (only (vm (assoc-in (state {}) [:vol-range :report :storage-ok?] false)))]
       (is (= :unavailable (get-in row [:coverage :state])))
@@ -175,6 +181,9 @@
 (deftest status-messages-test
   (let [msg (fn [last] (:status-message (vm (assoc-in (state {}) [:vol-range :report :last] last))))]
     (is (= "Report updated." (msg {:op :backfill :status :ok})))
+    (is (= "Couldn't load fills: Fill page cap reached." (msg {:op :backfill :status :incomplete
+                                                               :error "Fill page cap reached"}))
+        "a backfill that confirmed less than it read never says the report was updated")
     (is (= "New tracking started." (msg {:op :start-tracking :status :ok})))
     (is (= "Couldn't load fills: Spot metadata unavailable." (msg {:op :backfill :status :error
                                                                   :error "Spot metadata unavailable"})))

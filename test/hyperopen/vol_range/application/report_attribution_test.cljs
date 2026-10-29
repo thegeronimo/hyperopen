@@ -47,7 +47,7 @@
 (deftest perp-and-hip3-coins-are-ignored-test
   (doseq [coin ["BTC" "xyz:GOLD" "HYPE"]]
     (let [row (assoc fx/manual-row :coin coin)]
-      (is (= {:events [] :breaks []} (findings [row])) coin)
+      (is (= {:events [] :breaks [] :unreadable []} (findings [row])) coin)
       (is (= :ignored (:status (attribution/classify-fill markets {} (fx/fill row))))))))
 
 (deftest unknown-spot-market-breaks-test
@@ -70,7 +70,7 @@
 
 (deftest inception-boundary-test
   (testing "before T0 - skew the event is in q0"
-    (is (= {:events [] :breaks []} (findings [(assoc fx/manual-row :time (- fx/t0 fx/skew 1))]))))
+    (is (= {:events [] :breaks [] :unreadable []} (findings [(assoc fx/manual-row :time (- fx/t0 fx/skew 1))]))))
   (testing "any untracked same-base event inside the widened boundary is ambiguous"
     (doseq [t [(- fx/t0 fx/skew) fx/t0 (+ fx/t0 180 fx/skew)]]
       (is (= [:break/ambiguous-boundary] (reasons (findings [(assoc fx/manual-row :time t)]))) (str t))))
@@ -85,7 +85,7 @@
   (testing "a break before T0 is dated T0"
     (is (= fx/t0 (:at-ms (first (:breaks (findings [(assoc fx/manual-row :time (- fx/t0 10))])))))))
   (testing "after the campaign closed nothing belongs to it"
-    (is (= {:events [] :breaks []}
+    (is (= {:events [] :breaks [] :unreadable []}
            (attribution/campaign-findings {:campaign (fx/campaign-record) :ended-at-ms (+ fx/t0 fx/hour)
                                            :fills [(fx/fill fx/manual-row)] :updates [] :markets markets
                                            :index {}})))))
@@ -126,3 +126,76 @@
              :source :ledger :event-id (:record-id transfer)}]
            (:breaks f))))
   (is (= [] (ledger-records fx/usdc-deposit-row))))
+
+;; ---------------------------------------------------------------------------
+;; Review fixes (Reporting 1)
+;; ---------------------------------------------------------------------------
+
+(def hype-markets
+  (attribution/spot-markets (update fx/spot-meta :tokens conj {:name "HYPE" :index 150 :szDecimals 2})))
+
+(defn- hype-records [row]
+  (attribution/ledger-update-records {:markets hype-markets :tracked #{"150" "9001"} :account-address "0xABC"
+                                      :row row :now-ms 1}))
+
+(deftest transfer-fees-in-a-tracked-token-break-test
+  (testing "a send of another token that pays its fee in the native token changes HYPE"
+    (let [rs (hype-records {:time 5 :hash "0x1"
+                            :delta {:type "send" :destination "0x20" :sourceDex "spot" :destinationDex "spot"
+                                    :token "USDC" :nativeTokenFee "0.00002"}})]
+      (is (= [["150" :base-transfer "HYPE"]] (mapv (juxt :base-token-id :classification :token) rs)))
+      (is (= "ledger:0xabc|5|0x1|send|HYPE" (:record-id (first rs))))))
+  (testing "a zero native fee changes nothing"
+    (is (= [] (hype-records {:time 5 :hash "0x1" :delta {:type "send" :token "USDC" :nativeTokenFee "0.0"}}))))
+  (testing "a fee in a tracked feeToken counts too, once per token"
+    (is (= [["9001" :base-transfer]]
+           (mapv (juxt :base-token-id :classification)
+                 (hype-records {:time 5 :hash "0x1"
+                                :delta {:type "spotTransfer" :token "VRT" :amount "-1" :fee "0.1" :feeToken "VRT"}}))))
+    (is (= [["9001" :base-transfer]]
+           (mapv (juxt :base-token-id :classification)
+                 (hype-records {:time 5 :hash "0x1"
+                                :delta {:type "send" :token "USDC" :amount "-1" :fee "0.1" :feeToken "VRT"}}))))))
+
+(deftest unparsed-rows-name-the-tokens-they-could-change-test
+  (let [tokens #{"9001" "9002"}]
+    (is (= #{} (attribution/unparsed-fill-token-ids markets tokens {:coin "BTC" :px "x"})) "perps never matter")
+    (is (= #{"9001"} (attribution/unparsed-fill-token-ids markets tokens {:coin "@9001" :px "x"})))
+    (is (= tokens (attribution/unparsed-fill-token-ids markets tokens {:coin "@424242"})))
+    (is (= tokens (attribution/unparsed-fill-token-ids markets tokens {:px "1"})) "no coin: any token"))
+  (is (attribution/unparsed-ledger-row? {:time "5" :delta {:type "spotTransfer" :token "VRT"}}))
+  (is (attribution/unparsed-ledger-row? {:time 5 :delta "?"}))
+  (is (not (attribution/unparsed-ledger-row? {:time "5" :delta {:type "deposit" :usdc "1"}})) "USDC-only")
+  (is (not (attribution/unparsed-ledger-row? fx/spot-transfer-row))))
+
+(deftest boundary-fills-of-the-ladder-stay-in-the-activity-test
+  (let [early-grid [(fx/grid {:admitted-at (- fx/t0 60000)})]
+        restart (assoc (fx/campaign-record) :supersedes-campaign-id "cmp-before")
+        run (fn [campaign row]
+              (attribution/campaign-findings {:campaign campaign :ended-at-ms nil :fills [(fx/fill row)] :updates []
+                                              :markets markets :index (attribution/attribution-index early-grid)}))
+        after (run restart (assoc fx/buy-7-row :time (+ fx/t0 2000)))
+        before (run restart (assoc fx/buy-7-row :time (- fx/t0 2000)))
+        first-campaign (run (fx/campaign-record) (assoc fx/buy-7-row :time (- fx/t0 2000)))]
+    (is (= [:break/ambiguous-boundary] (reasons after)))
+    (is (= 1 (count (:events after))) "a rung filling just after a restart is shown in the new tracking")
+    (is (= [:break/ambiguous-boundary] (reasons before)))
+    (is (= [] (:events before)) "before a restart's T0 the fill belongs to the tracking that ended there")
+    (is (= 1 (count (:events first-campaign))) "the first tracking of a market shows it")))
+
+(deftest unreadable-rows-are-unresolved-for-the-campaign-test
+  (let [fill-id (str "fill:" (:fill-key (fx/fill fx/manual-row)))
+        btc-id (str "fill:" (:fill-key (fx/fill (assoc fx/manual-row :coin "BTC"))))
+        vrs-id (str "fill:" (:fill-key (fx/fill (assoc fx/manual-row :coin "@9002"))))
+        start (- fx/t0 fx/skew)
+        run (fn [ids] (:unreadable (attribution/campaign-findings
+                                    {:campaign (fx/campaign-record) :fills [] :updates [] :markets markets
+                                     :index {} :unreadable ids})))]
+    (is (= {:kind :fill :time (:time fx/manual-row) :token-ids #{"9001" "0"}}
+           (select-keys (attribution/unreadable-row markets fill-id) [:kind :time :token-ids])))
+    (is (= [{:time (:time fx/manual-row) :record-id fill-id}] (run [fill-id])))
+    (is (= [] (run [btc-id vrs-id "coverage:0xabc|fills|9002" "balance-check:cmp-other|1"]))
+        "rows of perps, of other tokens and of other campaigns do not concern it")
+    (is (= [{:time start :record-id "ledger:0xabc|x|0x1|send|VRT"}] (run ["ledger:0xabc|x|0x1|send|VRT"]))
+        "a row whose time cannot be told concerns the whole campaign")
+    (is (= [start start start] (map :time (run ["junk" nil "coverage:0xabc|ledger|9001"]))))))

@@ -49,6 +49,8 @@
    :coverage/no-progress "fill pages stopped advancing"
    :coverage/page-cap "too many fills to read at once"
    :coverage/read-error "a read failed"
+   :coverage/unparsed-row "a fill or account update couldn't be read"
+   :storage/unreadable-rows "some saved fill records in this browser can't be read"
    :coverage/backfill-pending "not checked yet"
    :baseline/missing "no tracking baseline"
    :baseline/price-unavailable "no starting price was recorded"

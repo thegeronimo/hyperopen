@@ -14,12 +14,16 @@
 
   `backfill!` reads in this order: the account's balances (a barrier read,
   as `executor/reconcile!` does first), then fills and then ledger updates
-  from the earliest uncovered time minus `:fills-overlap-ms` to now. Rows are
-  classified with the tracked base tokens loaded BEFORE the reads were
-  requested; only relevant rows are persisted, and coverage is merged only
-  for those tokens and only after the rows were committed. Pending balance
-  checks are then evaluated. Functions resolve with typed results and never
-  reject."
+  from `report-coverage/read-start` (the earliest point a tracked token
+  still needs and the venue can still serve, minus `:fills-overlap-ms`) or
+  earlier, from a stored row that no longer decodes, so it is rewritten.
+  Rows are classified with the tracked base tokens loaded BEFORE the reads
+  were requested; only relevant rows are persisted, and coverage is merged
+  only for those tokens and only after the rows were committed. A relevant
+  row that cannot be parsed ends what the read proves at its time. Pending
+  balance checks are then evaluated. The result is `:incomplete`, with the
+  reason as `:error`, when a read did not complete or proved less than it
+  read. Functions resolve with typed results and never reject."
   (:require [clojure.string :as str]
             [hyperopen.vol-range.application.campaign :as campaign]
             [hyperopen.vol-range.application.fill-records :as fill-records]
@@ -27,7 +31,6 @@
             [hyperopen.vol-range.application.report-attribution :as attribution]
             [hyperopen.vol-range.application.report-coverage :as coverage]
             [hyperopen.vol-range.contracts :as contracts]
-            [hyperopen.vol-range.domain.report-intervals :as iv]
             [hyperopen.vol-range.infrastructure.ledger-store :as ledger-store]
             [hyperopen.vol-range.infrastructure.reads :as reads]
             [hyperopen.vol-range.infrastructure.report-reads :as report-reads]))
@@ -46,7 +49,10 @@
   its ledger rows. Resolves to {:journal-ok? :storage-ok? :account-address
   :campaigns :closures :attribution :ledger :unreadable :error}; a ledger
   that cannot be read is `:storage-ok? false` (reports show
-  `:storage/unavailable`), never an empty ledger. Never rejects."
+  `:storage/unavailable`), never an empty ledger. `:unreadable` holds the
+  record ids of the account's stored rows that no longer decode; reports
+  treat them as unresolved (`report-attribution/campaign-findings`). Never
+  rejects."
   [deps account-address]
   (let [account (lower account-address)
         journal (-> (js/Promise.resolve nil)
@@ -75,9 +81,6 @@
 ;; Backfill
 ;; ---------------------------------------------------------------------------
 
-(defn- campaign-start [c]
-  (- (:t0-ms c) (or (get-in c [:baseline :boundary :skew-ms]) (policy :boundary-skew-ms))))
-
 (defn- base-token [c] (some-> (get-in c [:scope :base-token-id]) str))
 
 (defn tracked-base-tokens
@@ -85,28 +88,57 @@
   [campaigns]
   (into #{} (keep base-token) (vals campaigns)))
 
-(defn read-start
-  "The earliest time any tracked token still needs from `stream`, minus the
-  overlap: per token, the first uncovered point of `[earliest campaign start,
-  now)`."
-  [campaigns coverage-by-token stream-overlap now-ms]
-  (let [starts (for [[token cs] (group-by base-token (vals campaigns))
-                     :when token
-                     :let [need [(apply min (map campaign-start cs)) now-ms]
-                           gaps (iv/uncovered (get-in coverage-by-token [token :complete]) need)]
-                     :when (seq gaps)]
-                 (ffirst gaps))]
-    (max 0 (- (if (seq starts) (apply min starts) now-ms) stream-overlap))))
+(defn- heal-from
+  "The earliest venue time of a stored `kind` row (:fill or :ledger-update)
+  that no longer decodes and could concern a tracked token, or nil. Reading
+  from there again rewrites it from the venue."
+  [loaded markets tokens kind]
+  (some->> (:unreadable loaded)
+           (map #(attribution/unreadable-row markets %))
+           (filter #(and (= kind (:kind %)) (number? (:time %)) (some (partial attribution/unreadable-touches? %) tokens)))
+           (map :time)
+           seq
+           (apply min)))
 
-(defn- start-for [deps loaded stream]
-  (read-start (:campaigns loaded) (get-in loaded [:ledger :coverage stream]) (policy :fills-overlap-ms) (now deps)))
+(defn- start-for [deps loaded markets tokens stream]
+  (let [overlap (policy :fills-overlap-ms)
+        start (coverage/read-start {:campaigns (:campaigns loaded) :closures (:closures loaded)
+                                    :coverage (get-in loaded [:ledger :coverage stream])
+                                    :overlap overlap :now-ms (now deps)})
+        heal (heal-from loaded markets tokens (if (= :fills stream) :fill :ledger-update))]
+    (if (number? heal) (min start (max 0 (- heal overlap))) start)))
+
+(defn- earliest-by-token
+  "{token-id earliest time} from [[token-ids time] ...]."
+  [pairs]
+  (reduce (fn [acc [ids t]] (reduce (fn [acc id] (update acc id #(if % (min % t) t))) acc ids)) {} pairs))
+
+(defn- normalize [deps loaded read row]
+  (fill-records/normalize-fill {:network (:network deps) :account-address (:account-address loaded)
+                                :row row :source :rest :received-at-ms (:received-at-ms read)}))
+
+(defn- unparsed-fills
+  "{token-id earliest time} of fill rows that failed normalization and could
+  concern a tracked token (`start` when the row's time is unusable)."
+  [deps loaded markets tokens read start]
+  (earliest-by-token
+   (for [row (:rows read)
+         :when (nil? (normalize deps loaded read row))
+         :let [ids (attribution/unparsed-fill-token-ids markets tokens row)]
+         :when (seq ids)]
+     [ids (if (number? (:time row)) (:time row) start)])))
+
+(defn- unparsed-updates [tokens read start]
+  (earliest-by-token
+   (for [row (:rows read)
+         :when (attribution/unparsed-ledger-row? row)]
+     [tokens (if (number? (:time row)) (:time row) start)])))
 
 (defn- new-fill-records [deps loaded markets tokens read]
   (let [at (now deps)
         known (:fills (:ledger loaded))]
     (->> (:rows read)
-         (keep #(fill-records/normalize-fill {:network (:network deps) :account-address (:account-address loaded)
-                                              :row % :source :rest :received-at-ms (:received-at-ms read)}))
+         (keep #(normalize deps loaded read %))
          (filter #(attribution/relevant-fill? (attribution/classify-fill markets (:attribution loaded) %) tokens))
          (remove #(contains? known (:fill-key %)))
          (map #(ledger-store/fill-record % at))
@@ -137,11 +169,15 @@
                               (attribution/campaign-findings
                                {:campaign c :ended-at-ms (get-in closures [(:campaign-id c) :ended-at-ms])
                                 :fills (vals (:fills ledger)) :updates (vals (:updates ledger))
-                                :markets markets :index (:attribution loaded)}))
+                                :markets markets :index (:attribution loaded) :unreadable (:unreadable loaded)}))
                       evaluated (coverage/evaluate-balance-check
                                  check
                                  {:campaign c :events (:events found)
-                                  :breaks (into (vec (:breaks found)) (coverage/balance-check-breaks c checks))
+                                  ;; A stored row that no longer decodes may hold a change
+                                  ;; of the base: it decides nothing.
+                                  :breaks (-> (vec (:breaks found))
+                                              (into (coverage/balance-check-breaks c checks))
+                                              (into (:unreadable found)))
                                   :coverage {:fills (get-in ledger [:coverage :fills (base-token c)])
                                              :ledger (get-in ledger [:coverage :ledger (base-token c)])}
                                   :fills-read-requested-at-ms (when (:complete? fills-read) (:requested-at-ms fills-read))
@@ -164,6 +200,19 @@
         (update-in [:ledger :balance-checks]
                    (fn [cs] (into (vec (remove (set (map :record-id new-checks)) cs)) new-checks))))))
 
+(defn- backfill-problem
+  "Why this backfill confirmed less than it read for, or nil: a fills or
+  ledger read that did not complete, rows that could not be read, or fills
+  the venue no longer serves."
+  [{:keys [fills ledger-read unparsed deltas]}]
+  (cond
+    (not (:complete? fills)) (or (:error fills) "the fills read did not complete")
+    (not (:complete? ledger-read)) (or (:error ledger-read) "the account updates read did not complete")
+    (some seq (vals unparsed)) "some fills or account updates couldn't be read"
+    (some #(= :coverage/retention (get-in % [:failure :reason])) deltas)
+    "the venue keeps only its most recent 10,000 fills"
+    :else nil))
+
 (defn- run-backfill! [deps loaded markets]
   (let [account (:account-address loaded)
         tokens (tracked-base-tokens (:campaigns loaded))
@@ -182,14 +231,14 @@
                    (reduce (fn [p c] (.then p (fn [_] ((get-in deps [:ledger :put-balance-check!]) c))))
                            (js/Promise.resolve nil) checks))))
         (.then (fn [_]
-                 (let [start (start-for deps loaded :fills)]
+                 (let [start (start-for deps loaded markets tokens :fills)]
                    (swap! state assoc :fills-start start)
                    (reads/read-fills-window! (:post-info! deps)
                                              {:account-address account :barrier-id read-id :priority :low
                                               :start-ms start :end-ms (now deps) :now-ms! (:now-ms! deps)}))))
         (.then (fn [fills]
                  (swap! state assoc :fills fills)
-                 (let [start (start-for deps loaded :ledger)]
+                 (let [start (start-for deps loaded markets tokens :ledger)]
                    (swap! state assoc :ledger-start start)
                    (report-reads/read-ledger-window! (:post-info! deps)
                                                      {:account-address account :read-id read-id
@@ -203,19 +252,25 @@
                    ((get-in deps [:ledger :put-records!]) records))))
         (.then (fn [_]
                  (let [{:keys [fills ledger-read fills-start ledger-start]} @state
+                       unparsed {:fills (unparsed-fills deps loaded markets tokens fills fills-start)
+                                 :ledger (unparsed-updates tokens ledger-read ledger-start)}
                        deltas (into (coverage/fills-read->coverage {:read fills :start-ms fills-start
                                                                     :base-token-ids tokens :network (:network deps)
-                                                                    :account-address account})
+                                                                    :account-address account
+                                                                    :unparsed (:fills unparsed)})
                                     (coverage/ledger-read->coverage {:read ledger-read :start-ms ledger-start
-                                                                     :base-token-ids tokens}))]
+                                                                     :base-token-ids tokens
+                                                                     :unparsed (:ledger unparsed)}))]
+                   (swap! state assoc :unparsed unparsed :deltas deltas)
                    ((get-in deps [:ledger :merge-coverage!]) account deltas (now deps)))))
         (.then (fn [merged]
                  (let [{:keys [records new-checks fills]} @state
                        loaded* (with-merged loaded records merged new-checks)]
                    (.then (evaluate-checks! deps loaded* markets fills)
                           (fn [evaluated]
-                            (let [{:keys [snapshot fills ledger-read]} @state]
-                              {:status :ok :error nil
+                            (let [{:keys [snapshot fills ledger-read] :as st} @state
+                                  problem (backfill-problem st)]
+                              {:status (if problem :incomplete :ok) :error problem
                                :account-address account
                                :tracked-base-token-ids tokens
                                :persisted (count records)
@@ -233,7 +288,8 @@
 
 (defn backfill!
   "One REST backfill for `account-address` (see the namespace doc).
-  Resolves to {:status :ok|:skipped|:error|:storage/unavailable ...}. Never
+  Resolves to {:status :ok|:incomplete|:skipped|:error|:storage/unavailable
+  ...}. Never
   rejects."
   [deps {:keys [account-address]}]
   (-> (load! deps account-address)

@@ -19,10 +19,14 @@
 (defn read-ledger-window!
   "Raw `userNonFundingLedgerUpdates` rows for one account in
   `[start-ms, end-ms]`, paged forward from the newest row's time with
-  overlap; overlap duplicates (identical rows) are removed. Resolves to
-  {:rows :complete? :requested-at-ms :received-at-ms :error :reason} where
-  `:reason` is :ledger/read-error, :ledger/no-progress or :ledger/page-cap
-  when incomplete. Never rejects."
+  overlap; overlap duplicates (identical rows) are removed. The venue's page
+  size is not known, so a short page never ends the read: it ends only on a
+  page that adds no row not already read (or is empty), i.e. once the venue
+  has nothing after the newest row. Resolves to {:rows :complete?
+  :requested-at-ms :received-at-ms :error :reason} where `:reason` is
+  :ledger/read-error, :ledger/no-progress (a page of at least
+  `:ledger-page-limit` rows that all share the start time) or
+  :ledger/page-cap when incomplete. Never rejects."
   [post-info! {:keys [account-address start-ms end-ms read-id now-ms!]}]
   (let [address (normalize-address account-address)
         now-ms! (or now-ms! #(.now js/Date))
@@ -34,25 +38,27 @@
                 :received-at-ms (now-ms!) :error error :reason reason})]
     (if-not (and address (number? start-ms) (number? end-ms))
       (js/Promise.resolve (done [] false "Account and window are required" :ledger/read-error))
-      (letfn [(page [from rows n]
+      (letfn [(page [from rows seen n]
                 (-> (post-info! {"type" "userNonFundingLedgerUpdates" "user" address
                                  "startTime" (js/Math.floor from) "endTime" (js/Math.floor end-ms)}
                                 {:priority :low :cache-ttl-ms 0
-                                 :dedupe-key [:vol-range-report :ledger address read-id from]})
+                                 :dedupe-key [:vol-range-report :ledger address read-id from n]})
                     (.then (fn [resp]
                              (if-not (sequential? resp)
                                (done rows false "Unexpected ledger response shape" :ledger/read-error)
                                (let [rows (into rows resp)
+                                     seen* (into seen resp)
                                      newest (reduce max from (filter number? (map :time resp)))]
                                  (cond
-                                   (< (count resp) page-limit) (done rows true nil nil)
-                                   (<= newest from) (done rows false "Ledger pagination made no progress"
-                                                          :ledger/no-progress)
+                                   (empty? resp) (done rows true nil nil)
+                                   (and (<= newest from) (>= (count resp) page-limit))
+                                   (done rows false "Ledger pagination made no progress" :ledger/no-progress)
+                                   (= (count seen*) (count seen)) (done rows true nil nil)
                                    (>= (inc n) max-pages) (done rows false "Ledger page cap reached"
                                                                 :ledger/page-cap)
-                                   :else (page newest rows (inc n)))))))
+                                   :else (page newest rows seen* (inc n)))))))
                     (.catch (fn [e] (done rows false (error-text e) :ledger/read-error)))))]
-        (page start-ms [] 0)))))
+        (page start-ms [] #{} 0)))))
 
 (defn read-hourly-candles!
   "Completed and in-progress 1h candles for `coin` covering
