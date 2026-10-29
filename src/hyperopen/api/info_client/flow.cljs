@@ -280,8 +280,12 @@
                   (stats/inactive-request-error request-type request-source)))
 
                :else
-               (throw (make-http-error status))))))
-        (.catch
+               (throw (make-http-error status)))))
+         ;; Rejection handler of the SAME .then: it sees only failures of this
+         ;; attempt's fetch (network errors, timeouts). A trailing .catch would
+         ;; also catch the final rejection of the nested retry chain above and
+         ;; retry it again at every level: 31 fetches instead of 5 for a
+         ;; request that kept getting 429.
          (fn [err]
            (let [status (aget err "status")]
              (if (and (< attempt max-retries)

@@ -1,11 +1,35 @@
 (ns hyperopen.views.trading-chart.toolbar
   (:require [hyperopen.views.trading-chart.chart-type-dropdown :refer [chart-type-dropdown]]
             [hyperopen.views.trading-chart.indicators-dropdown :refer [indicators-dropdown]]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.views.trading-chart.timeframe-dropdown :refer [timeframe-dropdown]]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
 ;; Main timeframes for quick access buttons
 (def main-timeframes [:5m :1h :1d])
+
+(defn- chart-trades-toggle
+  [state]
+  (let [on? (trading-settings/show-chart-trades? state)]
+    [:button
+     {:type "button"
+      :data-role "chart-toolbar-trades-toggle"
+      :aria-pressed (str on?)
+      :title (if on? "Hide your trades on the chart" "Show your trades on the chart")
+      :class (cond-> ["flex" "items-center" "gap-1.5" "h-8" "px-3" "text-base" "font-medium"
+                      "rounded-none" "transition-colors" "bg-gray-900/40"
+                      "hover:text-white" "hover:bg-gray-800/70"
+                      "focus:outline-none" "focus-visible:ring-2" "focus-visible:ring-slate-500/70"
+                      "focus-visible:ring-offset-1" "focus-visible:ring-offset-base-100"]
+               on? (conj "text-gray-100")
+               (not on?) (conj "text-gray-400"))
+      :on {:click [[:actions/set-chart-trades-enabled (not on?)]]}}
+     [:span {:class (cond-> ["flex" "items-center" "gap-0.5"]
+                      (not on?) (conj "opacity-40"))
+             :aria-hidden "true"}
+      [:span {:class ["inline-block" "w-2" "h-2" "rounded-full" "bg-trading-green"]}]
+      [:span {:class ["inline-block" "w-2" "h-2" "rounded-full" "bg-trading-red"]}]]
+     [:span "My trades"]]))
 
 (defn chart-top-menu
   [state]
@@ -72,7 +96,9 @@
        (indicators-dropdown {:indicators-dropdown-visible indicators-dropdown-visible
                              :volume-visible? volume-visible?
                              :active-indicators active-indicators
-                             :search-term indicators-search-term})]]
+                             :search-term indicators-search-term})]
+      [:div.w-px.h-6.bg-gray-700]
+      (chart-trades-toggle state)]
 
      (when freshness-cue
        ^{:replicant/key "chart-freshness-cue"}

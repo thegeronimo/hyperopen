@@ -36,8 +36,7 @@
                                         {:t t2 :c 90}
                                         {:t t3 :c 86}
                                         {:t t4 :c 88}]}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                            :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}]
       (with-redefs [portfolio-metrics/returns-history-rows (fn [_state _summary _scope]
                                                              [[t3 0] [t4 10]])]
@@ -99,8 +98,7 @@
                                         {:t t2 :c 90}
                                         {:t t3 :c 86}
                                         {:t t4 :c 88}]}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                            :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           series (get-in view-model [:chart :series])
@@ -152,8 +150,7 @@
                                 :summary-time-range :one-year
                                 :chart-tab :returns}
                  :portfolio {:summary-by-key {:one-year tail-summary}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                            :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= [t3 t4]

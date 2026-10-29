@@ -127,6 +127,11 @@
    [:span {:class (into ["num" "text-sm" "text-trading-text"] (or value-class []))}
     value]])
 
+(defn- known-currency [value]
+  (if (number? value)
+    (portfolio-format/format-currency value)
+    "--"))
+
 (defn- pnl-summary [pnl]
   (let [n (if (number? pnl) pnl 0)
         color-class (cond
@@ -159,12 +164,14 @@
       (summary-row "PNL" (:value pnl-info) (:class pnl-info))
       (summary-row "Volume" (portfolio-format/format-currency (:volume summary)))
       (summary-row "Max Drawdown" (portfolio-format/format-drawdown (:max-drawdown-pct summary)))
-      (summary-row "Total Equity" (portfolio-format/format-currency (:total-equity summary)))
+      ;; Both read "--" until the shown account's vault equity loads; a total
+      ;; without the vaults would understate the account.
+      (summary-row "Total Equity" (known-currency (:total-equity summary)))
       (when (:show-perps-account-equity? summary)
         (summary-row "Perps Account Equity" (portfolio-format/format-currency (:perps-account-equity summary))))
       (summary-row (:spot-equity-label summary) (portfolio-format/format-currency (:spot-account-equity summary)))
       (when (:show-vault-equity? summary)
-        (summary-row "Vault Equity" (portfolio-format/format-currency (:vault-equity summary))))
+        (summary-row "Vault Equity" (known-currency (:vault-equity summary))))
       (when (:show-earn-balance? summary)
         (summary-row "Earn Balance" (portfolio-format/format-currency (:earn-balance summary))))
       (when (:show-staking-account? summary)

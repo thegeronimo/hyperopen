@@ -70,8 +70,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 110]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           benchmark-selector (get-in view-model [:selectors :returns-benchmark])]
@@ -125,8 +124,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 110]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           benchmark-selector (get-in (vm/portfolio-vm state) [:selectors :returns-benchmark])
           vault-candidates (->> (:candidates benchmark-selector)
@@ -162,8 +160,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 110]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           benchmark-selector (get-in (vm/portfolio-vm state) [:selectors :returns-benchmark])
           candidate (first (:candidates benchmark-selector))]
@@ -188,8 +185,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 110]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           benchmark-selector (get-in (vm/portfolio-vm state) [:selectors :returns-benchmark])]
       (is (= [trader-benchmark] (:selected-coins benchmark-selector)))
@@ -227,8 +223,7 @@
                       :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                            :accountValueHistory [[1 100] [2 110]]
                                                            :vlm 10}}}
-                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                                :totalVaultEquity 0}
+                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                       :borrow-lend {:total-supplied-usd 0}}
           build-vm (fn [markets]
                      (vm/portfolio-vm (assoc base-state :asset-selector {:markets markets})))]
@@ -273,8 +268,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 0]]
                                                       :accountValueHistory [[1 100] [2 110] [3 120]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           benchmark-series (->> (get-in view-model [:chart :series])
@@ -318,8 +312,7 @@
                                                                                                             [t1 220]
                                                                                                             [t2 260]]
                                                                                       :vlm 0}}}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           benchmark-series (->> (get-in view-model [:chart :series])
@@ -371,8 +364,7 @@
                            "QQQ" {:1h [{:t t0 :c 100}
                                        {:t t1 :c 101}
                                        {:t t2 :c 103}]}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           cumulative-return-row (performance-metric-row view-model :cumulative-return)
@@ -705,8 +697,7 @@
                              "QQQ" {:1h [{:t t0 :c 100}
                                          {:t t1 :c 101}
                                          {:t t2 :c 103}]}}
-                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                             :totalVaultEquity 0}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                    :borrow-lend {:total-supplied-usd 0}}
             view-model (vm/portfolio-vm state)]
         (is (= 1 @request-calls))
@@ -740,8 +731,7 @@
                                                                               [t1 111]
                                                                               [t2 119]]
                                                         :vlm 0}}}
-                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                             :totalVaultEquity 0}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                    :borrow-lend {:total-supplied-usd 0}}
             view-model (vm/portfolio-vm state)]
         (is (= 0 @request-calls))
@@ -785,8 +775,7 @@
                    :candles {"SPY" {:1h [{:t t0 :c 50}
                                          {:t t1 :c 53}
                                          {:t t2 :c 57}]}}
-                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                             :totalVaultEquity 0}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                    :borrow-lend {:total-supplied-usd 0}}
             view-model (vm/portfolio-vm state)]
         (is (= 1 @returns-history-calls))
@@ -836,8 +825,7 @@
                              "QQQ" {:1h [{:t t0 :c 100}
                                          {:t t1 :c 101}
                                          {:t t2 :c 103}]}}
-                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                             :totalVaultEquity 0}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                    :borrow-lend {:total-supplied-usd 0}}
             view-model (vm/portfolio-vm state)]
         (is (= 1 @request-calls))
@@ -862,8 +850,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 90000]]
                                                       :accountValueHistory [[1 100] [2 200]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= [90000 60000 30000 0]

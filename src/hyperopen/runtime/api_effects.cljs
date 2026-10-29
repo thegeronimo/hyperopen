@@ -52,7 +52,8 @@
       (-> (request-user-fills! address* {:priority :high})
         (.then (promise-effects/apply-success-and-return
                 store
-                apply-user-fills-success))
+                apply-user-fills-success
+                address*))
         (.catch (promise-effects/apply-error-and-reject
                  store
                  apply-user-fills-error)))

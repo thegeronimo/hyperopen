@@ -1,5 +1,6 @@
 (ns hyperopen.schema.contracts.action-args
   (:require [cljs.spec.alpha :as s]
+            [hyperopen.schema.contracts.borrow-lend-action-args :as borrow-lend-action-args]
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.funding-action-args :as funding-action-args]
             [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]
@@ -83,6 +84,8 @@
                   (common/positive-int? (:bars payload)))
               (common/positive-int? (:end-time-ms payload))))))
 (s/def ::chart-candle-backfill-args chart-candle-backfill-args?)
+(s/def ::older-chart-fills-args
+  (s/tuple (s/and map? #(= #{:end-ms} (set (keys %))) #(number? (:end-ms %)) #(pos? (:end-ms %)))))
 (s/def ::portfolio-optimizer-model-kind-args ::common/keyword-or-string-args)
 (s/def ::portfolio-optimizer-instrument-value-args
   (s/tuple ::common/non-empty-string any?))
@@ -218,7 +221,7 @@
    :actions/set-fill-alerts-enabled ::common/boolean-args
    :actions/set-sound-on-fill-enabled ::common/boolean-args
    :actions/set-animate-orderbook-enabled ::common/boolean-args
-   :actions/set-fill-markers-enabled ::common/boolean-args
+   :actions/set-chart-trades-enabled ::common/boolean-args
    :actions/set-confirm-open-orders-enabled ::common/boolean-args
    :actions/set-confirm-close-position-enabled ::common/boolean-args
    :actions/set-confirm-market-orders-enabled ::common/boolean-args
@@ -289,6 +292,7 @@
    :actions/toggle-timeframes-dropdown ::common/no-args
    :actions/select-chart-timeframe ::common/keyword-args
    :actions/request-chart-candle-backfill ::chart-candle-backfill-args
+   :actions/request-older-chart-fills ::older-chart-fills-args
    :actions/toggle-chart-type-dropdown ::common/no-args
    :actions/select-chart-type ::common/keyword-args
    :actions/toggle-indicators-dropdown ::common/no-args
@@ -751,6 +755,7 @@
 (def action-args-spec-by-id
   (merge core-action-args-spec-by-id
          funding-action-args/funding-action-args-spec-by-id
+         borrow-lend-action-args/borrow-lend-action-args-spec-by-id
          hyperevm-action-args/hyperevm-action-args-spec-by-id
          vault-screener-action-args/vault-screener-action-args-spec-by-id
          vol-range-action-args/vol-range-action-args-spec-by-id))

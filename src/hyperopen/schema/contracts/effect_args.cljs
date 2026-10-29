@@ -262,6 +262,11 @@
 (s/def ::api-referral-owner-args (s/tuple api-referral-owner-request?))
 (s/def ::request-id ::common/non-negative-int)
 (s/def ::request-id-args (s/tuple ::request-id))
+(s/def ::fetch-older-chart-fills-args
+  (s/tuple (s/and map?
+                  #(string? (:address %))
+                  #(number? (:end-ms %))
+                  #(pos? (:end-ms %)))))
 (s/def ::export-funding-history-csv-args (s/tuple ::common/map-vector))
 (s/def ::portfolio-optimizer-run-args
   (s/or :base (s/tuple map? map?)
@@ -375,6 +380,7 @@
    :effects/api-remove-api-wallet ::common/no-args
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
+   :effects/fetch-older-chart-fills ::fetch-older-chart-fills-args
    :effects/export-funding-history-csv ::export-funding-history-csv-args
    :effects/api-fetch-leaderboard ::api-fetch-leaderboard-args
    :effects/api-fetch-predicted-fundings ::common/no-args
@@ -411,6 +417,10 @@
    :effects/run-vault-screener ::vault-screener-run-args
    :effects/load-vault-saved-views ::common/no-args
    :effects/persist-vault-saved-views ::common/no-args
+   :effects/api-fetch-borrow-lend-reserves ::common/no-args
+   :effects/api-fetch-borrow-lend-user-state ::common/address-args
+   :effects/api-fetch-borrow-lend-interest ::common/address-args
+   :effects/api-submit-borrow-lend ::api-submit-order-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args

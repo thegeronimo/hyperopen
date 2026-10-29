@@ -34,7 +34,7 @@
   {:fill-alerts-enabled? true
    :sound-on-fill? false
    :animate-orderbook? true
-   :show-fill-markers? false
+   :show-chart-trades? true
    :confirm-open-orders? false
    :confirm-close-position? false
    :confirm-market-orders? true
@@ -58,7 +58,7 @@
     {:fill-alerts-enabled? (not (false? (:fill-alerts-enabled? settings)))
      :sound-on-fill? (true? (:sound-on-fill? settings))
      :animate-orderbook? (not (false? (:animate-orderbook? settings)))
-     :show-fill-markers? (true? (:show-fill-markers? settings))
+     :show-chart-trades? (not (false? (:show-chart-trades? settings)))
      :confirm-open-orders? (true? (:confirm-open-orders? settings))
      :confirm-close-position? (true? (:confirm-close-position? settings))
      :confirm-market-orders? (not (false? (:confirm-market-orders? settings)))
@@ -108,9 +108,9 @@
   [state]
   (:animate-orderbook? (state-settings state)))
 
-(defn show-fill-markers?
+(defn show-chart-trades?
   [state]
-  (:show-fill-markers? (state-settings state)))
+  (:show-chart-trades? (state-settings state)))
 
 (defn confirm-open-orders?
   [state]

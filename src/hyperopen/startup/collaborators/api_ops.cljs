@@ -18,6 +18,8 @@
    :request-user-fees! (resolve-api-op api-instance :request-user-fees! api-default/request-user-fees!)
    :request-user-vault-equities! (resolve-api-op api-instance :request-user-vault-equities! api-default/request-user-vault-equities!)
    :request-staking-delegator-summary! (resolve-api-op api-instance :request-staking-delegator-summary! api-default/request-staking-delegator-summary!)
+   :request-borrow-lend-reserve-states! (resolve-api-op api-instance :request-borrow-lend-reserve-states! api-default/request-borrow-lend-reserve-states!)
+   :request-borrow-lend-user-state! (resolve-api-op api-instance :request-borrow-lend-user-state! api-default/request-borrow-lend-user-state!)
    :request-user-non-funding-ledger-updates! (resolve-api-op api-instance :request-user-non-funding-ledger-updates! api-default/request-user-non-funding-ledger-updates!)
    :ensure-perp-dexs-data! (resolve-api-op api-instance :ensure-perp-dexs-data! api-default/ensure-perp-dexs-data!)
    :request-asset-contexts! (resolve-api-op api-instance :request-asset-contexts! api-default/request-asset-contexts!)

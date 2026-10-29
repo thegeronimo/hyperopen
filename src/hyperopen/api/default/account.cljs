@@ -129,3 +129,15 @@
    address
    dex-names
    opts))
+
+(defn request-borrow-lend-reserve-states!
+  [{:keys [post-info!]} opts]
+  (account-gateway/request-borrow-lend-reserve-states! {:post-info! post-info!} opts))
+
+(defn request-borrow-lend-user-state!
+  [{:keys [post-info!]} address opts]
+  (account-gateway/request-borrow-lend-user-state! {:post-info! post-info!} address opts))
+
+(defn request-borrow-lend-interest!
+  [{:keys [post-info!]} address start-time-ms opts]
+  (account-gateway/request-borrow-lend-interest! {:post-info! post-info!} address start-time-ms opts))

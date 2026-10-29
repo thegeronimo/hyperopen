@@ -136,6 +136,9 @@
 (def request-chart-candle-backfill
   chart-actions/request-chart-candle-backfill)
 
+(def request-older-chart-fills
+  chart-actions/request-older-chart-fills)
+
 (def toggle-chart-type-dropdown
   chart-actions/toggle-chart-type-dropdown)
 

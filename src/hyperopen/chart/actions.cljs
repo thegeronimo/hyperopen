@@ -1,5 +1,7 @@
 (ns hyperopen.chart.actions
   (:require [clojure.string :as str]
+            [hyperopen.account.chart-fill-history :as chart-fill-history]
+            [hyperopen.account.context :as account-context]
             [hyperopen.websocket.migration-flags :as migration-flags]))
 
 (def ^:private default-chart-backfill-bars
@@ -65,6 +67,25 @@
                                                    (:active-asset state)
                                                    timeframe)
     (conj [:effects/fetch-candle-snapshot :interval timeframe])))
+
+(defn request-older-chart-fills
+  "Fetch the window of the account's fills just older than the history the
+  chart has covered. No-op unless the history belongs to the effective
+  account, nothing is in flight, older fills may exist and `:end-ms` is older
+  than the covered history."
+  [state payload]
+  (let [address (account-context/effective-account-address state)
+        history (chart-fill-history/history-for state address)
+        covered-from (:covered-from-ms history)
+        end-ms (positive-int-value (:end-ms payload))]
+    (if (and history
+             end-ms
+             (number? covered-from)
+             (< end-ms covered-from)
+             (not (:exhausted? history))
+             (nil? (:loading-end-ms history)))
+      [[:effects/fetch-older-chart-fills {:address (:address history) :end-ms end-ms}]]
+      [])))
 
 (defn request-chart-candle-backfill
   [state payload]

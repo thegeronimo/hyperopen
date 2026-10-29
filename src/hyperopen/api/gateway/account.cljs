@@ -211,3 +211,15 @@
    address
    dex-names
    opts))
+
+(defn request-borrow-lend-reserve-states!
+  [{:keys [post-info!]} opts]
+  (account-endpoints/request-borrow-lend-reserve-states! post-info! opts))
+
+(defn request-borrow-lend-user-state!
+  [{:keys [post-info!]} address opts]
+  (account-endpoints/request-borrow-lend-user-state! post-info! address opts))
+
+(defn request-borrow-lend-interest!
+  [{:keys [post-info!]} address start-time-ms opts]
+  (account-endpoints/request-borrow-lend-interest! post-info! address start-time-ms opts))

@@ -6,7 +6,8 @@
             [hyperopen.views.account-info.tab-actions :as tab-actions]
             [hyperopen.views.account-info.tab-registry :as tab-registry]
             [hyperopen.views.account-info.vm :as account-info-vm]
-            [hyperopen.views.account-info.tabs.balances :as balances-tab]))
+            [hyperopen.views.account-info.tabs.balances :as balances-tab]
+            [hyperopen.views.account-info.tabs.earn :as earn-tab]))
 
 (def ^:private account-tab-default-panel-classes
   ["h-96" "lg:h-[29rem]"])
@@ -82,7 +83,8 @@
     (empty-state (str (get labels tab-name (name tab-name)) " coming soon"))]))
 
 (def ^:private eager-tab-renderers
-  {:balances (fn [{:keys [balance-rows
+  {:earn earn-tab/earn-tab-content
+   :balances (fn [{:keys [balance-rows
                           hide-small?
                           balances-sort
                           balances-coin-search

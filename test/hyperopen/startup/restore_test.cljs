@@ -211,7 +211,7 @@
       (with-redefs [platform/local-storage-get (constantly nil)]
         (restore-fn store)
         (is (= true (get-in @store [:trading-settings :animate-orderbook?])))
-        (is (= false (get-in @store [:trading-settings :show-fill-markers?])))
+        (is (= true (get-in @store [:trading-settings :show-chart-trades?])))
         (is (= false (get-in @store [:trading-settings :confirm-open-orders?])))
         (is (= false (get-in @store [:trading-settings :confirm-close-position?])))
         (is (= true (get-in @store [:trading-settings :confirm-market-orders?])))
@@ -225,12 +225,12 @@
       (with-redefs [platform/local-storage-get (fn [key]
                                                  (case key
                                                    "hyperopen:trading-settings:v1"
-                                                   "{\"fill-alerts-enabled?\":false,\"animate-orderbook?\":false,\"show-fill-markers?\":true,\"confirm-open-orders?\":false,\"confirm-close-position?\":false}"
+                                                   "{\"fill-alerts-enabled?\":false,\"animate-orderbook?\":false,\"show-chart-trades?\":false,\"confirm-open-orders?\":false,\"confirm-close-position?\":false}"
                                                    nil))]
         (restore-fn store)
         (is (= false (get-in @store [:trading-settings :fill-alerts-enabled?])))
         (is (= false (get-in @store [:trading-settings :animate-orderbook?])))
-        (is (= true (get-in @store [:trading-settings :show-fill-markers?])))
+        (is (= false (get-in @store [:trading-settings :show-chart-trades?])))
         (is (= false (get-in @store [:trading-settings :confirm-open-orders?])))
         (is (= false (get-in @store [:trading-settings :confirm-close-position?])))))))
 
@@ -246,7 +246,11 @@
                                                    nil))]
         (restore-fn store)
         (is (= false (get-in @store [:trading-settings :confirm-open-orders?])))
-        (is (= false (get-in @store [:trading-settings :confirm-close-position?])))))))
+        (is (= false (get-in @store [:trading-settings :confirm-close-position?])))
+        ;; The legacy default-off `show-fill-markers?` key is ignored: trades on
+        ;; chart default on.
+        (is (= true (get-in @store [:trading-settings :show-chart-trades?])))
+        (is (not (contains? (:trading-settings @store) :show-fill-markers?)))))))
 
 (deftest restore-trading-settings-malformed-storage-falls-back-safely-test
   (let [store (atom {:trading-settings {:fill-alerts-enabled? false}})

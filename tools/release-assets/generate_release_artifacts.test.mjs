@@ -70,12 +70,14 @@ const STATIC_ROUTE_PATHS = [
   "/portfolio",
   "/leaderboard",
   "/vaults",
+  "/earn",
   "/staking",
   "/funding-comparison",
   "/api",
 ];
 const STATIC_ROUTE_HTML_FILES = [
   "api.html",
+  "earn.html",
   "funding-comparison.html",
   "index.html",
   "leaderboard.html",
@@ -238,6 +240,7 @@ async function writeReleaseFixture(
     "leaderboard_route",
     "vaults_route",
     "staking_route",
+    "earn_route",
     "funding_comparison_route",
     "api_wallets_route",
   ];
@@ -849,6 +852,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     "/js/account_surfaces.CHUNK.js",
     "/js/api_wallets_route.CHUNK.js",
     "/js/charts_shared.CHUNK.js",
+    "/js/earn_route.CHUNK.js",
     "/js/funding_comparison_route.CHUNK.js",
     "/js/leaderboard_route.CHUNK.js",
     "/js/main.HASH.js",
@@ -863,6 +867,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     "account_surfaces.CHUNK.js",
     "api_wallets_route.CHUNK.js",
     "charts_shared.CHUNK.js",
+    "earn_route.CHUNK.js",
     "funding_comparison_route.CHUNK.js",
     "leaderboard_route.CHUNK.js",
     "main.HASH.js",

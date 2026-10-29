@@ -1,5 +1,6 @@
 (ns hyperopen.api.endpoints.account
   (:require [hyperopen.api.endpoints.account.agents :as agents]
+            [hyperopen.api.endpoints.account.borrow-lend :as borrow-lend]
             [hyperopen.api.endpoints.account.funding-history :as funding-history]
             [hyperopen.api.endpoints.account.portfolio :as portfolio]
             [hyperopen.api.endpoints.account.referrals :as referrals]
@@ -92,3 +93,15 @@
                                                       start-time-ms
                                                       end-time-ms
                                                       opts))
+
+(defn request-borrow-lend-reserve-states!
+  [post-info! opts]
+  (borrow-lend/request-borrow-lend-reserve-states! post-info! opts))
+
+(defn request-borrow-lend-user-state!
+  [post-info! address opts]
+  (borrow-lend/request-borrow-lend-user-state! post-info! address opts))
+
+(defn request-borrow-lend-interest!
+  [post-info! address start-time-ms opts]
+  (borrow-lend/request-borrow-lend-interest! post-info! address start-time-ms opts))

@@ -20,6 +20,7 @@
    "--ho-chart-down" "rgba(247, 82, 95, 0.5)"
    "--ho-chart-long" "#26a69a"
    "--ho-chart-short" "#ef5350"
+   "--ho-chart-liquidation" "#f5a524"
    ;; Semantic tokens are space-separated RGB triplets (see token-rgb).
    "--ho-buy" "0 212 170"
    "--ho-sell" "255 107 107"

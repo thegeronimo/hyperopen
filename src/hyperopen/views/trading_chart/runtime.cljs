@@ -269,9 +269,11 @@
                                               :volume-visible? volume-visible?})))
 
 (defn- apply-chart-decorations!
-  [node chart-obj candle-data chart-type main-series-markers position-overlay position-overlay-deps
-   open-order-overlays overlay-deps volume-indicator-deps context-menu-deps vol-range-overlay]
+  [node chart-obj {:keys [candle-data main-series-markers chart-trades chart-trades-deps position-overlay
+                          position-overlay-deps open-order-overlays overlay-deps volume-indicator-deps
+                          context-menu-deps vol-range-overlay]}]
   (ci/set-main-series-markers! chart-obj main-series-markers)
+  (ci/sync-chart-trades! chart-obj node chart-trades chart-trades-deps)
   (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
   (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
   (ci/sync-vol-range-overlays! chart-obj node vol-range-overlay)
@@ -323,22 +325,10 @@
                                   :visible-range-cleanup nil}))
 
 (defn- run-chart-decoration-pass!
-  [node {:keys [candle-data chart-type main-series-markers position-overlay position-overlay-deps
-                open-order-overlays overlay-deps volume-indicator-deps context-menu-deps vol-range-overlay]}]
+  [node context]
   (let [{:keys [chart-obj chart-accessibility-applied?]} (chart-runtime/get-state node)]
     (when chart-obj
-      (apply-chart-decorations! node
-                                chart-obj
-                                candle-data
-                                chart-type
-                                main-series-markers
-                                position-overlay
-                                position-overlay-deps
-                                open-order-overlays
-                                overlay-deps
-                                volume-indicator-deps
-                                context-menu-deps
-                                vol-range-overlay)
+      (apply-chart-decorations! node chart-obj context)
       (when-not chart-accessibility-applied?
         (apply-chart-accessibility! node)
         (chart-runtime/assoc-state! node :chart-accessibility-applied? true)))))

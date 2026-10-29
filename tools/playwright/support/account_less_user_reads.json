@@ -1,5 +1,5 @@
 {
- "provenance": "Live answers of https://api.hyperliquid.xyz/info for 0x1234567890abcdef1234567890abcdef12345678, an address with no HyperCore account (the HyperEVM spec's fixture owner), captured 2026-10-01T00:41:09Z. Every fixture account in funding-transfer-hyperevm.spec.mjs is account-less on live HyperCore, so these are the answers each of them gets.",
+ "provenance": "Live answers of https://api.hyperliquid.xyz/info for 0x1234567890abcdef1234567890abcdef12345678, an address with no HyperCore account (the HyperEVM spec's fixture owner), captured 2026-10-01T00:41:09Z (userVaultEquities, borrowLendUserState and userBorrowLendInterest 2026-10-29). Every fixture account in funding-transfer-hyperevm.spec.mjs is account-less on live HyperCore, so these are the answers each of them gets.",
  "capturedAt": "2026-10-01T00:41:09Z",
  "answers": {
   "portfolio": {
@@ -1050,6 +1050,31 @@
   "historicalOrders": {
    "request": {
     "type": "historicalOrders",
+    "user": "0x1234567890abcdef1234567890abcdef12345678"
+   },
+   "answer": []
+  },
+  "userVaultEquities": {
+   "request": {
+    "type": "userVaultEquities",
+    "user": "0x1234567890abcdef1234567890abcdef12345678"
+   },
+   "answer": []
+  },
+  "borrowLendUserState": {
+   "request": {
+    "type": "borrowLendUserState",
+    "user": "0x1234567890abcdef1234567890abcdef12345678"
+   },
+   "answer": {
+    "tokenToState": [],
+    "health": "healthy",
+    "healthFactor": null
+   }
+  },
+  "userBorrowLendInterest": {
+   "request": {
+    "type": "userBorrowLendInterest",
     "user": "0x1234567890abcdef1234567890abcdef12345678"
    },
    "answer": []

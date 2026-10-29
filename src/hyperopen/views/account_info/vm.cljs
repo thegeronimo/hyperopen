@@ -11,6 +11,7 @@
             [hyperopen.views.account-info.projections.balances-hyperevm :as balances-hyperevm]
             [hyperopen.views.account-info.projections.balances-moves :as balances-moves]
             [hyperopen.views.account-info.projections.balances-staking :as balances-staking]
+            [hyperopen.views.account-info.tabs.earn :as earn-tab]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
 (defn- unified-account-mode? [account]
@@ -390,7 +391,8 @@
                     :positions (positions-tab-count webdata2 perp-dex-states)
                     :outcomes outcome-count
                     :balances (balance-tab-count webdata2 spot-data account perp-dex-states state)
-                    :twap (count (or twap-states-source []))}
+                    :twap (count (or twap-states-source []))
+                    :earn (earn-tab/tab-count state)}
         open-orders-sort (get-in state [:account-info :open-orders-sort] {:column "Time" :direction :desc})
         positions-state (cond-> (merge {:direction-filter :all
                                         :coin-search ""
@@ -466,5 +468,6 @@
      :funding-history-state funding-history-state
      :order-history-rows (prefer-orders-value orders webdata2 :order-history)
      :order-history-state order-history-state
+     :earn (when (= :earn selected-tab) (earn-tab/earn-tab-model state))
      :tab-counts tab-counts
      :freshness-cues freshness-cues}))

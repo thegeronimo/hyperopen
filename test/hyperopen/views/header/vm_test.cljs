@@ -17,7 +17,7 @@
         leaderboard-vm (vm/header-vm {:router {:path "/leaderboard"}})
         api-vm (vm/header-vm {:router {:path "/API"}})
         subaccounts-vm (vm/header-vm {:router {:path "/subAccounts"}})]
-    (is (= [:trade :portfolio :optimize :funding :vaults :staking :referrals :leaderboard]
+    (is (= [:trade :portfolio :optimize :funding :vaults :earn :staking :referrals :leaderboard]
            (mapv :id (:desktop-nav-items funding-vm))))
     (is (true? (some->> (:desktop-nav-items funding-vm)
                         (some #(when (= :funding (:id %)) (:active? %))))))
@@ -61,7 +61,7 @@
                                                  :confirm-open-orders? true
                                                  :confirm-close-position? false
                                                  :animate-orderbook? true
-                                                 :show-fill-markers? false
+                                                 :show-chart-trades? true
                                                  :open-order-safety-mode :extended}})
         sections (get-in result [:settings :sections])
         session-row (row-by-id sections :session :storage-mode)
@@ -70,7 +70,7 @@
         close-position-row (row-by-id sections :confirmations :confirm-close-position)
         market-orders-row (row-by-id sections :confirmations :confirm-market-orders)
         sound-row (row-by-id sections :alerts :sound-on-fill)
-        fill-markers-row (row-by-id sections :display :fill-markers)]
+        chart-trades-row (row-by-id sections :display :chart-trades)]
     (is (= [:session :open-orders :confirmations :alerts :display :appearance]
            (mapv :id sections)))
     (is (= "trading-settings-storage-mode-row" (:data-role session-row)))
@@ -111,7 +111,11 @@
     (is (false? (:checked? sound-row)))
     (is (= [[:actions/set-sound-on-fill-enabled true]]
            (:on-change sound-row)))
-    (is (= "Fill markers" (:title fill-markers-row)))))
+    (is (= "Trades on chart" (:title chart-trades-row)))
+    (is (= "trading-settings-chart-trades-row" (:data-role chart-trades-row)))
+    (is (true? (:checked? chart-trades-row)))
+    (is (= [[:actions/set-chart-trades-enabled false]]
+           (:on-change chart-trades-row)))))
 
 (deftest header-vm-projects-theme-choice-row-test
   (let [result (vm/header-vm {:ui {:theme "institutional"}
@@ -141,16 +145,16 @@
   (let [degen (vm/header-vm {:ui {:theme "hyperdegen"}})
         plain (vm/header-vm {})]
     (is (= ["Trade (Gamble)" "Portfolio (Hope)" "Optimize (Cope)" "Funding (Brrr)"
-            "Vaults (LOL)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"]
+            "Vaults (LOL)" "Earn (Yield Farm)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"]
            (mapv :label (:desktop-nav-items degen))))
-    (is (= ["Trade" "Portfolio" "Optimize" "Funding" "Vaults" "Staking" "Referrals"
+    (is (= ["Trade" "Portfolio" "Optimize" "Funding" "Vaults" "Earn" "Staking" "Referrals"
             "Leaderboard"]
            (mapv :label (:desktop-nav-items plain))))
     (is (= ["API (Nerds)" "Sub-Accounts (Alts)"]
            (mapv :label (get-in degen [:more-nav :items]))))
     (is (= ["Trade (Gamble)" "Portfolio (Hope)" "Funding (Brrr)" "Vaults (LOL)"]
            (mapv :label (get-in degen [:mobile-nav :primary-items]))))
-    (is (= ["Optimize (Cope)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"]
+    (is (= ["Optimize (Cope)" "Earn (Yield Farm)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"]
            (mapv :label (get-in degen [:mobile-nav :secondary-items]))))
     (is (= ["Trade" "Portfolio" "Funding" "Vaults"]
            (mapv :label (get-in plain [:mobile-nav :primary-items]))))))

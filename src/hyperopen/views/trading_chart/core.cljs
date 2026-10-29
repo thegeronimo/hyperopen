@@ -29,17 +29,13 @@
 
 (def ^:private memoized-main-series-markers
   (memoize-last
-   (fn [indicator-markers fill-markers entry-marker]
-     (let [base-markers (cond
-                          (vector? indicator-markers) indicator-markers
-                          (sequential? indicator-markers) (vec indicator-markers)
-                          :else [])
-           fill-markers* (cond
-                           (vector? fill-markers) fill-markers
-                           (sequential? fill-markers) (vec fill-markers)
-                           :else [])]
-       (cond-> (into base-markers fill-markers*)
-         (map? entry-marker) (conj entry-marker))))))
+   ;; Only indicator markers ride on the series' built-in markers; the
+   ;; trader's own fills are drawn by the trades layer (`:chart-trades`).
+   (fn [indicator-markers]
+     (cond
+       (vector? indicator-markers) indicator-markers
+       (sequential? indicator-markers) (vec indicator-markers)
+       :else []))))
 
 (defn- format-chart-overlay-size
   [value]
@@ -60,7 +56,6 @@
                                                    active-indicators
                                                    (boolean (:indicator-runtime-ready? chart-runtime-options)))
          position-overlay (:position-overlay chart-runtime-options)
-         fill-markers (:fill-markers chart-runtime-options)
          on-liquidation-drag-preview (:on-liquidation-drag-preview chart-runtime-options)
          on-liquidation-drag-confirm (:on-liquidation-drag-confirm chart-runtime-options)
          series-options (:series-options chart-runtime-options)
@@ -70,9 +65,7 @@
          on-hide-volume-indicator (:on-hide-volume-indicator chart-runtime-options)
          on-history-backfill-request (:on-history-backfill-request chart-runtime-options)
          history-backfill-loading? (boolean (:history-backfill-loading? chart-runtime-options))
-         main-series-markers (memoized-main-series-markers indicator-markers
-                                                           fill-markers
-                                                           (:entry-marker position-overlay))
+         main-series-markers (memoized-main-series-markers indicator-markers)
          overlay-deps {:on-cancel-order on-cancel-order
                        :format-price fmt/format-trade-price-plain
                        :format-size format-chart-overlay-size}
@@ -114,6 +107,8 @@
                      :on-history-backfill-request on-history-backfill-request
                      :volume-visible? volume-visible?
                      :main-series-markers main-series-markers
+                     :chart-trades (:chart-trades chart-runtime-options)
+                     :chart-trades-deps (:chart-trades-deps chart-runtime-options)
                      :position-overlay position-overlay
                      :position-overlay-deps position-overlay-deps
                      :open-order-overlays open-order-overlays

@@ -1,10 +1,12 @@
 (ns hyperopen.runtime.collaborators
-  (:require [hyperopen.account.history.effects :as account-history-effects]
+  (:require [hyperopen.account.chart-fill-history-effects :as chart-fill-history-effects]
+            [hyperopen.account.history.effects :as account-history-effects]
             [hyperopen.funding.effects :as funding-effects]
             [hyperopen.funding-comparison.effects :as funding-comparison-effects]
             [hyperopen.leaderboard.effects :as leaderboard-effects]
             [hyperopen.runtime.collaborators.account-history :as account-history-collaborators]
             [hyperopen.runtime.collaborators.asset-selector :as asset-selector-collaborators]
+            [hyperopen.runtime.collaborators.borrow-lend :as borrow-lend-collaborators]
             [hyperopen.runtime.collaborators.chart :as chart-collaborators]
             [hyperopen.runtime.collaborators.funding-comparison :as funding-comparison-collaborators]
             [hyperopen.runtime.collaborators.hyperevm :as hyperevm-collaborators]
@@ -15,6 +17,7 @@
             [hyperopen.runtime.collaborators.staking :as staking-collaborators]
             [hyperopen.runtime.collaborators.vol-range :as vol-range-collaborators]
             [hyperopen.runtime.collaborators.wallet :as wallet-collaborators]
+            [hyperopen.runtime.effect-adapters.borrow-lend :as borrow-lend-effect-adapters]
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.staking.effects :as staking-effects]))
 
@@ -33,6 +36,7 @@
   (merge-nested
    {:api {:api-fetch-user-funding-history account-history-effects/api-fetch-user-funding-history-effect
           :api-fetch-historical-orders account-history-effects/api-fetch-historical-orders-effect
+          :fetch-older-chart-fills chart-fill-history-effects/fetch-older-chart-fills-effect
           :export-funding-history-csv account-history-effects/export-funding-history-csv-effect
           :api-fetch-leaderboard leaderboard-effects/api-fetch-leaderboard!
           :api-fetch-predicted-fundings funding-comparison-effects/api-fetch-predicted-fundings!
@@ -46,6 +50,10 @@
           :api-submit-staking-withdraw staking-effects/api-submit-staking-withdraw!
           :api-submit-staking-delegate staking-effects/api-submit-staking-delegate!
           :api-submit-staking-undelegate staking-effects/api-submit-staking-undelegate!
+          :api-fetch-borrow-lend-reserves borrow-lend-effect-adapters/api-fetch-borrow-lend-reserves-effect
+          :api-fetch-borrow-lend-user-state borrow-lend-effect-adapters/api-fetch-borrow-lend-user-state-effect
+          :api-fetch-borrow-lend-interest borrow-lend-effect-adapters/api-fetch-borrow-lend-interest-effect
+          :api-submit-borrow-lend borrow-lend-effect-adapters/api-submit-borrow-lend-effect
           :api-fetch-hyperunit-fee-estimate funding-effects/api-fetch-hyperunit-fee-estimate!
           :api-fetch-hyperunit-withdrawal-queue funding-effects/api-fetch-hyperunit-withdrawal-queue!
           :api-submit-funding-send funding-effects/api-submit-funding-send!
@@ -72,6 +80,7 @@
     :leaderboard (leaderboard-collaborators/action-deps)
     :funding-comparison (funding-comparison-collaborators/action-deps)
     :staking (staking-collaborators/action-deps)
+    :borrow-lend (borrow-lend-collaborators/action-deps)
     :orders (order-collaborators/action-deps)
     :margin-rec (margin-rec-collaborators/action-deps)
     :hyperevm (hyperevm-collaborators/action-deps)

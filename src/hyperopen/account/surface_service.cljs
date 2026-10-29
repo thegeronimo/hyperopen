@@ -43,10 +43,6 @@
       (when (instance? js/Promise request)
         (.catch request (fn [_] nil))))))
 
-(defn- unified-account?
-  [store]
-  (= :unified (get-in @store [:account :mode])))
-
 (defn- refresh-dex-open-orders?
   [open-orders-live? refresh-dex-open-orders-when-stream-live?]
   (or (not open-orders-live?)
@@ -144,7 +140,8 @@
            fetch-user-fees!
            fetch-user-vault-equities!
            start-user-vault-equity-poller!
-           fetch-staking-delegator-summary!]}]
+           fetch-staking-delegator-summary!
+           fetch-borrow-lend-state!]}]
   (call-when-fn! fetch-spot-clearinghouse-state! store address {:priority :high})
   ;; The base-dex perp book has no webData2 stream anymore; hydrate it via
   ;; REST so positions/balances render before the dex "" stream's first push.
@@ -152,10 +149,12 @@
   (call-when-fn! fetch-user-abstraction! store address {:priority :high})
   (call-when-fn! fetch-portfolio! store address {:priority :high})
   (call-when-fn! fetch-user-fees! store address {:priority :high})
-  (when-not (unified-account? store)
-    (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
-    (call-when-fn! start-user-vault-equity-poller! store address))
-  (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high}))
+  ;; Vault deposits do not depend on account mode, and the Portfolio total
+  ;; counts them for unified accounts too.
+  (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
+  (call-when-fn! start-user-vault-equity-poller! store address)
+  (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high})
+  (call-when-fn! fetch-borrow-lend-state! store address {:priority :high}))
 
 (defn- bootstrap-open-orders-and-fills!
   [{:keys [store
@@ -330,8 +329,7 @@
                        address
                        {:priority :high
                         :force-refresh? true}))
-      (when-not (unified-account? store)
-        (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high}))
+      (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
       (when-not base-clearinghouse-live?
         (call-when-fn! refresh-default-clearinghouse! store address {:priority :high}))
       (when (fn? ensure-perp-dexs!)

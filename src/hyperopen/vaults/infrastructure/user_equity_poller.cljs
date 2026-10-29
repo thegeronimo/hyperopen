@@ -1,5 +1,6 @@
 (ns hyperopen.vaults.infrastructure.user-equity-poller
-  "Refreshes the active trade account's vault NAV while its panel is visible."
+  "Refreshes the shown account's vault NAV while a surface that totals it
+  (/trade Account Equity, /portfolio) is visible."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]))
@@ -13,11 +14,12 @@
   (or (not (exists? js/document))
       (not= "hidden" (.-visibilityState js/document))))
 
-(defn- trade-route-active?
+(defn- equity-route-active?
   [state]
   (let [route (some-> (get-in state [:router :path]) str str/trim)]
     (or (str/blank? route)
-        (str/starts-with? route "/trade"))))
+        (str/starts-with? route "/trade")
+        (str/starts-with? route "/portfolio"))))
 
 (defn stop-user-equity-poller!
   []
@@ -49,9 +51,8 @@
                       loading? (true? (get-in state [:vaults :loading :user-equities?]))]
                   (when (and requested-address
                              (= requested-address active-address)
-                             (not= :unified (get-in state [:account :mode]))
                              (visible?-fn)
-                             (trade-route-active? state)
+                             (equity-route-active? state)
                              (not loading?)
                              (not= requested-address loading-address))
                     (when-let [request (fetch-user-vault-equities!
@@ -59,8 +60,7 @@
                       (.catch request (fn [_] nil))))))]
     (when (and store
                requested-address
-               (fn? fetch-user-vault-equities!)
-               (not= :unified (get-in @store [:account :mode])))
+               (fn? fetch-user-vault-equities!))
       (reset! installed-timer {:id (set-interval-fn tick! interval-ms)
                                :clear-interval-fn clear-interval-fn}))
     store))

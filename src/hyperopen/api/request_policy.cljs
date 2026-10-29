@@ -13,6 +13,7 @@
    :public-webdata2 30000
    :frontend-open-orders 2500
    :user-fills 5000
+   :user-fills-by-time 5000
    :extra-agents 5000
    :sub-accounts 5000
    :user-webdata2 5000
@@ -21,6 +22,9 @@
    :delegations 5000
    :delegator-rewards 10000
    :delegator-history 10000
+   :borrow-lend-reserve-states 10000
+   :borrow-lend-user-state 5000
+   :borrow-lend-interest 30000
    :user-funding-history 5000
    :historical-orders 5000
    :clearinghouse-state 5000

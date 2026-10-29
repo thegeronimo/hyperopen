@@ -1,6 +1,17 @@
 (ns hyperopen.views.portfolio.test-support
   (:require [clojure.string :as str]
+            [hyperopen.account.context :as account-context]
             [hyperopen.views.trading-chart.test-support.fake-dom :as fake-dom]))
+
+(defn with-vault-equities
+  "`state` with the shown account's `userVaultEquities` read loaded, one row
+   per amount string in `amounts` (none: an account with no vault deposits)."
+  [state amounts]
+  (-> state
+      (assoc-in [:vaults :user-equities]
+                (mapv (fn [amount] {:equity-raw amount}) amounts))
+      (assoc-in [:vaults :user-equities-for-address]
+                (account-context/effective-account-address state))))
 
 (defn node-children [node]
   (if (map? (second node))

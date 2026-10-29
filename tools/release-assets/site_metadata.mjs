@@ -77,6 +77,18 @@ export const PUBLIC_ROUTE_METADATA = [
     twitterCard: DEFAULT_TWITTER_CARD,
   },
   {
+    id: "earn",
+    path: "/earn",
+    match: "prefix",
+    title: "Earn: HyperCore lending rates, supply and borrow",
+    description:
+      "Supply USDC or USDT0 to the HyperCore lending pool, borrow against HYPE or UBTC, and track rates and borrow health on Hyperopen.",
+    heroTitle: "Earn: HyperCore lending rates, supply and borrow",
+    heroDescription:
+      "Loading lending pool rates, utilization, and your positions.",
+    twitterCard: DEFAULT_TWITTER_CARD,
+  },
+  {
     id: "staking",
     path: "/staking",
     match: "prefix",
@@ -546,6 +558,7 @@ export const ROUTE_PRELOAD_MODULE_IDS = {
   leaderboard: ["leaderboard_route"],
   vaults: ["charts_shared", "vaults_route"],
   staking: ["staking_route"],
+  earn: ["earn_route"],
   "funding-comparison": ["funding_comparison_route"],
   api: ["api_wallets_route"],
 };

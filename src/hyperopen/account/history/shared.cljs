@@ -13,6 +13,7 @@
 
 (def ^:private account-info-route-tabs
   #{:balances
+    :earn
     :positions
     :outcomes
     :open-orders
@@ -96,6 +97,8 @@
                      :orders :order-history
                      :orderhistory :order-history
                      :order-history :order-history
+                     :earn :earn
+                     :lending :earn
                      token)]
     (when (contains? account-info-route-tabs normalized)
       normalized)))

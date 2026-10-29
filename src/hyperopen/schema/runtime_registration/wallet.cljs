@@ -25,7 +25,7 @@
    [:actions/set-fill-alerts-enabled :set-fill-alerts-enabled]
    [:actions/set-sound-on-fill-enabled :set-sound-on-fill-enabled]
    [:actions/set-animate-orderbook-enabled :set-animate-orderbook-enabled]
-   [:actions/set-fill-markers-enabled :set-fill-markers-enabled]
+   [:actions/set-chart-trades-enabled :set-chart-trades-enabled]
    [:actions/set-confirm-open-orders-enabled :set-confirm-open-orders-enabled]
    [:actions/set-confirm-close-position-enabled :set-confirm-close-position-enabled]
    [:actions/set-confirm-market-orders-enabled :set-confirm-market-orders-enabled]

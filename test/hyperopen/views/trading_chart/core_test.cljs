@@ -724,11 +724,7 @@
                      :venue "Hyperopen"
                      :candle-data candle-data}
         indicator-markers [{:time 1700000000 :position "aboveBar" :shape "circle" :color "#22ab94"}]
-        fill-markers [{:time 1700000060 :position "belowBar" :shape "circle" :color "#f7525f"}]
-        entry-marker {:time 1700000000 :position "inBar" :shape "square" :color "#eab308"}
-        chart-runtime-options {:fill-markers fill-markers
-                               :position-overlay {:entry-marker entry-marker}
-                               :indicator-runtime-ready? true}
+        chart-runtime-options {:indicator-runtime-ready? true}
         chart (fake-chart (fake-time-scale nil (atom [])) (atom []) (atom 0))
         chart-obj (fake-chart-obj {:chart chart
                                    :main-series #js {:id "main"}
@@ -773,6 +769,8 @@
             (render-chart-canvas! canvas :replicant.life-cycle/mount node)
             (render-chart-canvas! canvas :replicant.life-cycle/update node)))))
     (is (= 2 (count @marker-args*)))
+    (is (= indicator-markers (first @marker-args*))
+        "only indicator markers use the series' built-in markers")
     (is (identical? (first @marker-args*)
                     (second @marker-args*)))
     (chart-runtime/clear-state! node)))
@@ -992,14 +990,14 @@
       (is (= :1d (:selected-timeframe @overlay-inputs*)))
       (is (= [] (:fills @overlay-inputs*))))))
 
-(deftest trading-chart-view-threads-fill-marker-preference-into-runtime-options-test
+(deftest trading-chart-view-threads-chart-trades-preference-into-runtime-options-test
   (let [captured-args (atom nil)
         state {:active-asset "BTC"
                :candles {"BTC" {:1d []}}
                :chart-options {:selected-timeframe :1d
                                :selected-chart-type :candlestick
                                :active-indicators {}}
-               :trading-settings {:show-fill-markers? true}}]
+               :trading-settings {:show-chart-trades? true}}]
     (with-redefs [chart-core/chart-canvas (fn
                                             ([a b c d e f]
                                              (reset! captured-args [a b c d e f])
@@ -1009,7 +1007,30 @@
                                              [:div]))]
       (chart-core/trading-chart-view state))
     (let [runtime-options (nth @captured-args 5)]
-      (is (true? (:show-fill-markers? runtime-options))))))
+      (is (true? (:show-chart-trades? runtime-options)))
+      (is (map? (:chart-trades runtime-options)) "setting on -> a trades layer (empty here)")
+      (is (= {:perp? true :coin-label "BTC"}
+             (select-keys (:chart-trades-deps runtime-options) [:perp? :coin-label])))
+      (is (fn? (get-in runtime-options [:chart-trades-deps :on-open-history]))))))
+
+(deftest trading-chart-view-passes-nil-chart-trades-when-the-setting-is-off-test
+  (let [captured-args (atom nil)
+        state {:active-asset "BTC"
+               :candles {"BTC" {:1d [{:t 1700000000000 :o "1" :h "2" :l "0.5" :c "1.5" :v "3"}]}}
+               :orders {:fills [{:coin "BTC" :tid 1 :side "B" :px "1" :sz "1" :time 1700000000000}]}
+               :chart-options {:selected-timeframe :1d
+                               :selected-chart-type :candlestick
+                               :active-indicators {}}
+               :trading-settings {:show-chart-trades? false}}]
+    (with-redefs [chart-core/chart-canvas (fn
+                                            ([a b c d e f]
+                                             (reset! captured-args [a b c d e f])
+                                             [:div])
+                                            ([a b c d e f g h]
+                                             (reset! captured-args [a b c d e f g h])
+                                             [:div]))]
+      (chart-core/trading-chart-view state))
+    (is (nil? (:chart-trades (nth @captured-args 5))))))
 
 (deftest trading-chart-view-keeps-chart-drag-liquidation-preview-while-margin-modal-open-test
   (let [captured-args (atom nil)

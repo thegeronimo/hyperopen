@@ -19,7 +19,7 @@
    :set-fill-alerts-enabled header-actions/set-fill-alerts-enabled
    :set-sound-on-fill-enabled header-actions/set-sound-on-fill-enabled
    :set-animate-orderbook-enabled header-actions/set-animate-orderbook-enabled
-   :set-fill-markers-enabled header-actions/set-fill-markers-enabled
+   :set-chart-trades-enabled header-actions/set-chart-trades-enabled
    :set-confirm-open-orders-enabled header-actions/set-confirm-open-orders-enabled
    :set-confirm-close-position-enabled header-actions/set-confirm-close-position-enabled
    :set-confirm-market-orders-enabled header-actions/set-confirm-market-orders-enabled

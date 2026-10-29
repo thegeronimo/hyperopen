@@ -1,5 +1,6 @@
 (ns hyperopen.state.app-defaults
-  (:require [hyperopen.account.history.position-margin :as position-margin]
+  (:require [hyperopen.borrow-lend.defaults :as borrow-lend-defaults]
+            [hyperopen.account.history.position-margin :as position-margin]
             [hyperopen.account.history.position-reduce :as position-reduce]
             [hyperopen.account.history.position-tpsl :as position-tpsl]
             [hyperopen.account-tab-modules :as account-tab-modules]
@@ -501,6 +502,8 @@
    :funding-comparison (default-funding-comparison-state)
    :staking-ui (default-staking-ui-state)
    :staking (default-staking-state)
+   :borrow-lend-ui (borrow-lend-defaults/ui-state)
+   :borrow-lend (borrow-lend-defaults/state)
    :api-wallets-ui (default-api-wallets-ui-state)
    :api-wallets (default-api-wallets-state)
    :asset-selector (default-asset-selector-state)

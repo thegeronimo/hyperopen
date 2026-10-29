@@ -2,6 +2,7 @@
   (:require [hyperopen.account-tab-modules :as account-tab-modules]
             [hyperopen.account.spectate-mode-links :as spectate-mode-links]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -98,6 +99,7 @@
                 (vault-actions/load-vault-route state normalized-path)
                 (funding-comparison-actions/load-funding-comparison-route state normalized-path)
                 (staking-actions/load-staking-route state normalized-path)
+                (borrow-lend-actions/load-borrow-lend-route state normalized-path)
                 (referrals-actions/load-referrals-route state normalized-path)
                 (api-wallets-actions/load-api-wallet-route state normalized-path)
                 (subaccounts-actions/load-subaccounts-route state normalized-path))))

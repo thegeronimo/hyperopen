@@ -2,7 +2,6 @@
   (:require [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
-            [hyperopen.trading.vol-range-draft :as vol-range-draft]
             [hyperopen.vol-range.application.projections :as vol-range-projections]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
@@ -19,12 +18,18 @@
             [hyperopen.views.trade-view.shell :as shell]))
 
 (def ^:private trade-chart-view-base-state-keys
+  ;; :account-context and :wallet (with :account and :router) let the chart
+  ;; resolve the effective account, so it never draws another account's
+  ;; fill history (:chart-trades); both change rarely
   [:active-asset
    :active-market
    :account
+   :account-context
    :asset-contexts
    :candles
    :chart-options
+   ;; the chart's own uncapped fill history (trades on chart)
+   :chart-trades
    :orders
    :perp-dex-clearinghouse
    :positions-ui
@@ -32,6 +37,7 @@
    :spot
    :trading-settings
    :trade-modules
+   :wallet
    :webdata2])
 
 (def ^:private account-info-view-base-state-keys
@@ -44,6 +50,7 @@
    :account-context
    :account-info
    :account-tab-modules
+   :borrow-lend
    :margin-rec
    :orders
    :perp-dex-clearinghouse
@@ -58,6 +65,7 @@
 (def ^:private account-equity-view-state-keys
   [:account
    :account-context
+   :borrow-lend
    :perp-dex-clearinghouse
    :router
    :spot
@@ -143,32 +151,12 @@
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
-(defn- vol-range-view-state
-  "Volatility range mode only: the active coin's daily candles, open orders,
-  fee quote, locale, and the account-context roots (:account-context, :router,
-  :hyperevm) for subaccount and spectate state. Otherwise nil (legacy slice)."
-  [state]
-  (let [coin (:active-asset state)]
-    (when (and coin
-               (= :volatility-range (vol-range-draft/scale-mode (:order-form state))))
-      {:candles {coin {:1d (get-in state [:candles coin :1d])}}
-       :orders (select-keys (:orders state)
-                            [:open-orders :open-orders-snapshot
-                             :open-orders-snapshot-by-dex])
-       :portfolio {:user-fees (get-in state [:portfolio :user-fees])}
-       :perp-dex-fee-config-by-name (:perp-dex-fee-config-by-name state)
-       :ui {:theme (get-in state [:ui :theme])
-            :locale (get-in state [:ui :locale])}
-       :account-context (:account-context state)
-       :router (:router state)
-       :hyperevm (:hyperevm state)})))
-
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
          (vol-dock/order-form-slice state)
          (ui-voice-state state)
-         (vol-range-view-state state)))
+         (vol-dock/ticket-input-slice state)))
 
 (defn- account-surface-export
   [export-id]

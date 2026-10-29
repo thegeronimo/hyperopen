@@ -120,9 +120,9 @@
   [state enabled?]
   (persist-trading-settings state {:animate-orderbook? (boolean enabled?)}))
 
-(defn set-fill-markers-enabled
+(defn set-chart-trades-enabled
   [state enabled?]
-  (persist-trading-settings state {:show-fill-markers? (boolean enabled?)}))
+  (persist-trading-settings state {:show-chart-trades? (boolean enabled?)}))
 
 (defn set-confirm-open-orders-enabled
   [state enabled?]

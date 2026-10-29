@@ -15,8 +15,9 @@
    account lifecycle clears it on every identity change), so until the
    Perps clearinghouse state and the Spot balances are both there the
    HyperCore cards read \"Loading…\" and the total \"—\". The same goes for
-   HyperEVM until its first complete read. A partial figure is never shown
-   as the total value.
+   HyperEVM until its first complete read, and for the vault equity
+   folded into Total Equity. A partial figure is never shown as the total
+   value.
 
    The model reads the full app state; the HyperEVM figures come from
    `projections.hyperevm-funds`, the same rows the Balances table shows."
@@ -194,15 +195,25 @@
            " in "
            (str/join " and " parts)))))
 
+(defn- unknown-vaults
+  "`[status-text tone]` while Total Equity is unknown because the vault
+   equity is, or nil."
+  [summary vault-status]
+  (when-not (number? (:total-equity summary))
+    (if (= :unavailable vault-status)
+      ["Vault balances unavailable" :warn]
+      ["Vault balances loading" :muted])))
+
 (defn- total-card
-  [summary unified? core-status {:keys [status usd]}]
-  (if-let [[status-text tone] (unknown-total core-status status)]
+  [summary unified? core-status vault-status {:keys [status usd]}]
+  (if-let [[status-text tone] (or (unknown-total core-status status)
+                                  (unknown-vaults summary vault-status))]
     {:value-text unknown-text
      :known? false
      :status-text status-text
      :tone tone
      :includes-text nil}
-    (let [total-equity (or (:total-equity summary) 0)]
+    (let [total-equity (:total-equity summary)]
       {:value-text (portfolio-format/format-currency (+ total-equity usd))
        :known? true
        ;; The summary card's own label for the same figure.
@@ -266,7 +277,9 @@
                              evm-reason))))]
     {:visible? (some? address)
      :unified? unified?
-     :total (total-card summary unified? core-status funds)
+     :total (total-card summary unified? core-status
+                        (:status (vm-equity/vault-equity-status state))
+                        funds)
      :perps (core-card core-status
                        (portfolio-format/format-currency (:perps-account-equity summary))
                        (str/join " · " (remove nil? ["USDC collateral" (positions-text positions)])))

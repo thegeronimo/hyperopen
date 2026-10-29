@@ -65,6 +65,7 @@ const CHART_TOKEN_KEYS = [
   "down",
   "long",
   "short",
+  "liquidation",
 ];
 
 const themes = {
@@ -113,6 +114,7 @@ const themes = {
       down: "rgba(247, 82, 95, 0.5)",
       long: "#26a69a",
       short: "#ef5350",
+      liquidation: "#f5a524",
     },
     radius: TAILWIND_DEFAULT_RADIUS,
     fonts: {},
@@ -181,6 +183,7 @@ const themes = {
       down: "rgba(248, 113, 113, 0.35)",
       long: "#4ade80",
       short: "#f87171",
+      liquidation: "#f59e0b",
     },
     radius: {
       sm: "0px",
@@ -261,6 +264,7 @@ const themes = {
       down: "rgba(255, 107, 107, 0.5)",
       long: "#00d4aa",
       short: "#ff6b6b",
+      liquidation: "#ffb020",
     },
     radius: {
       sm: "0.25rem",

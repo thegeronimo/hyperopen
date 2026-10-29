@@ -20,8 +20,7 @@
                                 :chart-tab :pnl}
                  :portfolio {:summary-by-key {:all-time {:pnlHistory [[t0 10] [t1 20] [t2 30] [t3 45] [t4 60]]
                                                          :accountValueHistory [[t0 100] [t1 110] [t2 120] [t3 130] [t4 150]]}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :three-month (get-in view-model [:summary :selected-key])))
@@ -46,8 +45,7 @@
                  :portfolio {:summary-by-key {"perp2Y" {:pnlHistory [[1 0] [2 5]]
                                                         :accountValueHistory [[1 100] [2 110]]
                                                         :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :perp-two-year (get-in view-model [:summary :selected-key])))
@@ -68,8 +66,7 @@
                  :portfolio {:summary-by-key {:week {:pnlHistory [[1 2] [2 7]]
                                                      :accountValueHistory [[1 100] [2 104]]
                                                      :vlm 11}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :month (get-in view-model [:summary :selected-key])))

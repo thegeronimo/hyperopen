@@ -78,7 +78,7 @@
        (even? (count args))
        (every? keyword? (take-nth 2 args))
        (let [opts (apply hash-map args)]
-         (and (every? #{:coin :interval :bars :end-time-ms :active?-fn :detail-route-vault-address} (keys opts))
+         (and (every? #{:coin :interval :bars :end-time-ms :active?-fn :detail-route-vault-address :priority} (keys opts))
               (or (not (contains? opts :coin))
                   (non-empty-string? (:coin opts)))
               (or (not (contains? opts :interval))
@@ -92,7 +92,9 @@
                        (re-matches #"(?i)^0x[0-9a-f]{40}$"
                                    (str/trim (:detail-route-vault-address opts)))))
               (or (not (contains? opts :active?-fn))
-                  (fn? (:active?-fn opts)))))))
+                  (fn? (:active?-fn opts)))
+              (or (not (contains? opts :priority))
+                  (contains? #{:high :low} (:priority opts)))))))
 
 (defn- action-request?
   [value]

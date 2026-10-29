@@ -4,6 +4,7 @@
             [hyperopen.api.trading :as trading-api]
             [hyperopen.platform :as platform]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.staking.actions :as staking-actions]
             [hyperopen.trading-crypto-modules :as trading-crypto-modules]
             [hyperopen.wallet.actions :as wallet-actions]
@@ -33,6 +34,8 @@
       (nxr/dispatch store nil [[:actions/load-vault-route route]]))
     (when (staking-actions/staking-route? route)
       (nxr/dispatch store nil [[:actions/load-staking-route route]]))
+    (when (borrow-lend-actions/earn-route? route)
+      (nxr/dispatch store nil [[:actions/load-borrow-lend-route route]]))
     (when (portfolio-routes/portfolio-optimize-route? route)
       (nxr/dispatch store nil [[:actions/load-portfolio-optimizer-route route]]))
     result))

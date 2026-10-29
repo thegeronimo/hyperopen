@@ -279,3 +279,35 @@
           (.catch (fn [err]
                     (is false (str "Unexpected pass-through error: " err))
                     (done)))))))
+
+(defn- persistent-failure-attempts
+  "Fetch count for a request whose every attempt fails with `fail`."
+  [fail done-fn]
+  (let [fetch-calls (atom 0)
+        client (info-client/make-info-client
+                {:fetch-fn (fn [_ _] (swap! fetch-calls inc) (fail))
+                 :sleep-ms-fn (fn [_] (js/Promise.resolve nil))
+                 :log-fn (fn [& _] nil)})]
+    (-> ((:request-info! client) {"type" "meta"} {:dedupe-key :meta})
+        (.then (fn [_] (done-fn :resolved @fetch-calls))
+               (fn [_] (done-fn :rejected @fetch-calls))))))
+
+(deftest request-info-retries-a-persistent-429-max-retries-times-test
+  ;; a failed nested retry used to be retried again by every outer attempt:
+  ;; 31 fetches instead of 5 for a request that kept getting 429
+  (async done
+    (persistent-failure-attempts
+     #(js/Promise.resolve (info-support/fake-http-response 429 {:error "rate-limited"}))
+     (fn [outcome calls]
+       (is (= :rejected outcome))
+       (is (= 5 calls) "the first attempt plus max-retries (4)")
+       (done)))))
+
+(deftest request-info-retries-a-persistent-network-error-max-retries-times-test
+  (async done
+    (persistent-failure-attempts
+     #(js/Promise.reject (js/Error. "network down"))
+     (fn [outcome calls]
+       (is (= :rejected outcome))
+       (is (= 5 calls))
+       (done)))))

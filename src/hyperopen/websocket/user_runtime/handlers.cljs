@@ -1,5 +1,7 @@
 (ns hyperopen.websocket.user-runtime.handlers
-  (:require [hyperopen.domain.funding-history :as funding-history]
+  (:require [hyperopen.account.chart-fill-history :as chart-fill-history]
+            [hyperopen.account.context :as account-context]
+            [hyperopen.domain.funding-history :as funding-history]
             [hyperopen.platform :as platform]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.order.cancel-guard :as cancel-guard]
@@ -122,11 +124,21 @@
          (let [{:keys [rows snapshot?]} (extract-channel-rows msg :fills)]
            (when (seq rows)
              (if snapshot?
-               (swap! store assoc-in [:orders :fills] rows)
+               (swap! store (fn [state]
+                              (-> state
+                                  (assoc-in [:orders :fills] rows)
+                                  (chart-fill-history/apply-snapshot
+                                   (account-context/effective-account-address state)
+                                   rows))))
                (let [existing (get-in @store [:orders :fills] [])
                      new-rows (vec (fill-runtime/novel-fills existing rows))]
                  (when (seq new-rows)
-                   (swap! store update-in [:orders :fills] #(upsert-seq (or % []) new-rows))
+                   (swap! store (fn [state]
+                                  (-> state
+                                      (update-in [:orders :fills] #(upsert-seq (or % []) new-rows))
+                                      (chart-fill-history/apply-live
+                                       (account-context/effective-account-address state)
+                                       new-rows))))
                    (when (trading-settings/fill-alerts-enabled? @store)
                      (fill-runtime/show-user-fill-toast! store new-rows))
                    (refresh-runtime/schedule-account-surface-refresh-after-fill! store)))))))))))

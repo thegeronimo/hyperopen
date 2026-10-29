@@ -8,7 +8,8 @@
   P&L. The live monitoring line (spec 9.3, 11.2) is one line at the top of
   the tab, not a live region: outcome announcements stay in the status
   message (spec 11.4)."
-  (:require [hyperopen.vol-range.application.dock-model :as dock-model]
+  (:require [hyperopen.trading.vol-range-draft :as vol-range-draft]
+            [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.views.account-info.tab-registry :as tab-registry]
             [hyperopen.views.trade.vol-range.ladders :as ladders]
@@ -127,6 +128,27 @@
                               (or (get-in vol-range [:replace :grid-id])
                                   (get-in vol-range [:frozen-context :replace :predecessor :grid-id]))))))}
     {}))
+
+(defn ticket-input-slice
+  "The order-form panel's Volatility range inputs, only in Volatility range
+  mode: the active coin's daily candles, open orders, fee quote, locale, and
+  the account-context roots (:account-context, :router, :hyperevm) for
+  subaccount and spectate state. Otherwise nil (legacy slice)."
+  [state]
+  (let [coin (:active-asset state)]
+    (when (and coin
+               (= :volatility-range (vol-range-draft/scale-mode (:order-form state))))
+      {:candles {coin {:1d (get-in state [:candles coin :1d])}}
+       :orders (select-keys (:orders state)
+                            [:open-orders :open-orders-snapshot
+                             :open-orders-snapshot-by-dex])
+       :portfolio {:user-fees (get-in state [:portfolio :user-fees])}
+       :perp-dex-fee-config-by-name (:perp-dex-fee-config-by-name state)
+       :ui {:theme (get-in state [:ui :theme])
+            :locale (get-in state [:ui :locale])}
+       :account-context (:account-context state)
+       :router (:router state)
+       :hyperevm (:hyperevm state)})))
 
 (defn tab-visible?
   [state]

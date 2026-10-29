@@ -62,19 +62,21 @@
 
 (deftest current-route-refresh-effects-preserve-portfolio-chart-bootstrap-test
   (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
-    (is (= [[:actions/select-portfolio-chart-tab :returns]
+    (is (= [[:actions/load-borrow-lend-route "/portfolio"]
+            [:actions/select-portfolio-chart-tab :returns]
             [:effects/api-load-subaccounts]]
            (route-refresh/current-route-refresh-effects
             {:router {:path "/portfolio"}
              :portfolio-ui {:chart-tab :returns}}
             address)))
-    (is (= [[:actions/select-portfolio-chart-tab :returns]
+    (is (= [[:actions/load-borrow-lend-route "/portfolio/trader/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            [:actions/select-portfolio-chart-tab :returns]
             [:effects/api-load-subaccounts]]
            (route-refresh/current-route-refresh-effects
             {:router {:path "/portfolio/trader/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
              :portfolio-ui {:chart-tab :returns}}
             address)))
-    (is (= []
+    (is (= [[:actions/load-borrow-lend-route "/portfolio"]]
            (route-refresh/current-route-refresh-effects
             {:router {:path "/portfolio"}
              :portfolio-ui {:chart-tab :returns}}
@@ -150,9 +152,11 @@
                               :returns-benchmark-coins ["BTC"
                                                         "HYPE"
                                                         (str "vault:" benchmark-address)]}}]
-    (is (= [[:actions/load-vault-route "/portfolio"]]
+    (is (= [[:actions/load-vault-route "/portfolio"]
+            [:actions/load-borrow-lend-route "/portfolio"]]
            (route-refresh/current-route-refresh-effects state nil)))
     (is (= [[:actions/load-vault-route "/portfolio"]
+            [:actions/load-borrow-lend-route "/portfolio"]
             [:actions/select-portfolio-chart-tab :returns]
             [:effects/api-load-subaccounts]]
            (route-refresh/current-route-refresh-effects state address)))))
