@@ -52,6 +52,9 @@ export function newWorld() {
     fillsGate: null,
     // Rows returned by each REST fill read, in order.
     fillsReads: [],
+    // The account's non-funding ledger updates (`userNonFundingLedgerUpdates`), read by the
+    // Vol Range report's backfill.
+    ledgerUpdates: [],
     infoLog: [],
     // Requests that tried to reach a real /exchange endpoint (aborted).
     blockedExchange: [],
@@ -186,6 +189,9 @@ export async function stubInfo(page, world) {
         if (world.fillsGate) await world.fillsGate;
         body = [...world.fills];
         world.fillsReads.push({ type: payload.type, rows: body.length });
+        break;
+      case "userNonFundingLedgerUpdates":
+        body = [...world.ledgerUpdates];
         break;
       case "userAbstraction":
         body = "default";

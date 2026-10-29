@@ -26,6 +26,12 @@
 (s/def ::logical-id ::common/non-empty-string)
 (s/def ::logical-id-args (s/tuple ::logical-id))
 
+;; Release B reporting: a market's campaign key, or nil / "all" for All
+;; tracked markets.
+(s/def ::campaign-key ::common/non-empty-string)
+(s/def ::campaign-key-args (s/tuple ::campaign-key))
+(s/def ::report-campaign-args (s/tuple (s/nilable ::campaign-key)))
+
 (def vol-range-action-args-spec-by-id
   {:actions/select-scale-mode ::select-scale-mode-args
    :actions/update-vol-range-draft ::update-vol-range-draft-args
@@ -60,4 +66,11 @@
    :actions/check-vol-ladder-update ::common/no-args
    :actions/toggle-vol-ladder-update-rejected ::logical-id-args
    :actions/review-vol-ladder-replacement ::common/no-args
-   :actions/stop-vol-ladder-update ::common/no-args})
+   :actions/stop-vol-ladder-update ::common/no-args
+   ;; Release B reporting (the Portfolio Vol Range tab).
+   :actions/load-vol-range-report ::common/no-args
+   :actions/refresh-vol-range-report ::common/no-args
+   :actions/select-vol-range-report-campaign ::report-campaign-args
+   :actions/request-start-vol-range-tracking ::campaign-key-args
+   :actions/cancel-start-vol-range-tracking ::common/no-args
+   :actions/confirm-start-vol-range-tracking ::common/no-args})

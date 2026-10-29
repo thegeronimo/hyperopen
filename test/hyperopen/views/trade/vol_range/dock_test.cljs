@@ -261,7 +261,16 @@
     (is (= "Tracking since Oct 21, 13:42 UTC" (line tracked)))
     (is (= "Not tracked" (line (state-with [g]))))
     (is (= "Not tracked" (line (assoc-in tracked [:vol-range :execution :grids "g1" :recovered?] true))))
-    (is (not (re-find #"P&L|grid" (line tracked))))))
+    (is (not (re-find #"P&L|grid" (line tracked))))
+    (testing "a tracked ladder links to the Portfolio report on its market"
+      (let [button (hiccup/find-by-data-role (panel tracked) "vol-ladder-view-report")]
+        (is (= "View report" (text button)))
+        (is (= [[:actions/select-vol-range-report-campaign (:campaign-key campaign)]
+                [:actions/set-portfolio-account-info-tab :vol-range]
+                [:actions/navigate "/portfolio"]]
+               (get-in (hiccup/node-attrs button) [:on :click])))
+        (is (nil? (hiccup/find-by-data-role (panel (state-with [g])) "vol-ladder-view-report"))
+            "an untracked ladder has no report link")))))
 
 ;; ---------------------------------------------------------------------------
 ;; Update (spec 10.2, 11.2)

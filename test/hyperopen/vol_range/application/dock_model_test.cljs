@@ -1,5 +1,6 @@
 (ns hyperopen.vol-range.application.dock-model-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.config :as config]
             [hyperopen.vol-range.application.dock-model :as dm]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]))
@@ -242,13 +243,21 @@
   ;; Spec 12.1: when the market's tracking began; no figures in the dock.
   (let [t0 1761054120000 ; 2025-10-21 13:42 UTC
         g (-> (placed #{}) (assoc :scope spot-scope :created-at-ms (+ t0 500)))
-        state {:vol-range {:campaigns {"cmp-1" (tracked-campaign t0)}}}]
-    (is (= {:text "Tracking since Oct 21, 13:42 UTC"} (:tracking (dm/grid-row state g))))
-    (is (= {:text "Not tracked"} (:tracking (dm/grid-row state (assoc g :recovered? true))))
+        state {:vol-range {:campaigns {"cmp-1" (tracked-campaign t0)}}}
+        untracked {:text "Not tracked" :campaign-key nil :view-report? false}]
+    (is (= {:text "Tracking since Oct 21, 13:42 UTC" :campaign-key "hyperliquid-mainnet|0xabc|spot|9001|1"
+            :view-report? true}
+           (:tracking (dm/grid-row state g)))
+        "a tracked ladder links to its report when reporting is on")
+    (is (= untracked (:tracking (dm/grid-row state (assoc g :recovered? true))))
         "recovered orders are never tracked")
-    (is (= {:text "Not tracked"} (:tracking (dm/grid-row {} g))) "no campaign loaded")
-    (is (= {:text "Not tracked"} (:tracking (dm/grid-row state (assoc g :created-at-ms (- t0 1)))))
+    (is (= untracked (:tracking (dm/grid-row {} g))) "no campaign loaded")
+    (is (= untracked (:tracking (dm/grid-row state (assoc g :created-at-ms (- t0 1)))))
         "a ladder placed before tracking began")
-    (is (= {:text "Not tracked"}
+    (is (= untracked
            (:tracking (dm/grid-row state (assoc-in g [:scope :spot-pair-index] 2))))
-        "another market's campaign")))
+        "another market's campaign")
+    (testing "no View report with reporting off"
+      (with-redefs [config/config (assoc-in config/config [:vol-range :reporting-enabled?] false)]
+        (is (false? (:view-report? (:tracking (dm/grid-row state g)))))
+        (is (= "Tracking since Oct 21, 13:42 UTC" (:text (:tracking (dm/grid-row state g)))))))))

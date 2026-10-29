@@ -76,5 +76,6 @@
     :margin-rec (margin-rec-collaborators/action-deps)
     :hyperevm (hyperevm-collaborators/action-deps)
     :vol-range (vol-range-collaborators/action-deps)
-    :vol-range-execution (vol-range-collaborators/execution-action-deps)}
+    :vol-range-execution (vol-range-collaborators/execution-action-deps)
+    :vol-range-report (vol-range-collaborators/report-action-deps)}
    action-overrides))

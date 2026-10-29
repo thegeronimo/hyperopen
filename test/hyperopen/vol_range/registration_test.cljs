@@ -277,3 +277,49 @@
     (is (seq effects))
     (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/cancel-vol-ladder-for-update}))
         (pr-str effects))))
+
+;; ---------------------------------------------------------------------------
+;; Release B reporting (reporting stage R3)
+;; ---------------------------------------------------------------------------
+
+(def report-handlers
+  {:actions/load-vol-range-report :load-vol-range-report
+   :actions/refresh-vol-range-report :refresh-vol-range-report
+   :actions/select-vol-range-report-campaign :select-vol-range-report-campaign
+   :actions/request-start-vol-range-tracking :request-start-vol-range-tracking
+   :actions/cancel-start-vol-range-tracking :cancel-start-vol-range-tracking
+   :actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking})
+
+(deftest report-actions-and-effect-are-registered-and-contracted-test
+  (let [ids (set (keys report-handlers))]
+    (is (set/subset? ids (runtime-registry/registered-action-ids)))
+    (is (set/subset? ids (contracts/contracted-action-ids)))
+    (is (every? #(contains? action-args/action-args-spec-by-id %) ids)))
+  (testing "handlers are their own group: reporting never implies placement"
+    (let [deps (collaborators/runtime-action-deps {})]
+      (is (= (set (vals report-handlers)) (set (keys (:vol-range-report deps)))))
+      (is (every? fn? (vals (:vol-range-report deps))))
+      (is (not-any? #(contains? (:vol-range-execution deps) %) (vals report-handlers)))
+      (is (not-any? #(contains? (set (map :action-id (catalog/catalog-entries))) %) (keys report-handlers)))))
+  (testing "no report action needs an effect-order policy"
+    (is (not-any? effect-order/covered-action? (keys report-handlers))))
+  (let [ok! (fn [action-id args] (is (some? (contracts/assert-action-args! action-id args {})) (pr-str [action-id args])))
+        bad! (fn [action-id args] (is (thrown? js/Error (contracts/assert-action-args! action-id args {}))
+                                      (pr-str [action-id args])))]
+    (doseq [id [:actions/load-vol-range-report :actions/refresh-vol-range-report
+                :actions/cancel-start-vol-range-tracking :actions/confirm-start-vol-range-tracking]]
+      (ok! id [])
+      (bad! id ["x"]))
+    (ok! :actions/select-vol-range-report-campaign ["k"])
+    (ok! :actions/select-vol-range-report-campaign [nil])
+    (ok! :actions/select-vol-range-report-campaign ["all"])
+    (bad! :actions/select-vol-range-report-campaign [""])
+    (ok! :actions/request-start-vol-range-tracking ["k"])
+    (bad! :actions/request-start-vol-range-tracking [nil]))
+  (doseq [op [:load :backfill :start-tracking :marks :export]]
+    (is (some? (contracts/assert-effect-args! :effects/vol-range-report [op {}] {})) (str op)))
+  (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-report [:place {}] {})))
+  (is (some? (contracts/assert-emitted-effects!
+              [[:effects/save-many [[[:vol-range :report :ui :confirm-restart-key] nil]]]
+               [:effects/vol-range-report :start-tracking {:campaign-key "k" :account-address "0xabc"}]]
+              {:action-id :actions/confirm-start-vol-range-tracking}))))

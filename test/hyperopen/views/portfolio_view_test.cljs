@@ -218,7 +218,9 @@
            (get-in (get portfolio-action-buttons "portfolio-action-deposit") [1 :on :click])))
     (is (= "Performance Metrics" (first portfolio-tab-labels)))
     (is (str/starts-with? (or (second portfolio-tab-labels) "") "Monte Carlo"))
-    (is (str/starts-with? (or (nth portfolio-tab-labels 2 nil) "") "Balances"))
+    ;; Vol Range reporting is on in test builds (spec 11.3): after Monte Carlo.
+    (is (= "Vol Range" (nth portfolio-tab-labels 2 nil)))
+    (is (str/starts-with? (or (nth portfolio-tab-labels 3 nil) "") "Balances"))
     (is (contains? (set (class-values account-tables-panel)) "min-h-0"))
     (is (not (contains? (set (class-values account-tables-panel)) "h-96")))
     (is (= "min(44rem, calc(100dvh - 24rem))"

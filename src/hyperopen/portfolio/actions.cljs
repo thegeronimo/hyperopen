@@ -93,7 +93,8 @@
     :funding-history
     :order-history
     :outcomes
-    :monte-carlo})
+    :monte-carlo
+    :vol-range})
 
 (def ^:private account-info-tab-aliases
   {:performancemetrics :performance-metrics
@@ -105,7 +106,8 @@
    :fundinghistory :funding-history
    :orderhistory :order-history
    :montecarlo :monte-carlo
-   :monte :monte-carlo})
+   :monte :monte-carlo
+   :volrange :vol-range})
 
 (defn- normalize-keyword-like
   [value]

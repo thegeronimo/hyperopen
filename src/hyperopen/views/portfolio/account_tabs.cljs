@@ -1,10 +1,14 @@
 (ns hyperopen.views.portfolio.account-tabs
-  (:require [hyperopen.portfolio.actions :as portfolio-actions]
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.portfolio.actions :as portfolio-actions]
+            [hyperopen.vol-range.application.report-model :as vol-range-report-model]
+            [hyperopen.vol-range.contracts :as vol-range-contracts]
             [hyperopen.views.account-info-view :as account-info-view]
             [hyperopen.views.portfolio.account-activity :as account-activity-view]
             [hyperopen.views.portfolio.montecarlo.panel :as montecarlo-panel]
             [hyperopen.views.portfolio.performance-metrics-view :as performance-metrics-view]
-            [hyperopen.views.portfolio.vm.montecarlo :as montecarlo-vm]))
+            [hyperopen.views.portfolio.vm.montecarlo :as montecarlo-vm]
+            [hyperopen.views.portfolio.vol-range-report :as vol-range-report]))
 
 (def ^:private performance-metrics-panel-height
   "min(44rem, calc(100dvh - 24rem))")
@@ -17,7 +21,8 @@
   (into
    {:deposits-withdrawals [[:actions/set-portfolio-account-info-tab :deposits-withdrawals]]
     :performance-metrics [[:actions/set-portfolio-account-info-tab :performance-metrics]]
-    :monte-carlo [[:actions/set-portfolio-account-info-tab :monte-carlo]]}
+    :monte-carlo [[:actions/set-portfolio-account-info-tab :monte-carlo]]
+    :vol-range [[:actions/set-portfolio-account-info-tab :vol-range]]}
    (map (fn [tab]
           [tab
            [[:actions/set-portfolio-account-info-tab tab]
@@ -27,6 +32,7 @@
 (def ^:private portfolio-account-tab-order
   [:performance-metrics
    :monte-carlo
+   :vol-range
    :balances
    :positions
    :open-orders
@@ -65,7 +71,17 @@
                                         (montecarlo-panel/monte-carlo-card
                                          (montecarlo-vm/montecarlo-model
                                           state
-                                          (:monte-carlo view-model))))}))]
+                                          (:monte-carlo view-model))))})
+                       ;; Vol Range reporting (spec 11.3): never for another
+                       ;; trader's portfolio, and only in builds with reporting.
+                       (cond-> (and (vol-range-contracts/reporting-enabled?) (not trader-portfolio-route?))
+                         (conj {:id :vol-range
+                                :label "Vol Range"
+                                :panel-classes ["min-h-0"]
+                                :panel-style portfolio-account-panel-style
+                                :render (fn [_]
+                                          (vol-range-report/vol-range-report
+                                           (vol-range-report-model/report-view-model state (platform/now-ms))))})))]
     {:extra-tabs extra-tabs
      :default-panel-classes ["min-h-0"]
      :default-panel-style portfolio-account-panel-style

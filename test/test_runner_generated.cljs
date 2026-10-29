@@ -522,6 +522,7 @@
             [hyperopen.runtime.effect-adapters.vol-range-execution-test]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
             [hyperopen.runtime.effect-adapters.vol-range-replace-test]
+            [hyperopen.runtime.effect-adapters.vol-range-report-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
             [hyperopen.runtime.effect-adapters.websocket-health-test]
             [hyperopen.runtime.effect-adapters.websocket-test]
@@ -844,6 +845,7 @@
             [hyperopen.views.portfolio.vm.summary-test]
             [hyperopen.views.portfolio.vm.volume-helpers-test]
             [hyperopen.views.portfolio.vm.volume-test]
+            [hyperopen.views.portfolio.vol-range-report-test]
             [hyperopen.views.portfolio.volume-history-popover-test]
             [hyperopen.views.referrals-view-test]
             [hyperopen.views.spectate-mode-modal-test]
@@ -974,6 +976,7 @@
             [hyperopen.vol-range.application.replace-state-test]
             [hyperopen.vol-range.application.report-attribution-test]
             [hyperopen.vol-range.application.report-coverage-test]
+            [hyperopen.vol-range.application.report-model-test]
             [hyperopen.vol-range.application.snapshots-test]
             [hyperopen.vol-range.contracts-test]
             [hyperopen.vol-range.domain.admission-test]
@@ -984,11 +987,13 @@
             [hyperopen.vol-range.domain.volatility-test]
             [hyperopen.vol-range.execution-actions-test]
             [hyperopen.vol-range.infrastructure.campaign-capture-test]
+            [hyperopen.vol-range.infrastructure.campaign-executor-test]
             [hyperopen.vol-range.infrastructure.execution-gate-test]
             [hyperopen.vol-range.infrastructure.execution-watcher-test]
             [hyperopen.vol-range.infrastructure.fills-window-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
             [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
+            [hyperopen.vol-range.infrastructure.ledger-ingest-test]
             [hyperopen.vol-range.infrastructure.ledger-store-test]
             [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
@@ -998,11 +1003,13 @@
             [hyperopen.vol-range.infrastructure.replace-scenarios-test]
             [hyperopen.vol-range.infrastructure.report-executor-test]
             [hyperopen.vol-range.infrastructure.report-reads-test]
+            [hyperopen.vol-range.infrastructure.report-watcher-test]
             [hyperopen.vol-range.journal-and-cloid-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
             [hyperopen.vol-range.repair-actions-test]
             [hyperopen.vol-range.replace-actions-test]
+            [hyperopen.vol-range.report-actions-test]
             [hyperopen.vol-range.report-boundary-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-lifecycle-test]
@@ -1611,6 +1618,7 @@
              'hyperopen.runtime.effect-adapters.vol-range-execution-test
              'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
              'hyperopen.runtime.effect-adapters.vol-range-replace-test
+             'hyperopen.runtime.effect-adapters.vol-range-report-test
              'hyperopen.runtime.effect-adapters.wallet-test
              'hyperopen.runtime.effect-adapters.websocket-health-test
              'hyperopen.runtime.effect-adapters.websocket-test
@@ -1933,6 +1941,7 @@
              'hyperopen.views.portfolio.vm.summary-test
              'hyperopen.views.portfolio.vm.volume-helpers-test
              'hyperopen.views.portfolio.vm.volume-test
+             'hyperopen.views.portfolio.vol-range-report-test
              'hyperopen.views.portfolio.volume-history-popover-test
              'hyperopen.views.referrals-view-test
              'hyperopen.views.spectate-mode-modal-test
@@ -2063,6 +2072,7 @@
              'hyperopen.vol-range.application.replace-state-test
              'hyperopen.vol-range.application.report-attribution-test
              'hyperopen.vol-range.application.report-coverage-test
+             'hyperopen.vol-range.application.report-model-test
              'hyperopen.vol-range.application.snapshots-test
              'hyperopen.vol-range.contracts-test
              'hyperopen.vol-range.domain.admission-test
@@ -2073,11 +2083,13 @@
              'hyperopen.vol-range.domain.volatility-test
              'hyperopen.vol-range.execution-actions-test
              'hyperopen.vol-range.infrastructure.campaign-capture-test
+             'hyperopen.vol-range.infrastructure.campaign-executor-test
              'hyperopen.vol-range.infrastructure.execution-gate-test
              'hyperopen.vol-range.infrastructure.execution-watcher-test
              'hyperopen.vol-range.infrastructure.fills-window-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
              'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
+             'hyperopen.vol-range.infrastructure.ledger-ingest-test
              'hyperopen.vol-range.infrastructure.ledger-store-test
              'hyperopen.vol-range.infrastructure.lifecycle-safety-test
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
@@ -2087,11 +2099,13 @@
              'hyperopen.vol-range.infrastructure.replace-scenarios-test
              'hyperopen.vol-range.infrastructure.report-executor-test
              'hyperopen.vol-range.infrastructure.report-reads-test
+             'hyperopen.vol-range.infrastructure.report-watcher-test
              'hyperopen.vol-range.journal-and-cloid-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
              'hyperopen.vol-range.repair-actions-test
              'hyperopen.vol-range.replace-actions-test
+             'hyperopen.vol-range.report-actions-test
              'hyperopen.vol-range.report-boundary-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-lifecycle-test

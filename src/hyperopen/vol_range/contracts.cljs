@@ -109,6 +109,12 @@
 (defn preview-enabled? []
   (config/vol-range-preview-enabled?))
 
+(defn reporting-enabled?
+  "Vol Range reporting (spec 15.2): the build flag, in a build that has Vol
+  Range at all. It never implies placement permission."
+  []
+  (and (config/vol-range-preview-enabled?) (config/vol-range-reporting-enabled?)))
+
 ;; ---------------------------------------------------------------------------
 ;; Error and warning registry
 ;; ---------------------------------------------------------------------------

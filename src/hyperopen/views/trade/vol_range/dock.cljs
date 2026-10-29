@@ -186,8 +186,15 @@
      [:p {:class ["text-xs" "text-ho-warn"] :data-role "vol-ladder-partial"} partial-message])
    (filled-block row)
    (model-block row)
-   (when-let [t (get-in row [:tracking :text])]
-     [:p {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-ladder-tracking"} t])
+   (when-let [{:keys [text view-report? campaign-key]} (:tracking row)]
+     [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
+      [:p {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-ladder-tracking"} text]
+      (when view-report?
+        [:button {:type "button" :class button-classes
+                  :aria-label (str "View the " (:market row) " Vol Range report")
+                  :data-role "vol-ladder-view-report"
+                  :on {:click (commands/view-report-actions campaign-key)}}
+         "View report"])])
    (when-let [lineage (:lineage row)]
      [:p {:class ["text-xs" "text-ho-text-secondary"] :data-role "vol-ladder-lineage"} lineage])
    (row-actions row)

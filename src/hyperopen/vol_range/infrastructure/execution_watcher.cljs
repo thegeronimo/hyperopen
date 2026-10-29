@@ -17,10 +17,13 @@
 
   It only dispatches actions and writes the monitoring map; the work runs in
   the vol-range-execute effect. No new timer: the reconcile interval is the
-  monitoring tick. Inactive in builds without placement."
+  monitoring tick. Listeners registered with `register-tick-listener!`
+  (Reporting's periodic backfill) ride the same tick. Inactive in builds
+  without placement."
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.config :as config]
             [hyperopen.platform :as platform]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.execution-actions :as execution-actions]
             [hyperopen.vol-range.infrastructure.execution-gate :as gate]))
@@ -31,6 +34,7 @@
 (defonce ^:private interval-id (atom nil))
 (defonce ^:private visibility-listener (atom nil))
 (defonce ^:private observe-scheduled? (atom false))
+(defonce ^:private tick-listeners (atom {}))
 
 (defn- active? []
   (and (config/vol-range-preview-enabled?) (config/vol-range-execution-built?)))
@@ -114,6 +118,33 @@
       (reset! visibility-listener {:doc document :f f}))))
 
 ;; ---------------------------------------------------------------------------
+;; Tick listeners (no timer of their own, spec 9.3)
+;; ---------------------------------------------------------------------------
+
+(defn register-tick-listener!
+  "Call `(f {:store :now-ms :visible?})` on every watcher tick under key `k`,
+  replacing any listener already registered under `k`."
+  [k f]
+  (swap! tick-listeners assoc k f)
+  nil)
+
+(defn unregister-tick-listener!
+  [k]
+  (swap! tick-listeners dissoc k)
+  nil)
+
+(defn- notify-tick-listeners!
+  "Each listener in its own guard: a failing listener is logged and never
+  affects the tick, monitoring or other listeners."
+  [{:keys [store now-ms-fn document]}]
+  (let [tick {:store store :now-ms (now-ms-fn) :visible? (visible? document)}]
+    (doseq [[k f] @tick-listeners]
+      (try
+        (f tick)
+        (catch :default e
+          (telemetry/log! "Vol Range tick listener failed" (str k) (str e)))))))
+
+;; ---------------------------------------------------------------------------
 ;; Install
 ;; ---------------------------------------------------------------------------
 
@@ -154,7 +185,8 @@
                    (when (and (visible? (:document ctx))
                               (not resync-dispatched?)
                               (not (resync-busy? @store)))
-                     (dispatch! store nil [[:actions/reconcile-open-vol-ladders]]))))
+                     (dispatch! store nil [[:actions/reconcile-open-vol-ladders]]))
+                   (notify-tick-listeners! ctx)))
                reconcile-interval-ms))
       (schedule-observe! ctx)))
   store)

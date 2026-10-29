@@ -2,7 +2,8 @@
   (:require [hyperopen.vol-range.actions :as vol-range-actions]
             [hyperopen.vol-range.execution-actions :as execution-actions]
             [hyperopen.vol-range.repair-actions :as repair-actions]
-            [hyperopen.vol-range.replace-actions :as replace-actions]))
+            [hyperopen.vol-range.replace-actions :as replace-actions]
+            [hyperopen.vol-range.report-actions :as report-actions]))
 
 (defn action-deps []
   {:select-scale-mode vol-range-actions/select-scale-mode
@@ -41,3 +42,14 @@
    :toggle-vol-ladder-update-rejected replace-actions/toggle-vol-ladder-update-rejected
    :review-vol-ladder-replacement replace-actions/review-vol-ladder-replacement
    :stop-vol-ladder-update replace-actions/stop-vol-ladder-update})
+
+(defn report-action-deps
+  "Release B Portfolio report handlers (a separate group: reporting never
+  implies placement permission)."
+  []
+  {:load-vol-range-report report-actions/load-vol-range-report
+   :refresh-vol-range-report report-actions/refresh-vol-range-report
+   :select-vol-range-report-campaign report-actions/select-vol-range-report-campaign
+   :request-start-vol-range-tracking report-actions/request-start-vol-range-tracking
+   :cancel-start-vol-range-tracking report-actions/cancel-start-vol-range-tracking
+   :confirm-start-vol-range-tracking report-actions/confirm-start-vol-range-tracking})

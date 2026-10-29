@@ -197,7 +197,11 @@
     "src/hyperopen/vol_range/application/report_coverage.cljs"
     "src/hyperopen/vol_range/infrastructure/ledger_store.cljs"
     "src/hyperopen/vol_range/infrastructure/report_reads.cljs"
-    "src/hyperopen/vol_range/infrastructure/report_executor.cljs"})
+    "src/hyperopen/vol_range/infrastructure/report_executor.cljs"
+    "src/hyperopen/vol_range/infrastructure/campaign_executor.cljs"
+    "src/hyperopen/vol_range/infrastructure/ledger_ingest.cljs"
+    "src/hyperopen/vol_range/infrastructure/report_watcher.cljs"
+    "src/hyperopen/vol_range/application/report_model.cljs"})
 
 (def ^:private execution-foundation-namespaces
   ["hyperopen.vol-range.infrastructure.journal" "hyperopen.vol-range.infrastructure.entropy"
@@ -215,6 +219,10 @@
    "hyperopen.vol-range.infrastructure.ledger-store"
    "hyperopen.vol-range.infrastructure.report-reads"
    "hyperopen.vol-range.infrastructure.report-executor"
+   "hyperopen.vol-range.infrastructure.campaign-executor"
+   "hyperopen.vol-range.infrastructure.ledger-ingest"
+   "hyperopen.vol-range.infrastructure.report-watcher"
+   "hyperopen.vol-range.application.report-model"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

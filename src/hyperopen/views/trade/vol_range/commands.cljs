@@ -95,3 +95,11 @@
 (defn toggle-update-rejected-actions [logical-id] [[:actions/toggle-vol-ladder-update-rejected logical-id]])
 (defn review-replacement-actions [] [[:actions/review-vol-ladder-replacement]])
 (defn stop-update-actions [] [[:actions/stop-vol-ladder-update]])
+
+;; Reporting (spec 11.2, 11.3): open the Portfolio Vol Range tab on this
+;; ladder's market. Navigation drops a query string, so the tab is selected
+;; before navigating.
+(defn view-report-actions [campaign-key]
+  [[:actions/select-vol-range-report-campaign campaign-key]
+   [:actions/set-portfolio-account-info-tab :vol-range]
+   [:actions/navigate "/portfolio"]])

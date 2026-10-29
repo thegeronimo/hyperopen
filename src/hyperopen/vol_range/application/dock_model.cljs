@@ -20,7 +20,8 @@
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
             [hyperopen.vol-range.application.repair-model :as repair-model]
-            [hyperopen.vol-range.application.replace-model :as replace-model]))
+            [hyperopen.vol-range.application.replace-model :as replace-model]
+            [hyperopen.vol-range.contracts :as contracts]))
 
 (def ^:private zero (precision/parse-decimal "0"))
 (defn- d [x] (or (some-> x str precision/parse-decimal) zero))
@@ -131,14 +132,16 @@
 (defn- tracking
   "The ladder's tracking line (spec 12.1): when its market's tracking
   campaign began, or \"Not tracked\" (recovered orders, or a ladder placed
-  before tracking existed). No P&L here: figures live in the report."
+  before tracking existed). No P&L here: figures live in the report, which
+  a tracked ladder links to when reporting is on (`:view-report?`)."
   [state grid status]
   (let [c (campaign/grid-campaign (get-in state [:vol-range :campaigns])
                                   (get-in state [:vol-range :campaign-closures])
-                                  grid (= :closed status))]
-    {:text (if-let [t (some-> c :t0-ms display/utc-date-minute)]
-             (str "Tracking since " t)
-             "Not tracked")}))
+                                  grid (= :closed status))
+        t (some-> c :t0-ms display/utc-date-minute)]
+    {:text (if t (str "Tracking since " t) "Not tracked")
+     :campaign-key (when t (:campaign-key c))
+     :view-report? (boolean (and t (:campaign-key c) (contracts/reporting-enabled?)))}))
 
 (defn grid-row [state grid]
   (let [status (lifecycle/status grid)
