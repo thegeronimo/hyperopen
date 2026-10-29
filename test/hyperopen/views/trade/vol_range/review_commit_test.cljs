@@ -92,7 +92,7 @@
         plan (assoc ready :plan-id "p1")]
     (doseq [last-result [{:op :place :status :refused :errors [:monitoring/resync-required] :plan-id "p1"}
                          {:op :place :status :not-placed :delivery :not-sent :phase :final-guard
-                          :error [:monitoring/stale] :plan-id "p1"}]]
+                          :errors [:monitoring/stale] :error "[:monitoring/stale]" :plan-id "p1"}]]
       (let [html (render {:enabled? true :last last-result} plan)]
         (is (= text (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-error"))))
             (pr-str last-result))))))

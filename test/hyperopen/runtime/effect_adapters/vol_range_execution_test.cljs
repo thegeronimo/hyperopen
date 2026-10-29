@@ -3,7 +3,8 @@
   a flow that finishes with an older grid copy merges into the store instead
   of replacing it, the journal sync keeps evidence only the store has seen
   and drops another account's ladders, the open-ladder reconciliation
-  resolves to one result per open ladder, successful background operations
+  resolves to one result per open ladder (and persists a ladder that stream
+  evidence closed only in the store), successful background operations
   leave `:last` alone, and the `:resync` operation drives live monitoring
   (spec 9.3) for its own account and epoch only. Simulator only; nothing
   reaches an exchange."
@@ -17,9 +18,11 @@
             [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
+            [hyperopen.vol-range.execution-actions :as execution-actions]
             [hyperopen.vol-range.infrastructure.execution-gate :as gate]
             [hyperopen.vol-range.infrastructure.executor :as ex]
             [hyperopen.vol-range.infrastructure.executor-place :as place]
+            [hyperopen.vol-range.infrastructure.live-ingress :as ingress]
             [hyperopen.vol-range.simulator :as sim]))
 
 (defn- fail [done] (fn [e] (is false (str e (when (instance? js/Error e) (.-stack e)))) (done)))
@@ -168,6 +171,50 @@
                                (is (nil? (get-in @store [:vol-range :execution :last]))
                                    "a successful background reconcile is not announced"))))))))
           (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest a-ladder-the-stream-closes-is-persisted-closed-by-the-next-reconcile-test
+  ;; Earlier fills were persisted by background reconciles; the last resting
+  ;; leg fills and only the userFills increment has reported it.
+  (async done
+    (let [s (sim/new-sim)]
+      (ingress/reset-for-tests!)
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (let [legs (sort-by :cloid (vals (:legs grid)))]
+               (doseq [l (butlast legs)] (sim/fill! s (:cloid l) (:original-base l)))
+               (-> (ex/reconcile! (sim/deps s) grid)
+                   (.then (fn [{one-left :grid}]
+                            (let [tid (dec (:next-tid @s))]
+                              (sim/fill! s (:cloid (last legs)) (:original-base (last legs)))
+                              [one-left (sim/ws-fills-frame s {:after-tid tid})])))))))
+          (.then
+           (fn [[one-left frame]]
+             (let [gid (:grid-id one-left)
+                   scope-key (:scope-key one-left)
+                   store (store-with [one-left])
+                   active? #(some #{:grid/active-in-market}
+                                  (ex/placement-blockers {:records (sim/records s)} scope-key))]
+               (is (= :live (lifecycle/status one-left)))
+               (ingress/observe-user-fills! store frame (sim/now s))
+               (is (= :closed (lifecycle/status (store-grid store gid))) "the dock shows it Closed")
+               (is (= :live (lifecycle/status (journal-grid s gid))) "the journal copy is still open")
+               (is (active?) "so admission would refuse a new ladder in this market")
+               (is (= [[:effects/vol-range-execute :reconcile-open {}]]
+                      (execution-actions/reconcile-open-vol-ladders @store))
+                   "the background tick still reconciles it")
+               (with-runtime s (sim/deps s)
+                 #(.then (vre/vol-range-execute nil store :reconcile-open {})
+                         (fn [_]
+                           (is (= :closed (lifecycle/status (journal-grid s gid))) "the close is persisted")
+                           (is (= (count (:fills (store-grid store gid))) (count (:fills (journal-grid s gid))))
+                               "with the final fill")
+                           (is (not (active?)) "a new ladder in this market is admitted again")
+                           (is (= #{} (get-in @store [:vol-range :execution :unpersisted-closes])))
+                           (is (= [] (execution-actions/reconcile-open-vol-ladders @store))
+                               "and later ticks leave the closed ladder alone")))))))
+          (.then (fn [_] (ingress/reset-for-tests!) (done)))
           (.catch (fail done))))))
 
 ;; ---------------------------------------------------------------------------

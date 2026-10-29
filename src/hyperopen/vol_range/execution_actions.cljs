@@ -9,7 +9,7 @@
   nonce or writes the journal. A second click while the same operation is in
   flight emits nothing (spec 14.2: double click)."
   (:require [hyperopen.account.context :as account-context]
-            [hyperopen.vol-range.application.lifecycle :as lifecycle]))
+            [hyperopen.vol-range.application.grid-store :as grid-store]))
 
 (defn sync-key
   "What ladder sync depends on: the trading account and the active market."
@@ -56,10 +56,10 @@
   (if (busy? state [:sync]) [] [[:effects/vol-range-execute :sync {}]]))
 
 (defn reconcile-open-vol-ladders
-  "Background reconciliation for ladders that are not closed."
+  "Background reconciliation for ladders that are not closed, or that stream
+  evidence closed only in the store (the journal copy still open)."
   [state]
-  (let [open? (some #(not (contains? #{:closed :not-placed} (lifecycle/status %)))
-                    (vals (get-in state [:vol-range :execution :grids])))]
+  (let [open? (seq (grid-store/reconcile-targets state))]
     (if (and open? (not (busy? state [:reconcile-open])))
       [[:effects/vol-range-execute :reconcile-open {}]]
       [])))

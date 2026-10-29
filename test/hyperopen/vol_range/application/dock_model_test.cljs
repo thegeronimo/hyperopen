@@ -174,10 +174,12 @@
   (let [text "Nothing was placed: live order and fill updates were catching up. Try again in a moment."
         msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
     (is (= text (msg {:op :place :status :refused :errors [:monitoring/resync-required]})))
-    (is (= text (msg {:op :place :status :not-placed :delivery :not-sent :phase :final-guard
-                      :error [:monitoring/suspended]})))
+    (testing "a final-guard refusal: the executor's codes next to delivery's text"
+      (is (= text (msg {:op :place :status :not-placed :delivery :not-sent :phase :final-guard
+                        :errors [:monitoring/suspended] :error "[:monitoring/suspended]"})))
+      (is (= text (msg {:op :repair :status :partially-deployed :delivery :not-sent :phase :final-guard
+                        :errors [:monitoring/stale] :error "[:monitoring/stale]"}))))
     (is (= text (msg {:op :repair :status :refused :errors [:monitoring/stale]})))
-    (is (= text (msg {:op :repair :status :partially-deployed :delivery :not-sent :error [:monitoring/stale]})))
     (is (re-find #"Nothing was sent: guard/book-stale|book-stale"
                  (msg {:op :place :status :not-placed :delivery :not-sent :errors [:guard/book-stale]}))
         "other refusals keep their texts")))

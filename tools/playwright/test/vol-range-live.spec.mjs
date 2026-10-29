@@ -2,10 +2,15 @@ import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, waitForIdle } from "../support/hyperopen.mjs";
 import {
   COIN,
+  actionsOfType,
+  exchangeCalls,
   newWorld,
+  okOrderResponse,
+  openOrderRows,
   openReview,
   openVolLaddersTab,
   placeLive,
+  restingAll,
   row,
   startTrade,
   statusLabel,
@@ -127,6 +132,50 @@ test("a streamed fill shows at once and a later REST read does not count it agai
   await expect(filled(page, "buy")).toContainText(/Buy filled 2 · VWAP 76\.4/);
   expect(await storeFillCount(page)).toBe(1);
   await expect(statusLabel(page)).toContainText("Live");
+  expectNoRealExchange(exchange, world);
+});
+
+test("a ladder the stream closes is persisted, so a new ladder in the market can be placed @regression", async ({
+  page
+}) => {
+  test.setTimeout(90_000);
+  const exchange = trackExchange(page);
+  const world = newWorld();
+  await startTrade(page, world);
+  const second = okOrderResponse(Array.from({ length: 7 }, (_, i) => ({ resting: { oid: venueOid(1, i) } })));
+  const orderAction = await placeLive(page, world, { order: { responses: [restingAll(), second] } });
+  await openVolLaddersTab(page);
+  await expect(statusLabel(page)).toContainText("Live");
+  await expect(monitoring(page)).toHaveAttribute("data-status", "live");
+  const fills = orderAction.orders.map((o, i) => fillRow(o, venueOid(0, i), { sz: String(o.s), tid: 880401 + i }));
+
+  // Every order but the last filled, and a background read persisted those fills.
+  world.fills = fills.slice(0, -1);
+  world.openOrders = world.openOrders.slice(-1);
+  await refreshAndReadFills(page, world, fills.length - 1);
+  await expect(statusLabel(page)).toContainText("Live");
+
+  // The last order fills; the userFills increment reports it first.
+  const readsBefore = world.fillsReads.length;
+  world.fills = fills;
+  world.openOrders = [];
+  world.ws.push(world.ws.userFillsFrame(fills.slice(-1)));
+  await expect(statusLabel(page)).toHaveText("Closed", { timeout: 3_000 });
+  // The closed ladder still gets a REST pass, which persists the close.
+  await expect
+    .poll(() => world.fillsReads.slice(readsBefore).some((r) => r.rows === fills.length), { timeout: 10_000 })
+    .toBe(true);
+  await waitForIdle(page, { quietMs: 500, timeoutMs: 5_000, pollMs: 50 });
+
+  // Admission reads the journal: a new ladder in this market is placed, not refused.
+  await openReview(page);
+  await expect(submit(page)).toBeEnabled();
+  await submit(page).click();
+  await expect(page.locator('[data-role="vol-range-review"]')).toBeHidden({ timeout: 15_000 });
+  const orders = actionsOfType(await exchangeCalls(page), "order");
+  expect(orders).toHaveLength(2);
+  world.openOrders = openOrderRows(orders[1], { oidBase: venueOid(1, 0) - 1 });
+  await expect(page.locator('[data-role="vol-ladder-status-message"]')).not.toContainText("already active");
   expectNoRealExchange(exchange, world);
 });
 

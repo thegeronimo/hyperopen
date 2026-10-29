@@ -12,6 +12,7 @@
             [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
             [hyperopen.vol-range.infrastructure.executor :as ex]
             [hyperopen.vol-range.infrastructure.executor-place :as place]
             [hyperopen.vol-range.infrastructure.live-ingress :as ingress]
@@ -214,6 +215,30 @@
           (ingress/observe-user-fills! store fx/fills-increment (+ t 20000))
           (is (= 1 (count (:fills (store-grid store "grid-live")))))
           (is (= 2 (count @dispatched))))))))
+
+(deftest a-frame-that-closes-a-ladder-asks-for-a-reconcile-at-once-test
+  ;; Both buys already filled; the last resting sell fills on the stream.
+  (with-sync-microtasks
+    (fn []
+      (install-fake-dispatch!)
+      (let [full (assoc fx/partial-fill :sz "5")
+            one-left (evidence/ingest-fills (fx/grid) {:account-address fx/account :received-at-ms fx/placed-at-ms
+                                                       :rows [full (assoc full :oid 9001 :tid 4404 :px "75")]})
+            store (store-with [one-left])
+            t fx/received-at-ms
+            last-sell (assoc fx/partial-fill :oid 9002 :tid 4403 :side "A" :px "84" :sz "4")]
+        (is (= :live (lifecycle/status one-left)))
+        ;; A hint just went out, so the interval is not due.
+        (swap! @#'ingress/ingress assoc :account nil :last-hint-at-ms t)
+        (ingress/observe-user-fills! store {:channel "userFills" :data {:user fx/account :fills [last-sell]}}
+                                     (+ t 100))
+        (is (= :closed (lifecycle/status (store-grid store "grid-live"))))
+        (is (= #{"grid-live"} (grid-store/unpersisted-closes @store)) "remembered until a REST pass persists it")
+        (is (= [reconcile-hint] @dispatched) "asked at once, whatever the interval")
+        (testing "a repeat of the frame asks for nothing more"
+          (ingress/observe-user-fills! store {:channel "userFills" :data {:user fx/account :fills [last-sell]}}
+                                       (+ t 200))
+          (is (= [reconcile-hint] @dispatched)))))))
 
 (deftest absence-hints-need-a-coin-this-connection-listed-test
   (with-sync-microtasks

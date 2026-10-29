@@ -27,7 +27,6 @@
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
-            [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.application.plan-state :as plan-state]
             [hyperopen.vol-range.application.snapshots :as snapshots]
@@ -101,6 +100,7 @@
   (swap! store (fn [state]
                  (cond-> (-> state
                              (put-grid grid)
+                             (grid-store/note-persisted result)
                              (update-in [:vol-range :execution :busy] dissoc busy-key)
                              (update-in [:vol-range :execution] merge
                                         {:enabled? (gate/enabled?) :max-ladder-usdc (gate/max-ladder-usdc)}))
@@ -215,20 +215,26 @@
                 r))))))
 
 (defn- reconcile-open!
-  "Reconcile each of the account's grids that is not closed, one at a time.
-  Resolves to the vector of `ex/reconcile!` results, one per open grid."
+  "Reconcile, one at a time, each of the account's grids that is not closed
+  or that stream evidence closed only in the store
+  (`grid-store/reconcile-targets`), so such a close is persisted too. Each
+  grid is reconciled from its store copy as of its turn. Resolves to the
+  vector of `ex/reconcile!` results, one per grid reconciled."
   [store]
   (let [deps (executor-deps store)
-        open (remove #(contains? #{:closed :not-placed} (lifecycle/status %))
-                     (vals (get-in @store [:vol-range :execution :grids])))]
-    (reduce (fn [p g]
+        ids (mapv :grid-id (grid-store/reconcile-targets @store))]
+    (reduce (fn [p gid]
               (.then p (fn [results]
-                         (.then (ex/reconcile! deps g)
-                                (fn [{:keys [grid] :as result}]
-                                  (swap! store put-grid grid)
-                                  (conj results result))))))
+                         (let [state @store
+                               g (get-in state [:vol-range :execution :grids gid])]
+                           (if-not (and g (grid-store/reconcile-target? state g))
+                             results
+                             (.then (ex/reconcile! deps g)
+                                    (fn [{:keys [grid] :as result}]
+                                      (swap! store #(-> % (put-grid grid) (grid-store/note-persisted result)))
+                                      (conj results result))))))))
             (js/Promise.resolve [])
-            open)))
+            ids)))
 
 (def op-timeout-ms
   "Cancel, refresh, sync and the repair preview give up waiting after this

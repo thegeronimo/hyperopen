@@ -79,3 +79,50 @@
       (is (= {"grid-live" placed} (grids (grid-store/merge-account-grids (state-with) fx/account [placed])))))
     (testing "no account, no grids"
       (is (= {} (grids (grid-store/merge-account-grids (state-with filled) nil [placed])))))))
+
+;; ---------------------------------------------------------------------------
+;; Ladders closed by stream evidence only
+;; ---------------------------------------------------------------------------
+
+(def last-sell-fill
+  "All 4 of sell rung 0, the ladder's last resting leg once both buys filled."
+  (assoc fx/partial-fill :oid 9002 :tid 4403 :side "A" :px "84" :sz "4" :dir "Sell"))
+
+(defn- one-sell-left
+  "Both buys filled (as background reconciles would have persisted); only
+  sell rung 0 still rests."
+  []
+  (-> (fx/grid)
+      (with-fill full-fill)
+      (with-fill (assoc full-fill :oid 9001 :tid 4404 :px "75"))))
+
+(defn- unpersisted [state] (get-in state [:vol-range :execution :unpersisted-closes]))
+
+(deftest a-stream-fill-that-closes-a-ladder-is-remembered-until-persisted-test
+  (let [open (one-sell-left)
+        closed (with-fill open last-sell-fill)
+        s (grid-store/merge-stream-grid (state-with open) closed)]
+    (is (= :live (lifecycle/status open)))
+    (is (= :closed (lifecycle/status closed)))
+    (is (= #{"grid-live"} (unpersisted s) (grid-store/unpersisted-closes s)))
+    (is (= ["grid-live"] (mapv :grid-id (grid-store/reconcile-targets s)))
+        "the closed store copy is still reconciled, so the close reaches the journal")
+    (testing "a partial fill, or a copy that was already closed, is not remembered"
+      (is (nil? (unpersisted (grid-store/merge-stream-grid (state-with (fx/grid))
+                                                            (with-fill (fx/grid) fx/partial-fill)))))
+      (is (nil? (unpersisted (grid-store/merge-stream-grid (state-with closed) closed))))
+      (is (= [] (grid-store/reconcile-targets (state-with closed)))
+          "a closed copy the stream did not close is not reconciled"))
+    (testing "only a persisted closed copy forgets it"
+      (is (= s (grid-store/note-persisted s {:persisted? false :grid closed})))
+      (is (= s (grid-store/note-persisted s {:persisted? true :grid open}))
+          "a reconcile that persisted an older, open copy")
+      (let [s* (grid-store/note-persisted s {:persisted? true :grid closed})]
+        (is (= #{} (unpersisted s*)))
+        (is (= [] (grid-store/reconcile-targets s*)))))
+    (testing "a journal sync keeps it for the account's grid and drops it with the grid"
+      (is (= #{"grid-live"} (unpersisted (grid-store/merge-account-grids s fx/account [open]))))
+      (is (= :closed (lifecycle/status (get (grids (grid-store/merge-account-grids s fx/account [open]))
+                                            "grid-live")))
+          "the store copy's close survives the sync")
+      (is (= #{} (unpersisted (grid-store/merge-account-grids s "0xdef" [])))))))

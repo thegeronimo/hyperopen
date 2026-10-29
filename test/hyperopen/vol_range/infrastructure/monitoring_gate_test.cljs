@@ -3,10 +3,16 @@
   (HO-SPEC-014 v2.1 sections 8.1 step 8, 9.3): placement and repair are
   refused while `live!` reports a `:monitoring/*` blocker, at the click and
   again at the final pre-HTTP guard (recorded as provably not sent, the
-  reservation released); cancel never consults it. Simulator only."
+  reservation released, its codes in `:errors` so the dock and repair
+  dialog show the refusal copy), including a blocker that appears while the
+  guard's own reads are in flight; cancel never consults it. Simulator
+  only."
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.platform.locks :as locks]
+            [hyperopen.vol-range.application.dock-model :as dock-model]
+            [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
+            [hyperopen.vol-range.application.repair-model :as repair-model]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.infrastructure.executor :as ex]
@@ -23,6 +29,15 @@
 (defn- place! [s] (place/place! (sim/deps s) {:frozen-plan (sim/frozen-plan s) :frozen-scope sim/scope}))
 
 (defn- block! [s code] (swap! s assoc :live {:monitoring-blocker code}))
+
+(defn- dock-text
+  "The dock (and open review) live-region text for `result` of `op`, as the
+  adapter records it in `:last`."
+  [op result]
+  (dock-model/status-message
+   {:vol-range {:execution {:last (-> result
+                                      (select-keys [:status :errors :delivery :phase :error :counts])
+                                      (assoc :op op))}}}))
 
 (defn- not-sent-attempt? [s]
   (some #(and (= :send-attempt (:kind %)) (= :not-sent (:delivery %))) (sim/records s)))
@@ -58,15 +73,42 @@
     (let [s (fresh)]
       (sim/script! s {:kind :normal :before-guard (fn [s] (block! s :monitoring/stale))})
       (-> (place! s)
-          (.then (fn [{:keys [status delivery phase error grid]}]
+          (.then (fn [{:keys [status delivery phase error errors grid] :as r}]
                    (is (= :not-sent delivery))
                    (is (= :final-guard phase))
                    (is (str/includes? (str error) "monitoring/stale"))
+                   (is (= [:monitoring/stale] errors) "the guard's codes, not only delivery's text")
+                   (is (= monitoring-copy/refusal-text (dock-text :place r)))
                    (is (= :not-placed status))
                    (is (empty? (sim/order-sends s)) "no HTTP call")
                    (is (not-sent-attempt? s) "the attempt is recorded as provably not sent")
                    (is (empty? (lifecycle/releasable-operations grid)) "already released")
                    (is (= "0" (:usdc (jr/pending-reservations (sim/records s) "0xabc"))))
+                   (done)))
+          (.catch (fail done))))))
+
+(deftest a-blocker-during-the-final-guard-reads-is-refused-test
+  ;; `live!` is still live when the guard starts; the socket drops while its
+  ;; journal and barrier reads are in flight.
+  (async done
+    (let [s (fresh)
+          armed? (atom false)
+          deps (assoc (sim/deps s) :post-info!
+                      (fn [body opts]
+                        (when @armed? (block! s :monitoring/stale))
+                        ((sim/post-info s) body opts)))]
+      (sim/script! s {:kind :normal :before-guard (fn [_] (reset! armed? true))})
+      (-> (place/place! deps {:frozen-plan (sim/frozen-plan s) :frozen-scope sim/scope})
+          (.then (fn [{:keys [status delivery phase errors grid] :as r}]
+                   (is @armed?)
+                   (is (= :not-sent delivery))
+                   (is (= :final-guard phase))
+                   (is (= [:monitoring/stale] errors))
+                   (is (= :not-placed status))
+                   (is (empty? (sim/order-sends s)) "no HTTP call")
+                   (is (not-sent-attempt? s))
+                   (is (empty? (lifecycle/releasable-operations grid)) "already released")
+                   (is (= monitoring-copy/refusal-text (dock-text :place r)))
                    (done)))
           (.catch (fail done))))))
 
@@ -84,11 +126,16 @@
                                 (sim/script! s {:kind :normal
                                                 :before-guard (fn [s] (block! s :monitoring/resync-required))})
                                 (repair-buy! s grid))))))
-          (.then (fn [{:keys [delivery phase error grid]}]
+          (.then (fn [{:keys [delivery phase error errors grid] :as r}]
                    (testing "and at the final guard"
                      (is (= :not-sent delivery))
                      (is (= :final-guard phase))
                      (is (str/includes? (str error) "monitoring/resync-required"))
+                     (is (= [:monitoring/resync-required] errors))
+                     (is (= monitoring-copy/refusal-text (dock-text :repair r)))
+                     (is (str/includes? (repair-model/status-message (assoc r :op :repair))
+                                        monitoring-copy/refusal-text)
+                         "the repair texts name the wait, not a failure")
                      (is (= 1 (count (sim/order-sends s))))
                      (is (= ["buy-0"] (map :logical-id (lifecycle/repair-candidates grid)))
                          "the member stays repairable"))

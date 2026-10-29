@@ -94,25 +94,33 @@
     {:status :error :error (ex/error-text error)}))
 
 (defn- final-guard
-  "Spec 8.1 step 8: true to send, else the reasons not to. The grid is
-  re-read so a cancel requested meanwhile refuses the send."
-  [deps {:keys [scope grid-id operation-id check]}]
-  (fn [_ctx]
-    (let [live ((:live! deps))]
-      (if-let [r (refusal live scope)]
-        (js/Promise.resolve [r])
-        (-> (js/Promise.all #js [(ex/load! deps) (barrier-account! deps scope live)])
-            (.then (fn [arr]
-                     (let [[journal {:keys [account input]}] (array-seq arr)
-                           stored (when (:ok? journal) (ex/stored-grid (:records journal) grid-id))]
-                       (cond
-                         (not (:ok? journal)) [:journal/unavailable]
-                         (:cancel-requested-at-ms stored) [:grid/cancel-requested]
-                         :else
-                         (let [pending (jr/pending-reservations (:records journal) (:account-address scope) operation-id)
-                               {:keys [ok? errors]} (check {:input input :account account
-                                                            :pending pending :now-ms (ex/now deps)})]
-                           (if ok? true errors)))))))))))
+  "Spec 8.1 step 8: true to send, else the reasons not to (also kept in
+  `codes-ref`, since delivery reports them only as text). The grid is
+  re-read so a cancel requested meanwhile refuses the send. The refusal seam
+  (capability, signer, live monitoring, scope) is checked again after the
+  awaited reads, with a fresh `live!`: monitoring that went stale while they
+  were in flight refuses the send."
+  [deps {:keys [scope grid-id operation-id check codes-ref]}]
+  (let [refuse (fn [codes] (reset! codes-ref (vec codes)) codes)]
+    (fn [_ctx]
+      (let [live ((:live! deps))]
+        (if-let [r (refusal live scope)]
+          (js/Promise.resolve (refuse [r]))
+          (-> (js/Promise.all #js [(ex/load! deps) (barrier-account! deps scope live)])
+              (.then (fn [arr]
+                       (let [[journal {:keys [account input]}] (array-seq arr)
+                             stored (when (:ok? journal) (ex/stored-grid (:records journal) grid-id))]
+                         (cond
+                           (not (:ok? journal)) (refuse [:journal/unavailable])
+                           (:cancel-requested-at-ms stored) (refuse [:grid/cancel-requested])
+                           :else
+                           (let [pending (jr/pending-reservations (:records journal) (:account-address scope) operation-id)
+                                 {:keys [ok? errors]} (check {:input input :account account
+                                                              :pending pending :now-ms (ex/now deps)})]
+                             (if-not ok?
+                               (refuse errors)
+                               ;; Nothing awaits between here and HTTP.
+                               (if-let [r (refusal ((:live! deps)) scope)] (refuse [r]) true)))))))))))))
 
 (defn- on-send-attempt
   "Commit the send attempt and the grid marked sending, merged under the grid
@@ -136,6 +144,7 @@
   [deps {:keys [grid operation-id legs action scope expires-after check]}]
   (let [grid-ref (atom grid)
         attempt-ref (atom nil)
+        codes-ref (atom nil)
         ids {:operation-id operation-id :attempt-id ((:random-id! deps) "attempt")
              :digest (wire/action-digest action)}]
     (-> ((:send! deps)
@@ -144,7 +153,7 @@
           :vault-address (:vault-address scope)
           :on-send-attempt! (on-send-attempt deps grid-ref attempt-ref ids)
           :before-send! (final-guard deps {:scope scope :grid-id (:grid-id grid) :operation-id operation-id
-                                           :check check})})
+                                           :check check :codes-ref codes-ref})})
         (.then
          (fn [{:keys [delivery body error phase nonce http-status]}]
            (let [at (ex/now deps)
@@ -169,15 +178,18 @@
                                                   at))]
              (-> (ex/persist-grid! deps grid (if attempt [attempt] []))
                  (.then (fn [{:keys [ok? grid] persist-error :error}]
-                          {:status (lifecycle/status grid)
-                           :delivery delivery
-                           :phase phase
-                           :error error
-                           :response-category (:response-category normalized)
-                           :grid grid
-                           :counts (lifecycle/counts grid)
-                           :persisted? ok?
-                           :persist-error persist-error})))))))))
+                          (cond-> {:status (lifecycle/status grid)
+                                   :delivery delivery
+                                   :phase phase
+                                   :error error
+                                   :response-category (:response-category normalized)
+                                   :grid grid
+                                   :counts (lifecycle/counts grid)
+                                   :persisted? ok?
+                                   :persist-error persist-error}
+                            ;; The final guard's codes, for the copy that explains the refusal.
+                            (and (= :not-sent delivery) (= :final-guard phase) (seq @codes-ref))
+                            (assoc :errors @codes-ref)))))))))))
 
 (defn- admit-and-send!
   "Admission section around `admit!` (-> Promise of {:status :admitted ...}

@@ -34,10 +34,11 @@
   (and (keyword? x) (= "monitoring" (namespace x))))
 
 (defn monitoring-refusal?
-  "True when a placement or repair result was refused (at the click or at the
-  final guard, where the codes arrive in `:error`) for a `:monitoring/*` code."
-  [{:keys [errors error]}]
-  (boolean (some monitoring-code? (concat errors (when (sequential? error) error)))))
+  "True when a placement or repair result was refused (at the click, or at
+  the final guard, whose codes the executor puts in `:errors` next to
+  delivery's text `:error`) for a `:monitoring/*` code."
+  [{:keys [errors]}]
+  (boolean (some monitoring-code? errors)))
 
 (defn- stale-text [reason]
   (case reason

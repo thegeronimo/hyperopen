@@ -170,7 +170,9 @@
   (let [g (partial-grid)
         s (state g (proposal g) {:vol-range {:execution {:last {:op :repair :status :partially-deployed
                                                                 :delivery :not-sent
-                                                                :error [:repair/crosses-book]
+                                                                :phase :final-guard
+                                                                :errors [:repair/crosses-book]
+                                                                :error "[:repair/crosses-book]"
                                                                 :proposal-id "rp-1"}}}})]
     (is (= ["The market moved since these prices were set. Refresh prices and review again."]
            (:errors (rm/repair-model s))))
@@ -220,7 +222,8 @@
              (:errors (rm/repair-model
                        (assoc-in s [:vol-range :execution :last]
                                  {:op :repair :status :partially-deployed :delivery :not-sent
-                                  :error [:monitoring/resync-required] :proposal-id "rp-1"}))))))))
+                                  :phase :final-guard :errors [:monitoring/resync-required]
+                                  :error "[:monitoring/resync-required]" :proposal-id "rp-1"}))))))))
 
 (deftest another-market-disables-the-send-test
   (let [m (rm/repair-model (assoc-in (state (partial-grid)) [:vol-range-dock :current-scope-key] "other"))]
@@ -266,8 +269,8 @@
   (is (= "Checking the repair's outcome. Nothing will be resent."
          (rm/status-message {:op :repair :status :checking :delivery :unknown})))
   (is (= "Nothing was sent. The market moved since these prices were set. Refresh prices and review again."
-         (rm/status-message {:op :repair :status :partially-deployed :delivery :not-sent
-                             :error [:repair/crosses-book]})))
+         (rm/status-message {:op :repair :status :partially-deployed :delivery :not-sent :phase :final-guard
+                             :errors [:repair/crosses-book] :error "[:repair/crosses-book]"})))
   (is (str/starts-with? (rm/status-message {:op :repair :status :error :error "boom"})
                         "Something went wrong with the repair. Refresh status")
       "an error after admission never claims nothing was sent"))
@@ -294,8 +297,8 @@
               "Refresh prices in a few seconds.")
          (rm/status-message {:op :repair :status :admission-failed :errors [:repair/funds-pending]})))
   (is (= "Nothing was sent. Repairs need browser storage, which is unavailable."
-         (rm/status-message {:op :repair :status :partially-deployed :delivery :not-sent
-                             :error [:journal/unavailable]})))
+         (rm/status-message {:op :repair :status :partially-deployed :delivery :not-sent :phase :final-guard
+                             :errors [:journal/unavailable] :error "[:journal/unavailable]"})))
   (testing "a review whose funds are only held by a pending reservation cannot be sent"
     (let [g (partial-grid)
           p (assoc (repair-plan/propose {:grid g

@@ -73,9 +73,10 @@
    :admission-failed "The market or your balances changed. Refresh prices and review again."})
 
 (defn- result-codes
-  "Error codes of a result; a final-guard refusal carries them in :error."
-  [{:keys [errors error]}]
-  (vec (concat errors (when (sequential? error) (filter keyword? error)))))
+  "Error codes of a result (a final-guard refusal's too: the executor puts
+  them in :errors next to delivery's text :error)."
+  [{:keys [errors]}]
+  (vec (filter keyword? errors)))
 
 (defn error-texts
   "Distinct texts for `codes`; unknown codes fall back to the generic text

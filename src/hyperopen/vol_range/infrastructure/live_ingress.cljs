@@ -15,7 +15,10 @@
   flows. Evidence on a ladder in Checking status, or a resting leg missing
   from a default-dex open-orders frame for a coin this connection has already
   listed, asks for the existing busy-guarded open-ladder reconciliation, at
-  most once per `hint-min-interval-ms` per account.
+  most once per `hint-min-interval-ms` per account. A frame that closes a
+  ladder in the store asks for it at once, whatever the interval: the
+  journal copy is still open until a REST pass persists the close
+  (`grid-store/merge-stream-grid`).
 
   A `userFills` snapshot for the trading account is also the live
   monitoring marker (spec 9.3): it is folded into
@@ -161,19 +164,22 @@
   (reduce-kv (fn [s gid {:keys [fills orders]}]
                (if-let [grid (get-in s (conj grids-path gid))]
                  (let [grid* (live-evidence/apply-envelope grid envelope (into (vec fills) orders))]
-                   (if (identical? grid* grid) s (grid-store/merge-grid-into-state s grid*)))
+                   (if (identical? grid* grid) s (grid-store/merge-stream-grid s grid*)))
                  s))
              state
              by-grid))
 
 (defn- write-evidence!
-  "One store write for the whole frame, skipped when nothing applied."
+  "One store write for the whole frame, skipped when nothing applied.
+  Returns true when the frame closed a ladder that was open in the store."
   [store envelope by-grid]
   (when (seq by-grid)
     (let [state @store
           state* (apply-routed state envelope by-grid)]
       (when-not (identical? state state*)
-        (reset! store state*)))))
+        (reset! store state*)
+        (boolean (seq (remove (grid-store/unpersisted-closes state)
+                              (grid-store/unpersisted-closes state*))))))))
 
 (defn- hint-wanted?
   "Checking ladders were touched, or a resting leg is missing from a
@@ -190,13 +196,17 @@
         ;; A clock that moved back never silences hints for long.
         (or (neg? gap) (>= gap hint-min-interval-ms)))))
 
-(defn- maybe-hint! [store routed grids envelope]
+(defn- maybe-hint!
+  "Ask for the open-ladder reconciliation: at once when the frame closed a
+  ladder (`closed?`), else when wanted and due."
+  [store routed grids envelope closed?]
   (let [at (:received-at-ms envelope)
         {:keys [seen-order-coins last-hint-at-ms]} @ingress
         dispatch! @installed-dispatch]
     (when (and dispatch!
-               (hint-wanted? routed grids seen-order-coins)
-               (hint-due? last-hint-at-ms at))
+               (or closed?
+                   (and (hint-wanted? routed grids seen-order-coins)
+                        (hint-due? last-hint-at-ms at))))
       (swap! ingress assoc :last-hint-at-ms at)
       (platform/queue-microtask!
        #(dispatch! store nil [[:actions/reconcile-open-vol-ladders]])))))
@@ -210,8 +220,8 @@
                                 (note-fills-snapshot store seq-n))]
       (let [grids (get-in state grids-path)
             routed (live-evidence/route envelope grids)]
-        (write-evidence! store envelope (:by-grid routed))
-        (maybe-hint! store routed grids envelope)
+        (let [closed? (write-evidence! store envelope (:by-grid routed))]
+          (maybe-hint! store routed grids envelope closed?))
         (when (seq (:order-coins routed))
           (swap! ingress update :seen-order-coins into (:order-coins routed)))
         envelope))))
