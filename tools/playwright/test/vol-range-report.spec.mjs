@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { expect, test } from "../support/guarded_test.mjs";
 import { debugCall, dispatch, waitForIdle } from "../support/hyperopen.mjs";
 import {
@@ -27,6 +28,10 @@ import {
 // records the tracking baseline (q0 = 150 VRT, P0 = 80 from the 79.99/80.01 book); the
 // dock's View report opens the Portfolio Vol Range tab. Before the first completed hourly close
 // there are no dollar figures.
+//
+// Stage R6 exports the seeded report as a JSON bundle and a fills CSV (Blob downloads built from
+// this browser's stored report; nothing is read from or sent to the venue) and checks the tab at
+// four viewports and its keyboard order.
 //
 // Stage R4 scenarios seed SYNTHETIC tracking into this browser's journal and ledger through
 // `seedVolRangeFixture({report})` and stub the 1h `candleSnapshot` reads with a flat close
@@ -353,6 +358,148 @@ test("the P&L chart and the matched-fill spread reconcile to the contribution @r
     await expect(chart).toBeVisible();
     await expectNoHorizontalScroll(page);
   }
+  const text = await report(page).innerText();
+  expect(text).not.toMatch(/\bgrid\b|equity|%/i);
+  expect(exchange).toEqual([]);
+  expect(world.blockedExchange).toEqual([]);
+});
+
+// ---------------------------------------------------------------------------
+// Stage R6: export, viewports and keyboard
+// ---------------------------------------------------------------------------
+
+const FORBIDDEN_KEY = /^(private[-_]?key|signatures?|session|agent[-_]?key|secret|unlocked[-_]?session|nonce|signed[-_]?action|mnemonic|api[-_]?key)$/i;
+
+function forbiddenKeys(value, path = "$") {
+  if (Array.isArray(value)) return value.flatMap((v, i) => forbiddenKeys(v, `${path}[${i}]`));
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([k, v]) =>
+      (FORBIDDEN_KEY.test(k) ? [`${path}.${k}`] : []).concat(forbiddenKeys(v, `${path}.${k}`))
+    );
+  }
+  return [];
+}
+
+async function download(page, dataRole) {
+  const [file] = await Promise.all([page.waitForEvent("download"), role(page, dataRole).click()]);
+  const filePath = await file.path();
+  return { name: file.suggestedFilename(), text: fs.readFileSync(filePath, "utf8") };
+}
+
+test("the report exports a JSON bundle and a fills CSV @regression", async ({ page }) => {
+  const exchange = trackExchange(page);
+  const world = newWorld();
+  world.totals.base = "157";
+  world.hourlyCloses = { [COIN]: "70" };
+  await openSeededReport(page, world, "headline-buy");
+  await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("−1,544.80 USDC", { timeout: 20_000 });
+
+  await expect(role(page, "vol-range-report-export-json")).toHaveText("Export report (JSON)");
+  await expect(role(page, "vol-range-report-export-csv")).toHaveText("Export fills (CSV)");
+  const json = await download(page, "vol-range-report-export-json");
+  expect(json.name).toMatch(/^hyperopen-vol-range-report-0x[0-9a-f]{6}-\d{8}T\d{4}Z\.json$/);
+  const bundle = JSON.parse(json.text);
+  expect(bundle["format-version"]).toBe(1);
+  expect(bundle.format).toBe("hyperopen.vol-range.report");
+  expect(bundle.versions).toMatchObject({ "export-format": 1, "accounting-model": 1, "ledger-schema": 1 });
+  expect(bundle.valuation["cost-basis"]).toBe("unavailable");
+  const [campaign] = bundle.campaigns;
+  expect(campaign.baseline).toMatchObject({ q0: "150", p0: "80", "p0-source": "book-midpoint", c0: "0" });
+  const since = campaign.windows.find((w) => w.window === "since-start");
+  expect(since.figures).toEqual({ "net-pnl": "-1544.8", "hold-pnl": "-1500", contribution: "-44.8" });
+  expect(since["b-mark"]).toMatchObject({ price: "70", source: "hourly-close" });
+  expect(since.coverage.state).toBe("complete"); // [T0 − skew, b) is proven
+  // To the export time the last seconds are not confirmed yet (the read settle), and say so.
+  expect(["complete", "partial"]).toContain(campaign.coverage.state);
+  expect(campaign.coverage.intervals.length).toBeGreaterThan(0);
+  expect(bundle.fills).toHaveLength(1);
+  expect(bundle.fills[0]).toMatchObject({ "tracked?": true, side: "buy", px: "76.4", sz: "7" });
+  expect(bundle.fills[0].order).toMatchObject({ "logical-id": expect.any(String), "operation-id": expect.any(String) });
+  expect(bundle.fills[0].order["grid-id"]).toEqual(expect.any(String));
+  expect(bundle.orders.length).toBeGreaterThan(0);
+  expect(forbiddenKeys(bundle)).toEqual([]);
+  await expect(role(page, "vol-range-report-status")).toHaveText("Export downloaded.");
+
+  const csv = await download(page, "vol-range-report-export-csv");
+  expect(csv.name).toMatch(/^hyperopen-vol-range-fills-0x[0-9a-f]{6}-\d{8}T\d{4}Z\.csv$/);
+  const lines = csv.text.split("\r\n").filter(Boolean);
+  expect(lines[0]).toBe(
+    "Time (UTC),Market,Coin,Side,Price,Size,Fee,Fee token,Builder fee,Liquidity,Tracking,Tracking ID,Ladder," +
+      "Operation,Order leg,Rung,Client order ID,Order ID,Trade ID,Transaction hash,Source,Outside activity"
+  );
+  expect(lines).toHaveLength(2);
+  expect(lines[1]).toContain(",VRT/USDC,'@9001,Buy,76.4,7,");
+  expect(lines[1]).toContain(",Tracked,");
+  expect(lines[0]).not.toMatch(/grid/i);
+
+  expect(exchange).toEqual([]);
+  expect(world.blockedExchange).toEqual([]);
+});
+
+test("the report tab works at four viewports and in keyboard order @regression", async ({ page }) => {
+  const exchange = trackExchange(page);
+  const world = newWorld();
+  world.totals.base = "157";
+  world.hourlyCloses = { [COIN]: "70" };
+  await openSeededReport(page, world, "headline-buy");
+  await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("−1,544.80 USDC", { timeout: 20_000 });
+
+  for (const size of [
+    { width: 375, height: 812 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 }
+  ]) {
+    await page.setViewportSize(size);
+    for (const r of [
+      "vol-range-report-market",
+      "vol-range-report-window",
+      "vol-range-report-refresh",
+      "vol-range-report-export-json",
+      "vol-range-report-export-csv",
+      "vol-range-report-net-pnl-value",
+      "vol-range-report-contribution-value"
+    ]) {
+      await role(page, r).scrollIntoViewIfNeeded();
+      await expect(role(page, r), `${r} at ${size.width}`).toBeVisible();
+    }
+    await role(page, "vol-range-report-chart").scrollIntoViewIfNeeded();
+    await expect(role(page, "vol-range-report-chart")).toBeVisible();
+    await role(page, "vol-range-report-activity").scrollIntoViewIfNeeded();
+    await expect(role(page, "vol-range-report-activity")).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  }
+
+  // Keyboard: the controls are reached in reading order and work with the keyboard.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await role(page, "vol-range-report-market").focus();
+  const order = [];
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Tab");
+    order.push(await page.evaluate(() => document.activeElement?.getAttribute("data-role")));
+  }
+  expect(order).toEqual([
+    "vol-range-report-window-since-start",
+    "vol-range-report-window-7d",
+    "vol-range-report-window-30d",
+    "vol-range-report-refresh",
+    "vol-range-report-export-json",
+    "vol-range-report-export-csv"
+  ]);
+  await role(page, "vol-range-report-window-7d").focus();
+  await page.keyboard.press("Enter");
+  await expect(role(page, "vol-range-report-window-7d")).toHaveAttribute("aria-pressed", "true");
+  await expect(role(page, "vol-range-report-suppressed")).toContainText("7D needs tracking to have started by");
+  await role(page, "vol-range-report-window-since-start").focus();
+  await page.keyboard.press("Space");
+  await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("−1,544.80 USDC");
+
+  // The polite live region announces a refresh.
+  await role(page, "vol-range-report-refresh").focus();
+  await page.keyboard.press("Enter");
+  await expect(role(page, "vol-range-report-status")).toHaveAttribute("aria-live", "polite");
+  await expect(role(page, "vol-range-report-status")).toHaveText("Report updated.", { timeout: 30_000 });
+
   const text = await report(page).innerText();
   expect(text).not.toMatch(/\bgrid\b|equity|%/i);
   expect(exchange).toEqual([]);

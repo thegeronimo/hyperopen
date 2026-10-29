@@ -1,9 +1,10 @@
 (ns hyperopen.views.portfolio.vol-range.controls
   "Controls row of the Vol Range report (HO-SPEC-014 v2.1 sections 11.3,
   11.4, 12.4): the market select (All tracked markets or one market), the
-  window buttons (Since tracking began, 7D, 30D; `aria-pressed`), Refresh
-  and the coverage summary chip. Wraps at phone width. Dispatches only
-  registered report actions."
+  window buttons (Since tracking began, 7D, 30D; `aria-pressed`), Refresh,
+  the coverage summary chip and the two export buttons (the report as JSON,
+  its fills as CSV). Wraps at phone width. Dispatches only registered report
+  actions."
   (:require [hyperopen.vol-range.application.report-copy :as copy]
             [hyperopen.views.portfolio.vol-range.coverage :as coverage]
             [hyperopen.views.portfolio.vol-range.tracking :as tracking]))
@@ -38,6 +39,18 @@
                :on {:click [[:actions/select-vol-range-report-window id]]}}
       label])])
 
+(defn- export-buttons [{:keys [enabled?]}]
+  [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"] :role "group" :aria-label copy/export-group-label
+         :data-role "vol-range-report-export"}
+   (for [[fmt label role] [[:json copy/export-json "vol-range-report-export-json"]
+                           [:csv copy/export-csv "vol-range-report-export-csv"]]]
+     ^{:key role}
+     [:button {:type "button" :class tracking/button-classes
+               :disabled (not enabled?)
+               :data-role role
+               :on {:click [[:actions/export-vol-range-report fmt]]}}
+      label])])
+
 (defn controls-row
   [{:keys [markets window loading? read-only?] :as vm}]
   [:div {:class ["flex" "flex-wrap" "items-center" "gap-3"] :data-role "vol-range-report-controls"}
@@ -50,4 +63,5 @@
                :data-role "vol-range-report-refresh"
                :on {:click [[:actions/refresh-vol-range-report]]}}
       copy/refresh])
-   (coverage/chip (:coverage vm) "vol-range-report-coverage-summary")])
+   (coverage/chip (:coverage vm) "vol-range-report-coverage-summary")
+   (export-buttons (:export vm))])

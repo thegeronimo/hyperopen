@@ -177,6 +177,57 @@ order ids, prices, sizes and fees; they never hold keys or signatures.
 - Are `time` and `tid` numbers in both the WebSocket rows and the REST `userFillsByTime` rows?
 - Does a reconnect replay a `userFills` snapshot with `isSnapshot: true`?
 
+## Vol Range report (Portfolio)
+
+The dev build also records what your ladders did, so you can compare running them with simply holding
+your tokens. Reporting is on in the dev build only; release builds leave it off until the protocol
+questions below are answered.
+
+- Tracking starts by itself at your first placement in a market: the app stores your total base balance
+  (held units included) and the book midpoint at that moment, before anything is sent. The Vol ladders
+  row then reads "Tracking since …". Ladders placed before this build, or from another browser, show
+  "Not tracked".
+- Open Portfolio → Vol Range, or press View report on a ladder row. Expect "Tracking began … with … at
+  … (book midpoint).", "Cost basis unavailable", a coverage chip ("Complete", "Checking", "Gap",
+  "Outside activity" or "Unavailable") and the Execution activity table (fills, volumes, VWAPs,
+  maker/taker, fees by token).
+- Dollar figures appear after the first completed hourly close: Net tracked asset P&L, Hold P&L and
+  Ladder contribution versus hold, valued at hourly closes (Since tracking began starts from the
+  inception midpoint). 7D and 30D stay unavailable until tracking is that old. Below them are the
+  cumulative P&L chart and, collapsed, Gross spread on matched fills.
+- Any trade of the same token that is not a Vol Range order (a manual order, another pair containing the
+  token, a transfer in or out) hides the dollar figures from that moment; activity stays shown. Start new
+  tracking from now begins a fresh baseline; no orders are changed.
+- Fills are confirmed by the account's REST history. Refresh reads it now; otherwise it is read on
+  opening the tab and every 15 minutes while a ladder is tracked. "Checking" for a minute after a fill
+  is expected.
+
+To check it with real fills: place a small ladder, let a rung fill, wait for the next full hour plus a
+minute, open the report and compare the activity with Trade History (same fill count, sizes, prices and
+fees by token). Do not trade the same token by hand during the test unless you want to see the figures
+hidden.
+
+### Export the report
+
+Export report (JSON) downloads `hyperopen-vol-range-report-<account>-<time>.json`: every tracking period
+with its baseline, coverage, breaks and window figures, the order mappings (client order id and order id
+to ladder, operation and leg), every stored fill with its attribution and signed fee, ledger updates,
+coverage records and the hourly closes used, with every model version. Export fills (CSV) downloads
+`hyperopen-vol-range-fills-<account>-<time>.csv` with one row per fill for a spreadsheet. Both are built
+from this browser's stored report only (nothing is read from or sent to the exchange) and hold your
+address, order ids, prices, sizes and fees; they never hold keys or signatures. Send both back with any
+report screenshot that looked wrong.
+
+### Save ledger responses as protocol fixtures
+
+Reporting assumes `userNonFundingLedgerUpdates` returns at most 2,000 rows per page and does not know how
+far back it goes. While the Vol Range tab is open, in DevTools → Network filter by `info`, find the POST
+requests whose payload has `"type":"userNonFundingLedgerUpdates"` and `"type":"userFillsByTime"`, and save
+each response (right-click → Copy response) after replacing your address with
+`0x1234567890abcdef1234567890abcdef12345678`. Note for each: the number of rows, the oldest row's `time`,
+and whether your account has older activity than that. These answer whether the page size is 2,000 and
+how long the ledger is retained; until they are answered reporting stays off in release builds.
+
 ## If something looks wrong
 
 - "Checking status" means an outcome is not proven yet (for example a lost response). The app never
@@ -190,7 +241,8 @@ order ids, prices, sizes and fees; they never hold keys or signatures.
 ## What to send back
 
 - Screenshots of anything that looked wrong or confusing, with the time it happened.
-- The exact status text and any message shown in the Vol ladders tab.
+- The exact status text and any message shown in the Vol ladders tab or the Vol Range report.
+- Both report exports (see "Export the report") if a report figure or coverage state looked wrong.
 - The exchange replies, if anything was unexpected. They are stored only in this browser, in DevTools →
   Application → IndexedDB → `hyperopen-persistence` → `vol-range-journal` (send-attempt and cancel rows
   carry a `:raw-response` field). To copy every journal row to the clipboard, run in the console:
@@ -220,3 +272,7 @@ The journal holds order identities, prices, sizes and exchange replies; it never
   not placed. Report it with the journal rows; clearing it safely needs a rule proven against the
   exchange, which is still open work.
 - One ladder per market at a time.
+- Tracking lives in this browser. A ladder placed from another device or browser appears as recovered
+  orders here and hides the report's dollar figures for that market from its first fill.
+- The report has no cost basis, percentage return or account value; it compares the tracked inventory
+  with holding it.

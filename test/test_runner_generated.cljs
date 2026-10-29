@@ -978,6 +978,7 @@
             [hyperopen.vol-range.application.report-attribution-test]
             [hyperopen.vol-range.application.report-chart-model-test]
             [hyperopen.vol-range.application.report-coverage-test]
+            [hyperopen.vol-range.application.report-export-test]
             [hyperopen.vol-range.application.report-headline-test]
             [hyperopen.vol-range.application.report-matched-test]
             [hyperopen.vol-range.application.report-model-test]
@@ -2082,6 +2083,7 @@
              'hyperopen.vol-range.application.report-attribution-test
              'hyperopen.vol-range.application.report-chart-model-test
              'hyperopen.vol-range.application.report-coverage-test
+             'hyperopen.vol-range.application.report-export-test
              'hyperopen.vol-range.application.report-headline-test
              'hyperopen.vol-range.application.report-matched-test
              'hyperopen.vol-range.application.report-model-test

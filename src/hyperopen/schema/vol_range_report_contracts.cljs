@@ -15,8 +15,8 @@
   {:net-pnl :hold-pnl :contribution} each `figure-keys` {:label :display
   :tone}; the offer is `subset-offer-keys`) and per campaign
   `campaign-keys` (+ `coverage-keys`, `interval-keys`, `activity-keys`,
-  `restart-keys`); `:chart` (`chart-keys`, or nil) and `:matched`
-  (`matched-keys`, or nil). Display values are strings, booleans, keywords or
+  `restart-keys`); `:chart` (`chart-keys`, or nil), `:matched`
+  (`matched-keys`, or nil) and `:export` (`export-keys` {:enabled?}). Display values are strings, booleans, keywords or
   millisecond times; dollar figures appear only as display text in the
   headline."
   (:require [cljs.spec.alpha :as s]))
@@ -80,7 +80,8 @@
 
 (def view-model-keys
   #{:enabled? :read-only? :loading? :account-address :window :markets :coverage :headline :chart :matched
-    :campaigns :status-message :empty-message})
+    :export :campaigns :status-message :empty-message})
+(def export-keys #{:enabled?})
 (def window-keys #{:selected :options})
 (def window-option-keys #{:id :label :selected?})
 (def window-ids #{:since-start :7d :30d})
@@ -211,6 +212,8 @@
         (headline-valid? (:headline vm))
         (chart-valid? (:chart vm))
         (matched-valid? (:matched vm))
+        (exact-keys? (:export vm) export-keys)
+        (boolean? (get-in vm [:export :enabled?]))
         (vector? (:campaigns vm))
         (every? campaign-valid? (:campaigns vm))
         (str-or-nil? (:status-message vm))

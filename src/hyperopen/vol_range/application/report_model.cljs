@@ -14,7 +14,8 @@
   campaign's coverage evaluated to that window's end, or says why they are
   hidden (`report-headline`), the cumulative P&L chart of the same window
   (`report-chart-model`) and the Gross spread on matched fills disclosure
-  (`report-matched`) for the markets the headline describes.
+  (`report-matched`) for the markets the headline describes. `:export`
+  says whether the JSON and CSV export buttons work.
 
   Pure; memoized on the report state, spot metadata, account, read-only
   flag and the minute."
@@ -287,6 +288,7 @@
      :headline (:headline section)
      :chart (:chart section)
      :matched (:matched section)
+     :export {:enabled? (report-actions/export-available? state)}
      :campaigns views
      :status-message (copy/status-message (:last report))
      :empty-message (when enabled?

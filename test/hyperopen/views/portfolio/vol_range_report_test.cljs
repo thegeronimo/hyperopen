@@ -171,3 +171,21 @@
       (is (true? (:open (hiccup/node-attrs (role open "vol-range-report-matched")))))
       (is (= [[:actions/set-vol-range-report-ui-flag :matched-open? false]]
              (on-click open "vol-range-report-matched-summary"))))))
+
+(deftest the-export-buttons-render-test
+  (let [node (render (model-test/state {}))]
+    (is (= "Export report (JSON)" (text node "vol-range-report-export-json")))
+    (is (= "Export fills (CSV)" (text node "vol-range-report-export-csv")))
+    (is (= [[:actions/export-vol-range-report :json]] (on-click node "vol-range-report-export-json")))
+    (is (= [[:actions/export-vol-range-report :csv]] (on-click node "vol-range-report-export-csv")))
+    (is (false? (:disabled (hiccup/node-attrs (role node "vol-range-report-export-json"))))))
+  (testing "disabled while an export runs"
+    (let [node (render (assoc-in (model-test/state {}) [:vol-range :report :busy [:export]] true))]
+      (is (true? (:disabled (hiccup/node-attrs (role node "vol-range-report-export-csv")))))))
+  (testing "read-only accounts can export what this browser stored"
+    (let [node (render (assoc (model-test/state {})
+                              :account-context {:spectate-mode {:active? true :address model-test/account}}))]
+      (is (some? (role node "vol-range-report-export-json")))))
+  (testing "no export without tracking"
+    (is (nil? (role (render (assoc-in (model-test/state {}) [:vol-range :report :campaigns] {}))
+                    "vol-range-report-export-json")))))

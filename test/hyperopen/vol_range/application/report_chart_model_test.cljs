@@ -53,7 +53,8 @@
                                                    :headline {:status :unavailable :title nil :figures nil
                                                               :benchmark-label nil :range-text nil :message nil
                                                               :no-total nil :subset-offer nil}
-                                                   :chart c :matched nil :campaigns [] :status-message nil
+                                                   :chart c :matched nil :export {:enabled? false} :campaigns []
+                                                   :status-message nil
                                                    :empty-message nil})
                      (pr-str c))
   c)

@@ -116,3 +116,27 @@
     (is (= [[:effects/save-many [[[:vol-range :report :ui :matched-open?] false]]]]
            (actions/set-vol-range-report-ui-flag base :matched-open? false))))
   (is (= [] (actions/set-vol-range-report-ui-flag base :window true)) "only known flags"))
+
+(deftest export-test
+  (let [loaded (-> base
+                   (assoc-in [:vol-range :report :account-address] addr)
+                   (assoc-in [:vol-range :report :campaigns] {"cmp-1" {:campaign-id "cmp-1" :campaign-key k}}))]
+    (doseq [[arg f] [[:json :json] ["json" :json] [:csv :csv] ["csv" :csv]]]
+      (is (= [[:effects/vol-range-report :export {:format f :account-address addr}]]
+             (actions/export-vol-range-report loaded arg))))
+    (is (= [] (actions/export-vol-range-report loaded :pdf)) "only JSON and CSV")
+    (is (= [] (actions/export-vol-range-report base :json)) "nothing loaded yet")
+    (is (= [] (actions/export-vol-range-report (assoc-in loaded [:vol-range :report :campaigns] {}) :json))
+        "no tracking to export")
+    (is (= [] (actions/export-vol-range-report (busy loaded [:export]) :json)) "one export at a time")
+    (testing "a read-only account exports only what this browser stored for it"
+      (let [spect (-> spectating
+                      (assoc-in [:vol-range :report :account-address] "0x9999999999999999999999999999999999999999")
+                      (assoc-in [:vol-range :report :campaigns] {"cmp-1" {:campaign-id "cmp-1"}}))]
+        (is (= [[:effects/vol-range-report :export {:format :json
+                                                    :account-address "0x9999999999999999999999999999999999999999"}]]
+               (actions/export-vol-range-report spect :json)))
+        (is (= [] (actions/export-vol-range-report (assoc-in loaded [:account-context] (:account-context spectating)) :json))
+            "never another account's loaded report")))
+    (with-redefs [config/config (assoc-in config/config [:vol-range :reporting-enabled?] false)]
+      (is (= [] (actions/export-vol-range-report loaded :json))))))

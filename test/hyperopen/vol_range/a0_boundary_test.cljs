@@ -201,7 +201,8 @@
     "src/hyperopen/vol_range/infrastructure/campaign_executor.cljs"
     "src/hyperopen/vol_range/infrastructure/ledger_ingest.cljs"
     "src/hyperopen/vol_range/infrastructure/report_watcher.cljs"
-    "src/hyperopen/vol_range/application/report_model.cljs"})
+    "src/hyperopen/vol_range/application/report_model.cljs"
+    "src/hyperopen/vol_range/application/report_export.cljs"})
 
 (def ^:private execution-foundation-namespaces
   ["hyperopen.vol-range.infrastructure.journal" "hyperopen.vol-range.infrastructure.entropy"
@@ -223,6 +224,7 @@
    "hyperopen.vol-range.infrastructure.ledger-ingest"
    "hyperopen.vol-range.infrastructure.report-watcher"
    "hyperopen.vol-range.application.report-model"
+   "hyperopen.vol-range.application.report-export"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

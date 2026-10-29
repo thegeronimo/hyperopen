@@ -18,6 +18,11 @@
   `:marks` fetches what the selected window still needs, and a load or
   backfill fetches them after it reloads.
 
+  `:export` builds the JSON bundle or the fills CSV (`report-export`) from
+  the loaded report in the store and downloads it through a Blob, an object
+  URL and a temporary anchor (the funding history pattern). It reads
+  nothing from the venue.
+
   The loaded account's campaigns also refresh `[:vol-range :campaigns]` and
   `[:vol-range :campaign-closures]` when it is the trading account, so the
   Vol ladders tracking line follows a restart. A result for an account that
@@ -32,6 +37,7 @@
             [hyperopen.vol-range.infrastructure.entropy :as entropy]
             [hyperopen.vol-range.infrastructure.journal :as journal]
             [hyperopen.vol-range.infrastructure.ledger-store :as ledger-store]
+            [hyperopen.vol-range.application.report-export :as report-export]
             [hyperopen.vol-range.domain.report-marks :as report-marks]
             [hyperopen.vol-range.infrastructure.report-executor :as report-executor]
             [hyperopen.vol-range.infrastructure.report-reads :as report-reads]
@@ -134,6 +140,45 @@
              (.then (reload! store deps account) (fn [_] result))
              result))))
 
+(defn download-text!
+  "Download `text` as `filename` (Blob, object URL, temporary anchor).
+  False when there is no document to download into."
+  [{:keys [text filename mime]}]
+  (if (and (exists? js/document) (exists? js/URL) (exists? js/Blob))
+    (let [blob (js/Blob. #js [text] #js {:type mime})
+          url (.createObjectURL js/URL blob)
+          link (.createElement js/document "a")]
+      (set! (.-href link) url)
+      (set! (.-download link) filename)
+      (.appendChild (.-body js/document) link)
+      (.click link)
+      (.removeChild (.-body js/document) link)
+      (.revokeObjectURL js/URL url)
+      true)
+    false))
+
+(defn export-file
+  "{:text :filename :mime} for `format` (:json or :csv) of the report loaded
+  for `account` in `state`, or nil when that account's report is not
+  loaded or has no tracking."
+  [state format account now-ms]
+  (let [report (get-in state report-path)]
+    (when (and account (= account (:account-address report)) (seq (:campaigns report)))
+      (let [doc (report-export/json-document {:report report :spot-meta (get-in state [:spot :meta])
+                                              :account-address account :now-ms now-ms})
+            fname (report-export/filename {:kind format :account-address account :now-ms now-ms})]
+        (if (= :csv format)
+          {:text (report-export/fills-csv doc) :filename fname :mime "text/csv;charset=utf-8"}
+          {:text (report-export/json-text doc) :filename fname :mime "application/json;charset=utf-8"})))))
+
+(defn- export! [store {:keys [format]} account]
+  (if-let [file (when (contains? #{:json :csv} format)
+                  (export-file @store format account (platform/now-ms)))]
+    (if (download-text! file)
+      {:status :ok}
+      {:status :error :error "downloads aren't available here"})
+    {:status :error :error "no tracking is loaded for this account"}))
+
 (def op-timeout-ms
   "Loads and backfills give up waiting after this long, so a stuck read or
   lock never leaves the report loading (their writes are idempotent and
@@ -163,7 +208,7 @@
              ;; A load that failed before writing (a timeout) still marks the
              ;; account as loaded, with nothing known, so the watcher does not
              ;; retry it on every change and no other account's data shows.
-             (and (not= :marks op)
+             (and (not (contains? #{:marks :export} op))
                   (= account (shown-account state))
                   (not= account (get-in state (conj report-path :account-address))))
              (update-in report-path merge {:account-address account :journal-ok? false :storage-ok? false
@@ -174,8 +219,8 @@
   "Effect `[:effects/vol-range-report op params]`. Ops: :load
   {:account-address :backfill?}, :backfill {:account-address},
   :start-tracking {:campaign-key :account-address}, :marks {:requests
-  [{:coin :from-ms :to-ms}]} (candle opens). (:export arrives in a later
-  stage.)"
+  [{:coin :from-ms :to-ms}]} (candle opens), :export {:format (:json or
+  :csv) :account-address}."
   [_ctx store op params]
   (let [account (lower (:account-address params))
         busy-key [op]
@@ -194,6 +239,7 @@
                           :backfill (backfill! store deps account)
                           :start-tracking (start-tracking! store deps params account)
                           :marks (fetch-marks! store deps (vec (:requests params)))
+                          :export (export! store params account)
                           {:status :error :error (str "Unknown operation " op)}))))))
         (.then (fn [result] (finish! store busy-key op account result)))
         (.catch (fn [e] (finish! store busy-key op account {:status :error :error (error-text e)}))))))

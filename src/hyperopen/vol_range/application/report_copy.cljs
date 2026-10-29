@@ -83,6 +83,10 @@
 ;; P&L chart and Gross spread on matched fills
 ;; ---------------------------------------------------------------------------
 
+(def export-json "Export report (JSON)")
+(def export-csv "Export fills (CSV)")
+(def export-group-label "Export")
+
 (def chart-title "Cumulative P&L (USDC)")
 (def chart-label "Cumulative Net tracked asset P&L and Hold P&L in USDC")
 (def chart-series-labels {:net "Net tracked asset P&L" :hold "Hold P&L"})
@@ -212,7 +216,7 @@
   [{:keys [op status errors error]}]
   (when op
     (case status
-      :ok (if (= :start-tracking op) "New tracking started." "Report updated.")
+      :ok (case op :start-tracking "New tracking started." :export "Export downloaded." "Report updated.")
       :skipped nil
       :busy "Another placement or tracking change for this account is in progress. Try again in a moment."
       :coordination-unavailable "Another tab could be trading this account; try again from one tab."
@@ -222,4 +226,5 @@
       (case op
         :start-tracking (str "Tracking didn't restart" (when error (str ": " error)) ".")
         :marks (str "Couldn't load hourly prices: " (or error "unknown error") ".")
+        :export (str "Couldn't export: " (or error "unknown error") ".")
         (str "Couldn't load fills: " (or error "unknown error") ".")))))

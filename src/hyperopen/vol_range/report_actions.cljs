@@ -3,8 +3,8 @@
   15.2): load the Portfolio report, refresh it with a REST backfill, choose
   the market, the window (Since tracking began, 7D, 30D) and the covered
   subset of All tracked markets, open the Gross spread on matched fills
-  disclosure, and start new tracking from now behind an
-  inline confirmation.
+  disclosure, export the report (JSON) or its fills (CSV), and start new
+  tracking from now behind an inline confirmation.
 
   Pure: each handler returns effects, at most one
   `[:effects/vol-range-report op params]` after its projection writes.
@@ -164,3 +164,31 @@
   (if (contains? report-ui-flags flag)
     [[:effects/save-many [[(conj ui-path flag) (true? on?)]]]]
     []))
+
+;; ---------------------------------------------------------------------------
+;; Export
+;; ---------------------------------------------------------------------------
+
+(def export-formats {:json :json :csv :csv "json" :json "csv" :csv})
+
+(defn export-available?
+  "True when the shown account's report is loaded with at least one
+  tracking campaign and no export is in flight. Read-only accounts may
+  export: it reads only this browser's stored report."
+  [state]
+  (let [account (report-account state)
+        report (get-in state report-path)]
+    (boolean (and (contracts/reporting-enabled?)
+                  account
+                  (= account (:account-address report))
+                  (seq (:campaigns report))
+                  (not (busy? state [:export]))))))
+
+(defn export-vol-range-report
+  "Download the report bundle (:json) or its fills (:csv), built from the
+  loaded report. Nothing is read from the venue."
+  [state format]
+  (let [f (get export-formats format)]
+    (if (and f (export-available? state))
+      [[:effects/vol-range-report :export {:format f :account-address (report-account state)}]]
+      [])))

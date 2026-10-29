@@ -32,6 +32,7 @@
          "src/hyperopen/vol_range/application/report_coverage.cljs"
          "src/hyperopen/vol_range/application/report_model.cljs"
          "src/hyperopen/vol_range/application/report_copy.cljs"
+         "src/hyperopen/vol_range/application/report_export.cljs"
          "src/hyperopen/vol_range/infrastructure/ledger_store.cljs"
          "src/hyperopen/vol_range/infrastructure/report_reads.cljs"
          "src/hyperopen/vol_range/infrastructure/report_executor.cljs"
@@ -62,7 +63,7 @@
     (if (neg? end) text (subs text 0 end))))
 
 (deftest reporting-namespaces-require-no-execution-path-test
-  (is (>= (count reporting-sources) 29) "the views are scanned too")
+  (is (>= (count reporting-sources) 30) "the views are scanned too")
   (doseq [file reporting-sources
           :let [text (.readFileSync fs file "utf8")
                 form (ns-form text)]]

@@ -21,6 +21,7 @@
 (def accounting-model-version 1)
 (def campaign-schema-version 1)
 (def ledger-schema-version 1)
+(def export-format-version 1)
 
 (def report-policy
   "Versioned reporting policy (spec 9.2, 12.4, 12.6). `:boundary-skew-ms`

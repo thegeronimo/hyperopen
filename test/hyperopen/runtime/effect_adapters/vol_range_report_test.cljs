@@ -4,9 +4,11 @@
   campaigns for the dock), then backfills and reads the hourly closes the
   selected window needs; a read-only load reads no account data from the
   venue; `:marks` merges completed closes and is not announced; a result for an account no longer shown is dropped; Start
-  tracking reloads the campaigns it changed. Fakes only: no request reaches
+  tracking reloads the campaigns it changed; `:export` downloads the loaded
+  report without reading the venue. Fakes only: no request reaches
   an exchange and nothing is signed or sent."
-  (:require [cljs.test :refer-macros [async deftest is testing]]
+  (:require [clojure.string :as str]
+            [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.api.trading.action-coordinator :as coord]
             [hyperopen.platform.locks :as locks]
             [hyperopen.runtime.effect-adapters.vol-range-report :as adapter]
@@ -166,5 +168,74 @@
                      (is (contains? (get-in @s [:vol-range :campaign-closures]) "cmp-vrt")
                          "the dock's tracking line follows the restart")
                      (is (not-any? #{"userFillsByTime"} @(:calls w)) "a restart is not a backfill"))
+                   (done)))
+          (.catch (fail done))))))
+
+(defn- has-own? [obj k] (.call (.-hasOwnProperty js/Object.prototype) obj k))
+
+(defn- with-download-stubs
+  "Run `f` (returning a promise) with document, URL and Blob replaced by
+  recorders; `downloads` receives {:filename :text :mime}."
+  [downloads f]
+  (let [saved (into {} (for [k ["document" "URL" "Blob"]]
+                         [k [(has-own? js/globalThis k) (aget js/globalThis k)]]))
+        link (js-obj)
+        current (atom {})]
+    (set! (.-Blob js/globalThis) (fn [parts opts] (js-obj "text" (aget parts 0) "type" (.-type opts))))
+    (set! (.-URL js/globalThis)
+          (js-obj "createObjectURL" (fn [blob] (reset! current {:text (.-text blob) :mime (.-type blob)}) "blob:x")
+                  "revokeObjectURL" (fn [_] nil)))
+    (set! (.-click link) (fn [] (swap! downloads conj (assoc @current :filename (.-download link)))))
+    (set! (.-document js/globalThis)
+          (js-obj "createElement" (fn [_] link)
+                  "body" (js-obj "appendChild" (fn [_] nil) "removeChild" (fn [_] nil))))
+    (-> (js/Promise.resolve nil)
+        (.then (fn [_] (f)))
+        (.finally (fn []
+                    (doseq [[k [own? v]] saved]
+                      (if own? (aset js/globalThis k v) (js-delete js/globalThis k))))))))
+
+(deftest export-downloads-the-loaded-report-without-reading-the-venue-test
+  (async done
+    (let [w (world)
+          s (store-state)
+          downloads (atom [])]
+      (-> (with-deps w #(adapter/vol-range-report nil s :load {:account-address account :backfill? true}))
+          (.then (fn [_]
+                   (reset! (:calls w) [])
+                   (with-download-stubs
+                     downloads
+                     #(-> (adapter/vol-range-report nil s :export {:format :json :account-address account})
+                          (.then (fn [_] (adapter/vol-range-report nil s :export {:format :csv
+                                                                                 :account-address account})))))))
+          (.then (fn [_]
+                   (let [[json csv] @downloads
+                         parsed (js->clj (js/JSON.parse (:text json)))]
+                     (is (= 2 (count @downloads)))
+                     (is (re-matches #"hyperopen-vol-range-report-0x123456-\d{8}T\d{4}Z\.json" (:filename json)))
+                     (is (= "application/json;charset=utf-8" (:mime json)))
+                     (is (= 1 (get parsed "format-version")))
+                     (is (= "cmp-vrt" (get-in parsed ["campaigns" 0 "campaign-id"])))
+                     (is (re-matches #"hyperopen-vol-range-fills-0x123456-\d{8}T\d{4}Z\.csv" (:filename csv)))
+                     (is (= "text/csv;charset=utf-8" (:mime csv)))
+                     (is (str/starts-with? (:text csv) "Time (UTC),Market,Coin,Side,"))
+                     (is (= [] @(:calls w)) "an export reads nothing from the venue")
+                     (is (= {:op :export :status :ok} (select-keys (get-in @s [:vol-range :report :last]) [:op :status])))
+                     (is (= {} (get-in @s [:vol-range :report :busy]))))
+                   (done)))
+          (.catch (fail done))))))
+
+(deftest export-needs-a-loaded-report-test
+  (async done
+    (let [s (store-state)
+          downloads (atom [])]
+      (-> (with-download-stubs downloads
+            #(adapter/vol-range-report nil s :export {:format :json :account-address account}))
+          (.then (fn [_]
+                   (is (= [] @downloads))
+                   (is (= {:op :export :status :error :error "no tracking is loaded for this account"}
+                          (select-keys (get-in @s [:vol-range :report :last]) [:op :status :error])))
+                   (is (nil? (get-in @s [:vol-range :report :account-address]))
+                       "a failed export never marks the account as loaded")
                    (done)))
           (.catch (fail done))))))

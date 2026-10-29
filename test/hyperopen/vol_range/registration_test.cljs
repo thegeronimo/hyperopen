@@ -292,7 +292,8 @@
    :actions/select-vol-range-report-window :select-vol-range-report-window
    :actions/set-vol-range-report-covered-subset :set-vol-range-report-covered-subset
    :actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks
-   :actions/set-vol-range-report-ui-flag :set-vol-range-report-ui-flag})
+   :actions/set-vol-range-report-ui-flag :set-vol-range-report-ui-flag
+   :actions/export-vol-range-report :export-vol-range-report})
 
 (deftest report-actions-and-effect-are-registered-and-contracted-test
   (let [ids (set (keys report-handlers))]
@@ -331,7 +332,11 @@
     (ok! :actions/set-vol-range-report-ui-flag [:matched-open? true])
     (ok! :actions/set-vol-range-report-ui-flag [:matched-open? false])
     (bad! :actions/set-vol-range-report-ui-flag [:window true])
-    (bad! :actions/set-vol-range-report-ui-flag [:matched-open?]))
+    (bad! :actions/set-vol-range-report-ui-flag [:matched-open?])
+    (doseq [f [:json :csv "json" "csv"]]
+      (ok! :actions/export-vol-range-report [f]))
+    (bad! :actions/export-vol-range-report [:pdf])
+    (bad! :actions/export-vol-range-report []))
   (doseq [op [:load :backfill :start-tracking :marks :export]]
     (is (some? (contracts/assert-effect-args! :effects/vol-range-report [op {}] {})) (str op)))
   (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-report [:place {}] {})))
@@ -342,4 +347,7 @@
   (is (some? (contracts/assert-emitted-effects!
               [[:effects/save-many [[[:vol-range :report :ui :window] :7d]]]
                [:effects/vol-range-report :marks {:requests [{:coin "@9001" :from-ms 0 :to-ms 3600000}]}]]
-              {:action-id :actions/select-vol-range-report-window}))))
+              {:action-id :actions/select-vol-range-report-window})))
+  (is (some? (contracts/assert-emitted-effects!
+              [[:effects/vol-range-report :export {:format :csv :account-address "0xabc"}]]
+              {:action-id :actions/export-vol-range-report}))))

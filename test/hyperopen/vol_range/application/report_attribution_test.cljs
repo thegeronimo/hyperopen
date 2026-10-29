@@ -20,7 +20,7 @@
         entry (get-in idx [:by-oid "7001"])]
     (is (= {:grid-id "grid-vrt" :operation-id "op-vrt" :logical-id "buy-0" :side :buy :rung-index 0
             :campaign-key "hyperliquid-mainnet|0xabc|spot|9001|9001" :recovered? false
-            :sent-after-ms (+ fx/t0 200)}
+            :sent-after-ms (+ fx/t0 200) :predecessor-grid-id nil}
            entry))
     (is (= entry (get-in idx [:by-cloid fx/cloid-buy])))))
 

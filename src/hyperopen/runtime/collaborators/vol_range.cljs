@@ -56,4 +56,5 @@
    :select-vol-range-report-window report-actions/select-vol-range-report-window
    :set-vol-range-report-covered-subset report-actions/set-vol-range-report-covered-subset
    :refresh-vol-range-report-marks report-actions/refresh-vol-range-report-marks
-   :set-vol-range-report-ui-flag report-actions/set-vol-range-report-ui-flag})
+   :set-vol-range-report-ui-flag report-actions/set-vol-range-report-ui-flag
+   :export-vol-range-report report-actions/export-vol-range-report})

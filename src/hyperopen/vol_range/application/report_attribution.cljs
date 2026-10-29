@@ -36,8 +36,10 @@
 (defn attribution-index
   "{:by-cloid {cloid entry} :by-oid {oid entry}} for every leg of `grids`.
   An entry is {:grid-id :operation-id :logical-id :side :rung-index
-  :campaign-key :recovered? :sent-after-ms}, where `:sent-after-ms` is when
-  the leg's operation was admitted (nil when unknown, e.g. recovered)."
+  :campaign-key :recovered? :sent-after-ms :predecessor-grid-id}, where
+  `:sent-after-ms` is when the leg's operation was admitted (nil when
+  unknown, e.g. recovered) and `:predecessor-grid-id` the canceled ladder a
+  replacement was built from (nil for a first ladder)."
   [grids]
   (reduce
    (fn [idx grid]
@@ -50,7 +52,8 @@
                      :rung-index (:rung-index leg)
                      :campaign-key (campaign/campaign-key (:scope grid))
                      :recovered? (boolean (:recovered? grid))
-                     :sent-after-ms (get-in grid [:operations (:operation-id leg) :created-at-ms])}
+                     :sent-after-ms (get-in grid [:operations (:operation-id leg) :created-at-ms])
+                     :predecessor-grid-id (get-in grid [:predecessor :grid-id])}
               cloid (lower (or (:cloid leg) cloid))
               oid (id-text (:oid leg))]
           (cond-> idx
