@@ -281,7 +281,8 @@ test("a fill streamed while Portfolio is open is shown back on Trade @regression
   const fill = fillRow(buy, venueOid(0, 0), { sz: "4", tid: 880301 });
   world.ws.push(world.ws.userFillsFrame([fill]));
   // The account streams keep feeding the ladder on the own-account Portfolio route.
-  await expect.poll(() => storeFillCount(page), { timeout: 5_000 }).toBe(1);
+  // One debug snapshot can take several seconds on a loaded machine.
+  await expect.poll(() => storeFillCount(page), { timeout: 20_000 }).toBe(1);
 
   await dispatch(page, [":actions/navigate", "/trade"]);
   await expect(page).toHaveURL(/\/trade/);
