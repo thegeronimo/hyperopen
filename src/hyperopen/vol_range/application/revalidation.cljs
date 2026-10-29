@@ -7,6 +7,9 @@
   taken out of the available balances, and requires the SAME legs back with a
   :ready status. Any difference (a fill, a balance change, a moved book, a
   precision or identity change) fails and sends the user back to review.
+  The anchor is the one exception: the reviewed anchor price is re-used, since
+  a 24h VWAP or market-price anchor moves with every trade and the reviewed
+  prices are what the user approved (`pin-anchor`).
   Source ages are checked against the spec 7.3 policy."
   (:require [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.planner :as planner]
@@ -29,6 +32,15 @@
 
 (defn fixed-vector [legs]
   (mapv #(select-keys % [:leg-id :side :rung-index :price :size]) legs))
+
+(defn pin-anchor
+  "`input` with its draft anchored at the reviewed plan's anchor price, so a
+  live anchor (24h VWAP, market price) that moved since review cannot change
+  the re-planned prices. Unchanged when the plan recorded no anchor."
+  [input frozen-plan]
+  (if-let [price (get-in frozen-plan [:model :anchor :price])]
+    (assoc-in input [:draft :anchor] {:mode :custom :custom-price (str price)})
+    input))
 
 (defn- age-error [now-ms observed-at limit code]
   (when (or (not (number? observed-at)) (> (- now-ms observed-at) limit))
@@ -55,7 +67,7 @@
                                      :guard/account-stale)])
         account-errors (when (not= :ready (:status account)) [:guard/account-unavailable])
         fresh (when (and (empty? scope-errors) (empty? account-errors))
-                (planner/prepare-plan (assoc input
+                (planner/prepare-plan (assoc (pin-anchor input frozen-plan)
                                              :plan-id (:plan-id frozen-plan)
                                              :account (account-with-pending account pending)
                                              :clock now-ms

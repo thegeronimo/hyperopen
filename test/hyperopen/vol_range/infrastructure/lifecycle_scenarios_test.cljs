@@ -6,6 +6,7 @@
             [hyperopen.platform.locks :as locks]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.fixtures :as fixtures]
             [hyperopen.vol-range.infrastructure.executor :as ex]
             [hyperopen.vol-range.infrastructure.executor-cancel :as cancel]
             [hyperopen.vol-range.infrastructure.executor-place :as place]
@@ -411,3 +412,22 @@
                    (is (empty? (sim/cancel-sends s)))
                    (done)))
           (.catch (fail done))))))
+
+(deftest a-moving-24h-vwap-does-not-refuse-the-reviewed-ladder-test
+  ;; The reviewed prices are sent although the live anchor moved after review;
+  ;; a moved anchor alone is not a changed plan.
+  (async done
+    (let [s (fresh)]
+      (swap! s assoc :draft (assoc fixtures/draft-13-2 :anchor {:mode :vwap-24h :custom-price ""}))
+      (let [plan (sim/frozen-plan s)]
+        (is (= :ready (:status plan)) (pr-str (:errors plan)))
+        (swap! s assoc-in [:live :input]
+               (assoc-in (sim/live-input s) [:market :anchors :vwap-24h :price] "80.25"))
+        (-> (place! s plan)
+            (.then
+             (fn [{:keys [status]}]
+               (is (= :live status))
+               (is (= (set (map :price (:legs plan)))
+                      (set (map :p (:orders (first (sim/order-sends s)))))))
+               (done)))
+            (.catch (fail done)))))))
