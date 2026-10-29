@@ -43,10 +43,6 @@
       (when (instance? js/Promise request)
         (.catch request (fn [_] nil))))))
 
-(defn- unified-account?
-  [store]
-  (= :unified (get-in @store [:account :mode])))
-
 (defn- refresh-dex-open-orders?
   [open-orders-live? refresh-dex-open-orders-when-stream-live?]
   (or (not open-orders-live?)
@@ -153,9 +149,10 @@
   (call-when-fn! fetch-user-abstraction! store address {:priority :high})
   (call-when-fn! fetch-portfolio! store address {:priority :high})
   (call-when-fn! fetch-user-fees! store address {:priority :high})
-  (when-not (unified-account? store)
-    (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
-    (call-when-fn! start-user-vault-equity-poller! store address))
+  ;; Vault deposits do not depend on account mode, and the Portfolio total
+  ;; counts them for unified accounts too.
+  (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
+  (call-when-fn! start-user-vault-equity-poller! store address)
   (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high})
   (call-when-fn! fetch-borrow-lend-state! store address {:priority :high}))
 
@@ -332,8 +329,7 @@
                        address
                        {:priority :high
                         :force-refresh? true}))
-      (when-not (unified-account? store)
-        (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high}))
+      (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
       (when-not base-clearinghouse-live?
         (call-when-fn! refresh-default-clearinghouse! store address {:priority :high}))
       (when (fn? ensure-perp-dexs!)

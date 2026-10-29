@@ -616,6 +616,7 @@
             [hyperopen.vaults.application.transfer-commands-test]
             [hyperopen.vaults.application.transfer-state-test]
             [hyperopen.vaults.application.ui-state-test]
+            [hyperopen.vaults.application.user-equity-test]
             [hyperopen.vaults.custom-range-actions-test]
             [hyperopen.vaults.detail.activity-test]
             [hyperopen.vaults.detail.benchmarks-test]
@@ -1641,6 +1642,7 @@
              'hyperopen.vaults.application.transfer-commands-test
              'hyperopen.vaults.application.transfer-state-test
              'hyperopen.vaults.application.ui-state-test
+             'hyperopen.vaults.application.user-equity-test
              'hyperopen.vaults.custom-range-actions-test
              'hyperopen.vaults.detail.activity-test
              'hyperopen.vaults.detail.benchmarks-test

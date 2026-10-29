@@ -3,6 +3,7 @@
             [hyperopen.borrow-lend.account :as bl-account]
             [hyperopen.staking.account-scope :as account-scope]
             [hyperopen.staking.unstaking :as unstaking]
+            [hyperopen.vaults.application.user-equity :as user-equity]
             [hyperopen.views.account-info.projections :as projections]))
 
 (defn- optional-number
@@ -23,11 +24,20 @@
   [state]
   (bl-account/net-earn-usd state))
 
+(defn vault-equity-status
+  [state]
+  (user-equity/vault-equity-status state))
+
 (defn vault-equity
-  [state summary]
-  (or (optional-number (get-in state [:webdata2 :totalVaultEquity]))
-      (optional-number (:totalVaultEquity summary))
-      0))
+  "Total vault equity in USD; 0 with no account shown, nil while unknown.
+  `[:webdata2 :totalVaultEquity]` is not a source: webData2 is gone and that
+  key is never written."
+  [state]
+  (let [{:keys [status usd]} (vault-equity-status state)]
+    (case status
+      :ready usd
+      :none 0
+      nil)))
 
 (defn perp-account-equity
   [state metrics]
@@ -105,17 +115,20 @@
   0)
 
 (defn compute-total-equity
+  "nil while vault equity is unknown: a total that silently leaves the vaults
+  out reads as a loss."
   [{:keys [top-up-enabled?
            vault-equity
            spot-equity
            staking-value-usd
            perp-equity
            earn-equity]}]
-  (let [base-total (+ (number-or-zero vault-equity)
-                      (number-or-zero spot-equity)
-                      (number-or-zero staking-value-usd))]
-    (if top-up-enabled?
-      base-total
-      (+ base-total
-         (number-or-zero perp-equity)
-         (number-or-zero earn-equity)))))
+  (when-let [vault-equity (optional-number vault-equity)]
+    (let [base-total (+ vault-equity
+                        (number-or-zero spot-equity)
+                        (number-or-zero staking-value-usd))]
+      (if top-up-enabled?
+        base-total
+        (+ base-total
+           (number-or-zero perp-equity)
+           (number-or-zero earn-equity))))))

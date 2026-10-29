@@ -16,8 +16,7 @@
                  :portfolio {:summary-by-key {:perp-month {:pnlHistory [[1 0] [2 0] [3 0]]
                                                            :accountValueHistory [[1 100] [2 150] [3 150]]
                                                            :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :returns (get-in view-model [:chart :selected-tab])))
@@ -38,8 +37,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [3 10] [4 20]]
                                                       :accountValueHistory [[1 100] [2 120] [4 140]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :returns (get-in view-model [:chart :selected-tab])))

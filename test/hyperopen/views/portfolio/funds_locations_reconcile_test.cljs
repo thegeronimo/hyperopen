@@ -55,11 +55,19 @@
   (funds-locations/funds-locations-strip
    (funds-locations/funds-locations-model state* summary)))
 
-(defn- page
+(defn- page-state
   [state*]
-  (portfolio-view/portfolio-view
-   (merge portfolio-support/sample-state
-          (select-keys state* [:wallet :spot :webdata2 :asset-selector :hyperevm :router :account]))))
+  (merge portfolio-support/sample-state
+         (select-keys state* [:wallet :spot :webdata2 :asset-selector :hyperevm :router :account])))
+
+(defn- page
+  "The Portfolio page for `state*`, its vault equity read loaded as
+   `vault-amounts` (none by default)."
+  ([state*]
+   (page state* []))
+  ([state* vault-amounts]
+   (portfolio-view/portfolio-view
+    (portfolio-support/with-vault-equities (page-state state*) vault-amounts))))
 
 (defn- summary-rows
   "`{label value}` of the Portfolio summary card's rows."
@@ -74,10 +82,8 @@
 ;; --- labels and reconciliation --------------------------------------------------
 
 (deftest a-unified-account-with-vault-equity-never-shows-two-values-under-one-label-test
-  (let [unified (-> state
-                    (assoc :account {:mode :unified})
-                    (assoc-in [:webdata2 :totalVaultEquity] "500"))
-        page-node (page unified)
+  (let [unified (assoc state :account {:mode :unified})
+        page-node (page unified ["500"])
         rows (summary-rows page-node)
         strip-node (by-role page-node "portfolio-funds-strip")
         strip-text (text strip-node)
@@ -125,6 +131,43 @@
       (is (contains? (classes (by-role (strip state (assoc summary :vault-equity 0.001 :earn-balance 0))
                                        "portfolio-funds-total-includes"))
                      "hidden")))))
+
+(deftest a-classic-page-counts-its-vaults-in-total-equity-and-total-value-test
+  ;; The regression: vault equity was read from the retired webData2 stream,
+  ;; so every account showed $0.00 in vaults and a Total Equity without them.
+  (let [without-vaults (page state [])
+        with-vaults (page state ["1000" "234.5"])
+        total-equity #(dollars (get (summary-rows %) "Total Equity"))
+        total-value #(dollars (text (by-role (by-role % "portfolio-funds-strip")
+                                             "portfolio-funds-total-value")))]
+    (is (= "$1,234.50" (get (summary-rows with-vaults) "Vault Equity")))
+    (is (< (js/Math.abs (- (total-equity with-vaults) (total-equity without-vaults) 1234.5)) 0.011)
+        "Total Equity includes the vault equity")
+    (is (< (js/Math.abs (- (total-value with-vaults) (total-value without-vaults) 1234.5)) 0.011)
+        "Total value includes the vault equity")
+    (is (= "Includes $1,234.50 in vaults"
+           (text (by-role (by-role with-vaults "portfolio-funds-strip")
+                          "portfolio-funds-total-includes"))))))
+
+(deftest an-unknown-vault-equity-never-reads-as-zero-test
+  (doseq [[label vaults status-text]
+          [["first load, or a read for another account"
+            {:user-equities [] :user-equities-for-address nil}
+            "Vault balances loading"]
+           ["failed read"
+            {:user-equities []
+             :user-equities-for-address nil
+             :user-equities-error-for-address (get-in state [:wallet :address])}
+            "Vault balances unavailable"]]]
+    (reset-caches!)
+    (let [page-node (portfolio-view/portfolio-view
+                     (update (page-state state) :vaults merge vaults))
+          rows (summary-rows page-node)
+          strip-node (by-role page-node "portfolio-funds-strip")]
+      (is (= "--" (get rows "Vault Equity")) label)
+      (is (= "--" (get rows "Total Equity")) label)
+      (is (= "—" (text (by-role strip-node "portfolio-funds-total-value"))) label)
+      (is (= status-text (text (by-role strip-node "portfolio-funds-total-status"))) label))))
 
 ;; --- HyperCore readiness --------------------------------------------------------
 

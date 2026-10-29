@@ -64,8 +64,9 @@
                                                       :accountValueHistory [[1 100] [2 100] [3 100]]
                                                       :vlm 123}}
                              :user-fees nil}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 60}}
-                           :totalVaultEquity 5}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 60}}}
+                 :vaults {:user-equities [{:equity-raw "5"}]
+                          :user-equities-for-address "0x1111111111111111111111111111111111111111"}
                  :wallet {:address "0x1111111111111111111111111111111111111111"}
                  :borrow-lend {:total-supplied-usd 7
                                :user-address "0x1111111111111111111111111111111111111111"}}
@@ -102,8 +103,7 @@
                                                         {:exchange 10
                                                          :userCross 1
                                                          :userAdd 1}]}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 20}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 20}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= 80 (:volume-14d-usd view-model)))
@@ -122,8 +122,9 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 1] [2 1]]
                                                       :accountValueHistory [[1 100] [2 100]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 200}}
-                           :totalVaultEquity 20}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 200}}}
+                 :vaults {:user-equities [{:equity-raw "20"}]
+                          :user-equities-for-address "0x1111111111111111111111111111111111111111"}
                  :wallet {:address "0x1111111111111111111111111111111111111111"}
                  :borrow-lend {:total-supplied-usd 100
                                :user-address "0x1111111111111111111111111111111111111111"}}
@@ -178,8 +179,7 @@
                              :loaded-at-ms nil
                              :user-fees-loading? true
                              :user-fees-loaded-at-ms nil}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}}
                  :borrow-lend {:total-supplied-usd 0}}
           background-status (:background-status (vm/portfolio-vm state))]
       (is (true? (:visible? background-status)))
@@ -217,8 +217,7 @@
                                                         :vlm 10}}
                                :loaded-at-ms 1
                                :user-fees-loaded-at-ms 1}
-                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                             :totalVaultEquity 0}
+                   :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                    :borrow-lend {:total-supplied-usd 0}}
             background-status (:background-status (vm/portfolio-vm state))]
         (is (true? (:visible? background-status)))
@@ -250,8 +249,7 @@
                                                            :vlm 10}}
                                   :loaded-at-ms 1
                                   :user-fees-loaded-at-ms 1}
-                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                                :totalVaultEquity 0}
+                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                       :borrow-lend {:total-supplied-usd 0}}]
       (vm/portfolio-vm base-state)
       ;; Deref the ATOMS, not the Vars holding them. `@#'vm/x` derefs the Var and
@@ -292,8 +290,7 @@
                                                                             [t1 111]
                                                                             [t2 119]]
                                                       :vlm 0}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 0}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           groups (get-in view-model [:performance-metrics :groups])]
@@ -341,8 +338,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 -10] [2 5]]
                                                       :accountValueHistory [[1 100] [2 200]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :pnl (get-in view-model [:chart :selected-tab])))
@@ -368,8 +364,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0]]
                                                       :accountValueHistory [[1 100] [2 100]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= [0 50]
@@ -388,8 +383,7 @@
                  :portfolio {:summary-by-key {:month {:pnlHistory [[1 0] [2 0] [3 -1] [4 0]]
                                                       :accountValueHistory [[1 4] [2 205] [3 204] [4 205]]
                                                       :vlm 10}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                           :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)]
       (is (= :returns (get-in view-model [:chart :selected-tab])))
@@ -428,8 +422,7 @@
                                                            :vlm 10}}
                                   :loaded-at-ms 1
                                   :user-fees-loaded-at-ms 1}
-                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                                 :totalVaultEquity 0}
+                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                       :borrow-lend {:total-supplied-usd 0}}]
       (vm/portfolio-vm base-state)
       (let [first-context (:context @vm/benchmark-computation-context-cache)

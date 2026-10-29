@@ -32,7 +32,9 @@
                                     (swap! calls conj [actual-store address opts]))})
     (is (= [[store account-a {:priority :high}]] @calls))))
 
-(deftest unified-account-surfaces-do-not-start-or-fetch-classic-vault-equity-test
+(deftest unified-account-surfaces-start-and-fetch-vault-equity-test
+  ;; Vault deposits do not depend on account mode; the Portfolio total counts
+  ;; them for unified accounts as well.
   (let [fetch-calls (atom [])
         poller-calls (atom [])
         store (atom {:wallet {:address account-a}
@@ -46,8 +48,10 @@
      {:store store
       :address account-a
       :fetch-user-vault-equities! (fn [& args] (swap! fetch-calls conj args))})
-    (is (empty? @fetch-calls))
-    (is (empty? @poller-calls))))
+    (is (= [[store account-a {:priority :high}]
+            [store account-a {:priority :high}]]
+           @fetch-calls))
+    (is (= [[store account-a]] @poller-calls))))
 
 (deftest startup-vault-equity-collaborator-uses-the-requested-effective-account-test
   (async done

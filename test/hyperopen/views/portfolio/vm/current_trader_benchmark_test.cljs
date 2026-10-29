@@ -60,8 +60,7 @@
                  :portfolio {:summary-by-key {:month active-summary}
                              :trader-benchmarks-by-address {trader-address
                                                             {:summary-by-key {:month stale-benchmark-summary}}}}
-                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                            :totalVaultEquity 0}
+                 :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                  :borrow-lend {:total-supplied-usd 0}}
           view-model (vm/portfolio-vm state)
           benchmark-series (->> (get-in view-model [:chart :series])
@@ -120,8 +119,7 @@
                       :portfolio {:summary-by-key {:month owner-summary}
                                   :trader-benchmarks-by-address {trader-address
                                                                  {:summary-by-key {:month trader-summary}}}}
-                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}
-                                 :totalVaultEquity 0}
+                      :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                       :borrow-lend {:total-supplied-usd 0}}
           owner-model (vm/portfolio-vm base-state)
           spectate-model (vm/portfolio-vm
