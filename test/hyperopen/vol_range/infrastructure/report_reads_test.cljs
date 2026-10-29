@@ -109,13 +109,16 @@
                                                                    :now-ms! (constantly to)})
           (.then (fn [{:keys [candles complete?]}]
                    (is complete?)
-                   (is (= 3 (count @calls)) "5,000 + 5,000 + 2,000 bars")
-                   (is (= [5000 5000 2000]
+                   (is (= 3 (count @calls)) "5,000 + 5,000 + 2,001 bars")
+                   (is (= (+ to hour -1) (get-in (ffirst @calls) ["req" "endTime"]))
+                       "the first page reaches into the hour at `to`")
+                   (is (= [5000 5000 2001]
                           (mapv (fn [[b _]] (/ (- (get-in b ["req" "endTime"]) (get-in b ["req" "startTime"])) hour))
                                 @calls)))
                    (is (every? #(= :low (:priority (second %))) @calls))
                    (is (= "1h" (get-in (ffirst @calls) ["req" "interval"])))
-                   (is (= 12000 (count candles)))
+                   (is (= 12001 (count candles)) "the candle opening at `to` proves the last one closed")
+                   (is (= [from to] [(:t (first candles)) (:t (peek candles))]))
                    (is (= (sort (map :t candles)) (map :t candles)))
                    (done)))))))
 

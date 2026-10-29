@@ -128,6 +128,34 @@
                    (done)))
           (.catch (fail done))))))
 
+(deftest a-marks-read-that-succeeds-after-a-failure-clears-the-failure-test
+  (async done
+    (let [w (world)
+          ok-post (get-in w [:deps :post-info!])
+          offline? (atom true)
+          w (assoc-in w [:deps :post-info!] (fn [body opts]
+                                              (if @offline? (js/Promise.reject (js/Error. "offline")) (ok-post body opts))))
+          s (store-state)
+          read! #(adapter/vol-range-report nil s :marks {:requests [{:coin "@9001" :from-ms h0 :to-ms h3}]})]
+      (-> (with-deps w read!)
+          (.then (fn [_]
+                   (is (= :error (get-in @s [:vol-range :report :last :status])))
+                   (reset! offline? false)
+                   (with-deps w read!)))
+          (.then (fn [_]
+                   (let [report (get-in @s [:vol-range :report])]
+                     (is (= {h1 "80" h2 "70"} (get-in report [:marks "@9001" :closes])))
+                     (is (nil? (get-in report [:marks "@9001" :error])))
+                     (is (nil? (:last report)) "the earlier 'Couldn't load hourly prices' no longer shows"))
+                   (done)))
+          (.catch (fail done))))))
+
+(deftest a-successful-marks-read-keeps-another-operations-status-test
+  (let [state {:vol-range {:report {:last {:op :backfill :status :error :error "x" :at-ms 1}}}}]
+    (is (= state (adapter/write-last state :marks {:status :ok} 2)))
+    (is (= {:op :marks :status :error :error "y" :at-ms 2}
+           (get-in (adapter/write-last state :marks {:status :error :error "y"} 2) [:vol-range :report :last])))))
+
 (deftest a-read-only-load-reads-nothing-from-the-venue-test
   (async done
     (let [w (world)

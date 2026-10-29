@@ -8,8 +8,9 @@
 
   Pure: each handler returns effects, at most one
   `[:effects/vol-range-report op params]` after its projection writes.
-  The window selection and the marks refresh fetch the hourly closes the
-  selected window still needs (`:marks`, public candle reads only).
+  The market and window selections and the marks refresh fetch the hourly
+  closes the selected window still needs (`:marks`, public candle reads
+  only).
   Nothing here signs, sends or writes the journal; the
   report reads the account the Portfolio shows, and a read-only account
   (Spectate, another trader's portfolio) never starts tracking or backfills.
@@ -73,12 +74,6 @@
   "The market select's value for All tracked markets."
   "all")
 
-(defn select-vol-range-report-campaign
-  "Show one market (`campaign-key`) or All tracked markets (nil or \"all\")."
-  [_state campaign-key]
-  [[:effects/save-many [[(conj ui-path :selected-campaign-key)
-                         (when-not (= all-markets-id campaign-key) campaign-key)]]]])
-
 (defn request-start-vol-range-tracking
   "Open the inline confirmation for `campaign-key`. Nothing in read-only
   mode."
@@ -131,6 +126,16 @@
     (if (seq requests)
       [[:effects/vol-range-report :marks {:requests requests}]]
       [])))
+
+(defn select-vol-range-report-campaign
+  "Show one market (`campaign-key`) or All tracked markets (nil or \"all\"),
+  then fetch the hourly closes the new selection still needs, so a market
+  that was not shown before does not wait for the background refresh."
+  ([state campaign-key] (select-vol-range-report-campaign state campaign-key (now)))
+  ([state campaign-key now-ms]
+   (let [k (when-not (= all-markets-id campaign-key) campaign-key)]
+     (into [[:effects/save-many [[(conj ui-path :selected-campaign-key) k]]]]
+           (marks-effects (assoc-in state (conj ui-path :selected-campaign-key) k) now-ms)))))
 
 (defn select-vol-range-report-window
   "Show Since tracking began, 7D or 30D, then fetch the hourly closes that

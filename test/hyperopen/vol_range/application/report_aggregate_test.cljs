@@ -83,6 +83,23 @@
                                                            (second items)]})]
         (is (false? (:subset-offer? none)))))))
 
+(deftest a-pending-or-missing-close-is-not-a-coverage-gap-test
+  (let [covered (item vrt [fx/buy-7-row])
+        priced (item vrs [vrs-sell])
+        with-mark (fn [status reason] (update priced :result assoc :status status :reason reason :figures nil))]
+    (testing "a close still loading: no total yet, nothing named, no subset even when chosen"
+      (doseq [subset? [false true]]
+        (is (= [:pending :marks/pending nil [] false false]
+               ((juxt :status :reason :figures :excluded :subset-offer? :subset?)
+                (aggregate/aggregate {:window :7d :items [covered (with-mark :pending :marks/pending)]
+                                      :covered-subset? subset?}))))))
+    (testing "a missing or unreadable close is named as a price problem, not as uncovered"
+      (let [agg (aggregate/aggregate {:window :7d :items [covered (with-mark :unavailable :marks/missing-boundary-close)]})]
+        (is (= [:no-total :aggregate/incomplete [] ["VRS"] [] true]
+               ((juxt :status :reason :excluded :unpriced :price-errors :subset-offer?) agg))))
+      (let [agg (aggregate/aggregate {:window :7d :items [covered (with-mark :unavailable :marks/read-error)]})]
+        (is (= [[] [] ["VRS"]] ((juxt :excluded :unpriced :price-errors) agg)))))))
+
 (deftest since-tracking-began-has-no-total-test
   (let [items [(item vrt [fx/buy-7-row] {:window :since-start}) (item vrs [vrs-sell] {:window :since-start})]
         agg (aggregate/aggregate {:window :since-start :items items})]

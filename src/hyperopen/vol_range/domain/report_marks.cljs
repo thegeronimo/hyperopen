@@ -3,11 +3,14 @@
 
   Reports end at the latest completed UTC hour after a settle:
   `b = floor((now − :mark-settle-ms) / 1h) × 1h`. The mark at a boundary `x`
-  is the close of the COMPLETED 1h candle whose open time is `x − 1h`. A
-  candle is kept only when it had closed (`open + 1h <= requested-at`) when
-  it was read, and only with a positive plain decimal close. A missing
-  close is never carried forward and never zero: the window's headline is
-  unavailable instead.
+  is the close of the COMPLETED 1h candle whose open time is `x − 1h`. The
+  local clock alone never proves a candle completed, since it can run ahead
+  of the venue's: a candle is kept only when the same read returned a
+  candle of a LATER hour (the venue had started that hour), or, for an
+  illiquid next hour without a candle, when the read was requested at least
+  `:mark-clock-margin-ms` after the hour ended; and only with a positive
+  plain decimal close. A missing close is never carried forward and never
+  zero: the window's headline is unavailable instead.
 
   The stored marks of one coin are {:closes {open-ms close} :covered
   [[from to)] :fetched-at-ms :error}: `:covered` holds the candle OPEN
@@ -48,19 +51,39 @@
                 :else nil)]
     (when (and (number? n) (js/Number.isSafeInteger n) (zero? (mod n (hour-ms)))) n)))
 
+(defn- latest-open
+  "The latest hour-aligned candle open among `rows`: the venue had started
+  that hour when it answered."
+  [rows]
+  (let [opens (keep #(when (map? %) (open-ms (:t %))) rows)]
+    (when (seq opens) (apply max opens))))
+
+(defn completed-before
+  "The exclusive bound on candle opens that a read of `rows` requested at
+  `requested-at-ms` proves completed: every open before the latest open the
+  venue returned, and every open whose hour ended `:mark-clock-margin-ms`
+  before the request. nil when the read proves nothing."
+  [rows requested-at-ms]
+  (let [by-venue (latest-open rows)
+        by-clock (when (number? requested-at-ms)
+                   (inc (- requested-at-ms (hour-ms) (policy :mark-clock-margin-ms))))]
+    (some->> [by-venue by-clock] (remove nil?) seq (apply max))))
+
 (defn normalize-candles
   "{open-ms close} for raw `candleSnapshot` 1h rows ({:t open :c close}) that
-  had completed when the read was requested at `requested-at-ms`. Rows with
-  an unaligned open, a non-positive or non-decimal close are dropped."
+  the read requested at `requested-at-ms` proves completed
+  (`completed-before`). Rows with an unaligned open, a non-positive or
+  non-decimal close are dropped."
   [rows requested-at-ms]
-  (into {}
-        (keep (fn [row]
-                (when (map? row)
-                  (let [t (open-ms (:t row))
-                        c (close-text (:c row))]
-                    (when (and t c (number? requested-at-ms) (<= (+ t (hour-ms)) requested-at-ms))
-                      [t c])))))
-        rows))
+  (let [bound (completed-before rows requested-at-ms)]
+    (into {}
+          (keep (fn [row]
+                  (when (map? row)
+                    (let [t (open-ms (:t row))
+                          c (close-text (:c row))]
+                      (when (and t c bound (< t bound))
+                        [t c])))))
+          rows)))
 
 (defn needed-opens
   "The candle open times `[from to)` that marks of the window `[a,b)` and
@@ -77,13 +100,15 @@
 (defn merge-read
   "`entry` (or nil) with a `report-reads/read-hourly-candles!` result over
   candle opens `[from to)` merged: completed closes are added; a complete
-  read proves the opens it could have seen completed."
+  read proves the opens it shows completed (`completed-before`), so an
+  hour the venue had not finished stays unproven and is read again."
   [entry {:keys [candles complete? requested-at-ms received-at-ms error]} [from to]]
   (let [closes (merge (:closes entry)
                       (into {} (filter (fn [[t _]] (and (<= from t) (< t to))))
                             (normalize-candles candles requested-at-ms)))
-        proven (when (and complete? (number? requested-at-ms))
-                 [[from (min to (inc (- requested-at-ms (hour-ms))))]])]
+        bound (completed-before candles requested-at-ms)
+        proven (when (and complete? bound (< from (min to bound)))
+                 [[from (min to bound)]])]
     {:closes closes
      :covered (iv/union (:covered entry) proven)
      :fetched-at-ms (or received-at-ms requested-at-ms)

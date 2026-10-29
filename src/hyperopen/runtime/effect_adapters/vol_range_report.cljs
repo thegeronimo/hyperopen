@@ -194,17 +194,27 @@
                            (platform/set-timeout! #(resolve {:status :error :error "Timed out; try again."})
                                                   op-timeout-ms)))])))
 
+(defn write-last
+  "`state` with the operation's outcome as the report's `:last`. A
+  successful marks read is not announced (the headline shows its result),
+  but it clears an earlier marks failure, which no longer holds."
+  [state op result now-ms]
+  (let [path (conj report-path :last)]
+    (cond
+      (not (and (= :marks op) (= :ok (:status result))))
+      (assoc-in state path (-> (select-keys result [:status :errors :error]) (assoc :op op :at-ms now-ms)))
+
+      (= :marks (get-in state (conj path :op)))
+      (update-in state report-path dissoc :last)
+
+      :else state)))
+
 (defn- finish! [store busy-key op account result]
   (swap! store
          (fn [state]
            (cond-> (-> state
                        (update-in (conj report-path :busy) dissoc busy-key)
-                       ;; A successful marks read is not announced; the
-                       ;; headline shows its result.
-                       (cond-> (not (and (= :marks op) (= :ok (:status result))))
-                         (assoc-in (conj report-path :last)
-                                   (-> (select-keys result [:status :errors :error])
-                                       (assoc :op op :at-ms (platform/now-ms))))))
+                       (write-last op result (platform/now-ms)))
              ;; A load that failed before writing (a timeout) still marks the
              ;; account as loaded, with nothing known, so the watcher does not
              ;; retry it on every change and no other account's data shows.

@@ -64,6 +64,10 @@
   "Completed and in-progress 1h candles for `coin` covering
   `[from-ms, to-ms)`, paged BACKWARD by `:end-time-ms` with at most
   `:candle-page-bars` bars per request and `:max-candle-pages` requests.
+  The first page ends just before `to-ms + 1h` (inside that hour, whether
+  the venue's end time is inclusive or not), so the candle opening at
+  `to-ms`, when the venue has started it, proves the one before completed
+  (`report-marks/completed-before`).
   Resolves to {:candles [raw rows, distinct, by open time] :complete?
   :requested-at-ms :received-at-ms :error}. An empty page is a market with no
   older candles, not a failure. Never rejects."
@@ -93,4 +97,4 @@
                                      (>= (inc n) max-pages) (done rows false "Candle page cap reached")
                                      :else (page next-end rows (inc n)))))))
                       (.catch (fn [e] (done rows false (error-text e)))))))]
-        (page to-ms [] 0)))))
+        (page (+ to-ms hour -1) [] 0)))))

@@ -103,6 +103,26 @@
              (actions/refresh-vol-range-report-marks loaded now)))
       (is (= [] (actions/refresh-vol-range-report-marks base now)) "nothing before the report is loaded"))))
 
+(deftest select-campaign-fetches-the-closes-the-new-selection-needs-test
+  (let [now (+ h0 (* 3 hour) 300000)
+        k2 "hyperliquid-mainnet|0x1234567890abcdef1234567890abcdef12345678|spot|9002|9002"
+        state (-> loaded
+                  (assoc-in [:vol-range :report :campaigns "cmp-2"]
+                            {:campaign-id "cmp-2" :campaign-key k2 :t0-ms t0 :scope {:coin "@9002"}})
+                  (assoc-in [:vol-range :report :marks "@9001"] {:closes {} :covered [[h0 (+ h0 (* 3 hour))]]})
+                  (assoc-in [:vol-range :report :ui :selected-campaign-key] k))]
+    (is (= [] (actions/refresh-vol-range-report-marks state now)) "VRT alone needs nothing")
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :selected-campaign-key] nil]]]
+            [:effects/vol-range-report :marks {:requests [{:coin "@9002" :from-ms h0 :to-ms (+ h0 (* 3 hour))}]}]]
+           (actions/select-vol-range-report-campaign state "all" now))
+        "All tracked markets reads VRS's closes at once, not on the next background refresh")
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :selected-campaign-key] k2]]]
+            [:effects/vol-range-report :marks {:requests [{:coin "@9002" :from-ms h0 :to-ms (+ h0 (* 3 hour))}]}]]
+           (actions/select-vol-range-report-campaign state k2 now)))
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :selected-campaign-key] nil]]]]
+           (actions/select-vol-range-report-campaign (busy state [:marks]) "all" now))
+        "one marks read at a time")))
+
 (deftest covered-subset-test
   (is (= [[:effects/save-many [[[:vol-range :report :ui :covered-subset?] true]]]]
          (actions/set-vol-range-report-covered-subset base true)))

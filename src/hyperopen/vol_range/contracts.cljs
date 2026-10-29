@@ -30,7 +30,10 @@
   `R - :read-settle-ms`. The venue serves only its most recent
   `:venue-fill-retention-count` fills, so a read returning that many distinct
   fills proves nothing about its oldest part. A balance check waits for a
-  complete fills read requested `:balance-check-settle-ms` after it."
+  complete fills read requested `:balance-check-settle-ms` after it. An
+  hourly candle counts as completed when the same read returned a later
+  hour's candle, or (an illiquid next hour) when the local clock passed its
+  close by `:mark-clock-margin-ms`."
   {:boundary-skew-ms 5000
    :read-settle-ms 5000
    :balance-check-settle-ms 30000
@@ -41,6 +44,7 @@
    :backfill-interval-ms 900000
    :hour-ms 3600000
    :mark-settle-ms 60000
+   :mark-clock-margin-ms 600000
    :candle-page-bars 5000
    :max-candle-pages 4
    :daily-checkpoints-after-ms 2592000000

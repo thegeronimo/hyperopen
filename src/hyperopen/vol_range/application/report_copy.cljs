@@ -57,9 +57,18 @@
 (defn break-message [at reason-text]
   (str "Dollar figures are hidden from " at ": " reason-text ". Orders, fills and fees are still shown below."))
 
-(defn gap-message [from to]
-  (str "Fills between " from " and " to
-       " couldn't be confirmed, so dollar figures are hidden for windows that include this period."))
+(defn gap-message
+  "A gap hides every window that ends after it: inside the window it hides
+  the window's fills, before the window its starting inventory. A gap the
+  venue can no longer fill (its retention limit) never heals."
+  [from to {:keys [before-start? permanent?]}]
+  (str "Fills between " from " and " to " couldn't be confirmed, so "
+       (if before-start?
+         "the inventory at this window's start isn't known and its dollar figures are hidden."
+         "dollar figures for this window are hidden.")
+       (when permanent?
+         (str " The venue no longer serves these fills, so dollar figures return only after "
+              start-tracking "."))))
 
 (defn before-tracking-message [window-label needed-by began]
   (str window-label " needs tracking to have started by " needed-by ". Tracking began " began "."))
@@ -75,6 +84,14 @@
 (defn no-total-incomplete [names]
   (str "Totals are hidden because " (names-text names) (if (= 1 (count names)) " isn't" " aren't")
        " fully covered for this window."))
+
+(defn no-total-missing-price [names]
+  (str "Totals are hidden because " (names-text names) (if (= 1 (count names)) " has" " have")
+       " no completed hourly price for this window."))
+
+(defn no-total-price-error [names]
+  (str "Totals are hidden because the hourly price for " (names-text names)
+       " couldn't be loaded. Refresh to try again."))
 
 (defn subset-offer-label [names] (str "Show total for covered markets (" (names-text names) ")"))
 (defn covered-title [names] (str "Covered markets: " (names-text names)))

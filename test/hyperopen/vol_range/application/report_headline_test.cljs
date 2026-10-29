@@ -111,8 +111,22 @@
     (let [s (state {:coverage {"9001" [[(- fx/t0 60000) (+ fx/t0 hour)] [(+ fx/t0 (* 2 hour)) (+ b hour)]]}
                     :failures {"9001" [{:from-ms (+ fx/t0 hour) :to-ms (+ fx/t0 (* 2 hour)) :reason :coverage/page-cap
                                         :at-ms 1}]}})]
-      (is (= [:suppressed "Fills between Oct 21, 14:42 UTC and Oct 21, 15:42 UTC couldn't be confirmed, so dollar figures are hidden for windows that include this period."]
+      (is (= [:suppressed "Fills between Oct 21, 14:42 UTC and Oct 21, 15:42 UTC couldn't be confirmed, so dollar figures for this window are hidden."]
              ((juxt :status :message) (hl s))))))
+  (testing "a gap before a 7D window hides its starting inventory, and a retention gap points to new tracking"
+    (let [gap-from (+ (:t0-ms vrt-old) hour)
+          gap-to (+ (:t0-ms vrt-old) (* 2 hour))
+          s (fn [reason]
+              (state {:campaigns [vrt-old] :ui {:window :7d}
+                      :coverage {"9001" [[(- (:t0-ms vrt-old) 60000) gap-from] [gap-to (+ b hour)]]}
+                      :failures {"9001" [{:from-ms gap-from :to-ms gap-to :reason reason :at-ms 1
+                                          :permanent? (= :coverage/retention reason)}]}}))]
+      (is (< gap-to a7) "the gap lies before the 7D window")
+      (is (= [:suppressed "Fills between Oct 13, 14:42 UTC and Oct 13, 15:42 UTC couldn't be confirmed, so the inventory at this window's start isn't known and its dollar figures are hidden."]
+             ((juxt :status :message) (hl (s :coverage/page-cap)))))
+      (is (= [:suppressed (str "Fills between Oct 13, 14:42 UTC and Oct 13, 15:42 UTC couldn't be confirmed, so the inventory at this window's start isn't known and its dollar figures are hidden."
+                               " The venue no longer serves these fills, so dollar figures return only after Start new tracking from now.")]
+             ((juxt :status :message) (hl (s :coverage/retention)))))))
   (testing "fills still being checked"
     (is (= [:pending "Checking fills… Figures appear once every fill in this window is confirmed."]
            ((juxt :status :message) (hl (state {:coverage {"9001" [[(- fx/t0 60000) (- b hour)]]}}))))))
@@ -137,6 +151,24 @@
           (is (= [:ok "Covered markets: VRT"] ((juxt :status :title) h)))
           (is (= "−1,544.80 USDC" (get-in h [:figures :net-pnl :display])))
           (is (= {:label "Show total for covered markets (VRT)" :active? true} (:subset-offer h))))))
+    (testing "a market whose hourly close is still loading: loading, not uncovered, and no subset"
+      (let [marks (assoc default-marks "@9002" {:closes {(- a7 hour) "10"} :covered [[(- a7 day) (- b hour)]]})
+            s (state (assoc both :ui {:window :7d} :marks marks))]
+        (doseq [h [(hl s) (hl (assoc-in s [:vol-range :report :ui :covered-subset?] true))]]
+          (is (= [:pending "All tracked markets" nil "Loading hourly prices…" nil nil]
+                 ((juxt :status :title :figures :message :no-total :subset-offer) h))))))
+    (testing "a market without a completed hourly close is named as such"
+      (let [marks (assoc default-marks "@9002" {:closes {(- a7 hour) "10"} :covered [[(- a7 day) (+ b day)]]})
+            h (hl (state (assoc both :ui {:window :7d} :marks marks)))]
+        (is (= [:no-total nil] ((juxt :status :figures) h)))
+        (is (= "Totals are hidden because VRS has no completed hourly price for this window." (:no-total h)))
+        (is (= {:label "Show total for covered markets (VRT)" :active? false} (:subset-offer h)))))
+    (testing "a market whose hourly close couldn't be read"
+      (let [marks (assoc default-marks "@9002" {:closes {(- a7 hour) "10"} :covered [[(- a7 day) (- b hour)]]
+                                                :error "offline"})
+            h (hl (state (assoc both :ui {:window :7d} :marks marks)))]
+        (is (= "Totals are hidden because the hourly price for VRS couldn't be loaded. Refresh to try again."
+               (:no-total h)))))
     (testing "Since tracking began: no total"
       (let [h (hl (state both))]
         (is (= [:no-total nil "Totals need the same window for every market. Choose 7D or 30D."]

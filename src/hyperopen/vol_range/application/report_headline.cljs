@@ -6,7 +6,8 @@
   figures are hidden, plus the All tracked markets total note and the
   covered-subset offer. Formatting only: the figures come from
   `report-windows` and `report-aggregate`. Pure."
-  (:require [hyperopen.domain.trading.precision :as precision]
+  (:require [clojure.string :as str]
+            [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.report-copy :as copy]
             [hyperopen.vol-range.domain.report-equations :as equations]))
@@ -40,15 +41,22 @@
 
 (defn- boundary-of [mark] (some-> (:candle-open-ms mark) (+ hour-ms) display/utc-date-minute))
 
+(def ^:private permanent-gap-reasons
+  "Gap reasons a later backfill cannot heal (`report-coverage` marks them
+  `:permanent?`)."
+  #{:coverage/retention})
+
 (defn- coverage-message
-  [{:keys [coverage]} break-ctx]
+  [{:keys [coverage a-ms]} break-ctx]
   (case (:state coverage)
     :attribution-break
     (let [brk (first (:breaks coverage))]
       (copy/break-message (display/utc-date-minute (:at-ms brk)) (copy/break-text (:reason brk) break-ctx)))
     :gap
     (let [g (first (filter #(= :gap (:state %)) (:intervals coverage)))]
-      (copy/gap-message (display/utc-date-minute (:from-ms g)) (display/utc-date-minute (:to-ms g))))
+      (copy/gap-message (display/utc-date-minute (:from-ms g)) (display/utc-date-minute (:to-ms g))
+                        {:before-start? (and (number? a-ms) (<= (:to-ms g) a-ms))
+                         :permanent? (contains? permanent-gap-reasons (:reason g))}))
     :unavailable (copy/unavailable-message (:reason coverage))
     copy/partial-message))
 
@@ -77,11 +85,23 @@
 (defn- all-message [{:keys [status reason]} items window]
   (cond
     (= :window/no-completed-mark reason) (first-close-message (map #(get-in % [:campaign :t0-ms]) items))
+    (= :marks/pending reason) copy/marks-loading
     (and (= :no-total status)
          (every? #(= :window/before-tracking (get-in % [:result :reason])) items))
     (let [latest (apply max-key #(get-in % [:campaign :t0-ms]) items)]
       (single-message (assoc latest :result (assoc (:result latest) :window window))))
     :else nil))
+
+(defn- no-total-incomplete
+  "Why an All tracked markets total is hidden: markets not fully covered,
+  then markets without a completed hourly close or whose close couldn't be
+  read."
+  [{:keys [excluded unpriced price-errors]}]
+  (->> [(when (seq excluded) (copy/no-total-incomplete excluded))
+        (when (seq unpriced) (copy/no-total-missing-price unpriced))
+        (when (seq price-errors) (copy/no-total-price-error price-errors))]
+       (remove nil?)
+       (str/join " ")))
 
 (defn headline-view
   "The headline view model: {:status :title :figures :benchmark-label
@@ -89,7 +109,7 @@
   `report-aggregate/aggregate` over `items` [{:symbol :market :campaign
   :result :break-ctx}]."
   [{:keys [agg items window]}]
-  (let [{:keys [status scope figures subset? subset-offer? included excluded]} agg
+  (let [{:keys [status scope figures subset? subset-offer? included]} agg
         single (when (= :single scope) (first items))
         shown-result (or (:result agg)
                          (when (and (= :all scope) (not= :since-start window)) (:result (first items))))
@@ -111,7 +131,7 @@
      :no-total (when (and (= :all scope) (not before-all?))
                  (case (:reason agg)
                    :aggregate/different-windows copy/no-total-different-windows
-                   :aggregate/incomplete (copy/no-total-incomplete excluded)
+                   :aggregate/incomplete (no-total-incomplete agg)
                    nil))
      :subset-offer (when subset-offer?
                      {:label (copy/subset-offer-label included) :active? (boolean subset?)})}))
