@@ -8,6 +8,7 @@
             [hyperopen.config :as config]
             [hyperopen.platform :as platform]
             [hyperopen.platform.locks :as locks]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
@@ -269,3 +270,67 @@
             "the trading account's snapshot is the monitoring marker")
         (is (= (str (:epoch m) ":4") (:account-event-revision envelope)))
         (is (= 1 (count (:fills (store-grid store "grid-live")))) "and its rows still reach the ladder")))))
+
+;; ---------------------------------------------------------------------------
+;; Fills consumers (the seam Reporting's ledger ingest registers on)
+;; ---------------------------------------------------------------------------
+
+(deftest a-registered-consumer-receives-the-whole-frame-test
+  (let [store (store-with [(fx/grid)])
+        seen (atom [])]
+    (ingress/register-fills-consumer! ::ledger #(swap! seen conj %))
+    (let [envelope (ingress/observe-user-fills! store fx/fills-250 fx/received-at-ms)]
+      (is (= [envelope] @seen) "the envelope the ingress built, once")
+      (is (= 250 (count (:rows (first @seen)))) "every row, before the display list's 200-row truncation")
+      (is (= (get-in fx/fills-250 [:data :fills]) (:rows (first @seen))))
+      (is (= [:fills :websocket fx/account]
+             ((juxt :kind :source (comp :account-address :scope)) (first @seen)))))
+    (testing "frames that reach no ladder are offered too"
+      (ingress/observe-user-fills! store {:channel "userFills"
+                                          :data {:user fx/account :fills [fx/other-coin-fill fx/manual-fill]}}
+                                   fx/received-at-ms)
+      (is (= 2 (count @seen)))
+      (is (= [fx/other-coin-fill fx/manual-fill] (:rows (peek @seen)))))))
+
+(deftest a-throwing-consumer-stops-nothing-test
+  (let [store (store-with [(fx/grid)])
+        seen (atom [])
+        logged (atom [])]
+    (ingress/register-fills-consumer! ::a-broken (fn [_] (throw (js/Error. "consumer bug"))))
+    (ingress/register-fills-consumer! ::b-ledger #(swap! seen conj %))
+    (ingress/register-fills-consumer! ::c-broken (fn [_] (throw (js/Error. "another bug"))))
+    (with-redefs [telemetry/log! (fn [& args] (swap! logged conj (vec args)))]
+      (let [envelope (ingress/observe-user-fills! store fx/fills-increment fx/received-at-ms)]
+        (is (= :fills (:kind envelope)) "the tap still returns its envelope")))
+    (is (= 1 (count (:fills (store-grid store "grid-live")))) "grid ingestion is unaffected")
+    (is (= 1 (count @seen)) "the other consumer still ran")
+    (is (= 2 (count @logged)) "one log line per failed call")
+    (is (every? #(= "Vol Range fills consumer failed" (first %)) @logged))))
+
+(deftest unregister-removes-a-consumer-test
+  (let [store (store-with [(fx/grid)])
+        seen (atom [])]
+    (ingress/register-fills-consumer! ::ledger #(swap! seen conj [:first %]))
+    (ingress/register-fills-consumer! ::ledger #(swap! seen conj [:second %]))
+    (ingress/observe-user-fills! store fx/fills-increment fx/received-at-ms)
+    (is (= [:second] (map first @seen)) "registering under the same key replaces")
+    (ingress/unregister-fills-consumer! ::ledger)
+    (ingress/observe-user-fills! store fx/fills-snapshot (+ fx/received-at-ms 10))
+    (is (= 1 (count @seen)))
+    (testing "install! keeps registered consumers"
+      (ingress/register-fills-consumer! ::ledger #(swap! seen conj [:third %]))
+      (install-fake-dispatch!)
+      (ingress/observe-user-fills! store fx/fills-increment (+ fx/received-at-ms 20))
+      (is (= [:second :third] (map first @seen))))))
+
+(deftest no-consumer-is-called-for-open-orders-or-unaddressed-frames-test
+  (let [store (store-with [(fx/grid :unknown)])
+        seen (atom [])]
+    (ingress/register-fills-consumer! ::ledger #(swap! seen conj %))
+    (ingress/observe-open-orders! store fx/open-orders-default fx/received-at-ms)
+    (ingress/observe-open-orders! store fx/open-orders-xyz fx/received-at-ms)
+    (is (= [] @seen) "openOrders frames never reach fills consumers")
+    (is (lifecycle/live-leg? (get-in (store-grid store "grid-live") [:legs fx/cloid-buy-0]))
+        "while the open-order frame still applied")
+    (ingress/observe-user-fills! store fx/fills-without-address fx/received-at-ms)
+    (is (= [] @seen) "no envelope (no account known): nothing to offer")))

@@ -178,6 +178,7 @@
     "src/hyperopen/vol_range/application/live_evidence.cljs"
     "src/hyperopen/vol_range/application/grid_store.cljs"
     "src/hyperopen/vol_range/infrastructure/live_ingress.cljs"
+    "src/hyperopen/vol_range/application/fill_records.cljs"
     "src/hyperopen/vol_range/application/revalidation.cljs"
     "src/hyperopen/vol_range/application/repair_plan.cljs"
     "src/hyperopen/vol_range/application/repair_model.cljs"
@@ -196,6 +197,7 @@
    "hyperopen.vol-range.application.live-evidence"
    "hyperopen.vol-range.application.grid-store"
    "hyperopen.vol-range.infrastructure.live-ingress"
+   "hyperopen.vol-range.application.fill-records"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

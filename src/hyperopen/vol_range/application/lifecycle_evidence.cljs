@@ -258,10 +258,11 @@
 ;; Fills (spec 9.2, VR-14)
 ;; ---------------------------------------------------------------------------
 
-(defn- int-text
+(defn int-text
   "Venue time and trade id as integer text, whether they arrive as numbers
   (WebSocket and REST rows today) or numeric strings, so both sources give
-  the same key. Integer numbers render exactly as `str` did before."
+  the same key. Integer numbers render exactly as `str` did before. Public so
+  `fill-records` renders `:tid` exactly as the key does."
   [x]
   (cond (and (number? x) (js/isFinite x)) (.toFixed (js/Math.trunc x) 0)
         (and (string? x) (re-matches #"\d+" x)) x

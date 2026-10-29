@@ -952,6 +952,7 @@
             [hyperopen.vol-range.actions-test]
             [hyperopen.vol-range.application.dock-model-test]
             [hyperopen.vol-range.application.draft-scope-test]
+            [hyperopen.vol-range.application.fill-records-test]
             [hyperopen.vol-range.application.freshness-test]
             [hyperopen.vol-range.application.grid-store-test]
             [hyperopen.vol-range.application.ladder-settings-test]
@@ -2023,6 +2024,7 @@
              'hyperopen.vol-range.actions-test
              'hyperopen.vol-range.application.dock-model-test
              'hyperopen.vol-range.application.draft-scope-test
+             'hyperopen.vol-range.application.fill-records-test
              'hyperopen.vol-range.application.freshness-test
              'hyperopen.vol-range.application.grid-store-test
              'hyperopen.vol-range.application.ladder-settings-test

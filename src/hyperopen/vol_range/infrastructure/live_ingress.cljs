@@ -22,12 +22,20 @@
   `[:vol-range :execution :monitoring]` before routing, and the envelope
   revision carries the monitoring epoch.
 
+  After grid routing, every `userFills` envelope (all rows, all coins, before
+  any display truncation) is offered to the consumers registered with
+  `register-fills-consumer!` (Reporting's ledger ingest). Each consumer runs
+  in its own guard: a failing consumer is logged and never affects grid
+  ingestion, other consumers or the display path. Consumers must be fast and
+  must not await on the tap thread.
+
   Nothing here reads REST, signs, or writes IndexedDB, and it never requires
   the runtime effect adapter."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.config :as config]
             [hyperopen.platform :as platform]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.live-evidence :as live-evidence]
             [hyperopen.vol-range.application.monitoring :as monitoring]
@@ -46,6 +54,7 @@
 
 (defonce ^:private installed-dispatch (atom nil))
 (defonce ^:private ingress (atom initial-ingress))
+(defonce ^:private fills-consumers (atom {}))
 
 (defn- active? []
   (and (config/vol-range-preview-enabled?) (config/vol-range-execution-built?)))
@@ -60,10 +69,32 @@
   nil)
 
 (defn reset-for-tests!
-  "Forget the installed dispatch and the ingress state."
+  "Forget the installed dispatch, the ingress state and the fills consumers."
   []
   (reset! installed-dispatch nil)
-  (reset! ingress initial-ingress))
+  (reset! ingress initial-ingress)
+  (reset! fills-consumers {}))
+
+(defn register-fills-consumer!
+  "Offer every raw `userFills` envelope (spec 9.1) to `(f envelope)` under
+  key `k`, replacing any consumer already registered under `k`."
+  [k f]
+  (swap! fills-consumers assoc k f)
+  nil)
+
+(defn unregister-fills-consumer!
+  "Stop offering envelopes to the consumer registered under `k`."
+  [k]
+  (swap! fills-consumers dissoc k)
+  nil)
+
+(defn- offer-to-fills-consumers!
+  [envelope]
+  (doseq [[k f] @fills-consumers]
+    (try
+      (f envelope)
+      (catch :default e
+        (telemetry/log! "Vol Range fills consumer failed" (str k) (str e))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Ingress state (per connection and account)
@@ -188,9 +219,12 @@
 (defn observe-user-fills!
   "Raw `userFills` tap: record a snapshot for the trading account in live
   monitoring, then apply the message's fills to the matching ladders in
-  memory. Returns the envelope (nil when no account is known)."
+  memory, then offer the envelope to the registered fills consumers. Returns
+  the envelope (nil when no account is known)."
   [store msg received-at-ms]
-  (observe! store msg received-at-ms live-evidence/fills-envelope))
+  (when-let [envelope (observe! store msg received-at-ms live-evidence/fills-envelope)]
+    (offer-to-fills-consumers! envelope)
+    envelope))
 
 (defn observe-open-orders!
   "Raw `openOrders` tap: apply informative open-order rows (presence only) to
