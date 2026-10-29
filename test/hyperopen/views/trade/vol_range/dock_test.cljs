@@ -66,25 +66,30 @@
     (is (str/includes? t "SYN/USDC"))
     (is (= addr (get-in account [1 :title])))
     (is (= "0x1234…5678" (text account)))
-    (is (str/includes? (text (hiccup/find-by-data-role html "vol-ladder-counts"))
-                       "3 live · 0 filled · 0 rejected · 0 checking · 0 canceled"))
-    (is (str/includes? t "Live buy units 16"))
-    (is (str/includes? t "Live sell units 10"))
-    (is (str/includes? t "Execution detail (not P&L)"))
-    (is (str/includes? t "daily volatility 6.00%"))
-    (is (str/includes? t "tilt on"))
+    (let [counts (text (hiccup/find-by-data-role html "vol-ladder-counts"))]
+      (is (str/includes? counts "of 3 live"))
+      (is (str/includes? counts "0 filled"))
+      (is (not (str/includes? counts "rejected")) "zero counts other than filled stay out"))
+    (is (re-find #"To buy\s+16 SYN" t))
+    (is (re-find #"To sell\s+10 SYN" t))
+    (is (re-find #"Range\s+74 – 84" t))
+    (is (str/includes? t "Filled so far (execution, not P&L)"))
+    (is (re-find #"Bought\s+—" (text (hiccup/find-by-data-role html "vol-ladder-filled-buy"))))
+    (is (re-find #"Anchor\s+80\.0\s+custom" t) "the anchor at the rungs' precision")
+    (is (re-find #"Daily volatility\s+6\.00%" t))
+    (is (re-find #"Tilt\s+On" t))
     (is (nil? (hiccup/find-by-data-role html "vol-ladder-partial")))
     (is (nil? (hiccup/find-by-data-role html "vol-ladder-detail")) "no detail until selected")
     (let [view (hiccup/find-by-data-role html "vol-ladder-view-orders")
           cancel (hiccup/find-by-data-role html "vol-ladder-cancel")
           refresh (hiccup/find-by-data-role html "vol-ladder-refresh")]
-      (is (= "View orders" (text view)))
+      (is (= "Show orders (3)" (str/trim (text view))))
       (is (false? (get-in view [1 :aria-expanded])))
       (is (= [[:actions/select-vol-ladder "g1"]] (get-in view [1 :on :click])))
       (is (= [[:actions/refresh-vol-ladder "g1"]] (get-in refresh [1 :on :click])))
       (is (= [[:actions/cancel-vol-ladder "g1"]] (get-in cancel [1 :on :click])))
       (is (= "Cancel SYN/USDC ladder (3 live orders)" (get-in cancel [1 :aria-label])))
-      (is (= "Cancel this ladder" (text cancel))))))
+      (is (= "Cancel ladder" (text cancel))))))
 
 (deftest partial-row-test
   (let [html (panel (state-with [(response (sent-grid) #{(cloid 1)})]))
@@ -101,16 +106,40 @@
     (is (str/includes? (text status) "Checking status"))
     (is (str/includes? (text status) "⚠") "non-color cue")
     (is (contains? (hiccup/node-class-set status) "text-ho-warn"))
-    (is (not (str/includes? (text html) "Live buy units 0 ·Live")))))
+    (is (str/includes? (text (hiccup/find-by-data-role html "vol-ladder-notice"))
+                       "The exchange hasn't confirmed what happened to"))))
 
 (deftest recovered-row-test
   (let [g (recovery/recovered-grid {:grid-id "r1" :scope scope :scope-key "k" :now-ms 5000
                                     :rows [{:cloid (cloid 9) :oid 5 :side "B" :limitPx "70" :sz "4" :origSz "4"}]})
         html (panel (state-with [g]))
         status (hiccup/find-by-data-role html "vol-ladder-status")]
-    (is (str/includes? (text status) "Recovered Vol Range orders"))
+    (is (str/includes? (text status) "Recovered"))
     (is (str/includes? (text status) "⚠"))
     (is (str/includes? (text html) "Original settings unavailable"))))
+
+(defn- closed-grid [g]
+  (update g :legs (fn [ls] (into {} (map (fn [[k l]] [k (assoc l :order-state :terminal :terminal-reason :canceled)])) ls))))
+
+(deftest closed-ladders-sit-in-their-own-table-test
+  (let [live (assoc (response (sent-grid) #{}) :grid-id "g2" :created-at-ms 9000)
+        html (panel (state-with [(closed-grid (response (sent-grid) #{})) live]))
+        table (hiccup/find-by-data-role html "vol-ladders-closed")
+        closed-row (first (rows table))]
+    (is (= 2 (count (rows html))))
+    (is (= 1 (count (rows table))))
+    (is (= "g1" (:data-grid-id (hiccup/node-attrs closed-row))))
+    (is (= "Closed" (text (hiccup/find-by-data-role closed-row "vol-ladder-status"))))
+    (is (str/includes? (text closed-row) "Canceled"))
+    (is (= "0 of 3" (text (hiccup/find-by-data-role closed-row "vol-ladder-counts"))))
+    (is (nil? (hiccup/find-by-data-role closed-row "vol-ladder-cancel")))
+    (is (str/includes? (text html) "1 active · 1 closed"))))
+
+(deftest ladders-needing-attention-lead-test
+  (let [newer (assoc (response (sent-grid) #{}) :grid-id "g2" :created-at-ms 9000)
+        ids (map #(:data-grid-id (hiccup/node-attrs %))
+                 (rows (panel (state-with [newer (response (sent-grid) #{(cloid 1)})]))))]
+    (is (= ["g1" "g2"] ids) "the partially deployed ladder leads the newer live one")))
 
 (deftest refreshing-and-canceling-buttons-are-busy-test
   (let [html (panel (state-with [(response (sent-grid) #{})]
@@ -127,14 +156,18 @@
         html (panel (state-with [g] {:selected-grid-id "g1"}))
         view (hiccup/find-by-data-role html "vol-ladder-view-orders")
         legs (hiccup/find-all-nodes html #(= "vol-ladder-leg" (:data-role (hiccup/node-attrs %))))]
-    (is (= "Hide orders" (text view)))
+    (is (= "Hide orders (3)" (str/trim (text view))))
     (is (true? (get-in view [1 :aria-expanded])))
     (is (= 3 (count legs)))
     (let [t (text (hiccup/find-by-data-role html "vol-ladder-detail"))]
       (doseq [h ["Side" "Price" "Size" "Filled" "Remaining" "Status" "Reason"]]
         (is (str/includes? t h) h))
       (is (str/includes? t "Rejected"))
-      (is (str/includes? t "Post only would match")))
+      (is (str/includes? t "Post only would match"))
+      (is (str/includes? t "−4.50%") "distance from the anchor")
+      (is (re-find #"Anchor\s+80\.0" t)))
+    (is (= ["84" "76.4" "74"] (map #(text (nth (hiccup/find-all-nodes % (fn [n] (= :td (first n)))) 1)) legs))
+        "highest price first: sells above the anchor, buys below")
     (is (some #(and (= :td (first %)) (= "Buy" (text %)) (contains? (hiccup/node-class-set %) "text-ho-buy"))
               (hiccup/find-all-nodes html #(= :td (first %))))
         "buy token color plus text")
@@ -373,8 +406,9 @@
       (is (str/includes? (text line) "Catching up on fills and orders…"))))
   (testing "the line sits above the status message"
     (let [html (panel (state-with [] {:monitoring live-monitoring :last {:op :place :status :busy}}))
-          roles (keep #(:data-role (hiccup/node-attrs %)) (drop 2 html))]
-      (is (= ["vol-ladders-monitoring" "vol-ladder-status-message"] (take 2 roles)))))
+          roles (keep #(:data-role (hiccup/node-attrs %))
+                      (hiccup/find-all-nodes html #(:data-role (hiccup/node-attrs %))))]
+      (is (= ["vol-ladders-monitoring" "vol-ladder-status-message"] (take 2 (remove #{"vol-ladder-dock"} roles))))))
   (testing "no line without a trading account"
     (is (nil? (hiccup/find-by-data-role (dock/dock-panel (dm/dock {:vol-range {:execution {:enabled? true}}}))
                                         "vol-ladders-monitoring")))))

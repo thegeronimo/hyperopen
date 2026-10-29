@@ -75,7 +75,7 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
   const fill = fillRow(buy, venueOid(0, 0), { sz: "2", tid: 990001 });
   world.fills = [fill];
   world.ws.push(world.ws.userFillsFrame([fill]));
-  await expect(row(page).locator('[data-role="vol-ladder-filled-buy"]')).toContainText("Buy filled 2", {
+  await expect(row(page).locator('[data-role="vol-ladder-filled-buy"]')).toContainText(/Bought\s*2 @/, {
     timeout: 5_000
   });
 

@@ -70,7 +70,7 @@ async function placeAndWatch(page, world) {
   await expect(statusLabel(page)).toContainText("Live");
   await expect(monitoring(page)).toHaveAttribute("data-status", "live");
   await expect(monitoring(page)).toHaveText("Live updates on");
-  await expect(filled(page, "buy")).toContainText("Buy filled 0 ·");
+  await expect(filled(page, "buy")).toContainText(/Bought\s*—/);
   return orderAction;
 }
 
@@ -117,7 +117,7 @@ test("a streamed fill shows at once and a later REST read does not count it agai
 
   const readsBefore = world.fillsReads.length;
   world.ws.push(world.ws.userFillsFrame([fill]));
-  await expect(filled(page, "buy")).toContainText(/Buy filled 2 · VWAP 76\.4/, { timeout: 3_000 });
+  await expect(filled(page, "buy")).toContainText(/Bought\s*2 @ 76\.4/, { timeout: 3_000 });
   // The REST stub had no fills while the fill appeared: it came from the stream.
   expect(restFillsSince(world, readsBefore)).toEqual([]);
 
@@ -125,11 +125,11 @@ test("a streamed fill shows at once and a later REST read does not count it agai
   world.fills = [fill];
   afterFill(world, oid, "2");
   await refreshAndReadFills(page, world, 1);
-  await expect(filled(page, "buy")).toContainText(/Buy filled 2 · VWAP 76\.4/);
+  await expect(filled(page, "buy")).toContainText(/Bought\s*2 @ 76\.4/);
   // A repeat of the stream frame does not count it again either.
   world.ws.push(world.ws.userFillsFrame([fill]));
   await page.waitForTimeout(500);
-  await expect(filled(page, "buy")).toContainText(/Buy filled 2 · VWAP 76\.4/);
+  await expect(filled(page, "buy")).toContainText(/Bought\s*2 @ 76\.4/);
   expect(await storeFillCount(page)).toBe(1);
   await expect(statusLabel(page)).toContainText("Live");
   expectNoRealExchange(exchange, world);
@@ -226,7 +226,7 @@ test("a dropped connection pauses placement until the missed fills are read @reg
   const reads = world.infoLog.slice(infoBefore);
   expect(reads).toContain("frontendOpenOrders");
   expect(reads).toContain("userFillsByTime");
-  await expect(filled(page, "sell")).toContainText(/Sell filled 1 · VWAP/);
+  await expect(filled(page, "sell")).toContainText(/Sold\s*1 @/);
   // Live again: the review's Place button is enabled.
   await expect(submit(page)).toBeEnabled({ timeout: 10_000 });
   await page.keyboard.press("Escape");
@@ -234,8 +234,8 @@ test("a dropped connection pauses placement until the missed fills are read @reg
   // The gap fill is counted once, whatever repeats it.
   world.ws.push(world.ws.userFillsFrame([gapFill]));
   await refreshAndReadFills(page, world, 1);
-  await expect(filled(page, "sell")).toContainText(/Sell filled 1 · VWAP/);
-  await expect(filled(page, "buy")).toContainText("Buy filled 0 ·");
+  await expect(filled(page, "sell")).toContainText(/Sold\s*1 @/);
+  await expect(filled(page, "buy")).toContainText(/Bought\s*—/);
   expect(await storeFillCount(page)).toBe(1);
   expectNoRealExchange(exchange, world);
 });
@@ -258,7 +258,7 @@ test("a snapshot of 250 fills whose last row is the ladder's counts it @regressi
   const readsBefore = world.fillsReads.length;
   world.ws.state.fills = rows;
   world.ws.push(world.ws.userFillsFrame(rows, { snapshot: true }));
-  await expect(filled(page, "buy")).toContainText(/Buy filled 3 · VWAP 76\.4/, { timeout: 5_000 });
+  await expect(filled(page, "buy")).toContainText(/Bought\s*3 @ 76\.4/, { timeout: 5_000 });
   // A snapshot while live is a re-subscription: monitoring catches up and is live again.
   await expect(monitoring(page)).toHaveAttribute("data-status", "live", { timeout: 20_000 });
   expect(restFillsSince(world, readsBefore)).toEqual([]);
@@ -286,7 +286,7 @@ test("a fill streamed while Portfolio is open is shown back on Trade @regression
   await dispatch(page, [":actions/navigate", "/trade"]);
   await expect(page).toHaveURL(/\/trade/);
   await openVolLaddersTab(page);
-  await expect(filled(page, "buy")).toContainText(/Buy filled 4 · VWAP 76\.4/);
+  await expect(filled(page, "buy")).toContainText(/Bought\s*4 @ 76\.4/);
   await expect(monitoring(page)).toHaveAttribute("data-status", "live", { timeout: 20_000 });
   expect(restFillsSince(world, readsBefore)).toEqual([]);
   expectNoRealExchange(exchange, world);

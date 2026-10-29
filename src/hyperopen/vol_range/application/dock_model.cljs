@@ -106,6 +106,15 @@
     (= :resting (:order-state leg)) "Live"
     :else "Checking"))
 
+(defn- from-anchor
+  "A leg's price relative to the deployment anchor, e.g. \"−1.43%\" or
+  \"+2.10%\"; nil without an anchor."
+  [anchor price]
+  (let [a (display/parse anchor) p (display/parse price)]
+    (when (and a p (precision/pos-dec? a))
+      (when-let [pct (some-> (precision/divide (precision/sub p a) a 8 :half-up) precision/decimal->string display/percent)]
+        (if (str/starts-with? pct display/minus-sign) pct (str "+" pct))))))
+
 (defn- leg-rows [grid]
   (->> (vals (:legs grid))
        (sort-by (juxt #(if (= :buy (:side %)) 0 1) :rung-index :cloid))
@@ -117,6 +126,7 @@
                   :side (:side leg)
                   :rung-index (:rung-index leg)
                   :price (:price leg)
+                  :from-anchor (from-anchor (get-in grid [:model :anchor :price]) (:price leg))
                   :size (:original-base leg)
                   :filled (:filled q)
                   :remaining (:remaining q)
@@ -143,25 +153,77 @@
      :campaign-key (when t (:campaign-key c))
      :view-report? (boolean (and t (:campaign-key c) (contracts/reporting-enabled?)))}))
 
+(def ^:private anchor-mode-labels
+  {:vwap-24h "24h VWAP" :utc-open "UTC open" :market-price "market price" :custom "custom"})
+
+(defn- decimals [s]
+  (let [s (str s) i (.indexOf s ".")] (if (neg? i) 0 (- (count s) i 1))))
+
+(defn- settings
+  "Deployment settings at the ladder's own price precision: the anchor is
+  stored exact (85.617402674483) and shown as the rungs are (85.617)."
+  [model current-legs]
+  (when-let [{:keys [anchor volatility tilt]} model]
+    (let [places (when (seq current-legs) (apply max (map (comp decimals :price) current-legs)))]
+      {:anchor (display/amount (:price anchor) places)
+       :anchor-mode (when-let [m (:mode anchor)] (get anchor-mode-labels m (name m)))
+       :volatility (display/percent (:daily-fraction volatility))
+       :tilt (if (:enabled? tilt) "On" "Off")})))
+
+(defn- price-range [current-legs]
+  (when-let [ps (seq (sort #(precision/cmp (d %1) (d %2)) (keep :price current-legs)))]
+    {:low (first ps) :high (last ps)}))
+
+(defn- notice
+  "The callout for a ladder waiting on the exchange, or found without this
+  browser's record. A partial deployment has `:partial-message` and repair."
+  [grid status {:keys [checking]}]
+  (cond
+    (:recovered? grid)
+    {:kind :recovered
+     :text (str "Found on the exchange without this browser's record. Original settings unavailable, "
+                "so it can be canceled but not repaired, updated or tracked.")}
+    (= :checking status)
+    {:kind :checking
+     :text (str "The exchange hasn't confirmed what happened to "
+                (if (pos? checking) (plural checking "order") "the latest request")
+                " yet. New ladders on this market wait until it does.")}))
+
+(defn- outcome [status {:keys [members filled]}]
+  (cond (= :not-placed status) "Not placed"
+        (and (pos? members) (= filled members)) "All orders filled"
+        :else "Canceled"))
+
+(def ^:private closed-statuses #{:closed :not-placed})
+
 (defn grid-row [state grid]
   (let [status (lifecycle/status grid)
         counts (lifecycle/counts grid)
         {:keys [symbol quote-symbol account-address]} (:scope grid)
-        id (:grid-id grid)]
+        id (:grid-id grid)
+        legs (leg-rows grid)
+        current (remove :historical? legs)
+        attention? (or (= :checking status) (boolean (:recovered? grid)))]
     {:grid-id id
      :market (str (or symbol (get-in grid [:scope :coin])) (when quote-symbol (str "/" quote-symbol)))
+     :base-symbol (or symbol (get-in grid [:scope :coin]))
      :account (some-> account-address str)
      :recovered? (boolean (:recovered? grid))
      :status status
-     :status-label (if (:recovered? grid)
-                     "Recovered Vol Range orders — original settings unavailable"
-                     (get status-labels status "Checking status"))
-     :attention? (or (= :checking status) (boolean (:recovered? grid)))
+     :status-label (if (:recovered? grid) "Recovered" (get status-labels status "Checking status"))
+     :attention? attention?
+     :needs-attention? (or attention? (= :partially-deployed status))
+     :closed? (contains? closed-statuses status)
+     :outcome (outcome status counts)
+     :notice (notice grid status counts)
      :counts counts
      :partial-message (partial-message counts)
      :filled {:buy (side-fills grid :buy) :sell (side-fills grid :sell)}
      :model (:model grid)
+     :settings (settings (:model grid) current)
+     :range (price-range current)
      :created-at-ms (:created-at-ms grid)
+     :placed-text (display/utc-date-minute (:created-at-ms grid))
      :can-cancel? (boolean (seq (lifecycle/cancel-targets grid)))
      :canceling? (busy? state [:cancel id])
      :refreshing? (busy? state [:refresh id])
@@ -170,7 +232,7 @@
      :update (replace-model/row-control state grid)
      :lineage (replace-model/lineage state grid)
      :tracking (tracking state grid status)
-     :legs (leg-rows grid)}))
+     :legs legs}))
 
 (def ^:private ladder-result-text
   {:busy "An order placement for this ladder is still in flight. Cancel again in a moment."
@@ -223,10 +285,14 @@
   [state]
   (let [account (some-> (account-context/active-trading-account-address state) str str/lower-case)
         grids (filter #(= account (some-> (get-in % [:scope :account-address]) str str/lower-case))
-                      (vals (get-in state [:vol-range :execution :grids])))]
+                      (vals (get-in state [:vol-range :execution :grids])))
+        rows (mapv #(grid-row state %) (sort-by (comp - (fnil identity 0) :created-at-ms) grids))]
     {:enabled? (boolean (get-in state [:vol-range :execution :enabled?]))
      :syncing? (busy? state [:sync])
      :monitoring (monitoring-copy/line state)
-     :rows (mapv #(grid-row state %) (sort-by (comp - (fnil identity 0) :created-at-ms) grids))
+     :rows rows
+     ;; Newest first; within active, ladders that need attention lead.
+     :active-rows (vec (sort-by #(if (:needs-attention? %) 0 1) (remove :closed? rows)))
+     :closed-rows (filterv :closed? rows)
      :message (status-message state)
      :repair-dialog (repair-model/repair-model state)}))

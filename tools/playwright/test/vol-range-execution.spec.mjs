@@ -95,7 +95,7 @@ test("partial deployment reports the rejected leg @regression", async ({ page })
   const legs = row(page).locator('[data-role="vol-ladder-leg"]');
   await expect(legs).toHaveCount(7);
   await expect(row(page).locator('[data-role="vol-ladder-detail"]')).toContainText("immediately matched");
-  await expect(legs.first()).toContainText("Buy");
+  await expect(legs.filter({ hasText: "immediately matched" })).toContainText("Buy");
 });
 
 test("cancel sends one cancel for all seven orders and the ladder closes @regression", async ({ page }) => {

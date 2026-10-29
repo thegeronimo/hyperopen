@@ -412,7 +412,7 @@ export const statusLabel = (page) => row(page).locator('[data-role="vol-ladder-s
 /** Opens the selected ladder's order detail if it is not already open. */
 export async function showLadderOrders(page) {
   const viewOrders = row(page).locator('[data-role="vol-ladder-view-orders"]');
-  if ((await viewOrders.innerText()).trim() === "View orders") await viewOrders.click();
+  if ((await viewOrders.getAttribute("aria-expanded")) !== "true") await viewOrders.click();
   await expect(row(page).locator('[data-role="vol-ladder-detail"]')).toBeVisible();
 }
 
