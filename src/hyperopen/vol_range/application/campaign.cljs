@@ -39,7 +39,7 @@
 (defn- dec-string [x]
   (some-> x str precision/parse-decimal precision/decimal->string))
 
-(defn- base-total
+(defn base-total
   "The base token's total (held units included) in a raw barrier read: by
   token id when the rows carry `:token`, else by coin symbol. A read without
   the token is a zero balance. nil only for an unparseable total."

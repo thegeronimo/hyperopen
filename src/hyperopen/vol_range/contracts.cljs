@@ -20,12 +20,30 @@
 ;; first admitted placement in every build that can place.
 (def accounting-model-version 1)
 (def campaign-schema-version 1)
+(def ledger-schema-version 1)
 
 (def report-policy
-  "Versioned reporting policy (spec 12.4). `:boundary-skew-ms` widens a
-  campaign's inception read boundary on both sides to absorb local versus
-  venue clock skew."
-  {:boundary-skew-ms 5000})
+  "Versioned reporting policy (spec 9.2, 12.4, 12.6). `:boundary-skew-ms`
+  widens a campaign's inception read boundary on both sides to absorb local
+  versus venue clock skew. A complete REST read requested at R covers up to
+  `R - :read-settle-ms`. The venue serves only its most recent
+  `:venue-fill-retention-count` fills, so a read returning that many distinct
+  fills proves nothing about its oldest part. A balance check waits for a
+  complete fills read requested `:balance-check-settle-ms` after it."
+  {:boundary-skew-ms 5000
+   :read-settle-ms 5000
+   :balance-check-settle-ms 30000
+   :fills-overlap-ms 60000
+   :venue-fill-retention-count 10000
+   :ledger-page-limit 2000
+   :max-ledger-pages 10
+   :backfill-interval-ms 900000
+   :hour-ms 3600000
+   :mark-settle-ms 60000
+   :candle-page-bars 5000
+   :max-candle-pages 4
+   :daily-checkpoints-after-ms 2592000000
+   :windows [:since-start :7d :30d]})
 
 (def product-policy
   {:rung-count {:min 1 :max 12}

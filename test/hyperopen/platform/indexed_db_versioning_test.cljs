@@ -79,3 +79,35 @@
                        (is (contains? (:stores @db-state) "journal"))
                        (done)))
               (.catch fail!)))))))
+
+(def ^:private pre-ledger-stores
+  #{"asset-selector-markets-cache" "funding-history-cache" "chart-visible-range-cache" "vault-index-cache"
+    "leaderboard-preferences" "leaderboard-cache" "agent-locked-session" "portfolio-optimizer"
+    "vol-range-journal"})
+
+(deftest app-db-adds-the-vol-range-ledger-store-test
+  (async done
+    (let [from-8 (atom {:version 8 :stores pre-ledger-stores})
+          at-9 (atom {:version 9 :stores (conj pre-ledger-stores "other-branch-store")})
+          fail! (async-support/unexpected-error done)]
+      (is (= 9 indexed-db/app-db-version))
+      (-> (with-indexed-db-api
+            (versioned-indexed-db from-8)
+            (fn []
+              (.then (indexed-db/open-db!)
+                     (fn [db]
+                       (is (= 9 (.-version db)) "a version 8 database upgrades to 9")
+                       (is (contains? (:stores @from-8) indexed-db/vol-range-ledger-store))
+                       (is (contains? (:stores @from-8) indexed-db/vol-range-journal-store) "the journal is kept")))))
+          (.then (fn [_]
+                   (with-indexed-db-api
+                     (versioned-indexed-db at-9)
+                     (fn []
+                       (.then (indexed-db/open-db!)
+                              (fn [db]
+                                (is (= 10 (.-version db))
+                                    "a version 9 database without the ledger store is upgraded past it")
+                                (is (contains? (:stores @at-9) indexed-db/vol-range-ledger-store))
+                                (is (contains? (:stores @at-9) "other-branch-store"))))))))
+          (.then (fn [_] (done)))
+          (.catch fail!)))))

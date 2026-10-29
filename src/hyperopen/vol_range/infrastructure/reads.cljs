@@ -89,35 +89,39 @@
   "Raw, un-aggregated fills for one account in [start-ms, end-ms] (spec 9.2).
   Pages forward from the newest row's time with overlap; rows are de-duplicated
   by the caller's durable fill key. Resolves to {:rows [...] :complete? bool
-  :requested-at-ms :received-at-ms :error}. `complete?` is false when a page
-  failed, a full page made no time progress, or the page cap was reached:
-  coverage is never assumed. Never rejects."
-  [post-info! {:keys [account-address start-ms end-ms barrier-id now-ms!]}]
+  :requested-at-ms :received-at-ms :error :reason}. `complete?` is false when
+  a page failed, a full page made no time progress, or the page cap was
+  reached: coverage is never assumed. `:reason` names why it is incomplete
+  (:fills/read-error, :fills/no-progress or :fills/page-cap), nil when
+  complete. `:priority` defaults to :high (reconciliation); reporting
+  backfill passes :low. Never rejects."
+  [post-info! {:keys [account-address start-ms end-ms barrier-id now-ms! priority]}]
   (let [address (normalize-address account-address)
         now-ms! (or now-ms! #(.now js/Date))
         requested-at (now-ms!)
-        done (fn [rows complete? error]
+        done (fn [rows complete? error reason]
                {:rows rows :complete? complete? :requested-at-ms requested-at
-                :received-at-ms (now-ms!) :error error})]
+                :received-at-ms (now-ms!) :error error :reason reason})]
     (if-not (and address barrier-id (number? start-ms) (number? end-ms))
-      (js/Promise.resolve (done [] false "Account, window and barrier id are required"))
+      (js/Promise.resolve (done [] false "Account, window and barrier id are required" :fills/read-error))
       (letfn [(page [from rows n]
                 (-> (post-info! {"type" "userFillsByTime" "user" address "startTime" from
                                  "endTime" end-ms "aggregateByTime" false}
-                                (fresh-opts :fills address [barrier-id from]))
+                                (assoc (fresh-opts :fills address [barrier-id from]) :priority (or priority :high)))
                     (.then (fn [resp]
                              (if-not (sequential? resp)
-                               (done rows false "Unexpected fills response shape")
+                               (done rows false "Unexpected fills response shape" :fills/read-error)
                                (let [rows (into rows resp)
                                      newest (reduce max from (keep :time resp))]
                                  (cond
-                                   (< (count resp) fills-page-limit) (done rows true nil)
-                                   (<= newest from) (done rows false "Fill pagination made no progress")
-                                   (>= (inc n) max-fill-pages) (done rows false "Fill page cap reached")
+                                   (< (count resp) fills-page-limit) (done rows true nil nil)
+                                   (<= newest from) (done rows false "Fill pagination made no progress" :fills/no-progress)
+                                   (>= (inc n) max-fill-pages) (done rows false "Fill page cap reached" :fills/page-cap)
                                    ;; Overlap at `newest`: rows sharing that ms are re-read
                                    ;; and de-duplicated by fill key.
                                    :else (page newest rows (inc n)))))))
-                    (.catch (fn [e] (done rows false (if (instance? js/Error e) (.-message e) (str e)))))))]
+                    (.catch (fn [e] (done rows false (if (instance? js/Error e) (.-message e) (str e))
+                                          :fills/read-error)))))]
         (page start-ms [] 0)))))
 
 (defn read-book!

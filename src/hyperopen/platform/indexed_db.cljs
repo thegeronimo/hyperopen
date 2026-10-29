@@ -4,7 +4,7 @@
   "hyperopen-persistence")
 
 (def app-db-version
-  8)
+  9)
 
 (def asset-selector-markets-store
   "asset-selector-markets-cache")
@@ -35,6 +35,13 @@
   Written only through `put-many-committed!`."
   "vol-range-journal")
 
+(def vol-range-ledger-store
+  "Vol Range reporting ledger: same-base fills, non-funding ledger updates,
+  REST coverage intervals and balance checks (HO-SPEC-014 sections 7.4,
+  12.2, 12.6). Kept apart from the journal so its bulk never slows a
+  placement's journal load."
+  "vol-range-ledger")
+
 (def ^:private app-store-names
   [asset-selector-markets-store
    funding-history-store
@@ -44,7 +51,8 @@
    leaderboard-cache-store
    agent-locked-session-store
    portfolio-optimizer-store
-   vol-range-journal-store])
+   vol-range-journal-store
+   vol-range-ledger-store])
 
 (defonce ^:private open-db-cache (atom {}))
 
