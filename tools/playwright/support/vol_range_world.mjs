@@ -40,6 +40,12 @@ export function newWorld() {
     book: { bid: "79.99", ask: "80.01" },
     // id (oid string or cloid) -> payload
     orderStatus: () => ({ status: "unknownOid" }),
+    // The account's fills as the venue's REST reads (`userFillsByTime`) return them.
+    fills: [],
+    // When set to a promise, REST fill reads wait for it (holds a resync mid-read).
+    fillsGate: null,
+    // Rows returned by each REST fill read, in order.
+    fillsReads: [],
     infoLog: [],
     // Requests that tried to reach a real /exchange endpoint (aborted).
     blockedExchange: [],
@@ -157,7 +163,9 @@ export async function stubInfo(page, world) {
         break;
       case "userFillsByTime":
       case "userFills":
-        body = [];
+        if (world.fillsGate) await world.fillsGate;
+        body = [...world.fills];
+        world.fillsReads.push({ type: payload.type, rows: body.length });
         break;
       case "userAbstraction":
         body = "default";

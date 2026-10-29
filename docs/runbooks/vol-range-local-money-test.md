@@ -66,6 +66,60 @@ these are set to.
    filled. Check that Open Orders no longer lists them.
 8. Optional: reload the page while a ladder is live. The Vol ladders tab should show it again.
 
+## Live updates
+
+The Vol ladders tab learns about fills and order changes from the account's WebSocket streams as well
+as from the 15-second check. One line at the top of the tab says how live that is:
+
+- "Live updates on": fills and order changes arrive within about a second. Placement is allowed.
+- "Live updates paused while reconnecting. Your orders stay on the exchange.": the connection dropped.
+  The app reconnects by itself.
+- "Live updates paused while another account is shown.": the streams follow a spectated or trader
+  account, not the account that owns the ladders.
+- "Connecting live updates…": the streams are not answering yet (for example right after loading).
+- "Catching up on fills and orders…": the streams are back and the app is re-reading every open ladder
+  (journal, open orders, balances, order statuses and the fills it may have missed).
+- "Couldn't catch up yet. Retrying automatically.": a catch-up read was incomplete; it retries after
+  15, 30, 60 then every 120 seconds.
+
+Until the line says "Live updates on", the review's Place button and the repair dialog's submit are
+disabled with "Placement waits for live order and fill updates to catch up.", and a placement already
+under way is stopped before it is sent. Cancel this ladder and Refresh status always work.
+
+To watch a fill arrive:
+
+1. Place a small ladder whose nearest buy (or sell) is close to the book, and keep the Vol ladders tab
+   open with the ladder's "Execution detail (not P&L)" visible.
+2. When the order fills on the exchange (Open Orders or Trade History shows it), the filled quantity,
+   VWAP and fees should update within about a second, without pressing Refresh status.
+3. Press Refresh status afterwards: the filled quantity must not change (the same fill is never counted
+   twice).
+4. Optional: turn the network off for a few seconds (DevTools → Network → Offline), then back on. The line
+   should go to "paused", then "Catching up…", then "Live updates on", and a fill made while offline should
+   then show once.
+5. Optional: open Portfolio (your own account) while an order fills, then come back to Trade: the fill
+   should already be shown.
+
+### Save WebSocket frames as protocol fixtures
+
+The app's parsing of stream frames is written from the documented shapes and has open questions (below).
+Real frames answer them. In DevTools → Network → WS, select the `wss://api.hyperliquid.xyz/ws`
+connection, open Messages and filter by `userFills` or `openOrders`. For the subscription snapshot, one
+increment with a fill of a ladder order, and one `openOrders` frame while the ladder rests, right-click
+the message → Copy message. Paste each into a file and replace your address everywhere with
+`0x1234567890abcdef1234567890abcdef12345678` (also replace any `hash` values if you prefer). Send the
+files back; they become test fixtures in `test/hyperopen/vol_range/live_fixtures.cljs`. Frames hold
+order ids, prices, sizes and fees; they never hold keys or signatures.
+
+### Open protocol questions to answer from the frames
+
+- Does a `userFills` frame carry `data.user`? (If not, the app falls back to the subscribed address.)
+- Do fill rows carry `cloid` for orders placed with one? (Without it, an order whose placement outcome
+  was lost can only be resolved by REST.)
+- Does the default-dex `openOrders` frame include spot orders, with `cloid`, `origSz` and `oid`?
+- Are `time` and `tid` numbers in both the WebSocket rows and the REST `userFillsByTime` rows?
+- Does a reconnect replay a `userFills` snapshot with `isSnapshot: true`?
+
 ## If something looks wrong
 
 - "Checking status" means an outcome is not proven yet (for example a lost response). The app never
@@ -96,7 +150,8 @@ The journal holds order identities, prices, sizes and exchange replies; it never
 
 - Rejected orders are shown with their reason, but there is no "Review rejected orders" repair screen
   yet, and no "Preview update" (replace) flow. Cancel and place a new ladder instead.
-- Fills are picked up by the 15-second background check, not instantly.
+- Fills arrive live only while the line says "Live updates on"; otherwise the 15-second background
+  check and the catch-up after a reconnect pick them up.
 - If your order book uses price grouping, the review uses the grouped best bid/ask but the pre-send check
   uses the exact book, so a review may be refused as changed; review again.
 - An order whose outcome was lost and that the exchange reports as unknown stays "Checking", and keeps

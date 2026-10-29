@@ -1,7 +1,7 @@
 ---
 owner: trading
 status: canonical
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 review_cycle_days: 90
 source_of_truth: true
 ---
@@ -112,6 +112,49 @@ change seen before it. Cancelling records a request first; a placement or repair
 pre-send guard is then refused, and cancel returns `:busy` while one is between the guard and its outcome.
 Cancel never takes the admission section and never needs a journal commit.
 
+### 9. Live evidence, monitoring and shared fill records
+
+Context: spec sections 9.1-9.4, 7.4, 11.2; VR-14, VR-18, VR-19. Plan:
+`/hyperopen/docs/exec-plans/completed/2026-10-28-vol-range-live-fills.md`.
+
+- Raw taps, not the display path. `websocket.user-runtime.handlers` offers every raw `userFills` and
+  `openOrders` message to an optional tap before the live-address filter, the empty-snapshot skip, the
+  200-row display truncation, `tid`-only de-duplication and cancel-guard pruning. A throwing tap is
+  logged and never changes the display path. Only a dev build that includes placement injects taps
+  (`live-ingress/user-stream-taps`).
+- Spec 9.1 envelopes and conservative routing. `live-evidence` wraps each message as an envelope
+  (scope, source, channel, received/observed times, `:snapshot?`, `:complete? false`, address source,
+  `"<epoch>:<seq>"` revision) and routes rows only to ladders with the same network, account and coin and
+  a known oid or CLOID. Fills are never routed to a leg still `:pending`. Open-order frames are presence
+  only: they can accept an `:unknown` leg or lower an accepted resting leg's remaining, never touch an
+  `:unconfirmed`, pending or terminal leg, never raise a remaining size, and absence only hints a
+  rate-limited REST reconciliation (default dex, coins this connection has shown, 2 s margin). REST reads
+  keep their existing provenance maps.
+- In memory only. Stream evidence is merged into the store copy of a ladder through the pure, monotonic
+  `grid-store/merge-grid-into-state`, never written to the journal; every adapter write merges the same
+  way, so an older reconcile result can no longer erase stream evidence. Durable state still comes from
+  REST reconciliation, whose fills window re-reads everything since `:fills-through-ms` minus 60 s.
+- One fill key. `lifecycle-evidence/fill-key` (network | account | coin | time | tid | oid-or-CLOID) is the
+  key everywhere; only its inputs are canonicalized (integer text for time and tid, byte-identical for
+  numeric input). A stream increment, a snapshot, the order response and the REST window count a fill once.
+- Monitoring per trading account at `[:vol-range :execution :monitoring]` (pure `monitoring`, wired by the
+  execution watcher). It is `:live` only after the transport and both account streams are usable for the
+  account, a `userFills` snapshot arrived after the last socket close, and a `:resync` (journal sync plus a
+  reconcile of every open ladder, nothing sent) finished with complete reads in the same epoch. A
+  disconnect, socket close, re-subscription snapshot, account change, loss of the account's streams or a
+  watcher tick gap over 45 s starts a new epoch. Retries back off 15, 30, 60, 120 s with ±20 % jitter and
+  run only while visible, on the existing 15 s tick; no new timer, socket or registry.
+- Placement gate. `executor-place` `refusal` returns `:monitoring/stale`, `:monitoring/resync-required` or
+  `:monitoring/suspended` while monitoring is not `:live`, at the click and again in the final pre-HTTP
+  guard (recorded as provably not sent, reservation released). Cancel, Refresh status and sync never
+  consult it. The dock shows one non-live-region monitoring line; the review and repair submit are
+  disabled with a note. Successful background ops no longer write `[:vol-range :execution :last]`.
+- Shared fill records. `fill-records/normalize-fill` is the one canonical fill record (venue money strings,
+  signed fee including the builder fee, the shared fill key) for WebSocket and REST rows, and
+  `live-ingress/register-fills-consumer!` is the one way to receive raw `userFills` envelopes (every row,
+  before truncation, each consumer guarded). The durable ledger, its coverage model and their failure
+  isolation belong to Reporting (`vol-range-ledger`); this work writes no store.
+
 ## Consequences
 
 - Manual and optimizer submits now reserve nonces before signing; behavior is otherwise unchanged.
@@ -119,3 +162,5 @@ Cancel never takes the admission section and never needs a journal commit.
 - Browser-only storage still cannot give a global lock across devices (spec 3.3); conflicts are detected by
   reconciliation, not prevented.
 - Stage 5 adds the grid lifecycle and executor; it is not wired to any UI or effect adapter yet.
+- Live evidence (section 9) adds no journal write, REST loop or signing path; it can only make the dock
+  learn sooner and make placement wait until monitoring has caught up.
