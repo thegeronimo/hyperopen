@@ -1,10 +1,13 @@
 (ns hyperopen.telemetry.console-preload.vol-range-fixture
   "Debug fixture for the Vol Range A0 ticket, chart overlays and review
    (HO-SPEC-014 v2.1 section 13.2). Seeds a synthetic USDC spot market and
-   the seven-order draft into the app store. Debug/QA only; VR-24: seeds
-   state, never builds or sends an order."
+   the seven-order draft into the app store. With `{report: \"<scenario>\"}`
+   it also commits a Vol Range report scenario
+   (`vol-range-report-fixture/scenarios`) and returns a promise. Debug/QA
+   only; VR-24: seeds state, never builds or sends an order."
   (:require [hyperopen.state.trading :as trading]
             [hyperopen.system :as app-system]
+            [hyperopen.telemetry.console-preload.vol-range-report-fixture :as report-fixture]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]))
 
 (def ^:private coin "@9001")
@@ -94,4 +97,6 @@
          next-state (assoc-in base [:vol-range :draft-binding]
                               (draft-scope/current-scope-key base))]
      (reset! app-system/store next-state)
-     (clj->js {:ok true :coin coin :marketKey "spot:@9001"}))))
+     (if-let [scenario (:report config*)]
+       (report-fixture/seed-report! scenario wallet-address now-ms)
+       (clj->js {:ok true :coin coin :marketKey "spot:@9001"})))))

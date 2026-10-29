@@ -162,6 +162,50 @@
       (@interval-fn)
       (is (not-any? #{refresh} @dispatched)))))
 
+(def ^:private hour 3600000)
+(def ^:private marks-refresh [:actions/refresh-vol-range-report-marks])
+
+(defn- report-store
+  "The report tab open with campaign cmp-1 (coin @1) loaded, backfilled at
+  `now` and no hourly closes read yet."
+  [now]
+  (doto (new-store)
+    (open-tab!)
+    (swap! assoc-in [:vol-range :campaigns "cmp-1" :scope :coin] "@1")
+    (swap! update-in [:vol-range :report] merge
+           {:account-address account :campaigns {"cmp-1" (assoc-in campaign [:scope :coin] "@1")} :closures {}
+            :backfill-at-ms {account now}})))
+
+(deftest marks-due-test
+  (let [now (+ t0 (* 3 hour))
+        state @(report-store now)]
+    (is (true? (watcher/marks-due? state now)) "the window needs closes no read has proved")
+    (is (false? (watcher/marks-due? (assoc-in state [:vol-range :report :marks-at-ms] (- now 1000)) now))
+        "at most one background read a minute")
+    (is (true? (watcher/marks-due? (assoc-in state [:vol-range :report :marks-at-ms] (- now watcher/marks-retry-ms))
+                                   now)))
+    (is (false? (watcher/marks-due? (assoc-in state [:vol-range :report :marks "@1"]
+                                              {:closes {} :covered [[(- t0 hour) now]]})
+                                    now))
+        "nothing missing")
+    (is (false? (watcher/marks-due? (assoc-in state [:vol-range :report :busy [:marks]] true) now)))
+    (is (false? (watcher/marks-due? (assoc-in state [:portfolio-ui :account-info-tab] :balances) now))
+        "only while the report is shown")))
+
+(deftest a-new-completed-hour-reads-marks-on-the-tick-test
+  (let [now (+ t0 (* 3 hour))
+        clock (atom now)
+        store (report-store now)
+        doc (fake-document false)]
+    (execution-watcher/install-vol-range-execution-watcher!
+     {:store store :document doc :now-ms-fn #(deref clock) :dispatch! dispatch!})
+    (install! store)
+    (flush!)
+    (reset! dispatched [])
+    (@interval-fn)
+    (is (some #{marks-refresh} @dispatched))
+    (is (not-any? #{refresh} @dispatched) "the backfill is not due")))
+
 (deftest stream-fills-are-offered-to-the-ledger-ingest-test
   (let [store (new-store)
         seen (atom [])]

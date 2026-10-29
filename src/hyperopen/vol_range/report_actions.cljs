@@ -1,10 +1,14 @@
 (ns hyperopen.vol-range.report-actions
   "Vol Range report action handlers (HO-SPEC-014 v2.1 sections 11.3, 12.6,
   15.2): load the Portfolio report, refresh it with a REST backfill, choose
-  the market, and start new tracking from now behind an inline confirmation.
+  the market, the window (Since tracking began, 7D, 30D) and the covered
+  subset of All tracked markets, and start new tracking from now behind an
+  inline confirmation.
 
   Pure: each handler returns effects, at most one
   `[:effects/vol-range-report op params]` after its projection writes.
+  The window selection and the marks refresh fetch the hourly closes the
+  selected window still needs (`:marks`, public candle reads only).
   Nothing here signs, sends or writes the journal; the
   report reads the account the Portfolio shows, and a read-only account
   (Spectate, another trader's portfolio) never starts tracking or backfills.
@@ -13,6 +17,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.vol-range.application.report-windows :as windows]
             [hyperopen.vol-range.contracts :as contracts]))
 
 (def tab-id :vol-range)
@@ -98,3 +103,51 @@
       [[:effects/save-many [[(conj ui-path :confirm-restart-key) nil]]]
        [:effects/vol-range-report :start-tracking {:campaign-key k :account-address account}]]
       [])))
+
+;; ---------------------------------------------------------------------------
+;; Windows, the covered subset and hourly marks
+;; ---------------------------------------------------------------------------
+
+(defn- now [] (.now js/Date))
+
+(defn marks-requests
+  "The `:marks` requests the shown report still needs for its selected
+  window and market at `now-ms` ([] when none, or before it is loaded)."
+  [state now-ms]
+  (let [report (get-in state report-path)
+        account (report-account state)
+        campaigns (:campaigns report)
+        selected (let [k (get-in report [:ui :selected-campaign-key])]
+                   (when (some #(= k (:campaign-key %)) (vals campaigns)) k))]
+    (if (and (contracts/reporting-enabled?) account (= account (:account-address report)))
+      (windows/mark-requests {:campaigns campaigns :closures (:closures report) :selected-key selected
+                              :window (windows/selected-window (:ui report)) :marks (:marks report)
+                              :now-ms now-ms})
+      [])))
+
+(defn- marks-effects [state now-ms]
+  (let [requests (when-not (busy? state [:marks]) (marks-requests state now-ms))]
+    (if (seq requests)
+      [[:effects/vol-range-report :marks {:requests requests}]]
+      [])))
+
+(defn select-vol-range-report-window
+  "Show Since tracking began, 7D or 30D, then fetch the hourly closes that
+  window still needs."
+  ([state window] (select-vol-range-report-window state window (now)))
+  ([state window now-ms]
+   (if-let [w (windows/normalize-window window)]
+     (into [[:effects/save-many [[(conj ui-path :window) w]]]]
+           (marks-effects (assoc-in state (conj ui-path :window) w) now-ms))
+     [])))
+
+(defn set-vol-range-report-covered-subset
+  "Show (or stop showing) the All tracked markets total of the covered
+  markets only."
+  [_state on?]
+  [[:effects/save-many [[(conj ui-path :covered-subset?) (true? on?)]]]])
+
+(defn refresh-vol-range-report-marks
+  "Fetch the hourly closes the selected window still needs, if any."
+  ([state] (refresh-vol-range-report-marks state (now)))
+  ([state now-ms] (marks-effects state now-ms)))

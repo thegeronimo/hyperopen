@@ -6,10 +6,12 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.config :as config]
             [hyperopen.test-support.hiccup :as hiccup]
+            [hyperopen.vol-range.application.report-headline-test :as headline-test]
             [hyperopen.vol-range.application.report-model :as model]
             [hyperopen.vol-range.application.report-model-test :as model-test]
             [hyperopen.views.portfolio.account-tabs :as account-tabs]
-            [hyperopen.views.portfolio.vol-range-report :as view]))
+            [hyperopen.views.portfolio.vol-range-report :as view]
+            [hyperopen.vol-range.report-fixtures :as fx]))
 
 (defn- render [state] (view/vol-range-report (model/report-view-model state model-test/now)))
 (defn- role [node r] (hiccup/find-by-data-role node r))
@@ -30,9 +32,43 @@
     (is (= [[:actions/refresh-vol-range-report]] (on-click node "vol-range-report-refresh")))
     (is (= [[:actions/request-start-vol-range-tracking model-test/k]]
            (on-click node "vol-range-report-start-tracking")))
-    (is (nil? (role node "vol-range-report-headline")) "no headline figures yet")
+    (is (= "Checking fills… Figures appear once every fill in this window is confirmed."
+           (text node "vol-range-report-suppressed"))
+        "fills not yet confirmed through the window end")
+    (is (nil? (role node "vol-range-report-net-pnl")) "no figure while suppressed")
+    (is (= "true" (:aria-pressed (hiccup/node-attrs (role node "vol-range-report-window-since-start")))))
+    (is (= "false" (:aria-pressed (hiccup/node-attrs (role node "vol-range-report-window-7d")))))
+    (is (= [[:actions/select-vol-range-report-window :7d]] (on-click node "vol-range-report-window-7d")))
     (is (= [[:actions/select-vol-range-report-campaign [:event.target/value]]]
            (get-in (hiccup/node-attrs (role node "vol-range-report-market")) [:on :change])))))
+
+(deftest the-headline-renders-its-figures-test
+  (let [node (view/vol-range-report (model/report-view-model (headline-test/state {}) headline-test/now))]
+    (is (= "−1,544.80 USDC" (text node "vol-range-report-net-pnl-value")))
+    (is (= "−1,500.00 USDC" (text node "vol-range-report-hold-pnl-value")))
+    (is (= "−44.80 USDC" (text node "vol-range-report-contribution-value")))
+    (is (= "negative" (:data-tone (hiccup/node-attrs (role node "vol-range-report-net-pnl")))))
+    (is (re-find #"^Net tracked asset P&L" (text node "vol-range-report-net-pnl")))
+    (is (re-find #"^Benchmark: Hold inventory at the selected window start\." (text node "vol-range-report-benchmark")))
+    (is (= "Oct 21, 13:42 UTC → Oct 21, 16:00 UTC · start valued at the book midpoint"
+           (text node "vol-range-report-range")))
+    (is (nil? (role node "vol-range-report-suppressed")))
+    (is (not (re-find #"(?i)\bgrid|equity|%" (hiccup/node-text node))))))
+
+(deftest the-covered-subset-control-test
+  (let [s (headline-test/state {:campaigns [headline-test/vrt-old headline-test/vrs-old]
+                                :rows [fx/buy-7-row headline-test/vrs-sell]
+                                :ui {:window :7d}
+                                :coverage {"9001" headline-test/wide "9002" [[(- fx/t0 (* 9 24 fx/hour)) fx/t0]]}})
+        node (view/vol-range-report (model/report-view-model s headline-test/now))]
+    (is (= "Totals are hidden because VRS isn't fully covered for this window." (text node "vol-range-report-no-total")))
+    (is (= "Show total for covered markets (VRT)" (text node "vol-range-report-covered-subset")))
+    (is (= "false" (:aria-pressed (hiccup/node-attrs (role node "vol-range-report-covered-subset")))))
+    (is (= [[:actions/set-vol-range-report-covered-subset true]] (on-click node "vol-range-report-covered-subset")))
+    (let [on (view/vol-range-report (model/report-view-model
+                                     (assoc-in s [:vol-range :report :ui :covered-subset?] true) headline-test/now))]
+      (is (= "Covered markets: VRT" (text on "vol-range-report-headline-title")))
+      (is (= [[:actions/set-vol-range-report-covered-subset false]] (on-click on "vol-range-report-covered-subset"))))))
 
 (deftest the-first-hourly-close-message-test
   (let [node (view/vol-range-report (model/report-view-model (model-test/state {}) (+ model-test/t0 60000)))]

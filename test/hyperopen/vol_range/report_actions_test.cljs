@@ -71,3 +71,40 @@
       (is (= [] (actions/request-start-vol-range-tracking spectating k)))
       (is (= [] (actions/confirm-start-vol-range-tracking
                  (assoc-in spectating [:vol-range :report :ui :confirm-restart-key] k)))))))
+
+(def ^:private hour 3600000)
+(def ^:private t0 1792590120000)
+(def ^:private h0 (* hour (quot t0 hour)))
+
+(def loaded
+  (assoc-in base [:vol-range :report]
+            {:account-address addr :closures {}
+             :campaigns {"cmp-1" {:campaign-id "cmp-1" :campaign-key k :t0-ms t0 :scope {:coin "@9001"}}}}))
+
+(deftest select-window-fetches-the-closes-it-needs-test
+  (let [now (+ h0 (* 3 hour) 300000)]
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :window] :since-start]]]
+            [:effects/vol-range-report :marks {:requests [{:coin "@9001" :from-ms h0 :to-ms (+ h0 (* 3 hour))}]}]]
+           (actions/select-vol-range-report-window loaded "since-start" now)))
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :window] :7d]]]]
+           (actions/select-vol-range-report-window loaded :7d now))
+        "7D before tracking needs no closes")
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :window] :since-start]]]]
+           (actions/select-vol-range-report-window (busy loaded [:marks]) :since-start now))
+        "one marks read at a time")
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :window] :since-start]]]]
+           (actions/select-vol-range-report-window
+            (assoc-in loaded [:vol-range :report :marks "@9001"] {:closes {} :covered [[h0 (+ h0 (* 3 hour))]]})
+            :since-start now))
+        "nothing missing")
+    (is (= [] (actions/select-vol-range-report-window loaded "1y" now)))
+    (testing "the marks refresh asks for the same"
+      (is (= [[:effects/vol-range-report :marks {:requests [{:coin "@9001" :from-ms h0 :to-ms (+ h0 (* 3 hour))}]}]]
+             (actions/refresh-vol-range-report-marks loaded now)))
+      (is (= [] (actions/refresh-vol-range-report-marks base now)) "nothing before the report is loaded"))))
+
+(deftest covered-subset-test
+  (is (= [[:effects/save-many [[[:vol-range :report :ui :covered-subset?] true]]]]
+         (actions/set-vol-range-report-covered-subset base true)))
+  (is (= [[:effects/save-many [[[:vol-range :report :ui :covered-subset?] false]]]]
+         (actions/set-vol-range-report-covered-subset base false))))

@@ -2,7 +2,8 @@
   "Every user-visible string of the Vol Range Portfolio report (HO-SPEC-014
   v2.1 sections 11.3, 12.6), in one place for the copy review. The report
   says \"tracking\" and \"ladder\"; it never says grid or equity and never
-  shows a percentage return or a cost basis. Pure.")
+  shows a percentage return or a cost basis. Pure."
+  (:require [clojure.string :as str]))
 
 (def tab-label "Vol Range")
 (def all-markets "All tracked markets")
@@ -33,6 +34,52 @@
   (str "Figures appear after the first completed hourly close (" hh-mm " UTC)."))
 
 ;; ---------------------------------------------------------------------------
+;; Windows and headline
+;; ---------------------------------------------------------------------------
+
+(def window-group-label "Report window")
+(def window-labels {:since-start "Since tracking began" :7d "7D" :30d "30D"})
+(def figure-labels
+  {:net-pnl "Net tracked asset P&L" :hold-pnl "Hold P&L" :contribution "Ladder contribution versus hold"})
+(def benchmark-label "Hold inventory at the selected window start")
+(def benchmark-note
+  "Benchmark: Hold inventory at the selected window start. A descriptive comparison, not a claim that every wallet action would still have been possible.")
+(def headline-title-all "All tracked markets")
+(def marks-loading "Loading hourly prices…")
+(def partial-message "Checking fills… Figures appear once every fill in this window is confirmed.")
+(def no-total-different-windows "Totals need the same window for every market. Choose 7D or 30D.")
+
+(defn range-text
+  "\"Oct 21, 14:00 UTC → Oct 28, 14:00 UTC · valued at hourly closes\"."
+  [from to since-start?]
+  (str from " → " to " · " (if since-start? "start valued at the book midpoint" "valued at hourly closes")))
+
+(defn break-message [at reason-text]
+  (str "Dollar figures are hidden from " at ": " reason-text ". Orders, fills and fees are still shown below."))
+
+(defn gap-message [from to]
+  (str "Fills between " from " and " to
+       " couldn't be confirmed, so dollar figures are hidden for windows that include this period."))
+
+(defn before-tracking-message [window-label needed-by began]
+  (str window-label " needs tracking to have started by " needed-by ". Tracking began " began "."))
+
+(defn missing-mark-message [at]
+  (str "No completed hourly price for " at ", so figures for this window are unavailable."))
+
+(defn mark-error-message [at]
+  (str "Couldn't load the hourly price for " at ". Refresh to try again."))
+
+(defn- names-text [names] (str/join ", " names))
+
+(defn no-total-incomplete [names]
+  (str "Totals are hidden because " (names-text names) (if (= 1 (count names)) " isn't" " aren't")
+       " fully covered for this window."))
+
+(defn subset-offer-label [names] (str "Show total for covered markets (" (names-text names) ")"))
+(defn covered-title [names] (str "Covered markets: " (names-text names)))
+
+;; ---------------------------------------------------------------------------
 ;; Coverage
 ;; ---------------------------------------------------------------------------
 
@@ -56,6 +103,11 @@
    :baseline/price-unavailable "no starting price was recorded"
    :storage/unavailable "this browser's fill ledger is unavailable"
    :window/before-tracking "tracking has just begun"})
+
+(defn unavailable-message
+  "A headline that cannot be computed for `reason` (a coverage reason)."
+  [reason]
+  (str "Dollar figures are unavailable: " (get reason-texts reason "not available") "."))
 
 (defn break-text
   "The external activity behind an attribution break. `ctx` names the base
@@ -135,6 +187,7 @@
       :refused (or (some refusal-texts errors) "Tracking didn't restart.")
       :journal-unavailable "Browser storage is unavailable, so tracking didn't restart."
       :storage/unavailable "Couldn't read the fill ledger in this browser."
-      (if (= :start-tracking op)
-        (str "Tracking didn't restart" (when error (str ": " error)) ".")
+      (case op
+        :start-tracking (str "Tracking didn't restart" (when error (str ": " error)) ".")
+        :marks (str "Couldn't load hourly prices: " (or error "unknown error") ".")
         (str "Couldn't load fills: " (or error "unknown error") ".")))))

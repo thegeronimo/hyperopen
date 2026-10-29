@@ -74,9 +74,11 @@
     (is (= {:state :complete :label "Complete" :icon "✓"} (:coverage v)))
     (is (= {:visible? true :confirming? false :busy? false} (:restart row)))
     (is (nil? (:empty-message v)))
-    (testing "no dollar figures yet, and never grid, equity or a percentage"
-      (is (= {:status :unavailable :message nil} (:headline v)))
-      (is (not-any? #(re-find #"(?i)\bgrid|equity|%|P&L" %) (strings v)) (pr-str (strings v))))))
+    (testing "fills not yet confirmed through the window end hide the figures; never grid, equity or a percentage"
+      (is (= {:status :pending :figures nil
+              :message "Checking fills… Figures appear once every fill in this window is confirmed."}
+             (select-keys (:headline v) [:status :figures :message])))
+      (is (not-any? #(re-find #"(?i)\bgrid|equity|%" %) (strings v)) (pr-str (strings v))))))
 
 (deftest coverage-states-test
   (testing "never read: checking"
@@ -120,13 +122,16 @@
       (is (= :unavailable (get-in row [:coverage :state])))
       (is (= "Unavailable: this browser's fill ledger is unavailable." (get-in row [:coverage :detail]))))))
 
+(defn- head [s at] (select-keys (:headline (vm s at)) [:status :message]))
+
 (deftest the-headline-says-when-figures-can-first-appear-test
   (is (= {:status :pending :message "Figures appear after the first completed hourly close (14:00 UTC)."}
-         (:headline (vm (state {}) (+ t0 (* 10 60000))))))
+         (head (state {}) (+ t0 (* 10 60000)))))
   (is (= {:status :pending :message "Figures appear after the first completed hourly close (14:00 UTC)."}
-         (:headline (vm (state {}) (+ t0 (* 18 60000) 30000))))
+         (head (state {}) (+ t0 (* 18 60000) 30000)))
       "14:00:30 is still inside the one-minute settle")
-  (is (= {:status :unavailable :message nil} (:headline (vm (state {}) (+ t0 (* 20 60000))))))
+  (is (= {:status :pending :message "Loading hourly prices…"} (head (state {}) (+ t0 (* 20 60000))))
+      "after the first completed hour, the 14:00 close is read next")
   (is (= :unavailable (get-in (vm (state {:closures {"cmp-vrt" {:ended-at-ms (+ t0 1000)}}}) (+ t0 60000))
                               [:headline :status]))
       "nothing pending without open tracking"))

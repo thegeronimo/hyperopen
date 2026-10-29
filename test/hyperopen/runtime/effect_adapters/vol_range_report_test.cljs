@@ -1,8 +1,9 @@
 (ns hyperopen.runtime.effect-adapters.vol-range-report-test
   "The report adapter's store writes (HO-SPEC-014 v2.1 sections 11.3, 12):
   a load writes the shown account's report (and the trading account's
-  campaigns for the dock), then backfills; a read-only load reads nothing
-  from the venue; a result for an account no longer shown is dropped; Start
+  campaigns for the dock), then backfills and reads the hourly closes the
+  selected window needs; a read-only load reads no account data from the
+  venue; `:marks` merges completed closes and is not announced; a result for an account no longer shown is dropped; Start
   tracking reloads the campaigns it changed. Fakes only: no request reaches
   an exchange and nothing is signed or sent."
   (:require [cljs.test :refer-macros [async deftest is testing]]
@@ -37,6 +38,8 @@
                              "l2Book" {:levels [[{:px "89.99"}] [{:px "90.01"}]]}
                              "userFillsByTime" []
                              "userNonFundingLedgerUpdates" []
+                             "candleSnapshot" (let [{:strs [startTime endTime]} (get body "req")]
+                                                (filterv #(<= startTime (:t %) endTime) fx/candles))
                              nil)))
             :journal {:load-all! (fn [] (js/Promise.resolve {:records (vec (vals @journal)) :unreadable []}))
                       :commit! (fn [records]
@@ -61,6 +64,11 @@
         (.then (fn [_] (f)))
         (.finally (fn [] (set! adapter/report-deps orig))))))
 
+(def ^:private h0 (* fx/hour (quot fx/t0 fx/hour)))
+(def ^:private h1 (+ h0 fx/hour))
+(def ^:private h2 (+ h0 (* 2 fx/hour)))
+(def ^:private h3 (+ h0 (* 3 fx/hour)))
+
 (defn- store-state [] (atom {:wallet {:address account} :spot {:meta fx/spot-meta}}))
 
 (deftest a-load-writes-the-report-then-backfills-test
@@ -79,7 +87,42 @@
                      (is (= ["cmp-vrt"] (keys (get-in @s [:vol-range :campaigns])))
                          "the trading account's campaigns reach the dock too")
                      (is (some #{"userFillsByTime"} @(:calls w)))
-                     (is (some #{"userNonFundingLedgerUpdates"} @(:calls w))))
+                     (is (some #{"userNonFundingLedgerUpdates"} @(:calls w)))
+                     (is (= {h1 "80" h2 "70" h3 "100"} (get-in report [:marks "@9001" :closes]))
+                         "the selected window's hourly closes are read after the backfill"))
+                   (done)))
+          (.catch (fail done))))))
+
+(deftest marks-merge-completed-closes-quietly-test
+  (async done
+    (let [w (world)
+          s (store-state)]
+      (-> (with-deps w #(adapter/vol-range-report nil s :marks {:requests [{:coin "@9001" :from-ms h0
+                                                                             :to-ms (+ h0 (* 4 fx/hour))}]}))
+          (.then (fn [_]
+                   (let [report (get-in @s [:vol-range :report])
+                         entry (get-in report [:marks "@9001"])]
+                     (is (= {h1 "80" h2 "70" h3 "100"} (:closes entry)))
+                     (is (= [[h0 (+ h0 (* 4 fx/hour))]] (:covered entry)) "a complete read proves its hours")
+                     (is (nil? (:error entry)))
+                     (is (number? (:marks-at-ms report)))
+                     (is (= {} (:busy report)))
+                     (is (nil? (:last report)) "a successful marks read is not announced")
+                     (is (= ["candleSnapshot"] @(:calls w)))
+                     (is (nil? (:account-address report)) "marks need no account and load none"))
+                   (done)))
+          (.catch (fail done))))))
+
+(deftest a-failed-marks-read-is-announced-test
+  (async done
+    (let [w (assoc-in (world) [:deps :post-info!] (fn [_ _] (js/Promise.reject (js/Error. "offline"))))
+          s (store-state)]
+      (-> (with-deps w #(adapter/vol-range-report nil s :marks {:requests [{:coin "@9001" :from-ms h0 :to-ms h3}]}))
+          (.then (fn [_]
+                   (let [report (get-in @s [:vol-range :report])]
+                     (is (= "offline" (get-in report [:marks "@9001" :error])))
+                     (is (= [] (get-in report [:marks "@9001" :covered])) "nothing proven")
+                     (is (= {:op :marks :status :error :error "offline"} (select-keys (:last report) [:op :status :error]))))
                    (done)))
           (.catch (fail done))))))
 
@@ -90,7 +133,8 @@
                    :account-context {:spectate-mode {:active? true :address account}}})]
       (-> (with-deps w #(adapter/vol-range-report nil s :load {:account-address account :backfill? false}))
           (.then (fn [_]
-                   (is (= [] @(:calls w)) "no REST read for a spectated account")
+                   (is (every? #{"candleSnapshot"} @(:calls w))
+                       "no account read for a spectated account: only public hourly closes")
                    (is (= ["cmp-vrt"] (keys (get-in @s [:vol-range :report :campaigns]))))
                    (is (nil? (get-in @s [:vol-range :campaigns])) "the dock's campaigns are the trading account's only")
                    (done)))

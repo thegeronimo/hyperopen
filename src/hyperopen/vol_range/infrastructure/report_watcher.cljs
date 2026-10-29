@@ -10,6 +10,10 @@
     dispatches `:actions/refresh-vol-range-report` while the page is visible,
     the trading account has an open tracking campaign, and at least
     `:backfill-interval-ms` passed since that account's last backfill.
+  - On the same tick, while the tab is visible, it dispatches
+    `:actions/refresh-vol-range-report-marks` when the selected window
+    needs hourly closes it does not have (a new completed hour) and no
+    marks read ran in the last `marks-retry-ms`.
   - WebSocket fills reach the ledger through `ledger-ingest`, registered with
     `live-ingress/register-fills-consumer!`.
 
@@ -76,10 +80,29 @@
           (or (not (number? last-at))
               (>= (- now-ms last-at) (:backfill-interval-ms contracts/report-policy)))))))
 
+(def marks-retry-ms
+  "At most one background marks read per minute (a failed read retries)."
+  60000)
+
+(defn marks-due?
+  "True when the visible report's selected window needs hourly closes it
+  does not have and no report read is running or ran recently."
+  [state now-ms]
+  (let [last-at (get-in state [:vol-range :report :marks-at-ms])]
+    (boolean
+     (and (report-actions/report-visible? state)
+          (not (busy? state [:load]))
+          (not (busy? state [:backfill]))
+          (not (busy? state [:marks]))
+          (or (not (number? last-at)) (>= (- now-ms last-at) marks-retry-ms))
+          (seq (report-actions/marks-requests state now-ms))))))
+
 (defn- on-tick [dispatch!]
   (fn [{:keys [store now-ms visible?]}]
-    (when (and visible? (contracts/reporting-enabled?) (backfill-due? @store now-ms))
-      (dispatch! store nil [[:actions/refresh-vol-range-report]]))))
+    (when (and visible? (contracts/reporting-enabled?))
+      (cond
+        (backfill-due? @store now-ms) (dispatch! store nil [[:actions/refresh-vol-range-report]])
+        (marks-due? @store now-ms) (dispatch! store nil [[:actions/refresh-vol-range-report-marks]])))))
 
 (defn- schedule-load! [store dispatch!]
   (when (compare-and-set! load-scheduled? false true)

@@ -55,6 +55,9 @@ export function newWorld() {
     // The account's non-funding ledger updates (`userNonFundingLedgerUpdates`), read by the
     // Vol Range report's backfill.
     ledgerUpdates: [],
+    // coin -> close (decimal string) of every 1h candle the report's hourly marks read
+    // (`candleSnapshot` interval 1h). A coin without an entry has no hourly candles.
+    hourlyCloses: {},
     infoLog: [],
     // Requests that tried to reach a real /exchange endpoint (aborted).
     blockedExchange: [],
@@ -132,9 +135,28 @@ function venueHolds(rows) {
   return { usdc: usdc.toFixed(8), base: base.toFixed(8) };
 }
 
+const HOUR_MS = 3_600_000;
+
+/** Hourly candles opening in [startTime, endTime] for the report's marks (1h `candleSnapshot`). */
+function hourlyCandles(world, req) {
+  const close = world.hourlyCloses?.[req?.coin];
+  if (close == null) return [];
+  const rows = [];
+  for (let t = Math.ceil(req.startTime / HOUR_MS) * HOUR_MS; t <= req.endTime; t += HOUR_MS) {
+    rows.push({ t, T: t + HOUR_MS - 1, s: req.coin, i: "1h", o: close, c: close, h: close, l: close, v: "10", n: 1 });
+  }
+  return rows;
+}
+
 export async function stubInfo(page, world) {
   await page.route(INFO_URL, async (route) => {
     const payload = JSON.parse(route.request().postData() || "{}");
+    if (payload?.type === "candleSnapshot" && payload?.req?.interval === "1h") {
+      world.infoLog.push("candleSnapshot:1h");
+      const body = JSON.stringify(hourlyCandles(world, payload.req));
+      await route.fulfill({ status: 200, contentType: "application/json", body });
+      return;
+    }
     const user = String(payload?.user || "").toLowerCase();
     const forFixture = user === ADDRESS;
     const isBook = payload?.type === "l2Book" && payload?.coin === COIN;

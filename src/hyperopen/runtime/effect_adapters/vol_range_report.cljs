@@ -11,7 +11,12 @@
 
     {:account-address :journal-ok? :storage-ok? :campaigns :closures
      :attribution :ledger :unreadable :loaded-at-ms
-     :backfill-at-ms {account ms} :busy {op-key true} :last {...} :ui {...}}
+     :backfill-at-ms {account ms} :marks {coin entry} :marks-at-ms
+     :busy {op-key true} :last {...} :ui {...}}
+
+  Hourly closes (`report-marks`) are public candle reads at low priority:
+  `:marks` fetches what the selected window still needs, and a load or
+  backfill fetches them after it reloads.
 
   The loaded account's campaigns also refresh `[:vol-range :campaigns]` and
   `[:vol-range :campaign-closures]` when it is the trading account, so the
@@ -27,7 +32,10 @@
             [hyperopen.vol-range.infrastructure.entropy :as entropy]
             [hyperopen.vol-range.infrastructure.journal :as journal]
             [hyperopen.vol-range.infrastructure.ledger-store :as ledger-store]
-            [hyperopen.vol-range.infrastructure.report-executor :as report-executor]))
+            [hyperopen.vol-range.domain.report-marks :as report-marks]
+            [hyperopen.vol-range.infrastructure.report-executor :as report-executor]
+            [hyperopen.vol-range.infrastructure.report-reads :as report-reads]
+            [hyperopen.vol-range.report-actions :as report-actions]))
 
 (def ^:private report-path [:vol-range :report])
 
@@ -76,17 +84,48 @@
         (not storage-ok?) {:status :storage/unavailable :error error}
         :else {:status :ok}))
 
+(defn- fetch-marks!
+  "Read each request's hourly closes and merge them into the report's marks.
+  Resolves to {:status :ok} or {:status :error :error} (some read was
+  incomplete); never rejects."
+  [store deps requests]
+  (swap! store assoc-in (conj report-path :marks-at-ms) (platform/now-ms))
+  (-> (js/Promise.all
+       (into-array
+        (for [{:keys [coin from-ms to-ms]} requests]
+          (.then (report-reads/read-hourly-candles! (:post-info! deps)
+                                                    {:coin coin :from-ms from-ms :to-ms to-ms
+                                                     :now-ms! (:now-ms! deps)})
+                 (fn [read]
+                   (swap! store update-in (into report-path [:marks coin])
+                          report-marks/merge-read read [from-ms to-ms])
+                   read)))))
+      (.then (fn [reads]
+               (if-let [bad (first (remove :complete? (array-seq reads)))]
+                 {:status :error :error (or (:error bad) "Couldn't read hourly prices")}
+                 {:status :ok})))))
+
+(defn- with-marks!
+  "After a load or backfill, fetch the hourly closes the selected window
+  still needs; the operation's own result is kept."
+  [store deps result]
+  (let [requests (report-actions/marks-requests @store ((:now-ms! deps)))]
+    (if (seq requests)
+      (.then (fetch-marks! store deps requests) (fn [_] result))
+      result)))
+
 (defn- backfill! [store deps account]
   (swap! store assoc-in (into report-path [:backfill-at-ms account]) (platform/now-ms))
   (-> (report-executor/backfill! deps {:account-address account})
-      (.then (fn [result] (.then (reload! store deps account) (fn [_] result))))))
+      (.then (fn [result] (.then (reload! store deps account) (fn [_] result))))
+      (.then (fn [result] (with-marks! store deps result)))))
 
 (defn- load! [store deps {:keys [backfill?]} account]
   (.then (reload! store deps account)
          (fn [loaded]
            (if (and backfill? (:journal-ok? loaded) (:storage-ok? loaded) (seq (:campaigns loaded)))
              (backfill! store deps account)
-             (loaded-status loaded)))))
+             (with-marks! store deps (loaded-status loaded))))))
 
 (defn- start-tracking! [store deps {:keys [campaign-key]} account]
   (.then (campaign-executor/start-tracking! deps {:campaign-key campaign-key :account-address account})
@@ -115,13 +154,17 @@
          (fn [state]
            (cond-> (-> state
                        (update-in (conj report-path :busy) dissoc busy-key)
-                       (assoc-in (conj report-path :last)
-                                 (-> (select-keys result [:status :errors :error])
-                                     (assoc :op op :at-ms (platform/now-ms)))))
+                       ;; A successful marks read is not announced; the
+                       ;; headline shows its result.
+                       (cond-> (not (and (= :marks op) (= :ok (:status result))))
+                         (assoc-in (conj report-path :last)
+                                   (-> (select-keys result [:status :errors :error])
+                                       (assoc :op op :at-ms (platform/now-ms))))))
              ;; A load that failed before writing (a timeout) still marks the
              ;; account as loaded, with nothing known, so the watcher does not
              ;; retry it on every change and no other account's data shows.
-             (and (= account (shown-account state))
+             (and (not= :marks op)
+                  (= account (shown-account state))
                   (not= account (get-in state (conj report-path :account-address))))
              (update-in report-path merge {:account-address account :journal-ok? false :storage-ok? false
                                            :campaigns {} :closures {} :attribution nil :ledger nil
@@ -130,8 +173,9 @@
 (defn vol-range-report
   "Effect `[:effects/vol-range-report op params]`. Ops: :load
   {:account-address :backfill?}, :backfill {:account-address},
-  :start-tracking {:campaign-key :account-address}. (:marks and :export
-  arrive in later stages.)"
+  :start-tracking {:campaign-key :account-address}, :marks {:requests
+  [{:coin :from-ms :to-ms}]} (candle opens). (:export arrives in a later
+  stage.)"
   [_ctx store op params]
   (let [account (lower (:account-address params))
         busy-key [op]
@@ -143,12 +187,13 @@
              (.then (fn [_]
                       (cond
                         (not (contracts/reporting-enabled?)) {:status :error :error "Reporting is off."}
-                        (nil? account) {:status :error :error "No account."}
+                        (and (nil? account) (not= :marks op)) {:status :error :error "No account."}
                         :else
                         (case op
                           :load (load! store deps params account)
                           :backfill (backfill! store deps account)
                           :start-tracking (start-tracking! store deps params account)
+                          :marks (fetch-marks! store deps (vec (:requests params)))
                           {:status :error :error (str "Unknown operation " op)}))))))
         (.then (fn [result] (finish! store busy-key op account result)))
         (.catch (fn [e] (finish! store busy-key op account {:status :error :error (error-text e)}))))))

@@ -13,6 +13,9 @@
    [:actions/select-vol-range-report-campaign :select-vol-range-report-campaign]
    [:actions/request-start-vol-range-tracking :request-start-vol-range-tracking]
    [:actions/cancel-start-vol-range-tracking :cancel-start-vol-range-tracking]
-   [:actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking]])
+   [:actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking]
+   [:actions/select-vol-range-report-window :select-vol-range-report-window]
+   [:actions/set-vol-range-report-covered-subset :set-vol-range-report-covered-subset]
+   [:actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks]])
 
 (def effect-order-policy-required-action-ids #{})

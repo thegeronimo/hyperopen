@@ -8,23 +8,28 @@
   campaign: the baseline line, Cost basis unavailable, coverage (state chip,
   how far fills were checked, intervals with typed reasons) and execution
   activity of the tracked fills (fills, volumes, VWAPs, maker/taker, fees by
-  token). Activity is always shown; coverage only explains it. No dollar
-  P&L figures yet: the headline only says when figures can first appear.
+  token). Activity is always shown; coverage only explains it. The headline
+  shows the selected window's three dollar figures (one market, or the All
+  tracked markets total) from `report-windows` and `report-aggregate`, each
+  campaign's coverage evaluated to that window's end, or says why they are
+  hidden (`report-headline`).
 
   Pure; memoized on the report state, spot metadata, account, read-only
   flag and the minute."
   (:require [clojure.string :as str]
             [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.display :as display]
+            [hyperopen.vol-range.application.report-aggregate :as aggregate]
             [hyperopen.vol-range.application.report-attribution :as attribution]
             [hyperopen.vol-range.application.report-copy :as copy]
             [hyperopen.vol-range.application.report-coverage :as coverage]
+            [hyperopen.vol-range.application.report-headline :as headline]
+            [hyperopen.vol-range.application.report-windows :as windows]
             [hyperopen.vol-range.contracts :as contracts]
             [hyperopen.vol-range.domain.report-ledger :as ledger]
             [hyperopen.vol-range.report-actions :as report-actions]))
 
 (def ^:private minute-ms 60000)
-(defn- policy [k] (get contracts/report-policy k))
 
 ;; ---------------------------------------------------------------------------
 ;; Formatting
@@ -51,11 +56,6 @@
 (defn- market-label [c]
   (let [{:keys [symbol quote-symbol coin]} (:scope c)]
     (str (or symbol coin) (when quote-symbol (str "/" quote-symbol)))))
-
-(defn- hour-text [ms]
-  (let [d (js/Date. ms)
-        pad (fn [n] (if (< n 10) (str "0" n) (str n)))]
-    (str (pad (.getUTCHours d)) ":" (pad (.getUTCMinutes d)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Coverage
@@ -127,17 +127,32 @@
                          :p0 (price-text p0)
                          :quote-symbol (or (get-in c [:scope :quote-symbol]) "USDC")})))
 
-(defn- campaign-view
-  [{:keys [report markets now-ms read-only? ui busy-restart?]} c]
-  (let [id (:campaign-id c)
-        ended (get-in report [:closures id :ended-at-ms])
+(defn- campaign-data
+  "What the campaign view and its window figures share: the closure time,
+  the findings (tracked events, breaks, unreadable rows) and the base
+  token's coverage records."
+  [{:keys [report markets]} c]
+  (let [ended (get-in report [:closures (:campaign-id c) :ended-at-ms])
         led (:ledger report)
-        token (some-> (get-in c [:scope :base-token-id]) str)
-        found (attribution/campaign-findings {:campaign c :ended-at-ms ended
-                                              :fills (vals (:fills led)) :updates (vals (:updates led))
-                                              :markets markets :index (:attribution report)
-                                              :unreadable (:unreadable report)})
-        records {:fills (get-in led [:coverage :fills token]) :ledger (get-in led [:coverage :ledger token])}
+        token (some-> (get-in c [:scope :base-token-id]) str)]
+    {:campaign c
+     :ended ended
+     :found (attribution/campaign-findings {:campaign c :ended-at-ms ended
+                                            :fills (vals (:fills led)) :updates (vals (:updates led))
+                                            :markets markets :index (:attribution report)
+                                            :unreadable (:unreadable report)})
+     :records {:fills (get-in led [:coverage :fills token]) :ledger (get-in led [:coverage :ledger token])}}))
+
+(defn- coverage-until [report {:keys [campaign found records]} until]
+  (coverage/campaign-coverage {:campaign campaign :coverage records :breaks (:breaks found)
+                               :balance-checks (get-in report [:ledger :balance-checks]) :until-ms until
+                               :unreadable (:unreadable found)
+                               :storage-ok? (not (false? (:storage-ok? report)))}))
+
+(defn- campaign-view
+  [{:keys [report markets now-ms read-only? ui busy-restart?]} {:keys [campaign ended found records] :as data}]
+  (let [c campaign
+        led (:ledger report)
         through (checked-through records)
         checks (:balance-checks led)
         later-break? (or (some #(>= (:at-ms %) (or through 0))
@@ -145,13 +160,10 @@
                          (some #(>= (:time %) (or through 0)) (:unreadable found)))
         until (cond-> (if (and through (not later-break?)) through now-ms)
                 (number? ended) (min ended))
-        result (coverage/campaign-coverage {:campaign c :coverage records :breaks (:breaks found)
-                                            :balance-checks checks :until-ms until
-                                            :unreadable (:unreadable found)
-                                            :storage-ok? (not (false? (:storage-ok? report)))})
+        result (coverage-until report data until)
         ctx (break-context c led markets (first (:breaks result)))
         open? (nil? ended)]
-    {:campaign-id id
+    {:campaign-id (:campaign-id c)
      :campaign-key (:campaign-key c)
      :market (market-label c)
      :open? open?
@@ -164,22 +176,36 @@
                :confirming? (boolean (and open? (= (:campaign-key c) (:confirm-restart-key ui))))
                :busy? (boolean busy-restart?)}}))
 
-(defn- first-close-ms [t0] (+ (* (policy :hour-ms) (quot t0 (policy :hour-ms))) (policy :hour-ms)))
+;; ---------------------------------------------------------------------------
+;; Headline (open campaigns, selected window)
+;; ---------------------------------------------------------------------------
 
-(defn- window-end [now-ms]
-  (* (policy :hour-ms) (js/Math.floor (/ (- now-ms (policy :mark-settle-ms)) (policy :hour-ms)))))
+(defn- window-item
+  "One open campaign's figures for `window`: coverage to the window end,
+  then `report-windows/campaign-window-figures`."
+  [{:keys [report markets now-ms]} window {:keys [campaign found] :as data}]
+  (let [rng (windows/resolve-window {:window window :campaign campaign :now-ms now-ms})
+        cov (when (= :ok (:status rng)) (coverage-until report data (:b-ms rng)))
+        result (windows/campaign-window-figures
+                {:campaign campaign :range rng :events (:events found) :coverage cov
+                 :coin-marks (get-in report [:marks (get-in campaign [:scope :coin])])})]
+    {:symbol (or (get-in campaign [:scope :symbol]) (get-in campaign [:scope :coin]))
+     :network (get-in campaign [:scope :network])
+     :market (market-label campaign)
+     :campaign campaign
+     :result result
+     :break-ctx (break-context campaign (:ledger report) markets (first (:breaks cov)))}))
 
-(defn- headline-view
-  "Before the first completed hourly close after tracking began, say when
-  figures can first appear; otherwise nothing yet (headline figures are a
-  later stage)."
-  [open-campaigns now-ms]
-  (let [b (window-end now-ms)
-        waiting (filter #(<= b (:t0-ms %)) open-campaigns)]
-    (if (and (seq open-campaigns) (= (count waiting) (count open-campaigns)))
-      {:status :pending
-       :message (copy/first-close-message (hour-text (apply min (map (comp first-close-ms :t0-ms) waiting))))}
-      {:status :unavailable :message nil})))
+(defn- headline [ctx window open-data covered-subset?]
+  (let [items (mapv #(window-item ctx window %) (sort-by #(get-in % [:campaign :campaign-key]) open-data))]
+    (headline/headline-view {:agg (aggregate/aggregate {:window window :items items
+                                                        :covered-subset? covered-subset?})
+                             :items items :window window})))
+
+(defn- window-view [window]
+  {:selected window
+   :options (mapv (fn [id] {:id id :label (get copy/window-labels id) :selected? (= id window)})
+                  windows/window-ids)})
 
 ;; ---------------------------------------------------------------------------
 ;; View model
@@ -224,16 +250,19 @@
                 selected (filter #(= selected (:campaign-key %))))
         ctx {:report report :markets (attribution/spot-markets (get-in state [:spot :meta])) :now-ms now-ms
              :read-only? read-only? :ui ui :busy-restart? (busy? report [:start-tracking])}
-        views (if enabled? (mapv #(campaign-view ctx %) shown) [])
+        data (if enabled? (mapv #(campaign-data ctx %) shown) [])
+        views (mapv #(campaign-view ctx %) data)
+        window (windows/selected-window ui)
         worst (coverage/worst (map #(get-in % [:coverage :state]) views))]
     {:enabled? enabled?
      :read-only? read-only?
      :loading? (boolean (or (busy? report [:load]) (busy? report [:backfill])))
      :account-address account
+     :window (window-view window)
      :markets (markets-view (vals campaigns) selected)
      :coverage (when (seq views) {:state worst :label (get copy/state-labels worst)
                                   :icon (get copy/state-icons worst)})
-     :headline (headline-view (remove #(contains? closures (:campaign-id %)) shown) now-ms)
+     :headline (headline ctx window (remove #(some? (:ended %)) data) (true? (:covered-subset? ui)))
      :campaigns views
      :status-message (copy/status-message (:last report))
      :empty-message (when enabled?

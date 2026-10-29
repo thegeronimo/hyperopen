@@ -31,6 +31,8 @@
 (s/def ::campaign-key ::common/non-empty-string)
 (s/def ::campaign-key-args (s/tuple ::campaign-key))
 (s/def ::report-campaign-args (s/tuple (s/nilable ::campaign-key)))
+(s/def ::report-window-args (s/tuple #{:since-start :7d :30d "since-start" "7d" "30d"}))
+(s/def ::report-covered-subset-args (s/tuple boolean?))
 
 (def vol-range-action-args-spec-by-id
   {:actions/select-scale-mode ::select-scale-mode-args
@@ -73,4 +75,7 @@
    :actions/select-vol-range-report-campaign ::report-campaign-args
    :actions/request-start-vol-range-tracking ::campaign-key-args
    :actions/cancel-start-vol-range-tracking ::common/no-args
-   :actions/confirm-start-vol-range-tracking ::common/no-args})
+   :actions/confirm-start-vol-range-tracking ::common/no-args
+   :actions/select-vol-range-report-window ::report-window-args
+   :actions/set-vol-range-report-covered-subset ::report-covered-subset-args
+   :actions/refresh-vol-range-report-marks ::common/no-args})

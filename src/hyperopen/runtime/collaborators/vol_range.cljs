@@ -52,4 +52,7 @@
    :select-vol-range-report-campaign report-actions/select-vol-range-report-campaign
    :request-start-vol-range-tracking report-actions/request-start-vol-range-tracking
    :cancel-start-vol-range-tracking report-actions/cancel-start-vol-range-tracking
-   :confirm-start-vol-range-tracking report-actions/confirm-start-vol-range-tracking})
+   :confirm-start-vol-range-tracking report-actions/confirm-start-vol-range-tracking
+   :select-vol-range-report-window report-actions/select-vol-range-report-window
+   :set-vol-range-report-covered-subset report-actions/set-vol-range-report-covered-subset
+   :refresh-vol-range-report-marks report-actions/refresh-vol-range-report-marks})

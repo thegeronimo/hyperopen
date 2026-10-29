@@ -288,7 +288,10 @@
    :actions/select-vol-range-report-campaign :select-vol-range-report-campaign
    :actions/request-start-vol-range-tracking :request-start-vol-range-tracking
    :actions/cancel-start-vol-range-tracking :cancel-start-vol-range-tracking
-   :actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking})
+   :actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking
+   :actions/select-vol-range-report-window :select-vol-range-report-window
+   :actions/set-vol-range-report-covered-subset :set-vol-range-report-covered-subset
+   :actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks})
 
 (deftest report-actions-and-effect-are-registered-and-contracted-test
   (let [ids (set (keys report-handlers))]
@@ -307,7 +310,8 @@
         bad! (fn [action-id args] (is (thrown? js/Error (contracts/assert-action-args! action-id args {}))
                                       (pr-str [action-id args])))]
     (doseq [id [:actions/load-vol-range-report :actions/refresh-vol-range-report
-                :actions/cancel-start-vol-range-tracking :actions/confirm-start-vol-range-tracking]]
+                :actions/cancel-start-vol-range-tracking :actions/confirm-start-vol-range-tracking
+                :actions/refresh-vol-range-report-marks]]
       (ok! id [])
       (bad! id ["x"]))
     (ok! :actions/select-vol-range-report-campaign ["k"])
@@ -315,11 +319,22 @@
     (ok! :actions/select-vol-range-report-campaign ["all"])
     (bad! :actions/select-vol-range-report-campaign [""])
     (ok! :actions/request-start-vol-range-tracking ["k"])
-    (bad! :actions/request-start-vol-range-tracking [nil]))
+    (bad! :actions/request-start-vol-range-tracking [nil])
+    (doseq [w [:since-start :7d :30d "since-start" "7d" "30d"]]
+      (ok! :actions/select-vol-range-report-window [w]))
+    (bad! :actions/select-vol-range-report-window [:1y])
+    (bad! :actions/select-vol-range-report-window [])
+    (ok! :actions/set-vol-range-report-covered-subset [true])
+    (ok! :actions/set-vol-range-report-covered-subset [false])
+    (bad! :actions/set-vol-range-report-covered-subset ["yes"]))
   (doseq [op [:load :backfill :start-tracking :marks :export]]
     (is (some? (contracts/assert-effect-args! :effects/vol-range-report [op {}] {})) (str op)))
   (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-report [:place {}] {})))
   (is (some? (contracts/assert-emitted-effects!
               [[:effects/save-many [[[:vol-range :report :ui :confirm-restart-key] nil]]]
                [:effects/vol-range-report :start-tracking {:campaign-key "k" :account-address "0xabc"}]]
-              {:action-id :actions/confirm-start-vol-range-tracking}))))
+              {:action-id :actions/confirm-start-vol-range-tracking})))
+  (is (some? (contracts/assert-emitted-effects!
+              [[:effects/save-many [[[:vol-range :report :ui :window] :7d]]]
+               [:effects/vol-range-report :marks {:requests [{:coin "@9001" :from-ms 0 :to-ms 3600000}]}]]
+              {:action-id :actions/select-vol-range-report-window}))))

@@ -6,13 +6,18 @@
   later stages extend.
 
   VIEW MODEL `view-model-keys`: {:enabled? :read-only? :loading?
-  :account-address :markets :coverage :headline :campaigns :status-message
-  :empty-message}, with `markets-keys` {:selected :options} (+
+  :account-address :window :markets :coverage :headline :campaigns
+  :status-message :empty-message}, with `window-keys` {:selected :options}
+  (+ `window-option-keys`), `markets-keys` {:selected :options} (+
   `market-option-keys`), `summary-coverage-keys` (or nil when no campaign
-  is shown), `headline-keys` {:status :message} and per campaign
+  is shown), `headline-keys` {:status :title :figures :benchmark-label
+  :range-text :message :no-total :subset-offer} (figures, when shown, are
+  {:net-pnl :hold-pnl :contribution} each `figure-keys` {:label :display
+  :tone}; the offer is `subset-offer-keys`) and per campaign
   `campaign-keys` (+ `coverage-keys`, `interval-keys`, `activity-keys`,
   `restart-keys`). Display values are strings, booleans, keywords or
-  millisecond times. The view model carries no dollar P&L figure."
+  millisecond times; dollar figures appear only as display text in the
+  headline."
   (:require [cljs.spec.alpha :as s]))
 
 (defn- exact-keys? [m ks] (and (map? m) (= (set (keys m)) ks)))
@@ -73,12 +78,20 @@
 ;; ---------------------------------------------------------------------------
 
 (def view-model-keys
-  #{:enabled? :read-only? :loading? :account-address :markets :coverage :headline :campaigns
+  #{:enabled? :read-only? :loading? :account-address :window :markets :coverage :headline :campaigns
     :status-message :empty-message})
+(def window-keys #{:selected :options})
+(def window-option-keys #{:id :label :selected?})
+(def window-ids #{:since-start :7d :30d})
 (def markets-keys #{:selected :options})
 (def market-option-keys #{:id :label :selected?})
 (def summary-coverage-keys #{:state :label :icon})
-(def headline-keys #{:status :message})
+(def headline-keys
+  #{:status :title :figures :benchmark-label :range-text :message :no-total :subset-offer})
+(def headline-statuses #{:ok :pending :suppressed :unavailable :no-total})
+(def headline-figure-ids #{:net-pnl :hold-pnl :contribution})
+(def figure-keys #{:label :display :tone})
+(def subset-offer-keys #{:label :active?})
 (def campaign-keys
   #{:campaign-id :campaign-key :market :open? :baseline-text :cost-basis-text :ended-text :coverage :activity
     :restart})
@@ -96,6 +109,31 @@
        (every? #(and (exact-keys? % interval-keys) (string? (:text %)) (contains? coverage-states (:state %)))
                (:intervals c))))
 
+(defn- window-valid? [w]
+  (and (exact-keys? w window-keys)
+       (contains? window-ids (:selected w))
+       (= window-ids (set (map :id (:options w))))
+       (every? #(and (exact-keys? % window-option-keys) (string? (:label %)) (boolean? (:selected? %)))
+               (:options w))))
+
+(defn- figures-valid? [f]
+  (or (nil? f)
+      (and (exact-keys? f headline-figure-ids)
+           (every? #(and (exact-keys? % figure-keys) (string? (:label %)) (string? (:display %))
+                         (contains? #{:positive :negative :neutral} (:tone %)))
+                   (vals f)))))
+
+(defn- headline-valid? [h]
+  (and (exact-keys? h headline-keys)
+       (contains? headline-statuses (:status h))
+       (every? str-or-nil? [(:title h) (:benchmark-label h) (:range-text h) (:message h) (:no-total h)])
+       (figures-valid? (:figures h))
+       (= (= :ok (:status h)) (some? (:figures h)))
+       (or (nil? (:subset-offer h))
+           (and (exact-keys? (:subset-offer h) subset-offer-keys)
+                (string? (get-in h [:subset-offer :label]))
+                (boolean? (get-in h [:subset-offer :active?]))))))
+
 (defn- campaign-valid? [c]
   (and (exact-keys? c campaign-keys)
        (every? string? [(:campaign-id c) (:campaign-key c) (:market c) (:baseline-text c) (:cost-basis-text c)])
@@ -112,12 +150,11 @@
    (and (exact-keys? vm view-model-keys)
         (every? boolean? [(:enabled? vm) (:read-only? vm) (:loading? vm)])
         (str-or-nil? (:account-address vm))
+        (window-valid? (:window vm))
         (exact-keys? (:markets vm) markets-keys)
         (every? #(exact-keys? % market-option-keys) (get-in vm [:markets :options]))
         (or (nil? (:coverage vm)) (exact-keys? (:coverage vm) summary-coverage-keys))
-        (exact-keys? (:headline vm) headline-keys)
-        (contains? #{:pending :unavailable} (get-in vm [:headline :status]))
-        (str-or-nil? (get-in vm [:headline :message]))
+        (headline-valid? (:headline vm))
         (vector? (:campaigns vm))
         (every? campaign-valid? (:campaigns vm))
         (str-or-nil? (:status-message vm))
