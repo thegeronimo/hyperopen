@@ -976,8 +976,10 @@
             [hyperopen.vol-range.application.replace-state-test]
             [hyperopen.vol-range.application.report-aggregate-test]
             [hyperopen.vol-range.application.report-attribution-test]
+            [hyperopen.vol-range.application.report-chart-model-test]
             [hyperopen.vol-range.application.report-coverage-test]
             [hyperopen.vol-range.application.report-headline-test]
+            [hyperopen.vol-range.application.report-matched-test]
             [hyperopen.vol-range.application.report-model-test]
             [hyperopen.vol-range.application.report-windows-test]
             [hyperopen.vol-range.application.snapshots-test]
@@ -989,6 +991,7 @@
             [hyperopen.vol-range.domain.report-intervals-test]
             [hyperopen.vol-range.domain.report-ledger-test]
             [hyperopen.vol-range.domain.report-marks-test]
+            [hyperopen.vol-range.domain.report-matching-test]
             [hyperopen.vol-range.domain.volatility-test]
             [hyperopen.vol-range.execution-actions-test]
             [hyperopen.vol-range.infrastructure.campaign-capture-test]
@@ -2077,8 +2080,10 @@
              'hyperopen.vol-range.application.replace-state-test
              'hyperopen.vol-range.application.report-aggregate-test
              'hyperopen.vol-range.application.report-attribution-test
+             'hyperopen.vol-range.application.report-chart-model-test
              'hyperopen.vol-range.application.report-coverage-test
              'hyperopen.vol-range.application.report-headline-test
+             'hyperopen.vol-range.application.report-matched-test
              'hyperopen.vol-range.application.report-model-test
              'hyperopen.vol-range.application.report-windows-test
              'hyperopen.vol-range.application.snapshots-test
@@ -2090,6 +2095,7 @@
              'hyperopen.vol-range.domain.report-intervals-test
              'hyperopen.vol-range.domain.report-ledger-test
              'hyperopen.vol-range.domain.report-marks-test
+             'hyperopen.vol-range.domain.report-matching-test
              'hyperopen.vol-range.domain.volatility-test
              'hyperopen.vol-range.execution-actions-test
              'hyperopen.vol-range.infrastructure.campaign-capture-test

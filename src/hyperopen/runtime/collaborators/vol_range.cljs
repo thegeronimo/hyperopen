@@ -55,4 +55,5 @@
    :confirm-start-vol-range-tracking report-actions/confirm-start-vol-range-tracking
    :select-vol-range-report-window report-actions/select-vol-range-report-window
    :set-vol-range-report-covered-subset report-actions/set-vol-range-report-covered-subset
-   :refresh-vol-range-report-marks report-actions/refresh-vol-range-report-marks})
+   :refresh-vol-range-report-marks report-actions/refresh-vol-range-report-marks
+   :set-vol-range-report-ui-flag report-actions/set-vol-range-report-ui-flag})

@@ -16,6 +16,7 @@
    [:actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking]
    [:actions/select-vol-range-report-window :select-vol-range-report-window]
    [:actions/set-vol-range-report-covered-subset :set-vol-range-report-covered-subset]
-   [:actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks]])
+   [:actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks]
+   [:actions/set-vol-range-report-ui-flag :set-vol-range-report-ui-flag]])
 
 (def effect-order-policy-required-action-ids #{})

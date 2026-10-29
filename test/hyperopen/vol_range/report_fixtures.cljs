@@ -113,6 +113,11 @@
 (def builder-fee-row (fill-row {:side "B" :px "80" :sz "10" :time (+ t0 hour) :tid 504 :oid 7001
                                 :fee "0.4" :fee-token "USDC" :builder-fee "0.1"}))
 
+;; 13.5 row 5: buy 10 at 80 with a 0.1 base fee, then sell 9.9 at 90.
+(def matched-buy-row (fill-row {:side "B" :px "80" :sz "10" :time (+ t0 hour) :tid 505 :oid 7001
+                                :fee "0.1" :fee-token "VRT"}))
+(def matched-sell-row (fill-row {:side "A" :px "90" :sz "9.9" :time (+ t0 (* 2 hour)) :tid 506 :oid 7002}))
+
 (def manual-row
   "A VRT/USDC trade no ladder owns."
   (fill-row {:side "B" :px "79" :sz "1" :time (+ t0 (* 3 hour)) :tid 601 :oid 8888}))

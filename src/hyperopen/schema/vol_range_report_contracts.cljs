@@ -15,7 +15,8 @@
   {:net-pnl :hold-pnl :contribution} each `figure-keys` {:label :display
   :tone}; the offer is `subset-offer-keys`) and per campaign
   `campaign-keys` (+ `coverage-keys`, `interval-keys`, `activity-keys`,
-  `restart-keys`). Display values are strings, booleans, keywords or
+  `restart-keys`); `:chart` (`chart-keys`, or nil) and `:matched`
+  (`matched-keys`, or nil). Display values are strings, booleans, keywords or
   millisecond times; dollar figures appear only as display text in the
   headline."
   (:require [cljs.spec.alpha :as s]))
@@ -78,8 +79,8 @@
 ;; ---------------------------------------------------------------------------
 
 (def view-model-keys
-  #{:enabled? :read-only? :loading? :account-address :window :markets :coverage :headline :campaigns
-    :status-message :empty-message})
+  #{:enabled? :read-only? :loading? :account-address :window :markets :coverage :headline :chart :matched
+    :campaigns :status-message :empty-message})
 (def window-keys #{:selected :options})
 (def window-option-keys #{:id :label :selected?})
 (def window-ids #{:since-start :7d :30d})
@@ -101,6 +102,17 @@
 (def restart-keys #{:visible? :confirming? :busy?})
 
 (def coverage-states #{:complete :partial :gap :attribution-break :unavailable})
+
+(def chart-keys #{:title :caption :cadence :legend :y-ticks :x-labels :points :series :tooltips :end-text})
+(def chart-legend-keys #{:id :label})
+(def chart-tick-keys #{:value :y-ratio})
+(def chart-point-keys #{:x-ratio :y-ratio})
+(def chart-series-keys #{:id :kind :points})
+(def chart-tooltip-keys #{:time-text :net :hold})
+(def usdc-text-keys #{:display :tone})
+(def matched-keys #{:open? :title :note :markets})
+(def matched-market-keys #{:campaign-id :market :rows :fees-paid})
+(def matched-row-keys #{:id :label :value})
 
 (defn- coverage-valid? [c]
   (and (exact-keys? c coverage-keys)
@@ -145,6 +157,48 @@
        (exact-keys? (:restart c) restart-keys)
        (every? boolean? (vals (:restart c)))))
 
+(defn- ratio? [x] (and (number? x) (js/isFinite x) (<= 0 x 1)))
+(defn- usdc-text-valid? [t]
+  (and (exact-keys? t usdc-text-keys) (string? (:display t)) (contains? #{:positive :negative :neutral} (:tone t))))
+
+(defn- chart-valid?
+  "Nil, or the P&L chart: segment series of :net and :hold points with
+  ratios in [0, 1], one tooltip per hover point."
+  [c]
+  (or (nil? c)
+      (and (exact-keys? c chart-keys)
+           (every? string? [(:title c) (:caption c)])
+           (str-or-nil? (:end-text c))
+           (contains? #{:hourly :daily} (:cadence c))
+           (every? #(and (exact-keys? % chart-legend-keys) (string? (:label %))) (:legend c))
+           (every? #(and (exact-keys? % chart-tick-keys) (string? (:value %)) (ratio? (:y-ratio %))) (:y-ticks c))
+           (every? string? (vals (:x-labels c)))
+           (every? #(and (exact-keys? % chart-point-keys) (ratio? (:x-ratio %)) (ratio? (:y-ratio %))) (:points c))
+           (every? #(and (exact-keys? % chart-series-keys) (contains? #{:net :hold} (:kind %))
+                         (seq (:points %))
+                         (every? (fn [p] (and (ratio? (:x-ratio p)) (ratio? (:y-ratio p)))) (:points %)))
+                   (:series c))
+           (= (count (:points c)) (count (:tooltips c)))
+           (every? #(and (exact-keys? % chart-tooltip-keys) (string? (:time-text %))
+                         (usdc-text-valid? (:net %)) (usdc-text-valid? (:hold %)))
+                   (:tooltips c)))))
+
+(defn- matched-valid?
+  "Nil, or the Gross spread on matched fills disclosure."
+  [m]
+  (or (nil? m)
+      (and (exact-keys? m matched-keys)
+           (boolean? (:open? m))
+           (every? string? [(:title m) (:note m)])
+           (seq (:markets m))
+           (every? (fn [mk]
+                     (and (exact-keys? mk matched-market-keys)
+                          (every? string? [(:campaign-id mk) (:market mk) (:fees-paid mk)])
+                          (every? #(and (exact-keys? % matched-row-keys) (keyword? (:id %)) (string? (:label %))
+                                        (or (nil? (:value %)) (usdc-text-valid? (:value %))))
+                                  (:rows mk))))
+                   (:markets m)))))
+
 (defn view-model-valid? [vm]
   (boolean
    (and (exact-keys? vm view-model-keys)
@@ -155,6 +209,8 @@
         (every? #(exact-keys? % market-option-keys) (get-in vm [:markets :options]))
         (or (nil? (:coverage vm)) (exact-keys? (:coverage vm) summary-coverage-keys))
         (headline-valid? (:headline vm))
+        (chart-valid? (:chart vm))
+        (matched-valid? (:matched vm))
         (vector? (:campaigns vm))
         (every? campaign-valid? (:campaigns vm))
         (str-or-nil? (:status-message vm))

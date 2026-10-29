@@ -80,6 +80,38 @@
 (defn covered-title [names] (str "Covered markets: " (names-text names)))
 
 ;; ---------------------------------------------------------------------------
+;; P&L chart and Gross spread on matched fills
+;; ---------------------------------------------------------------------------
+
+(def chart-title "Cumulative P&L (USDC)")
+(def chart-label "Cumulative Net tracked asset P&L and Hold P&L in USDC")
+(def chart-series-labels {:net "Net tracked asset P&L" :hold "Hold P&L"})
+
+(defn chart-caption
+  "The chart's caption. It never names the axis account value."
+  [cadence]
+  (str "Dollar P&L of the tracked inventory, not your account value. "
+       (if (= :daily cadence) "Daily points at the 00:00 UTC hourly close" "Hourly closes")
+       "; gaps mark missing prices or unconfirmed fills."))
+
+(defn chart-ends-text [at]
+  (str "The lines end at " at ": later fills or prices aren't confirmed."))
+
+(def matched-title "Gross spread on matched fills")
+(def matched-note
+  "Pairs the oldest opposite fills within this window. It isn't a completed cycle or a cost basis and isn't added to the headline.")
+(def matched-gross "Gross matched spread")
+(def matched-unmatched-sells "Sold inventory not reaccumulated")
+(def matched-fee-impact "Fee and rebate impact at the report mark")
+(def matched-total "= Ladder contribution versus hold")
+
+(defn matched-qty-text [qty symbol pairs]
+  (str "Matched quantity " qty " " symbol " in " pairs " matched pair" (when-not (= 1 pairs) "s")))
+
+(defn unmatched-buys-text [p-end] (str "Unmatched buys marked at " p-end))
+(defn fees-paid-text [fees] (str "Fees paid: " fees))
+
+;; ---------------------------------------------------------------------------
 ;; Coverage
 ;; ---------------------------------------------------------------------------
 

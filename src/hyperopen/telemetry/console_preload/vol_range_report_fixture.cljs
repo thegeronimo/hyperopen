@@ -1,6 +1,6 @@
 (ns hyperopen.telemetry.console-preload.vol-range-report-fixture
   "Debug fixture for the Vol Range Portfolio report (HO-SPEC-014 v2.1
-  section 13.5; reporting stage R4). Debug/QA only, loaded by the dev
+  section 13.5; reporting stages R4 and R5). Debug/QA only, loaded by the dev
   console preload: `seedVolRangeFixture({report: \"<scenario>\"})` commits
   SYNTHETIC tracking campaigns, ladders and ledger rows for the fixture
   wallet through the same committed stores the app reads
@@ -15,6 +15,10 @@
     shows −1,544.80 / −1,500.00 / −44.80 for Since tracking began.
   - \"external-transfer\": the same plus a 5 VRT `spotTransfer` out an
     hour after tracking began: an attribution break.
+  - \"matched-fees\" (stage R5): VRT tracking began 3 h ago with q0 = 150
+    at P0 = 80; the ladder bought 10 at 80 paying 0.1 VRT, then sold 9.9 at
+    90. With hourly closes of 100 the matched disclosure shows 99.00 / 2.00
+    / −10.00 / 91.00, equal to the Ladder contribution versus hold.
   - \"two-markets\": VRT and VRS tracking that both began 8 days ago; the
     VRT ladder bought 7 at 76.4 two and a half hours ago; a VRS trade no
     ladder owns breaks VRS three hours ago."
@@ -78,8 +82,8 @@
                       {:cloid cloid-sell :oid "7902" :placement-state :accepted :order-state :resting}]}
        (+ at 400))))
 
-(defn- fill-row [{:keys [coin side px sz time tid oid]}]
-  {:coin coin :px px :sz sz :side side :time time :tid tid :oid oid :crossed false :fee "0" :feeToken "USDC"
+(defn- fill-row [{:keys [coin side px sz time tid oid fee fee-token] :or {fee "0" fee-token "USDC"}}]
+  {:coin coin :px px :sz sz :side side :time time :tid tid :oid oid :crossed false :fee fee :feeToken fee-token
    :hash (str "0xfixture" tid) :dir (if (= "B" side) "Buy" "Sell") :startPosition "150.0" :closedPnl "0.0"})
 
 (defn- fill-record [account row now-ms]
@@ -115,6 +119,18 @@
                                {:markets (attribution/spot-markets spot-meta) :tracked #{"9001"}
                                 :account-address account :row row :now-ms now}))))
 
+(defn- matched-fees [account now]
+  (let [t0 (- now (* 3 hour))
+        sc (scope account "@9001" 9001 "VRT")
+        buy (fill-row {:coin "@9001" :side "B" :px "80" :sz "10" :time (+ t0 (* 30 60000)) :tid 990301 :oid 7901
+                       :fee "0.1" :fee-token "VRT"})
+        sell (fill-row {:coin "@9001" :side "A" :px "90" :sz "9.9" :time (+ t0 (* 60 60000)) :tid 990302 :oid 7902})]
+    {:journal [(campaign-record {:id "cmp-fixture-vrt" :sc sc :t0 t0 :bid "79.99" :ask "80.01"})
+               (jr/grid-record (ladder sc (+ t0 200)) (+ t0 500))]
+     :ledger (into [(fill-record account buy now) (fill-record account sell now)]
+                   (coverage-records account "9001" (- t0 60000) (- now 10000) now))
+     :t0 t0}))
+
 (defn- two-markets [account now]
   (let [t0 (- now (* 8 day))
         vrt (scope account "@9001" 9001 "VRT")
@@ -131,7 +147,8 @@
      :t0 t0}))
 
 (def scenarios
-  {"headline-buy" headline-buy "external-transfer" external-transfer "two-markets" two-markets})
+  {"headline-buy" headline-buy "external-transfer" external-transfer "two-markets" two-markets
+   "matched-fees" matched-fees})
 
 (defn seed-report!
   "Commit `scenario`'s records for `account` at `now-ms` and put the

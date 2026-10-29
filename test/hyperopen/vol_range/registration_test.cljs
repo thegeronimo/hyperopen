@@ -291,7 +291,8 @@
    :actions/confirm-start-vol-range-tracking :confirm-start-vol-range-tracking
    :actions/select-vol-range-report-window :select-vol-range-report-window
    :actions/set-vol-range-report-covered-subset :set-vol-range-report-covered-subset
-   :actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks})
+   :actions/refresh-vol-range-report-marks :refresh-vol-range-report-marks
+   :actions/set-vol-range-report-ui-flag :set-vol-range-report-ui-flag})
 
 (deftest report-actions-and-effect-are-registered-and-contracted-test
   (let [ids (set (keys report-handlers))]
@@ -326,7 +327,11 @@
     (bad! :actions/select-vol-range-report-window [])
     (ok! :actions/set-vol-range-report-covered-subset [true])
     (ok! :actions/set-vol-range-report-covered-subset [false])
-    (bad! :actions/set-vol-range-report-covered-subset ["yes"]))
+    (bad! :actions/set-vol-range-report-covered-subset ["yes"])
+    (ok! :actions/set-vol-range-report-ui-flag [:matched-open? true])
+    (ok! :actions/set-vol-range-report-ui-flag [:matched-open? false])
+    (bad! :actions/set-vol-range-report-ui-flag [:window true])
+    (bad! :actions/set-vol-range-report-ui-flag [:matched-open?]))
   (doseq [op [:load :backfill :start-tracking :marks :export]]
     (is (some? (contracts/assert-effect-args! :effects/vol-range-report [op {}] {})) (str op)))
   (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-report [:place {}] {})))

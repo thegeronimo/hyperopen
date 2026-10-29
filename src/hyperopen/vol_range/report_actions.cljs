@@ -2,7 +2,8 @@
   "Vol Range report action handlers (HO-SPEC-014 v2.1 sections 11.3, 12.6,
   15.2): load the Portfolio report, refresh it with a REST backfill, choose
   the market, the window (Since tracking began, 7D, 30D) and the covered
-  subset of All tracked markets, and start new tracking from now behind an
+  subset of All tracked markets, open the Gross spread on matched fills
+  disclosure, and start new tracking from now behind an
   inline confirmation.
 
   Pure: each handler returns effects, at most one
@@ -151,3 +152,15 @@
   "Fetch the hourly closes the selected window still needs, if any."
   ([state] (refresh-vol-range-report-marks state (now)))
   ([state now-ms] (marks-effects state now-ms)))
+
+(def report-ui-flags
+  "Report UI flags a view may set: the Gross spread on matched fills
+  disclosure."
+  #{:matched-open?})
+
+(defn set-vol-range-report-ui-flag
+  "Open or close a report disclosure."
+  [_state flag on?]
+  (if (contains? report-ui-flags flag)
+    [[:effects/save-many [[(conj ui-path flag) (true? on?)]]]]
+    []))

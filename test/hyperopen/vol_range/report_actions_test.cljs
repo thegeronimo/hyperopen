@@ -108,3 +108,11 @@
          (actions/set-vol-range-report-covered-subset base true)))
   (is (= [[:effects/save-many [[[:vol-range :report :ui :covered-subset?] false]]]]
          (actions/set-vol-range-report-covered-subset base false))))
+
+(deftest ui-flag-test
+  (testing "the matched disclosure opens and closes"
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :matched-open?] true]]]]
+           (actions/set-vol-range-report-ui-flag base :matched-open? true)))
+    (is (= [[:effects/save-many [[[:vol-range :report :ui :matched-open?] false]]]]
+           (actions/set-vol-range-report-ui-flag base :matched-open? false))))
+  (is (= [] (actions/set-vol-range-report-ui-flag base :window true)) "only known flags"))

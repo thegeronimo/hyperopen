@@ -12,7 +12,9 @@
   shows the selected window's three dollar figures (one market, or the All
   tracked markets total) from `report-windows` and `report-aggregate`, each
   campaign's coverage evaluated to that window's end, or says why they are
-  hidden (`report-headline`).
+  hidden (`report-headline`), the cumulative P&L chart of the same window
+  (`report-chart-model`) and the Gross spread on matched fills disclosure
+  (`report-matched`) for the markets the headline describes.
 
   Pure; memoized on the report state, spot metadata, account, read-only
   flag and the minute."
@@ -21,9 +23,11 @@
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.report-aggregate :as aggregate]
             [hyperopen.vol-range.application.report-attribution :as attribution]
+            [hyperopen.vol-range.application.report-chart-model :as chart]
             [hyperopen.vol-range.application.report-copy :as copy]
             [hyperopen.vol-range.application.report-coverage :as coverage]
             [hyperopen.vol-range.application.report-headline :as headline]
+            [hyperopen.vol-range.application.report-matched :as matched]
             [hyperopen.vol-range.application.report-windows :as windows]
             [hyperopen.vol-range.contracts :as contracts]
             [hyperopen.vol-range.domain.report-ledger :as ledger]
@@ -194,13 +198,29 @@
      :market (market-label campaign)
      :campaign campaign
      :result result
+     :events (:events found)
+     :coverage cov
+     :coin-marks (get-in report [:marks (get-in campaign [:scope :coin])])
      :break-ctx (break-context campaign (:ledger report) markets (first (:breaks cov)))}))
 
-(defn- headline [ctx window open-data covered-subset?]
-  (let [items (mapv #(window-item ctx window %) (sort-by #(get-in % [:campaign :campaign-key]) open-data))]
-    (headline/headline-view {:agg (aggregate/aggregate {:window window :items items
-                                                        :covered-subset? covered-subset?})
-                             :items items :window window})))
+(defn- shown-items
+  "The items the chart and the matched disclosure describe: the one market
+  shown, or the markets an All tracked markets total includes."
+  [{:keys [scope status included]} items]
+  (case scope
+    :single items
+    :all (if (= :ok status) (filterv #(some #{(:symbol %)} included) items) [])
+    []))
+
+(defn- window-section
+  "The headline, chart and matched disclosure of the selected window."
+  [ctx window open-data {:keys [covered-subset? matched-open?]}]
+  (let [items (mapv #(window-item ctx window %) (sort-by #(get-in % [:campaign :campaign-key]) open-data))
+        agg (aggregate/aggregate {:window window :items items :covered-subset? covered-subset?})
+        shown (shown-items agg items)]
+    {:headline (headline/headline-view {:agg agg :items items :window window})
+     :chart (chart/chart-view {:items shown})
+     :matched (matched/matched-view {:items shown :open? matched-open?})}))
 
 (defn- window-view [window]
   {:selected window
@@ -253,6 +273,8 @@
         data (if enabled? (mapv #(campaign-data ctx %) shown) [])
         views (mapv #(campaign-view ctx %) data)
         window (windows/selected-window ui)
+        section (window-section ctx window (remove #(some? (:ended %)) data)
+                                {:covered-subset? (true? (:covered-subset? ui)) :matched-open? (true? (:matched-open? ui))})
         worst (coverage/worst (map #(get-in % [:coverage :state]) views))]
     {:enabled? enabled?
      :read-only? read-only?
@@ -262,7 +284,9 @@
      :markets (markets-view (vals campaigns) selected)
      :coverage (when (seq views) {:state worst :label (get copy/state-labels worst)
                                   :icon (get copy/state-icons worst)})
-     :headline (headline ctx window (remove #(some? (:ended %)) data) (true? (:covered-subset? ui)))
+     :headline (:headline section)
+     :chart (:chart section)
+     :matched (:matched section)
      :campaigns views
      :status-message (copy/status-message (:last report))
      :empty-message (when enabled?

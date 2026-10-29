@@ -282,3 +282,79 @@ test("All tracked markets totals only covered markets on request @regression", a
   expect(exchange).toEqual([]);
   expect(world.blockedExchange).toEqual([]);
 });
+
+// ---------------------------------------------------------------------------
+// Stage R5: the cumulative P&L chart and Gross spread on matched fills
+// ---------------------------------------------------------------------------
+
+test("the P&L chart and the matched-fill spread reconcile to the contribution @regression", async ({ page }) => {
+  const exchange = trackExchange(page);
+  const world = newWorld();
+  world.totals.base = "150"; // 150 + 10 − 0.1 − 9.9
+  world.hourlyCloses = { [COIN]: "100" };
+  await openSeededReport(page, world, "matched-fees");
+
+  await expect(role(page, "vol-range-report-contribution-value")).toHaveText("+91.00 USDC", { timeout: 20_000 });
+  await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("+3,091.00 USDC");
+
+  // The chart: shared d3 host, axis title, both series drawn, never called equity.
+  const chart = role(page, "vol-range-report-chart");
+  await expect(chart).toBeVisible();
+  await expect(role(page, "vol-range-report-chart-axis-title")).toHaveText("Cumulative P&L (USDC)");
+  await expect(role(page, "vol-range-report-chart-caption")).toContainText("not your account value");
+  await expect(role(page, "vol-range-report-chart-legend-net")).toHaveText("Net tracked asset P&L");
+  await expect(role(page, "vol-range-report-chart-legend-hold")).toHaveText("Hold P&L");
+  const net = chart.locator('[data-role="vol-range-report-chart-path-net-0"]');
+  const hold = chart.locator('[data-role="vol-range-report-chart-path-hold-0"]');
+  await expect(net).toHaveAttribute("d", /^M/);
+  await expect(hold).toHaveAttribute("d", /^M/);
+  expect(await chart.innerText()).not.toMatch(/equity/i);
+  expect(await chart.innerHTML()).not.toMatch(/equity/i);
+
+  // Hovering shows the checkpoint's two values.
+  const plot = role(page, "vol-range-report-chart-plot-area");
+  await plot.scrollIntoViewIfNeeded();
+  const box = await plot.boundingBox();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  const tooltip = role(page, "vol-range-report-chart-hover-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("+3,091.00 USDC");
+  await expect(tooltip).toContainText("Hold P&L");
+  await page.mouse.move(0, 0);
+
+  // Gross spread on matched fills: collapsed, then 99 / 2 / −10 / 91.
+  const matched = role(page, "vol-range-report-matched");
+  await expect(matched).toHaveJSProperty("open", false);
+  await role(page, "vol-range-report-matched-summary").click();
+  await expect(matched).toHaveJSProperty("open", true);
+  await expect(role(page, "vol-range-report-matched-matched-qty")).toHaveText(
+    "Matched quantity 9.9 VRT in 1 matched pair"
+  );
+  await expect(role(page, "vol-range-report-matched-gross-value")).toHaveText("+99.00 USDC");
+  await expect(role(page, "vol-range-report-matched-unmatched-buys")).toContainText("Unmatched buys marked at 100.00");
+  await expect(role(page, "vol-range-report-matched-unmatched-buys-value")).toHaveText("+2.00 USDC");
+  await expect(role(page, "vol-range-report-matched-unmatched-sells")).toContainText("Sold inventory not reaccumulated");
+  await expect(role(page, "vol-range-report-matched-fee-impact-value")).toHaveText("−10.00 USDC");
+  await expect(role(page, "vol-range-report-matched-total-value")).toHaveText("+91.00 USDC");
+  await expect(role(page, "vol-range-report-matched-fees-paid")).toHaveText("Fees paid: 0 USDC · 0.1 VRT");
+  await role(page, "vol-range-report-matched-summary").click();
+  await expect(matched).toHaveJSProperty("open", false);
+
+  // A window change re-renders the chart: 7D has none (before tracking), back again redraws it.
+  await role(page, "vol-range-report-window-7d").click();
+  await expect(chart).toHaveCount(0);
+  await expect(matched).toHaveCount(0);
+  await role(page, "vol-range-report-window-since-start").click();
+  await expect(net).toHaveAttribute("d", /^M/);
+  await expect(page.locator('[data-role="vol-range-report-chart-svg"]')).toHaveCount(1);
+
+  for (const size of [{ width: 375, height: 812 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(size);
+    await expect(chart).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  }
+  const text = await report(page).innerText();
+  expect(text).not.toMatch(/\bgrid\b|equity|%/i);
+  expect(exchange).toEqual([]);
+  expect(world.blockedExchange).toEqual([]);
+});
