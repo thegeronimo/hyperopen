@@ -442,7 +442,7 @@
         max-drawdown-pct (vm-summary/max-drawdown-ratio summary-entry)
         perps-equity (vm-equity/perp-account-equity state metrics)
         spot-equity (vm-equity/spot-account-equity metrics)
-        vault-equity-value (vm-equity/vault-equity state summary-entry)
+        vault-equity-value (vm-equity/vault-equity state)
         staking-hype (vm-equity/verified-staking-account-hype state)
         staking-unstaking-hype (vm-equity/verified-staking-unstaking-hype state)
         staking-usd (vm-equity/staking-value-usd state staking-hype)

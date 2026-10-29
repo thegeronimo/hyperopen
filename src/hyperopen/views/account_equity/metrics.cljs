@@ -9,6 +9,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.borrow-lend.account :as bl-account]
+            [hyperopen.vaults.application.user-equity :as user-equity]
             [hyperopen.views.account-equity.format :refer [parse-num pnl-display safe-div]]
             [hyperopen.views.account-equity.pricing :as pricing
              :refer [aggregate-clearinghouse-usd balance-rows-by-token
@@ -60,23 +61,6 @@
 
     :else
     nil))
-
-(defn- current-vault-equity
-  [state]
-  (let [effective-address (account-context/effective-account-address state)
-        rows (get-in state [:vaults :user-equities])
-        source-address (get-in state [:vaults :user-equities-for-address])
-        error-address (get-in state [:vaults :user-equities-error-for-address])]
-    (when (and effective-address
-               (= effective-address source-address)
-               (not= effective-address error-address)
-               (vector? rows))
-      (let [equities (mapv (fn [row]
-                             (when (map? row)
-                               (parse-finite-number (:equity-raw row))))
-                           rows)]
-        (when (every? some? equities)
-          (reduce + 0 equities))))))
 
 (def ^:private hyperevm-funds-summary-key
   :account-equity/hyperevm-funds)
@@ -184,7 +168,7 @@
                                 (derive-account-value-display portfolio-value spot-equity perps-value)
                                 (sum-when-present [spot-equity-from-rows perps-value]))
         vault-equity (when-not unified?
-                       (current-vault-equity state))
+                       (user-equity/current-vault-equity state))
         hyperevm-equity (when-not unified?
                           (current-hyperevm-equity state hyperevm-funds-summary))
         ;; Supplied funds leave the spot balance (and a borrow lands in it),

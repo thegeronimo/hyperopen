@@ -45,7 +45,7 @@
 (deftest user-equity-poller-skips-hidden-inactive-unaddressed-and-inflight-ticks-test
   (doseq [[label state visible?]
           [["hidden document" (active-trade-state account-a) false]
-           ["non-trade route" (assoc-in (active-trade-state account-a) [:router :path] "/vaults") true]
+           ["route without an equity total" (assoc-in (active-trade-state account-a) [:router :path] "/vaults") true]
            ["no effective account" (assoc (active-trade-state account-a) :wallet {:address nil}) true]
            ["same account already loading"
             (assoc-in (active-trade-state account-a)
@@ -109,30 +109,29 @@
     ((first @ticks))
     (is (empty? @calls))))
 
-(deftest user-equity-poller-does-not-install-for-unified-accounts-test
-  (let [ticks (atom [])
-        store (atom (assoc-in (active-trade-state account-a) [:account :mode] :unified))]
-    (poller/install-user-equity-poller!
-     {:store store
-      :address account-a
-      :fetch-user-vault-equities! (fn [& _] (js/Promise.resolve nil))
-      :set-interval-fn (fn [tick _interval-ms] (swap! ticks conj tick) :timer)
-      :clear-interval-fn (fn [_] nil)})
-    (is (empty? @ticks))))
-
-(deftest user-equity-poller-stops-fetching-when-the-current-account-becomes-unified-test
-  (let [ticks (atom [])
-        calls (atom [])
-        store (atom (active-trade-state account-a))]
-    (poller/install-user-equity-poller!
-     {:store store
-      :address account-a
-      :fetch-user-vault-equities! (fn [& args]
-                                    (swap! calls conj args)
-                                    (js/Promise.resolve nil))
-      :visible?-fn (constantly true)
-      :set-interval-fn (fn [tick _interval-ms] (swap! ticks conj tick) :timer)
-      :clear-interval-fn (fn [_] nil)})
-    (swap! store assoc-in [:account :mode] :unified)
-    ((first @ticks))
-    (is (empty? @calls))))
+(deftest user-equity-poller-refreshes-portfolio-routes-and-unified-accounts-test
+  ;; The Portfolio total counts vault equity for every account mode, so the
+  ;; refresh runs there too and is no longer skipped for unified accounts.
+  (doseq [[label state]
+          [["portfolio route" (assoc-in (active-trade-state account-a) [:router :path] "/portfolio")]
+           ["unified account on /trade" (assoc-in (active-trade-state account-a) [:account :mode] :unified)]
+           ["unified account on /portfolio"
+            (-> (active-trade-state account-a)
+                (assoc-in [:router :path] "/portfolio")
+                (assoc-in [:account :mode] :unified))]]]
+    (let [ticks (atom [])
+          calls (atom [])
+          store (atom state)]
+      (poller/install-user-equity-poller!
+       {:store store
+        :address account-a
+        :fetch-user-vault-equities! (fn [& args]
+                                      (swap! calls conj args)
+                                      (js/Promise.resolve nil))
+        :visible?-fn (constantly true)
+        :set-interval-fn (fn [tick _interval-ms] (swap! ticks conj tick) :timer)
+        :clear-interval-fn (fn [_] nil)})
+      (is (= 1 (count @ticks)) label)
+      ((first @ticks))
+      (is (= [[store account-a {:priority :low}]] @calls) label)
+      (poller/stop-user-equity-poller!))))

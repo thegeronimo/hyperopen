@@ -280,8 +280,9 @@
     (is (not= (model same-again) (model spent)) "a balance change shows")))
 
 (deftest the-portfolio-page-renders-the-strip-above-the-summary-test
-  (let [page-state (merge portfolio-support/sample-state
-                          (select-keys state [:wallet :spot :webdata2 :asset-selector :hyperevm :router]))
+  (let [page-state (-> (merge portfolio-support/sample-state
+                              (select-keys state [:wallet :spot :webdata2 :asset-selector :hyperevm :router]))
+                       (portfolio-support/with-vault-equities []))
         page (portfolio-view/portfolio-view page-state)
         children (vec (hiccup/node-children page))
         position-of (fn [role]
