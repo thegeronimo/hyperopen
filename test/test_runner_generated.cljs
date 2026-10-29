@@ -952,6 +952,7 @@
             [hyperopen.views.workbench-render-seams-test]
             [hyperopen.vol-range.a0-boundary-test]
             [hyperopen.vol-range.actions-test]
+            [hyperopen.vol-range.application.campaign-test]
             [hyperopen.vol-range.application.dock-model-test]
             [hyperopen.vol-range.application.draft-scope-test]
             [hyperopen.vol-range.application.fill-records-test]
@@ -978,6 +979,7 @@
             [hyperopen.vol-range.domain.grid-test]
             [hyperopen.vol-range.domain.volatility-test]
             [hyperopen.vol-range.execution-actions-test]
+            [hyperopen.vol-range.infrastructure.campaign-capture-test]
             [hyperopen.vol-range.infrastructure.execution-gate-test]
             [hyperopen.vol-range.infrastructure.execution-watcher-test]
             [hyperopen.vol-range.infrastructure.fills-window-test]
@@ -2031,6 +2033,7 @@
              'hyperopen.views.workbench-render-seams-test
              'hyperopen.vol-range.a0-boundary-test
              'hyperopen.vol-range.actions-test
+             'hyperopen.vol-range.application.campaign-test
              'hyperopen.vol-range.application.dock-model-test
              'hyperopen.vol-range.application.draft-scope-test
              'hyperopen.vol-range.application.fill-records-test
@@ -2057,6 +2060,7 @@
              'hyperopen.vol-range.domain.grid-test
              'hyperopen.vol-range.domain.volatility-test
              'hyperopen.vol-range.execution-actions-test
+             'hyperopen.vol-range.infrastructure.campaign-capture-test
              'hyperopen.vol-range.infrastructure.execution-gate-test
              'hyperopen.vol-range.infrastructure.execution-watcher-test
              'hyperopen.vol-range.infrastructure.fills-window-test

@@ -110,7 +110,12 @@
         "an update starting or changing phase")
     (is (not= (account-slice base)
               (account-slice (assoc-in base [:vol-range :repair] {:grid-id "g1" :status :loading})))
-        "a repair review opening")))
+        "a repair review opening")
+    (is (not= (account-slice base)
+              (account-slice (assoc-in base [:vol-range :campaigns] {"cmp-1" {:campaign-id "cmp-1" :t0-ms 1}})))
+        "tracking campaigns loading (the dock's tracking line)")
+    (is (not= (account-slice base)
+              (account-slice (assoc-in base [:vol-range :campaign-closures] {"cmp-1" {:ended-at-ms 2}}))))))
 
 (deftest the-order-form-carries-the-ladder-under-update-test
   (let [base (-> (with-execution (state))

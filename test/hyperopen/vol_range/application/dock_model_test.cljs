@@ -231,3 +231,24 @@
     (is (re-find #"Nothing was sent: guard/book-stale|book-stale"
                  (msg {:op :place :status :not-placed :delivery :not-sent :errors [:guard/book-stale]}))
         "other refusals keep their texts")))
+
+(def ^:private spot-scope (assoc scope :market-type :spot :spot-pair-index 1 :base-token-id "9001"))
+
+(defn- tracked-campaign [t0]
+  {:schema-version 1 :record-id "campaign:cmp-1" :kind :campaign :campaign-id "cmp-1"
+   :campaign-key "hyperliquid-mainnet|0xabc|spot|9001|1" :t0-ms t0 :saved-at-ms t0})
+
+(deftest rows-carry-the-tracking-line-test
+  ;; Spec 12.1: when the market's tracking began; no figures in the dock.
+  (let [t0 1761054120000 ; 2025-10-21 13:42 UTC
+        g (-> (placed #{}) (assoc :scope spot-scope :created-at-ms (+ t0 500)))
+        state {:vol-range {:campaigns {"cmp-1" (tracked-campaign t0)}}}]
+    (is (= {:text "Tracking since Oct 21, 13:42 UTC"} (:tracking (dm/grid-row state g))))
+    (is (= {:text "Not tracked"} (:tracking (dm/grid-row state (assoc g :recovered? true))))
+        "recovered orders are never tracked")
+    (is (= {:text "Not tracked"} (:tracking (dm/grid-row {} g))) "no campaign loaded")
+    (is (= {:text "Not tracked"} (:tracking (dm/grid-row state (assoc g :created-at-ms (- t0 1)))))
+        "a ladder placed before tracking began")
+    (is (= {:text "Not tracked"}
+           (:tracking (dm/grid-row state (assoc-in g [:scope :spot-pair-index] 2))))
+        "another market's campaign")))

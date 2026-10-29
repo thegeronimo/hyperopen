@@ -186,6 +186,8 @@
      [:p {:class ["text-xs" "text-ho-warn"] :data-role "vol-ladder-partial"} partial-message])
    (filled-block row)
    (model-block row)
+   (when-let [t (get-in row [:tracking :text])]
+     [:p {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-ladder-tracking"} t])
    (when-let [lineage (:lineage row)]
      [:p {:class ["text-xs" "text-ho-text-secondary"] :data-role "vol-ladder-lineage"} lineage])
    (row-actions row)
@@ -227,14 +229,16 @@
 
 (defn view-state
   "The slice the trade account panel needs to build the tab: the execution
-  root, the open repair review, the update in progress and the ticket's
-  scope key (only computed while a ladder exists), so the dock repaints when
-  any of them changes."
+  root, the open repair review, the update in progress, the tracking
+  campaigns and their closures, and the ticket's scope key (only computed
+  while a ladder exists), so the dock repaints when any of them changes."
   [state]
   (let [execution (get-in state [:vol-range :execution])]
     {:vol-range {:execution execution
                  :repair (get-in state [:vol-range :repair])
-                 :replace (get-in state [:vol-range :replace])}
+                 :replace (get-in state [:vol-range :replace])
+                 :campaigns (get-in state [:vol-range :campaigns])
+                 :campaign-closures (get-in state [:vol-range :campaign-closures])}
      :vol-range-dock {:current-scope-key (when (seq (:grids execution))
                                            (draft-scope/current-scope-key state))}}))
 

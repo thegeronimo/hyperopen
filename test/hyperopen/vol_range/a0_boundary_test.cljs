@@ -191,7 +191,8 @@
     "src/hyperopen/vol_range/repair_actions.cljs"
     "src/hyperopen/vol_range/replace_actions.cljs"
     "src/hyperopen/vol_range/infrastructure/execution_gate.cljs"
-    "src/hyperopen/vol_range/infrastructure/execution_watcher.cljs"})
+    "src/hyperopen/vol_range/infrastructure/execution_watcher.cljs"
+    "src/hyperopen/vol_range/application/campaign.cljs"})
 
 (def ^:private execution-foundation-namespaces
   ["hyperopen.vol-range.infrastructure.journal" "hyperopen.vol-range.infrastructure.entropy"
@@ -203,6 +204,7 @@
    "hyperopen.vol-range.infrastructure.live-ingress"
    "hyperopen.vol-range.application.fill-records"
    "hyperopen.vol-range.application.replace-flow"
+   "hyperopen.vol-range.application.campaign"
    "hyperopen.api.trading.delivery" "hyperopen.api.trading.nonce-coordinator"
    "hyperopen.api.trading.action-coordinator"])
 

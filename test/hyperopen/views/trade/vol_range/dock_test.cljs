@@ -244,7 +244,24 @@
     (is (not= v (dock/view-state (assoc-in s [:vol-range :repair :status] :ready)))
         "the dock repaints when the review changes")
     (is (nil? (get-in (dock/view-state {:vol-range {:execution {:enabled? true}}}) [:vol-range-dock :current-scope-key]))
-        "no scope work without a ladder")))
+        "no scope work without a ladder")
+    (is (not= v (dock/view-state (assoc-in s [:vol-range :campaigns] {"cmp-1" {:campaign-id "cmp-1"}})))
+        "the tracking line repaints when campaigns load")
+    (is (not= v (dock/view-state (assoc-in s [:vol-range :campaign-closures] {"cmp-1" {:campaign-id "cmp-1"}}))))))
+
+(deftest tracking-line-test
+  (let [t0 1761054120000
+        g (-> (response (sent-grid) #{})
+              (assoc :created-at-ms (+ t0 500))
+              (update :scope assoc :market-type :spot :spot-pair-index 1 :base-token-id "9001"))
+        campaign {:campaign-id "cmp-1" :t0-ms t0
+                  :campaign-key (str "hyperliquid-mainnet|" addr "|spot|9001|1")}
+        tracked (assoc-in (state-with [g]) [:vol-range :campaigns] {"cmp-1" campaign})
+        line (fn [state] (text (hiccup/find-by-data-role (panel state) "vol-ladder-tracking")))]
+    (is (= "Tracking since Oct 21, 13:42 UTC" (line tracked)))
+    (is (= "Not tracked" (line (state-with [g]))))
+    (is (= "Not tracked" (line (assoc-in tracked [:vol-range :execution :grids "g1" :recovered?] true))))
+    (is (not (re-find #"P&L|grid" (line tracked))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Update (spec 10.2, 11.2)

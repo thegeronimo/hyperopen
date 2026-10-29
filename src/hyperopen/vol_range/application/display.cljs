@@ -89,6 +89,13 @@
     (let [d (js/Date. ms)]
       (str (nth month-names (.getUTCMonth d)) " " (.getUTCDate d)))))
 
+(defn utc-date-minute
+  "\"Oct 21, 13:42 UTC\" for an epoch-millisecond value."
+  [ms]
+  (when (number? ms)
+    (let [d (js/Date. ms)]
+      (str (utc-date ms) ", " (pad2 (.getUTCHours d)) ":" (pad2 (.getUTCMinutes d)) " UTC"))))
+
 (defn short-address
   "\"0x1234…abcd\" for a long address; other text unchanged."
   [address]

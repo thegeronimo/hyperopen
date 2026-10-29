@@ -31,7 +31,7 @@ Local scratch refs (non-authoritative):
 ## Progress
 
 - [x] (2026-10-28) Read spec sections 7, 9, 11-13 and the current journal, lifecycle, executor, reads, dock, watcher, effect-adapter, IndexedDB, Portfolio tab, download and registration seams; wrote this plan.
-- [ ] Stage R1: campaign records and baseline capture at the first admitted placement; dock "Tracking since" line.
+- [x] (2026-10-29) Stage R1: campaign records and baseline capture at the first admitted placement; dock "Tracking since" line.
 - [ ] Stage R2: ledger store, same-base classification, REST backfill readers, coverage intervals, balance checks (pure and infrastructure, no UI).
 - [ ] Stage R3: reporting flag, effect, actions, watcher, Start tracking, WebSocket ledger tap, Portfolio Vol Range tab with baseline, coverage and execution activity (no dollar figures yet).
 - [ ] Stage R4: hourly marks, report windows, headline equations, cross-asset aggregation and suppression UI.
@@ -51,6 +51,9 @@ Local scratch refs (non-authoritative):
 - Observation: Portfolio tabs are composed in `views/portfolio/account_tabs.cljs` (`:extra-tabs`); the allowlist and aliases live in `portfolio/actions.cljs`, which is at 856 of its 861-line ceiling. `?tab=<id>` is already a shareable query parameter (`portfolio/query_state.cljs`).
 - Observation: the Playwright specs live in `tools/playwright/test/` (not `tests/playwright/`); `vol-range-execution.spec.mjs` already drives placement through the debug exchange simulator with a stateful `**/info` stub. `HYPEROPEN_DEBUG.seedVolRangeFixture` accepts a config map, so new seeding can be added in `console_preload/vol_range_fixture.cljs` without touching `console_preload.cljs` (at its 554-line ceiling).
 - Observation: `[:vol-range :campaigns]` is named in spec 7.1 and unused today.
+- Observation (R1): the executor simulator's scope (`test/hyperopen/vol_range/simulator.cljs`) has `:base-token-id nil`, so its campaign key is `hyperliquid-mainnet|0xabc|spot||1` and `q0` is matched by symbol ("SYN"), exactly as the admission snapshot's `find-balance` does when balance rows carry no `:token`.
+  Evidence: `campaign_capture_test.cljs`; real spot scopes always carry the base token id (`snapshots/current-scope`, `revalidation/identity-keys`).
+- Observation (R1): a reference to a var that does not exist (for example a `contracts/...` version def that was never added) compiles in ClojureScript with only an `:undeclared-var` warning and reads as nil at run time. The R1 unit tests assert the version and skew values literally, so a missing def fails a test rather than producing a record with nil versions.
 
 ## Decision Log
 
@@ -126,9 +129,23 @@ Local scratch refs (non-authoritative):
 - Decision (integration review): this plan runs as stages 20-25 of the global order in `/hyperopen/docs/exec-plans/active/2026-10-28-vol-range-build-order.md`, after Repair, Live fills and Replace. R1 therefore edits an `executor_place.cljs` that already has the settings, predecessor and monitoring changes. A replacement placement (with `:predecessor`) reuses the open campaign (spec 12.1: a campaign spans replacements).
   Date/Author: 2026-10-28, Claude (integrator).
 
+- Decision (R1): the executor draws a campaign id (`random-id! "cmp"`) only when `campaign/campaign-needed?` is true for the journal read inside the admission section, and `baseline-records-for-placement` returns `[]` without an id. A placement that reuses a campaign therefore makes exactly the same id, CLOID and signing-counter calls as before R1.
+  Rationale: the plan's sketch drew the id unconditionally; drawing it only when needed keeps the reuse path byte-identical to the pre-R1 path, which is what the snapshot test compares against.
+  Date/Author: 2026-10-29, Claude (R1).
+- Decision (R1): "reuse" means "an open campaign exists for the key". A replacement (with `:predecessor`) whose market has no open campaign (its predecessor was placed before R1) starts one, because it is then the first admitted placement under tracking. When the predecessor was placed under R1 the open campaign is reused, which is the plan's acceptance case.
+  Date/Author: 2026-10-29, Claude (R1).
+- Decision (R1): `campaign/campaign-key` returns nil, and no campaign is recorded, for a scope without an account, without a spot pair index or not of market type `:spot`. A missing base token id is an empty key segment rather than a refusal (the builder stays total; see Surprises).
+  Date/Author: 2026-10-29, Claude (R1).
+- Decision (R1): `contracts/report-policy` is created in R1 with only `:boundary-skew-ms 5000` (the baseline's `:boundary :skew-ms`); R2 adds the remaining keys listed under Data shapes. `ledger-schema-version` and `export-format-version` are left to R2 and R6, which first use them.
+  Date/Author: 2026-10-29, Claude (R1).
+- Decision (R1): the dock's tracking line uses `campaign/grid-campaign`: recovered orders are "Not tracked"; a ladder created before any campaign of its market is "Not tracked"; a ladder that is not closed shows its market's OPEN campaign (after an R3 restart its later fills belong there by time); a closed ladder shows the campaign that contained its creation. The text is `Tracking since Oct 21, 13:42 UTC` from the new `display/utc-date-minute`. `vol-dock/view-state` carries both `[:vol-range :campaigns]` and `[:vol-range :campaign-closures]`, since the line depends on closures too.
+  Date/Author: 2026-10-29, Claude (R1).
+- Decision (R1): the "unchanged versus pre-R1" snapshot is the 13.2 simulator digest `vr-act-178def3b035941-858` and reservations `{:usdc "2889.1552" :base "30"}`. The same test places once with an empty journal and once with an open campaign already journaled (the reuse path, which makes no new call compared with pre-R1 code) and asserts identical intents, identical sends and one signing-counter claim each.
+  Date/Author: 2026-10-29, Claude (R1).
+
 ## Outcomes & Retrospective
 
-Not started. Fill in after each stage: what landed, gate results, and deviations.
+- R1 (2026-10-29): new `vol_range/application/campaign.cljs` (key, total baseline builder, closure record, open and by-time queries, `grid-campaign`, `campaign-needed?`, `baseline-records-for-placement`); `executor_place/admit-placement!` adds the baseline to the intent commit (`commit-admitted!` takes optional extra records; repair unchanged); `contracts.cljs` gains `accounting-model-version`, `campaign-schema-version` and `report-policy`; `sync-once!` stores the account's campaigns and closures; the dock row has a `vol-ladder-tracking` line and `view-state` carries campaigns and closures. `campaign.cljs` is classified in `a0_boundary_test` (it requires `journal-records`) and listed as a namespace preview code may not require. Tests: `campaign_test`, `campaign_capture_test` (one commit holding grid, intent and campaign before `send!`; boundary equals the barrier read; second placement, repair and replacement add none; rejected commit sends nothing; monitoring and predecessor refusals commit nothing; digest snapshot), `dock_model_test`, `dock_test` and `vol_range_slice_repaint_test` additions. Gates: `npm run test:vol-range` 1281 tests 0 failures; `npm test` 7796 tests 0 failures; `npm run test:websocket` 609 tests 0 failures; `npm run check` PASS. Playwright (no spec required by R1; run because placement and the dock changed): `vol-range.spec.mjs`, `vol-range-execution.spec.mjs`, `vol-range-repair-replace.spec.mjs`, `vol-range-live.spec.mjs` 29/29 on the first run, no flakes. Deviations: see the R1 entries in the Decision Log.
 
 ## Scope and Non-goals
 

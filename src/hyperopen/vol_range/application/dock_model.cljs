@@ -6,7 +6,8 @@
   :last :selected-grid-id}, plus `[:vol-range :repair]`, `[:vol-range :replace]`
   and `[:vol-range-dock :current-scope-key]` (the ticket's scope) for the
   repair control and dialog (`repair-model`) and the Preview update control,
-  lineage and update messages (`replace-model`). Counts always come with the
+  lineage and update messages (`replace-model`), and `[:vol-range :campaigns]`
+  with `[:vol-range :campaign-closures]` for each ladder's tracking line. Counts always come with the
   aggregate label, and an unknown outcome is never shown as reassuring (spec 8.5). Live monitoring
   (`[:vol-range :execution :monitoring]`, spec 9.3) gives the dock's
   monitoring line and keeps the review's Place button disabled until it is
@@ -14,6 +15,8 @@
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.domain.trading.precision :as precision]
+            [hyperopen.vol-range.application.campaign :as campaign]
+            [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
             [hyperopen.vol-range.application.repair-model :as repair-model]
@@ -125,6 +128,18 @@
     (str (plural rejected "order") " " (if (= 1 rejected) "was" "were") " not placed. "
          live " other order" (when (not= 1 live) "s") " remain" (when (= 1 live) "s") " active.")))
 
+(defn- tracking
+  "The ladder's tracking line (spec 12.1): when its market's tracking
+  campaign began, or \"Not tracked\" (recovered orders, or a ladder placed
+  before tracking existed). No P&L here: figures live in the report."
+  [state grid status]
+  (let [c (campaign/grid-campaign (get-in state [:vol-range :campaigns])
+                                  (get-in state [:vol-range :campaign-closures])
+                                  grid (= :closed status))]
+    {:text (if-let [t (some-> c :t0-ms display/utc-date-minute)]
+             (str "Tracking since " t)
+             "Not tracked")}))
+
 (defn grid-row [state grid]
   (let [status (lifecycle/status grid)
         counts (lifecycle/counts grid)
@@ -151,6 +166,7 @@
      :repair (repair-model/row-control state grid)
      :update (replace-model/row-control state grid)
      :lineage (replace-model/lineage state grid)
+     :tracking (tracking state grid status)
      :legs (leg-rows grid)}))
 
 (def ^:private ladder-result-text

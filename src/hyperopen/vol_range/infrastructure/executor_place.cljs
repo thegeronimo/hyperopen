@@ -5,7 +5,8 @@
   Sequence (spec 8.1): verify scope, capability, permission and signer ->
   account admission section [load journal, refuse when anything in the market
   is unresolved or active, awaited barrier read, revalidate the FIXED vector
-  against other pending reservations, assign CLOIDs, COMMIT intent + grid] ->
+  against other pending reservations, assign CLOIDs, COMMIT intent + grid
+  (+ the market's first campaign baseline, spec 12.1)] ->
   sign and send through the delivery path, which commits the send attempt
   before HTTP and runs the final guard (scope, permission, cancel request,
   fresh barrier read and revalidation with the own reservation excluded)
@@ -13,6 +14,7 @@
   Nothing here retries or resends."
   (:require [hyperopen.api.trading.order-result :as order-result]
             [hyperopen.domain.trading.precision :as precision]
+            [hyperopen.vol-range.application.campaign :as campaign]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
@@ -205,10 +207,10 @@
       (.catch (fn [e] {:status :error :error (ex/error-text e)}))))
 
 (defn- commit-admitted!
-  "Commit intent + grid together (one transaction, merged under the grid
-  lock), inside the admission section."
-  [deps intent grid admitted]
-  (-> (ex/persist-grid! deps grid [intent])
+  "Commit intent + grid (+ `extra`: a new campaign baseline) together (one
+  transaction, merged under the grid lock), inside the admission section."
+  [deps intent grid admitted & [extra]]
+  (-> (ex/persist-grid! deps grid (into [intent] extra))
       (.then (fn [{:keys [ok? grid]}]
                (if ok? (assoc admitted :grid grid) {:status :journal-unavailable})))))
 
@@ -265,9 +267,20 @@
                                    :action-digest (wire/action-digest action) :legs legs
                                    :reservations {:usdc (or (get-in totals [:buy :max-debit]) "0")
                                                   :base (or (get-in totals [:sell :base-committed]) "0")}
-                                   :now-ms at})]
+                                   :now-ms at})
+                          ;; Spec 12.1: the first admitted placement in this market
+                          ;; starts a tracking campaign, committed with the intent.
+                          ;; It never changes the legs, action or reservations.
+                          campaign-records (campaign/baseline-records-for-placement
+                                            {:records records :scope scope :read read
+                                             :bbo (get-in input [:market :bbo])
+                                             :operation-id operation-id :grid-id (:grid-id grid)
+                                             :campaign-id (when (campaign/campaign-needed? records scope)
+                                                            ((:random-id! deps) "cmp"))
+                                             :now-ms at})]
                       (commit-admitted! deps intent grid {:status :admitted :grid grid :legs legs
-                                                          :action action :expires-after expires}))))))))))))
+                                                          :action action :expires-after expires}
+                                        campaign-records))))))))))))
 
 (defn place!
   "Place a reviewed :ready plan. `frozen-plan` and `frozen-scope` come from

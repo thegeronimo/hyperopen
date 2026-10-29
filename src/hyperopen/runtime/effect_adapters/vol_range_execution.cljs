@@ -25,6 +25,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
             [hyperopen.runtime.effect-adapters.vol-range-resync :as resync]
+            [hyperopen.vol-range.application.campaign :as campaign]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
@@ -200,7 +201,9 @@
 (defn- grid-in-state [store grid-id] (get-in @store [:vol-range :execution :grids grid-id]))
 
 (defn- sync-once!
-  "Load this account's grids from the journal; then settle and discover for
+  "Load this account's grids (and its tracking campaigns and closures, into
+  `[:vol-range :campaigns]` and `[:vol-range :campaign-closures]`) from the
+  journal; then settle and discover for
   the active spot market (spec 7.6: restore the journal before a new grid)."
   [store]
   (let [deps (executor-deps store)
@@ -212,11 +215,15 @@
                  (if-not ok?
                    {:status :journal-unavailable :error error}
                    ;; Every journal grid for the trading account, any market,
-                   ;; merged with the store copy so store-only evidence survives.
-                   (do (swap! store grid-store/merge-account-grids account (jr/grids records nil))
-                       (if (and account (= :spot (:market-type scope)))
-                         (ex/recover! deps {:scope scope :scope-key (contracts/scope-key scope)})
-                         {:status :ok :grids []})))))
+                   ;; merged with the store copy so store-only evidence survives;
+                   ;; and the account's tracking campaigns (spec 12.1).
+                   (let [{:keys [campaigns closures]} (campaign/campaigns-for-account records account)]
+                     (swap! store #(-> (grid-store/merge-account-grids % account (jr/grids records nil))
+                                       (assoc-in [:vol-range :campaigns] campaigns)
+                                       (assoc-in [:vol-range :campaign-closures] closures)))
+                     (if (and account (= :spot (:market-type scope)))
+                       (ex/recover! deps {:scope scope :scope-key (contracts/scope-key scope)})
+                       {:status :ok :grids []})))))
         (.then (fn [{:keys [grids] :as r}]
                  (swap! store (fn [s] (reduce put-grid s grids)))
                  (dissoc r :grids))))))

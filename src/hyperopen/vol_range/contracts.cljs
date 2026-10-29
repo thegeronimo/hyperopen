@@ -16,6 +16,17 @@
 (def estimator-version "parkinson-v1")
 (def draft-schema-version 1)
 
+;; Release B reporting (spec 12): campaign baselines are captured at the
+;; first admitted placement in every build that can place.
+(def accounting-model-version 1)
+(def campaign-schema-version 1)
+
+(def report-policy
+  "Versioned reporting policy (spec 12.4). `:boundary-skew-ms` widens a
+  campaign's inception read boundary on both sides to absorb local versus
+  venue clock skew."
+  {:boundary-skew-ms 5000})
+
 (def product-policy
   {:rung-count {:min 1 :max 12}
    :distance-sigma {:min "0.10" :max "4.00"}
