@@ -521,6 +521,7 @@
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.vol-range-execution-test]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
+            [hyperopen.runtime.effect-adapters.vol-range-replace-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
             [hyperopen.runtime.effect-adapters.websocket-health-test]
             [hyperopen.runtime.effect-adapters.websocket-test]
@@ -990,6 +991,7 @@
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
             [hyperopen.vol-range.repair-actions-test]
+            [hyperopen.vol-range.replace-actions-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-lifecycle-test]
             [hyperopen.wallet.address-watcher-test]
@@ -1596,6 +1598,7 @@
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.vol-range-execution-test
              'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
+             'hyperopen.runtime.effect-adapters.vol-range-replace-test
              'hyperopen.runtime.effect-adapters.wallet-test
              'hyperopen.runtime.effect-adapters.websocket-health-test
              'hyperopen.runtime.effect-adapters.websocket-test
@@ -2065,6 +2068,7 @@
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
              'hyperopen.vol-range.repair-actions-test
+             'hyperopen.vol-range.replace-actions-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-lifecycle-test
              'hyperopen.wallet.address-watcher-test

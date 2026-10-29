@@ -361,3 +361,34 @@
     (is (some #(= [[:vol-range :ui :limits-open?] true] %) (saves [:inventory :protected-core] "12")))
     (is (some #(= [[:vol-range :ui :limits-open?] true] %) (saves [:inventory :maximum-quote] "500")))
     (is (not-any? #(= [:vol-range :ui :limits-open?] (first %)) (saves [:buy :quantity] "41")))))
+
+;; ---------------------------------------------------------------------------
+;; Ladder update (replace stage P2)
+;; ---------------------------------------------------------------------------
+
+(defn- with-update [state update]
+  (let [key (scope/current-scope-key state)]
+    (-> state
+        (assoc-in [:vol-range :execution :grids "old"] {:grid-id "old" :scope-key key :legs {}})
+        (assoc-in [:vol-range :replace] (merge {:grid-id "old" :scope-key key} update)))))
+
+(def ^:private ready-update
+  {:phase :ready :frozen-cloids ["0xc1" "0xc2"] :include-rejected #{}
+   :basis {:ready? true :blocking [] :remaining {:buy "40" :sell "27"} :filled-during-update {:buy "0" :sell "3"}}})
+
+(deftest review-is-blocked-until-the-replacement-review-test
+  (with-fees
+    (fn []
+      (let [state (sf/base-state)]
+        (doseq [phase [:preview :canceling :blocked :canceled]]
+          (is (= [] (actions/open-vol-range-review (with-update state {:phase phase}) now)) (str phase)))
+        (testing "an update left on another market or account does not block this ticket"
+          (is (seq (actions/open-vol-range-review (with-update state {:phase :preview :scope-key "elsewhere"}) now))))
+        (testing "the replacement review freezes the update's lineage"
+          (let [opened (sf/apply-effects state (actions/open-vol-range-review (with-update state ready-update) now))]
+            (is (= {:predecessor {:grid-id "old" :frozen-cloids ["0xc1" "0xc2"] :remaining {:buy "40" :sell "27"}
+                                  :filled-during-update {:buy "0" :sell "3"} :included-rejected []}}
+                   (get-in opened [:vol-range :frozen-context :replace])))))
+        (testing "an ordinary review carries no lineage"
+          (let [opened (sf/apply-effects state (actions/open-vol-range-review state now))]
+            (is (not (contains? (get-in opened [:vol-range :frozen-context]) :replace)))))))))

@@ -50,4 +50,14 @@
    :actions/toggle-vol-ladder-repair-leg ::logical-id-args
    :actions/close-vol-ladder-repair ::common/no-args
    :actions/handle-vol-ladder-repair-keydown ::common/key-args
-   :actions/submit-vol-ladder-repair ::common/no-args})
+   :actions/submit-vol-ladder-repair ::common/no-args
+   ;; Release A ladder update (cancel, then review a replacement).
+   :actions/preview-vol-ladder-update ::grid-id-args
+   :actions/open-vol-ladder-update ::common/no-args
+   :actions/close-vol-ladder-update ::common/no-args
+   :actions/handle-vol-ladder-update-keydown ::common/key-args
+   :actions/cancel-vol-ladder-for-update ::common/no-args
+   :actions/check-vol-ladder-update ::common/no-args
+   :actions/toggle-vol-ladder-update-rejected ::logical-id-args
+   :actions/review-vol-ladder-replacement ::common/no-args
+   :actions/stop-vol-ladder-update ::common/no-args})

@@ -17,14 +17,16 @@
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.freshness :as freshness]
             [hyperopen.vol-range.application.plan-state :as plan-state]
+            [hyperopen.vol-range.application.replace-state :as replace-state]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.application.ticket-model :as ticket-model]
             [hyperopen.vol-range.contracts :as contracts]))
 
 (defn- now [] (.now js/Date))
 
-(defn- transition->path-values
-  "Order-form writes (after ownership enforcement) plus the explicit path values."
+(defn transition->path-values
+  "Order-form writes (after ownership enforcement) plus the explicit path
+  values. Public so the ladder update actions write the draft the same way."
   [state {:keys [order-form path-values]}]
   (let [owned (when (map? order-form)
                 (ownership/enforce-field-ownership state {:order-form order-form}))]
@@ -223,15 +225,22 @@
   "Freeze the current plan for the read-only review. Only a :ready plan opens.
   The context also freezes the effective draft the plan was computed from
   (`draft-scope/effective-draft`); a ladder placed from this review records
-  it in its settings."
+  it in its settings.
+
+  While a ladder update of this market and account is before its
+  replacement review (preview, canceling, blocked or canceled) nothing
+  opens (spec 10.2). In the update's `:ready` phase the context also freezes
+  the lineage `{:replace {:predecessor ...}}` that the replacement records."
   ([state] (open-vol-range-review state (now)))
   ([state now-ms]
-   (let [{:keys [plan market draft]} (plan-state/context-for-state state now-ms)]
-     (if (= :ready (:status plan))
+   (let [{:keys [plan market draft]} (plan-state/context-for-state state now-ms)
+         lineage (replace-state/frozen-lineage state)]
+     (if (and (= :ready (:status plan)) (not (replace-state/review-blocked? state)))
        (save-many-effects state
-                          (transitions/open-review plan {:bbo (:bbo market) :frozen-at-ms now-ms
-                                                         :provenance (snapshots/provenance state)
-                                                         :draft draft})
+                          (transitions/open-review plan (cond-> {:bbo (:bbo market) :frozen-at-ms now-ms
+                                                                 :provenance (snapshots/provenance state)
+                                                                 :draft draft}
+                                                          lineage (assoc :replace {:predecessor lineage})))
                           nil)
        []))))
 

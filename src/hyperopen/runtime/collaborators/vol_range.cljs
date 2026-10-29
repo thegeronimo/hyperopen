@@ -1,7 +1,8 @@
 (ns hyperopen.runtime.collaborators.vol-range
   (:require [hyperopen.vol-range.actions :as vol-range-actions]
             [hyperopen.vol-range.execution-actions :as execution-actions]
-            [hyperopen.vol-range.repair-actions :as repair-actions]))
+            [hyperopen.vol-range.repair-actions :as repair-actions]
+            [hyperopen.vol-range.replace-actions :as replace-actions]))
 
 (defn action-deps []
   {:select-scale-mode vol-range-actions/select-scale-mode
@@ -30,4 +31,13 @@
    :toggle-vol-ladder-repair-leg repair-actions/toggle-vol-ladder-repair-leg
    :close-vol-ladder-repair repair-actions/close-vol-ladder-repair
    :handle-vol-ladder-repair-keydown repair-actions/handle-vol-ladder-repair-keydown
-   :submit-vol-ladder-repair repair-actions/submit-vol-ladder-repair})
+   :submit-vol-ladder-repair repair-actions/submit-vol-ladder-repair
+   :preview-vol-ladder-update replace-actions/preview-vol-ladder-update
+   :open-vol-ladder-update replace-actions/open-vol-ladder-update
+   :close-vol-ladder-update replace-actions/close-vol-ladder-update
+   :handle-vol-ladder-update-keydown replace-actions/handle-vol-ladder-update-keydown
+   :cancel-vol-ladder-for-update replace-actions/cancel-vol-ladder-for-update
+   :check-vol-ladder-update replace-actions/check-vol-ladder-update
+   :toggle-vol-ladder-update-rejected replace-actions/toggle-vol-ladder-update-rejected
+   :review-vol-ladder-replacement replace-actions/review-vol-ladder-replacement
+   :stop-vol-ladder-update replace-actions/stop-vol-ladder-update})

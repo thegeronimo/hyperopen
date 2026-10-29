@@ -10,7 +10,9 @@
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 
 (s/def ::vol-range-execute-args
-  (s/tuple #{:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync} map?))
+  (s/tuple #{:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync
+             :replace-cancel :replace-confirm}
+           map?))
 
 (defn- confirm-api-submit-order-args?
   [args]

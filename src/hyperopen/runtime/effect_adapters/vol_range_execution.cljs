@@ -21,6 +21,7 @@
             [hyperopen.api.projections.user-fees :as user-fees]
             [hyperopen.api.trading.action-coordinator :as action-coordinator]
             [hyperopen.api.trading.delivery :as delivery]
+            [hyperopen.order.effects.spot-refresh :as spot-refresh]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
             [hyperopen.runtime.effect-adapters.vol-range-resync :as resync]
@@ -97,6 +98,8 @@
 (defn- finish! [store busy-key {:keys [grid] :as result} op]
   (when (= :repair-preview op)
     (repair-replace/settle-preview! store (second busy-key) result))
+  (when (contains? #{:replace-cancel :replace-confirm} op)
+    (repair-replace/settle-update! store (second busy-key) result))
   (swap! store (fn [state]
                  (cond-> (-> state
                              (put-grid grid)
@@ -152,22 +155,40 @@
 
 (defn- place! [store]
   (let [plan (get-in @store [:vol-range :frozen-review])
+        context (get-in @store [:vol-range :frozen-context])
         ;; Recorded on the grid only; never part of what is sent.
-        settings (ladder-settings/settings-from-plan plan (get-in @store [:vol-range :frozen-context :draft]))]
+        settings (ladder-settings/settings-from-plan plan (:draft context))
+        ;; A replacement names the canceled ladder it replaces (spec 10.2
+        ;; step 6); admission refuses it unless that ladder is settled and
+        ;; not already replaced.
+        predecessor (get-in context [:replace :predecessor])]
     (-> (refresh-fees! store)
-        (.then (fn [_] (executor-place/place! (executor-deps store) {:frozen-plan plan :frozen-scope (:scope plan)
-                                                                     :settings settings})))
+        (.then (fn [_] (executor-place/place! (executor-deps store)
+                                              (cond-> {:frozen-plan plan :frozen-scope (:scope plan) :settings settings}
+                                                predecessor (assoc :predecessor predecessor)))))
         (.then (fn [{:keys [delivery] :as result}]
                  ;; Once anything may have been sent, the review is over: the
-                 ;; dock now owns the outcome.
+                 ;; dock now owns the outcome, and the update it finished is done.
                  (when (or (contains? #{:response :unknown} delivery) (= :error (:status result)))
-                   (swap! store #(-> %
-                                     (assoc-in [:vol-range :ui :review-open?] false)
-                                     (assoc-in [:vol-range :frozen-review] nil)
-                                     (assoc-in [:vol-range :frozen-context] nil)
-                                     (assoc-in [:vol-range :execution :selected-grid-id]
-                                               (get-in result [:grid :grid-id])))))
+                   (swap! store #(cond-> (-> %
+                                             (assoc-in [:vol-range :ui :review-open?] false)
+                                             (assoc-in [:vol-range :frozen-review] nil)
+                                             (assoc-in [:vol-range :frozen-context] nil)
+                                             (assoc-in [:vol-range :execution :selected-grid-id]
+                                                       (get-in result [:grid :grid-id])))
+                                   (and predecessor
+                                        (= (:grid-id predecessor) (get-in % [:vol-range :replace :grid-id])))
+                                   (assoc-in [:vol-range :replace] nil))))
                  (sync-after-send store result))))))
+
+(defn- replace-opts
+  "What a ladder update's confirmation refreshes once a replacement may be
+  reviewed: the fee quote, and best effort the store's spot balances."
+  [store]
+  {:refresh-fees! #(refresh-fees! store)
+   :refresh-spot! (fn [address]
+                    (when address
+                      (spot-refresh/refresh-spot-clearinghouse-snapshot! store address {:priority :high})))})
 
 (defn- repair!
   "Send the frozen repair selection (fees refreshed first, like placement);
@@ -237,8 +258,9 @@
             ids)))
 
 (def op-timeout-ms
-  "Cancel, refresh, sync and the repair preview give up waiting after this
-  long, so a stuck storage or lock never leaves their buttons disabled.
+  "Cancel, refresh, sync, the repair preview and the update's cancel and
+  confirmation give up waiting after this long, so a stuck storage or lock
+  never leaves their buttons disabled.
   Placement and repair are bounded by the delivery path's own timeouts
   instead: a signed action may still be in flight, and reporting a failure
   would invite a second click."
@@ -261,7 +283,8 @@
 (defn vol-range-execute
   "Effect `[:effects/vol-range-execute op params]`. Ops: :place, :cancel
   {:grid-id}, :refresh {:grid-id}, :sync, :reconcile-open, :repair-preview
-  {:grid-id}, :repair {:grid-id :proposal-id :legs}, :resync {:epoch}."
+  {:grid-id}, :repair {:grid-id :proposal-id :legs}, :resync {:epoch},
+  :replace-cancel {:grid-id}, :replace-confirm {:grid-id}."
   [_ctx store op params]
   (let [grid-id (:grid-id params)
         busy-key (if grid-id [op grid-id] [op])]
@@ -290,6 +313,12 @@
                         :repair (if (gate/enabled?)
                                   (repair! store params)
                                   {:status :refused :errors [:capability/execution-disabled]})
+                        ;; Cancelling and confirming an update never need the
+                        ;; placement gate; neither ever places an order.
+                        :replace-cancel (repair-replace/replace-cancel! store (executor-deps store) params
+                                                                        (replace-opts store))
+                        :replace-confirm (repair-replace/replace-confirm! store (executor-deps store) params
+                                                                          (replace-opts store))
                         {:status :error :error (str "Unknown operation " op)})))))
         (.then (fn [result] (finish! store busy-key result op)))
         (.catch (fn [e] (fail! store busy-key op e))))))

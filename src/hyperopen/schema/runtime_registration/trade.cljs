@@ -186,6 +186,15 @@
    [:actions/close-vol-ladder-repair :close-vol-ladder-repair]
    [:actions/handle-vol-ladder-repair-keydown :handle-vol-ladder-repair-keydown]
    [:actions/submit-vol-ladder-repair :submit-vol-ladder-repair]
+   [:actions/preview-vol-ladder-update :preview-vol-ladder-update]
+   [:actions/open-vol-ladder-update :open-vol-ladder-update]
+   [:actions/close-vol-ladder-update :close-vol-ladder-update]
+   [:actions/handle-vol-ladder-update-keydown :handle-vol-ladder-update-keydown]
+   [:actions/cancel-vol-ladder-for-update :cancel-vol-ladder-for-update]
+   [:actions/check-vol-ladder-update :check-vol-ladder-update]
+   [:actions/toggle-vol-ladder-update-rejected :toggle-vol-ladder-update-rejected]
+   [:actions/review-vol-ladder-replacement :review-vol-ladder-replacement]
+   [:actions/stop-vol-ladder-update :stop-vol-ladder-update]
    [:actions/navigate :navigate]])
 
 (def action-binding-rows

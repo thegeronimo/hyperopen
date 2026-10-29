@@ -334,6 +334,13 @@
        (sort-by (juxt (comp name :side) :rung-index :cloid))
        (mapv :cloid)))
 
+(defn live-remaining
+  "{:buy :sell} base still resting on the current live members: the default
+  quantities of an update's preview (spec 10.2 step 1)."
+  [grid]
+  (let [{:keys [live-buy-units live-sell-units]} (counts grid)]
+    {:buy live-buy-units :sell live-sell-units}))
+
 (defn- side-sum [grid legs side k]
   (ds (sum (map #(k (leg-quantities grid %)) (filter #(= side (:side %)) legs)))))
 

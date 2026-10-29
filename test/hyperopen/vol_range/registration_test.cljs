@@ -13,6 +13,7 @@
             [hyperopen.vol-range.actions :as actions]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.repair-actions :as repair-actions]
+            [hyperopen.vol-range.replace-actions :as replace-actions]
             [hyperopen.vol-range.state-fixtures :as sf]
             [hyperopen.views.trade.order-form-runtime-gateway :as gateway]
             [hyperopen.views.trade.vol-range.commands :as commands]))
@@ -196,10 +197,11 @@
                    (repair-actions/handle-vol-ladder-repair-keydown {} "Escape")]]
     (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/open-vol-ladder-repair}))
         (pr-str effects)))
-  (testing "the operation set grows only by the repair ops and the live-monitoring resync"
-    (doseq [op [:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync]]
+  (testing "the operation set grows only by the repair ops, the live-monitoring resync and the update ops"
+    (doseq [op [:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync
+                :replace-cancel :replace-confirm]]
       (is (some? (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))
-    (doseq [op [:replace :replace-cancel :replace-confirm :nonsense]]
+    (doseq [op [:replace :replace-place :nonsense]]
       (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))))
 
 ;; ---------------------------------------------------------------------------
@@ -218,3 +220,60 @@
       (is (not (contains? (set (map :action-id (catalog/catalog-entries))) :actions/resync-vol-ladders)))))
   (is (some? (contracts/assert-emitted-effects! [[:effects/vol-range-execute :resync {:epoch 3}]]
                                                 {:action-id :actions/resync-vol-ladders}))))
+
+;; ---------------------------------------------------------------------------
+;; Release A ladder update (replace stage P2)
+;; ---------------------------------------------------------------------------
+
+(def replace-handlers
+  {:actions/preview-vol-ladder-update :preview-vol-ladder-update
+   :actions/open-vol-ladder-update :open-vol-ladder-update
+   :actions/close-vol-ladder-update :close-vol-ladder-update
+   :actions/handle-vol-ladder-update-keydown :handle-vol-ladder-update-keydown
+   :actions/cancel-vol-ladder-for-update :cancel-vol-ladder-for-update
+   :actions/check-vol-ladder-update :check-vol-ladder-update
+   :actions/toggle-vol-ladder-update-rejected :toggle-vol-ladder-update-rejected
+   :actions/review-vol-ladder-replacement :review-vol-ladder-replacement
+   :actions/stop-vol-ladder-update :stop-vol-ladder-update})
+
+(deftest replace-actions-are-registered-and-contracted-test
+  (let [ids (set (keys replace-handlers))]
+    (is (set/subset? ids (runtime-registry/registered-action-ids)))
+    (is (set/subset? ids (contracts/contracted-action-ids)))
+    (is (every? #(contains? action-args/action-args-spec-by-id %) ids)))
+  (testing "handlers are in the Release A group, never in the A0 catalog"
+    (let [deps (collaborators/runtime-action-deps {})]
+      (is (every? #(fn? (get-in deps [:vol-range-execution %])) (vals replace-handlers)))
+      (is (not-any? #(contains? (vol-range-collaborators/action-deps) %) (vals replace-handlers)))
+      (is (not-any? #(contains? (set (map :action-id (catalog/catalog-entries))) %) (keys replace-handlers)))))
+  (testing "no update action needs an effect-order policy (no heavy effect)"
+    (is (not-any? effect-order/covered-action? (keys replace-handlers)))))
+
+(deftest replace-action-arg-specs-test
+  (let [ok! (fn [action-id args] (is (some? (contracts/assert-action-args! action-id args {})) (pr-str [action-id args])))
+        bad! (fn [action-id args] (is (thrown? js/Error (contracts/assert-action-args! action-id args {}))
+                                      (pr-str [action-id args])))]
+    (ok! :actions/preview-vol-ladder-update ["grid-1"])
+    (bad! :actions/preview-vol-ladder-update [])
+    (bad! :actions/preview-vol-ladder-update [""])
+    (doseq [id [:actions/open-vol-ladder-update :actions/close-vol-ladder-update :actions/cancel-vol-ladder-for-update
+                :actions/check-vol-ladder-update :actions/review-vol-ladder-replacement
+                :actions/stop-vol-ladder-update]]
+      (ok! id [])
+      (bad! id ["grid-1"]))
+    (ok! :actions/handle-vol-ladder-update-keydown ["Escape"])
+    (bad! :actions/handle-vol-ladder-update-keydown [])
+    (ok! :actions/toggle-vol-ladder-update-rejected ["buy-0"])
+    (bad! :actions/toggle-vol-ladder-update-rejected [:buy-0])
+    (bad! :actions/toggle-vol-ladder-update-rejected [])))
+
+(deftest replace-effects-satisfy-effect-contracts-test
+  (doseq [effects [[[:effects/save-many [[[:vol-range :replace] {:grid-id "g1" :phase :canceling}]]]
+                    [:effects/vol-range-execute :replace-cancel {:grid-id "g1"}]]
+                   [[:effects/vol-range-execute :replace-confirm {:grid-id "g1"}]]
+                   [[:effects/save-many [[[:vol-range :replace :include-rejected] #{"buy-0"}]]]]
+                   (replace-actions/stop-vol-ladder-update {:vol-range {:replace {:grid-id "g1" :phase :canceled}}} 5)
+                   (replace-actions/handle-vol-ladder-update-keydown {:vol-range {:replace {:grid-id "g1"}}} "Escape")]]
+    (is (seq effects))
+    (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/cancel-vol-ladder-for-update}))
+        (pr-str effects))))

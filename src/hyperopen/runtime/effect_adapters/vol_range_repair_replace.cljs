@@ -1,6 +1,6 @@
 (ns hyperopen.runtime.effect-adapters.vol-range-repair-replace
-  "Runtime operations behind the Vol Range repair review (HO-SPEC-014 v2.1
-  sections 8.1, 8.6, 13.4).
+  "Runtime operations behind the Vol Range repair review and ladder update
+  (HO-SPEC-014 v2.1 sections 8.1, 8.6, 10.2, 13.4).
 
   `repair-preview!` reads the ladder's book and account with awaited barrier
   reads, builds the pure proposal (`repair-plan/propose`) and freezes it at
@@ -10,18 +10,27 @@
   and strict per-leg interpretation. Nothing here amends a leg, retries or
   resends.
 
-  Both take the store and an already-built executor deps map (so this
+  `replace-cancel!` freezes an update's membership from the
+  journal-refreshed ladder, cancels that ladder and confirms the
+  cancellation; `replace-confirm!` confirms again. Neither ever places an
+  order: the replacement is placed only by the ordinary placement.
+
+  All take the store and an already-built executor deps map (so this
   namespace never requires the execution adapter that dispatches to it) and
   resolve to the result map the adapter stores under
-  `[:vol-range :execution :last]`. Each writes `[:vol-range :repair]` only
-  while it still refers to the same ladder (and, for a send, the same
-  proposal)."
+  `[:vol-range :execution :last]`. Each writes `[:vol-range :repair]` or
+  `[:vol-range :replace]` only while it still refers to the same ladder
+  (and, for a repair send, the same proposal; for an update, the same
+  update)."
   (:require [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.repair-plan :as repair-plan]
+            [hyperopen.vol-range.application.replace-flow :as replace-flow]
             [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.infrastructure.executor :as ex]
+            [hyperopen.vol-range.infrastructure.executor-cancel :as executor-cancel]
             [hyperopen.vol-range.infrastructure.executor-place :as executor-place]
+            [hyperopen.vol-range.infrastructure.executor-replace :as executor-replace]
             [hyperopen.vol-range.infrastructure.reads :as reads]))
 
 (defn- grid-in-state [store grid-id] (get-in @store [:vol-range :execution :grids grid-id]))
@@ -143,3 +152,124 @@
                        result))))
         ;; Every result names the proposal it answers (the review shows only its own).
         (.then #(assoc % :proposal-id proposal-id)))))
+
+;; ---------------------------------------------------------------------------
+;; Ladder update (spec 10.2 steps 2-4)
+;; ---------------------------------------------------------------------------
+
+(defn- update-in-state [store] (get-in @store [:vol-range :replace]))
+
+(defn- same-update? [a b]
+  (and (some? (:grid-id a)) (= (:grid-id a) (:grid-id b)) (= (:started-at-ms a) (:started-at-ms b))))
+
+(defn- write-update!
+  "Apply `f` to the update only while it is still update `u` (same ladder,
+  same start): a stopped or restarted update is never written."
+  [store u f]
+  (swap! store (fn [state]
+                 (let [current (get-in state [:vol-range :replace])]
+                   (if (same-update? u current)
+                     (assoc-in state [:vol-range :replace] (f current))
+                     state)))))
+
+(defn- check-failed [basis]
+  (assoc (or basis {}) :ready? false :blocking [:replace/check-failed]))
+
+(defn settle-update!
+  "After `:replace-cancel` or `:replace-confirm` finished, failed or timed
+  out: an error (including the 60 s bound) leaves the update of `grid-id`
+  :blocked with `[:replace/check-failed]`, so Check again and Stop updating
+  are offered and it never stays :canceling."
+  [store grid-id {:keys [status]}]
+  (when (= :error status)
+    (swap! store (fn [state]
+                   (if (= grid-id (get-in state [:vol-range :replace :grid-id]))
+                     (update-in state [:vol-range :replace]
+                                #(assoc % :phase :blocked :basis (check-failed (:basis %))))
+                     state)))))
+
+(defn- refresh-for-replacement!
+  "Once the replacement may be reviewed: refresh the fee quote (the final
+  guard needs it fresh) and, best effort, the store's spot balances. The
+  planner itself uses the confirmation's own account read."
+  [{:keys [refresh-fees! refresh-spot!]} grid]
+  (-> (js/Promise.resolve nil)
+      (.then (fn [_] (when refresh-fees! (refresh-fees!))))
+      (.then (fn [_] (when refresh-spot! (refresh-spot! (get-in grid [:scope :account-address])))))
+      (.catch (fn [_] nil))))
+
+(defn- next-phase
+  "A confirmation keeps a :ready update :ready (Refresh balances); otherwise
+  `replace-flow/phase-after-confirm`."
+  [current basis]
+  (if (and (= :ready current) (:ready? basis)) :ready (replace-flow/phase-after-confirm basis)))
+
+(defn- settle-confirm!
+  "Write a confirmation's outcome to update `u`; resolve to the op result."
+  [store deps opts u {:keys [status grid basis refreshed errors error]}]
+  (-> (if (= :ready status) (refresh-for-replacement! opts grid) (js/Promise.resolve nil))
+      (.then (fn [_]
+               (write-update! store u
+                              (fn [current]
+                                (case status
+                                  :ready (assoc current :phase (next-phase (:phase current) basis) :basis basis
+                                                :refreshed refreshed :confirmed-at-ms (ex/now deps))
+                                  :blocked (assoc current :phase :blocked :basis basis :refreshed nil)
+                                  (assoc current :phase :blocked :basis (check-failed (:basis current))))))
+               (cond-> {:status status :grid grid}
+                 (= :blocked status) (assoc :errors (:blocking basis))
+                 (seq errors) (assoc :errors errors)
+                 error (assoc :error error))))))
+
+(defn- no-update []
+  (js/Promise.resolve {:status :error :error "No update of this ladder is in progress"}))
+
+(defn replace-cancel!
+  "Op `:replace-cancel {:grid-id}` (spec 10.2 steps 2-4): refresh the ladder
+  from the journal, freeze its membership from THAT copy (`replace-flow/freeze`;
+  a membership frozen earlier is kept, so Cancel remaining orders never
+  shrinks it), cancel that same copy, then confirm. Never requires the
+  placement gate: cancellation must not depend on it. `opts` carries the
+  adapter's `:refresh-fees!` and `:refresh-spot!`. Resolves to the confirm
+  result, or to the cancel's own `:refused`/`:busy` status (and errors) when
+  nothing could be canceled."
+  [store deps {:keys [grid-id]} opts]
+  (let [u (update-in-state store)
+        grid (grid-in-state store grid-id)]
+    (cond
+      (nil? grid) (js/Promise.resolve {:status :error :error "Unknown ladder"})
+      (not= grid-id (:grid-id u)) (no-update)
+      :else
+      (-> (ex/refresh-grid! deps grid)
+          (.then
+           (fn [refreshed]
+             (let [frozen (if (seq (:frozen-cloids u))
+                            (select-keys u [:frozen-cloids :filled-at-freeze])
+                            (replace-flow/freeze refreshed))]
+               (write-update! store u #(merge % frozen))
+               (.then
+                (executor-cancel/cancel! deps {:grid refreshed})
+                (fn [{:keys [status errors] :as canceled}]
+                  (if (= :error status)
+                    canceled
+                    (-> (executor-replace/confirm! deps (assoc frozen :grid (:grid canceled)))
+                        (.then #(settle-confirm! store deps opts u %))
+                        (.then (fn [r]
+                                 (cond-> r
+                                   (contains? #{:refused :busy} status)
+                                   (assoc :status status :errors errors)))))))))))
+          (.catch (fn [e] {:status :error :error (ex/error-text e)}))))))
+
+(defn replace-confirm!
+  "Op `:replace-confirm {:grid-id}`: confirm the canceled ladder again for
+  its frozen membership (Check again, Refresh balances). Reads only."
+  [store deps {:keys [grid-id]} opts]
+  (let [u (update-in-state store)
+        grid (grid-in-state store grid-id)]
+    (cond
+      (nil? grid) (js/Promise.resolve {:status :error :error "Unknown ladder"})
+      (not (and (= grid-id (:grid-id u)) (seq (:frozen-cloids u)))) (no-update)
+      :else
+      (-> (executor-replace/confirm! deps (assoc (select-keys u [:frozen-cloids :filled-at-freeze]) :grid grid))
+          (.then #(settle-confirm! store deps opts u %))
+          (.catch (fn [e] {:status :error :error (ex/error-text e)}))))))
