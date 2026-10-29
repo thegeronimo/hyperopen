@@ -65,6 +65,63 @@ these are set to.
 7. Press Cancel this ladder. Expect "Canceling", then "Closed" once every order is confirmed canceled or
    filled. Check that Open Orders no longer lists them.
 8. Optional: reload the page while a ladder is live. The Vol ladders tab should show it again.
+9. Optional: repair a partially deployed ladder (see "Repair rejected orders") or update a live one (see
+   "Update a ladder").
+
+## Repair rejected orders
+
+When some orders of a ladder were rejected (usually a post-only order that would have crossed the book),
+the ladder shows "Partially deployed" and a **Repair N rejected orders** button. The button shows only
+while placement is on and the ladder is not being canceled or updated; with the ticket on another market
+or account it is disabled with "Open VRT/USDC to repair or update this ladder." (your market's name).
+
+1. Press Repair N rejected orders. The "Review rejected orders" dialog reads the current book and, for
+   each rejected order, proposes a post-only price at the same size: the original price if it no longer
+   crosses, otherwise one moved away from the book in the ladder's own volatility steps (never to the
+   best bid or ask). An order with no safe price is listed as not repairable, with the reason.
+2. Check the new prices, the notional and the bounds panel ("If all buys fill first", "Hold at most",
+   ...). Untick any order you don't want to send. Refresh prices re-reads the book; unticked orders stay
+   unticked.
+3. Press Place N repair orders. Only the ticked orders are sent, as one new action with new order ids.
+   The surviving orders are never sent again, and the repaired orders join the same ladder. Expect
+   "Repair sent. 7 of 7 orders active." (your counts) and "Live". Open Orders should show the repaired
+   order once, at the reviewed price.
+   - If the market moved since the review, the dialog says so and nothing is sent: press Refresh prices
+     and review again.
+   - Right after a partial placement, Place N repair orders may be disabled with "Funds held for an
+     earlier placement are still being confirmed. Refresh prices in a few seconds." Wait, or press
+     Refresh status on the ladder, then Refresh prices.
+
+## Update a ladder
+
+Updating replaces a ladder in separate, explicit steps. Nothing new is placed until you press Place in
+the ordinary review.
+
+1. Press **Preview update** on a Live or Partially deployed ladder (same market and account rules as
+   repair). The ticket switches to Scale, Volatility range, with the ladder's deployed settings and its
+   unfilled remainder as the quantities, and the "Update ladder" dialog compares the current ladder with
+   the proposal. "Edit in ticket" closes the dialog so you can change the ticket; "Open update" in the
+   ticket's banner brings it back. Your ladder is not touched yet.
+2. Press **Cancel current ladder to update**. Every open order of the old ladder is canceled once. The
+   app then checks every old order, including fills that land while the cancel is pending, and re-reads
+   your balances.
+   - If an old order's outcome is unknown or it is still open, the dialog says so and offers Check again
+     (and Cancel remaining orders when some are still open). The replacement can't be reviewed until it
+     clears.
+3. Expect exactly "Old ladder canceled. Review the updated quantities before placing the replacement.",
+   then the unfilled remainder (for example "buys 40 VRT, sells 27 VRT") and anything "Filled while
+   canceling". Filled quantity is never added back. Orders that were never placed (rejected) are listed
+   separately and are included only if you tick them.
+4. Press **Review replacement**. The ticket's quantities become the remainder (plus any ticked rejected
+   orders). Change the ticket if you want; press Refresh balances in the banner if time has passed. Then
+   press Review N orders: the review says which ladder it replaces and whether you changed the
+   quantities.
+5. Press Place N orders. The new ladder shows "Replaces the ladder created …" and the old, closed one
+   "Replaced by the ladder created …". Open Orders should list only the new orders.
+
+Leaving places nothing. Stop updating (in the dialog or the ticket banner) ends the update at any step:
+before the cancel your ladder is unchanged; after it the old ladder stays canceled and no new orders are
+placed. Reloading the page, or switching market or account, also abandons the update.
 
 ## Live updates
 
@@ -148,8 +205,12 @@ The journal holds order identities, prices, sizes and exchange replies; it never
 
 ## Known limits of this build
 
-- Rejected orders are shown with their reason, but there is no "Review rejected orders" repair screen
-  yet, and no "Preview update" (replace) flow. Cancel and place a new ladder instead.
+- Ladders placed by a build from before repair and update recorded no settings. For those, Preview update
+  starts from the ticket's current settings (the dialog says so) and a repair checks balances but not
+  the ladder's inventory limits (the repair dialog says so).
+- An update in progress is kept in memory only: a reload ends it (nothing is placed).
+- Recovered ladders (found on the exchange without a journal record) can only be canceled, not repaired
+  or updated.
 - Fills arrive live only while the line says "Live updates on"; otherwise the 15-second background
   check and the catch-up after a reconnect pick them up.
 - If your order book uses price grouping, the review uses the grouped best bid/ask but the pre-send check

@@ -38,6 +38,12 @@ export function newWorld() {
     accepted: () => true,
     // Top of the stubbed l2Book.
     book: { bid: "79.99", ask: "80.01" },
+    // Spot balance totals the venue reports (holds are derived from the resting orders).
+    totals: { usdc: "3000", base: "150" },
+    // When set, `(world) => void` runs once, on the first /info read after the debug
+    // exchange simulator answered a signed cancel action: the venue state after the cancel
+    // (canceled orders, fills that landed while it was pending, new balances).
+    onCancel: null,
     // id (oid string or cloid) -> payload
     orderStatus: () => ({ status: "unknownOid" }),
     // The account's fills as the venue's REST reads (`userFillsByTime`) return them.
@@ -99,6 +105,19 @@ async function openOrdersNow(page, world) {
   return world.openOrders ?? (await restingFromSimulator(page, world));
 }
 
+/** Runs `world.onCancel` once the simulator has answered a signed cancel action. */
+async function settleCancel(page, world) {
+  if (!world.onCancel) return;
+  const snap = await page.evaluate(() => window.HYPEROPEN_DEBUG?.exchangeSimulatorSnapshot?.()).catch(() => null);
+  const answered = (snap?.calls || []).some(
+    (c) => c.matchedPath?.[0] === "signedActions" && String(c.request?.action?.type || "").startsWith("cancel")
+  );
+  if (!answered || !world.onCancel) return;
+  const apply = world.onCancel;
+  world.onCancel = null;
+  apply(world);
+}
+
 /** Balance holds for `rows` (open order rows), as decimal strings with 8 places. */
 function venueHolds(rows) {
   let usdc = 0;
@@ -121,6 +140,7 @@ export async function stubInfo(page, world) {
       return;
     }
     world.infoLog.push(payload.type);
+    if (forFixture) await settleCancel(page, world);
     let body;
     switch (payload.type) {
       case "spotClearinghouseState": {
@@ -128,8 +148,8 @@ export async function stubInfo(page, world) {
         const holds = venueHolds(await openOrdersNow(page, world));
         body = {
           balances: [
-            { coin: "USDC", token: 0, hold: holds.usdc, total: "3000", entryNtl: "0" },
-            { coin: "VRT", token: 9001, hold: holds.base, total: "150", entryNtl: "0" }
+            { coin: "USDC", token: 0, hold: holds.usdc, total: world.totals.usdc, entryNtl: "0" },
+            { coin: "VRT", token: 9001, hold: holds.base, total: world.totals.base, entryNtl: "0" }
           ]
         };
         break;
@@ -311,10 +331,33 @@ export const okOrderResponse = (statuses) => ({
 });
 export const resting = (n) => ({ resting: { oid: 7000 + n } });
 export const restingAll = () => okOrderResponse(Array.from({ length: 7 }, (_, i) => resting(i + 1)));
-export const okCancelResponse = () => ({
+export const okCancelResponse = (n = 7) => ({
   status: "ok",
-  response: { type: "cancel", data: { statuses: Array.from({ length: 7 }, () => "success") } }
+  response: { type: "cancel", data: { statuses: Array.from({ length: n }, () => "success") } }
 });
+
+/** Simulator answers for one cancel of `n` orders, whichever cancel action the app signs. */
+export const cancelResponses = (n = 7) => ({
+  cancel: { responses: [okCancelResponse(n)] },
+  cancelByCloid: { responses: [okCancelResponse(n)] }
+});
+
+/**
+ * An `orderStatus` answer (`world.orderStatus`) for `rows` (open order rows, looked up by
+ * oid or cloid): `status(row)` is the venue status ("canceled", "open", ...) and
+ * `remaining(row)` the unfilled size the venue reports as `sz`.
+ */
+export function orderStatusFor(rows, { status = () => "canceled", remaining = (r) => r.sz } = {}) {
+  const byId = new Map(rows.flatMap((r) => [[String(r.oid), r], [String(r.cloid).toLowerCase(), r]]));
+  return (id) => {
+    const r = byId.get(String(id)) || byId.get(String(id).toLowerCase());
+    if (!r) return { status: "unknownOid" };
+    return {
+      status: "order",
+      order: { order: { ...r, sz: remaining(r), children: [] }, status: status(r), statusTimestamp: Date.now() }
+    };
+  };
+}
 
 export async function exchangeCalls(page) {
   const snap = await debugCall(page, "exchangeSimulatorSnapshot");
