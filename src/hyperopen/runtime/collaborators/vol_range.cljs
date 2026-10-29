@@ -24,6 +24,7 @@
    :select-vol-ladder execution-actions/select-vol-ladder
    :sync-vol-ladders execution-actions/sync-vol-ladders
    :reconcile-open-vol-ladders execution-actions/reconcile-open-vol-ladders
+   :resync-vol-ladders execution-actions/resync-vol-ladders
    :open-vol-ladder-repair repair-actions/open-vol-ladder-repair
    :refresh-vol-ladder-repair repair-actions/refresh-vol-ladder-repair
    :toggle-vol-ladder-repair-leg repair-actions/toggle-vol-ladder-repair-leg

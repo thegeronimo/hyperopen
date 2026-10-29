@@ -2,14 +2,19 @@
   "The execution adapter's store writes (HO-SPEC-014 v2.1 sections 8.2, 9.1):
   a flow that finishes with an older grid copy merges into the store instead
   of replacing it, the journal sync keeps evidence only the store has seen
-  and drops another account's ladders, and the open-ladder reconciliation
-  resolves to one result per open ladder. Simulator only; nothing reaches an
-  exchange."
+  and drops another account's ladders, the open-ladder reconciliation
+  resolves to one result per open ladder, successful background operations
+  leave `:last` alone, and the `:resync` operation drives live monitoring
+  (spec 9.3) for its own account and epoch only. Simulator only; nothing
+  reaches an exchange."
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.account.context :as account-context]
             [hyperopen.api.default.state :as api-state]
+            [hyperopen.platform :as platform]
             [hyperopen.platform.locks :as locks]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vre]
+            [hyperopen.runtime.effect-adapters.vol-range-resync :as resync]
+            [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.lifecycle-evidence :as evidence]
             [hyperopen.vol-range.infrastructure.execution-gate :as gate]
@@ -132,8 +137,8 @@
                              (is (= 1 (count (:fills g))) "store-only evidence survives the sync")
                              (is (= :terminal (get-in g [:legs (:cloid leg) :order-state])))
                              (is (empty? (:fills (journal-grid s gid))))
-                             (is (= {:op :sync :status :ok}
-                                    (select-keys (get-in @store [:vol-range :execution :last]) [:op :status]))))))))))
+                             (is (nil? (get-in @store [:vol-range :execution :last]))
+                                 "a successful background sync is not announced"))))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))
 
@@ -160,7 +165,199 @@
                                (is (= [(lifecycle/status (store-grid store gid))] (mapv :status results)))))
                       (.then (fn [_] (vre/vol-range-execute nil store :reconcile-open {})))
                       (.then (fn [_]
-                               (is (= {:op :reconcile-open :status :ok}
-                                      (select-keys (get-in @store [:vol-range :execution :last]) [:op :status]))))))))))
+                               (is (nil? (get-in @store [:vol-range :execution :last]))
+                                   "a successful background reconcile is not announced"))))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))
+
+;; ---------------------------------------------------------------------------
+;; Background operations and `:last`
+;; ---------------------------------------------------------------------------
+
+(def ^:private repair-last {:op :repair :status :ok :grid-id "grid-1" :at-ms 1})
+
+(deftest background-operations-only-record-failures-in-last-test
+  (async done
+    (let [s (sim/new-sim)]
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (let [store (store-with [grid])
+                   orig-reconcile ex/reconcile!]
+               (swap! store assoc-in [:vol-range :execution :last] repair-last)
+               (with-runtime s (sim/deps s)
+                 #(-> (vre/vol-range-execute nil store :reconcile-open {})
+                      (.then (fn [_]
+                               (is (= repair-last (get-in @store [:vol-range :execution :last]))
+                                   "a successful reconcile keeps the user's last outcome")
+                               (set! ex/reconcile! (fn [_ _] (js/Promise.reject (js/Error. "storage broke"))))
+                               (vre/vol-range-execute nil store :reconcile-open {})))
+                      (.then (fn [_]
+                               (is (= {:op :reconcile-open :status :error :error "storage broke"}
+                                      (select-keys (get-in @store [:vol-range :execution :last])
+                                                   [:op :status :error]))
+                                   "a failing one replaces it")
+                               (is (not (get-in @store [:vol-range :execution :busy [:reconcile-open]])))))
+                      (.finally (fn [] (set! ex/reconcile! orig-reconcile))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+;; ---------------------------------------------------------------------------
+;; Resync (spec 9.3)
+;; ---------------------------------------------------------------------------
+
+(def ^:private t-now 1700000500000)
+
+(defn- resync-due-monitoring [epoch]
+  {:account-address "0xabc" :status :resyncing :reasons [:reconnected] :epoch epoch
+   :stale-since-ms (- t-now 1000) :live-since-ms nil :fills-snapshot-at-ms (- t-now 500)
+   :last-close-at-ms (- t-now 2000) :last-tick-ms t-now :resync {:state :required :attempt 0}})
+
+(defn- mon [store] (get-in @store [:vol-range :execution :monitoring]))
+
+(defn- with-fixed-time
+  "Run `(f)` (a promise) with the platform clock at `t-now` and the random
+  source at 0.5 (zero jitter)."
+  [f]
+  (let [orig-now platform/now-ms
+        orig-random platform/random-value]
+    (set! platform/now-ms (constantly t-now))
+    (set! platform/random-value (constantly 0.5))
+    (-> (js/Promise.resolve nil)
+        (.then (fn [_] (f)))
+        (.finally (fn []
+                    (set! platform/now-ms orig-now)
+                    (set! platform/random-value orig-random))))))
+
+(defn- with-info-hook
+  "Simulator deps whose info reads call `(hook body)` first."
+  [s hook]
+  (assoc (sim/deps s) :post-info! (fn [body opts] (hook body) ((sim/post-info s) body opts))))
+
+(defn- resync-store [grid epoch]
+  (doto (store-with [grid])
+    (swap! assoc-in [:vol-range :execution :monitoring] (resync-due-monitoring epoch))))
+
+(deftest a-complete-resync-makes-monitoring-live-test
+  (async done
+    (let [s (sim/new-sim)]
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (let [store (resync-store grid 3)
+                   sends (count (:sends @s))
+                   reads (atom [])
+                   deps (with-info-hook s #(swap! reads conj (get % "type")))]
+               (with-fixed-time
+                 #(with-runtime s deps
+                    (fn []
+                      (.then (vre/vol-range-execute nil store :resync {:epoch 3})
+                             (fn [_]
+                               (is (= [:live [] 3 {:state :idle :attempt 0}]
+                                      ((juxt :status :reasons :epoch :resync) (mon store))))
+                               (is (= t-now (:live-since-ms (mon store))))
+                               (is (some #{"frontendOpenOrders"} @reads))
+                               (is (some #{"userFillsByTime"} @reads) "the missed-fill window is read")
+                               (is (= sends (count (:sends @s))) "a resync never sends anything")
+                               (is (nil? (get-in @store [:vol-range :execution :last])))
+                               (is (not (get-in @store [:vol-range :execution :busy [:resync]])))))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest an-incomplete-fills-window-fails-with-backoff-test
+  (async done
+    (let [s (sim/new-sim)]
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (let [store (resync-store grid 3)
+                   deps (assoc (sim/deps s) :post-info!
+                               (fn [body opts]
+                                 (if (= "userFillsByTime" (get body "type"))
+                                   (js/Promise.resolve {:unexpected "shape"})
+                                   ((sim/post-info s) body opts))))]
+               (with-fixed-time
+                 #(with-runtime s deps
+                    (fn []
+                      (.then (vre/vol-range-execute nil store :resync {:epoch 3})
+                             (fn [_]
+                               (let [m (mon store)]
+                                 (is (= [:resyncing 3] ((juxt :status :epoch) m)))
+                                 (is (= {:state :failed :attempt 1 :next-at-ms (+ t-now 15000)}
+                                        (select-keys (:resync m) [:state :attempt :next-at-ms])))
+                                 (is (string? (get-in m [:resync :error])))
+                                 (is (= :monitoring/resync-required
+                                        (monitoring/placement-blocker m {:account "0xabc" :now-ms t-now})))
+                                 (is (nil? (get-in @store [:vol-range :execution :last]))
+                                     "an incomplete read is reported by monitoring, not announced"))))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest a-resync-counts-only-for-its-epoch-and-account-test
+  (async done
+    (let [s (sim/new-sim)
+          run! (fn [grid during]
+                 (let [store (resync-store grid 3)
+                       hooked? (atom false)
+                       deps (with-info-hook s (fn [_] (when (compare-and-set! hooked? false true)
+                                                        (swap! store update-in [:vol-range :execution :monitoring]
+                                                               during))))]
+                   (with-fixed-time
+                     #(with-runtime s deps
+                        (fn [] (.then (vre/vol-range-execute nil store :resync {:epoch 3})
+                                      (fn [_] (is @hooked?) (mon store))))))))]
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (-> (run! grid #(monitoring/on-fills-snapshot % {:account "0xabc" :now-ms (+ t-now 10)}))
+                 (.then (fn [m]
+                          (testing "a re-subscription during the resync starts epoch 4; the result is ignored"
+                            (is (= [:resyncing [:resubscribed] 4 :required]
+                                   ((juxt :status :reasons :epoch (comp :state :resync)) m))))
+                          (run! grid #(assoc % :account-address "0xdef"))))
+                 (.then (fn [m]
+                          (testing "an account switch during the resync: the result is ignored"
+                            (is (= [:resyncing 3 :running] ((juxt :status :epoch (comp :state :resync)) m)))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest a-resync-not-due-for-its-epoch-is-skipped-test
+  (async done
+    (let [store (atom {:vol-range {:execution {:monitoring (resync-due-monitoring 5)}}})
+          calls (atom 0)
+          count! (fn [_] (swap! calls inc) (js/Promise.resolve {:status :ok}))]
+      (-> (resync/resync! store {:sync! count! :reconcile-open! count! :epoch 4 :timeout-ms 1000})
+          (.then (fn [r]
+                   (is (:skipped? r))
+                   (is (zero? @calls) "a stale epoch reads nothing")
+                   (is (= :required (get-in (mon store) [:resync :state])))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest a-resync-that-times-out-fails-the-attempt-test
+  (async done
+    (let [orig-account account-context/active-trading-account-address
+          store (atom {:vol-range {:execution {:monitoring (resync-due-monitoring 2)}}})]
+      (set! account-context/active-trading-account-address (fn [_] "0xabc"))
+      (-> (resync/resync! store {:sync! (fn [_] (js/Promise. (fn [_ _] nil)))
+                                 :reconcile-open! (fn [_] (js/Promise.resolve []))
+                                 :epoch 2 :timeout-ms 5})
+          (.then (fn [r]
+                   (is (= :incomplete (:status r)))
+                   (is (= {:state :failed :attempt 1}
+                          (select-keys (:resync (mon store)) [:state :attempt])))
+                   (is (re-find #"Timed out" (get-in (mon store) [:resync :error])))))
+          (.finally (fn [] (set! account-context/active-trading-account-address orig-account)))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
+(deftest completeness-rules-test
+  (let [ok-r {:persisted? true :reads {:orders-complete? true :fills-complete? true}}]
+    (is (resync/complete? {:status :ok} []))
+    (is (resync/complete? {:status :ok :orders-complete? true} [ok-r ok-r]))
+    (is (not (resync/complete? {:status :ok :orders-complete? false} [ok-r])) "recovery read incomplete orders")
+    (is (not (resync/complete? {:status :journal-unavailable} [ok-r])))
+    (is (not (resync/complete? {:status :ok} [(assoc ok-r :persisted? false)])))
+    (is (not (resync/complete? {:status :ok} [(assoc-in ok-r [:reads :fills-complete?] false)])))
+    (is (not (resync/complete? {:status :ok} [(assoc-in ok-r [:reads :orders-complete?] false)])))
+    (is (not (resync/complete? {:status :ok} [{:persisted? false :reads nil}])))))

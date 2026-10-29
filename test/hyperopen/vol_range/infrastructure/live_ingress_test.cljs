@@ -247,3 +247,25 @@
         (ingress/observe-open-orders! store (fx/open-orders-frame [fx/buy-0-row]) fx/received-at-ms)
         (is (lifecycle/live-leg? (get-in (store-grid store "grid-live") [:legs fx/cloid-buy-0])))
         (is (= [] @dispatched))))))
+
+;; ---------------------------------------------------------------------------
+;; Live monitoring marker (spec 9.3)
+;; ---------------------------------------------------------------------------
+
+(deftest only-a-snapshot-for-the-trading-account-marks-monitoring-test
+  (testing "no trading account, or an increment: monitoring is left alone"
+    (let [store (store-with [(fx/grid)])]
+      (ingress/observe-user-fills! store fx/fills-snapshot fx/received-at-ms)
+      (is (nil? (get-in @store [:vol-range :execution :monitoring])))))
+  (with-redefs [account-context/active-trading-account-address (fn [_] "0xABC")]
+    (let [store (store-with [(fx/grid)])]
+      (ingress/observe-user-fills! store fx/fills-increment fx/received-at-ms)
+      (is (nil? (get-in @store [:vol-range :execution :monitoring])) "an increment is not a snapshot")
+      (ingress/observe-user-fills! store (assoc-in fx/fills-snapshot [:data :user] "0xdef") fx/received-at-ms)
+      (is (nil? (get-in @store [:vol-range :execution :monitoring])) "another account's snapshot")
+      (let [envelope (ingress/observe-user-fills! store fx/fills-snapshot (+ fx/received-at-ms 10))
+            m (get-in @store [:vol-range :execution :monitoring])]
+        (is (= [fx/account (+ fx/received-at-ms 10)] ((juxt :account-address :fills-snapshot-at-ms) m))
+            "the trading account's snapshot is the monitoring marker")
+        (is (= (str (:epoch m) ":4") (:account-event-revision envelope)))
+        (is (= 1 (count (:fills (store-grid store "grid-live")))) "and its rows still reach the ladder")))))

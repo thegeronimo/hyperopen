@@ -1,7 +1,8 @@
 (ns hyperopen.vol-range.execution-actions
   "Vol Range Release A action handlers: place the reviewed ladder, cancel or
-  refresh a ladder, select a ladder in the dock, and sync ladders from the
-  journal (HO-SPEC-014 v2.1 sections 8, 10, 11.2).
+  refresh a ladder, select a ladder in the dock, sync ladders from the
+  journal, and resync them when live monitoring needs it (HO-SPEC-014 v2.1
+  sections 8, 9.3, 10, 11.2).
 
   Pure: each handler returns effects. Every operation runs through
   `[:effects/vol-range-execute op params]`; nothing here signs, reserves a
@@ -61,4 +62,14 @@
                     (vals (get-in state [:vol-range :execution :grids])))]
     (if (and open? (not (busy? state [:reconcile-open])))
       [[:effects/vol-range-execute :reconcile-open {}]]
+      [])))
+
+(defn resync-vol-ladders
+  "Resync after live monitoring lost confidence (spec 9.3): sync from the
+  journal and reconcile every open ladder of the account, for the current
+  monitoring epoch. Nothing without a monitoring epoch, and once at a time."
+  [state]
+  (let [epoch (get-in state [:vol-range :execution :monitoring :epoch])]
+    (if (and (number? epoch) (not (busy? state [:resync])))
+      [[:effects/vol-range-execute :resync {:epoch epoch}]]
       [])))

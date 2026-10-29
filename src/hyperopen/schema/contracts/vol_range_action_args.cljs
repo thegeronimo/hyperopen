@@ -43,6 +43,7 @@
    :actions/select-vol-ladder ::grid-id-args
    :actions/sync-vol-ladders ::common/no-args
    :actions/reconcile-open-vol-ladders ::common/no-args
+   :actions/resync-vol-ladders ::common/no-args
    ;; Release A repair of definitively rejected orders.
    :actions/open-vol-ladder-repair ::grid-id-args
    :actions/refresh-vol-ladder-repair ::common/no-args

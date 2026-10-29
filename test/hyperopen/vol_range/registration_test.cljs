@@ -196,8 +196,25 @@
                    (repair-actions/handle-vol-ladder-repair-keydown {} "Escape")]]
     (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/open-vol-ladder-repair}))
         (pr-str effects)))
-  (testing "the operation set grows only by the repair ops"
-    (doseq [op [:place :cancel :refresh :sync :reconcile-open :repair-preview :repair]]
+  (testing "the operation set grows only by the repair ops and the live-monitoring resync"
+    (doseq [op [:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync]]
       (is (some? (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))
-    (doseq [op [:replace :replace-cancel :replace-confirm :resync :nonsense]]
+    (doseq [op [:replace :replace-cancel :replace-confirm :nonsense]]
       (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))))
+
+;; ---------------------------------------------------------------------------
+;; Live monitoring resync (live-fills stage 6)
+;; ---------------------------------------------------------------------------
+
+(deftest resync-action-is-registered-and-contracted-test
+  (is (contains? (runtime-registry/registered-action-ids) :actions/resync-vol-ladders))
+  (is (contains? (contracts/contracted-action-ids) :actions/resync-vol-ladders))
+  (is (some? (contracts/assert-action-args! :actions/resync-vol-ladders [] {})))
+  (is (thrown? js/Error (contracts/assert-action-args! :actions/resync-vol-ladders [3] {})))
+  (testing "the handler is in the Release A group, never in the A0 catalog"
+    (let [deps (collaborators/runtime-action-deps {})]
+      (is (fn? (get-in deps [:vol-range-execution :resync-vol-ladders])))
+      (is (not (contains? (vol-range-collaborators/action-deps) :resync-vol-ladders)))
+      (is (not (contains? (set (map :action-id (catalog/catalog-entries))) :actions/resync-vol-ladders)))))
+  (is (some? (contracts/assert-emitted-effects! [[:effects/vol-range-execute :resync {:epoch 3}]]
+                                                {:action-id :actions/resync-vol-ladders}))))

@@ -23,6 +23,7 @@
             [hyperopen.api.trading.delivery :as delivery]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
+            [hyperopen.runtime.effect-adapters.vol-range-resync :as resync]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
@@ -78,26 +79,37 @@
   [state grid]
   (grid-store/merge-grid-into-state state grid))
 
+(def ^:private background-ops #{:sync :reconcile-open :resync})
+
+(defn- record-last?
+  "Background operations report only failures in `:last`: a successful tick
+  must neither be announced nor erase the outcome of the user's last action
+  (spec 11.4); the monitoring line reports background state."
+  [op {:keys [status]}]
+  (or (not (contains? background-ops op))
+      (contains? #{:error :journal-unavailable} status)))
+
 (defn- finish! [store busy-key {:keys [grid] :as result} op]
   (when (= :repair-preview op)
     (repair-replace/settle-preview! store (second busy-key) result))
   (swap! store (fn [state]
-                 (-> state
-                     (put-grid grid)
-                     (update-in [:vol-range :execution :busy] dissoc busy-key)
-                     (update-in [:vol-range :execution] merge
-                                {:enabled? (gate/enabled?) :max-ladder-usdc (gate/max-ladder-usdc)})
-                     (assoc-in [:vol-range :execution :last]
-                               (-> result
-                                   (select-keys [:status :errors :delivery :phase :error :counts :in-flight?])
-                                   (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))
-                                   ;; A refused placement leaves the review open; this
-                                   ;; lets the review show the refusal for its own plan.
-                                   (cond-> (= :place op)
-                                     (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))
-                                   ;; Lets the open repair review show why ITS send was refused.
-                                   (cond-> (= :repair op)
-                                     (assoc :proposal-id (:proposal-id result)))))))))
+                 (cond-> (-> state
+                             (put-grid grid)
+                             (update-in [:vol-range :execution :busy] dissoc busy-key)
+                             (update-in [:vol-range :execution] merge
+                                        {:enabled? (gate/enabled?) :max-ladder-usdc (gate/max-ladder-usdc)}))
+                   (record-last? op result)
+                   (assoc-in [:vol-range :execution :last]
+                             (-> result
+                                 (select-keys [:status :errors :delivery :phase :error :counts :in-flight?])
+                                 (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))
+                                 ;; A refused placement leaves the review open; this
+                                 ;; lets the review show the refusal for its own plan.
+                                 (cond-> (= :place op)
+                                   (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))
+                                 ;; Lets the open repair review show why ITS send was refused.
+                                 (cond-> (= :repair op)
+                                   (assoc :proposal-id (:proposal-id result)))))))))
 
 (defn- fail! [store busy-key op e]
   (finish! store busy-key {:status :error :error (ex/error-text e)} op))
@@ -220,7 +232,11 @@
   would invite a second click."
   60000)
 
-(def ^:private unbounded-ops #{:place :repair})
+(def ^:private unbounded-ops
+  "Placement and repair may have a signed action in flight; the resync
+  bounds itself (`op-timeout-ms`) so its timeout also fails the monitoring
+  epoch's attempt."
+  #{:place :repair :resync})
 
 (defn- bounded [op p]
   (if (contains? unbounded-ops op)
@@ -233,7 +249,7 @@
 (defn vol-range-execute
   "Effect `[:effects/vol-range-execute op params]`. Ops: :place, :cancel
   {:grid-id}, :refresh {:grid-id}, :sync, :reconcile-open, :repair-preview
-  {:grid-id}, :repair {:grid-id :proposal-id :legs}."
+  {:grid-id}, :repair {:grid-id :proposal-id :legs}, :resync {:epoch}."
   [_ctx store op params]
   (let [grid-id (:grid-id params)
         busy-key (if grid-id [op grid-id] [op])]
@@ -254,6 +270,8 @@
                                    {:status :error :error "Unknown ladder"})
                         :sync (sync! store)
                         :reconcile-open (.then (reconcile-open! store) (fn [_] {:status :ok}))
+                        :resync (resync/resync! store {:sync! sync! :reconcile-open! reconcile-open!
+                                                       :epoch (:epoch params) :timeout-ms op-timeout-ms})
                         :repair-preview (if (gate/enabled?)
                                           (repair-replace/repair-preview! store (executor-deps store) params)
                                           {:status :refused :errors [:capability/execution-disabled]})

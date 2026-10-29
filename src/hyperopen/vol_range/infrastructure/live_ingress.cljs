@@ -17,6 +17,11 @@
   listed, asks for the existing busy-guarded open-ladder reconciliation, at
   most once per `hint-min-interval-ms` per account.
 
+  A `userFills` snapshot for the trading account is also the live
+  monitoring marker (spec 9.3): it is folded into
+  `[:vol-range :execution :monitoring]` before routing, and the envelope
+  revision carries the monitoring epoch.
+
   Nothing here reads REST, signs, or writes IndexedDB, and it never requires
   the runtime effect adapter."
   (:require [clojure.string :as str]
@@ -25,6 +30,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.vol-range.application.grid-store :as grid-store]
             [hyperopen.vol-range.application.live-evidence :as live-evidence]
+            [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.contracts :as contracts]))
 
 (def hint-min-interval-ms
@@ -33,6 +39,7 @@
   (:hint-min-interval-ms contracts/live-monitoring-policy))
 
 (def ^:private grids-path [:vol-range :execution :grids])
+(def ^:private monitoring-path [:vol-range :execution :monitoring])
 
 (def ^:private initial-ingress
   {:account nil :last-close-at-ms nil :seen-order-coins #{} :last-hint-at-ms nil :seq 0})
@@ -82,7 +89,35 @@
    :network (contracts/current-network)
    :fallback-address (lower (account-context/live-user-stream-address state))
    ;; `<epoch>:<seq>`; live monitoring supplies the epoch (0 until it exists).
-   :revision (str (or (get-in state [:vol-range :execution :monitoring :epoch]) 0) ":" seq-n)})
+   :revision (monitoring/revision (get-in state monitoring-path) seq-n)})
+
+;; ---------------------------------------------------------------------------
+;; Live monitoring marker (spec 9.3)
+;; ---------------------------------------------------------------------------
+
+(defn- note-fills-snapshot
+  "`envelope`, after recording a `userFills` snapshot for the trading account
+  in live monitoring: `observe` with the current account and health first
+  (a snapshot for an account the map does not hold yet would be ignored),
+  then the snapshot, then `observe` again so usable streams move on to a
+  resync. Other frames and other accounts leave monitoring alone. The
+  revision is re-read, since a re-subscription starts a new epoch."
+  [envelope store seq-n]
+  (let [state @store
+        account (lower (account-context/active-trading-account-address state))]
+    (if-not (and (= :fills (:kind envelope)) (:snapshot? envelope) account
+                 (= account (get-in envelope [:scope :account-address])))
+      envelope
+      (let [now (:received-at-ms envelope)
+            opts {:account account :health (get-in state [:websocket :health]) :now-ms now}
+            m (get-in state monitoring-path)
+            m* (-> m
+                   (monitoring/observe opts)
+                   (monitoring/on-fills-snapshot {:account account :now-ms now})
+                   (monitoring/observe opts))]
+        (when-not (= m m*)
+          (swap! store assoc-in monitoring-path m*))
+        (assoc envelope :account-event-revision (monitoring/revision m* seq-n))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Application
@@ -140,7 +175,8 @@
   (let [state @store
         account (lower (account-context/active-trading-account-address state))
         seq-n (:seq (swap! ingress advance-ingress account (last-close-at-ms state)))]
-    (when-let [envelope (build-envelope msg (envelope-opts state received-at-ms seq-n))]
+    (when-let [envelope (some-> (build-envelope msg (envelope-opts state received-at-ms seq-n))
+                                (note-fills-snapshot store seq-n))]
       (let [grids (get-in state grids-path)
             routed (live-evidence/route envelope grids)]
         (write-evidence! store envelope (:by-grid routed))
@@ -150,7 +186,8 @@
         envelope))))
 
 (defn observe-user-fills!
-  "Raw `userFills` tap: apply the message's fills to the matching ladders in
+  "Raw `userFills` tap: record a snapshot for the trading account in live
+  monitoring, then apply the message's fills to the matching ladders in
   memory. Returns the envelope (nil when no account is known)."
   [store msg received-at-ms]
   (observe! store msg received-at-ms live-evidence/fills-envelope))

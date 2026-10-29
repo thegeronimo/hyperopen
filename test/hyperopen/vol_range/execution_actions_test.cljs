@@ -23,3 +23,10 @@
     (is (= [[:effects/save-many [[[:vol-range :execution :selected-grid-id] nil]]]]
            (a/select-vol-ladder (assoc-in s [:vol-range :execution :selected-grid-id] "g1") "g1"))
         "selecting the open ladder closes it")))
+
+(deftest resync-targets-the-current-monitoring-epoch-once-test
+  (let [s {:vol-range {:execution {:monitoring {:epoch 4 :status :resyncing}}}}]
+    (is (= [[:effects/vol-range-execute :resync {:epoch 4}]] (a/resync-vol-ladders s)))
+    (is (= [] (a/resync-vol-ladders (assoc-in s [:vol-range :execution :busy [:resync]] true)))
+        "one resync at a time")
+    (is (= [] (a/resync-vol-ladders {})) "nothing without live monitoring")))

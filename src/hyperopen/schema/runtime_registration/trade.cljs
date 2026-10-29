@@ -179,6 +179,7 @@
    [:actions/select-vol-ladder :select-vol-ladder]
    [:actions/sync-vol-ladders :sync-vol-ladders]
    [:actions/reconcile-open-vol-ladders :reconcile-open-vol-ladders]
+   [:actions/resync-vol-ladders :resync-vol-ladders]
    [:actions/open-vol-ladder-repair :open-vol-ladder-repair]
    [:actions/refresh-vol-ladder-repair :refresh-vol-ladder-repair]
    [:actions/toggle-vol-ladder-repair-leg :toggle-vol-ladder-repair-leg]

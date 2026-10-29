@@ -973,6 +973,7 @@
             [hyperopen.vol-range.domain.volatility-test]
             [hyperopen.vol-range.execution-actions-test]
             [hyperopen.vol-range.infrastructure.execution-gate-test]
+            [hyperopen.vol-range.infrastructure.execution-watcher-test]
             [hyperopen.vol-range.infrastructure.fills-window-test]
             [hyperopen.vol-range.infrastructure.freshness-watcher-test]
             [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
@@ -2042,6 +2043,7 @@
              'hyperopen.vol-range.domain.volatility-test
              'hyperopen.vol-range.execution-actions-test
              'hyperopen.vol-range.infrastructure.execution-gate-test
+             'hyperopen.vol-range.infrastructure.execution-watcher-test
              'hyperopen.vol-range.infrastructure.fills-window-test
              'hyperopen.vol-range.infrastructure.freshness-watcher-test
              'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
