@@ -361,3 +361,25 @@
     (is (not (resync/complete? {:status :ok} [(assoc-in ok-r [:reads :fills-complete?] false)])))
     (is (not (resync/complete? {:status :ok} [(assoc-in ok-r [:reads :orders-complete?] false)])))
     (is (not (resync/complete? {:status :ok} [{:persisted? false :reads nil}])))))
+
+;; ---------------------------------------------------------------------------
+;; Placement gate input (spec 9.3)
+;; ---------------------------------------------------------------------------
+
+(deftest live-inputs-report-the-monitoring-blocker-test
+  (let [account "0x1234567890abcdef1234567890abcdef12345678"
+        live-m {:account-address account :status :live :reasons [] :epoch 4
+                :last-tick-ms (- t-now 15000) :resync {:state :idle :attempt 0}}
+        blocker (fn [m]
+                  (:monitoring-blocker
+                   (vre/live-inputs {:wallet {:address account :agent {:status :ready}}
+                                     :vol-range {:execution (cond-> {} m (assoc :monitoring m))}}
+                                    t-now)))]
+    (is (nil? (blocker live-m)) "live for the trading account with a recent tick")
+    (is (= :monitoring/stale (blocker nil)) "no monitoring yet")
+    (is (= :monitoring/stale (blocker (assoc live-m :status :stale :reasons [:transport-down]))))
+    (is (= :monitoring/resync-required (blocker (assoc live-m :status :resyncing :reasons [:reconnected]))))
+    (is (= :monitoring/suspended (blocker (assoc live-m :last-tick-ms (- t-now 45001))))
+        "the tick gap is judged with the time the executor passes")
+    (is (= :monitoring/stale (blocker (assoc live-m :account-address "0x9999999999999999999999999999999999999999")))
+        "monitoring for another account never admits this one")))

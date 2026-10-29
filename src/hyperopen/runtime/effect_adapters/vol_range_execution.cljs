@@ -28,6 +28,7 @@
             [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.ladder-settings :as ladder-settings]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.application.monitoring :as monitoring]
             [hyperopen.vol-range.application.plan-state :as plan-state]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.contracts :as contracts]
@@ -43,7 +44,9 @@
 
 (defn live-inputs
   "What the executor re-reads at admission and before HTTP (spec 8.1 step 1
-  and 8)."
+  and 8). `:monitoring-blocker` is nil only while live monitoring is `:live`
+  for the trading account with a recent watcher tick (spec 9.3: reconcile
+  before new placement)."
   [state now-ms]
   ;; The planner context is memoized per minute on inputs WITHOUT provenance
   ;; times, so a fee refresh with an unchanged payload keeps the cached input;
@@ -55,6 +58,9 @@
    :read-only? (boolean (account-context/mutations-blocked-message state))
    :execution-enabled? (gate/enabled?)
    :agent-ready? (= :ready (get-in state [:wallet :agent :status]))
+   :monitoring-blocker (monitoring/placement-blocker (get-in state [:vol-range :execution :monitoring])
+                                                     {:account (account-context/active-trading-account-address state)
+                                                      :now-ms now-ms})
    :max-ladder-usdc (gate/max-ladder-usdc)})
 
 (defn executor-deps [store]

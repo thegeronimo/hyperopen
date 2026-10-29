@@ -30,12 +30,15 @@
   (= (select-keys a revalidation/identity-keys) (select-keys b revalidation/identity-keys)))
 
 (defn- refusal
-  "Spec 8.1 step 1, re-checked before HTTP."
+  "Spec 8.1 step 1, re-checked before HTTP. `:monitoring-blocker` (a
+  `:monitoring/*` code from `live!`, spec 9.3) refuses placement and repair
+  until live monitoring has caught up; cancel never consults it."
   [live scope]
   (cond
     (not (:execution-enabled? live)) :capability/execution-disabled
     (:read-only? live) :capability/read-only
     (not (:agent-ready? live)) :signer/agent-not-ready
+    (:monitoring-blocker live) (:monitoring-blocker live)
     (not (same-scope? scope (get-in live [:input :scope]))) :guard/scope-changed
     :else nil))
 

@@ -1,5 +1,6 @@
 import { expect } from "./guarded_test.mjs";
-import { debugCall, dispatch, expectOracle, visitRoute, waitForIdle } from "./hyperopen.mjs";
+import { debugCall, dispatch, expectOracle, visitRoute, waitForDebugBridge, waitForIdle } from "./hyperopen.mjs";
+import { installWsSimulator } from "./ws_simulator.mjs";
 
 // Shared browser world for the Vol Range execution specs (HO-SPEC-014 v2.1 sections 8-10, 15.2).
 //
@@ -12,8 +13,11 @@ import { debugCall, dispatch, expectOracle, visitRoute, waitForIdle } from "./hy
 // aborts anything that would still reach a real `/exchange` endpoint.
 //
 // Every Vol Range execution spec calls `bootstrap(page, world)` before its first navigation,
-// so page routes that later stages need (for example the live-fills WebSocket simulator)
-// are installed in one place. `startTrade` is bootstrap plus load, wallet and fixture seed.
+// so every page route is installed in one place, including the WebSocket simulator
+// (`ws_simulator.mjs`, handle in `world.ws`) that owns the page's Hyperliquid socket and
+// answers the account stream subscriptions. Placement and repair are refused until live
+// monitoring is `:live` (spec 9.3), so `startTrade` (bootstrap plus load, wallet and fixture
+// seed) and `reloadAndRebootstrap` end by waiting for it (`waitForLiveMonitoring`).
 
 export const ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 export const COIN = "@9001";
@@ -38,7 +42,9 @@ export function newWorld() {
     orderStatus: () => ({ status: "unknownOid" }),
     infoLog: [],
     // Requests that tried to reach a real /exchange endpoint (aborted).
-    blockedExchange: []
+    blockedExchange: [],
+    // The WebSocket simulator handle, set by `bootstrap`.
+    ws: null
   };
 }
 
@@ -194,10 +200,12 @@ async function armInitScript(page, { armed = true, cap = null } = {}) {
 
 /**
  * Page setup every Vol Range execution spec runs before its first navigation: the
- * placement init script, the exchange safety net and the stateful /info stub.
+ * placement init script, the exchange safety net, the stateful /info stub and the
+ * WebSocket simulator (`world.ws`).
  */
 export async function bootstrap(page, world, { armed = true, cap = null } = {}) {
   await armInitScript(page, { armed, cap });
+  world.ws = await installWsSimulator(page, { address: ADDRESS });
   // Safety net: a signed action the debug simulator does not answer would fall through to
   // the real exchange. Never let it leave the browser.
   await page.route(EXCHANGE_URL, async (route) => {
@@ -255,12 +263,30 @@ export async function seedTicket(page) {
   await expect(heading).toBeVisible({ timeout: 15_000 });
 }
 
+/** `[:vol-range :execution :monitoring :status]` as a string ("live", ...), or null. */
+export async function monitoringStatus(page) {
+  await waitForDebugBridge(page);
+  return page.evaluate(() => {
+    const execution = globalThis.HYPEROPEN_DEBUG?.snapshot?.()?.["app-state"]?.["vol-range"]?.execution;
+    return execution?.monitoring?.status ?? null;
+  });
+}
+
+/**
+ * Wait until live monitoring is `:live`: the simulator answered the account stream
+ * subscriptions and the resync finished with complete reads (spec 9.3).
+ */
+export async function waitForLiveMonitoring(page, { timeout = 30_000 } = {}) {
+  await expect.poll(() => monitoringStatus(page), { timeout, intervals: [100, 250, 500] }).toBe("live");
+}
+
 /** Full start: bootstrap, load /trade, connect + enable agent, seed the fixture. */
 export async function startTrade(page, world, options = {}) {
   await bootstrap(page, world, options);
   await loadTrade(page);
   await connectAndEnable(page);
   await seedTicket(page);
+  await waitForLiveMonitoring(page);
 }
 
 /** After a reload: wallet + agent + fixture again (journal survives in IndexedDB). */
@@ -268,6 +294,7 @@ export async function reloadAndRebootstrap(page) {
   await loadTrade(page);
   await connectAndEnable(page);
   await seedTicket(page);
+  await waitForLiveMonitoring(page);
 }
 
 export const okOrderResponse = (statuses) => ({
