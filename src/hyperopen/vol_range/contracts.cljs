@@ -58,6 +58,18 @@
    :account-ms 5000
    :review-ms 60000})
 
+(def live-monitoring-policy
+  "Spec 9.3 and 9.4 live monitoring policy. A watcher tick gap over
+  `:suspend-gap-ms` means the page was suspended; stream evidence asks for at
+  most one reconciliation per `:hint-min-interval-ms` per account; a failed
+  resync retries after the backoff for its attempt (the last entry is the
+  cap), scaled by 1 plus a jitter within plus or minus `:resync-jitter`."
+  {:version 1
+   :suspend-gap-ms 45000
+   :hint-min-interval-ms 5000
+   :resync-backoff-ms [15000 30000 60000 120000]
+   :resync-jitter 0.2})
+
 (defn current-network
   "The one network identity Vol Range scopes and plans carry. HyperOpen's
   exchange transport is mainnet-only today (spec 3.2); a testnet adapter must

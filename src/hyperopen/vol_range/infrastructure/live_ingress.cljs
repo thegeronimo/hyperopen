@@ -30,7 +30,7 @@
 (def hint-min-interval-ms
   "Stream evidence asks for at most one open-ladder reconciliation per
   account in this window (spec 9.4)."
-  5000)
+  (:hint-min-interval-ms contracts/live-monitoring-policy))
 
 (def ^:private grids-path [:vol-range :execution :grids])
 

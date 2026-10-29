@@ -957,6 +957,7 @@
             [hyperopen.vol-range.application.ladder-settings-test]
             [hyperopen.vol-range.application.lifecycle-test]
             [hyperopen.vol-range.application.live-evidence-test]
+            [hyperopen.vol-range.application.monitoring-test]
             [hyperopen.vol-range.application.plan-state-memo-test]
             [hyperopen.vol-range.application.planner-test]
             [hyperopen.vol-range.application.projections-test]
@@ -2025,6 +2026,7 @@
              'hyperopen.vol-range.application.ladder-settings-test
              'hyperopen.vol-range.application.lifecycle-test
              'hyperopen.vol-range.application.live-evidence-test
+             'hyperopen.vol-range.application.monitoring-test
              'hyperopen.vol-range.application.plan-state-memo-test
              'hyperopen.vol-range.application.planner-test
              'hyperopen.vol-range.application.projections-test
