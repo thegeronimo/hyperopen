@@ -282,6 +282,8 @@
         (is (= "Open VRT/USDC to repair or update this ladder." (:hint c)))))
     (testing "disabled while a repair review is open or an update is past preview elsewhere"
       (is (false? (:enabled? (control (assoc-in (state-with g) [:vol-range :repair] {:grid-id "g1"})))))
+      (is (false? (:enabled? (control (assoc-in (state-with g) [:vol-range :execution :busy [:replace-cancel "g1"]] true))))
+          "a stopped update's cancel of this ladder is still running")
       (is (false? (:enabled? (control (assoc-in (state-with g) [:vol-range :replace]
                                                 {:grid-id "g0" :scope-key (:scope-key g) :phase :canceled}))))))
     (is (true? (:visible? (control (state-with g {:phase :preview})))) "Preview update restarts a preview")))
@@ -301,17 +303,41 @@
 
 (deftest update-status-messages-test
   (let [s (state-with (placed-grid) {:phase :blocked :frozen-cloids [(cloid 1)]})
-        msg #(rm/status-message s (assoc % :grid-id "g1"))]
+        msg #(rm/status-message s (assoc % :grid-id "g1" :update-started-at-ms 5))]
     (is (= rm/intermediate-message (msg {:op :replace-cancel :status :ready})))
     (is (= rm/intermediate-message (msg {:op :replace-confirm :status :ready})))
     (is (= "Balances refreshed. Review the replacement before placing it."
-           (rm/status-message (state-with (placed-grid) {:phase :ready}) {:op :replace-confirm :status :ready})))
+           (rm/status-message (state-with (placed-grid) {:phase :ready})
+                              {:op :replace-confirm :status :ready :grid-id "g1" :update-started-at-ms 5})))
     (is (= "The old ladder isn't fully canceled yet. 1 old order is still open."
            (msg {:op :replace-cancel :status :blocked :errors [:replace/legs-still-open]})))
     (is (str/starts-with? (msg {:op :replace-cancel :status :busy}) "Nothing was canceled."))
     (is (= "The cancellation couldn't be confirmed. Check again. timeout"
            (msg {:op :replace-confirm :status :error :error "timeout"})))
     (is (= "Update stopped. Your ladder was not changed."
-           (msg {:op :replace-stop :status :stopped :cancel-started? false})))
+           (msg {:op :replace-stop :status :stopped :old-ladder :unchanged})))
     (is (= "Update stopped. The old ladder stays canceled; no new orders were placed."
-           (msg {:op :replace-stop :status :stopped :cancel-started? true})))))
+           (msg {:op :replace-stop :status :stopped :old-ladder :canceled})))
+    (is (= "Update stopped. No new orders were placed. Some of the old ladder's orders may still be open."
+           (msg {:op :replace-stop :status :stopped :old-ladder :unsettled})))))
+
+(deftest a-result-after-stop-updating-is-announced-as-stopped-test
+  ;; Stop updating while the cancel runs; the cancel's result arrives later.
+  (let [g (placed-grid)
+        stopped (state-with g)
+        msg (fn [s r] (rm/status-message s (assoc r :grid-id "g1" :update-started-at-ms 5)))]
+    (is (= "Update stopped. The old ladder was canceled; no new orders were placed."
+           (msg stopped {:op :replace-cancel :status :ready}))
+        "never asks to review a replacement that no longer exists")
+    (is (not= rm/intermediate-message (msg stopped {:op :replace-confirm :status :ready})))
+    (is (= (str "Update stopped. No new orders were placed. The old ladder isn't fully canceled yet. "
+                "7 old orders are still open.")
+           (msg stopped {:op :replace-cancel :status :blocked :errors [:replace/legs-still-open]})))
+    (is (= "Update stopped. Nothing was canceled; your ladder was not changed."
+           (msg stopped {:op :replace-cancel :status :refused :errors [:signer/agent-not-ready]})))
+    (is (= (str "Update stopped. No new orders were placed. Some of the old ladder's orders may still be open. "
+                "The cancellation couldn't be confirmed.")
+           (msg stopped {:op :replace-cancel :status :error :error "Timed out; try again."})))
+    (testing "an update of the same ladder started after the stop is not the one answered"
+      (is (= "Update stopped. The old ladder was canceled; no new orders were placed."
+             (msg (state-with g {:phase :preview :started-at-ms 9}) {:op :replace-cancel :status :ready}))))))

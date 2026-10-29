@@ -289,10 +289,11 @@
   (let [msg (fn [last-result]
               (text (hiccup/find-by-data-role (panel (repair-state [] {:last last-result}))
                                               "vol-ladder-status-message")))]
-    (is (= "Old ladder canceled. Review the updated quantities before placing the replacement."
-           (msg {:op :replace-cancel :status :ready})))
+    (is (= "Update stopped. The old ladder was canceled; no new orders were placed."
+           (msg {:op :replace-cancel :status :ready :grid-id "g1" :update-started-at-ms 5}))
+        "a result for an update that is no longer in progress")
     (is (= "Update stopped. Your ladder was not changed."
-           (msg {:op :replace-stop :status :stopped :cancel-started? false})))))
+           (msg {:op :replace-stop :status :stopped :old-ladder :unchanged})))))
 
 (deftest order-form-slice-carries-the-ladder-under-update-test
   (let [g1 (response (sent-grid) #{})

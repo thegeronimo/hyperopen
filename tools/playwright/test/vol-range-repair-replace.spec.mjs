@@ -555,6 +555,16 @@ test("an unknown cancel outcome blocks the replacement review @regression", asyn
   await expect(blocking).toBeVisible();
   await expect(inUpdate(page, "vol-range-replace-use-quantities")).toHaveCount(0);
   expect(await orderActionCount(page)).toBe(1);
+
+  // Stopping now must not call the old ladder canceled: its orders still rest.
+  await inUpdate(page, "vol-range-replace-abandon").click();
+  await expect(updateDialog(page)).toBeHidden();
+  await expect(banner(page)).toHaveCount(0);
+  await expect(liveRegion(page)).toContainText(
+    "Update stopped. No new orders were placed. Some of the old ladder's orders may still be open."
+  );
+  await expect(liveRegion(page)).not.toContainText("stays canceled");
+  expect(await orderActionCount(page)).toBe(1);
   expect(world.blockedExchange).toEqual([]);
 });
 

@@ -373,7 +373,9 @@
         other-update? (and u (= (:scope-key u) current-key) (not= :preview (:phase u)))
         working? (or (busy? state [:repair-preview id]) (busy? state [:repair id])
                      (= id (get-in state [:vol-range :repair :grid-id]))
-                     (and u (update-busy? state (:grid-id u))))]
+                     (and u (update-busy? state (:grid-id u)))
+                     ;; A stopped update's operation of this ladder still runs.
+                     (update-busy? state id))]
     {:visible? visible?
      :enabled? (boolean (and visible? in-scope? (not other-update?) (not working?)))
      :label "Preview update"
@@ -404,26 +406,62 @@
   {:busy "An order placement for this ladder is still in flight. Cancel again in a moment."
    :refused "This ladder belongs to another account or your trading session isn't ready."})
 
+(def replacement-admission-text
+  (str "The market or your balances changed since review. "
+       "Refresh balances on the update banner, then review the ladder again."))
+
+(def stopped-unsettled-text
+  "Update stopped. No new orders were placed. Some of the old ladder's orders may still be open.")
+
+(defn- stop-text [old-ladder]
+  (case old-ladder
+    :unchanged "Update stopped. Your ladder was not changed."
+    :canceled "Update stopped. The old ladder stays canceled; no new orders were placed."
+    stopped-unsettled-text))
+
+(defn- for-current-update?
+  "True when `last-result` answers the update in progress (same ladder, same
+  start); false for an operation of an update that was stopped or
+  restarted."
+  [state {:keys [grid-id update-started-at-ms]}]
+  (let [u (get-in state [:vol-range :replace])]
+    (boolean (and u (= grid-id (:grid-id u)) (= update-started-at-ms (:started-at-ms u))))))
+
+(defn- stopped-result-text
+  "An update operation that finished after Stop updating: what it did to the
+  old ladder, never a step of the update."
+  [g {:keys [status errors]}]
+  (case status
+    :ready "Update stopped. The old ladder was canceled; no new orders were placed."
+    :blocked (str/join " " (concat ["Update stopped. No new orders were placed."
+                                    "The old ladder isn't fully canceled yet."]
+                                   (map #(blocking-text % g nil) (filter keyword? errors))))
+    (:busy :refused) "Update stopped. Nothing was canceled; your ladder was not changed."
+    (str stopped-unsettled-text " The cancellation couldn't be confirmed.")))
+
 (defn status-message
   "Live-region text for an update result (`:replace-cancel`,
-  `:replace-confirm`, `:replace-stop`) in `[:vol-range :execution :last]`."
-  [state {:keys [op status errors error cancel-started?] :as last-result}]
+  `:replace-confirm`, `:replace-stop`) in `[:vol-range :execution :last]`.
+  Results carry the `:update-started-at-ms` of the update they answer; one
+  for an update that is no longer in progress is announced as a stopped
+  update."
+  [state {:keys [op status errors error old-ladder] :as last-result}]
   (let [g (grid state (:grid-id last-result))
         frozen (get-in state [:vol-range :replace :frozen-cloids])]
     (case op
       :replace-stop
-      (if cancel-started?
-        "Update stopped. The old ladder stays canceled; no new orders were placed."
-        "Update stopped. Your ladder was not changed.")
+      (stop-text old-ladder)
 
       (:replace-cancel :replace-confirm)
-      (case status
-        :ready (if (and (= :replace-confirm op) (= :ready (get-in state [:vol-range :replace :phase])))
-                 "Balances refreshed. Review the replacement before placing it."
-                 intermediate-message)
-        :blocked (str/join " " (cons "The old ladder isn't fully canceled yet."
-                                     (map #(blocking-text % g frozen) (filter keyword? errors))))
-        (:busy :refused) (str "Nothing was canceled. " (get cancel-refusal-text status))
-        (str "The cancellation couldn't be confirmed. Check again." (when (string? error) (str " " error))))
+      (if-not (for-current-update? state last-result)
+        (stopped-result-text g last-result)
+        (case status
+          :ready (if (and (= :replace-confirm op) (= :ready (get-in state [:vol-range :replace :phase])))
+                   "Balances refreshed. Review the replacement before placing it."
+                   intermediate-message)
+          :blocked (str/join " " (cons "The old ladder isn't fully canceled yet."
+                                       (map #(blocking-text % g frozen) (filter keyword? errors))))
+          (:busy :refused) (str "Nothing was canceled. " (get cancel-refusal-text status))
+          (str "The cancellation couldn't be confirmed. Check again." (when (string? error) (str " " error)))))
 
       nil)))

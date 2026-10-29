@@ -181,6 +181,11 @@
         (contains? #{:replace-cancel :replace-confirm :replace-stop} op)
         (replace-model/status-message state last-result)
 
+        ;; A replacement review plans from the balances read when the old
+        ;; ladder's cancel was confirmed; Refresh balances reads them again.
+        (and (= :place op) (= :admission-failed status) (:replacement? last-result))
+        replace-model/replacement-admission-text
+
         (contains? #{:repair-preview :repair} op)
         (repair-model/status-message
          last-result

@@ -147,16 +147,31 @@
     (is (= "Replaces the ladder created 2026-10-28 14:02 UTC" (:lineage (dm/grid-row state new-grid))))))
 
 (deftest update-status-messages-test
-  (let [msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
+  (let [msg (fn [last-result]
+              (dm/status-message {:vol-range {:execution {:last (assoc last-result :grid-id "g" :update-started-at-ms 5)}
+                                              :replace {:grid-id "g" :started-at-ms 5 :phase :canceling}}}))]
     (is (= "Old ladder canceled. Review the updated quantities before placing the replacement."
            (msg {:op :replace-cancel :status :ready})))
     (is (= "Update stopped. Your ladder was not changed."
-           (msg {:op :replace-stop :status :stopped :cancel-started? false})))
+           (msg {:op :replace-stop :status :stopped :old-ladder :unchanged})))
     (is (= "Update stopped. The old ladder stays canceled; no new orders were placed."
-           (msg {:op :replace-stop :status :stopped :cancel-started? true})))
+           (msg {:op :replace-stop :status :stopped :old-ladder :canceled})))
+    (is (= "Update stopped. No new orders were placed. Some of the old ladder's orders may still be open."
+           (msg {:op :replace-stop :status :stopped :old-ladder :unsettled})))
     (is (= "The old ladder isn't fully canceled yet. Some old orders have an unknown status. The replacement can't be reviewed until they are settled."
            (msg {:op :replace-confirm :status :blocked :errors [:replace/unresolved-outcomes]})))
     (is (not (re-find #"^Ladder " (msg {:op :replace-confirm :status :error}))) "never the generic fallback")))
+
+(deftest a-refused-replacement-points-at-refresh-balances-test
+  ;; The replacement plans from the balances read at the cancel's
+  ;; confirmation; reviewing again alone may re-freeze the same legs.
+  (let [last-result {:op :place :status :admission-failed :errors [:guard/plan-changed]}]
+    (is (= (str "The market or your balances changed since review. "
+                "Refresh balances on the update banner, then review the ladder again.")
+           (dm/status-message {:vol-range {:execution {:last (assoc last-result :replacement? true)}}})))
+    (is (= "The market or your balances changed since review. Review the ladder again. (plan-changed)"
+           (dm/status-message {:vol-range {:execution {:last (assoc last-result :replacement? false)}}}))
+        "an ordinary review keeps its text")))
 
 (deftest repair-status-messages-test
   (let [msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]

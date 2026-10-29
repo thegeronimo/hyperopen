@@ -22,9 +22,11 @@
   `[:vol-range :replace]` only while it still refers to the same ladder
   (and, for a repair send, the same proposal; for an update, the same
   update)."
-  (:require [hyperopen.vol-range.application.journal-records :as jr]
+  (:require [hyperopen.vol-range.application.draft-scope :as draft-scope]
+            [hyperopen.vol-range.application.journal-records :as jr]
             [hyperopen.vol-range.application.repair-plan :as repair-plan]
             [hyperopen.vol-range.application.replace-flow :as replace-flow]
+            [hyperopen.vol-range.application.replace-state :as replace-state]
             [hyperopen.vol-range.application.revalidation :as revalidation]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.infrastructure.executor :as ex]
@@ -163,13 +165,14 @@
   (and (some? (:grid-id a)) (= (:grid-id a) (:grid-id b)) (= (:started-at-ms a) (:started-at-ms b))))
 
 (defn- write-update!
-  "Apply `f` to the update only while it is still update `u` (same ladder,
-  same start): a stopped or restarted update is never written."
+  "Apply `(f update state)` to the update only while it is still update `u`
+  (same ladder, same start): a stopped or restarted update is never
+  written."
   [store u f]
   (swap! store (fn [state]
                  (let [current (get-in state [:vol-range :replace])]
                    (if (same-update? u current)
-                     (assoc-in state [:vol-range :replace] (f current))
+                     (assoc-in state [:vol-range :replace] (f current state))
                      state)))))
 
 (defn- check-failed [basis]
@@ -179,11 +182,14 @@
   "After `:replace-cancel` or `:replace-confirm` finished, failed or timed
   out: an error (including the 60 s bound) leaves the update of `grid-id`
   :blocked with `[:replace/check-failed]`, so Check again and Stop updating
-  are offered and it never stays :canceling."
-  [store grid-id {:keys [status]}]
+  are offered and it never stays :canceling. Only the update the operation
+  ran for (same ladder, and the `:update-started-at-ms` the adapter tags
+  every result with) is written; a stopped or restarted one never is."
+  [store grid-id {:keys [status update-started-at-ms]}]
   (when (= :error status)
     (swap! store (fn [state]
-                   (if (= grid-id (get-in state [:vol-range :replace :grid-id]))
+                   (if (same-update? {:grid-id grid-id :started-at-ms update-started-at-ms}
+                                     (get-in state [:vol-range :replace]))
                      (update-in state [:vol-range :replace]
                                 #(assoc % :phase :blocked :basis (check-failed (:basis %))))
                      state)))))
@@ -191,7 +197,8 @@
 (defn- refresh-for-replacement!
   "Once the replacement may be reviewed: refresh the fee quote (the final
   guard needs it fresh) and, best effort, the store's spot balances. The
-  planner itself uses the confirmation's own account read."
+  planner uses the confirmation's own account read until the store's
+  balances change (`with-store-balances`)."
   [{:keys [refresh-fees! refresh-spot!]} grid]
   (-> (js/Promise.resolve nil)
       (.then (fn [_] (when refresh-fees! (refresh-fees!))))
@@ -204,16 +211,27 @@
   [current basis]
   (if (and (= :ready current) (:ready? basis)) :ready (replace-flow/phase-after-confirm basis)))
 
+(defn- with-store-balances
+  "The confirmation's `refreshed` read plus the store's own balances at this
+  moment (after the spot refresh), so the planner can tell once the store
+  has newer balances than that read (`replace-state/account-for-plan`).
+  Recorded only while the ticket shows the ladder's scope."
+  [refreshed state current now-ms]
+  (cond-> refreshed
+    (and (map? refreshed) (= (:scope-key current) (draft-scope/current-scope-key state)))
+    (assoc :store-balances (replace-state/store-balances (snapshots/account-snapshot state now-ms)))))
+
 (defn- settle-confirm!
   "Write a confirmation's outcome to update `u`; resolve to the op result."
   [store deps opts u {:keys [status grid basis refreshed errors error]}]
   (-> (if (= :ready status) (refresh-for-replacement! opts grid) (js/Promise.resolve nil))
       (.then (fn [_]
                (write-update! store u
-                              (fn [current]
+                              (fn [current state]
                                 (case status
                                   :ready (assoc current :phase (next-phase (:phase current) basis) :basis basis
-                                                :refreshed refreshed :confirmed-at-ms (ex/now deps))
+                                                :refreshed (with-store-balances refreshed state current (ex/now deps))
+                                                :confirmed-at-ms (ex/now deps))
                                   :blocked (assoc current :phase :blocked :basis basis :refreshed nil)
                                   (assoc current :phase :blocked :basis (check-failed (:basis current))))))
                (cond-> {:status status :grid grid}
@@ -246,7 +264,7 @@
              (let [frozen (if (seq (:frozen-cloids u))
                             (select-keys u [:frozen-cloids :filled-at-freeze])
                             (replace-flow/freeze refreshed))]
-               (write-update! store u #(merge % frozen))
+               (write-update! store u (fn [current _] (merge current frozen)))
                (.then
                 (executor-cancel/cancel! deps {:grid refreshed})
                 (fn [{:keys [status errors] :as canceled}]

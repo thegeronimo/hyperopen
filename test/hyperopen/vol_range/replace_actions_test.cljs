@@ -128,7 +128,13 @@
                            ["update already canceling" (state-with (placed-grid) {:phase :canceling})]
                            ["update canceled" (state-with (placed-grid) canceled-update)]
                            ["update op in flight" (-> (state-with (placed-grid) {:phase :preview})
-                                                      (assoc-in [:vol-range :execution :busy [:replace-confirm "g1"]] true))]]]
+                                                      (assoc-in [:vol-range :execution :busy [:replace-confirm "g1"]] true))]
+                           ;; Stop updating while the cancel runs: the store's
+                           ;; copy has no :cancel-requested-at-ms until it ends.
+                           ["a stopped update's cancel still runs"
+                            (assoc-in s [:vol-range :execution :busy [:replace-cancel "g1"]] true)]
+                           ["a stopped update's check still runs"
+                            (assoc-in s [:vol-range :execution :busy [:replace-confirm "g1"]] true)]]]
       (is (= [] (a/preview-vol-ladder-update state "g1" now)) label))
     (testing "an update still in preview may be previewed again"
       (is (seq (a/preview-vol-ladder-update (state-with (placed-grid) {:phase :preview}) "g1" now))))))
@@ -231,16 +237,15 @@
     (let [effects (a/stop-vol-ladder-update (state-with (placed-grid) {:phase :preview}) now)]
       (is (= [[:effects/save-many [[[:vol-range :replace] nil]
                                    [[:vol-range :execution :last]
-                                    {:op :replace-stop :status :stopped :grid-id "g1" :cancel-started? false
-                                     :at-ms now}]]]]
+                                    {:op :replace-stop :status :stopped :grid-id "g1" :old-ladder :unchanged
+                                     :update-started-at-ms 5 :at-ms now}]]]]
              effects))))
   (doseq [phase [:canceling :blocked :canceled :ready]]
     (let [s (state-with (placed-grid) (assoc canceled-update :phase phase))
           effects (a/stop-vol-ladder-update s now)
           after (apply-all s effects)]
       (is (not (order-operation? effects)) (str phase))
-      (is (nil? (get-in after [:vol-range :replace])))
-      (is (true? (get-in after [:vol-range :execution :last :cancel-started?])) (str phase))))
+      (is (nil? (get-in after [:vol-range :replace])))))
   (testing "a review frozen with this update's lineage closes too"
     (let [s (-> (state-with (placed-grid) (assoc canceled-update :phase :ready))
                 (assoc-in [:vol-range :frozen-review] {:status :ready})
@@ -250,6 +255,20 @@
       (is (false? (get-in after [:vol-range :ui :review-open?])))
       (is (nil? (get-in after [:vol-range :frozen-review])))
       (is (nil? (get-in after [:vol-range :frozen-context])))))
+  (testing "the stop note never calls old orders canceled that may still be open"
+    (let [old-ladder (fn [update]
+                       (let [s (state-with (placed-grid) update)]
+                         (get-in (apply-all s (a/stop-vol-ladder-update s now)) [:vol-range :execution :last :old-ladder])))
+          blocked (fn [codes] (assoc canceled-update :phase :blocked :basis {:ready? false :blocking codes}))]
+      (is (= :unsettled (old-ladder {:phase :canceling})) "the cancel is still running")
+      (is (= :unsettled (old-ladder (blocked [:replace/unresolved-outcomes :replace/legs-still-open])))
+          "the cancel delivery was lost and the venue still lists the orders")
+      (is (= :unsettled (old-ladder (blocked [:replace/legs-still-open]))) "the cancel was refused")
+      (is (= :unsettled (old-ladder (blocked [:replace/check-failed]))) "the check failed or timed out")
+      (is (= :unsettled (old-ladder (blocked []))))
+      (is (= :canceled (old-ladder (blocked [:replace/fills-incomplete]))) "every order canceled; fills pending")
+      (is (= :canceled (old-ladder canceled-update)))
+      (is (= :canceled (old-ladder (assoc canceled-update :phase :ready))))))
   (testing "a stale update can always be stopped; nothing to stop is a no-op"
     (is (seq (a/stop-vol-ladder-update (state-with (assoc (placed-grid) :scope-key "elsewhere") {:phase :canceled}) now)))
     (is (= [] (a/stop-vol-ladder-update (state-with (placed-grid)) now)))))

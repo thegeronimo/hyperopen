@@ -4,7 +4,8 @@
 
       {:grid-id :scope-key :phase :dialog-open? :started-at-ms
        :settings-recorded? :frozen-cloids :filled-at-freeze :basis
-       :include-rejected #{logical-id} :refreshed {:requested-at-ms :account}
+       :include-rejected #{logical-id}
+       :refreshed {:requested-at-ms :account :store-balances}
        :confirmed-at-ms}
 
   `:phase` is one of :preview, :canceling, :blocked, :canceled or :ready.
@@ -14,7 +15,8 @@
   A0-scan safe: this namespace reads plain maps (the grid's `:legs` map
   directly) and requires nothing from the execution foundations, so the A0
   preview's actions and planner state may call it."
-  (:require [hyperopen.vol-range.application.draft-scope :as draft-scope]))
+  (:require [hyperopen.domain.trading.precision :as precision]
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]))
 
 (def ^:private replace-path [:vol-range :replace])
 
@@ -71,20 +73,76 @@
   (let [grid (get-in state [:vol-range :execution :grids (:grid-id (update-state state))])]
     (into #{} (keep #(some-> (:oid %) str)) (vals (:legs grid)))))
 
+(defn- d [x] (some-> x str precision/parse-decimal))
+
+(defn- release-hold
+  "`balance` ({:total :hold :available}) with `amount` more available and
+  less held, never above its total."
+  [balance amount]
+  (let [total (d (:total balance))
+        available (d (:available balance))
+        hold (d (:hold balance))]
+    (if (and total available hold amount (precision/pos-dec? amount))
+      (let [released (precision/dec-min amount hold)]
+        (assoc balance
+               :available (precision/decimal->string (precision/dec-min total (precision/add available released)))
+               :hold (precision/decimal->string (precision/sub hold released))))
+      balance)))
+
+(defn- without-old-orders
+  "`account` without the old ladder's own open orders and, with
+  `release?`, with the venue holds of those orders released: a resting buy
+  holds price x remaining quote, a resting sell its remaining base. The
+  planner reads `:available`, so leaving the holds of orders about to be
+  canceled in would count the old ladder's funds twice."
+  [state account release?]
+  (if-not (sequential? (:open-orders account))
+    account
+    (let [oids (old-oids state)
+          old? (fn [o] (contains? oids (str (:oid o))))
+          removed (filter old? (:open-orders account))
+          held (fn [side f] (reduce (fn [acc o] (if-let [x (f o)] (precision/add acc x) acc))
+                                    (precision/parse-decimal "0")
+                                    (filter #(= side (:side %)) removed)))
+          quote-held (held :buy #(when-let [p (d (:price %))] (some->> (d (:remaining %)) (precision/mul p))))
+          base-held (held :sell #(d (:remaining %)))]
+      (cond-> (assoc account :open-orders (vec (remove old? (:open-orders account))))
+        (and release? (map? (:quote account))) (update :quote release-hold quote-held)
+        (and release? (map? (:base account))) (update :base release-hold base-held)))))
+
+(defn- balances [account] (select-keys account [:base :quote]))
+
 (defn account-for-plan
-  "The account snapshot the planner should use for the current scope. In
-  `:preview` the old ladder's own open orders are left out of existing
-  exposure (they will be canceled first); in `:canceled` and `:ready` the
-  account read after the cancel was confirmed replaces the snapshot, so no
-  replacement is planned from pre-fill inventory. Otherwise, and for any
-  other scope, `account` is returned unchanged."
+  "The account snapshot the planner should use for the current scope.
+
+  In `:preview` the old ladder's own open orders are left out of existing
+  exposure and their holds are released (they will be canceled first).
+
+  In `:canceled` and `:ready` the account read after the cancel was
+  confirmed replaces the snapshot, so no replacement is planned from
+  pre-fill inventory, but only while the store's own balances are still the
+  ones it showed at that confirmation (`:store-balances`). Once the store's
+  balances change (a transfer, another order, a later fill) that read is
+  older than the store, and the live snapshot is used, without the old
+  ladder's orders (already canceled, so their holds are not released
+  again), so the ticket and the review never show balances older
+  than the app's.
+
+  Otherwise, and for any other scope, `account` is returned unchanged."
   [state account]
   (if-not (current? state)
     account
     (case (phase state)
-      :preview (let [oids (old-oids state)]
-                 (cond-> account
-                   (sequential? (:open-orders account))
-                   (update :open-orders #(vec (remove (fn [o] (contains? oids (str (:oid o)))) %)))))
-      (:canceled :ready) (or (get-in (update-state state) [:refreshed :account]) account)
+      :preview (without-old-orders state account true)
+      (:canceled :ready) (let [{refreshed :account seen :store-balances} (:refreshed (update-state state))]
+                           (cond
+                             (nil? refreshed) account
+                             (and (map? seen) (not= seen (balances account))) (without-old-orders state account false)
+                             :else refreshed))
       account)))
+
+(defn store-balances
+  "What a confirmation records as `:store-balances`: the base and quote
+  balances of the live account snapshot."
+  [account]
+  (balances account))

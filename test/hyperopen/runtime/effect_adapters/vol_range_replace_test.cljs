@@ -13,6 +13,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.platform.locks :as locks]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vre]
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.fixtures :as fixtures]
             [hyperopen.vol-range.infrastructure.execution-gate :as gate]
@@ -141,6 +142,7 @@
                    new-id (get-in @store [:vol-range :execution :selected-grid-id])
                    new-grid (get-in @store [:vol-range :execution :grids new-id])]
                (is (= {:op :place :status :live} (select-keys last-result [:op :status])) (pr-str last-result))
+               (is (true? (:replacement? last-result)) "a placement carrying lineage is marked")
                (is (= (:grid-id grid) (get-in new-grid [:predecessor :grid-id])) "the replacement records its predecessor")
                (is (= {:buy "40" :sell "27"} (get-in new-grid [:predecessor :remaining])))
                (is (nil? (get-in @store [:vol-range :replace])) "the update is over once the replacement is sent")
@@ -260,6 +262,39 @@
           (.then (fn [_] (done)))
           (.catch (fail done))))))
 
+(deftest a-stopped-updates-failure-never-blocks-a-new-update-test
+  ;; Stop updating, then Preview update of the same ladder while the stopped
+  ;; update's check still runs; that check then times out.
+  (async done
+    (let [s (sim/new-sim)
+          ctx (atom {})]
+      (-> (place-live! s)
+          (.then (fn [grid]
+                   (let [store (store-for grid)]
+                     (swap! ctx assoc :store store :grid grid)
+                     (swap! store assoc-in [:vol-range :replace]
+                            (assoc (update-for grid :canceled) :frozen-cloids (lifecycle/replace-membership grid)
+                                   :filled-at-freeze {}))
+                     (with-runtime s {:deps (assoc (sim/deps s) :post-info! (fn [_ _] (js/Promise. (fn [_ _] nil))))
+                                      :immediate-op-timeout? true}
+                       #(let [p (execute! store :replace-confirm {:grid-id (:grid-id grid)})]
+                          (swap! store assoc-in [:vol-range :replace]
+                                 (assoc (update-for grid :preview) :started-at-ms 6))
+                          p)))))
+          (.then (fn [_]
+                   (let [{:keys [store]} @ctx
+                         u (get-in @store [:vol-range :replace])
+                         last-result (get-in @store [:vol-range :execution :last])]
+                     (is (= {:phase :preview :started-at-ms 6 :basis nil}
+                            (select-keys u [:phase :started-at-ms :basis]))
+                         "the new update is never blocked by the old one's failure")
+                     (is (= {:op :replace-confirm :status :error :update-started-at-ms 5}
+                            (select-keys last-result [:op :status :update-started-at-ms]))
+                         "the result names the update it answers")
+                     (is (= 1 (count (sim/order-sends s)))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))))))
+
 (deftest refresh-balances-keeps-a-ready-update-ready-test
   (async done
     (let [s (sim/new-sim)
@@ -272,7 +307,9 @@
           (.then (fn [_]
                    (let [{:keys [store grid]} @ctx]
                      (is (= :canceled (get-in @store [:vol-range :replace :phase])))
-                     (swap! store assoc-in [:vol-range :replace :phase] :ready)
+                     (swap! store update-in [:vol-range :replace] assoc :phase :ready
+                            ;; The ticket shows the ladder's scope.
+                            :scope-key (draft-scope/current-scope-key @store))
                      (swap! s assoc :usdc "3500")
                      (with-runtime s {} #(execute! store :replace-confirm {:grid-id (:grid-id grid)})))))
           (.then (fn [_]
@@ -280,6 +317,11 @@
                          u (get-in @store [:vol-range :replace])]
                      (is (= :ready (:phase u)))
                      (is (= "3500" (get-in u [:refreshed :account :quote :total])) "the new read")
+                     (is (map? (get-in u [:refreshed :store-balances]))
+                         "the store's own balances at the confirmation, so newer ones replace the read")
+                     (is (= {:op :replace-confirm :status :ready :update-started-at-ms 5}
+                            (select-keys (get-in @store [:vol-range :execution :last])
+                                         [:op :status :update-started-at-ms])))
                      (is (= 1 (count (sim/order-sends s)))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))

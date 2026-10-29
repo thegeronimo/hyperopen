@@ -4,7 +4,9 @@
   namespace stays A0-scan safe (VR-24)."
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
+            [hyperopen.vol-range.application.planner :as planner]
             [hyperopen.vol-range.application.replace-state :as replace-state]
             [hyperopen.vol-range.fixtures :as fx]
             [hyperopen.vol-range.state-fixtures :as sf]))
@@ -68,6 +70,72 @@
                  (state-with {:phase :preview} {:scope-key "another-market"})
                  (state-with {:phase :ready :refreshed {:account refreshed-account}} {:scope-key "another-market"})]]
         (is (= account (replace-state/account-for-plan s account)))))))
+
+(defn- dsum [xs] (precision/decimal->string (reduce precision/add (precision/parse-decimal "0")
+                                                    (map precision/parse-decimal xs))))
+
+(defn- ds [x] (precision/decimal->string x))
+(defn- pd [x] (precision/parse-decimal x))
+
+(defn- held-account
+  "A 3000 USDC / 150 VRT account whose resting `orders` hold their funds:
+  a buy price x remaining USDC, a sell its remaining VRT."
+  [orders]
+  (let [side-sum (fn [side f] (dsum (map f (filter #(= side (:side %)) orders))))
+        quote-hold (side-sum :buy #(ds (precision/mul (pd (:price %)) (pd (:remaining %)))))
+        base-hold (side-sum :sell :remaining)]
+    (fx/account-snapshot
+     {:quote {:total "3000" :hold quote-hold :available (ds (precision/sub (pd "3000") (pd quote-hold)))}
+      :base {:total "150" :hold base-hold :available (ds (precision/sub (pd "150") (pd base-hold)))}
+      :open-orders orders})))
+
+(deftest preview-releases-the-old-ladders-holds-test
+  ;; The 13.2 ladder live on a 3000 USDC / 150 VRT account: its resting buys
+  ;; hold about 2900 USDC. The update reuses those funds once they are
+  ;; canceled, so the preview must not count them twice.
+  (let [plan (planner/prepare-plan (fx/plan-input))
+        legs (vec (map-indexed (fn [i l] (assoc l :cloid (str "0xc" i) :oid (str (+ 100 i)))) (:legs plan)))
+        key (draft-scope/current-scope-key (sf/base-state))
+        grid {:grid-id "old" :scope-key key :legs (into {} (map (juxt :cloid identity)) legs)}
+        orders (mapv (fn [l] {:oid (:oid l) :side (:side l) :price (:price l) :remaining (:size l)}) legs)
+        s (state-with {:phase :preview} {:grids {"old" grid}})
+        account (held-account orders)
+        used (replace-state/account-for-plan s account)
+        plan-with #(planner/prepare-plan (fx/plan-input {:account %}))]
+    (is (= :ready (:status plan)) "the fixture ladder")
+    (is (pos? (precision/cmp (pd (get-in account [:quote :hold])) (pd "2800"))) "the buys hold about 2900 USDC")
+    (is (= [] (:open-orders used)) "the old ladder's orders are not existing exposure")
+    (is (= {:total "3000" :hold "0" :available "3000"} (:quote used)) "the old buys' holds are released")
+    (is (= {:total "150" :hold "0" :available "150"} (:base used)) "the old sells' holds are released")
+    (is (= :invalid (:status (plan-with (assoc account :open-orders [])))) "with the holds left in it looks unfunded")
+    (is (= :ready (:status (plan-with used))) "the update the old ladder's funds pay for is ready")
+    (testing "another order keeps its hold"
+      (let [other {:oid "99" :side :buy :price "70" :remaining "1"}
+            used (replace-state/account-for-plan s (held-account (conj orders other)))]
+        (is (= [other] (:open-orders used)))
+        (is (= {:total "3000" :hold "70" :available "2930"} (:quote used)))))
+    (testing "a release never exceeds the hold or the total"
+      (let [thin (assoc account :quote {:total "3000" :hold "100" :available "2900"})]
+        (is (= {:total "3000" :hold "0" :available "3000"} (:quote (replace-state/account-for-plan s thin))))))))
+
+(deftest a-confirmed-read-gives-way-to-newer-store-balances-test
+  ;; After the cancel is confirmed the planner uses that read, but only
+  ;; until the store's own balances change (a transfer, another order).
+  (let [live (fx/account-snapshot {:open-orders [{:oid "11" :side :buy :price "76.4" :remaining "7"}
+                                                 {:oid "99" :side :buy :price "70" :remaining "1"}]})
+        seen (replace-state/store-balances live)]
+    (doseq [phase [:canceled :ready]]
+      (let [s (state-with {:phase phase :refreshed {:account refreshed-account :store-balances seen}})]
+        (is (= refreshed-account (replace-state/account-for-plan s live)) (str phase " store unchanged"))
+        (let [moved (assoc live :base {:total "160" :hold "0" :available "160"})
+              used (replace-state/account-for-plan s moved)]
+          (is (= {:total "160" :hold "0" :available "160"} (:base used)) (str phase " the newer store balances"))
+          (is (= (:quote live) (:quote used)) "holds are not released again")
+          (is (= ["99"] (map :oid (:open-orders used))) "the canceled old orders are left out"))))
+    (testing "without recorded store balances the confirmed read is kept"
+      (is (= refreshed-account
+             (replace-state/account-for-plan (state-with {:phase :ready :refreshed {:account refreshed-account}})
+                                             (assoc live :base {:total "160" :hold "0" :available "160"})))))))
 
 (deftest frozen-lineage-test
   (let [ready {:phase :ready :frozen-cloids ["0xc1" "0xc2"] :basis basis :include-rejected #{"buy-0"}}]

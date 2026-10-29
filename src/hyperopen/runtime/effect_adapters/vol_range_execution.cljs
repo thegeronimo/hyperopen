@@ -110,18 +110,17 @@
                    (record-last? op result)
                    (assoc-in [:vol-range :execution :last]
                              (-> result
-                                 (select-keys [:status :errors :delivery :phase :error :counts :in-flight?])
+                                 (select-keys [:status :errors :delivery :phase :error :counts :in-flight?
+                                               :update-started-at-ms])
                                  (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))
                                  ;; A refused placement leaves the review open; this
                                  ;; lets the review show the refusal for its own plan.
                                  (cond-> (= :place op)
-                                   (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])))
+                                   (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])
+                                          :replacement? (true? (:replacement? result))))
                                  ;; Lets the open repair review show why ITS send was refused.
                                  (cond-> (= :repair op)
                                    (assoc :proposal-id (:proposal-id result)))))))))
-
-(defn- fail! [store busy-key op e]
-  (finish! store busy-key {:status :error :error (ex/error-text e)} op))
 
 ;; ---------------------------------------------------------------------------
 ;; Operations
@@ -287,7 +286,19 @@
   :replace-cancel {:grid-id}, :replace-confirm {:grid-id}."
   [_ctx store op params]
   (let [grid-id (:grid-id params)
-        busy-key (if grid-id [op grid-id] [op])]
+        busy-key (if grid-id [op grid-id] [op])
+        ;; An update operation's result names the update it answers (its
+        ;; start, read as the op starts), also on a timeout or failure, so
+        ;; neither its settlement nor its message reaches an update that
+        ;; was stopped or restarted meanwhile.
+        started (get-in @store [:vol-range :replace :started-at-ms])
+        ;; A placement that carries an update's lineage, as it starts (a
+        ;; refused replacement points at Refresh balances).
+        replacement? (some? (get-in @store [:vol-range :frozen-context :replace]))
+        tag (case op
+              (:replace-cancel :replace-confirm) #(assoc % :update-started-at-ms started)
+              :place #(assoc % :replacement? replacement?)
+              identity)]
     (swap! store assoc-in [:vol-range :execution :busy busy-key] true)
     (-> (bounded
          op
@@ -320,5 +331,5 @@
                         :replace-confirm (repair-replace/replace-confirm! store (executor-deps store) params
                                                                           (replace-opts store))
                         {:status :error :error (str "Unknown operation " op)})))))
-        (.then (fn [result] (finish! store busy-key result op)))
-        (.catch (fn [e] (fail! store busy-key op e))))))
+        (.then (fn [result] (finish! store busy-key (tag result) op)))
+        (.catch (fn [e] (finish! store busy-key (tag {:status :error :error (ex/error-text e)}) op))))))

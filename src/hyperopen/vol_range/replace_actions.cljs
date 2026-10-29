@@ -60,8 +60,9 @@
 
 (defn- previewable?
   "Placement is enabled, the ladder is live or partially deployed, placed in
-  this browser's scope (not recovered), not being canceled or repaired, and
-  no update is already past its preview."
+  this browser's scope (not recovered), not being canceled or repaired, no
+  update is already past its preview, and no update operation of this
+  ladder is still running (also one of a stopped update)."
   [state grid-id]
   (let [g (grid state grid-id)
         u (update-of state)]
@@ -75,7 +76,10 @@
           (not= grid-id (get-in state [:vol-range :repair :grid-id]))
           (not (busy? state [:repair grid-id]))
           (not (and u (replace-state/current? state) (not= :preview (:phase u))))
-          (not (and u (update-busy? state (:grid-id u))))))))
+          (not (and u (update-busy? state (:grid-id u))))
+          ;; Also after Stop updating, while that update's cancel or check
+          ;; of this ladder is still running.
+          (not (update-busy? state grid-id))))))
 
 (defn preview-vol-ladder-update
   "Load the deployed ladder into the ticket (its recorded draft, or the
@@ -203,18 +207,38 @@
 ;; Stop updating
 ;; ---------------------------------------------------------------------------
 
+(def ^:private unsettled-codes
+  "Blocking codes under which old orders may still rest on the venue."
+  #{:replace/legs-still-open :replace/unresolved-outcomes :replace/check-failed})
+
+(defn- old-ladder-after-stop
+  "What Stop updating may truthfully say about the old ladder: `:unchanged`
+  before the cancel, `:canceled` once its cancellation was confirmed (only
+  fills may still be unconfirmed), and `:unsettled` while the cancel runs or
+  old orders may still be open or have an unknown status."
+  [{:keys [phase basis]}]
+  (let [blocking (set (:blocking basis))]
+    (case phase
+      :preview :unchanged
+      (:canceled :ready) :canceled
+      :blocked (if (and (seq blocking) (not-any? unsettled-codes blocking)) :canceled :unsettled)
+      :unsettled)))
+
 (defn stop-vol-ladder-update
   "Abandon the update in any phase, current or stale: the old ladder stays as
-  it is (canceled if the cancel ran) and nothing is placed. A review frozen
-  with this update's lineage closes too. Never an order effect."
+  it is and nothing is placed. The note in `[:vol-range :execution :last]`
+  says what is known about the old ladder (`:old-ladder`, see
+  `old-ladder-after-stop`); an update operation still in flight reports its
+  own outcome as a stopped update. A review frozen with this update's
+  lineage closes too. Never an order effect."
   ([state] (stop-vol-ladder-update state (now)))
   ([state now-ms]
-   (if-let [{:keys [grid-id phase]} (update-of state)]
+   (if-let [{:keys [grid-id started-at-ms] :as u} (update-of state)]
      [[:effects/save-many
        (cond-> (save-update nil)
          true (conj [[:vol-range :execution :last]
                      {:op :replace-stop :status :stopped :grid-id grid-id
-                      :cancel-started? (not= :preview phase) :at-ms now-ms}])
+                      :old-ladder (old-ladder-after-stop u) :update-started-at-ms started-at-ms :at-ms now-ms}])
          (get-in state [:vol-range :frozen-context :replace])
          (into (:path-values (transitions/close-review))))]]
      [])))
