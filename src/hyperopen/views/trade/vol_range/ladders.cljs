@@ -21,7 +21,7 @@
   ["min-h-[28px]" "px-1" "text-xs" "font-medium" "text-ho-accent" "hover:text-ho-accent-bright"
    "focus:outline-none" "focus-visible:ring-2" "focus-visible:ring-ho-text"])
 
-(def ^:private label-classes ["text-[11px]" "text-ho-text-muted"])
+(def ^:private label-classes ["text-xs" "text-ho-text-muted"])
 
 (defn short-address
   "0x1234…abcd for a long address; shorter values pass through."
@@ -54,7 +54,7 @@
 (defn- status-badge
   [{:keys [status status-label attention? needs-attention? closed? recovered?]}]
   [:span {:class (into ["inline-flex" "items-center" "gap-1.5" "rounded-full" "px-2" "py-0.5"
-                        "text-[11px]" "font-medium" "whitespace-nowrap"]
+                        "text-xs" "font-medium" "whitespace-nowrap"]
                        (cond (or attention? needs-attention?) ["bg-ho-warn/15" "text-ho-warn"]
                              closed? ["bg-ho-surface-raised" "text-ho-text-secondary"]
                              :else ["bg-ho-accent-soft" "text-ho-accent-bright"]))
@@ -215,7 +215,7 @@
                   (segment rejected members "bg-ho-warn")
                   (segment checking members "bg-ho-info")
                   (segment canceled members "bg-ho-text-dim")])
-               [:p {:class ["text-[11px]" "text-ho-text-muted" "num"]}
+               [:p {:class ["text-xs" "text-ho-text-muted" "num"]}
                 (if (seq others) (str/join " · " others) "0 filled")])))
 
 (defn- units-text [units base]
@@ -226,7 +226,7 @@
              (kv "To buy" (units-text (:live-buy-units counts) base-symbol) {:label-class "text-ho-buy"})
              (kv "To sell" (units-text (:live-sell-units counts) base-symbol) {:label-class "text-ho-sell"})
              (when range
-               [:p {:class ["text-[11px]" "text-ho-text-muted"]}
+               [:p {:class ["text-xs" "text-ho-text-muted"]}
                 "Range " [:span {:class ["num"]} (if (= (:low range) (:high range))
                                                    (:low range)
                                                    (str (:low range) " – " (:high range)))]])))
@@ -235,7 +235,7 @@
   (stat-cell "Filled so far (execution, not P&L)" "vol-ladder-filled"
              (kv "Bought" (fill-text (:buy filled)) {:label-class "text-ho-buy" :role "vol-ladder-filled-buy"})
              (kv "Sold" (fill-text (:sell filled)) {:label-class "text-ho-sell" :role "vol-ladder-filled-sell"})
-             [:p {:class ["text-[11px]" "text-ho-text-muted"]}
+             [:p {:class ["text-xs" "text-ho-text-muted"]}
               "Fees " [:span {:class ["num"]}
                        (let [buy (get-in filled [:buy :fees]) sell (get-in filled [:sell :fees])]
                          (if (or (seq buy) (seq sell))
@@ -290,7 +290,7 @@
        (map leg-row sells)
        (when anchor
          [:tr {:class ["border-t" "border-dashed" "border-ho-border"]}
-          [:td {:col-span (count cols) :class ["py-1.5" "font-sans" "text-[11px]" "text-ho-text-muted"]}
+          [:td {:col-span (count cols) :class ["py-1.5" "font-sans" "text-xs" "text-ho-text-muted"]}
            "Anchor " [:span {:class ["num" "text-ho-text"]} anchor]]])
        (map leg-row buys)]]]))
 
@@ -305,7 +305,7 @@
      [:h3 {:class ["text-sm" "font-semibold" "text-ho-text"] :data-role "vol-ladder-market"} market]
      (status-badge row)
      (when placed-text [:span {:class ["text-xs" "text-ho-text-muted"]} (str "Placed " placed-text)])
-     [:span {:class ["text-[11px]" "text-ho-text-muted" "num"] :title account :data-role "vol-ladder-account"}
+     [:span {:class ["text-xs" "text-ho-text-muted" "num"] :title account :data-role "vol-ladder-account"}
       (short-address account)]]
     [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
      (header-actions row)
@@ -344,7 +344,7 @@
                 (status-badge row)]]
               [:td {:class (conj td "text-ho-text-secondary")}
                [:span {:class ["block"]} outcome]
-               (when lineage [:span {:class ["block" "text-[11px]" "text-ho-text-muted"] :data-role "vol-ladder-lineage"}
+               (when lineage [:span {:class ["block" "text-xs" "text-ho-text-muted"] :data-role "vol-ladder-lineage"}
                               lineage])]
               [:td {:class (into td ["num" "whitespace-nowrap" "text-ho-text-secondary"])} (dash placed-text)]
               [:td {:class (into td ["num" "whitespace-nowrap" "text-right"]) :data-role "vol-ladder-counts"}

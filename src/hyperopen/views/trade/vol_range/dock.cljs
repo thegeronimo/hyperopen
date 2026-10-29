@@ -21,7 +21,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- section-heading [id label n]
-  [:h2 {:id id :class ["mb-2" "text-[11px]" "font-semibold" "uppercase" "tracking-wider" "text-ho-text-muted"]}
+  [:h2 {:id id :class ["mb-2" "text-xs" "font-semibold" "uppercase" "tracking-wider" "text-ho-text-muted"]}
    (str label " · " n)])
 
 (defn- monitoring-line
