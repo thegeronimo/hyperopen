@@ -2,7 +2,10 @@
   "The \"Vol ladders\" tab of the trade account dock (spec 8.5, 11.2). Renders
   the `dock-model/dock` projection and dispatches only already-registered
   ladder actions. Counts and status always appear together, an attention state
-  is never color-only, and fills are labeled as execution detail, not P&L."
+  is never color-only, and fills are labeled as execution detail, not P&L.
+  The live monitoring line (spec 9.3, 11.2) is one line at the top of the
+  tab, not a live region: outcome announcements stay in the status message
+  (spec 11.4)."
   (:require [clojure.string :as str]
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.dock-model :as dock-model]
@@ -171,12 +174,25 @@
    (row-actions row)
    (when selected? (legs-table legs))])
 
+(defn- monitoring-line
+  "Whether live order and fill updates are on, paused or catching up. The ⚠
+  cue makes the stale state non-color-only."
+  [{:keys [status reason text attention?]}]
+  [:p {:class (into ["flex" "items-center" "gap-1" "px-3" "pt-2" "text-xs"]
+                    (if attention? ["text-ho-warn"] ["text-ho-text-muted"]))
+       :data-role "vol-ladders-monitoring"
+       :data-status (name status)
+       :data-reason (some-> reason name)}
+   (when attention? [:span {:aria-hidden true} "⚠"])
+   [:span text]])
+
 (defn dock-panel
   "The tab body for a `dock-model/dock` model. The rejected-order review
   dialog mounts here; its model is frozen state only."
-  [{:keys [rows message] dialog :repair-dialog}]
+  [{:keys [rows message monitoring] dialog :repair-dialog}]
   [:div {:class ["flex" "h-full" "min-h-0" "flex-col" "overflow-y-auto" "bg-base-100"]
          :data-role "vol-ladder-dock"}
+   (when monitoring (monitoring-line monitoring))
    [:div {:class ["px-3" "py-1" "text-xs" "text-ho-text-secondary"]
           :role "status"
           :aria-live "polite"
@@ -204,6 +220,29 @@
                  :replace (get-in state [:vol-range :replace])}
      :vol-range-dock {:current-scope-key (when (seq (:grids execution))
                                            (draft-scope/current-scope-key state))}}))
+
+(def ^:private background-ops
+  "Busy keys of background operations; they flip on every watcher tick and
+  nothing in the ticket reads them."
+  #{:sync :reconcile-open :resync})
+
+(defn- order-form-execution [execution]
+  (-> execution
+      (select-keys [:enabled? :max-ladder-usdc :busy :last])
+      (update :busy #(into {} (remove (fn [[k _]] (contains? background-ops (first k)))) %))
+      (assoc :monitoring (some-> (:monitoring execution) (dissoc :last-tick-ms)))))
+
+(defn order-form-slice
+  "The order-form panel's `:vol-range` slice: everything under `:vol-range`
+  (review, frozen context, ui, repair, replace) except the execution root,
+  which is narrowed to what the review's Place button reads, so stream fills,
+  ladder copies and watcher ticks never repaint the ticket. Monitoring keeps
+  its status but not `:last-tick-ms`."
+  [state]
+  (if-let [vol-range (:vol-range state)]
+    {:vol-range (cond-> vol-range
+                  (contains? vol-range :execution) (update :execution order-form-execution))}
+    {}))
 
 (defn tab-visible?
   [state]

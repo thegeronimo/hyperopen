@@ -52,8 +52,15 @@
     (is (:attention? row))
     (is (every? #(= "Checking" (:status-label %)) (:legs row)))))
 
+(def owner "0x1234567890abcdef1234567890abcdef12345678")
+
+(def live-monitoring
+  {:account-address owner :status :live :reasons [] :epoch 4 :last-tick-ms 1000
+   :resync {:state :idle :attempt 0}})
+
 (deftest review-commit-respects-the-gate-and-the-local-cap-test
-  (let [state {:vol-range {:execution {:enabled? true :max-ladder-usdc "150"}
+  (let [state {:wallet {:address owner}
+               :vol-range {:execution {:enabled? true :max-ladder-usdc "150" :monitoring live-monitoring}
                            :frozen-review {:status :ready :legs [{:price "60" :size "1" :notional "60"}
                                                                  {:price "60" :size "1" :notional "60"}]}}}]
     (is (= {:visible? true :enabled? true :placing? false :label "Place 2 orders" :error nil}
@@ -69,7 +76,15 @@
     (testing "placing"
       (let [m (dm/review-commit (assoc-in state [:vol-range :execution :busy [:place]] true))]
         (is (:placing? m))
-        (is (false? (:enabled? m)))))))
+        (is (false? (:enabled? m)))))
+    (testing "live monitoring has not caught up"
+      (doseq [[path v] [[[:vol-range :execution :monitoring :status] :resyncing]
+                        [[:vol-range :execution :monitoring :status] :stale]
+                        [[:vol-range :execution :monitoring] nil]
+                        [[:wallet :address] "0xfedcba0987654321fedcba0987654321fedcba09"]]]
+        (let [m (dm/review-commit (assoc-in state path v))]
+          (is (false? (:enabled? m)) (pr-str path v))
+          (is (= "Placement waits for live order and fill updates to catch up." (:note m))))))))
 
 (deftest review-commit-shows-why-its-own-plan-did-not-place-test
   (let [state {:vol-range {:execution {:enabled? true
@@ -121,3 +136,48 @@
            (msg {:op :repair :status :checking :delivery :unknown})))
     (is (nil? (msg {:op :repair-preview :status :ok})) "never \"Ladder ok.\" for a review")
     (is (re-find #"Nothing was sent" (msg {:op :repair :status :refused :errors [:repair/proposal-mismatch]})))))
+
+(defn- line [monitoring & [extra]]
+  (:monitoring (dm/dock (merge {:wallet {:address owner}
+                                :vol-range {:execution {:enabled? true :monitoring monitoring}}}
+                               extra))))
+
+(deftest the-monitoring-line-test
+  (let [m (fn [status reasons & [resync]]
+            (assoc live-monitoring :status status :reasons reasons
+                   :resync (or resync {:state :idle :attempt 0})))]
+    (is (= {:status :live :reason nil :attention? false :text "Live updates on"} (line live-monitoring)))
+    (doseq [[monitoring status reason text]
+            [[(m :stale [:transport-down]) :stale :transport-down
+              "Live updates paused while reconnecting. Your orders stay on the exchange."]
+             [(m :stale [:streams-elsewhere]) :stale :streams-elsewhere
+              "Live updates paused while another account is shown."]
+             [(m :stale [:streams-not-ready]) :stale :streams-not-ready "Connecting live updates…"]
+             [(m :stale [:awaiting-streams]) :stale :awaiting-streams "Connecting live updates…"]
+             [(m :resyncing [:catching-up] {:state :required :attempt 0}) :resyncing :catching-up
+              "Catching up on fills and orders…"]
+             [(m :resyncing [:reconnected] {:state :running :attempt 0 :started-at-ms 1}) :resyncing :reconnected
+              "Catching up on fills and orders…"]
+             [(m :resyncing [:suspended] {:state :failed :attempt 1 :next-at-ms 9}) :resyncing :suspended
+              "Couldn't catch up yet. Retrying automatically."]
+             [(m :resyncing [:suspended] {:state :running :attempt 2}) :resyncing :suspended
+              "Couldn't catch up yet. Retrying automatically."]]]
+      (is (= {:status status :reason reason :attention? true :text text} (line monitoring)) (pr-str monitoring))))
+  (testing "no monitoring yet, or a map for another account, reads as connecting"
+    (is (= "Connecting live updates…" (:text (line nil))))
+    (is (= :stale (:status (line (assoc live-monitoring :account-address "0xfedcba0987654321fedcba0987654321fedcba09"))))))
+  (testing "no line without a trading account, or with placement off and no monitoring"
+    (is (nil? (line live-monitoring {:wallet {}})))
+    (is (nil? (:monitoring (dm/dock {:wallet {:address owner} :vol-range {:execution {:enabled? false}}}))))))
+
+(deftest monitoring-refusals-use-the-refusal-copy-test
+  (let [text "Nothing was placed: live order and fill updates were catching up. Try again in a moment."
+        msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
+    (is (= text (msg {:op :place :status :refused :errors [:monitoring/resync-required]})))
+    (is (= text (msg {:op :place :status :not-placed :delivery :not-sent :phase :final-guard
+                      :error [:monitoring/suspended]})))
+    (is (= text (msg {:op :repair :status :refused :errors [:monitoring/stale]})))
+    (is (= text (msg {:op :repair :status :partially-deployed :delivery :not-sent :error [:monitoring/stale]})))
+    (is (re-find #"Nothing was sent: guard/book-stale|book-stale"
+                 (msg {:op :place :status :not-placed :delivery :not-sent :errors [:guard/book-stale]}))
+        "other refusals keep their texts")))

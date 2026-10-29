@@ -111,3 +111,12 @@
     (is (= "Placing…" (text submit)))
     (is (true? (:aria-busy (hiccup/node-attrs submit))))
     (is (true? (:disabled (hiccup/node-attrs submit))))))
+
+(deftest a-submit-waiting-for-live-monitoring-shows-its-note-test
+  (let [note "Placement waits for live order and fill updates to catch up."
+        html (repair-dialog/repair-dialog
+              (assoc model :submit {:label "Place 1 repair order" :enabled? false :busy? false :note note}))]
+    (is (true? (:disabled (hiccup/node-attrs (by-role html "vol-ladder-repair-submit")))))
+    (is (= note (text (by-role html "vol-ladder-repair-submit-note")))))
+  (is (nil? (by-role (repair-dialog/repair-dialog model) "vol-ladder-repair-submit-note"))
+      "no note while live"))

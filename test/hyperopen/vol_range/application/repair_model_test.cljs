@@ -64,7 +64,10 @@
 (defn- state
   ([grid] (state grid (proposal grid)))
   ([grid repair & [extra]]
-   (deep-merge {:vol-range {:execution {:enabled? true :grids {"g" grid}}
+   (deep-merge {:wallet {:address addr}
+                :vol-range {:execution {:enabled? true :grids {"g" grid}
+                                        :monitoring {:account-address addr :status :live :reasons [] :epoch 3
+                                                     :resync {:state :idle :attempt 0}}}
                             :repair repair}
                 :vol-range-dock {:current-scope-key "k"}}
                extra)))
@@ -200,6 +203,24 @@
         m (rm/repair-model (state g (proposal g) {:vol-range {:execution {:busy {[:repair "g"] true}}}}))]
     (is (= {:label "Placing…" :enabled? false :busy? true} (:submit m)))
     (is (false? (get-in m [:refresh :enabled?])))))
+
+(deftest the-send-waits-for-live-monitoring-test
+  (let [s (state (partial-grid))
+        note "Placement waits for live order and fill updates to catch up."]
+    (doseq [s* [(assoc-in s [:vol-range :execution :monitoring :status] :resyncing)
+                (assoc-in s [:vol-range :execution :monitoring :status] :stale)
+                (assoc-in s [:vol-range :execution :monitoring] nil)
+                (assoc-in s [:wallet :address] "0xfedcba0987654321fedcba0987654321fedcba09")]]
+      (let [m (rm/repair-model s*)]
+        (is (contracts/repair-model-valid? m))
+        (is (= {:label "Place 1 repair order" :enabled? false :busy? false :note note} (:submit m)))
+        (is (true? (get-in m [:refresh :enabled?])) "Refresh prices never waits")))
+    (testing "a send refused for monitoring explains itself in the dialog"
+      (is (= ["Nothing was placed: live order and fill updates were catching up. Try again in a moment."]
+             (:errors (rm/repair-model
+                       (assoc-in s [:vol-range :execution :last]
+                                 {:op :repair :status :partially-deployed :delivery :not-sent
+                                  :error [:monitoring/resync-required] :proposal-id "rp-1"}))))))))
 
 (deftest another-market-disables-the-send-test
   (let [m (rm/repair-model (assoc-in (state (partial-grid)) [:vol-range-dock :current-scope-key] "other"))]

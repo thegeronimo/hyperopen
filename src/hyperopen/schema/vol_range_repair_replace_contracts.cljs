@@ -8,7 +8,8 @@
   :base-symbol :legs :unrepairable :bounds :limits-warning :errors :as-of
   :refresh :submit} with `repair-leg-keys`, `unrepairable-keys`,
   `bound-row-keys`, `refresh-keys` {:enabled? :busy?} and `submit-keys`
-  {:label :enabled? :busy?}. Display values are strings (already
+  {:label :enabled? :busy?} plus an optional string `:note` (why the submit
+  waits for live monitoring). Display values are strings (already
   formatted), booleans or keywords."
   (:require [cljs.spec.alpha :as s]))
 
@@ -51,7 +52,8 @@
          (each string? (:errors m))
          (exact-keys? (:refresh m) refresh-keys)
          (every? boolean? (vals (:refresh m)))
-         (exact-keys? (:submit m) submit-keys)
+         (or (exact-keys? (:submit m) submit-keys)
+             (and (exact-keys? (:submit m) (conj submit-keys :note)) (string? (get-in m [:submit :note]))))
          (string? (get-in m [:submit :label]))
          (boolean? (get-in m [:submit :enabled?]))
          (boolean? (get-in m [:submit :busy?])))))

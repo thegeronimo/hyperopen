@@ -6,11 +6,15 @@
   :last :selected-grid-id}, plus `[:vol-range :repair]`, `[:vol-range :replace]`
   and `[:vol-range-dock :current-scope-key]` (the ticket's scope) for the
   repair control and dialog (`repair-model`). Counts always come with the aggregate label, and
-  an unknown outcome is never shown as reassuring (spec 8.5)."
+  an unknown outcome is never shown as reassuring (spec 8.5). Live monitoring
+  (`[:vol-range :execution :monitoring]`, spec 9.3) gives the dock's
+  monitoring line and keeps the review's Place button disabled until it is
+  live (`monitoring-copy`)."
   (:require [clojure.string :as str]
             [hyperopen.account.context :as account-context]
             [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
             [hyperopen.vol-range.application.repair-model :as repair-model]))
 
 (def ^:private zero (precision/parse-decimal "0"))
@@ -38,8 +42,9 @@
 
 (defn review-commit
   "The review dialog's commit control. Hidden unless placement is enabled in
-  this browser; disabled unless the frozen plan is :ready and within the
-  ladder cap, when this browser set one."
+  this browser; disabled unless the frozen plan is :ready, within the
+  ladder cap, when this browser set one, and live monitoring has caught up
+  (the executor re-checks monitoring with real time)."
   [state]
   (let [{:keys [enabled? max-ladder-usdc]} (execution state)
         plan (get-in state [:vol-range :frozen-review])
@@ -48,6 +53,7 @@
         total (reduce precision/add zero (map #(precision/mul (d (:price %)) (d (:size %))) (:legs plan)))
         over-cap? (and max-ladder-usdc (pos? (precision/cmp total (d max-ladder-usdc))))
         placing? (busy? state [:place])
+        waiting? (some? (monitoring-copy/blocker state))
         last-op (get-in state [:vol-range :execution :last])]
     {:visible? (boolean enabled?)
      ;; Why the last click on THIS plan did not place; the dock's status line
@@ -55,10 +61,12 @@
      :error (when (and (not placing?) (= :place (:op last-op)) (:plan-id plan)
                        (= (:plan-id plan) (:plan-id last-op)))
               (status-message state))
-     :enabled? (boolean (and enabled? (= :ready (:status plan)) (pos? n) (not over-cap?) (not placing?)))
+     :enabled? (boolean (and enabled? (= :ready (:status plan)) (pos? n) (not over-cap?) (not placing?)
+                        (not waiting?)))
      :placing? placing?
      :label (if placing? "Placing orders…" (str "Place " (plural n "order")))
      :note (cond
+             waiting? monitoring-copy/review-note
              over-cap? (str "This ladder is " (ds total) " USDC; this browser's ladder cap is " max-ladder-usdc " USDC.")
              max-ladder-usdc (str "Post-only orders. Ladder cap " max-ladder-usdc " USDC in this browser.")
              :else "Post-only orders.")}))
@@ -163,6 +171,9 @@
         texts (if (contains? #{:cancel :refresh} op) ladder-result-text result-text)]
     (when op
       (cond
+        (and (contains? #{:place :repair} op) (monitoring-copy/monitoring-refusal? last-result))
+        monitoring-copy/refusal-text
+
         (contains? #{:repair-preview :repair} op)
         (repair-model/status-message
          last-result
@@ -184,6 +195,7 @@
                       (vals (get-in state [:vol-range :execution :grids])))]
     {:enabled? (boolean (get-in state [:vol-range :execution :enabled?]))
      :syncing? (busy? state [:sync])
+     :monitoring (monitoring-copy/line state)
      :rows (mapv #(grid-row state %) (sort-by (comp - (fnil identity 0) :created-at-ms) grids))
      :message (status-message state)
      :repair-dialog (repair-model/repair-model state)}))

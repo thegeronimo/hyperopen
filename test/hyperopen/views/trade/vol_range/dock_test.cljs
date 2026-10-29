@@ -245,3 +245,66 @@
         "the dock repaints when the review changes")
     (is (nil? (get-in (dock/view-state {:vol-range {:execution {:enabled? true}}}) [:vol-range-dock :current-scope-key]))
         "no scope work without a ladder")))
+
+(def ^:private live-monitoring
+  {:account-address addr :status :live :reasons [] :epoch 4 :last-tick-ms 1000
+   :resync {:state :idle :attempt 0}})
+
+(deftest monitoring-line-test
+  (testing "live: muted text, no warning cue"
+    (let [html (panel (state-with [] {:monitoring live-monitoring}))
+          line (hiccup/find-by-data-role html "vol-ladders-monitoring")
+          attrs (hiccup/node-attrs line)]
+      (is (= :p (first line)))
+      (is (= "live" (:data-status attrs)))
+      (is (nil? (:data-reason attrs)))
+      (is (= "Live updates on" (text line)))
+      (is (some #{"text-ho-text-muted"} (:class attrs)))
+      (is (not (some #{"text-ho-warn"} (:class attrs))))
+      (is (nil? (:aria-live attrs)) "not a live region (spec 11.4)")
+      (is (nil? (:role attrs)))))
+  (testing "stale: warning color plus an aria-hidden glyph"
+    (let [html (panel (state-with [] {:monitoring (assoc live-monitoring :status :stale :reasons [:transport-down])}))
+          line (hiccup/find-by-data-role html "vol-ladders-monitoring")
+          attrs (hiccup/node-attrs line)
+          glyph (first (hiccup/find-all-nodes line #(true? (:aria-hidden (hiccup/node-attrs %)))))]
+      (is (= "stale" (:data-status attrs)))
+      (is (= "transport-down" (:data-reason attrs)))
+      (is (some #{"text-ho-warn"} (:class attrs)))
+      (is (= "⚠" (text glyph)))
+      (is (str/includes? (text line) "Live updates paused while reconnecting. Your orders stay on the exchange."))))
+  (testing "resyncing"
+    (let [line (hiccup/find-by-data-role
+                (panel (state-with [] {:monitoring (assoc live-monitoring :status :resyncing :reasons [:reconnected]
+                                                          :resync {:state :running :attempt 0})}))
+                "vol-ladders-monitoring")]
+      (is (= "resyncing" (:data-status (hiccup/node-attrs line))))
+      (is (= "reconnected" (:data-reason (hiccup/node-attrs line))))
+      (is (str/includes? (text line) "Catching up on fills and orders…"))))
+  (testing "the line sits above the status message"
+    (let [html (panel (state-with [] {:monitoring live-monitoring :last {:op :place :status :busy}}))
+          roles (keep #(:data-role (hiccup/node-attrs %)) (drop 2 html))]
+      (is (= ["vol-ladders-monitoring" "vol-ladder-status-message"] (take 2 roles)))))
+  (testing "no line without a trading account"
+    (is (nil? (hiccup/find-by-data-role (dock/dock-panel (dm/dock {:vol-range {:execution {:enabled? true}}}))
+                                        "vol-ladders-monitoring")))))
+
+(deftest order-form-slice-narrows-the-execution-root-test
+  (let [grid (response (sent-grid) #{})
+        state {:wallet {:address addr}
+               :vol-range {:ui {:review-open? true}
+                           :frozen-review {:plan-id "p"}
+                           :repair {:grid-id "g1"}
+                           :execution {:enabled? true :max-ladder-usdc "150" :grids {"g1" grid}
+                                       :selected-grid-id "g1"
+                                       :busy {[:place] true [:reconcile-open] true [:sync] true [:cancel "g1"] true}
+                                       :last {:op :place :status :busy}
+                                       :monitoring live-monitoring}}}
+        slice (dock/order-form-slice state)]
+    (is (= {:enabled? true :max-ladder-usdc "150" :busy {[:place] true [:cancel "g1"] true}
+            :last {:op :place :status :busy} :monitoring (dissoc live-monitoring :last-tick-ms)}
+           (get-in slice [:vol-range :execution])))
+    (is (= (dissoc (:vol-range state) :execution) (dissoc (:vol-range slice) :execution))
+        "every other key under :vol-range passes through")
+    (is (= {} (dock/order-form-slice {})))
+    (is (= {:vol-range {:ui {}}} (dock/order-form-slice {:vol-range {:ui {}}})) "no execution root in A0")))

@@ -12,8 +12,16 @@
             :text "Placement isn't available yet"}
    :commit commit})
 
-(defn- state [execution plan]
-  {:vol-range {:execution execution :frozen-review plan}})
+(def addr "0x1234567890abcdef1234567890abcdef12345678")
+
+(def live-monitoring
+  {:account-address addr :status :live :reasons [] :epoch 4 :resync {:state :idle :attempt 0}})
+
+(defn- state
+  "Live monitoring for the connected account unless `execution` sets its own."
+  [execution plan]
+  {:wallet {:address addr}
+   :vol-range {:execution (merge {:monitoring live-monitoring} execution) :frozen-review plan}})
 
 (def ready {:status :ready :legs [{:price "60" :size "1" :notional "60"} {:price "60" :size "1" :notional "60"}]})
 
@@ -60,3 +68,31 @@
     (is (true? (get-in b [1 :aria-busy])))
     (is (true? (get-in b [1 :disabled])))
     (is (= "Placing orders…" (str/join "" (hiccup/collect-strings b))))))
+
+(deftest disabled-with-the-monitoring-note-until-live-updates-catch-up-test
+  (doseq [m [nil
+             (assoc live-monitoring :status :resyncing :reasons [:reconnected]
+                    :resync {:state :required :attempt 0})
+             (assoc live-monitoring :status :stale :reasons [:transport-down])
+             (assoc live-monitoring :account-address "0xfedcba0987654321fedcba0987654321fedcba09")]]
+    (let [html (render {:enabled? true :max-ladder-usdc "150" :monitoring m} ready)
+          b (hiccup/find-by-data-role html "vol-range-submit")]
+      (is (true? (get-in b [1 :disabled])) (pr-str m))
+      (is (= "Placement waits for live order and fill updates to catch up."
+             (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-note"))))
+          (pr-str m))))
+  (testing "a tick gap alone does not disable the view (the executor applies it with real time)"
+    (is (false? (get-in (hiccup/find-by-data-role (render {:enabled? true :monitoring (assoc live-monitoring :last-tick-ms 0)}
+                                                          ready)
+                                                  "vol-range-submit")
+                        [1 :disabled])))))
+
+(deftest a-monitoring-refusal-shows-the-refusal-copy-test
+  (let [text "Nothing was placed: live order and fill updates were catching up. Try again in a moment."
+        plan (assoc ready :plan-id "p1")]
+    (doseq [last-result [{:op :place :status :refused :errors [:monitoring/resync-required] :plan-id "p1"}
+                         {:op :place :status :not-placed :delivery :not-sent :phase :final-guard
+                          :error [:monitoring/stale] :plan-id "p1"}]]
+      (let [html (render {:enabled? true :last last-result} plan)]
+        (is (= text (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-error"))))
+            (pr-str last-result))))))

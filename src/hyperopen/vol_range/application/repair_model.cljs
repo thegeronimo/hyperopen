@@ -14,6 +14,7 @@
             [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
+            [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
             [hyperopen.vol-range.application.repair-plan :as repair-plan]
             [hyperopen.vol-range.contracts :as contracts]))
 
@@ -59,6 +60,7 @@
     :guard/scope-changed (scope-hint market)
     :guard/over-ladder-cap "These orders are over this browser's ladder cap."
     :capability/execution-disabled "Placement is turned off in this browser."
+    (:monitoring/stale :monitoring/resync-required :monitoring/suspended) monitoring-copy/refusal-text
     nil))
 
 (def ^:private status-text
@@ -259,6 +261,7 @@
             sending? (busy? state [:repair grid-id])
             loading? (or (= :loading status) (busy? state [:repair-preview grid-id]))
             live (:live (lifecycle/counts grid))
+            waiting? (some? (monitoring-copy/blocker state))
             last-result (last-result-for state proposal)
             errors (vec (distinct
                          (concat
@@ -290,8 +293,10 @@
          :errors errors
          :as-of (when ready? (some->> (display/utc-clock (:proposed-at-ms proposal)) (str "Prices as of ")))
          :refresh {:enabled? (boolean (and (not loading?) (not sending?))) :busy? (boolean loading?)}
-         :submit {:label (if sending? "Placing…" (str "Place " (plural n "repair order")))
-                  :enabled? (boolean (and ready? in-scope? (pos? n) (not sending?)
-                                          (get-in state [:vol-range :execution :enabled?])
-                                          (= :ready (:status selection))))
-                  :busy? (boolean sending?)}}))))
+         ;; `:note` only while live monitoring has not caught up (spec 9.3).
+         :submit (cond-> {:label (if sending? "Placing…" (str "Place " (plural n "repair order")))
+                          :enabled? (boolean (and ready? in-scope? (pos? n) (not sending?) (not waiting?)
+                                                  (get-in state [:vol-range :execution :enabled?])
+                                                  (= :ready (:status selection))))
+                          :busy? (boolean sending?)}
+                   waiting? (assoc :note monitoring-copy/review-note))}))))

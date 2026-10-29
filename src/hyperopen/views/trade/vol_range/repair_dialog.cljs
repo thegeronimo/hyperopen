@@ -145,4 +145,7 @@
                           "focus-visible:ring-ho-text" "disabled:cursor-not-allowed" "disabled:opacity-50"]
                   :data-role "vol-ladder-repair-submit"
                   :on {:click (commands/submit-repair-actions)}}
-         (:label submit)]]]]]))
+         (:label submit)]]
+       (when-let [note (:note submit)]
+         [:p {:class ["text-right" "text-xs" "text-ho-text-muted"] :data-role "vol-ladder-repair-submit-note"}
+          note])]]]))

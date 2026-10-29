@@ -79,7 +79,6 @@
    :perp-dex-clearinghouse
    :spot
    :trading-settings
-   :vol-range
    :wallet
    :webdata2])
 
@@ -167,6 +166,7 @@
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
+         (vol-dock/order-form-slice state)
          (ui-voice-state state)
          (vol-range-view-state state)))
 

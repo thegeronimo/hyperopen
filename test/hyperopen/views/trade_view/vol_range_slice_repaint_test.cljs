@@ -64,3 +64,39 @@
     (let [pr (assoc-in base [:order-form :scale :mode] :price-range)]
       (is (= (slice pr) (slice (assoc-in pr [:orders :open-orders] [{:oid 3}])))
           "no order slices in ordinary modes"))))
+
+(defn- with-execution [base]
+  (assoc-in base [:vol-range :execution]
+            {:enabled? true :max-ladder-usdc "150"
+             :grids {"g1" {:grid-id "g1" :fills {}}}
+             :busy {}
+             :monitoring {:account-address "0xabc" :status :live :reasons [] :epoch 4
+                          :last-tick-ms 1000 :resync {:state :idle :attempt 0}}}))
+
+(deftest slice-ignores-ladder-fills-ticks-and-background-busy-keys-test
+  ;; Stream fills and the watcher's 15 s tick must not repaint the ticket.
+  (let [base (with-execution (state))]
+    (is (= (slice base)
+           (slice (assoc-in base [:vol-range :execution :grids "g1" :fills "k"] {:sz "1" :px "76.4"})))
+        "a fill applied to a ladder copy")
+    (is (= (slice base)
+           (slice (assoc-in base [:vol-range :execution :monitoring :last-tick-ms] 16000)))
+        "a watcher tick")
+    (is (= (slice base)
+           (slice (assoc-in base [:vol-range :execution :busy [:reconcile-open]] true)))
+        "the background reconcile's busy key")
+    (is (= (slice base)
+           (slice (assoc-in base [:vol-range :execution :selected-grid-id] "g1")))
+        "the dock's selected ladder")))
+
+(deftest slice-repaints-on-monitoring-status-and-placement-state-test
+  (let [base (with-execution (state))]
+    (is (not= (slice base)
+              (slice (assoc-in base [:vol-range :execution :monitoring :status] :resyncing)))
+        "a monitoring status change enables or disables Place")
+    (is (not= (slice base)
+              (slice (assoc-in base [:vol-range :execution :busy [:place]] true))))
+    (is (not= (slice base)
+              (slice (assoc-in base [:vol-range :execution :last] {:op :place :status :busy}))))
+    (is (not= (slice base)
+              (slice (assoc-in base [:vol-range :execution :enabled?] false))))))
