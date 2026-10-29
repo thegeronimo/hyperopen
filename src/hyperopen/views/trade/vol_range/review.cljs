@@ -48,6 +48,18 @@
    (for [[idx {:keys [label value]}] (map-indexed vector rows)]
      ^{:key idx} (p/stat-row label value))])
 
+(defn- lineage-section
+  "A replacement's lineage (spec 10.2): which ladder it replaces, the unfilled
+  remainder it defaults to, fills during the cancel, and whether rejected
+  orders of the old ladder are included."
+  [{:keys [lineage-text remaining-text filled-text rejected-text edited-text]}]
+  [:section {:class ["flex" "flex-col" "gap-0.5" "rounded-md" "border" "border-ho-border" "p-2" "text-xs"]
+             :data-role "vol-range-review-lineage"}
+   [:p {:class ["text-ho-text"]} lineage-text " " remaining-text (when filled-text (str " " filled-text))]
+   [:p {:class ["text-ho-text-secondary"] :data-role "vol-range-review-rejected"} rejected-text]
+   (when edited-text
+     [:p {:class ["text-ho-warn"] :data-role "vol-range-review-edited"} edited-text])])
+
 (defn- commit-control
   [{:keys [label enabled? placing? note error]}]
   [:div {:class ["flex" "flex-col" "items-end" "gap-1"]}
@@ -68,7 +80,8 @@
 
 (defn review-dialog
   "Dialog for an open review model; nil when closed or unavailable."
-  [{:keys [open? title identity-line plan-as-of base-symbol tiles legs cash inventory details note footer commit]}]
+  [{:keys [open? title identity-line plan-as-of base-symbol tiles legs cash inventory details note footer commit
+           replacement]}]
   (when open?
    (let [base-label (or base-symbol "base")]
     [:div {:class ["fixed" "inset-0" "z-[300]" "flex" "items-stretch" "justify-center" "bg-black/60"
@@ -98,6 +111,7 @@
       [:div {:class ["grid" "grid-cols-2" "gap-2"] :data-role "vol-range-review-tiles"}
        (for [{:keys [id label value caption]} tiles]
          ^{:key id} (p/tile {:label label :value value :caption caption}))]
+      (when replacement (lineage-section replacement))
       (legs-table legs base-label)
       [:div {:class ["grid" "grid-cols-1" "gap-2" "sm:grid-cols-2"]}
        (panel "Cash and fees" cash "vol-range-review-cash")

@@ -183,6 +183,7 @@
     "src/hyperopen/vol_range/application/repair_plan.cljs"
     "src/hyperopen/vol_range/application/repair_model.cljs"
     "src/hyperopen/vol_range/application/replace_flow.cljs"
+    "src/hyperopen/vol_range/application/replace_model.cljs"
     "src/hyperopen/vol_range/infrastructure/executor_replace.cljs"
     "src/hyperopen/vol_range/application/wire.cljs"
     "src/hyperopen/vol_range/application/dock_model.cljs"
@@ -238,6 +239,10 @@
     (is (some #(str/ends-with? % "trading/vol_range_transitions.cljs") files))
     (is (some #(str/ends-with? % "application/replace_state.cljs") files) "the update predicates stay scanned")
     (is (some #(str/ends-with? % "application/ladder_settings.cljs") files))
+    (is (some #(str/ends-with? % "views/trade/vol_range/replace_dialog.cljs") files)
+        "the update dialog and banner stay scanned")
+    (is (some #(str/ends-with? % "application/review_model.cljs") files)
+        "the review model reaches the lineage only through the view boundary")
     (doseq [file files
             :let [text (.readFileSync fs file "utf8")]
             ns-name execution-foundation-namespaces]

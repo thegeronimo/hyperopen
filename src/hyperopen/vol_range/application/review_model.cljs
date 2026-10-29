@@ -5,7 +5,8 @@
   captured with it at `[:vol-range :frozen-context]` ({:bbo :frozen-at-ms
   :provenance}); source ages come from the provenance captured at freeze time;
   nothing re-anchors to a newer quote. The footer says placement is not
-  available and carries no commit control (VR-24)."
+  available and carries no commit control (VR-24). `:replacement` is always
+  nil here; a replacement review gets its lineage at the view boundary."
   (:require [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.ticket-model :as ticket-model]
@@ -150,7 +151,7 @@
 
 (def ^:private empty-review
   {:open? false :available? false :title nil :identity-line nil :plan-as-of nil
-   :base-symbol nil :tiles [] :legs [] :cash [] :inventory [] :details [] :note nil
+   :base-symbol nil :tiles [] :legs [] :cash [] :inventory [] :details [] :note nil :replacement nil
    :footer {:placement-available? false :text placement-text :hint enter-hint
             :back-label "Back to edit"}})
 
@@ -181,4 +182,7 @@
          :inventory (inventory-rows plan scope)
          :details (detail-rows plan context)
          :note fixed-order-note
+         ;; A replacement's lineage section is execution code: the order-form
+         ;; view fills it at the view boundary (`replace-model/review-replacement`).
+         :replacement nil
          :footer (:footer empty-review)}))))

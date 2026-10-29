@@ -7,6 +7,7 @@
             [hyperopen.views.trade.vol-range.model-section :as model-section]
             [hyperopen.views.trade.vol-range.outcomes :as outcomes]
             [hyperopen.views.trade.vol-range.primitives :as p]
+            [hyperopen.views.trade.vol-range.replace-dialog :as replace-dialog]
             [hyperopen.views.trade.vol-range.side-cards :as side-cards]))
 
 (defn mode-control
@@ -52,9 +53,13 @@
 
 (defn vol-range-ticket
   "The ticket body for a visible ticket model; nil otherwise. On an ineligible
-  market only the identity strip and the eligibility reason render."
-  [{:keys [visible? eligible? eligibility-reason read-only? identity model inventory buy sell outcomes
-           errors warnings footer ui]}]
+  market only the identity strip and the eligibility reason render. `banner`
+  is the optional ladder update banner (`replace-model/banner-model`): while
+  the update is before its replacement review its controls replace the
+  Review button; in `:ready` the normal footer renders under it."
+  ([ticket] (vol-range-ticket ticket nil))
+  ([{:keys [visible? eligible? eligibility-reason read-only? identity model inventory buy sell outcomes
+            errors warnings footer ui]} banner]
   (when visible?
     (if (false? eligible?)
       [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "vol-range-ticket"}
@@ -73,4 +78,6 @@
          (side-cards/sell-card sell base-symbol fe)
          (outcomes/outcomes-section outcomes)
          (outcomes/messages errors warnings)
-         (outcomes/footer footer)]))))
+         (replace-dialog/replace-banner banner)
+         (when-not (:replaces-footer? banner)
+           (outcomes/footer footer))])))))

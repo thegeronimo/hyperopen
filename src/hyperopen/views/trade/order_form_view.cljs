@@ -14,6 +14,8 @@
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
             [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.projections :as vol-range-projections]
+            [hyperopen.vol-range.application.replace-model :as replace-model]
+            [hyperopen.views.trade.vol-range.replace-dialog :as vol-range-replace-dialog]
             [hyperopen.views.trade.vol-range.review :as vol-range-review]
             [hyperopen.views.trade.vol-range.ticket :as vol-range-ticket]))
 
@@ -301,7 +303,7 @@
                                       base-symbol))
 
       (when vol?
-        (vol-range-ticket/vol-range-ticket vol-range))
+        (vol-range-ticket/vol-range-ticket vol-range (:vol-range-replace-banner ui)))
 
       (when spectate-mode-read-only?
         (feedback/spectate-mode-stop-affordance))
@@ -324,17 +326,32 @@
                                fee-copy
                                (when show-scale-preview? scale-preview-lines)))]
      (when-let [review (:vol-range-review ui)]
-       (vol-range-review/review-dialog review))]))
+       (vol-range-review/review-dialog review))
+     (when-let [update-dialog (:vol-range-replace ui)]
+       (vol-range-replace-dialog/replace-dialog update-dialog))]))
 
 (defn- vol-range-ui
-  "Vol Range inputs read at the view boundary: eligibility for the mode control
-  and the review model while the review dialog is open."
+  "Vol Range inputs read at the view boundary: eligibility for the mode control,
+  the review model while the review dialog is open (with its commit control
+  and, for a replacement, its lineage section), and while a ladder update is
+  in progress the ticket banner and the update dialog (whose Proposed column
+  is the ticket's live plan)."
   [state vm now-ms]
   (when (= :scale (:type vm))
-    (cond-> {:vol-range-eligibility (vol-range-projections/eligibility-for-state state now-ms)}
-      (get-in vm [:vol-range :ui :review-open?])
-      (assoc :vol-range-review (assoc (vol-range-projections/review-model state now-ms)
-                                      :commit (dock-model/review-commit state))))))
+    (let [update? (and (some? (get-in state [:vol-range :replace]))
+                       (vol-range-projections/ticket-visible? state))]
+      (cond-> {:vol-range-eligibility (vol-range-projections/eligibility-for-state state now-ms)}
+        (get-in vm [:vol-range :ui :review-open?])
+        (assoc :vol-range-review (assoc (vol-range-projections/review-model state now-ms)
+                                        :commit (dock-model/review-commit state)
+                                        :replacement (replace-model/review-replacement state)))
+
+        update?
+        (assoc :vol-range-replace-banner (replace-model/banner-model state))
+
+        (and update? (get-in state [:vol-range :replace :dialog-open?]))
+        (assoc :vol-range-replace (replace-model/replace-dialog-model
+                                   state (vol-range-projections/plan-for-state state now-ms)))))))
 
 (defn order-form-view [state]
   (let [now-ms (.now js/Date)

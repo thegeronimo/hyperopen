@@ -128,8 +128,21 @@
             :on {:click (commands/open-repair-actions grid-id)}}
    label])
 
+(defn- update-button
+  "\"Preview update\": loads the ladder into the ticket and opens the update
+  dialog. Disabled, and described by the market hint, while the ticket is on
+  another market."
+  [grid-id {:keys [enabled? label aria-label hint]}]
+  [:button {:type "button" :class button-classes :disabled (not enabled?)
+            :aria-label aria-label
+            :aria-describedby (when hint (market-hint-id grid-id))
+            :data-role "vol-ladder-preview-update"
+            :data-grid-id grid-id
+            :on {:click (commands/preview-update-actions grid-id)}}
+   label])
+
 (defn- row-actions
-  [{:keys [grid-id market can-cancel? canceling? refreshing? selected? counts repair]}]
+  [{:keys [grid-id market can-cancel? canceling? refreshing? selected? counts repair] update-control :update}]
   [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
    [:button {:type "button" :class button-classes :aria-expanded (boolean selected?)
              :data-role "vol-ladder-view-orders"
@@ -150,10 +163,12 @@
                :on {:click (commands/cancel-ladder-actions grid-id)}}
       "Cancel this ladder"])
    (when (:visible? repair) (repair-button grid-id repair))
-   (when (and (:visible? repair) (:hint repair))
+   (when (:visible? update-control) (update-button grid-id update-control))
+   (when-let [hint (or (when (:visible? repair) (:hint repair))
+                       (when (:visible? update-control) (:hint update-control)))]
      [:span {:id (market-hint-id grid-id) :class ["text-xs" "text-ho-text-secondary"]
              :data-role "vol-ladder-market-hint"}
-      (:hint repair)])])
+      hint])])
 
 (defn- ladder-row
   [{:keys [grid-id market account counts partial-message selected? legs] :as row}]
@@ -171,6 +186,8 @@
      [:p {:class ["text-xs" "text-ho-warn"] :data-role "vol-ladder-partial"} partial-message])
    (filled-block row)
    (model-block row)
+   (when-let [lineage (:lineage row)]
+     [:p {:class ["text-xs" "text-ho-text-secondary"] :data-role "vol-ladder-lineage"} lineage])
    (row-actions row)
    (when selected? (legs-table legs))])
 
@@ -232,16 +249,32 @@
       (update :busy #(into {} (remove (fn [[k _]] (contains? background-ops (first k)))) %))
       (assoc :monitoring (some-> (:monitoring execution) (dissoc :last-tick-ms)))))
 
+(defn- with-update-grid
+  "The ladder under update, which the update dialog's Current column, the
+  ticket banner and the review lineage read (and `replace-state/current?`
+  requires)."
+  [narrowed execution grid-id]
+  (if-let [g (when grid-id (get-in execution [:grids grid-id]))]
+    (assoc narrowed :grids {grid-id g})
+    narrowed))
+
 (defn order-form-slice
   "The order-form panel's `:vol-range` slice: everything under `:vol-range`
   (review, frozen context, ui, repair, replace) except the execution root,
   which is narrowed to what the review's Place button reads, so stream fills,
   ladder copies and watcher ticks never repaint the ticket. Monitoring keeps
-  its status but not `:last-tick-ms`."
+  its status but not `:last-tick-ms`. While a ladder update is in progress,
+  or a review is frozen with an update's lineage, that one ladder also
+  passes through (its fills then repaint the ticket; other ladders' do not)."
   [state]
   (if-let [vol-range (:vol-range state)]
     {:vol-range (cond-> vol-range
-                  (contains? vol-range :execution) (update :execution order-form-execution))}
+                  (contains? vol-range :execution)
+                  (update :execution
+                          (fn [execution]
+                            (with-update-grid (order-form-execution execution) execution
+                              (or (get-in vol-range [:replace :grid-id])
+                                  (get-in vol-range [:frozen-context :replace :predecessor :grid-id]))))))}
     {}))
 
 (defn tab-visible?

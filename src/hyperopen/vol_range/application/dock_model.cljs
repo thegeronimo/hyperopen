@@ -5,8 +5,9 @@
   Reads `[:vol-range :execution]`: {:enabled? :max-ladder-usdc :grids :busy
   :last :selected-grid-id}, plus `[:vol-range :repair]`, `[:vol-range :replace]`
   and `[:vol-range-dock :current-scope-key]` (the ticket's scope) for the
-  repair control and dialog (`repair-model`). Counts always come with the aggregate label, and
-  an unknown outcome is never shown as reassuring (spec 8.5). Live monitoring
+  repair control and dialog (`repair-model`) and the Preview update control,
+  lineage and update messages (`replace-model`). Counts always come with the
+  aggregate label, and an unknown outcome is never shown as reassuring (spec 8.5). Live monitoring
   (`[:vol-range :execution :monitoring]`, spec 9.3) gives the dock's
   monitoring line and keeps the review's Place button disabled until it is
   live (`monitoring-copy`)."
@@ -15,7 +16,8 @@
             [hyperopen.domain.trading.precision :as precision]
             [hyperopen.vol-range.application.lifecycle :as lifecycle]
             [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
-            [hyperopen.vol-range.application.repair-model :as repair-model]))
+            [hyperopen.vol-range.application.repair-model :as repair-model]
+            [hyperopen.vol-range.application.replace-model :as replace-model]))
 
 (def ^:private zero (precision/parse-decimal "0"))
 (defn- d [x] (or (some-> x str precision/parse-decimal) zero))
@@ -147,6 +149,8 @@
      :refreshing? (busy? state [:refresh id])
      :selected? (= id (get-in state [:vol-range :execution :selected-grid-id]))
      :repair (repair-model/row-control state grid)
+     :update (replace-model/row-control state grid)
+     :lineage (replace-model/lineage state grid)
      :legs (leg-rows grid)}))
 
 (def ^:private ladder-result-text
@@ -173,6 +177,9 @@
       (cond
         (and (contains? #{:place :repair} op) (monitoring-copy/monitoring-refusal? last-result))
         monitoring-copy/refusal-text
+
+        (contains? #{:replace-cancel :replace-confirm :replace-stop} op)
+        (replace-model/status-message state last-result)
 
         (contains? #{:repair-preview :repair} op)
         (repair-model/status-message

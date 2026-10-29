@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.test-support.hiccup :as hiccup]
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.projections :as projections]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.state-fixtures :as sf]
@@ -301,3 +302,57 @@
         (is (str/includes? note "Converted at the anchor price 80 ·"))
         (is (re-find #"at most 190(\.0+)? SYN" note))
         (is (str/includes? (text html) "Review 7 orders"))))))
+
+;; ---------------------------------------------------------------------------
+;; Ladder update banner (spec 10.2)
+;; ---------------------------------------------------------------------------
+
+(def ^:private preview-banner
+  {:phase :preview :title "Updating the SYN/USDC ladder · step 1 of 3" :message nil :lineage nil
+   :replaces-footer? true :open-update? true :refresh-balances nil :busy? false})
+
+(deftest banner-replaces-the-review-button-before-the-replacement-review-test
+  (with-fees
+    (fn []
+      (let [model (projections/ticket-model (sf/base-state) sf/now-ms)
+            html (ticket/vol-range-ticket model preview-banner)]
+        (is (some? (hiccup/find-by-data-role html "vol-range-replace-banner")))
+        (is (nil? (hiccup/find-by-data-role html "vol-range-review-open")) "no Review N orders in preview")
+        (is (some? (hiccup/find-by-data-role html "vol-range-replace-open")) "Open update instead"))
+      (testing "ready: the normal footer renders under the banner"
+        (let [html (ticket/vol-range-ticket (projections/ticket-model (sf/base-state) sf/now-ms)
+                                            (assoc preview-banner :phase :ready :replaces-footer? false
+                                                   :open-update? false :refresh-balances {:enabled? true :busy? false}))]
+          (is (some? (hiccup/find-by-data-role html "vol-range-replace-banner")))
+          (is (some? (hiccup/find-by-data-role html "vol-range-review-open")))
+          (is (some? (hiccup/find-by-data-role html "vol-range-replace-refresh-balances")))))
+      (testing "no banner without an update"
+        (let [html (render (sf/base-state))]
+          (is (nil? (hiccup/find-by-data-role html "vol-range-replace-banner")))
+          (is (some? (hiccup/find-by-data-role html "vol-range-review-open"))))))))
+
+(defn- update-state [phase dialog-open?]
+  (let [state (sf/base-state)
+        scope-key (draft-scope/current-scope-key state)]
+    (-> state
+        (assoc-in [:vol-range :execution] {:enabled? true
+                                           :grids {"g1" {:grid-id "g1" :scope-key scope-key
+                                                         :scope {:account-address sf/owner :symbol "SYN"
+                                                                 :quote-symbol "USDC"}
+                                                         :legs {} :members {} :created-at-ms 1793196120000}}})
+        (assoc-in [:vol-range :replace] {:grid-id "g1" :scope-key scope-key :phase phase :dialog-open? dialog-open?
+                                         :started-at-ms 5 :settings-recorded? true :include-rejected #{}}))))
+
+(deftest order-form-view-mounts-the-update-dialog-and-banner-test
+  (with-fees
+    (fn []
+      (let [node (order-form-view/order-form-view (update-state :preview true))]
+        (is (some? (hiccup/find-by-data-role node "vol-range-replace-banner")))
+        (is (some? (hiccup/find-by-data-role node "vol-range-replace-dialog")))
+        (is (some? (hiccup/find-by-data-role node "vol-range-replace-compare")))
+        (is (nil? (hiccup/find-by-data-role node "vol-range-review-open"))))
+      (let [node (order-form-view/order-form-view (update-state :preview false))]
+        (is (some? (hiccup/find-by-data-role node "vol-range-replace-banner")))
+        (is (nil? (hiccup/find-by-data-role node "vol-range-replace-dialog")) "closed dialog"))
+      (is (nil? (hiccup/find-by-data-role (order-form-view/order-form-view (sf/base-state))
+                                          "vol-range-replace-banner"))))))

@@ -10,7 +10,10 @@
   `bound-row-keys`, `refresh-keys` {:enabled? :busy?} and `submit-keys`
   {:label :enabled? :busy?} plus an optional string `:note` (why the submit
   waits for live monitoring). Display values are strings (already
-  formatted), booleans or keywords."
+  formatted), booleans or keywords.
+
+  REPLACE MODEL and BANNER MODEL: see `replace-model-valid?` and
+  `replace-banner-valid?` below."
   (:require [cljs.spec.alpha :as s]))
 
 (defn- exact-keys? [m ks] (and (map? m) (= (set (keys m)) ks)))
@@ -62,3 +65,83 @@
   "nil (no review open) or an exact repair dialog model."
   [x]
   (or (nil? x) (s/valid? ::repair-model x)))
+
+;; ---------------------------------------------------------------------------
+;; Replace (spec 10.2)
+;; ---------------------------------------------------------------------------
+;;
+;; REPLACE MODEL (`replace-model/replace-dialog-model`): nil when the update
+;; dialog is closed, or `replace-keys` with `step-keys` {:label :current?},
+;; `compare-row-keys` {:field :label :current :proposed}, `rejected-row-keys`
+;; {:logical-id :label :selected? :enabled?} and `:actions` (`action-keys`,
+;; each nil or a `control-keys` map {:label :enabled? :busy? :aria-label};
+;; `:abandon` is always present).
+;;
+;; BANNER MODEL (`replace-model/banner-model`): nil without an update, or
+;; `banner-keys` {:phase :title :message :lineage :replaces-footer?
+;; :open-update? :refresh-balances :busy?}; `:refresh-balances` is nil or
+;; {:enabled? :busy?}.
+
+(def replace-phases #{:preview :canceling :blocked :canceled :ready})
+(def replace-keys #{:grid-id :phase :stale-text :title :identity-line :steps :explainer :compare :settings-note
+                    :quantity-note :phase-text :blocking :message :remaining-text :filled-text :included-text
+                    :rejected :actions})
+(def step-keys #{:label :current?})
+(def compare-row-keys #{:field :label :current :proposed})
+(def rejected-row-keys #{:logical-id :label :selected? :enabled?})
+(def action-keys #{:cancel-old :edit :cancel-remaining :check :use-quantities :abandon})
+(def control-keys #{:label :enabled? :busy? :aria-label})
+(def banner-keys #{:phase :title :message :lineage :replaces-footer? :open-update? :refresh-balances :busy?})
+
+(defn- step? [x] (and (exact-keys? x step-keys) (string? (:label x)) (boolean? (:current? x))))
+
+(defn- compare-row? [r]
+  (and (exact-keys? r compare-row-keys) (keyword? (:field r)) (string? (:label r))
+       (str-or-nil? (:current r)) (str-or-nil? (:proposed r))))
+
+(defn- rejected-row? [r]
+  (and (exact-keys? r rejected-row-keys) (string? (:logical-id r)) (string? (:label r))
+       (boolean? (:selected? r)) (boolean? (:enabled? r))))
+
+(defn- control? [c]
+  (and (exact-keys? c control-keys) (string? (:label c)) (boolean? (:enabled? c)) (boolean? (:busy? c))
+       (str-or-nil? (:aria-label c))))
+
+(s/def ::replace-model
+  (fn [m]
+    (and (exact-keys? m replace-keys)
+         (string? (:grid-id m))
+         (contains? replace-phases (:phase m))
+         (every? #(string? (get m %)) [:title :identity-line])
+         (every? #(str-or-nil? (get m %)) [:stale-text :explainer :settings-note :quantity-note :phase-text
+                                            :message :remaining-text :filled-text :included-text])
+         (each step? (:steps m))
+         (= 3 (count (:steps m)))
+         (= 1 (count (filter :current? (:steps m))))
+         (each compare-row? (:compare m))
+         (each string? (:blocking m))
+         (each rejected-row? (:rejected m))
+         (exact-keys? (:actions m) action-keys)
+         (every? #(or (nil? %) (control? %)) (vals (:actions m)))
+         (control? (get-in m [:actions :abandon])))))
+
+(s/def ::replace-banner
+  (fn [b]
+    (and (exact-keys? b banner-keys)
+         (contains? replace-phases (:phase b))
+         (string? (:title b))
+         (str-or-nil? (:message b))
+         (str-or-nil? (:lineage b))
+         (every? #(boolean? (get b %)) [:replaces-footer? :open-update? :busy?])
+         (let [r (:refresh-balances b)]
+           (or (nil? r) (and (exact-keys? r refresh-keys) (every? boolean? (vals r))))))))
+
+(defn replace-model-valid?
+  "nil (no update dialog open) or an exact update dialog model."
+  [x]
+  (or (nil? x) (s/valid? ::replace-model x)))
+
+(defn replace-banner-valid?
+  "nil (no update) or an exact ticket banner model."
+  [x]
+  (or (nil? x) (s/valid? ::replace-banner x)))

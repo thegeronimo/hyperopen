@@ -100,3 +100,27 @@
               (slice (assoc-in base [:vol-range :execution :last] {:op :place :status :busy}))))
     (is (not= (slice base)
               (slice (assoc-in base [:vol-range :execution :enabled?] false))))))
+
+(def ^:private account-slice @#'trade-view/account-info-view-state)
+
+(deftest the-dock-repaints-on-repair-and-update-changes-test
+  (let [base (with-execution (state))]
+    (is (not= (account-slice base)
+              (account-slice (assoc-in base [:vol-range :replace] {:grid-id "g1" :phase :preview})))
+        "an update starting or changing phase")
+    (is (not= (account-slice base)
+              (account-slice (assoc-in base [:vol-range :repair] {:grid-id "g1" :status :loading})))
+        "a repair review opening")))
+
+(deftest the-order-form-carries-the-ladder-under-update-test
+  (let [base (-> (with-execution (state))
+                 (assoc-in [:vol-range :execution :grids "g2"] {:grid-id "g2" :fills {}}))
+        updating (assoc-in base [:vol-range :replace] {:grid-id "g1" :phase :canceled})]
+    (is (= {"g1" {:grid-id "g1" :fills {}}} (get-in (slice updating) [:vol-range :execution :grids]))
+        "the update dialog, banner and planner read the old ladder")
+    (is (not= (slice updating)
+              (slice (assoc-in updating [:vol-range :execution :grids "g1" :fills "k"] {:sz "3" :px "86"})))
+        "a fill on the ladder under update repaints (filled while canceling)")
+    (is (= (slice updating)
+           (slice (assoc-in updating [:vol-range :execution :grids "g2" :fills "k"] {:sz "1" :px "76.4"})))
+        "fills on other ladders still do not")))

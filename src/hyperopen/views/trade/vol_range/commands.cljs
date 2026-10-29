@@ -82,3 +82,16 @@
 (defn close-repair-actions [] [[:actions/close-vol-ladder-repair]])
 (defn repair-keydown-actions [] [[:actions/handle-vol-ladder-repair-keydown [:event/key]]])
 (defn submit-repair-actions [] [[:actions/submit-vol-ladder-repair]])
+
+;; Update (spec 10.2): preview, cancel the old ladder, check it, choose
+;; rejected members, load the replacement quantities, stop. Placement happens
+;; only through the ordinary review's commit click.
+(defn preview-update-actions [grid-id] [[:actions/preview-vol-ladder-update grid-id]])
+(defn open-update-actions [] [[:actions/open-vol-ladder-update]])
+(defn close-update-actions [] [[:actions/close-vol-ladder-update]])
+(defn update-keydown-actions [] [[:actions/handle-vol-ladder-update-keydown [:event/key]]])
+(defn cancel-for-update-actions [] [[:actions/cancel-vol-ladder-for-update]])
+(defn check-update-actions [] [[:actions/check-vol-ladder-update]])
+(defn toggle-update-rejected-actions [logical-id] [[:actions/toggle-vol-ladder-update-rejected logical-id]])
+(defn review-replacement-actions [] [[:actions/review-vol-ladder-replacement]])
+(defn stop-update-actions [] [[:actions/stop-vol-ladder-update]])

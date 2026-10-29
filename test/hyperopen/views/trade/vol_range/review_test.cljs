@@ -1,6 +1,7 @@
 (ns hyperopen.views.trade.vol-range.review-test
   (:require [clojure.string :as str]
             [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.schema.vol-range-contracts :as contracts]
             [hyperopen.test-support.hiccup :as hiccup]
             [hyperopen.vol-range.application.projections :as projections]
             [hyperopen.vol-range.application.review-model :as review-model]
@@ -75,3 +76,41 @@
     (testing "an old source is flagged stale at the frozen plan time"
       (is (= "13:59:50 UTC · 10 s before plan · stale"
              (review-model/source-age-text (- sf/now-ms 10000) sf/now-ms 2000))))))
+
+(def ^:private replacement
+  {:lineage-text "Replaces the ladder created 2026-10-28 14:02 UTC."
+   :remaining-text "Unfilled remainder: buys 40 VRT, sells 27 VRT."
+   :filled-text "Filled while canceling: sells 3 VRT."
+   :rejected-text "Rejected orders from the old ladder are not included."
+   :edited-text nil})
+
+(deftest review-model-has-no-lineage-and-validates-test
+  (let [m (open-review-model)]
+    (is (nil? (:replacement m)) "the A0 review model never reads lineage")
+    (is (contracts/review-model-valid? m))
+    (is (contracts/review-model-valid? (assoc m :replacement replacement)))
+    (is (contracts/review-model-valid? (assoc m :replacement (assoc replacement :filled-text nil
+                                                                    :edited-text "You changed the quantities from the remainder."))))
+    (is (not (contracts/review-model-valid? (assoc m :replacement (assoc replacement :extra 1)))))
+    (is (not (contracts/review-model-valid? (assoc m :replacement (dissoc replacement :edited-text)))))))
+
+(deftest review-shows-the-replacement-lineage-above-the-orders-test
+  (let [html (review/review-dialog (assoc (open-review-model) :replacement replacement))
+        section (hiccup/find-by-data-role html "vol-range-review-lineage")
+        roles (keep #(:data-role (hiccup/node-attrs %)) (hiccup/find-all-nodes html vector?))]
+    (is (= (str "Replaces the ladder created 2026-10-28 14:02 UTC. Unfilled remainder: buys 40 VRT, sells 27 VRT."
+                " Filled while canceling: sells 3 VRT.")
+           (str/join "" (hiccup/collect-strings (first (hiccup/node-children section))))))
+    (is (= "Rejected orders from the old ladder are not included."
+           (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-review-rejected")))))
+    (is (nil? (hiccup/find-by-data-role html "vol-range-review-edited")))
+    (is (< (.indexOf (vec roles) "vol-range-review-lineage") (.indexOf (vec roles) "vol-range-review-legs"))
+        "the section sits above the orders table")
+    (is (str/includes? (str/join " " (hiccup/collect-strings
+                                      (hiccup/find-by-data-role
+                                       (review/review-dialog (assoc (open-review-model) :replacement
+                                                                    (assoc replacement :edited-text "You changed the quantities from the remainder.")))
+                                       "vol-range-review-edited")))
+                       "You changed the quantities")))
+  (is (nil? (hiccup/find-by-data-role (review/review-dialog (open-review-model)) "vol-range-review-lineage"))
+      "an ordinary review has no lineage section"))

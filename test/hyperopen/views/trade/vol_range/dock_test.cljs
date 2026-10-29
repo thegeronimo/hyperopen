@@ -246,6 +246,69 @@
     (is (nil? (get-in (dock/view-state {:vol-range {:execution {:enabled? true}}}) [:vol-range-dock :current-scope-key]))
         "no scope work without a ladder")))
 
+;; ---------------------------------------------------------------------------
+;; Update (spec 10.2, 11.2)
+;; ---------------------------------------------------------------------------
+
+(deftest preview-update-button-test
+  (let [html (panel (repair-state [(response (sent-grid) #{})]))
+        button (hiccup/find-by-data-role html "vol-ladder-preview-update")
+        attrs (hiccup/node-attrs button)]
+    (is (= "Preview update" (text button)))
+    (is (= "Preview an update of the SYN/USDC ladder" (:aria-label attrs)))
+    (is (false? (:disabled attrs)))
+    (is (= [[:actions/preview-vol-ladder-update "g1"]] (get-in attrs [:on :click]))))
+  (testing "hidden for placement off, recovered, canceling and checking ladders"
+    (doseq [[label s] [["placement off" (repair-state [(response (sent-grid) #{})] {:enabled? false})]
+                       ["recovered" (repair-state [(assoc (response (sent-grid) #{}) :recovered? true)])]
+                       ["canceling" (repair-state [(assoc (response (sent-grid) #{}) :cancel-requested-at-ms 9)])]
+                       ["unresolved" (repair-state [(evidence/apply-placement-delivery (sent-grid) "op"
+                                                                                       {:delivery :unknown} 2000)])]]]
+      (is (nil? (hiccup/find-by-data-role (panel s) "vol-ladder-preview-update")) label)))
+  (testing "another market: disabled and described by the one shared hint"
+    (let [html (panel (assoc-in (repair-state [(response (sent-grid) #{(cloid 1)})])
+                                [:vol-range-dock :current-scope-key] "other"))
+          update-attrs (hiccup/node-attrs (hiccup/find-by-data-role html "vol-ladder-preview-update"))
+          hints (hiccup/find-all-nodes html #(= "vol-ladder-market-hint" (:data-role (hiccup/node-attrs %))))]
+      (is (true? (:disabled update-attrs)))
+      (is (= 1 (count hints)))
+      (is (= (:id (hiccup/node-attrs (first hints))) (:aria-describedby update-attrs)))
+      (is (= "Open SYN/USDC to repair or update this ladder." (text (first hints)))))))
+
+(deftest lineage-line-in-both-directions-test
+  (let [old (assoc (response (sent-grid) #{}) :created-at-ms 1793196120000)
+        new-grid (assoc (response (sent-grid) #{}) :grid-id "g2" :created-at-ms 1793196540000
+                        :predecessor {:grid-id "g1" :frozen-cloids [(cloid 1)]})
+        html (panel (repair-state [old new-grid]))
+        lines (map text (hiccup/find-all-nodes html #(= "vol-ladder-lineage" (:data-role (hiccup/node-attrs %)))))]
+    (is (= #{"Replaces the ladder created 2026-10-28 14:02 UTC" "Replaced by the ladder created 2026-10-28 14:09 UTC"}
+           (set lines))))
+  (is (nil? (hiccup/find-by-data-role (panel (repair-state [(response (sent-grid) #{})])) "vol-ladder-lineage"))))
+
+(deftest update-results-reach-the-live-region-test
+  (let [msg (fn [last-result]
+              (text (hiccup/find-by-data-role (panel (repair-state [] {:last last-result}))
+                                              "vol-ladder-status-message")))]
+    (is (= "Old ladder canceled. Review the updated quantities before placing the replacement."
+           (msg {:op :replace-cancel :status :ready})))
+    (is (= "Update stopped. Your ladder was not changed."
+           (msg {:op :replace-stop :status :stopped :cancel-started? false})))))
+
+(deftest order-form-slice-carries-the-ladder-under-update-test
+  (let [g1 (response (sent-grid) #{})
+        g2 (assoc g1 :grid-id "g2")
+        state {:vol-range {:replace {:grid-id "g1" :phase :preview}
+                           :execution {:enabled? true :grids {"g1" g1 "g2" g2} :busy {} :last nil}}}
+        slice (dock/order-form-slice state)]
+    (is (= {"g1" g1} (get-in slice [:vol-range :execution :grids])) "only the ladder under update")
+    (is (nil? (get-in (dock/order-form-slice (update state :vol-range dissoc :replace)) [:vol-range :execution :grids])))
+    (is (= {"g1" g1} (get-in (dock/order-form-slice
+                              (-> state
+                                  (update :vol-range dissoc :replace)
+                                  (assoc-in [:vol-range :frozen-context :replace :predecessor :grid-id] "g1")))
+                             [:vol-range :execution :grids]))
+        "a review frozen with lineage keeps its old ladder")))
+
 (def ^:private live-monitoring
   {:account-address addr :status :live :reasons [] :epoch 4 :last-tick-ms 1000
    :resync {:state :idle :attempt 0}})

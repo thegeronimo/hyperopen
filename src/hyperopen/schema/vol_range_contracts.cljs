@@ -15,9 +15,12 @@
   (+ `offer-keys`), `warning-keys`, `footer-keys`, `ui-keys`.
 
   REVIEW MODEL (`review-model`): `review-keys` {:open? :available? :title
-  :identity-line :plan-as-of :base-symbol :tiles :legs :cash :inventory :details :note :footer}
-  with `tile-keys`, `review-leg-keys`, `detail-row-keys` and `review-footer-keys`
+  :identity-line :plan-as-of :base-symbol :tiles :legs :cash :inventory :details :note :replacement
+  :footer} with `tile-keys`, `review-leg-keys`, `detail-row-keys` and `review-footer-keys`
   {:placement-available? :text :hint :back-label}. There is no commit field.
+  `:replacement` is nil, or for a replacement review `review-replacement-keys`
+  {:lineage-text :remaining-text :filled-text :rejected-text :edited-text}
+  (strings; filled and edited texts may be nil), filled at the view boundary.
 
   CHART MODEL (`chart-model`): nil, or `chart-keys` {:stage :stage-label :anchor
   :shifted-anchor :bands :legs} with `price-line-keys` {:price :label},
@@ -70,7 +73,8 @@
 (def ui-keys #{:show-bands? :advanced-open? :limits-open? :review-open?})
 
 (def review-keys #{:open? :available? :title :identity-line :plan-as-of :base-symbol :tiles :legs :cash :inventory
-                   :details :note :footer})
+                   :details :note :replacement :footer})
+(def review-replacement-keys #{:lineage-text :remaining-text :filled-text :rejected-text :edited-text})
 (def tile-keys #{:id :label :value :caption})
 (def review-leg-keys #{:leg-id :side :side-label :price :size :notional :distance})
 (def detail-row-keys #{:label :value})
@@ -211,8 +215,17 @@
         (false? (:placement-available? %))
         (string? (:text %)) (string? (:hint %)) (string? (:back-label %))))
 
+(defn- review-replacement?
+  "nil (an ordinary review) or the replacement's lineage section."
+  [r]
+  (or (nil? r)
+      (and (exact-keys? r review-replacement-keys)
+           (string? (:lineage-text r)) (string? (:remaining-text r)) (string? (:rejected-text r))
+           (all-str-or-nil? r [:filled-text :edited-text]))))
+
 (s/def ::review-model
   #(and (exact-keys? % review-keys)
+        (review-replacement? (:replacement %))
         (boolean? (:open? %)) (boolean? (:available? %))
         (all-str-or-nil? % [:title :identity-line :plan-as-of :base-symbol :note])
         (each tile? (:tiles %))

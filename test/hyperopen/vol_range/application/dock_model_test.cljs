@@ -125,6 +125,39 @@
     (is (false? (get-in (dm/grid-row state (placed #{})) [:repair :visible?])))
     (is (false? (get-in (dm/grid-row {} (placed #{(c 1)})) [:repair :visible?])) "placement off")))
 
+(deftest rows-carry-the-update-control-and-lineage-test
+  (let [state {:vol-range {:execution {:enabled? true}} :vol-range-dock {:current-scope-key "k"}}
+        row (dm/grid-row state (placed #{}))]
+    (is (= {:visible? true :enabled? true :label "Preview update"
+            :aria-label "Preview an update of the SYN/USDC ladder" :hint nil}
+           (:update row)))
+    (is (nil? (:lineage row)))
+    (is (true? (get-in (dm/grid-row state (placed #{(c 1)})) [:update :visible?])) "partially deployed")
+    (is (false? (get-in (dm/grid-row {} (placed #{})) [:update :visible?])) "placement off")
+    (is (= "Open SYN/USDC to repair or update this ladder."
+           (get-in (dm/grid-row (assoc state :vol-range-dock {:current-scope-key "other"}) (placed #{}))
+                   [:update :hint]))))
+  (let [old (placed #{})
+        new-grid (assoc (placed #{}) :grid-id "g2" :created-at-ms 1793196540000
+                        :predecessor {:grid-id "g" :frozen-cloids [(c 1)]})
+        state {:vol-range {:execution {:enabled? true :grids {"g" (assoc old :created-at-ms 1793196120000)
+                                                              "g2" new-grid}}}}]
+    (is (= "Replaced by the ladder created 2026-10-28 14:09 UTC"
+           (:lineage (dm/grid-row state (get-in state [:vol-range :execution :grids "g"])))))
+    (is (= "Replaces the ladder created 2026-10-28 14:02 UTC" (:lineage (dm/grid-row state new-grid))))))
+
+(deftest update-status-messages-test
+  (let [msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
+    (is (= "Old ladder canceled. Review the updated quantities before placing the replacement."
+           (msg {:op :replace-cancel :status :ready})))
+    (is (= "Update stopped. Your ladder was not changed."
+           (msg {:op :replace-stop :status :stopped :cancel-started? false})))
+    (is (= "Update stopped. The old ladder stays canceled; no new orders were placed."
+           (msg {:op :replace-stop :status :stopped :cancel-started? true})))
+    (is (= "The old ladder isn't fully canceled yet. Some old orders have an unknown status. The replacement can't be reviewed until they are settled."
+           (msg {:op :replace-confirm :status :blocked :errors [:replace/unresolved-outcomes]})))
+    (is (not (re-find #"^Ladder " (msg {:op :replace-confirm :status :error}))) "never the generic fallback")))
+
 (deftest repair-status-messages-test
   (let [msg (fn [last-result] (dm/status-message {:vol-range {:execution {:last last-result}}}))]
     (is (= "Repair sent. 7 of 7 orders active."
