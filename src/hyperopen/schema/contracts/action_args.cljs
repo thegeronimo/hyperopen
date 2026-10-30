@@ -4,7 +4,8 @@
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.funding-action-args :as funding-action-args]
             [hyperopen.schema.contracts.hyperevm-action-args :as hyperevm-action-args]
-            [hyperopen.schema.contracts.vault-screener-action-args :as vault-screener-action-args]))
+            [hyperopen.schema.contracts.vault-screener-action-args :as vault-screener-action-args]
+            [hyperopen.schema.contracts.vol-range-action-args :as vol-range-action-args]))
 (s/def ::funding-history-filter-path (s/or :path ::common/state-path :key keyword?))
 (s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
 (s/def ::add-indicator-args (s/tuple keyword? map?))
@@ -756,4 +757,5 @@
          funding-action-args/funding-action-args-spec-by-id
          borrow-lend-action-args/borrow-lend-action-args-spec-by-id
          hyperevm-action-args/hyperevm-action-args-spec-by-id
-         vault-screener-action-args/vault-screener-action-args-spec-by-id))
+         vault-screener-action-args/vault-screener-action-args-spec-by-id
+         vol-range-action-args/vol-range-action-args-spec-by-id))

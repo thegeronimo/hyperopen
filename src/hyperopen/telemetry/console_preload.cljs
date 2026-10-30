@@ -9,6 +9,7 @@
             [hyperopen.system :as app-system]
             [hyperopen.telemetry :as telemetry]
             [hyperopen.telemetry.console-preload.simulators :as simulators]
+            [hyperopen.telemetry.console-preload.vol-range-fixture :as vol-range-fixture]
             [hyperopen.views.account-info.vm :as account-info-vm]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
             [hyperopen.views.trading-chart.utils.chart-interop.trade-layer :as chart-trade-layer]
@@ -517,6 +518,7 @@
                                               :else {}))))
        :qaReset simulators/qa-reset!
        :seedFundingTooltipFixture simulators/seed-funding-tooltip-fixture!
+       :seedVolRangeFixture vol-range-fixture/seed-vol-range-fixture!
        :setWalletConnectedHandlerMode simulators/set-wallet-connected-handler-mode!
        :installWalletSimulator simulators/install-wallet-simulator!
        :walletSimulatorEmit simulators/emit-wallet-simulator!

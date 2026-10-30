@@ -69,6 +69,12 @@ def heavyOnlyPolicy (allowDuplicateHeavyEffects : Bool) (heavyEffectIds : List S
     allowDuplicateHeavyEffects := allowDuplicateHeavyEffects
     heavyEffectIds := heavyEffectIds }
 
+def projectionHeavyPolicy (allowDuplicateHeavyEffects : Bool) (heavyEffectIds : List String) : Policy :=
+  { requiredPhaseOrder := [.projection, .heavyIo]
+    requireProjectionBeforeHeavy := true
+    allowDuplicateHeavyEffects := allowDuplicateHeavyEffects
+    heavyEffectIds := heavyEffectIds }
+
 def policyCorpus : List (String × Policy) :=
   [("actions/apply-funding-history-filters", defaultPolicy false ["effects/api-fetch-user-funding-history"])
   ,("actions/apply-margin-rec-batch", defaultPolicy true ["effects/api-submit-position-margin"])
@@ -101,6 +107,8 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/open-position-reduce-popover", defaultPolicy false ["effects/fetch-asset-selector-markets"])
   ,("actions/select-account-info-tab", defaultPolicy false ["effects/api-fetch-borrow-lend-interest", "effects/api-fetch-borrow-lend-reserves", "effects/api-fetch-borrow-lend-user-state", "effects/api-fetch-historical-orders", "effects/api-fetch-user-funding-history"])
   ,("actions/select-asset", defaultPolicy false ["effects/fetch-asset-selector-markets", "effects/subscribe-active-asset", "effects/subscribe-orderbook", "effects/subscribe-trades", "effects/sync-active-asset-funding-predictability", "effects/sync-perp-annotations", "effects/unsubscribe-active-asset", "effects/unsubscribe-orderbook", "effects/unsubscribe-trades"])
+  ,("actions/select-scale-mode", projectionHeavyPolicy false ["effects/fetch-candle-snapshot"])
+  ,("actions/refresh-vol-range-daily-candles", projectionHeavyPolicy false ["effects/fetch-candle-snapshot"])
   ,("actions/select-chart-timeframe", defaultPolicy false ["effects/fetch-candle-snapshot", "effects/sync-active-candle-subscription"])
   ,("actions/request-chart-candle-backfill", heavyOnlyPolicy false ["effects/fetch-candle-snapshot"])
   ,("actions/request-older-chart-fills", heavyOnlyPolicy false ["effects/fetch-older-chart-fills"])

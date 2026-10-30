@@ -14,6 +14,7 @@
             [hyperopen.schema.runtime-registration.subaccounts :as subaccounts]
             [hyperopen.schema.runtime-registration.trade :as trade]
             [hyperopen.schema.runtime-registration.vaults :as vaults]
+            [hyperopen.schema.runtime-registration.vol-range-report :as vol-range-report]
             [hyperopen.schema.runtime-registration.wallet :as wallet]
             [hyperopen.schema.runtime-registration.websocket :as websocket]))
 
@@ -39,7 +40,8 @@
    funding/effect-binding-rows
    margin-rec/effect-binding-rows
    pnl-share/effect-binding-rows
-   hyperevm/effect-binding-rows))
+   hyperevm/effect-binding-rows
+   vol-range-report/effect-binding-rows))
 
 (def ^:private action-binding-rows-data
   (concat-row-groups
@@ -59,7 +61,8 @@
    vaults/action-binding-rows
    margin-rec/action-binding-rows
    pnl-share/action-binding-rows
-   hyperevm/action-binding-rows))
+   hyperevm/action-binding-rows
+   vol-range-report/action-binding-rows))
 
 (def ^:private effect-order-policy-required-action-ids-data
   (set
@@ -77,7 +80,8 @@
            borrow-lend/effect-order-policy-required-action-ids
            vaults/effect-order-policy-required-action-ids
            margin-rec/effect-order-policy-required-action-ids
-           hyperevm/effect-order-policy-required-action-ids)))
+           hyperevm/effect-order-policy-required-action-ids
+           vol-range-report/effect-order-policy-required-action-ids)))
 
 (defn- duplicate-ids
   [rows]

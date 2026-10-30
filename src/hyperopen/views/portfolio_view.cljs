@@ -66,7 +66,10 @@
         ;; frozen for the whole gesture.
         custom-range-cache-key [(get-in state portfolio-actions/summary-custom-range-path)
                                 (get-in state portfolio-actions/summary-range-strip-path)
-                                (get-in state portfolio-actions/summary-range-drag-path)]
+                                (get-in state portfolio-actions/summary-range-drag-path)
+                                ;; The Vol Range report revises as loads, backfills and
+                                ;; restarts land; hover must not freeze it.
+                                (get-in state [:vol-range :report])]
         cached-entry @portfolio-view-cache
         sections (when-not optimizer-route?
                    (if (and hover-active?

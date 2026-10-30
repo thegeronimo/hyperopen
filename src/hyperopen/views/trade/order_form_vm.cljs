@@ -3,8 +3,10 @@
             [hyperopen.state.trading :as trading]
             [hyperopen.trading.order-form-application :as application]
             [hyperopen.trading.order-type-registry :as order-types]
+            [hyperopen.trading.vol-range-draft :as vol-range-draft]
             [hyperopen.views.trade.order-form-vm-selectors :as selectors]
-            [hyperopen.views.trade.order-form-vm-submit :as submit]))
+            [hyperopen.views.trade.order-form-vm-submit :as submit]
+            [hyperopen.vol-range.application.projections :as vol-range-projections]))
 
 (def order-type-config
   order-types/order-type-config)
@@ -77,7 +79,16 @@
               options)
         (first options))))
 
-(defn order-form-vm [state]
+(declare order-form-vm-at)
+
+(defn order-form-vm
+  "Single-arity entry (tests and debug tooling redefine it); the view passes an
+  injected clock through `order-form-vm-at`."
+  [state]
+  (order-form-vm-at state (.now js/Date)))
+
+(defn order-form-vm-at
+  [state now-ms]
   (let [{:keys [draft
                 ui
                 runtime-state
@@ -109,10 +120,20 @@
         pro-dropdown-open? (boolean (get-in ui [:entry :pro-dropdown-open?]))
         pro-mode? (= entry-mode :pro)
         tpsl-panel-open? (boolean (get-in ui [:panels :tpsl-open?]))
-        controls (selectors/order-type-controls {:entry-mode entry-mode
-                                                 :pro-mode? pro-mode?
-                                                 :tpsl-panel-open? tpsl-panel-open?
-                                                 :order-type-capabilities order-type-capabilities})
+        show-vol-range? (boolean (vol-range-projections/ticket-visible? state))
+        controls (cond-> (selectors/order-type-controls {:entry-mode entry-mode
+                                                         :pro-mode? pro-mode?
+                                                         :tpsl-panel-open? tpsl-panel-open?
+                                                         :order-type-capabilities order-type-capabilities})
+                   show-vol-range?
+                   (assoc :show-limit-like-controls? false
+                          :show-tpsl-toggle? false
+                          :show-tpsl-panel? false
+                          :show-post-only? false
+                          :show-scale-preview? false)
+
+                   true
+                   (assoc :show-vol-range? show-vol-range?))
         summary-display (selectors/summary-display summary sz-decimals display-name)
         ui-leverage (:ui-leverage normalized-form)
         size-percent (trading/clamp-percent (:size-percent normalized-form))
@@ -157,6 +178,9 @@
      :tpsl-panel-open? tpsl-panel-open?
      :pro-dropdown-options (pro-dropdown-options)
      :pro-tab-label (pro-tab-label entry-mode type)
+     :scale-mode (vol-range-draft/scale-mode normalized-form)
+     :vol-range (when show-vol-range?
+                  (vol-range-projections/ticket-model state now-ms))
      :controls controls
      :spot? spot?
      :hip3? hip3?

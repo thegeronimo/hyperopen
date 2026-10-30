@@ -27,11 +27,14 @@
    [:effects/api-cancel-order :api-cancel-order]
    [:effects/api-submit-position-tpsl :api-submit-position-tpsl]
    [:effects/api-submit-position-margin :api-submit-position-margin]
-   [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]])
+   [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]
+   [:effects/vol-range-execute :vol-range-execute]])
 
 (def effect-order-policy-required-action-ids
   #{:actions/select-asset
     :actions/select-chart-timeframe
+    :actions/select-scale-mode
+    :actions/refresh-vol-range-daily-candles
     :actions/request-chart-candle-backfill
     :actions/request-older-chart-fills
     :actions/select-orderbook-price-aggregation
@@ -173,6 +176,28 @@
    [:actions/cancel-order :cancel-order]
    [:actions/cancel-twap :cancel-twap]
    [:actions/load-user-data :load-user-data]
+   [:actions/place-vol-range-orders :place-vol-range-orders]
+   [:actions/cancel-vol-ladder :cancel-vol-ladder]
+   [:actions/refresh-vol-ladder :refresh-vol-ladder]
+   [:actions/select-vol-ladder :select-vol-ladder]
+   [:actions/sync-vol-ladders :sync-vol-ladders]
+   [:actions/reconcile-open-vol-ladders :reconcile-open-vol-ladders]
+   [:actions/resync-vol-ladders :resync-vol-ladders]
+   [:actions/open-vol-ladder-repair :open-vol-ladder-repair]
+   [:actions/refresh-vol-ladder-repair :refresh-vol-ladder-repair]
+   [:actions/toggle-vol-ladder-repair-leg :toggle-vol-ladder-repair-leg]
+   [:actions/close-vol-ladder-repair :close-vol-ladder-repair]
+   [:actions/handle-vol-ladder-repair-keydown :handle-vol-ladder-repair-keydown]
+   [:actions/submit-vol-ladder-repair :submit-vol-ladder-repair]
+   [:actions/preview-vol-ladder-update :preview-vol-ladder-update]
+   [:actions/open-vol-ladder-update :open-vol-ladder-update]
+   [:actions/close-vol-ladder-update :close-vol-ladder-update]
+   [:actions/handle-vol-ladder-update-keydown :handle-vol-ladder-update-keydown]
+   [:actions/cancel-vol-ladder-for-update :cancel-vol-ladder-for-update]
+   [:actions/check-vol-ladder-update :check-vol-ladder-update]
+   [:actions/toggle-vol-ladder-update-rejected :toggle-vol-ladder-update-rejected]
+   [:actions/review-vol-ladder-replacement :review-vol-ladder-replacement]
+   [:actions/stop-vol-ladder-update :stop-vol-ladder-update]
    [:actions/navigate :navigate]])
 
 (def action-binding-rows

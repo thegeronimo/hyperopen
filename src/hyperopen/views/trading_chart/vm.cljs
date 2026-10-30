@@ -124,7 +124,8 @@
         position-overlay
         chart-trades
         chart-trades-deps
-        show-chart-trades?]
+        show-chart-trades?
+        vol-range-overlay]
      {:series-options {:price-decimals price-decimals}
       :legend-deps {:format-price fmt/format-trade-price-plain
                     :format-delta fmt/format-trade-price-delta}
@@ -140,7 +141,8 @@
       :on-liquidation-drag-confirm on-liquidation-drag-confirm
       :position-overlay position-overlay
       :chart-trades chart-trades
-      :chart-trades-deps chart-trades-deps})))
+      :chart-trades-deps chart-trades-deps
+      :vol-range-overlay vol-range-overlay})))
 
 (defn- legend-display-symbol
   "`xyz:HO` -> `xyz:DIESEL` when Hyperliquid has a display name for the market;
@@ -312,7 +314,8 @@
                                position-overlay
                                chart-trades
                                chart-trades-deps
-                               show-chart-trades?)
+                               show-chart-trades?
+                               (:vol-range-chart state))
         legend-meta (memoized-legend-meta symbol display-symbol timeframe-label candle-data)]
     {:has-error? has-error?
      :candle-data candle-data

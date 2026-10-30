@@ -13,6 +13,10 @@
             [hyperopen.funding.actions :as funding-actions]
             [hyperopen.hyperevm.infrastructure.balance-poller :as hyperevm-balance-poller]
             [hyperopen.margin-rec.watcher :as margin-rec-watcher]
+            [hyperopen.vol-range.infrastructure.freshness-watcher :as vol-range-freshness-watcher]
+            [hyperopen.vol-range.infrastructure.execution-watcher :as vol-range-execution-watcher]
+            [hyperopen.vol-range.infrastructure.live-ingress :as vol-range-live-ingress]
+            [hyperopen.vol-range.infrastructure.report-watcher :as vol-range-report-watcher]
             [hyperopen.order.effects :as order-effects]
             [hyperopen.portfolio.optimizer.contracts :as optimizer-contracts]
             [hyperopen.portfolio.optimizer.infrastructure.draft-autosave :as optimizer-draft-autosave]
@@ -94,6 +98,17 @@
      {:store store}
      :install-margin-rec-watcher! margin-rec-watcher/install-margin-rec-watcher!
      :margin-rec-watcher-deps
+     {:store store
+      :dispatch! nxr/dispatch}
+     ;; One Vol Range slot: candle freshness, plus ladder sync, background
+     ;; reconciliation and live stream evidence in builds that include placement,
+     ;; plus the report's loads, backfill tick and ledger ingest with reporting on.
+     :install-vol-range-freshness-watcher! (fn [deps]
+                                             (vol-range-freshness-watcher/install-vol-range-freshness-watcher! deps)
+                                             (vol-range-execution-watcher/install-vol-range-execution-watcher! deps)
+                                             (vol-range-live-ingress/install! deps)
+                                             (vol-range-report-watcher/install-vol-range-report-watcher! deps))
+     :vol-range-freshness-watcher-deps
      {:store store
       :dispatch! nxr/dispatch}
      ;; Browser only: a Node test runtime that bootstraps the app must never

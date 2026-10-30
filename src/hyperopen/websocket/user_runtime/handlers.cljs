@@ -5,6 +5,7 @@
             [hyperopen.platform :as platform]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.order.cancel-guard :as cancel-guard]
+            [hyperopen.telemetry :as telemetry]
             [hyperopen.trading-settings :as trading-settings]
             [hyperopen.websocket.user-runtime.common :as common]
             [hyperopen.websocket.user-runtime.fills :as fill-runtime]
@@ -70,19 +71,35 @@
       {:rows []
        :snapshot? false})))
 
+(defn- tap-raw-message!
+  "Offers the raw message to an optional evidence tap before any display
+  filtering. A failing tap is logged and never affects the display path."
+  [store on-raw-message channel msg]
+  (when on-raw-message
+    (try
+      (on-raw-message store msg (platform/now-ms))
+      (catch :default e
+        (telemetry/log! "Raw user-stream tap failed" channel (str e))))))
+
 (defn open-orders-handler
-  [store]
-  (fn [msg]
-    (when (and (= "openOrders" (:channel msg))
-               (common/message-for-live-user-address? store msg))
-      (swap! store
-             (fn [state]
-               (-> state
-                   (assoc-in [:orders :open-orders]
-                             (cancel-guard/prune-open-order-payload
-                              (:data msg)
-                              (cancel-guard/state-guard-entries state)))
-                   (assoc-in [:orders :open-orders-hydrated?] true)))))))
+  "Display handler for `openOrders`. With `{:on-raw-message f}`, `f` receives
+  `(f store msg received-at-ms)` for every message on the channel, before the
+  live-address filter and before cancel-guard pruning."
+  ([store]
+   (open-orders-handler store nil))
+  ([store {:keys [on-raw-message]}]
+   (fn [msg]
+     (when (= "openOrders" (:channel msg))
+       (tap-raw-message! store on-raw-message "openOrders" msg)
+       (when (common/message-for-live-user-address? store msg)
+         (swap! store
+                (fn [state]
+                  (-> state
+                      (assoc-in [:orders :open-orders]
+                                (cancel-guard/prune-open-order-payload
+                                 (:data msg)
+                                 (cancel-guard/state-guard-entries state)))
+                      (assoc-in [:orders :open-orders-hydrated?] true)))))))))
 
 (defn twap-states-handler
   [store]
@@ -93,31 +110,38 @@
         (swap! store assoc-in [:orders :twap-states] rows)))))
 
 (defn user-fills-handler
-  [store]
-  (fn [msg]
-    (when (and (= "userFills" (:channel msg))
-               (common/message-for-live-user-address? store msg))
-      (let [{:keys [rows snapshot?]} (extract-channel-rows msg :fills)]
-        (when (seq rows)
-          (if snapshot?
-            (swap! store (fn [state]
-                           (-> state
-                               (assoc-in [:orders :fills] rows)
-                               (chart-fill-history/apply-snapshot
-                                (account-context/effective-account-address state)
-                                rows))))
-            (let [existing (get-in @store [:orders :fills] [])
-                  new-rows (vec (fill-runtime/novel-fills existing rows))]
-              (when (seq new-rows)
-                (swap! store (fn [state]
-                               (-> state
-                                   (update-in [:orders :fills] #(upsert-seq (or % []) new-rows))
-                                   (chart-fill-history/apply-live
-                                    (account-context/effective-account-address state)
-                                    new-rows))))
-                (when (trading-settings/fill-alerts-enabled? @store)
-                  (fill-runtime/show-user-fill-toast! store new-rows))
-                (refresh-runtime/schedule-account-surface-refresh-after-fill! store)))))))))
+  "Display handler for `userFills`. With `{:on-raw-message f}`, `f` receives
+  `(f store msg received-at-ms)` for every message on the channel, before the
+  live-address filter, before empty snapshots are skipped and before the
+  display de-duplication and 200-row truncation."
+  ([store]
+   (user-fills-handler store nil))
+  ([store {:keys [on-raw-message]}]
+   (fn [msg]
+     (when (= "userFills" (:channel msg))
+       (tap-raw-message! store on-raw-message "userFills" msg)
+       (when (common/message-for-live-user-address? store msg)
+         (let [{:keys [rows snapshot?]} (extract-channel-rows msg :fills)]
+           (when (seq rows)
+             (if snapshot?
+               (swap! store (fn [state]
+                              (-> state
+                                  (assoc-in [:orders :fills] rows)
+                                  (chart-fill-history/apply-snapshot
+                                   (account-context/effective-account-address state)
+                                   rows))))
+               (let [existing (get-in @store [:orders :fills] [])
+                     new-rows (vec (fill-runtime/novel-fills existing rows))]
+                 (when (seq new-rows)
+                   (swap! store (fn [state]
+                                  (-> state
+                                      (update-in [:orders :fills] #(upsert-seq (or % []) new-rows))
+                                      (chart-fill-history/apply-live
+                                       (account-context/effective-account-address state)
+                                       new-rows))))
+                   (when (trading-settings/fill-alerts-enabled? @store)
+                     (fill-runtime/show-user-fill-toast! store new-rows))
+                   (refresh-runtime/schedule-account-surface-refresh-after-fill! store)))))))))))
 
 (defn user-fundings-handler
   [store]

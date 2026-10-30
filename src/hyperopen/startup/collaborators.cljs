@@ -15,6 +15,7 @@
             [hyperopen.startup.collaborators.api-ops :as api-ops]
             [hyperopen.startup.collaborators.vault-equities :as vault-equities]
             [hyperopen.telemetry :as telemetry]
+            [hyperopen.vol-range.infrastructure.live-ingress :as vol-range-live-ingress]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
             [hyperopen.websocket.candles :as candles]
@@ -469,7 +470,7 @@
       :init-candles! candles/init!
       :init-orderbook! orderbook/init!
       :init-trades! trades/init!
-      :init-user-ws! user-ws/init!
+      :init-user-ws! (fn [store] (user-ws/init! store (vol-range-live-ingress/user-stream-taps)))
       :init-webdata2! webdata2/init!
       :init-subscription-errors! subscription-errors/init!
       :dispatch! nxr/dispatch

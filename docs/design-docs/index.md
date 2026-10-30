@@ -15,3 +15,4 @@ Catalog design documentation with verification status.
 - [Core Beliefs](/hyperopen/docs/design-docs/core-beliefs.md) (verified)
 - [AGENTS Section Reindex Map](/hyperopen/docs/design-docs/agents-section-index.md) (verified)
 - [Optimizer Equal Risk Objective](/hyperopen/docs/design-docs/optimizer-equal-risk.md) (verified)
+- [Vol Range Execution Coordination ADR](/hyperopen/docs/design-docs/vol-range-execution-coordination.md) (verified)

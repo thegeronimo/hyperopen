@@ -4,7 +4,7 @@
   "hyperopen-persistence")
 
 (def app-db-version
-  7)
+  9)
 
 (def asset-selector-markets-store
   "asset-selector-markets-cache")
@@ -30,6 +30,18 @@
 (def portfolio-optimizer-store
   "portfolio-optimizer")
 
+(def vol-range-journal-store
+  "Vol Range intents, send attempts and outcomes (HO-SPEC-014 section 7.4).
+  Written only through `put-many-committed!`."
+  "vol-range-journal")
+
+(def vol-range-ledger-store
+  "Vol Range reporting ledger: same-base fills, non-funding ledger updates,
+  REST coverage intervals and balance checks (HO-SPEC-014 sections 7.4,
+  12.2, 12.6). Kept apart from the journal so its bulk never slows a
+  placement's journal load."
+  "vol-range-ledger")
+
 (def ^:private app-store-names
   [asset-selector-markets-store
    funding-history-store
@@ -38,7 +50,9 @@
    leaderboard-preferences-store
    leaderboard-cache-store
    agent-locked-session-store
-   portfolio-optimizer-store])
+   portfolio-optimizer-store
+   vol-range-journal-store
+   vol-range-ledger-store])
 
 (defonce ^:private open-db-cache (atom {}))
 
@@ -60,6 +74,12 @@
   (doseq [store-name store-names]
     (when-not (.contains (.-objectStoreNames db) store-name)
       (.createObjectStore db store-name))))
+
+(defn- missing-stores
+  [db store-names]
+  (if-let [names (some-> db .-objectStoreNames)]
+    (remove #(.contains names %) store-names)
+    []))
 
 (defn- close-db!
   [db]
@@ -98,38 +118,60 @@
          cache-key [db-name db-version store-names*]]
      (if-let [cached (get @open-db-cache cache-key)]
        cached
-       (letfn [(open-request! []
+       (letfn [(open-at!
+                 ;; `version` nil opens at whatever version the browser has.
+                 [version]
+                 (js/Promise.
+                  (fn [resolve reject]
+                    (try
+                      (let [request (if version
+                                      (.open ^js (.-indexedDB js/globalThis) db-name version)
+                                      (.open ^js (.-indexedDB js/globalThis) db-name))]
+                        (set! (.-onupgradeneeded request)
+                              (fn [event]
+                                (create-object-stores! (.-result (.-target event))
+                                                       store-names*)))
+                        (set! (.-onsuccess request)
+                              (fn [event]
+                                (let [db (.-result (.-target event))]
+                                  (set! (.-onversionchange db)
+                                        (fn [_]
+                                          (swap! open-db-cache dissoc cache-key)
+                                          (close-db! db)))
+                                  (resolve db))))
+                        (set! (.-onerror request)
+                              (fn [_]
+                                (reject (request-error request
+                                                       (str "IndexedDB open failed for " db-name)))))
+                        (set! (.-onblocked request)
+                              (fn [_]
+                                (reject (js/Error.
+                                         (str "IndexedDB open blocked for " db-name)))))
+                        nil)
+                      (catch :default e
+                        (reject e))))))
+               (ensure-stores!
+                 ;; Another branch served from the same origin can reach the
+                 ;; same version number with different stores (or a higher
+                 ;; one), so a version match does not mean our stores exist.
+                 ;; Upgrade past the browser's version to add what is missing.
+                 [db]
+                 (let [missing (missing-stores db store-names*)
+                       version (some-> db .-version)]
+                   (if (and (seq missing) (number? version))
+                     (do (close-db! db)
+                         (open-at! (inc version)))
+                     db)))
+               (open-request! []
                  (if-not (indexed-db-supported?)
                    (js/Promise.resolve nil)
-                   (js/Promise.
-                    (fn [resolve reject]
-                      (try
-                        (let [request (.open ^js (.-indexedDB js/globalThis)
-                                             db-name
-                                             db-version)]
-                          (set! (.-onupgradeneeded request)
-                                (fn [event]
-                                  (create-object-stores! (.-result (.-target event))
-                                                         store-names*)))
-                          (set! (.-onsuccess request)
-                                (fn [event]
-                                  (let [db (.-result (.-target event))]
-                                    (set! (.-onversionchange db)
-                                          (fn [_]
-                                            (swap! open-db-cache dissoc cache-key)
-                                            (close-db! db)))
-                                    (resolve db))))
-                          (set! (.-onerror request)
-                                (fn [_]
-                                  (reject (request-error request
-                                                         (str "IndexedDB open failed for " db-name)))))
-                          (set! (.-onblocked request)
-                                (fn [_]
-                                  (reject (js/Error.
-                                           (str "IndexedDB open blocked for " db-name)))))
-                          nil)
-                        (catch :default e
-                          (reject e)))))))]
+                   (-> (open-at! db-version)
+                       (.catch (fn [error]
+                                 ;; The browser already has a higher version.
+                                 (if (= "VersionError" (some-> error .-name))
+                                   (open-at! nil)
+                                   (js/Promise.reject error))))
+                       (.then ensure-stores!))))]
          (let [open-promise (-> (close-stale-open-dbs! db-name db-version)
                                 (.then open-request!))]
          (swap! open-db-cache assoc
@@ -223,6 +265,77 @@
                      (.put ^js store (clj->js value) key))
                    (fn [_]
                      true))))))))
+
+(defn put-many-committed!
+  "Write every [key value] in `entries` to `store-name` in ONE readwrite
+  transaction and resolve true only on `transaction.oncomplete`.
+
+  Unlike `put-json!`, request-level success is never treated as durability: a
+  transaction that later aborts (quota, constraint, a closing connection)
+  rejects, and so does missing IndexedDB, a missing store or a blocked open.
+  Either all entries are written or none are."
+  ([store-name entries]
+   (put-many-committed! store-name entries {}))
+  ([store-name entries opts]
+   (if-not (indexed-db-supported?)
+     (js/Promise.reject (js/Error. "IndexedDB is unavailable; nothing was written."))
+     (-> (open-db! opts)
+         (.then
+          (fn [db]
+            (js/Promise.
+             (fn [resolve reject]
+               (try
+                 (cond
+                   (nil? db)
+                   (reject (js/Error. "IndexedDB is unavailable; nothing was written."))
+
+                   (not (.contains (.-objectStoreNames db) store-name))
+                   (reject (js/Error. (str "IndexedDB store " store-name " is missing; nothing was written.")))
+
+                   :else
+                   (let [;; "strict": oncomplete only after the data is flushed to disk
+                         ;; (browsers default to relaxed durability).
+                         tx (.transaction db (clj->js [store-name]) "readwrite" #js {:durability "strict"})
+                         store (.objectStore tx store-name)]
+                     (set! (.-oncomplete tx) (fn [_] (resolve true)))
+                     ;; A request error is NOT cancelled (no preventDefault), so the
+                     ;; transaction aborts as a whole and onabort rejects.
+                     (set! (.-onabort tx)
+                           (fn [_]
+                             (reject (or (some-> tx .-error)
+                                         (js/Error. (str "IndexedDB transaction aborted for " store-name))))))
+                     (try
+                       (doseq [[k v] entries]
+                         (.put ^js store (clj->js v) k))
+                       (catch :default e
+                         ;; A synchronous put failure (bad key, uncloneable value)
+                         ;; must not let earlier puts auto-commit.
+                         (try (.abort tx) (catch :default _ nil))
+                         (reject e)))))
+                 (catch :default e
+                   (reject e)))))))))))
+
+(defn get-all-json-strict!
+  "`get-all-json!` that REJECTS when IndexedDB or the store is unavailable,
+  instead of returning an empty vector. For journals, an unreadable store must
+  block new work rather than look empty."
+  ([store-name]
+   (get-all-json-strict! store-name {}))
+  ([store-name opts]
+   (if-not (indexed-db-supported?)
+     (js/Promise.reject (js/Error. "IndexedDB is unavailable."))
+     (-> (open-db! opts)
+         (.then (fn [db]
+                  (cond
+                    (nil? db) (js/Promise.reject (js/Error. "IndexedDB is unavailable."))
+                    (not (.contains (.-objectStoreNames db) store-name))
+                    (js/Promise.reject (js/Error. (str "IndexedDB store " store-name " is missing.")))
+                    :else (transact-request! db store-name "readonly"
+                                             (fn [store] (.getAll ^js store))
+                                             (fn [result]
+                                               (if (some? result)
+                                                 (js->clj result :keywordize-keys true)
+                                                 []))))))))))
 
 (defn delete-key!
   ([store-name key]

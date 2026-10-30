@@ -86,10 +86,14 @@
             [hyperopen.api.runtime-test]
             [hyperopen.api.service-test]
             [hyperopen.api.trading-test]
+            [hyperopen.api.trading.action-coordinator-test]
             [hyperopen.api.trading.approve-agent-test]
             [hyperopen.api.trading.cancel-request-test]
+            [hyperopen.api.trading.coordinated-signing-test]
             [hyperopen.api.trading.debug-exchange-simulator-test]
             [hyperopen.api.trading.internal-seams-test]
+            [hyperopen.api.trading.nonce-coordinator-test]
+            [hyperopen.api.trading.order-result-test]
             [hyperopen.api.trading.referral-signing-test]
             [hyperopen.api.trading.session-invalidation-test]
             [hyperopen.api.trading.sign-and-submit-test]
@@ -158,6 +162,7 @@
             [hyperopen.domain.trading.indicators.trend-family-coverage-test]
             [hyperopen.domain.trading.indicators.volatility-family-coverage-test]
             [hyperopen.domain.trading.order-values-test]
+            [hyperopen.domain.trading.precision-test]
             [hyperopen.funding-comparison.actions-test]
             [hyperopen.funding-comparison.effects-test]
             [hyperopen.funding.actions-test]
@@ -253,7 +258,9 @@
             [hyperopen.orderbook.settings-test]
             [hyperopen.outcome-side-market-switch-test]
             [hyperopen.platform-test]
+            [hyperopen.platform.indexed-db-committed-test]
             [hyperopen.platform.indexed-db-test]
+            [hyperopen.platform.indexed-db-versioning-test]
             [hyperopen.platform.webauthn-test]
             [hyperopen.pnl-share.actions-test]
             [hyperopen.portfolio.account-activity-actions-test]
@@ -517,6 +524,10 @@
             [hyperopen.runtime.effect-adapters.referrals-test]
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
+            [hyperopen.runtime.effect-adapters.vol-range-execution-test]
+            [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
+            [hyperopen.runtime.effect-adapters.vol-range-replace-test]
+            [hyperopen.runtime.effect-adapters.vol-range-report-test]
             [hyperopen.runtime.effect-adapters.wallet-test]
             [hyperopen.runtime.effect-adapters.websocket-health-test]
             [hyperopen.runtime.effect-adapters.websocket-test]
@@ -594,6 +605,7 @@
             [hyperopen.trading.order-form-transitions-test]
             [hyperopen.trading.order-form-transitions-update-test]
             [hyperopen.trading.orderbook-price-pick-test]
+            [hyperopen.trading.vol-range-draft-test]
             [hyperopen.ui.fonts-test]
             [hyperopen.ui.fx-test]
             [hyperopen.ui.preferences-test]
@@ -842,6 +854,7 @@
             [hyperopen.views.portfolio.vm.summary-test]
             [hyperopen.views.portfolio.vm.volume-helpers-test]
             [hyperopen.views.portfolio.vm.volume-test]
+            [hyperopen.views.portfolio.vol-range-report-test]
             [hyperopen.views.portfolio.volume-history-popover-test]
             [hyperopen.views.referrals-view-test]
             [hyperopen.views.spectate-mode-modal-test]
@@ -860,6 +873,7 @@
             [hyperopen.views.trade-view.mobile-surface-test]
             [hyperopen.views.trade-view.render-cache-test]
             [hyperopen.views.trade-view.startup-defer-test]
+            [hyperopen.views.trade-view.vol-range-slice-repaint-test]
             [hyperopen.views.trade.order-form-commands-test]
             [hyperopen.views.trade.order-form-component-primitives-test]
             [hyperopen.views.trade.order-form-component-sections-test]
@@ -877,6 +891,12 @@
             [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trade.vol-range.dock-test]
+            [hyperopen.views.trade.vol-range.repair-dialog-test]
+            [hyperopen.views.trade.vol-range.replace-dialog-test]
+            [hyperopen.views.trade.vol-range.review-commit-test]
+            [hyperopen.views.trade.vol-range.review-test]
+            [hyperopen.views.trade.vol-range.ticket-test]
             [hyperopen.views.trading-chart.actions-test]
             [hyperopen.views.trading-chart.chart-type-dropdown-test]
             [hyperopen.views.trading-chart.core-test]
@@ -907,12 +927,14 @@
             [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive-test]
             [hyperopen.views.trading-chart.utils.chart-interop.transforms-test]
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.vol-range-overlays-test]
             [hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test]
             [hyperopen.views.trading-chart.utils.chart-options-test]
             [hyperopen.views.trading-chart.utils.chart-trades-model-test]
             [hyperopen.views.trading-chart.utils.data-processing-test]
             [hyperopen.views.trading-chart.utils.indicators-test]
             [hyperopen.views.trading-chart.utils.position-overlay-model-test]
+            [hyperopen.views.trading-chart.utils.vol-range-overlay-model-test]
             [hyperopen.views.trading-chart.vm-test]
             [hyperopen.views.typography-scale-test]
             [hyperopen.views.ui.anchored-popover-test]
@@ -942,6 +964,74 @@
             [hyperopen.views.vaults.startup-preview-test]
             [hyperopen.views.vaults.vm-test]
             [hyperopen.views.workbench-render-seams-test]
+            [hyperopen.vol-range.a0-boundary-test]
+            [hyperopen.vol-range.actions-test]
+            [hyperopen.vol-range.application.campaign-test]
+            [hyperopen.vol-range.application.dock-model-test]
+            [hyperopen.vol-range.application.draft-scope-test]
+            [hyperopen.vol-range.application.fill-records-test]
+            [hyperopen.vol-range.application.freshness-test]
+            [hyperopen.vol-range.application.grid-store-test]
+            [hyperopen.vol-range.application.ladder-settings-test]
+            [hyperopen.vol-range.application.lifecycle-test]
+            [hyperopen.vol-range.application.live-evidence-test]
+            [hyperopen.vol-range.application.monitoring-test]
+            [hyperopen.vol-range.application.plan-state-memo-test]
+            [hyperopen.vol-range.application.planner-test]
+            [hyperopen.vol-range.application.projections-test]
+            [hyperopen.vol-range.application.quote-sizing-test]
+            [hyperopen.vol-range.application.remediations-test]
+            [hyperopen.vol-range.application.repair-model-test]
+            [hyperopen.vol-range.application.repair-plan-test]
+            [hyperopen.vol-range.application.replace-flow-test]
+            [hyperopen.vol-range.application.replace-model-test]
+            [hyperopen.vol-range.application.replace-state-test]
+            [hyperopen.vol-range.application.report-aggregate-test]
+            [hyperopen.vol-range.application.report-attribution-test]
+            [hyperopen.vol-range.application.report-chart-model-test]
+            [hyperopen.vol-range.application.report-coverage-test]
+            [hyperopen.vol-range.application.report-export-test]
+            [hyperopen.vol-range.application.report-headline-test]
+            [hyperopen.vol-range.application.report-matched-test]
+            [hyperopen.vol-range.application.report-model-test]
+            [hyperopen.vol-range.application.report-windows-test]
+            [hyperopen.vol-range.application.snapshots-test]
+            [hyperopen.vol-range.contracts-test]
+            [hyperopen.vol-range.domain.admission-test]
+            [hyperopen.vol-range.domain.fees-test]
+            [hyperopen.vol-range.domain.grid-test]
+            [hyperopen.vol-range.domain.report-equations-test]
+            [hyperopen.vol-range.domain.report-intervals-test]
+            [hyperopen.vol-range.domain.report-ledger-test]
+            [hyperopen.vol-range.domain.report-marks-test]
+            [hyperopen.vol-range.domain.report-matching-test]
+            [hyperopen.vol-range.domain.volatility-test]
+            [hyperopen.vol-range.execution-actions-test]
+            [hyperopen.vol-range.infrastructure.campaign-capture-test]
+            [hyperopen.vol-range.infrastructure.campaign-executor-test]
+            [hyperopen.vol-range.infrastructure.execution-gate-test]
+            [hyperopen.vol-range.infrastructure.execution-watcher-test]
+            [hyperopen.vol-range.infrastructure.fills-window-test]
+            [hyperopen.vol-range.infrastructure.freshness-watcher-test]
+            [hyperopen.vol-range.infrastructure.ladder-settings-scenario-test]
+            [hyperopen.vol-range.infrastructure.ledger-ingest-test]
+            [hyperopen.vol-range.infrastructure.ledger-store-test]
+            [hyperopen.vol-range.infrastructure.lifecycle-safety-test]
+            [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
+            [hyperopen.vol-range.infrastructure.live-ingress-test]
+            [hyperopen.vol-range.infrastructure.monitoring-gate-test]
+            [hyperopen.vol-range.infrastructure.repair-scenarios-test]
+            [hyperopen.vol-range.infrastructure.replace-scenarios-test]
+            [hyperopen.vol-range.infrastructure.report-executor-test]
+            [hyperopen.vol-range.infrastructure.report-reads-test]
+            [hyperopen.vol-range.infrastructure.report-watcher-test]
+            [hyperopen.vol-range.journal-and-cloid-test]
+            [hyperopen.vol-range.preview-gate-test]
+            [hyperopen.vol-range.registration-test]
+            [hyperopen.vol-range.repair-actions-test]
+            [hyperopen.vol-range.replace-actions-test]
+            [hyperopen.vol-range.report-actions-test]
+            [hyperopen.vol-range.report-boundary-test]
             [hyperopen.wallet.actions-test]
             [hyperopen.wallet.address-watcher-lifecycle-test]
             [hyperopen.wallet.address-watcher-test]
@@ -1016,6 +1106,7 @@
             [hyperopen.websocket.user-runtime.handlers-test]
             [hyperopen.websocket.user-runtime.refresh-test]
             [hyperopen.websocket.user-runtime.subscriptions-test]
+            [hyperopen.websocket.user-taps-test]
             [hyperopen.websocket.user-test]
             [hyperopen.websocket.webdata2-test]
             [hyperopen.workbench.portfolio-client-test]
@@ -1112,10 +1203,14 @@
              'hyperopen.api.runtime-test
              'hyperopen.api.service-test
              'hyperopen.api.trading-test
+             'hyperopen.api.trading.action-coordinator-test
              'hyperopen.api.trading.approve-agent-test
              'hyperopen.api.trading.cancel-request-test
+             'hyperopen.api.trading.coordinated-signing-test
              'hyperopen.api.trading.debug-exchange-simulator-test
              'hyperopen.api.trading.internal-seams-test
+             'hyperopen.api.trading.nonce-coordinator-test
+             'hyperopen.api.trading.order-result-test
              'hyperopen.api.trading.referral-signing-test
              'hyperopen.api.trading.session-invalidation-test
              'hyperopen.api.trading.sign-and-submit-test
@@ -1184,6 +1279,7 @@
              'hyperopen.domain.trading.indicators.trend-family-coverage-test
              'hyperopen.domain.trading.indicators.volatility-family-coverage-test
              'hyperopen.domain.trading.order-values-test
+             'hyperopen.domain.trading.precision-test
              'hyperopen.funding-comparison.actions-test
              'hyperopen.funding-comparison.effects-test
              'hyperopen.funding.actions-test
@@ -1279,7 +1375,9 @@
              'hyperopen.orderbook.settings-test
              'hyperopen.outcome-side-market-switch-test
              'hyperopen.platform-test
+             'hyperopen.platform.indexed-db-committed-test
              'hyperopen.platform.indexed-db-test
+             'hyperopen.platform.indexed-db-versioning-test
              'hyperopen.platform.webauthn-test
              'hyperopen.pnl-share.actions-test
              'hyperopen.portfolio.account-activity-actions-test
@@ -1543,6 +1641,10 @@
              'hyperopen.runtime.effect-adapters.referrals-test
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
+             'hyperopen.runtime.effect-adapters.vol-range-execution-test
+             'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
+             'hyperopen.runtime.effect-adapters.vol-range-replace-test
+             'hyperopen.runtime.effect-adapters.vol-range-report-test
              'hyperopen.runtime.effect-adapters.wallet-test
              'hyperopen.runtime.effect-adapters.websocket-health-test
              'hyperopen.runtime.effect-adapters.websocket-test
@@ -1620,6 +1722,7 @@
              'hyperopen.trading.order-form-transitions-test
              'hyperopen.trading.order-form-transitions-update-test
              'hyperopen.trading.orderbook-price-pick-test
+             'hyperopen.trading.vol-range-draft-test
              'hyperopen.ui.fonts-test
              'hyperopen.ui.fx-test
              'hyperopen.ui.preferences-test
@@ -1868,6 +1971,7 @@
              'hyperopen.views.portfolio.vm.summary-test
              'hyperopen.views.portfolio.vm.volume-helpers-test
              'hyperopen.views.portfolio.vm.volume-test
+             'hyperopen.views.portfolio.vol-range-report-test
              'hyperopen.views.portfolio.volume-history-popover-test
              'hyperopen.views.referrals-view-test
              'hyperopen.views.spectate-mode-modal-test
@@ -1886,6 +1990,7 @@
              'hyperopen.views.trade-view.mobile-surface-test
              'hyperopen.views.trade-view.render-cache-test
              'hyperopen.views.trade-view.startup-defer-test
+             'hyperopen.views.trade-view.vol-range-slice-repaint-test
              'hyperopen.views.trade.order-form-commands-test
              'hyperopen.views.trade.order-form-component-primitives-test
              'hyperopen.views.trade.order-form-component-sections-test
@@ -1903,6 +2008,12 @@
              'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trade.vol-range.dock-test
+             'hyperopen.views.trade.vol-range.repair-dialog-test
+             'hyperopen.views.trade.vol-range.replace-dialog-test
+             'hyperopen.views.trade.vol-range.review-commit-test
+             'hyperopen.views.trade.vol-range.review-test
+             'hyperopen.views.trade.vol-range.ticket-test
              'hyperopen.views.trading-chart.actions-test
              'hyperopen.views.trading-chart.chart-type-dropdown-test
              'hyperopen.views.trading-chart.core-test
@@ -1933,12 +2044,14 @@
              'hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive-test
              'hyperopen.views.trading-chart.utils.chart-interop.transforms-test
              'hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence-test
+             'hyperopen.views.trading-chart.utils.chart-interop.vol-range-overlays-test
              'hyperopen.views.trading-chart.utils.chart-interop.volume-indicator-overlay-test
              'hyperopen.views.trading-chart.utils.chart-options-test
              'hyperopen.views.trading-chart.utils.chart-trades-model-test
              'hyperopen.views.trading-chart.utils.data-processing-test
              'hyperopen.views.trading-chart.utils.indicators-test
              'hyperopen.views.trading-chart.utils.position-overlay-model-test
+             'hyperopen.views.trading-chart.utils.vol-range-overlay-model-test
              'hyperopen.views.trading-chart.vm-test
              'hyperopen.views.typography-scale-test
              'hyperopen.views.ui.anchored-popover-test
@@ -1968,6 +2081,74 @@
              'hyperopen.views.vaults.startup-preview-test
              'hyperopen.views.vaults.vm-test
              'hyperopen.views.workbench-render-seams-test
+             'hyperopen.vol-range.a0-boundary-test
+             'hyperopen.vol-range.actions-test
+             'hyperopen.vol-range.application.campaign-test
+             'hyperopen.vol-range.application.dock-model-test
+             'hyperopen.vol-range.application.draft-scope-test
+             'hyperopen.vol-range.application.fill-records-test
+             'hyperopen.vol-range.application.freshness-test
+             'hyperopen.vol-range.application.grid-store-test
+             'hyperopen.vol-range.application.ladder-settings-test
+             'hyperopen.vol-range.application.lifecycle-test
+             'hyperopen.vol-range.application.live-evidence-test
+             'hyperopen.vol-range.application.monitoring-test
+             'hyperopen.vol-range.application.plan-state-memo-test
+             'hyperopen.vol-range.application.planner-test
+             'hyperopen.vol-range.application.projections-test
+             'hyperopen.vol-range.application.quote-sizing-test
+             'hyperopen.vol-range.application.remediations-test
+             'hyperopen.vol-range.application.repair-model-test
+             'hyperopen.vol-range.application.repair-plan-test
+             'hyperopen.vol-range.application.replace-flow-test
+             'hyperopen.vol-range.application.replace-model-test
+             'hyperopen.vol-range.application.replace-state-test
+             'hyperopen.vol-range.application.report-aggregate-test
+             'hyperopen.vol-range.application.report-attribution-test
+             'hyperopen.vol-range.application.report-chart-model-test
+             'hyperopen.vol-range.application.report-coverage-test
+             'hyperopen.vol-range.application.report-export-test
+             'hyperopen.vol-range.application.report-headline-test
+             'hyperopen.vol-range.application.report-matched-test
+             'hyperopen.vol-range.application.report-model-test
+             'hyperopen.vol-range.application.report-windows-test
+             'hyperopen.vol-range.application.snapshots-test
+             'hyperopen.vol-range.contracts-test
+             'hyperopen.vol-range.domain.admission-test
+             'hyperopen.vol-range.domain.fees-test
+             'hyperopen.vol-range.domain.grid-test
+             'hyperopen.vol-range.domain.report-equations-test
+             'hyperopen.vol-range.domain.report-intervals-test
+             'hyperopen.vol-range.domain.report-ledger-test
+             'hyperopen.vol-range.domain.report-marks-test
+             'hyperopen.vol-range.domain.report-matching-test
+             'hyperopen.vol-range.domain.volatility-test
+             'hyperopen.vol-range.execution-actions-test
+             'hyperopen.vol-range.infrastructure.campaign-capture-test
+             'hyperopen.vol-range.infrastructure.campaign-executor-test
+             'hyperopen.vol-range.infrastructure.execution-gate-test
+             'hyperopen.vol-range.infrastructure.execution-watcher-test
+             'hyperopen.vol-range.infrastructure.fills-window-test
+             'hyperopen.vol-range.infrastructure.freshness-watcher-test
+             'hyperopen.vol-range.infrastructure.ladder-settings-scenario-test
+             'hyperopen.vol-range.infrastructure.ledger-ingest-test
+             'hyperopen.vol-range.infrastructure.ledger-store-test
+             'hyperopen.vol-range.infrastructure.lifecycle-safety-test
+             'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
+             'hyperopen.vol-range.infrastructure.live-ingress-test
+             'hyperopen.vol-range.infrastructure.monitoring-gate-test
+             'hyperopen.vol-range.infrastructure.repair-scenarios-test
+             'hyperopen.vol-range.infrastructure.replace-scenarios-test
+             'hyperopen.vol-range.infrastructure.report-executor-test
+             'hyperopen.vol-range.infrastructure.report-reads-test
+             'hyperopen.vol-range.infrastructure.report-watcher-test
+             'hyperopen.vol-range.journal-and-cloid-test
+             'hyperopen.vol-range.preview-gate-test
+             'hyperopen.vol-range.registration-test
+             'hyperopen.vol-range.repair-actions-test
+             'hyperopen.vol-range.replace-actions-test
+             'hyperopen.vol-range.report-actions-test
+             'hyperopen.vol-range.report-boundary-test
              'hyperopen.wallet.actions-test
              'hyperopen.wallet.address-watcher-lifecycle-test
              'hyperopen.wallet.address-watcher-test
@@ -2042,6 +2223,7 @@
              'hyperopen.websocket.user-runtime.handlers-test
              'hyperopen.websocket.user-runtime.refresh-test
              'hyperopen.websocket.user-runtime.subscriptions-test
+             'hyperopen.websocket.user-taps-test
              'hyperopen.websocket.user-test
              'hyperopen.websocket.webdata2-test
              'hyperopen.workbench.portfolio-client-test

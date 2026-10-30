@@ -271,11 +271,12 @@
 (defn- apply-chart-decorations!
   [node chart-obj {:keys [candle-data main-series-markers chart-trades chart-trades-deps position-overlay
                           position-overlay-deps open-order-overlays overlay-deps volume-indicator-deps
-                          context-menu-deps]}]
+                          context-menu-deps vol-range-overlay]}]
   (ci/set-main-series-markers! chart-obj main-series-markers)
   (ci/sync-chart-trades! chart-obj node chart-trades chart-trades-deps)
   (ci/sync-position-overlays! chart-obj node position-overlay position-overlay-deps)
   (ci/sync-open-order-overlays! chart-obj node open-order-overlays overlay-deps)
+  (ci/sync-vol-range-overlays! chart-obj node vol-range-overlay)
   (ci/sync-volume-indicator-overlay! chart-obj node candle-data volume-indicator-deps)
   (ci/sync-chart-context-menu-overlay! chart-obj
                                        node
@@ -449,12 +450,7 @@
       (.disconnect ^js theme-observer))
     (when legend-control
       (.destroy ^js legend-control))
-    (ci/clear-open-order-overlays! chart-obj)
-    (ci/clear-chart-trades! chart-obj)
-    (ci/clear-position-overlays! chart-obj)
-    (ci/clear-volume-indicator-overlay! chart-obj)
-    (ci/clear-chart-context-menu-overlay! chart-obj)
-    (ci/clear-chart-navigation-overlay! chart-obj)
+    (ci/clear-chart-overlays! chart-obj)
     (ci/clear-baseline-base-value-subscription! chart-obj)
     (when visible-range-cleanup
       (try

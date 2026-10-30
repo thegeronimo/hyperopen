@@ -15,6 +15,7 @@
             [hyperopen.runtime.collaborators.order :as order-collaborators]
             [hyperopen.runtime.collaborators.spectate-mode :as spectate-mode-collaborators]
             [hyperopen.runtime.collaborators.staking :as staking-collaborators]
+            [hyperopen.runtime.collaborators.vol-range :as vol-range-collaborators]
             [hyperopen.runtime.collaborators.wallet :as wallet-collaborators]
             [hyperopen.runtime.effect-adapters.borrow-lend :as borrow-lend-effect-adapters]
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
@@ -82,5 +83,8 @@
     :borrow-lend (borrow-lend-collaborators/action-deps)
     :orders (order-collaborators/action-deps)
     :margin-rec (margin-rec-collaborators/action-deps)
-    :hyperevm (hyperevm-collaborators/action-deps)}
+    :hyperevm (hyperevm-collaborators/action-deps)
+    :vol-range (vol-range-collaborators/action-deps)
+    :vol-range-execution (vol-range-collaborators/execution-action-deps)
+    :vol-range-report (vol-range-collaborators/report-action-deps)}
    action-overrides))

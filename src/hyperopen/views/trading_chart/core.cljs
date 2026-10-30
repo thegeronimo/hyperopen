@@ -113,6 +113,7 @@
                      :position-overlay-deps position-overlay-deps
                      :open-order-overlays open-order-overlays
                      :overlay-deps overlay-deps
+                     :vol-range-overlay (:vol-range-overlay chart-runtime-options)
                      :volume-indicator-deps volume-indicator-deps
                      :context-menu-deps context-menu-deps
                      :schedule-decoration-frame! *schedule-chart-decoration-frame!*

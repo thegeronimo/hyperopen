@@ -9,6 +9,15 @@
 (s/def ::api-submit-request (s/keys :req-un [::common/action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 
+(s/def ::vol-range-execute-args
+  (s/tuple #{:place :cancel :refresh :sync :reconcile-open :repair-preview :repair :resync
+             :replace-cancel :replace-confirm}
+           map?))
+
+;; Vol Range reporting ops; R4 and R6 add no ids (:marks, :export listed here).
+(s/def ::vol-range-report-args
+  (s/tuple #{:load :backfill :start-tracking :marks :export} map?))
+
 (defn- confirm-api-submit-order-args?
   [args]
   (and (= 1 (count args))
@@ -376,6 +385,8 @@
    :effects/api-fetch-leaderboard ::api-fetch-leaderboard-args
    :effects/api-fetch-predicted-fundings ::common/no-args
    :effects/api-submit-order ::api-submit-order-args
+   :effects/vol-range-execute ::vol-range-execute-args
+   :effects/vol-range-report ::vol-range-report-args
    :effects/confirm-api-submit-order ::confirm-api-submit-order-args
    :effects/api-cancel-order ::api-cancel-order-args
    :effects/api-submit-position-tpsl ::api-submit-position-tpsl-args

@@ -106,6 +106,8 @@
            optimizer-draft-watchers-deps
            install-margin-rec-watcher!
            margin-rec-watcher-deps
+           install-vol-range-freshness-watcher!
+           vol-range-freshness-watcher-deps
            install-hyperevm-balance-poller!
            hyperevm-balance-poller-deps]}]
   (install-store-cache-watchers!
@@ -123,6 +125,8 @@
     (install-optimizer-draft-watchers! optimizer-draft-watchers-deps))
   (when (fn? install-margin-rec-watcher!)
     (install-margin-rec-watcher! margin-rec-watcher-deps))
+  (when (fn? install-vol-range-freshness-watcher!)
+    (install-vol-range-freshness-watcher! vol-range-freshness-watcher-deps))
   (when (fn? install-hyperevm-balance-poller!)
     (install-hyperevm-balance-poller! hyperevm-balance-poller-deps)))
 

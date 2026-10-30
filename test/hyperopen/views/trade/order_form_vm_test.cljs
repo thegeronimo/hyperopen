@@ -6,7 +6,9 @@
             [hyperopen.state.trading :as trading]
             [hyperopen.views.trade.order-form-component-sections :as sections]
             [hyperopen.views.trade.order-form-type-extensions :as type-extensions]
-            [hyperopen.views.trade.order-form-vm :as vm]))
+            [hyperopen.views.trade.order-form-vm :as vm]
+            [hyperopen.vol-range.application.snapshots :as vol-range-snapshots]
+            [hyperopen.vol-range.state-fixtures :as vol-range-fixtures]))
 
 (def ^:private ui-owned-order-form-keys
   #{:entry-mode
@@ -315,3 +317,29 @@
                                              :count 20
                                              :skew "2"}} {}))
       (is (= 1 @calls)))))
+
+;; ---------------------------------------------------------------------------
+;; Vol Range (HO-SPEC-014 Release A0): :scale-mode / :vol-range / :show-vol-range?
+;; ---------------------------------------------------------------------------
+
+(deftest ordinary-scale-vm-is-unchanged-in-price-range-mode-test
+  (let [state (base-state {:type :scale} {:entry-mode :pro})
+        view-model (vm/order-form-vm state)]
+    (is (contracts/order-form-vm-valid? view-model))
+    (is (= :price-range (:scale-mode view-model)))
+    (is (nil? (:vol-range view-model)))
+    (is (false? (get-in view-model [:controls :show-vol-range?])))
+    (is (true? (get-in view-model [:controls :show-scale-preview?])))
+    (is (true? (get-in view-model [:controls :show-post-only?])))))
+
+(deftest volatility-range-mode-shows-ticket-on-spot-market-test
+  (with-redefs [vol-range-snapshots/fee-snapshot vol-range-fixtures/with-synthetic-fees]
+    (let [state (vol-range-fixtures/base-state)
+          view-model (vm/order-form-vm-at state vol-range-fixtures/now-ms)]
+      (is (contracts/order-form-vm-valid? view-model))
+      (is (= :volatility-range (:scale-mode view-model)))
+      (is (true? (get-in view-model [:controls :show-vol-range?])))
+      (is (true? (:visible? (:vol-range view-model))))
+      (is (false? (get-in view-model [:controls :show-scale-preview?])))
+      (is (false? (get-in view-model [:controls :show-post-only?])))
+      (is (false? (get-in view-model [:controls :show-limit-like-controls?]))))))

@@ -15,6 +15,8 @@
                   :tpsl-panel-open? false
                   :pro-dropdown-options [:scale]
                   :pro-tab-label "Pro"
+                :scale-mode :price-range
+                :vol-range nil
                   :spot? false
                   :hip3? false
                   :outcome? false
@@ -56,6 +58,7 @@
                              :show-tpsl-panel? false
                              :show-post-only? false
                              :show-scale-preview? false
+                             :show-vol-range? false
                              :show-liquidation-row? true
                              :show-slippage-row? false}
                   :submit {:form {}

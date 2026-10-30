@@ -1,6 +1,7 @@
 (ns hyperopen.trading.order-form-state
   (:require [clojure.string :as str]
-            [hyperopen.domain.trading :as trading-domain]))
+            [hyperopen.domain.trading :as trading-domain]
+            [hyperopen.trading.vol-range-draft :as vol-range-draft]))
 
 (def default-scale-order-count 5)
 (def default-scale-skew "1.00")
@@ -134,10 +135,14 @@
                                                 (trading-domain/normalize-scale-skew-number raw-skew)
                                                 2)
                           :else default-scale-skew)]
-    {:start (or (:start raw-scale) "")
-     :end (or (:end raw-scale) "")
-     :count (or (:count raw-scale) default-scale-order-count)
-     :skew normalized-skew}))
+    (cond-> {:start (or (:start raw-scale) "")
+             :end (or (:end raw-scale) "")
+             :count (or (:count raw-scale) default-scale-order-count)
+             :skew normalized-skew}
+      (contains? raw-scale :mode)
+      (assoc :mode (vol-range-draft/normalize-scale-mode (:mode raw-scale)))
+      (contains? raw-scale :vol-range)
+      (assoc :vol-range (vol-range-draft/normalize-vol-range-draft (:vol-range raw-scale))))))
 
 (defn- normalize-twap-runtime-field [value default-value]
   (cond

@@ -2,6 +2,7 @@
   (:require [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
+            [hyperopen.vol-range.application.projections :as vol-range-projections]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.ui.voice :as voice]
@@ -11,6 +12,7 @@
             [hyperopen.views.l2-orderbook.own-orders :as own-orders]
             [hyperopen.views.trade.book-impact :as book-impact]
             [hyperopen.views.trade.order-form-view :as order-form-view]
+            [hyperopen.views.trade.vol-range.dock :as vol-dock]
             [hyperopen.views.trade-view.layout-state :as layout-state]
             [hyperopen.views.trade-view.loading-shell :as loading-shell]
             [hyperopen.views.trade-view.shell :as shell]))
@@ -127,7 +129,10 @@
 (defn- trade-chart-view-state
   [state]
   (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
-                 (asset-selector-market-lookup-state state))
+                 (asset-selector-market-lookup-state state)
+                 ;; Draft overlay model (nil outside Volatility range mode) so the
+                 ;; memoized chart decorates on draft edits without remounting.
+                 {:vol-range-chart (vol-range-projections/stable-chart-model state (.now js/Date))})
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
@@ -140,6 +145,7 @@
   (cond-> (merge (select-view-state state account-info-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
                  (ui-voice-state state)
+                 (vol-dock/view-state state)
                  (hyperevm-panel-slice/balances-panel-slice state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
@@ -148,7 +154,9 @@
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
-         (ui-voice-state state)))
+         (vol-dock/order-form-slice state)
+         (ui-voice-state state)
+         (vol-dock/ticket-input-slice state)))
 
 (defn- account-surface-export
   [export-id]
@@ -209,8 +217,7 @@
 
 (defonce ^:private frozen-order-form-view-state* (atom nil))
 
-(defn- viewport-width-px []
-  (some-> js/globalThis .-innerWidth))
+(defn- viewport-width-px [] (some-> js/globalThis .-innerWidth))
 
 (defn- mobile-orderbook-view-state
   [orderbook-view-state mobile-surface]
@@ -246,7 +253,7 @@
   (when-let [render-fn (account-surface-export :account-info-view)]
     (memoized-account-info-view render-fn
                                 view-state
-                                opts)))
+                                (vol-dock/with-tab opts view-state))))
 
 (defn- render-account-equity-panel
   [state equity-metrics opts]

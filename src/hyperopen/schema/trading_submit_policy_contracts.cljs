@@ -30,7 +30,8 @@
     :market-price-missing
     :validation-errors
     :request-unavailable
-    :agent-not-ready})
+    :agent-not-ready
+    :vol-range-preview-only})
 
 (def ^:private prepare-result-keys
   #{:type :side :size :price :market-price-missing?})

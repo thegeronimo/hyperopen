@@ -1,6 +1,7 @@
 (ns hyperopen.api.projections.market
   (:require [hyperopen.api.errors :as api-errors]
-            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]))
+            [hyperopen.api.market-metadata.perp-dexs :as perp-dexs]
+            [hyperopen.platform :as platform]))
 
 (defn- normalized-error
   [err]
@@ -97,10 +98,17 @@
        vec))
 
 (defn apply-candle-snapshot-success
-  [state coin interval rows]
-  (let [path [:candles coin interval]
-        merged-rows (merge-candle-rows (get-in state path) rows)]
-    (assoc-in state path merged-rows)))
+  "Store merged candle rows. A successful 1d fetch also stamps
+  `[:vol-range :daily-fetch coin :completed-at-ms]`, the provenance Vol Range
+  needs to know the series was fetched this UTC day (a failed or merely
+  requested fetch never stamps it)."
+  ([state coin interval rows]
+   (apply-candle-snapshot-success state coin interval rows (platform/now-ms)))
+  ([state coin interval rows now-ms]
+   (let [path [:candles coin interval]
+         merged-rows (merge-candle-rows (get-in state path) rows)]
+     (cond-> (assoc-in state path merged-rows)
+       (and (= :1d interval) (some? coin)) (assoc-in [:vol-range :daily-fetch coin :completed-at-ms] now-ms)))))
 
 (defn apply-candle-snapshot-error
   "Record a failed candle fetch WITHOUT destroying the rows already stored.
