@@ -3,8 +3,8 @@
 ## Scope
 
 How to run a first, small, real-money test of Vol Range placement (HO-SPEC-014 Release A) from a local
-development build, and what to collect afterwards. Placement exists only in the dev build, where it is on
-by default with no per-ladder cap. Release builds never include it.
+development build, and what to collect afterwards. Placement is on by default in dev and release builds,
+with no per-ladder cap.
 
 ## Before you start
 
@@ -179,9 +179,9 @@ order ids, prices, sizes and fees; they never hold keys or signatures.
 
 ## Vol Range report (Portfolio)
 
-The dev build also records what your ladders did, so you can compare running them with simply holding
-your tokens. Reporting is on in the dev build only; release builds leave it off until the protocol
-questions below are answered.
+The app also records what your ladders did, so you can compare running them with simply holding your
+tokens. Reporting is on by default in dev and release builds; the protocol questions below are still
+open.
 
 - Tracking starts by itself at your first placement in a market: the app stores your total base balance
   (held units included) and the book midpoint at that moment, before anything is sent. The Vol ladders
@@ -226,7 +226,7 @@ requests whose payload has `"type":"userNonFundingLedgerUpdates"` and `"type":"u
 each response (right-click → Copy response) after replacing your address with
 `0x1234567890abcdef1234567890abcdef12345678`. Note for each: the number of rows, the oldest row's `time`,
 and whether your account has older activity than that. These answer whether the page size is 2,000 and
-how long the ledger is retained; until they are answered reporting stays off in release builds.
+how long the ledger is retained.
 
 ## If something looks wrong
 

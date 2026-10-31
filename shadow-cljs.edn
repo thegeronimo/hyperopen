@@ -16,12 +16,6 @@
   :builds
  {:app {:js-options {:resolve {"osqp" {:target :file
                                        :file "vendor/osqp/osqp_patched.mjs"}}}
-        ;; Vol Range preview, placement and reporting: on for dev/watch (and so
-        ;; Playwright), never in `shadow-cljs release`, which keeps the
-        ;; goog-define defaults of false.
-        :dev {:closure-defines {hyperopen.config/VOL_RANGE_PREVIEW true
-                                hyperopen.config/VOL_RANGE_EXECUTION true
-                                hyperopen.config/VOL_RANGE_REPORTING true}}
         :target :browser
         :output-dir "resources/public/js"
         :asset-path "/js"
@@ -138,8 +132,7 @@
   :test {:target :node-script
          :output-to "out/test.js"
          :main test-runner/-main
-         :closure-defines {hyperopen.config/VOL_RANGE_PREVIEW true
-                           hyperopen.config/VOL_RANGE_REPORTING true}
+         :closure-defines {hyperopen.config/VOL_RANGE_EXECUTION false}
          :compiler-options {:source-map true}
          :js-options {:resolve {"lightweight-charts" {:target :file
                                                       :file "test/shims/lightweight_charts_stub.cjs"}
@@ -155,8 +148,7 @@
 
   :vol-range-test {:target :node-test
                    :output-to "out/vol-range-test.js"
-                   :closure-defines {hyperopen.config/VOL_RANGE_PREVIEW true
-                                     hyperopen.config/VOL_RANGE_REPORTING true}
+                   :closure-defines {hyperopen.config/VOL_RANGE_EXECUTION false}
                    :compiler-options {:source-map true}
                    :js-options {:resolve {"lightweight-charts" {:target :file
                                                                 :file "test/shims/lightweight_charts_stub.cjs"}

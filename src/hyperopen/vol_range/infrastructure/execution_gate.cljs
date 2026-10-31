@@ -3,8 +3,7 @@
   section 15.2).
 
   Placement is on whenever the build includes it (`config/VOL_RANGE_EXECUTION`,
-  true only in the dev build; every release build leaves it false). A browser
-  can opt out with:
+  true by default, release builds included). A browser can opt out with:
        localStorage.setItem('hyperopen.volRange.execution', 'off')
   Removing the key, or any other value, leaves placement on.
 

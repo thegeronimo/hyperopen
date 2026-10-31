@@ -2,22 +2,20 @@
 
 (goog-define APP_VERSION "0.1.0")
 
-;; Vol Range A0 preview capability (HO-SPEC-014 1.2, 15.1, 15.2). Off by default
-;; so a release build ships ordinary Scale only; dev, test and Playwright builds
-;; turn it on via :closure-defines in shadow-cljs.edn.
-(goog-define VOL_RANGE_PREVIEW false)
+;; Vol Range preview capability (HO-SPEC-014 1.2, 15.1, 15.2): the Volatility
+;; range ticket, chart overlays and review. On by default, release builds
+;; included.
+(goog-define VOL_RANGE_PREVIEW true)
 
-;; Vol Range order placement (HO-SPEC-014 15.2, Release A). Off by default and
-;; off in every release build. Even when a build turns it on, placement stays
-;; disarmed until the user arms it in their own browser (see
-;; hyperopen.vol-range.infrastructure.execution-gate).
-(goog-define VOL_RANGE_EXECUTION false)
+;; Vol Range order placement (HO-SPEC-014 15.2, Release A). On by default,
+;; release builds included; the test builds set it false in shadow-cljs.edn. A
+;; browser can opt out (see hyperopen.vol-range.infrastructure.execution-gate).
+(goog-define VOL_RANGE_EXECUTION true)
 
 ;; Vol Range reporting (HO-SPEC-014 15.2, Release B): the Portfolio Vol Range
-;; tab, ledger backfill and Start tracking. Off by default and in every release
-;; build; dev, test and Playwright builds turn it on. Reporting never implies
-;; placement permission.
-(goog-define VOL_RANGE_REPORTING false)
+;; tab, ledger backfill and Start tracking. On by default, release builds
+;; included. Reporting never implies placement permission.
+(goog-define VOL_RANGE_REPORTING true)
 
 (def config
   {:ws-url "wss://api.hyperliquid.xyz/ws"
