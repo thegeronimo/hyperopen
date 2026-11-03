@@ -120,6 +120,7 @@
             [hyperopen.borrow-lend.effects-test]
             [hyperopen.borrow-lend.model-test]
             [hyperopen.borrow-lend.normalize-test]
+            [hyperopen.borrow-lend.returns-test]
             [hyperopen.chart.settings-test]
             [hyperopen.config-test]
             [hyperopen.core-bootstrap.account-history-pagination-test]
@@ -1237,6 +1238,7 @@
              'hyperopen.borrow-lend.effects-test
              'hyperopen.borrow-lend.model-test
              'hyperopen.borrow-lend.normalize-test
+             'hyperopen.borrow-lend.returns-test
              'hyperopen.chart.settings-test
              'hyperopen.config-test
              'hyperopen.core-bootstrap.account-history-pagination-test

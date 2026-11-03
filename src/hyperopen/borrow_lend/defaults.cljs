@@ -19,6 +19,7 @@
    :user-address nil
    :total-supplied-usd 0
    :interest []
+   :ledger []
    :interest-address nil
    :loading {:reserves false :user-state false :interest false}
    :errors {:reserves nil :user-state nil :interest nil}

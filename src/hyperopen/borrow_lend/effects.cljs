@@ -7,8 +7,8 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.borrow-lend.account :as bl-account]))
 
-;; Interest history loaded with the page.
-(def interest-window-ms (* 30 24 60 60 1000))
+;; Upper bound on pages per paged info request.
+(def ^:private max-pages 20)
 
 (defn- still-current?
   [store address]
@@ -61,19 +61,54 @@
     :apply-success apply-borrow-lend-user-state-success
     :apply-error apply-borrow-lend-user-state-error}))
 
+(defn- fetch-pages!
+  "Pages a time-ordered info request forward from `start-ms`. Each page starts
+  at the previous page's last timestamp (inclusive, so rows sharing it are not
+  lost) and paging stops on a page that adds nothing new. Resolves to every
+  row, oldest first."
+  [request-page! start-ms time-fn key-fn]
+  (letfn [(step [start seen acc n]
+            (-> (request-page! start)
+                (.then (fn [rows]
+                         (let [fresh (remove #(contains? seen (key-fn %)) rows)
+                               acc* (into acc fresh)]
+                           (if (or (empty? fresh) (>= n max-pages))
+                             acc*
+                             (step (time-fn (last rows))
+                                   (into seen (map key-fn) fresh)
+                                   acc*
+                                   (inc n))))))))]
+    (step start-ms #{} [] 1)))
+
+(def ^:private ledger-row-key
+  (juxt :time :hash (comp :type :delta) (comp :token :delta)))
+
 (defn api-fetch-borrow-lend-interest!
+  "Loads the account's whole interest history, then the borrow/lend supply and
+  withdraw events since its first row, and stores both as
+  `{:interest rows :ledger rows}`."
   [{:keys [store address request-borrow-lend-interest!
+           request-user-non-funding-ledger-updates!
+           normalize-supply-ledger-rows
            begin-borrow-lend-interest-load
            apply-borrow-lend-interest-success
            apply-borrow-lend-interest-error
-           now-ms-fn
-           opts]
-    :or {now-ms-fn #(.now js/Date)}}]
-  (let [start-ms (- (now-ms-fn) interest-window-ms)]
+           opts]}]
+  (let [opts* (merge {:priority :low} opts)]
     (fetch-for-address!
      {:store store
       :address address
-      :request! #(request-borrow-lend-interest! address start-ms (or opts {}))
+      :request! (fn []
+                  (-> (fetch-pages! #(request-borrow-lend-interest! address % opts*)
+                                    0 :time-ms (juxt :time-ms :token))
+                      (.then (fn [interest]
+                               (if-let [first-ms (:time-ms (first interest))]
+                                 (-> (fetch-pages! #(request-user-non-funding-ledger-updates! address % nil opts*)
+                                                   first-ms :time ledger-row-key)
+                                     (.then (fn [ledger]
+                                              {:interest interest
+                                               :ledger (normalize-supply-ledger-rows ledger)})))
+                                 {:interest interest :ledger []})))))
       :begin-load begin-borrow-lend-interest-load
       :apply-success apply-borrow-lend-interest-success
       :apply-error apply-borrow-lend-interest-error})))

@@ -42,20 +42,53 @@
                    (is (nil? (get-in @store [:borrow-lend :user-state])))
                    (done)))))))
 
-(deftest fetch-interest-uses-thirty-day-window-test
+(defn- interest-deps [store calls interest-pages ledger-pages]
+  {:store store
+   :address owner
+   :request-borrow-lend-interest! (fn [_ start opts]
+                                    (swap! calls conj [:interest start (:priority opts)])
+                                    (js/Promise.resolve (get interest-pages start [])))
+   :request-user-non-funding-ledger-updates! (fn [_ start end _]
+                                               (swap! calls conj [:ledger start end])
+                                               (js/Promise.resolve (get ledger-pages start [])))
+   :normalize-supply-ledger-rows (fn [rows] (mapv :time rows))
+   :begin-borrow-lend-interest-load projections/begin-borrow-lend-interest-load
+   :apply-borrow-lend-interest-success projections/apply-borrow-lend-interest-success
+   :apply-borrow-lend-interest-error projections/apply-borrow-lend-interest-error})
+
+(deftest fetch-interest-pages-whole-history-then-ledger-test
   (async done
     (let [store (store-for owner)
-          seen (atom nil)]
+          calls (atom [])
+          a {:time-ms 10 :token "USDC"}
+          b {:time-ms 20 :token "USDC"}
+          b2 {:time-ms 20 :token "USDH"}
+          c {:time-ms 30 :token "USDC"}
+          ledger-1 {:time 12 :hash "0x1" :delta {:type "borrowLend" :token "USDC"}}
+          ledger-2 {:time 15 :hash "0x2" :delta {:type "send" :token "USDC"}}]
       (-> (effects/api-fetch-borrow-lend-interest!
-           {:store store
-            :address owner
-            :now-ms-fn (constantly 1000000000000)
-            :request-borrow-lend-interest! (fn [_ start _] (reset! seen start) (js/Promise.resolve []))
-            :begin-borrow-lend-interest-load projections/begin-borrow-lend-interest-load
-            :apply-borrow-lend-interest-success projections/apply-borrow-lend-interest-success
-            :apply-borrow-lend-interest-error projections/apply-borrow-lend-interest-error})
+           (interest-deps store calls
+                          ;; The second page starts at the first page's last
+                          ;; timestamp, so the USDH row sharing it is kept.
+                          {0 [a b] 20 [b b2 c] 30 [c]}
+                          {10 [ledger-1 ledger-2] 15 [ledger-2]}))
           (.then (fn [_]
-                   (is (= (- 1000000000000 effects/interest-window-ms) @seen))
+                   (is (= [[:interest 0 :low] [:interest 20 :low] [:interest 30 :low]
+                           [:ledger 10 nil] [:ledger 15 nil]]
+                          @calls))
+                   (is (= [a b b2 c] (get-in @store [:borrow-lend :interest])))
+                   (is (= [12 15] (get-in @store [:borrow-lend :ledger])))
+                   (is (= owner (get-in @store [:borrow-lend :interest-address])))
+                   (done)))))))
+
+(deftest fetch-interest-skips-ledger-without-history-test
+  (async done
+    (let [store (store-for owner)
+          calls (atom [])]
+      (-> (effects/api-fetch-borrow-lend-interest! (interest-deps store calls {} {}))
+          (.then (fn [_]
+                   (is (= [[:interest 0 :low]] @calls))
+                   (is (= [] (get-in @store [:borrow-lend :ledger])))
                    (done)))))))
 
 (defn- submit-deps [store resp-or-error calls]

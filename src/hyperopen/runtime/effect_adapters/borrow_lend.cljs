@@ -4,6 +4,7 @@
             [hyperopen.api.projections :as api-projections]
             [hyperopen.api.trading :as trading-api]
             [hyperopen.borrow-lend.effects :as borrow-lend-effects]
+            [hyperopen.borrow-lend.normalize :as borrow-lend-normalize]
             [hyperopen.runtime.effect-adapters.common :as common]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]))
 
@@ -32,6 +33,8 @@
    {:store store
     :address address
     :request-borrow-lend-interest! api/request-borrow-lend-interest!
+    :request-user-non-funding-ledger-updates! api/request-user-non-funding-ledger-updates!
+    :normalize-supply-ledger-rows borrow-lend-normalize/normalize-supply-ledger-rows
     :begin-borrow-lend-interest-load api-projections/begin-borrow-lend-interest-load
     :apply-borrow-lend-interest-success api-projections/apply-borrow-lend-interest-success
     :apply-borrow-lend-interest-error api-projections/apply-borrow-lend-interest-error}))
