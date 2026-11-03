@@ -76,10 +76,13 @@
 (defn begin-borrow-lend-interest-load [state] (begin state :interest))
 
 (defn apply-borrow-lend-interest-success
-  [state address rows]
+  "Stores the interest history and the supply/withdraw ledger events
+  (`{:interest rows :ledger rows}`) with the address they belong to."
+  [state address {:keys [interest ledger]}]
   (-> state
       (success :interest [:borrow-lend :interest]
-               (if (sequential? rows) (vec rows) []))
+               (if (sequential? interest) (vec interest) []))
+      (assoc-in [:borrow-lend :ledger] (if (sequential? ledger) (vec ledger) []))
       (assoc-in [:borrow-lend :interest-address]
                 (account-context/normalize-address address))))
 

@@ -217,6 +217,85 @@
                                :action (open-modal-action vm :withdraw token)
                                :data-role (str "earn-position-withdraw-" token)})))]]])]]]))
 
+(def ^:private returns-notes
+  {:loading "Loading your interest history…"
+   :error "Couldn't load your interest history, so realized returns are unavailable."
+   :portfolio-margin "Realized returns aren't available for portfolio margin accounts: idle USDC and USDT0 move into the pool automatically, with no record of each change."
+   :inconsistent "Realized returns are unavailable: your interest history doesn't add up to this balance."
+   :empty "No interest received yet. Realized returns appear after the first hourly payment."})
+
+(defn- returns-note
+  [status data-role]
+  [:p {:class ["m-0" "px-4" "py-4" "text-sm" "text-ho-text-secondary"] :data-role data-role}
+   (get returns-notes status)])
+
+(defn- returns-bar
+  [bar-pct current-pct]
+  [:div {:aria-hidden "true" :class ["relative" "w-40" "h-1.5" "rounded-full" "bg-ho-surface-raised"]}
+   [:div {:class ["absolute" "inset-y-0" "left-0" "rounded-full" "bg-ho-buy"]
+          :style {:width (str bar-pct "%")}}]
+   [:div {:class ["absolute" "-top-1" "w-0.5" "h-3.5" "bg-ho-text"]
+          :style {:left (str "calc(" current-pct "% - 1px)")}}]])
+
+(defn- token-returns-card
+  [{:keys [symbol status current-apy current-pct scale-label rows]}]
+  (let [heading-id (str "earn-returns-heading-" symbol)]
+    [:section {:aria-labelledby heading-id
+               :class (into card-classes ["relative" "overflow-hidden"])
+               :data-role (str "earn-returns-" symbol)}
+     [:div {:class ["flex" "flex-wrap" "items-end" "justify-between" "gap-3" "px-4" "pt-4" "pb-3"]}
+      [:div {:class ["flex" "flex-col" "gap-1"]}
+       [:h2 {:id heading-id :class ["m-0" "text-sm" "font-semibold" "text-ho-text"]}
+        (str "Realized returns · " symbol)]
+       [:p {:class ["m-0" "text-xs" "text-ho-text-secondary"]}
+        "What you actually received, annualized against your average balance over each period."]]
+      [:span {:class ["inline-flex" "items-center" "gap-2" "text-xs" "text-ho-text-secondary"]}
+       [:span {:aria-hidden "true" :class ["w-0.5" "h-3.5" "bg-ho-text"]}]
+       "Current APY "
+       [:span {:class ["num" "font-semibold" "text-ho-buy"]} current-apy]]]
+     (if (not= :ok status)
+       (returns-note status (str "earn-returns-" symbol "-" (name status)))
+       (list
+        [:div {:class ["overflow-x-auto"]}
+         [:table {:class ["w-full" "min-w-[760px]" "border-collapse"]}
+          [:thead
+           [:tr
+            [:th {:class (into th-base ["text-left" "pl-4"])} "Period"]
+            [:th {:class th-classes} "Realized APY"]
+            [:th {:class (into th-base ["text-left"])} [:span {:class ["sr-only"]} "Compared with current APY"]]
+            [:th {:class th-classes} "Interest received"]
+            [:th {:class th-classes} "Avg balance"]
+            [:th {:class (into th-classes ["pr-4"])} "Days supplied"]]]
+          [:tbody
+           (for [{:keys [key label since realized bar-pct interest avg-balance days]} rows]
+             ^{:key key}
+             [:tr {:data-role (str "earn-returns-" symbol "-" key)}
+              [:td {:class (into td-base ["text-left" "pl-4" "text-ho-text"])}
+               label
+               (when since
+                 [:span {:class ["block" "mt-0.5" "text-xs" "text-ho-text-secondary"]} since])]
+              [:td {:class (into td-classes ["num" "font-semibold" "text-ho-text"])} realized]
+              [:td {:class (into td-base ["text-left"])} (returns-bar bar-pct current-pct)]
+              [:td {:class (into td-classes ["num" "text-ho-buy"])} interest]
+              [:td {:class (into td-classes ["num" "text-ho-text"])} avg-balance]
+              [:td {:class (into td-classes ["num" "pr-4" "text-ho-text-secondary"])} days]])]]]
+        [:p {:class ["m-0" "px-4" "py-3" "border-t" "border-ho-border" "text-xs" "leading-5" "text-ho-text-secondary"]}
+         (str "Bars run 0–" scale-label "; the tick marks today's APY. Periods start at your first supply, so a new deposit doesn't pull the rate down.")]))]))
+
+(defn- returns-section
+  [{:keys [returns]}]
+  (when-let [{:keys [status tokens]} returns]
+    (if (= :ok status)
+      [:div {:class ["flex" "flex-col" "gap-5"] :data-role "earn-returns"}
+       (for [{:keys [symbol] :as token} tokens]
+         ^{:key symbol}
+         (token-returns-card token))]
+      [:section {:aria-label "Realized returns"
+                 :class card-classes
+                 :data-role "earn-returns"}
+       [:h2 {:class ["m-0" "px-4" "pt-4" "text-sm" "font-semibold" "text-ho-text"]} "Realized returns"]
+       (returns-note status (str "earn-returns-" (name status)))])))
+
 (defn- history-table
   [{:keys [history]}]
   (if (empty? history)
@@ -367,7 +446,9 @@
        [:div {:class ["flex-[999_1_720px]" "min-w-0" "flex" "flex-col" "gap-5"]}
         (tabs vm)
         (case tab
-          :positions (positions-table vm)
+          :positions [:div {:class ["flex" "flex-col" "gap-5"]}
+                      (positions-table vm)
+                      (returns-section vm)]
           :history (history-table vm)
           [:div {:class ["flex" "flex-col" "gap-5"]}
            (pools-table vm)

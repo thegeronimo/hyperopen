@@ -7,6 +7,7 @@
             [hyperopen.borrow-lend.account :as bl-account]
             [hyperopen.borrow-lend.model :as model]
             [hyperopen.borrow-lend.normalize :as normalize]
+            [hyperopen.borrow-lend.returns :as returns]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.utils.parse :as parse-utils]))
 
@@ -197,10 +198,26 @@
     (and (some? address)
          (= address (get-in state [:borrow-lend :interest-address])))))
 
+(def ^:private interest-window-ms (* 30 24 60 60 1000))
+
+(defn- interest-loaded-ms
+  [state]
+  (get-in state [:borrow-lend :loaded-at-ms :interest]))
+
+(defn- recent-interest
+  "The interest rows behind \"Interest (30d)\" and the History tab. The store
+  holds the whole history, for realized returns."
+  [state]
+  (let [rows (get-in state [:borrow-lend :interest])
+        loaded-ms (interest-loaded-ms state)]
+    (if (number? loaded-ms)
+      (filterv #(>= (:time-ms %) (- loaded-ms interest-window-ms)) rows)
+      rows)))
+
 (defn- interest-history-rows
   [state]
   (if (interest-current? state)
-    (->> (get-in state [:borrow-lend :interest])
+    (->> (recent-interest state)
          (filter #(or (pos? (:supply %)) (pos? (:borrow %))))
          reverse
          (take 50)
@@ -211,6 +228,73 @@
                   :supply (if (pos? supply) (str "+" (format-amount supply)) dash)
                   :borrow (if (pos? borrow) (str "-" (format-amount borrow)) dash)})))
     []))
+
+(defn- bar-scale
+  "Top of the realized-returns bar track: a little above the highest rate on
+  show, rounded up to a whole percent."
+  [rates]
+  (let [top (reduce max 0 (filter finite? rates))]
+    (max 0.01 (/ (js/Math.ceil (* 100 top 1.15)) 100))))
+
+(defn- bar-pct
+  [rate scale]
+  (if (finite? rate) (* 100 (min 1 (max 0 (/ rate scale)))) 0))
+
+(defn- days-label
+  [hours]
+  (let [days (js/Math.round (/ hours 24))]
+    (if (< days 1) "<1" (str days))))
+
+(defn- format-day
+  [time-ms]
+  (or (fmt/format-intl-date-time time-ms {:month "short" :day "numeric" :year "numeric"}) dash))
+
+(defn- token-returns
+  [state now-ms {:keys [symbol supplied supply-apy oracle-px]}]
+  (let [by-token #(= symbol (:token %))
+        {:keys [status periods since-ms]} (returns/realized-returns
+                                           {:now-ms now-ms
+                                            :current-value supplied
+                                            :interest-rows (filterv by-token (get-in state [:borrow-lend :interest]))
+                                            :ledger-rows (filterv by-token (get-in state [:borrow-lend :ledger]))})
+        px (if (finite? oracle-px) oracle-px 1)
+        scale (bar-scale (cons supply-apy (map :realized-apy periods)))]
+    {:symbol symbol
+     :status status
+     :current-apy (format-pct supply-apy)
+     :current-pct (bar-pct supply-apy scale)
+     :scale-label (format-pct scale 0)
+     :rows (mapv (fn [{:keys [id label days interest hours avg-balance realized-apy]}]
+                   {:key (name id)
+                    :label label
+                    :since (when (= :all id) (format-day since-ms))
+                    :realized (format-pct realized-apy)
+                    :bar-pct (bar-pct realized-apy scale)
+                    :interest (str (format-interest "+" interest) " " symbol)
+                    :avg-balance (format-usd (* avg-balance px))
+                    :days (if days (str (days-label hours) " / " days) (days-label hours))})
+                 periods)}))
+
+(defn returns-vm
+  "Realized returns for each supplied, interest-earning token, or nil when
+  there is none. `:status` is :ok, :loading, :error or :portfolio-margin."
+  [state reserves-by-token]
+  (let [legs (keep (fn [{:keys [token supplied]}]
+                     (let [{:keys [ltv supply-apy oracle-px]} (get reserves-by-token token)]
+                       (when (and (finite? supplied) (pos? supplied) (not (pos? (or ltv 0))))
+                         {:symbol (bl-account/token-symbol state token)
+                          :supplied supplied
+                          :supply-apy supply-apy
+                          :oracle-px oracle-px})))
+                   (bl-account/positions state))]
+    (when (seq legs)
+      (cond
+        (bl-account/portfolio-margin? state) {:status :portfolio-margin}
+        (and (interest-current? state) (number? (interest-loaded-ms state)))
+        {:status :ok
+         :tokens (mapv #(token-returns state (interest-loaded-ms state) %) legs)}
+        (get-in state [:borrow-lend :errors :interest]) {:status :error}
+        :else {:status :loading}))))
 
 (defn- preview-row
   [label before after tone]
@@ -288,7 +372,7 @@
         positions-by-token (into {} (map (juxt :token identity)) (bl-account/positions state))
         health (bl-account/health state)
         interest-totals (when (interest-current? state)
-                          (normalize/interest-totals (get-in state [:borrow-lend :interest])))
+                          (normalize/interest-totals (recent-interest state)))
         pools (->> reserves (remove #(pos? (:ltv %))) (mapv #(pool-row state %)))
         collateral (->> reserves (filter #(pos? (:ltv %))) (mapv #(collateral-row state positions-by-token %)))
         tab (get-in state [:borrow-lend-ui :active-tab] :markets)
@@ -307,5 +391,6 @@
      :summary (summary state by-token health)
      :positions (position-rows state by-token interest-totals)
      :history (interest-history-rows state)
+     :returns (when (= :positions tab) (returns-vm state by-token))
      :curve (rate-curve state (or (get by-token 0) (first (remove #(pos? (:ltv %)) reserves))))
      :modal (modal-vm state by-token health)}))

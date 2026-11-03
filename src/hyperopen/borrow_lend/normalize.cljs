@@ -18,7 +18,16 @@
                             \"supply\" {\"basis\" \"5000\" \"value\" \"5012.3\"}}]]
        \"health\" \"healthy\" \"healthFactor\" nil}
     userBorrowLendInterest ->
-      [{\"time\" 1710000000000 \"token\" \"USDC\" \"borrow\" \"0.0\" \"supply\" \"1.23\"}]")
+      [{\"time\" 1710000000000 \"token\" \"USDC\" \"borrow\" \"0.0\" \"supply\" \"1.23\"}]
+
+  Interest rows older than about 8 days are daily aggregates stamped at the
+  start of the day, with `\"nSamples\" 24` (fewer on a partial first day);
+  newer rows are hourly, stamped just after the hour they cover, with no
+  `nSamples` (2026-11-03).
+
+    userNonFundingLedgerUpdates borrowLend delta ->
+      {\"type\" \"borrowLend\" \"token\" \"USDC\" \"operation\" \"supply\"
+       \"amount\" \"1000.0\" \"interestAmount\" \"0.0\"}")
 
 (defn- num
   [value]
@@ -110,7 +119,36 @@
                    {:time-ms time-ms
                     :token token
                     :borrow (or (num (field row "borrow")) 0)
-                    :supply (or (num (field row "supply")) 0)}))))
+                    :supply (or (num (field row "supply")) 0)
+                    ;; Accrual hours in the row and whether it is a daily
+                    ;; aggregate (stamped at the start of its day).
+                    :hours (let [n (num (field row "nSamples"))]
+                             (if (and n (pos? n)) n 1))
+                    :daily? (some? (field row "nSamples"))}))))
+       (sort-by :time-ms)
+       vec))
+
+(def ^:private supply-operations
+  {"supply" :supply "withdraw" :withdraw})
+
+(defn normalize-supply-ledger-rows
+  "The `borrowLend` supply and withdraw events in a non-funding ledger
+  payload, oldest first. Borrow and repay change the borrowed leg only, so
+  they are dropped."
+  [raw]
+  (->> (if (sequential? raw) raw [])
+       (keep (fn [row]
+               (let [delta (field row "delta")
+                     time-ms (num (field row "time"))
+                     token (field delta "token")
+                     operation (get supply-operations (field delta "operation"))
+                     amount (num (field delta "amount"))]
+                 (when (and (= "borrowLend" (field delta "type"))
+                            time-ms operation amount (string? token))
+                   {:time-ms time-ms
+                    :token token
+                    :operation operation
+                    :amount amount}))))
        (sort-by :time-ms)
        vec))
 
