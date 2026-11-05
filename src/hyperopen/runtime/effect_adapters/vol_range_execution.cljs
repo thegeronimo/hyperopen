@@ -123,6 +123,25 @@
                                  (cond-> (= :repair op)
                                    (assoc :proposal-id (:proposal-id result)))))))))
 
+(def ^:private spot-mutating-ops
+  "Operations that may send orders or cancels on the spot book. They bypass
+  the order effects' post-mutation refresh, and there is no spot balance
+  stream (resting-order holds change on placement and cancel without a fill),
+  so the store's spot balances must be refetched after them."
+  #{:place :cancel :repair})
+
+(def ^:private nothing-sent-statuses #{:refused :busy :coordination-unavailable})
+
+(defn- refresh-spot-after-send!
+  "Best effort: refetch spot balances (and so each token's `hold`) after an
+  operation that may have placed or canceled ladder orders."
+  [store op {:keys [grid status]}]
+  (when (and (contains? spot-mutating-ops op)
+             (not (contains? nothing-sent-statuses status)))
+    (when-let [address (or (get-in grid [:scope :account-address])
+                           (account-context/active-trading-account-address @store))]
+      (spot-refresh/refresh-spot-clearinghouse-snapshot! store address {:priority :high}))))
+
 ;; ---------------------------------------------------------------------------
 ;; Operations
 ;; ---------------------------------------------------------------------------
@@ -338,5 +357,8 @@
                         :replace-confirm (repair-replace/replace-confirm! store (executor-deps store) params
                                                                           (replace-opts store))
                         {:status :error :error (str "Unknown operation " op)})))))
-        (.then (fn [result] (finish! store busy-key (tag result) op)))
+        (.then (fn [result]
+                 (let [finished (finish! store busy-key (tag result) op)]
+                   (refresh-spot-after-send! store op result)
+                   finished)))
         (.catch (fn [e] (finish! store busy-key (tag {:status :error :error (ex/error-text e)}) op))))))

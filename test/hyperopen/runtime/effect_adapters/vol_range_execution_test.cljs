@@ -11,6 +11,7 @@
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.account.context :as account-context]
             [hyperopen.api.default.state :as api-state]
+            [hyperopen.order.effects.spot-refresh :as spot-refresh]
             [hyperopen.platform :as platform]
             [hyperopen.platform.locks :as locks]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vre]
@@ -430,3 +431,36 @@
         "the tick gap is judged with the time the executor passes")
     (is (= :monitoring/stale (blocker (assoc live-m :account-address "0x9999999999999999999999999999999999999999")))
         "monitoring for another account never admits this one")))
+
+;; ---------------------------------------------------------------------------
+;; Spot balances after a ladder send (no spot balance stream exists)
+;; ---------------------------------------------------------------------------
+
+(deftest a-ladder-cancel-refreshes-spot-balances-test
+  (async done
+    (let [s (sim/new-sim)
+          calls (atom [])
+          orig-refresh spot-refresh/refresh-spot-clearinghouse-snapshot!]
+      (set! spot-refresh/refresh-spot-clearinghouse-snapshot!
+            (fn [_store address opts] (swap! calls conj [address opts]) (js/Promise.resolve nil)))
+      (-> (place-and-reconcile! s)
+          (.then
+           (fn [grid]
+             (let [store (store-with [grid])]
+               (with-runtime s (sim/deps s)
+                 #(-> (vre/vol-range-execute nil store :reconcile-open {})
+                      (.then (fn [_]
+                               (is (empty? @calls) "a background reconcile does not refetch spot")
+                               (vre/vol-range-execute nil store :cancel {:grid-id (:grid-id grid)})))
+                      (.then (fn [_]
+                               (is (= [["0xabc" {:priority :high}]] @calls)
+                                   "a cancel refetches the ladder account's spot balances (holds)")
+                               (reset! calls [])
+                               (set! gate/enabled? (constantly false))
+                               (vre/vol-range-execute nil store :place {})))
+                      (.then (fn [_]
+                               (is (= :refused (get-in @store [:vol-range :execution :last :status])))
+                               (is (empty? @calls) "a refused send changed nothing to refetch"))))))))
+          (.then (fn [_] (done)))
+          (.catch (fail done))
+          (.finally (fn [] (set! spot-refresh/refresh-spot-clearinghouse-snapshot! orig-refresh)))))))
