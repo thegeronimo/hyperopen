@@ -362,6 +362,7 @@
             [hyperopen.portfolio.optimizer.application.universe-candidates-cache-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-test]
             [hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test]
+            [hyperopen.portfolio.optimizer.application.universe-duplicates-test]
             [hyperopen.portfolio.optimizer.application.universe-search-test]
             [hyperopen.portfolio.optimizer.application.vault-funding-plan-test]
             [hyperopen.portfolio.optimizer.application.vault-history-window-test]
@@ -471,6 +472,7 @@
             [hyperopen.portfolio.optimizer.target-sigma-actions-test]
             [hyperopen.portfolio.optimizer.tracking-actions-test]
             [hyperopen.portfolio.optimizer.universe-actions-test]
+            [hyperopen.portfolio.optimizer.universe-duplicate-actions-test]
             [hyperopen.portfolio.optimizer.universe-exclusion-actions-test]
             [hyperopen.portfolio.optimizer.universe-from-holdings-actions-test]
             [hyperopen.portfolio.optimizer.universe-keyboard-test]
@@ -821,6 +823,7 @@
             [hyperopen.views.portfolio.optimize.setup-history-assumptions-test]
             [hyperopen.views.portfolio.optimize.setup-layout-test]
             [hyperopen.views.portfolio.optimize.setup-readiness-panel-test]
+            [hyperopen.views.portfolio.optimize.setup-universe-duplicate-layout-test]
             [hyperopen.views.portfolio.optimize.setup-universe-layout-test]
             [hyperopen.views.portfolio.optimize.setup-universe-search-layout-test]
             [hyperopen.views.portfolio.optimize.setup-use-my-views-cards-test]
@@ -1480,6 +1483,7 @@
              'hyperopen.portfolio.optimizer.application.universe-candidates-cache-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-test
              'hyperopen.portfolio.optimizer.application.universe-candidates-vault-ordering-test
+             'hyperopen.portfolio.optimizer.application.universe-duplicates-test
              'hyperopen.portfolio.optimizer.application.universe-search-test
              'hyperopen.portfolio.optimizer.application.vault-funding-plan-test
              'hyperopen.portfolio.optimizer.application.vault-history-window-test
@@ -1589,6 +1593,7 @@
              'hyperopen.portfolio.optimizer.target-sigma-actions-test
              'hyperopen.portfolio.optimizer.tracking-actions-test
              'hyperopen.portfolio.optimizer.universe-actions-test
+             'hyperopen.portfolio.optimizer.universe-duplicate-actions-test
              'hyperopen.portfolio.optimizer.universe-exclusion-actions-test
              'hyperopen.portfolio.optimizer.universe-from-holdings-actions-test
              'hyperopen.portfolio.optimizer.universe-keyboard-test
@@ -1939,6 +1944,7 @@
              'hyperopen.views.portfolio.optimize.setup-history-assumptions-test
              'hyperopen.views.portfolio.optimize.setup-layout-test
              'hyperopen.views.portfolio.optimize.setup-readiness-panel-test
+             'hyperopen.views.portfolio.optimize.setup-universe-duplicate-layout-test
              'hyperopen.views.portfolio.optimize.setup-universe-layout-test
              'hyperopen.views.portfolio.optimize.setup-universe-search-layout-test
              'hyperopen.views.portfolio.optimize.setup-use-my-views-cards-test

@@ -7,6 +7,7 @@
             [hyperopen.portfolio.optimizer.application.history-warning-policy :as warning-policy]
             [hyperopen.portfolio.optimizer.application.orderbook-loader :as orderbook-loader]
             [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]
+            [hyperopen.portfolio.optimizer.application.universe-duplicates :as universe-duplicates]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.portfolio.optimizer.coercion :as coercion]
             [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]
@@ -226,6 +227,9 @@
 
       (= :optimizer-history-api-legacy-fallback code)
       (str assets (if (= 1 n) " is" " are") " served from Hyperliquid directly")
+
+      (= universe-duplicates/duplicate-warning-code code)
+      (str n (if (= 1 n) " asset is" " assets are") " in the universe more than once")
 
       :else
       (str assets " · " (str/replace (name code) "-" " ")))))
@@ -674,4 +678,7 @@
          :refreshing? (history-refreshing? state)
          :request request
          :blocking-warnings blocking-warnings
-         :warnings (vec (:warnings request))}))))
+         ;; Readiness-only (never sent to the engine): one caution per stock
+         ;; held as two listings, so the verdict and Data health carry it.
+         :warnings (into (vec (:warnings request))
+                         (universe-duplicates/duplicate-warnings requested-universe))}))))

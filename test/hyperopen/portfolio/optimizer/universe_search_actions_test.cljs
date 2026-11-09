@@ -15,6 +15,9 @@
 (def ^:private active-index-path
   [:portfolio-ui :optimizer :universe-search-active-index])
 
+(def ^:private duplicate-prompt-path
+  [:portfolio-ui :optimizer :universe-duplicate-prompt])
+
 (defn- save-many-values
   [effects]
   (second (first effects)))
@@ -45,7 +48,8 @@
   (testing "narrowing a query under an active chip is the point of the chip"
     (is (= [[:effects/save-many
              [[query-path "pump"]
-              [active-index-path 0]]]]
+              [active-index-path 0]
+              [duplicate-prompt-path nil]]]]
            (actions/set-portfolio-optimizer-universe-search-query {} "pump"))))
   (testing "an emptied field is a full reset, so no facet can sit invisibly"
     ;; The draft add-asset popover shares these paths and renders no chips.
@@ -53,7 +57,8 @@
              [[query-path ""]
               [active-index-path 0]
               [type-filter-path :all]
-              [quote-filter-path :all]]]]
+              [quote-filter-path :all]
+              [duplicate-prompt-path nil]]]]
            (actions/set-portfolio-optimizer-universe-search-query {} "")))))
 
 (def ^:private catalog
