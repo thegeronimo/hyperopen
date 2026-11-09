@@ -111,7 +111,7 @@
                         ["perp:BTC" "perp:ETH"]]]}]
            @dispatches*))))
 
-(deftest tab-rows-include-hyperliquid-mainnet-outcome-subfilters-test
+(deftest tab-rows-include-outcome-category-chips-test
   (let [desktop (controls/tab-row :outcome-economics)
         mobile (controls/mobile-tab-row :outcome-economics)
         subtabs (controls/outcome-subtab-row :outcome-economics)
@@ -119,9 +119,9 @@
                              (support/collect-strings mobile)
                              (support/collect-strings subtabs)))]
     (is (contains? strings "Outcome"))
-    (is (contains? strings "Crypto (1d)"))
-    (is (contains? strings "Economics"))
-    (is (contains? strings "Sports"))
+    (doseq [label ["Sports" "Crypto" "Stocks & commodities" "Economics" "Companies"]]
+      (is (contains? strings label)))
+    (is (not (contains? strings "Crypto (1d)")))
     (is (not (contains? strings "Crypto (15m)")))))
 
 (deftest outcome-sort-headers-use-chance-labels-test

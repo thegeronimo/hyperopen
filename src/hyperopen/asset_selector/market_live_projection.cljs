@@ -11,13 +11,18 @@
 
 (defn- patch-outcome-side-from-active-asset-ctx
   [coin
-   {:keys [mark-raw mark prev-day-raw volume24h change24h change24h-pct circulating-supply] :as _ctx-values}
+   {:keys [mark-raw mark mid-present? mid-raw prev-day-raw volume24h change24h change24h-pct
+           circulating-supply] :as _ctx-values}
    side]
   (if-not (= coin (:coin side))
     side
     (cond-> side
       (some? mark-raw)
       (assoc :markRaw mark-raw)
+
+      ;; A null midPx means the book lost a side: the chance becomes "No market".
+      mid-present?
+      (assoc :midRaw mid-raw :mid (parse-number mid-raw))
 
       (number? mark)
       (assoc :mark mark)
@@ -95,6 +100,8 @@
                                  primary-outcome-side?)
         ctx-values {:mark-raw mark-raw
                     :mark mark
+                    :mid-present? (contains? ctx :midPx)
+                    :mid-raw (:midPx ctx)
                     :prev-day-raw prev-day-raw
                     :volume24h volume24h
                     :change24h change24h

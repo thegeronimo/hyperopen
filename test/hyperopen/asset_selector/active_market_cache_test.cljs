@@ -112,7 +112,7 @@
     (is (= :question (:outcome-kind normalized)))
     (is (= :crypto (:outcome-category normalized)))
     (is (= 30 (:question-id normalized)))
-    (is (= ["Below 61044" "61044 to 63535" "Above 63535"]
+    (is (= ["Below $61,044" "$61,044 – $63,535" "Above $63,535"]
            (mapv :label (:question-options normalized))))
     (is (= ["#1610" "#1611" "#1620" "#1621" "#1630" "#1631"]
            (:outcome-subscription-coins normalized)))

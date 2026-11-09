@@ -27,21 +27,30 @@
         outcome-cell (first (hiccup/node-children row))
         outcome-cell-strings (set (hiccup/collect-strings outcome-cell))
         row-strings (set (hiccup/collect-strings row))]
-    (is (contains? header-strings "Outcome"))
-    (is (contains? header-strings "Size"))
-    (is (contains? header-strings "Position Value"))
-    (is (contains? header-strings "Entry Price"))
-    (is (contains? header-strings "Mark Price"))
-    (is (contains? header-strings "PNL (ROE %)"))
-    (is (contains? header-strings "Actions"))
+    (doseq [label ["Market" "Your side" "Shares" "Avg → now" "Value now" "Pays if right" "P&L" "Resolves" "Action"]]
+      (is (contains? header-strings label) label))
     (is (= #{"BTC above 78213 on May 3 at 2:00 AM?"} outcome-cell-strings))
-    (is (not (contains? row-strings "Outcome")))
     (is (not (contains? row-strings "#0 / outcome:0")))
-    (is (contains? row-strings "19 Yes"))
-    (is (contains? row-strings "10.84 USDH"))
-    (is (contains? row-strings "0.58090"))
-    (is (contains? row-strings "0.57042"))
+    (is (not (contains? row-strings "#0")))
+    (is (contains? row-strings "Yes"))
+    (is (contains? row-strings "19"))
+    (is (contains? row-strings "58.1¢ → 57.0¢"))
+    (is (contains? row-strings "$10.84"))
+    (is (contains? row-strings "$19.00"))
     (is (contains? row-strings "-$0.20 (-1.8%)"))))
+
+(deftest outcomes-tab-names-the-side-and-market-in-words-test
+  (let [row (assoc sample-row
+                   :your-side "DET to win"
+                   :market-meta "Sports · NBA · out"
+                   :clock {:kind :starts :at-ms (js/Date.UTC 2026 10 10 0 0)})
+        content (outcomes-tab/outcomes-tab-content {:outcomes [row]
+                                                    :now-ms (js/Date.UTC 2026 10 9 16 25)})
+        row-strings (set (hiccup/collect-strings (hiccup/first-viewport-row content)))]
+    (is (contains? row-strings "DET to win"))
+    (is (contains? row-strings "Sports · NBA · out"))
+    (is (contains? row-strings "Starts in 7h 35m"))
+    (is (contains? row-strings "Cash out"))))
 
 (deftest outcomes-tab-renders-reduce-action-and-active-popover-test
   (let [popover (assoc (position-reduce/default-popover-state)
@@ -57,7 +66,7 @@
         reduce-button (hiccup/find-first-node
                        row
                        #(and (= :button (first %))
-                             (contains? (hiccup/direct-texts %) "Reduce")))
+                             (contains? (hiccup/direct-texts %) "Cash out")))
         reduce-actions (get-in reduce-button [1 :on :click])
         panel-node (hiccup/find-first-node
                     row
@@ -79,7 +88,7 @@
         reduce-button (hiccup/find-first-node
                        row
                        #(and (= :button (first %))
-                             (contains? (hiccup/direct-texts %) "Reduce")))]
+                             (contains? (hiccup/direct-texts %) "Cash out")))]
     (is (nil? reduce-button))))
 
 (deftest outcomes-tab-title-selects-and-navigates-to-outcome-market-test
@@ -103,10 +112,8 @@
         rows (vec (hiccup/node-children (hiccup/tab-rows-viewport-node content)))
         yes-cell (first (hiccup/node-children (first rows)))
         no-cell (first (hiccup/node-children (second rows)))
-        yes-label (hiccup/find-first-node yes-cell #(contains? (hiccup/direct-texts %)
-                                                               (:title sample-row)))
-        no-label (hiccup/find-first-node no-cell #(contains? (hiccup/direct-texts %)
-                                                             (:title no-row)))]
+        yes-label (second (hiccup/node-children (first rows)))
+        no-label (second (hiccup/node-children (second rows)))]
     (is (= "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
            (get-in yes-cell [1 :style :background])))
     (is (contains? (hiccup/node-class-set yes-label) "text-emerald-300"))

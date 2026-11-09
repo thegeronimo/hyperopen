@@ -86,14 +86,8 @@
             [:effects/push-state "/trade?market=%231620"]]
            (subvec effects 2 4)))
     (is (= [[:effects/subscribe-active-asset "#1620"]
-            [:effects/subscribe-orderbook "#1610"]
-            [:effects/subscribe-trades "#1610"]
-            [:effects/subscribe-orderbook "#1611"]
-            [:effects/subscribe-trades "#1611"]
             [:effects/subscribe-orderbook "#1620"]
             [:effects/subscribe-trades "#1620"]
-            [:effects/subscribe-orderbook "#1621"]
-            [:effects/subscribe-trades "#1621"]
             [:effects/sync-active-asset-funding-predictability "#1620"]]
            (subvec effects 4)))))
 
@@ -119,7 +113,7 @@
            (subvec effects 2 4)))
     (is (= [["#1620"]]
            (action-effect-args effects :effects/subscribe-active-asset)))
-    (is (= [["#1610"] ["#1611"] ["#1620"] ["#1621"]]
+    (is (= [["#1620"]]
            (action-effect-args effects :effects/subscribe-orderbook)))
-    (is (= [["#1610"] ["#1611"] ["#1620"] ["#1621"]]
+    (is (= [["#1620"]]
            (action-effect-args effects :effects/subscribe-trades)))))

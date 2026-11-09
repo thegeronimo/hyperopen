@@ -306,3 +306,11 @@
     box-shadow: inset 0 0 8px rgb(var(--ob-flash-rgb) / 0);
   }
 }
+
+/* Outcome ticket: when an event's listed answers add up past 100%, the order
+   button stays inert until the trader ticks the stale-prices confirmation. */
+.outcome-stale-guard:not(:has(input[data-role="outcome-stale-confirm"]:checked))
+  [data-parity-id="trade-submit-order-button"] {
+  pointer-events: none;
+  opacity: 0.5;
+}

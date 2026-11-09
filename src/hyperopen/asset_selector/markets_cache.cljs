@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.markets-cache
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.domain.display :as outcome-display]
             [hyperopen.platform.indexed-db :as indexed-db]
             [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
@@ -274,6 +275,7 @@
           (seq target-price) (assoc :target-price target-price)
           (seq period) (assoc :period period)
           (seq outcome-sides) (assoc :outcome-sides outcome-sides)
+          (= :outcome market-type) (merge (outcome-display/cache-fields market))
           (some? cache-order) (assoc :cache-order cache-order))))))
 
 (defn normalize-asset-selector-markets-cache

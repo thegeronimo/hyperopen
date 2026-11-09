@@ -1,5 +1,7 @@
 (ns hyperopen.views.account-info.projections.outcomes-test
   (:require [cljs.test :refer-macros [deftest is]]
+            [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.test-support.fixture :as fixture]
             [hyperopen.views.account-info.projections :as projections]))
 
 (def ^:private outcome-market
@@ -212,3 +214,18 @@
   (is (true? (projections/outcome-token? "#1")))
   (is (false? (projections/outcome-token? "HYPE")))
   (is (false? (projections/outcome-token? nil))))
+
+(deftest build-outcome-rows-say-what-the-shares-back-test
+  (let [market-by-key (into {} (map (juxt :key identity))
+                            (markets/build-outcome-markets fixture/outcome-meta fixture/asset-ctxs))
+        rows (projections/build-outcome-rows
+              {:clearinghouse-state {:balances [{:coin "+199901" :total "96" :entryNtl "19.92"}
+                                                {:coin "+270370" :total "122" :entryNtl "99.92"}]}}
+              market-by-key)
+        by-coin (into {} (map (juxt :side-coin identity)) rows)]
+    (is (= "No on Hike" (get-in by-coin ["#199901" :your-side])))
+    (is (= "Economics · Fed · out" (get-in by-coin ["#199901" :market-meta])))
+    (is (= :decision (get-in by-coin ["#199901" :clock :kind])))
+    (is (= 96 (get-in by-coin ["#199901" :pays])))
+    (is (= "DET to win" (get-in by-coin ["#270370" :your-side])))
+    (is (= "Detroit Pistons vs Washington Wizards" (get-in by-coin ["#270370" :title])))))

@@ -52,6 +52,8 @@
            summary
            settlement-label
            settlement-time-label
+           yes-label
+           no-label
            yes-payout-label
            no-payout-label
            footer-label]}]
@@ -136,12 +138,12 @@
           "Payout Rule"
           [:div {:class ["space-y-1" "text-sm" "leading-5"]}
            [:div {:class ["flex" "items-center" "gap-3"]}
-            [:span {:class ["font-semibold" "text-[#2dd4bf]"]} "YES"]
+            [:span {:class ["font-semibold" "text-[#2dd4bf]"]} (or yes-label "YES")]
             [:span {:class ["text-slate-500"]} "->"]
             [:span {:class ["font-semibold" "text-[#2dd4bf]"]} yes-payout-label]
             [:span {:class ["text-slate-400"]} "each"]]
            [:div {:class ["flex" "items-center" "gap-3"]}
-            [:span {:class ["font-semibold" "text-[#fb7185]"]} "NO"]
+            [:span {:class ["font-semibold" "text-[#fb7185]"]} (or no-label "NO")]
             [:span {:class ["text-slate-500"]} "->"]
             [:span {:class ["font-semibold" "text-[#fb7185]"]} no-payout-label]
             [:span {:class ["text-slate-400"]} "each"]]]

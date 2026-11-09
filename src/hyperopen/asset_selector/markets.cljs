@@ -1,6 +1,10 @@
 (ns hyperopen.asset-selector.markets
   (:require [clojure.string :as str]
             [hyperopen.domain.market.instrument :as instrument]
+            [hyperopen.outcomes.domain.display :as outcome-display]
+            [hyperopen.outcomes.domain.events :as outcome-events]
+            [hyperopen.outcomes.domain.quotes :as outcome-quotes]
+            [hyperopen.outcomes.domain.templates :as outcome-templates]
             [hyperopen.utils.formatting :as fmt]))
 
 (defn market-key
@@ -43,7 +47,8 @@
   [coin]
   (and (string? coin)
        (or (str/starts-with? coin "outcome:")
-           (str/starts-with? coin "question:"))))
+           (str/starts-with? coin "question:")
+           (str/starts-with? coin "ladder:"))))
 
 (defn- outcome-side-matches-coin?
   [market coin-token]
@@ -498,85 +503,6 @@
       category (assoc :outcome-category category)
       subcategory (assoc :outcome-subcategory subcategory))))
 
-(def ^:private local-month-names
-  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
-
-(defn- twelve-hour-label
-  [hour]
-  (let [hour* (mod hour 24)
-        hour12 (mod hour* 12)]
-    (str (if (zero? hour12) 12 hour12)
-         ":00 "
-         (if (< hour* 12) "AM" "PM"))))
-
-(defn- outcome-title
-  [{:keys [underlying target-price expiry-ms]}]
-  (let [date (js/Date. expiry-ms)]
-    (str underlying
-         " above "
-         target-price
-         " on "
-         (get local-month-names (.getMonth date))
-         " "
-         (.getDate date)
-         " at "
-         (twelve-hour-label (.getHours date))
-         "?")))
-
-(def ^:private utc-month-names
-  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
-
-(defn- pad2
-  [value]
-  (let [text (str value)]
-    (if (= 1 (count text)) (str "0" text) text)))
-
-(defn- utc-expiry-label
-  [expiry-ms]
-  (let [date (js/Date. expiry-ms)]
-    (str (get utc-month-names (.getUTCMonth date))
-         " "
-         (pad2 (.getUTCDate date))
-         ", "
-         (.getUTCFullYear date)
-         " "
-         (pad2 (.getUTCHours date))
-         ":"
-         (pad2 (.getUTCMinutes date))
-         " UTC")))
-
-(defn- outcome-details-copy
-  [{:keys [underlying target-price expiry-ms]}]
-  (str "If the "
-       underlying
-       " mark price at time of settlement is above "
-       target-price
-       " at "
-       (utc-expiry-label expiry-ms)
-       ", YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."))
-
-(defn- outcome-price-bucket-title
-  [{:keys [underlying expiry-ms]}]
-  (let [date (js/Date. expiry-ms)]
-    (str underlying
-         " price range on "
-         (get local-month-names (.getMonth date))
-         " "
-         (.getDate date)
-         " at "
-         (twelve-hour-label (.getHours date))
-         "?")))
-
-(defn- outcome-price-bucket-details-copy
-  [{:keys [underlying price-thresholds expiry-ms]}]
-  (str "If the "
-       underlying
-       " mark price at time of settlement is in the selected range at "
-       (utc-expiry-label expiry-ms)
-       ", that range's YES tokens pay out $1 each. Thresholds: "
-       (str/join ", " price-thresholds)
-       "."))
-
 (defn- outcome-ctx-by-coin
   [spot-asset-ctxs]
   (into {}
@@ -738,13 +664,20 @@
         side-specs (vec (or (:sideSpecs entry)
                             (:side-specs entry)
                             [{:name "Yes"} {:name "No"}]))
-        sides (build-outcome-sides ctx-by-coin outcome-id side-specs)
-        name (outcome-entry-name entry)]
+        name (outcome-entry-name entry)
+        facts (outcome-templates/describe-outcome {:name name
+                                                   :description (outcome-entry-description entry)
+                                                   :venue (:venue entry)
+                                                   :side-specs side-specs})
+        sides (mapv #(assoc %1 :side-name %2)
+                    (build-outcome-sides ctx-by-coin outcome-id side-specs)
+                    (:side-labels facts))]
     (merge parsed
            metadata
            {:entry entry
             :outcome-id outcome-id
             :name name
+            :facts facts
             :quote (quote-token entry)
             :display-description (:display-description metadata)
             :sides sides})))
@@ -755,20 +688,17 @@
         parsed spec
         sides (:sides spec)
         yes-side (or (first sides) {})
-        price-binary? (= "priceBinary" (:outcome-class parsed))
-        title (if price-binary?
-                (outcome-title parsed)
-                (or (:name spec) (:display-description spec) (str "Outcome " outcome-id)))
+        facts (:facts spec)
+        title (or (:title facts) (:display-description spec) (str "Outcome " outcome-id))
         open-interest (some->> sides
                                (map :circulatingSupply)
                                (filter pos?)
                                first)
-        details (if price-binary?
-                  (outcome-details-copy parsed)
-                  (or (:display-description spec) ""))
-        outcome-category* (outcome-category title parsed spec)
+        details (or (:rules facts) (:display-description spec) "")
+        outcome-category* (or (:category facts) (outcome-category title parsed spec))
         side-summary (outcome-side-summary outcome-category* sides)]
-    (merge parsed
+    (merge (dissoc parsed :facts)
+           (outcome-display/market-fields facts)
            (cond-> {:key (str "outcome:" outcome-id)
                     :coin (:coin yes-side)
                     :symbol title
@@ -781,7 +711,7 @@
                     :hip3-eligible? false
                     :outcome-kind :binary
                     :outcome-category outcome-category*
-                    :outcome-subcategory (:outcome-subcategory spec)
+                    :outcome-subcategory (or (:outcome-subcategory spec) (:subcategory facts))
                     :outcome-id outcome-id
                     :outcome-sides sides
                     :outcome-side-aliases (outcome-side-aliases-for-binary outcome-id sides)
@@ -819,32 +749,17 @@
        (keep parse-int-value)
        vec))
 
-(defn- price-bucket-option-labels
-  [thresholds]
-  (let [thresholds* (vec thresholds)
-        threshold-count (count thresholds*)]
-    (cond
-      (zero? threshold-count) []
-      (= 1 threshold-count) [(str "Below " (first thresholds*))
-                             (str "Above " (first thresholds*))]
-      :else (vec (concat [(str "Below " (first thresholds*))]
-                         (map (fn [[lo hi]]
-                                (str lo " to " hi))
-                              (partition 2 1 thresholds*))
-                         [(str "Above " (last thresholds*))])))))
-
 (defn- question-option-labels
   [question-spec outcome-specs]
-  (let [parsed question-spec
-        named-ids (:named-outcome-ids question-spec)
-        bucket-labels (when (= "priceBucket" (:outcome-class parsed))
-                        (price-bucket-option-labels (:price-thresholds parsed)))]
+  (let [bucket-labels (get-in question-spec [:facts :bucket-labels])]
     (mapv (fn [idx outcome-id]
-            (or (nth bucket-labels idx nil)
-                (:name (get outcome-specs outcome-id))
-                (str "Outcome " outcome-id)))
+            (let [facts (:facts (get outcome-specs outcome-id))]
+              (or (nth bucket-labels idx nil)
+                  (:option-label facts)
+                  (:title facts)
+                  (str "Outcome " outcome-id))))
           (range)
-          named-ids)))
+          (:named-outcome-ids question-spec))))
 
 (defn- option-side
   [option-label outcome-id side]
@@ -871,38 +786,16 @@
      :sides sides}))
 
 (defn- best-question-option
+  "Default answer: the likeliest one with a usable price; untraded options
+   (placeholder 0.50 marks) never win."
   [options]
   (first (sort-by (fn [option]
-                    (- (safe-num (:mark option))))
+                    (let [quote (outcome-quotes/side-quote (first (:sides option)))]
+                      [(- (if (#{:live :last} (:state quote)) (:chance quote) -1))
+                       (- (safe-num (:volume24h option)))]))
                   options)))
 
-(def ^:private outcome-summary-option-limit
-  3)
-
-(defn- option-summary-options
-  [options]
-  (let [options* (vec (or options []))]
-    (if (> (count options*) outcome-summary-option-limit)
-      (->> options*
-           (sort-by (fn [{:keys [label mark volume24h outcome-id]}]
-                      [(- (safe-num mark))
-                       (- (safe-num volume24h))
-                       (some-> label str str/lower-case)
-                       (or (parse-int-value outcome-id) js/Number.MAX_SAFE_INTEGER)]))
-           (take outcome-summary-option-limit)
-           vec)
-      options*)))
-
-(defn outcome-option-summary
-  [options]
-  (->> (option-summary-options options)
-       (map (fn [{:keys [label mark]}]
-              (str label
-                   " "
-                   (if (number? mark)
-                     (str (js/Math.round (* mark 100)) "%")
-                     "--"))))
-       (str/join "  *  ")))
+(def outcome-option-summary outcome-display/option-summary)
 
 (defn- question-side-aliases
   [question-key options]
@@ -935,9 +828,8 @@
   [question-spec outcome-specs]
   (let [question-id (:question-id question-spec)
         question-key (str "question:" question-id)
-        title (if (= "priceBucket" (:outcome-class question-spec))
-                (outcome-price-bucket-title question-spec)
-                (:name question-spec))
+        facts (:facts question-spec)
+        title (or (:title facts) (:name question-spec))
         option-labels (question-option-labels question-spec outcome-specs)
         options (->> (:named-outcome-ids question-spec)
                      (map vector option-labels)
@@ -954,13 +846,13 @@
                                 (filter string?)
                                 distinct
                                 vec)
-        details (if (= "priceBucket" (:outcome-class question-spec))
-                  (outcome-price-bucket-details-copy question-spec)
-                  (or (:display-description question-spec) ""))
+        details (or (:rules facts) (:display-description question-spec) "")
+        fallback-spec (get outcome-specs (:fallback-outcome-id question-spec))
         volume24h (sum-numbers (map :volume24h options))
         open-interest (or (first-positive-number (map :openInterest options))
                           (sum-numbers (map :openInterest options)))]
-    (merge question-spec
+    (merge (dissoc question-spec :facts)
+           (outcome-display/market-fields (assoc facts :venue (some #(get-in outcome-specs [% :facts :venue]) (:named-outcome-ids question-spec))))
            {:key question-key
             :coin (:coin yes-side)
             :symbol title
@@ -972,10 +864,11 @@
             :hip3? false
             :hip3-eligible? false
             :outcome-kind :question
-            :outcome-category (outcome-category title question-spec question-spec)
-            :outcome-subcategory (:outcome-subcategory question-spec)
+            :outcome-category (or (:category facts) (outcome-category title question-spec question-spec))
+            :outcome-subcategory (or (:outcome-subcategory question-spec) (:subcategory facts))
             :question-id question-id
             :fallback-outcome-id (:fallback-outcome-id question-spec)
+            :fallback-option (when fallback-spec (build-question-option fallback-spec "Other"))
             :named-outcome-ids (:named-outcome-ids question-spec)
             :question-options options
             :outcome-sides selected-sides
@@ -1075,7 +968,12 @@
           (some? (:side-index selected-side))
           (assoc :outcome-side-index (:side-index selected-side))
           (and question-selection? (:side-label selected-side))
-          (assoc :outcome-side-label (:side-label selected-side)))))))
+          (assoc :outcome-side-label (:side-label selected-side))
+
+          ;; The order book, chart legend and page title name the side, not its coin id.
+          (or (:side-label selected-side) (:side-name selected-side))
+          (assoc :display-name (str (when-let [option (:outcome-option-label selected-side)] (str option " "))
+                                    (or (:side-label selected-side) (:side-name selected-side)))))))))
 
 (defn- build-question-spec
   [idx entry]
@@ -1087,6 +985,8 @@
            {:entry entry
             :question-id question-id
             :name (outcome-entry-name entry)
+            :facts (outcome-templates/describe-question {:name (outcome-entry-name entry)
+                                                         :description (outcome-entry-description entry)})
             :quote (quote-token entry)
             :display-description (:display-description metadata)
             :fallback-outcome-id (question-fallback-outcome-id entry)
@@ -1131,7 +1031,8 @@
                             (remove (fn [{:keys [outcome-id]}]
                                       (or (contains? fallback-outcome-ids outcome-id)
                                           (contains? outcome-id->question-id outcome-id))))
-                            (map build-binary-outcome-market-entry))]
+                            (map build-binary-outcome-market-entry)
+                            outcome-events/group-ladders)]
     (->> (concat question-markets binary-markets)
          (map #(assoc %
                       :outcome-spec-by-id outcome-spec-by-id

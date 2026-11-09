@@ -1,5 +1,6 @@
 (ns hyperopen.views.asset-selector.layout
   (:require [hyperopen.views.asset-selector.controls :as controls]
+            [hyperopen.views.asset-selector.outcome-list :as outcome-list]
             [hyperopen.views.asset-selector.processing :as processing]
             [hyperopen.views.asset-selector.rows :as rows]
             [hyperopen.views.asset-selector.runtime :as runtime]))
@@ -21,13 +22,21 @@
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
            markets market-by-key selected-market-key favorites missing-icons loaded-icons highlighted-market-key
            render-limit scroll-top]}]
-  (let [processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
-                                                           favorites favorites-only? strict? active-tab)
+  (let [outcome? (outcome-list/outcome-tab? active-tab)
+        processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
+                                                           favorites favorites-only? strict?
+                                                           (if outcome? :outcome active-tab))
+        outcome-model (when outcome?
+                        (outcome-list/list-model processed-assets-list active-tab (.now js/Date)))
         suppress-empty-state? (and loading? (empty? markets))
         scroll-reset-key (pr-str [search-term strict? favorites-only? active-tab sort-by sort-direction])
-        ordered-market-keys (mapv :key processed-assets-list)
+        ordered-market-keys (if outcome?
+                              (:ordered-keys outcome-model)
+                              (mapv :key processed-assets-list))
         highlighted-market-key* (rows/effective-highlighted-market-key
-                                  processed-assets-list
+                                  (if outcome?
+                                    (mapv (fn [k] {:key k}) ordered-market-keys)
+                                    processed-assets-list)
                                   selected-market-key
                                   highlighted-market-key)]
     [:div
@@ -57,21 +66,38 @@
            "Loading markets (bootstrap)...")])
       (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
       (controls/tab-row active-tab)
-      (controls/outcome-subtab-row active-tab)
+      (when outcome?
+        (outcome-list/category-chip-row active-tab (:counts outcome-model)))
       (controls/tradfi-subtab-row active-tab)
-      (controls/sort-controls sort-by sort-direction active-tab)
-      (runtime/asset-list processed-assets-list selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key)
-      (rows/selector-shortcut-footer)]]))
+      (when-not outcome?
+        (controls/sort-controls sort-by sort-direction active-tab))
+      (if outcome?
+        (outcome-list/event-list {:sections (:sections outcome-model)
+                                  :selected-market-key selected-market-key
+                                  :highlighted-market-key highlighted-market-key*
+                                  :favorites favorites
+                                  :suppress-empty-state? suppress-empty-state?})
+        (runtime/asset-list processed-assets-list selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key))
+      (when-not outcome?
+        (rows/selector-shortcut-footer))]]))
 
 (defn mobile-asset-selector-dropdown
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
            markets market-by-key selected-market-key favorites highlighted-market-key]}]
-  (let [processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
-                                                           favorites favorites-only? strict? active-tab)
+  (let [outcome? (outcome-list/outcome-tab? active-tab)
+        processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
+                                                           favorites favorites-only? strict?
+                                                           (if outcome? :outcome active-tab))
+        outcome-model (when outcome?
+                        (outcome-list/list-model processed-assets-list active-tab (.now js/Date)))
         suppress-empty-state? (and loading? (empty? markets))
-        ordered-market-keys (mapv :key processed-assets-list)
+        ordered-market-keys (if outcome?
+                              (:ordered-keys outcome-model)
+                              (mapv :key processed-assets-list))
         highlighted-market-key* (rows/effective-highlighted-market-key
-                                  processed-assets-list
+                                  (if outcome?
+                                    (mapv (fn [k] {:key k}) ordered-market-keys)
+                                    processed-assets-list)
                                   selected-market-key
                                   highlighted-market-key)]
     [:div {:class ["fixed" "inset-0" "z-[260]" "bg-base-100" "flex" "flex-col" "lg:hidden"]
@@ -112,10 +138,19 @@
            "Loading markets (bootstrap)...")])
       (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
       (controls/mobile-tab-row active-tab)
-      (controls/mobile-outcome-subtab-row active-tab)
+      (when outcome?
+        (outcome-list/category-chip-row active-tab (:counts outcome-model)))
       (controls/mobile-tradfi-subtab-row active-tab)
-      (controls/mobile-sort-header sort-by sort-direction active-tab)
-      (rows/mobile-asset-list processed-assets-list selected-market-key highlighted-market-key* favorites suppress-empty-state?)]]))
+      (when-not outcome?
+        (controls/mobile-sort-header sort-by sort-direction active-tab))
+      (if outcome?
+        (outcome-list/event-list {:sections (:sections outcome-model)
+                                  :selected-market-key selected-market-key
+                                  :highlighted-market-key highlighted-market-key*
+                                  :favorites favorites
+                                  :suppress-empty-state? suppress-empty-state?
+                                  :mobile? true})
+        (rows/mobile-asset-list processed-assets-list selected-market-key highlighted-market-key* favorites suppress-empty-state?))]]))
 
 (defn asset-selector-dropdown
   [{:keys [visible? markets selected-market-key search-term sort-by sort-direction

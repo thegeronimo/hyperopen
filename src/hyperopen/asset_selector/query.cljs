@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.query
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
             [hyperopen.asset-selector.settings :as settings]
             [hyperopen.utils.formatting :as fmt]))
 
@@ -129,14 +130,17 @@
                 (perps-tab-eligible? asset strict?))
     :spot (= :spot (:market-type asset))
     :outcome (= :outcome (:market-type asset))
-    :outcome-15m (and (= :outcome (:market-type asset))
-                      (= "15m" (:period asset)))
-    :outcome-1d (and (= :outcome (:market-type asset))
-                     (= "1d" (:period asset)))
-    :outcome-economics (and (= :outcome (:market-type asset))
-                            (= :economics (:outcome-category asset)))
+    (:outcome-crypto :outcome-15m :outcome-1d)
+    (and (= :outcome (:market-type asset))
+         (= :crypto (:outcome-category asset)))
     :outcome-sports (and (= :outcome (:market-type asset))
                          (= :sports (:outcome-category asset)))
+    :outcome-stocks (and (= :outcome (:market-type asset))
+                         (= :stocks (:outcome-category asset)))
+    :outcome-economics (and (= :outcome (:market-type asset))
+                            (= :economics (:outcome-category asset)))
+    :outcome-companies (and (= :outcome (:market-type asset))
+                            (= :companies (:outcome-category asset)))
     :crypto (and (= :perp (:market-type asset)) (= :crypto (:category asset)))
     :tradfi (and (= :perp (:market-type asset)) (= :tradfi (:category asset)))
     (:tradfi-stocks :tradfi-indices :tradfi-commodities :tradfi-preipo :tradfi-fx :tradfi-rates)
@@ -224,8 +228,15 @@
                               (:strict? selector-state false)
                               (:active-tab selector-state :all))
             total (count processed-assets)]
-        (if (zero? total)
+        (cond
+          (zero? total)
           #{}
+
+          ;; The Outcome tab renders events in sections, not the virtual list.
+          (contains? settings/outcome-tab-set (:active-tab selector-state))
+          (outcome-listing/visible-coins (outcome-listing/sections processed-assets (.now js/Date)))
+
+          :else
           (let [limit (normalize-render-limit (:render-limit selector-state) total)
                 scroll-top (normalize-scroll-top (:scroll-top selector-state))
                 {:keys [start-index end-index]} (virtual-window limit scroll-top)]

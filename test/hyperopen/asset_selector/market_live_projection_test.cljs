@@ -201,7 +201,7 @@
            (get-in next-state [:asset-selector :market-by-key "question:30" :question-options 1 :sides 0 :mark])))
     (is (= "#1620"
            (get-in next-state [:asset-selector :market-by-key "question:30" :question-options 1 :sides 0 :coin])))
-    (is (= "Below 61044 61%  *  61044 to 63535 33%  *  Above 63535 1%"
+    (is (= "Below $61,044 61%  *  $61,044 – $63,535 33%  *  Above $63,535 1%"
            (get-in next-state [:asset-selector :market-by-key "question:30" :outcome-summary])))
     (is (= 0.333
            (get-in next-state [:asset-selector :markets 0 :question-options 1 :mark])))))

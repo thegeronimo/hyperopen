@@ -114,6 +114,7 @@
             [hyperopen.asset-selector.markets-cache-test]
             [hyperopen.asset-selector.markets-test]
             [hyperopen.asset-selector.outcome-actions-test]
+            [hyperopen.asset-selector.outcome-listing-test]
             [hyperopen.asset-selector.perp-annotations-test]
             [hyperopen.asset-selector.settings-test]
             [hyperopen.borrow-lend.actions-test]
@@ -258,6 +259,10 @@
             [hyperopen.orderbook.price-aggregation-test]
             [hyperopen.orderbook.settings-test]
             [hyperopen.outcome-side-market-switch-test]
+            [hyperopen.outcomes.domain.clock-test]
+            [hyperopen.outcomes.domain.events-test]
+            [hyperopen.outcomes.domain.quotes-test]
+            [hyperopen.outcomes.domain.templates-test]
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-committed-test]
             [hyperopen.platform.indexed-db-test]
@@ -726,6 +731,7 @@
             [hyperopen.views.asset-selector-view-test]
             [hyperopen.views.asset-selector.annotation-selector-test]
             [hyperopen.views.asset-selector.controls-test]
+            [hyperopen.views.asset-selector.outcome-list-test]
             [hyperopen.views.asset-selector.processing-test]
             [hyperopen.views.asset-selector.rows-test]
             [hyperopen.views.asset-selector.runtime-test]
@@ -892,6 +898,8 @@
             [hyperopen.views.trade.order-form-view.styling-contract-test]
             [hyperopen.views.trade.order-form-vm-submit-test]
             [hyperopen.views.trade.order-form-vm-test]
+            [hyperopen.views.trade.outcome-ticket-test]
+            [hyperopen.views.trade.outcome-ticket-vm-test]
             [hyperopen.views.trade.vol-range.dock-test]
             [hyperopen.views.trade.vol-range.repair-dialog-test]
             [hyperopen.views.trade.vol-range.replace-dialog-test]
@@ -1232,6 +1240,7 @@
              'hyperopen.asset-selector.markets-cache-test
              'hyperopen.asset-selector.markets-test
              'hyperopen.asset-selector.outcome-actions-test
+             'hyperopen.asset-selector.outcome-listing-test
              'hyperopen.asset-selector.perp-annotations-test
              'hyperopen.asset-selector.settings-test
              'hyperopen.borrow-lend.actions-test
@@ -1376,6 +1385,10 @@
              'hyperopen.orderbook.price-aggregation-test
              'hyperopen.orderbook.settings-test
              'hyperopen.outcome-side-market-switch-test
+             'hyperopen.outcomes.domain.clock-test
+             'hyperopen.outcomes.domain.events-test
+             'hyperopen.outcomes.domain.quotes-test
+             'hyperopen.outcomes.domain.templates-test
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-committed-test
              'hyperopen.platform.indexed-db-test
@@ -1844,6 +1857,7 @@
              'hyperopen.views.asset-selector-view-test
              'hyperopen.views.asset-selector.annotation-selector-test
              'hyperopen.views.asset-selector.controls-test
+             'hyperopen.views.asset-selector.outcome-list-test
              'hyperopen.views.asset-selector.processing-test
              'hyperopen.views.asset-selector.rows-test
              'hyperopen.views.asset-selector.runtime-test
@@ -2010,6 +2024,8 @@
              'hyperopen.views.trade.order-form-view.styling-contract-test
              'hyperopen.views.trade.order-form-vm-submit-test
              'hyperopen.views.trade.order-form-vm-test
+             'hyperopen.views.trade.outcome-ticket-test
+             'hyperopen.views.trade.outcome-ticket-vm-test
              'hyperopen.views.trade.vol-range.dock-test
              'hyperopen.views.trade.vol-range.repair-dialog-test
              'hyperopen.views.trade.vol-range.replace-dialog-test

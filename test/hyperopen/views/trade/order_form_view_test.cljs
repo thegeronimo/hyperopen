@@ -43,12 +43,13 @@
     (is (some? post-only-input))
     (is (true? (get-in post-only-input [1 :checked])))))
 
-(deftest order-form-renders-outcome-side-selector-test
+(deftest order-form-renders-outcome-pick-a-side-ticket-test
   (let [state (assoc (base-state {:type :limit})
-                     :active-asset "outcome:0"
-                     :active-market {:coin "outcome:0"
-                                     :quote "USDH"
+                     :active-asset "#0"
+                     :active-market {:coin "#0"
+                                     :quote "USDC"
                                      :market-type :outcome
+                                     :outcome-shape :yes-no
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0
                                                       :side-name "Yes"
@@ -60,42 +61,31 @@
                                                       :asset-id 100000001}]})
         view-node (view/order-form-view state)
         strings (set (collect-strings view-node))
-        no-button (find-first-node view-node
-                                   (fn [node]
-                                     (= [[:actions/update-order-form [:outcome-side] 1]]
-                                        (get-in node [1 :on :click]))))
-        buy-tab (button-node-by-label view-node "Buy")
-        sell-tab (button-node-by-label view-node "Sell")
-        buy-yes-classes (set (get-in (button-node-by-label view-node "Buy Yes") [1 :class]))
-        buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
-    (is (contains? strings "Buy Yes"))
-    (is (contains? strings "Buy No"))
-    (is (contains? strings "Buy"))
-    (is (contains? strings "Sell"))
-    (is (contains? strings "USDH"))
+        sides (find-all-nodes view-node #(= "outcome-ticket-side" (get-in % [1 :data-role])))
+        no-click (get-in (second sides) [1 :on :click])]
+    (is (= 2 (count sides)))
+    (is (contains? strings "Pick a side"))
+    (is (contains? strings "Limit price"))
+    (is (contains? strings "Amount"))
     (is (contains? strings "Yes"))
-    (is (not (contains? strings "BTC")))
-    (is (not (contains? strings "Outcome")))
+    (is (contains? strings "No"))
     (is (not (contains? strings "Buy / Long")))
     (is (not (contains? strings "Sell / Short")))
     (is (not (contains? strings "Cross")))
     (is (not (contains? strings "20x")))
     (is (not (contains? strings "Classic")))
-    (is (contains? buy-yes-classes "bg-ho-accent"))
-    (is (contains? buy-no-classes "bg-ho-surface-raised"))
-    (is (= [[:actions/update-order-form [:side] :buy]]
-           (get-in buy-tab [1 :on :click])))
-    (is (= [[:actions/update-order-form [:side] :sell]]
-           (get-in sell-tab [1 :on :click])))
-    (is (some? no-button))))
+    (is (nil? (button-node-by-label view-node "Sell")) "selling is Cash out, never a tab")
+    (is (= [:actions/update-order-form [:outcome-side] 1] (first no-click)))))
 
-(deftest order-form-renders-selected-outcome-no-with-sell-color-test
+(deftest order-form-marks-the-selected-outcome-no-side-test
   (let [state (assoc (base-state {:type :limit
                                   :outcome-side 1})
-                     :active-asset "outcome:0"
-                     :active-market {:coin "outcome:0"
-                                     :quote "USDH"
+                     :active-asset "#1"
+                     :active-market {:coin "#1"
+                                     :quote "USDC"
                                      :market-type :outcome
+                                     :outcome-shape :yes-no
+                                     :outcome-side-index 1
                                      :szDecimals 0
                                      :outcome-sides [{:side-index 0
                                                       :side-name "Yes"
@@ -106,9 +96,12 @@
                                                       :coin "#1"
                                                       :asset-id 100000001}]})
         view-node (view/order-form-view state)
-        buy-no-classes (set (get-in (button-node-by-label view-node "Buy No") [1 :class]))]
-    (is (contains? buy-no-classes "bg-ho-sell-hi"))
-    (is (contains? buy-no-classes "text-ho-text"))))
+        [yes-side no-side] (find-all-nodes view-node #(= "outcome-ticket-side" (get-in % [1 :data-role])))
+        no-classes (set (get-in no-side [1 :class]))]
+    (is (true? (get-in no-side [1 :aria-pressed])))
+    (is (false? (get-in yes-side [1 :aria-pressed])))
+    (is (contains? no-classes "bg-ho-sell-soft"))
+    (is (contains? no-classes "border-ho-border-sell"))))
 
 (defn- grouped-world-cup-state
   [ui-overrides]
@@ -158,27 +151,23 @@
                                           :side-label "No"
                                           :coin "#1891"}]}))
 
-(deftest order-form-omits-multi-outcome-option-selector-from-body-test
+(deftest order-form-lists-every-answer-of-a-multi-outcome-event-test
   (let [view-node (view/order-form-view (grouped-world-cup-state {}))
         trigger (find-first-node view-node
                                  (fn [node]
                                    (= "outcome-option-select-trigger"
                                       (get-in node [1 :data-role]))))
-        menu (find-first-node view-node
-                              (fn [node]
-                                (= "outcome-option-select-menu"
-                                   (get-in node [1 :data-role]))))
-        option-buttons (find-all-nodes view-node
-                                       (fn [node]
-                                         (= "outcome-option-select-row"
-                                            (get-in node [1 :data-role]))))
+        rows (find-all-nodes view-node #(= "outcome-ticket-option" (get-in % [1 :data-role])))
+        yes-buttons (find-all-nodes view-node #(= "outcome-ticket-option-yes" (get-in % [1 :data-role])))
         strings (set (collect-strings view-node))]
-    (is (nil? trigger))
-    (is (contains? strings "Buy Yes"))
-    (is (contains? strings "Buy No"))
-    (is (not (contains? strings "Live Outcomes")))
-    (is (nil? menu))
-    (is (= [] option-buttons))))
+    (is (nil? trigger) "answers are listed, not hidden behind a dropdown")
+    (is (= 4 (count rows)))
+    (is (= 4 (count yes-buttons)))
+    (is (every? #(= :button (first %)) yes-buttons))
+    (is (contains? strings "Spain"))
+    (is (contains? strings "Pick an answer"))
+    (is (contains? strings "France"))
+    (is (= [[:actions/select-asset "#2120"]] (take 1 (get-in (last yes-buttons) [1 :on :click]))))))
 
 (deftest order-form-open-multi-outcome-dropdown-state-does-not-render-body-menu-test
   (let [view-node (view/order-form-view
@@ -200,10 +189,9 @@
     (is (nil? menu))
     (is (nil? search-input))
     (is (not (contains? strings "Live Outcomes")))
-    (is (not (contains? strings "Spain")))
     (is (= [] option-buttons))))
 
-(deftest order-form-keeps-binary-outcome-options-as-two-button-selector-test
+(deftest order-form-shows-two-answer-questions-as-answer-rows-test
   (let [state (assoc (base-state {:type :limit
                                   :outcome-option-id 142
                                   :outcome-side 0})
@@ -212,6 +200,7 @@
                                      :quote "USDH"
                                      :market-type :outcome
                                      :outcome-kind :question
+                                     :outcome-shape :pick-one
                                      :question-id 31
                                      :szDecimals 0
                                      :question-options [{:outcome-id 141
@@ -233,10 +222,14 @@
                                  (fn [node]
                                    (= "outcome-option-select-trigger"
                                       (get-in node [1 :data-role]))))
+        rows (find-all-nodes view-node #(= "outcome-ticket-option" (get-in % [1 :data-role])))
+        sides (find-all-nodes view-node #(= "outcome-ticket-side" (get-in % [1 :data-role])))
         strings (set (collect-strings view-node))]
     (is (nil? trigger))
-    (is (contains? strings "Buy Yes"))
-    (is (contains? strings "Buy No"))
+    (is (= 2 (count rows)))
+    (is (= 2 (count sides)))
+    (is (contains? strings "New York"))
+    (is (contains? strings "Not New York"))
     (is (not (contains? strings "Live Outcomes")))))
 
 (deftest leverage-row-renders-isolated-margin-label-when-selected-test

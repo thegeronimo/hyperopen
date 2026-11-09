@@ -151,9 +151,19 @@
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
+(defn- outcome-underlying-slice
+  "An outcome ladder's ticket draws its rungs against the underlying's live
+   price; pass that one number rather than the whole market catalog."
+  [state]
+  (when-let [subject (get-in state [:active-market :outcome-subject])]
+    {:outcome-underlying-price
+     (or (get-in state [:active-assets :contexts subject :mark])
+         (get-in state [:asset-selector :market-by-key (str "perp:" subject) :mark]))}))
+
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
+         (outcome-underlying-slice state)
          (vol-dock/order-form-slice state)
          (ui-voice-state state)
          (vol-dock/ticket-input-slice state)))

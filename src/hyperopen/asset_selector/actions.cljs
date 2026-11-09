@@ -56,11 +56,11 @@
   [:asset-selector :live-market-subscriptions-paused?])
 
 (defn- active-market-side-coins
-  [market canonical-coin]
-  (let [side-coins (when (= :outcome (:market-type market))
-                     (markets/outcome-subscription-coins market))]
-    (vec (or (seq side-coins)
-             [canonical-coin]))))
+  "The coin whose book and trades follow the active market. An outcome side needs
+   only its own book (its sibling's is the same book mirrored), and one subscribe
+   per selection keeps the no-duplicate-heavy-effects contract."
+  [_market canonical-coin]
+  [canonical-coin])
 
 (declare toggle-asset-dropdown
          close-asset-dropdown

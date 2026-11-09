@@ -84,9 +84,38 @@
               :market-symbol (:symbol market)
               :market-coin (:coin market)
               :market-mark (:mark market)
+              :market-shape (:outcome-shape market)
+              :market-clock (:outcome-clock market)
+              :market-category (:outcome-category market)
+              :market-competition (:outcome-competition market)
+              :market-venue (or (:outcome-venue market)
+                                (when (seq (:outcome-venues market))
+                                  (str/join " · " (:outcome-venues market)))
+                                "Hyperliquid")
               :outcome-option-label (:outcome-option-label side)
               :quote (or (:quote market) "USDH")
               :token-name (token-name-from-encoding encoding)}))))
+
+(def ^:private category-titles
+  {:sports "Sports"
+   :crypto "Crypto"
+   :stocks "Stocks & commodities"
+   :economics "Economics"
+   :companies "Companies"})
+
+(defn your-side-label
+  "What the shares back, in words: \"DET to win\", \"No on Hike\", \"Yes\"."
+  [{:keys [side-name outcome-option-label market-shape]}]
+  (cond
+    (seq outcome-option-label) (str side-name " on " outcome-option-label)
+    (= :head-to-head market-shape) (str side-name " to win")
+    :else side-name))
+
+(defn- market-meta
+  [{:keys [market-category market-competition market-venue]}]
+  (str/join " · " (keep identity [(get category-titles market-category)
+                                  market-competition
+                                  market-venue])))
 
 (defn- outcome-market-primary-side-entry
   [market]
@@ -275,6 +304,14 @@
                     (:sideName side-entry)
                     (fallback-side-name side-coin))
      :outcome-option-label (:outcome-option-label side-entry)
+     :your-side (your-side-label {:side-name (or (:side-name side-entry)
+                                                 (:sideName side-entry)
+                                                 (fallback-side-name side-coin))
+                                  :outcome-option-label (:outcome-option-label side-entry)
+                                  :market-shape (:market-shape side-entry)})
+     :market-meta (market-meta side-entry)
+     :clock (:market-clock side-entry)
+     :pays size
      :side-index (:side-index side-entry)
      :type-label "Outcome"
      :size size

@@ -102,8 +102,6 @@
             [:effects/subscribe-active-asset "#0"]
             [:effects/subscribe-orderbook "#0"]
             [:effects/subscribe-trades "#0"]
-            [:effects/subscribe-orderbook "#1"]
-            [:effects/subscribe-trades "#1"]
             [:effects/sync-active-asset-funding-predictability "#0"]]
            (subvec effects 2)))
     (let [key-effects (actions/select-asset-by-market-key

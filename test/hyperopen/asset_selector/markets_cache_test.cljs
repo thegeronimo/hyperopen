@@ -78,10 +78,12 @@
     (is (= "question:30" (:key cached-row)))
     (is (= :question (:outcome-kind cached-row)))
     (is (= :crypto (:outcome-category cached-row)))
+    (is (= :pick-one (:outcome-shape cached-row)))
+    (is (= :settles (get-in cached-row [:outcome-clock :kind])))
     (is (= 30 (:question-id cached-row)))
     (is (= 160 (:fallback-outcome-id cached-row)))
     (is (= [161 162 163] (:named-outcome-ids cached-row)))
-    (is (= ["Below 61044" "61044 to 63535" "Above 63535"]
+    (is (= ["Below $61,044" "$61,044 – $63,535" "Above $63,535"]
            (mapv :label (:question-options cached-row))))
     (is (= ["#1610" "#1611" "#1620" "#1621" "#1630" "#1631"]
            (:outcome-subscription-coins cached-row)))
