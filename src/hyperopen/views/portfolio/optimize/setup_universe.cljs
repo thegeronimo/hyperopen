@@ -175,23 +175,45 @@
            secondary-label
            history-status
            position-side
-           short-selectable?]
+           short-selectable?
+           twin-underlying
+           twin-last?]
     :as row}
-   show-type?]
-    [:div {:class ["optimizer-universe-row"
-                   (when-not show-type? "optimizer-universe-cols-4")
-                   "grid" "items-center" "gap-2" "border-b" "border-base-300"
-                   "px-2" "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
+   show-type?
+   search-match?]
+    [:div {:class (cond-> ["optimizer-universe-row"
+                           (when-not show-type? "optimizer-universe-cols-4")
+                           "grid" "items-center" "gap-2" "border-b" "border-base-300"
+                           "px-2" "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
+                    ;; Twins hang off a bracket inside their group block; only
+                    ;; the group's last row draws the dividing rule.
+                    twin-underlying (conj "optimizer-universe-twin-row" "bg-warning/5")
+                    (and twin-underlying (not twin-last?)) (conj "border-b-0")
+                    ;; The held listing a search result duplicates, outlined so
+                    ;; it can be found in a long list while the query is up.
+                    search-match? (conj "bg-info/10" "outline" "outline-1"
+                                        "-outline-offset-1" "outline-info/60"))
            :data-role (str "portfolio-optimizer-universe-selected-row-" instrument-id)
-           :data-history-status (some-> history-status name)}
-     [:span {:class ["text-warning"]} "☑"]
+           :data-history-status (some-> history-status name)
+           :data-twin-of (when twin-underlying twin-underlying)
+           :data-search-match (when search-match? "true")}
+     [:span {:class (if twin-underlying
+                      ["border-l-2" "border-warning/70" "pl-1" "text-warning"]
+                      ["text-warning"])}
+      "☑"]
      [:span {:class ["min-w-0"]}
       [:span {:class ["block" "truncate" "font-mono" "text-[0.8125rem]" "font-semibold"]}
        primary-label]
       ;; Demoted a full tier below the symbol: the canonical id/name is context,
       ;; and must not compete with the tradable symbol the user scans for.
       ;; Suppressed entirely when it merely repeats the symbol.
-      (when-not (duplicate-secondary? primary-label secondary-label)
+      (cond
+        search-match?
+        [:span {:class ["block" "truncate" "text-[0.6875rem]" "text-info"]
+                :data-role (str "portfolio-optimizer-universe-search-match-" instrument-id)}
+         "In your mix · matches your search"]
+
+        (not (duplicate-secondary? primary-label secondary-label))
         [:span {:class ["block" "truncate" "text-[0.6875rem]" "text-trading-muted/80"]}
          secondary-label])
       (assumption-workflow-chip row)]
@@ -210,6 +232,35 @@
                 :on {:click [[:actions/remove-portfolio-optimizer-universe-instrument
                                instrument-id]]}}
        "x"]]])
+
+(defn- twin-group-header
+  [underlying twin-count]
+  [:div {:class ["optimizer-universe-twin-header" "flex" "items-center" "gap-2"
+                 "bg-warning/5" "px-2" "pt-1.5" "pb-0.5" "font-mono"
+                 "text-[0.625rem]" "font-semibold" "uppercase" "tracking-[0.1em]"
+                 "text-warning"]
+         :data-role (str "portfolio-optimizer-universe-twin-header-" underlying)}
+   [:svg {:width "12" :height "12" :viewBox "0 0 24 24" :fill "none"
+          :stroke "currentColor" :stroke-width "2.5" :stroke-linecap "round"
+          :stroke-linejoin "round" :aria-hidden "true"}
+    [:path {:d "M9 17H7A5 5 0 0 1 7 7h2"}]
+    [:path {:d "M15 7h2a5 5 0 1 1 0 10h-2"}]
+    [:line {:x1 "8" :y1 "12" :x2 "16" :y2 "12"}]]
+   ;; No inline "remove one" hint: it truncated in the narrow rail, and each
+   ;; row's own × already says how.
+   [:span {:class ["whitespace-nowrap"]} (str underlying " × " twin-count " · same asset")]])
+
+(defn- selected-table-rows
+  [selected-rows show-type? search-match-ids]
+  (mapcat (fn [{:keys [twin-underlying twin-first? twin-count instrument-id] :as row}]
+            (cond-> []
+              (and twin-underlying twin-first?)
+              (conj (twin-group-header twin-underlying twin-count))
+              :always
+              (conj (selected-row row
+                                  show-type?
+                                  (contains? search-match-ids instrument-id)))))
+          selected-rows))
 
 (defn- selected-table-header
   [show-type?]
@@ -248,7 +299,7 @@
   ;; The included-count deliberately does NOT repeat here: the panel header
   ;; owns it. This bar carries only the Clear action (and disappears with an
   ;; empty universe).
-  [selected-rows universe holdings-loading? no-importable-holdings?]
+  [selected-rows universe holdings-loading? no-importable-holdings? search-match-ids]
   (let [show-type? (< 1 (count (distinct (keep :market-type selected-rows))))]
     [:div {:class ["mt-2" "border" "border-base-300" "bg-base-100/50"]}
      (when (seq universe)
@@ -264,7 +315,7 @@
        (seq universe)
        (into [:div {:class ["text-xs"]}]
              (cons (selected-table-header show-type?)
-                   (map #(selected-row % show-type?) selected-rows)))
+                   (selected-table-rows selected-rows show-type? search-match-ids)))
 
        holdings-loading?
        (holdings-loading-block)
@@ -348,9 +399,10 @@
          {:keys [universe
                  readiness
                  selected-rows
-                 search-shown-count
                  universe-source
-                 no-importable-holdings?]} model
+                 no-importable-holdings?
+                 twin-underlyings
+                 search-duplicate-summary]} model
          holdings-source? (= :holdings (:kind universe-source))
          vault-view-source? (= :vault-view (:kind universe-source))
          holdings-loading? (= :holdings-loading (:reason readiness))
@@ -369,7 +421,12 @@
                       "text-trading-muted/70"]}
        (if holdings-loading?
          "loading…"
-         (str (count universe) " included"))]]
+         (str (count universe) " included"))
+       (when (and (not holdings-loading?) (seq twin-underlyings))
+         [:span {:class ["text-warning"]
+                 :data-role "portfolio-optimizer-universe-twin-count"}
+          (str " · " (count twin-underlyings)
+               (if (= 1 (count twin-underlyings)) " duplicate" " duplicates"))])]]
      ;; Source strip: "My holdings" is the default path (the universe seeds itself
      ;; from holdings when account data is available) and doubles as the
      ;; load/refresh action; "Custom" lights up once the set is hand-edited or
@@ -408,9 +465,9 @@
      [:div {:class ["sr-only"]} "Manual Add"]
      (universe-search-view/search-block
       model
-      {:count-label universe-search/group-count-label
-       :add-all-label (universe-search/add-all-label search-shown-count)})
-     (selected-table selected-rows universe holdings-loading? no-importable-holdings?)
+      {:count-label universe-search/group-count-label})
+     (selected-table selected-rows universe holdings-loading? no-importable-holdings?
+                     (or (:existing-ids search-duplicate-summary) #{}))
      ;; Prose help, not log output: sans-serif — monospace stays reserved for
      ;; numbers and identifiers per the setup type ladder.
      [:div {:class ["mt-2" "text-[0.6875rem]" "leading-[1.5]"
