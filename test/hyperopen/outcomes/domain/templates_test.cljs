@@ -127,3 +127,33 @@
   (is (= ["Yes" "No"] (templates/side-labels [{:name "template:{shortNameA}"} {:name "template:{shortNameB}"}] {})))
   (is (= ["PHX" "SAS"] (templates/side-labels [{:name "template:{shortNameA}"} {:name "template:{shortNameB}"}]
                                               {"shortNameA" "PHX" "shortNameB" "SAS"}))))
+
+(deftest ladder-key-carries-venue-source-window-and-deadline-test
+  (is (= "price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000"
+         (get-in (describe 22079) [:ladder :key])))
+  (is (= "binary-price|BTC|fox|the Hyperliquid BTC perp trade, 1-minute candle|180|20261109-1630"
+         (get-in (describe 30516) [:ladder :key])))
+  (is (= "company-ipo-market-cap|Anthropic|skew|20270501-0359"
+         (get-in (describe 19821) [:ladder :key]))))
+
+(defn- garbage?
+  [text]
+  (boolean (or (re-find #"\{|\}|template|nil| \.|≥ $|above $|reaches $|, \." (str text))
+               (re-find #" $" (str text)))))
+
+(deftest missing-template-params-never-print-holes-test
+  (doseq [[name description] [["template:binaryPrice" "perp:BTC|time:20261109-1630"]
+                              ["template:priceTouch" "target:85000|time:20261201-0000"]
+                              ["template:binaryPrice" "perp:BTC|threshold:75000"]
+                              ["template:companyIpoFirstDayMarketCap" "company:Anthropic"]
+                              ["template:companyIpoConfirmed" "dateTime:20261130-2359"]
+                              ["template:companyIpoConfirmed" "company:Anthropic"]
+                              ["template:sportsContestWinner" "competition:NBA"]
+                              ["Recurring" "class:priceBinary|underlying:BTC"]]]
+    (let [facts (templates/describe-outcome {:name name :description description :venue "out"
+                                             :side-specs [{:name "template:Yes"} {:name "template:No"}]})]
+      (is (not (garbage? (:title facts))) (str name " title: " (:title facts)))
+      (is (not (garbage? (:rules facts))) (str name " rules: " (:rules facts)))
+      (is (nil? (:ladder facts)) (str name " without its level is not a rung"))))
+  (is (= "NBA game" (:title (templates/describe-outcome {:name "template:sportsContestWinner"
+                                                          :description "competition:NBA"})))))

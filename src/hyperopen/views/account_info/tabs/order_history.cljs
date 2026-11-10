@@ -191,12 +191,15 @@
          " USDC")
     "--"))
 
-(defn format-order-history-price [{:keys [market? px]}]
-  (if market?
-    "Market"
-    (if-let [num (shared/parse-optional-num px)]
-      (or (fmt/format-trade-price-plain num px) "0.00")
-      "--")))
+(defn format-order-history-price [{:keys [market? px coin]}]
+  (cond
+    market? "Market"
+    (shared/outcome-coin? coin) (if (shared/parse-optional-num px)
+                                  (shared/format-outcome-price px)
+                                  "--")
+    :else (if-let [num (shared/parse-optional-num px)]
+            (or (fmt/format-trade-price-plain num px) "0.00")
+            "--")))
 
 (defn format-order-history-reduce-only [{:keys [reduce-only]}]
   (case reduce-only
@@ -452,8 +455,14 @@
           [:div.pr-4.text-left (order-history-coin-node (:coin row) market-by-key (:side row))]
           [:div {:class ["pl-2" "text-left" (order-history-direction-class row)]}
            (order-history-direction-label row)]
-          [:div.text-left.num (format-order-history-size (:size row))]
-          [:div.text-left.num (format-order-history-filled-size (:filled-size row))]
+          [:div.text-left.num (if (shared/outcome-coin? (:coin row))
+                                (shared/format-outcome-shares (:size row))
+                                (format-order-history-size (:size row)))]
+          [:div.text-left.num (if (shared/outcome-coin? (:coin row))
+                                (if (and (number? (:filled-size row)) (pos? (:filled-size row)))
+                                  (shared/format-outcome-shares (:filled-size row))
+                                  "--")
+                                (format-order-history-filled-size (:filled-size row)))]
           [:div.text-left.num (format-order-history-value (:order-value row))]
           [:div.text-left.num (format-order-history-price row)]
           [:div.text-left (format-order-history-reduce-only row)]

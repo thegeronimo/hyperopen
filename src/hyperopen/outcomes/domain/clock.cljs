@@ -14,6 +14,11 @@
    awaiting its result. The feed has no end time, so this is a fixed window."
   (* 4 hour-ms))
 
+(def settling-window-ms
+  "How long after a price contract's settlement time it reads as Settling
+   before it reads as awaiting its result."
+  hour-ms)
+
 (defn parse-time-ms
   "Parse a template time `YYYYMMDD-HHMM` (always UTC) into epoch ms."
   [value]
@@ -122,9 +127,11 @@
                    upcoming? (ahead (countdown "Starts" until-ms at-ms now-ms opts))
                    (< (- until-ms) live-window-ms) {:phase :live :label "Live" :absolute absolute}
                    :else awaiting)
-         :settles (if upcoming?
-                    (ahead (countdown "Settles" until-ms at-ms now-ms opts))
-                    {:phase :awaiting :label "Settling" :absolute absolute})
+         :settles (cond
+                    upcoming? (ahead (countdown "Settles" until-ms at-ms now-ms opts))
+                    ;; Settlement takes minutes; past that it is just awaiting.
+                    (< (- until-ms) settling-window-ms) {:phase :awaiting :label "Settling" :absolute absolute}
+                    :else awaiting)
          :ends (if upcoming?
                  (ahead (countdown "Ends" until-ms at-ms now-ms opts))
                  awaiting)

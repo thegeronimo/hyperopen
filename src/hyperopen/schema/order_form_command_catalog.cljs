@@ -97,6 +97,9 @@
    {:command-id :order-form/set-order-size-display
     :action-id :actions/set-order-size-display
     :handler-key :set-order-size-display}
+   {:command-id :order-form/set-outcome-ticket-entry
+    :action-id :actions/set-outcome-ticket-entry
+    :handler-key :set-outcome-ticket-entry}
    {:command-id :order-form/set-order-size-input-mode
     :action-id :actions/set-order-size-input-mode
     :handler-key :set-order-size-input-mode}

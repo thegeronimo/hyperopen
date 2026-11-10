@@ -40,8 +40,15 @@
                   (max 0 available)))))
           (get-in context [:spot :clearinghouse-state :balances]))))
 
+(declare spot-usdc-available outcome-market-context?)
+
 (defn available-to-trade [context]
-  (let [clearinghouse (or (:clearinghouse context) {})
+  (if (and (outcome-market-context? context)
+           (not (unified-account-mode? context))
+           (seq (get-in context [:spot :clearinghouse-state :balances])))
+    ;; Outcome shares are bought with spot USDC, not perp withdrawable.
+    (spot-usdc-available context)
+    (let [clearinghouse (or (:clearinghouse context) {})
         unified-available (unified-spot-usdc-available context)
         withdrawable (core/parse-num (:withdrawable clearinghouse))
         summary (or (get-in clearinghouse [:marginSummary])
@@ -53,7 +60,7 @@
     (max 0 (cond
              (number? unified-available) unified-available
              (number? withdrawable) withdrawable
-             :else fallback-available))))
+             :else fallback-available)))))
 
 (defn- normalize-balance-coin [coin]
   (some-> coin str str/upper-case str/trim))
@@ -77,6 +84,35 @@
   "USDC buying power for spot orders (quote-side balance)."
   [context]
   (or (spot-balance-available context "USDC") 0))
+
+(defn outcome-market-context?
+  [context]
+  (= "outcome" (some-> (get-in context [:market :market-type]) name str/lower-case)))
+
+(defn outcome-coin-encoding
+  "The integer behind an outcome side coin (hash prefix) or its spot balance
+   coin (plus prefix), or behind a balance token id offset by 100000000."
+  [coin-or-balance]
+  (let [coin (if (map? coin-or-balance) (:coin coin-or-balance) coin-or-balance)
+        digits (when (string? coin) (second (re-matches #"^[#+](\d+)$" (str/trim coin))))
+        token (when (map? coin-or-balance) (core/parse-num (:token coin-or-balance)))]
+    (cond
+      digits (js/parseInt digits 10)
+      (and (number? token) (>= token 100000000)) (- token 100000000)
+      :else nil)))
+
+(defn outcome-side-shares
+  "{:total :available} shares of one outcome side coin in the context's spot
+   balances; available is total less what open orders hold."
+  [context coin]
+  (let [encoding (outcome-coin-encoding coin)
+        balance (when (some? encoding)
+                  (some #(when (= encoding (outcome-coin-encoding %)) %)
+                        (get-in context [:spot :clearinghouse-state :balances])))
+        total (or (core/parse-num (:total balance)) 0)
+        hold (or (core/parse-num (:hold balance)) 0)]
+    {:total total
+     :available (max 0 (- total hold))}))
 
 (defn spot-base-available
   "Base-token balance available to sell for the active spot market."
@@ -181,12 +217,18 @@
        (js/isFinite value)
        (= value (js/Math.trunc value))))
 
+(defn- floor-scaled
+  "Floor a scaled price or size, forgiving binary float error: 0.29 * 1e5 is
+   28999.999999999996 and must floor to 29000, not 28999."
+  [scaled]
+  (js/Math.floor (+ scaled (* (js/Math.abs scaled) 1e-12))))
+
 (defn- truncate-to-decimals [value decimals]
   (let [safe-decimals (-> decimals
                           (max 0)
                           int)
         factor (js/Math.pow 10 safe-decimals)]
-    (/ (js/Math.floor (* value factor)) factor)))
+    (/ (floor-scaled (* value factor)) factor)))
 
 (defn- truncate-to-significant-figures [value significant-figures]
   (let [safe-significant-figures (int significant-figures)
@@ -196,7 +238,7 @@
     (if (neg? shift)
       (truncate-to-decimals value (- shift))
       (let [factor (js/Math.pow 10 shift)]
-        (* (js/Math.floor (/ value factor)) factor)))))
+        (* (floor-scaled (/ value factor)) factor)))))
 
 (defn canonical-order-price-string
   "Format order prices according to Hyperliquid tick+sig-fig constraints."
@@ -222,7 +264,7 @@
   (when (and (number? value) (pos? value))
     (let [decimals (size-decimals context)
           factor (js/Math.pow 10 decimals)
-          truncated (/ (js/Math.floor (* value factor)) factor)]
+          truncated (/ (floor-scaled (* value factor)) factor)]
       (when (pos? truncated)
         (core/number->clean-string truncated decimals)))))
 
@@ -553,6 +595,14 @@
       :slippage-max core/default-max-slippage-pct
       :fees (fee-quote fee-context*)})))
 
+(def outcome-max-price
+  "Highest outcome price below $1 at five significant figures."
+  0.99999)
+
+(def outcome-min-price
+  "Lowest outcome price above $0 on the venue's 0.001 cent step."
+  0.00001)
+
 (defn best-price [context side]
   (if (= side :buy)
     (best-ask-price context)
@@ -568,6 +618,10 @@
                       core/default-market-slippage-pct)))
         adj (if (= side :buy) (+ 1 (/ slippage 100)) (- 1 (/ slippage 100)))
         adjusted-price (when (finite-positive-number? px)
-                         (* px adj))]
+                         (cond-> (* px adj)
+                           ;; A share never costs $1 or more, nor nothing: keep
+                           ;; the IOC cap strictly inside 0..1 on the tick.
+                           (outcome-market-context? context)
+                           (-> (min outcome-max-price) (max outcome-min-price))))]
     (when-let [market-price (canonical-order-price-string context adjusted-price)]
       (assoc form :price market-price))))

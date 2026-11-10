@@ -1,7 +1,8 @@
 (ns hyperopen.runtime.collaborators.order
   (:require [hyperopen.funding.actions :as funding-actions]
             [hyperopen.order.actions :as order-actions]
-            [hyperopen.order.outcome-option-sort :as outcome-option-sort]))
+            [hyperopen.order.outcome-option-sort :as outcome-option-sort]
+            [hyperopen.outcomes.application.merge-actions :as outcome-merge-actions]))
 
 (defn action-deps []
   {:select-order-entry-mode order-actions/select-order-entry-mode
@@ -36,6 +37,8 @@
    :set-order-size-percent order-actions/set-order-size-percent
    :set-order-size-display order-actions/set-order-size-display
    :set-order-size-input-mode order-actions/set-order-size-input-mode
+   :set-outcome-ticket-entry order-actions/set-outcome-ticket-entry
+   :submit-outcome-merge outcome-merge-actions/submit-outcome-merge
    :focus-order-price-input order-actions/focus-order-price-input
    :blur-order-price-input order-actions/blur-order-price-input
    :set-order-price-to-mid order-actions/set-order-price-to-mid

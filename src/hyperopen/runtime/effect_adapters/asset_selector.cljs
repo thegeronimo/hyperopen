@@ -1,11 +1,13 @@
 (ns hyperopen.runtime.effect-adapters.asset-selector
-  (:require [hyperopen.asset-selector.active-market-cache :as active-market-cache]
+  (:require [hyperopen.api.default :as api]
+            [hyperopen.asset-selector.active-market-cache :as active-market-cache]
             [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.asset-selector.icon-status-runtime :as icon-status-runtime]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.asset-selector.markets-cache :as markets-cache]
             [hyperopen.asset-selector.query :as asset-selector-query]
-            [hyperopen.websocket.active-asset-ctx :as active-ctx]))
+            [hyperopen.websocket.active-asset-ctx :as active-ctx]
+            [hyperopen.websocket.outcome-bbo :as outcome-bbo]))
 
 (defn flush-queued-asset-icon-statuses!
   [{:keys [runtime store save-many!]}]
@@ -86,9 +88,24 @@
   :asset-selector)
 
 (defn sync-asset-selector-active-ctx-subscriptions
+  "Live market subscriptions of what the selector and the outcome ticket
+   show: `activeAssetCtx` per visible selector row, and `bbo` (top of book) per
+   outcome contract on screen — the open event's answers and the visible list
+   rows, capped (`query/outcome-top-of-book-coins`). Rows that leave the
+   screen, or a closed selector, drop their subscriptions here. A new `bbo`
+   coin with no top of book yet is seeded once from a REST l2Book snapshot
+   (the venue only pushes `bbo` on change), and quotes landing re-run this
+   sync (the answers a row shows follow their quotes)."
   [_ store]
   (let [state @store
-        desired-coins (if (true? (get-in state [:asset-selector :live-market-subscriptions-paused?]))
+        paused? (true? (get-in state [:asset-selector :live-market-subscriptions-paused?]))
+        desired-coins (if paused?
                         (active-ctx/get-subscribed-coins-by-owner asset-selector-active-ctx-owner)
-                        (asset-selector-query/selector-visible-market-coins state))]
-    (active-ctx/sync-owner-subscriptions! asset-selector-active-ctx-owner desired-coins)))
+                        (asset-selector-query/selector-visible-market-coins state))
+        desired-bbo-coins (if paused?
+                            (outcome-bbo/get-subscribed-coins)
+                            (asset-selector-query/outcome-top-of-book-coins state))]
+    (active-ctx/sync-owner-subscriptions! asset-selector-active-ctx-owner desired-coins)
+    (outcome-bbo/register-hooks! {:request-snapshot! api/request-l2-book-snapshot!
+                                  :resync! #(sync-asset-selector-active-ctx-subscriptions nil store)})
+    (outcome-bbo/sync-subscriptions! desired-bbo-coins state)))

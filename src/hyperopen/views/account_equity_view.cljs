@@ -17,6 +17,7 @@
 (def funding-actions-view funding-actions/funding-actions-view)
 (def account-equity-metrics metrics/account-equity-metrics)
 (def account-equity-hyperevm-funds metrics/account-equity-hyperevm-funds)
+(def account-equity-outcome-shares metrics/account-equity-outcome-shares)
 (def reset-account-equity-metrics-cache! metrics/reset-account-equity-metrics-cache!)
 
 (defn- token-price-usd

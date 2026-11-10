@@ -330,7 +330,9 @@
                          :selector-active-market (get-in state [:asset-selector :active-market])
                          :active-contexts (get-in state [:active-assets :contexts] {})
                          :asset-contexts (:asset-contexts state)
-                         :spot-asset-ctxs (:spotAssetCtxs webdata2)}
+                         :spot-asset-ctxs (:spotAssetCtxs webdata2)
+                         :orderbooks (:orderbooks state)
+                         :user-fees (get-in state [:portfolio :user-fees])}
         open-orders-source (prefer-orders-value orders webdata2 :open-orders)
         open-orders-snapshot-source (prefer-orders-value orders webdata2 :open-orders-snapshot)
         open-orders-snapshot-by-dex-source (prefer-orders-value orders webdata2 :open-orders-snapshot-by-dex)
@@ -454,6 +456,7 @@
      :hyperevm-status (balances-hyperevm/hyperevm-status state)
      :hyperevm-moves-blocked-message (account-context/hyperevm-moves-blocked-message state)
      :outcomes (or outcomes [])
+     :outcome-user-fees (get-in state [:portfolio :user-fees])
      :positions (or positions [])
      :open-orders (or open-orders [])
      :trade-history-rows (prefer-orders-value orders webdata2 :fills)

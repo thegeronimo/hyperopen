@@ -198,8 +198,60 @@
     (is (= "BTC" (:active-asset result)))
     (is (= "BTC" (:selected-asset result)))
     (is (= btc-market (:active-market result)))
-    (is (= [expired-outcome btc-market]
+    ;; A settled outcome is not restored into the list.
+    (is (= [btc-market]
            (get-in result [:asset-selector :markets])))))
+
+(deftest cached-ladders-keep-their-rung-fields-test
+  (let [ladder {:key "ladder:price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000"
+                :coin "#220800"
+                :symbol "Bitcoin reaches…"
+                :base "BTC"
+                :market-type :outcome
+                :outcome-shape :ladder
+                :outcome-ladder-kind :touch
+                :outcome-venues ["out"]
+                :question-options [{:label "$90,000"
+                                    :outcome-id 22080
+                                    :threshold 90000
+                                    :rung-kind :touch
+                                    :ladder-key "price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000"
+                                    :venue "out"
+                                    :rules "Yes if Bitcoin reaches $90,000."
+                                    :clock {:kind :ends :at-ms 1795996800000}
+                                    :sides [{:side-index 0 :coin "#220800"}
+                                            {:side-index 1 :coin "#220801"}]}]}
+        restored (-> [ladder]
+                     markets-cache/normalize-asset-selector-markets-cache
+                     clj->js
+                     js/JSON.stringify
+                     js/JSON.parse
+                     (js->clj :keywordize-keys true)
+                     markets-cache/normalize-asset-selector-markets-cache
+                     first)]
+    (is (= :touch (:outcome-ladder-kind restored)))
+    (is (= ["out"] (:outcome-venues restored)))
+    (is (= {:threshold 90000 :rung-kind :touch :venue "out"
+            :ladder-key "price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000"
+            :rules "Yes if Bitcoin reaches $90,000."
+            :clock {:kind :ends :at-ms 1795996800000}}
+           (select-keys (first (:question-options restored))
+                        [:threshold :rung-kind :venue :ladder-key :rules :clock])))))
+
+(deftest restore-drops-settled-outcomes-test
+  (let [now 1777874400000
+        settled {:key "outcome:2" :coin "#20" :symbol "S" :base "S" :market-type :outcome
+                 :outcome-clock {:kind :settles :at-ms (- now (* 2 24 60 60 1000))}}
+        past-deadline {:key "outcome:3" :coin "#30" :symbol "D" :base "D" :market-type :outcome
+                       :outcome-clock {:kind :starts :at-ms (- now 1000) :deadline-ms (- now 10)}}
+        live {:key "outcome:4" :coin "#40" :symbol "L" :base "L" :market-type :outcome
+              :outcome-clock {:kind :starts :at-ms (- now 1000) :deadline-ms (+ now 1000)}}
+        result (with-redefs [platform/now-ms (fn [] now)]
+                 (markets-cache/restore-asset-selector-markets-cache-state
+                  {:asset-selector {:markets [] :phase :bootstrap}}
+                  [settled past-deadline live]
+                  markets/resolve-market-by-coin))]
+    (is (= ["outcome:4"] (mapv :key (get-in result [:asset-selector :markets]))))))
 
 (deftest persist-and-load-asset-selector-markets-cache-roundtrip-test
   (async done

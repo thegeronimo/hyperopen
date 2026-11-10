@@ -47,6 +47,7 @@
 (def outcome-token? outcomes/outcome-token?)
 (def outcome-balance? outcomes/outcome-balance?)
 (def build-outcome-rows outcomes/build-outcome-rows)
+(def outcome-shares-value outcomes/shares-value)
 (def position-unique-key positions/position-unique-key)
 (def collect-positions positions/collect-positions)
 

@@ -4,6 +4,7 @@
             [hyperopen.asset-selector.annotations :as annotations]
             [hyperopen.asset-selector.market-info :as market-info]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.active-asset.outcome-header-vm :as outcome-header-vm]
             [hyperopen.views.asset-selector.processing :as selector-processing]
@@ -72,7 +73,12 @@
    :strict?
    :active-tab
    :market-by-key
-   :markets])
+   :markets
+   ;; Outcome list: sort, rows on screen, and how old / how healthy the load is.
+   :outcome-sort
+   :outcome-visible-keys
+   :loaded-at-ms
+   :error])
 
 (defn- non-blank-text [value]
   (let [text (some-> value str str/trim)]
@@ -382,6 +388,15 @@
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))
 
+(defn- outcome-listing-opts
+  "Listing options for the selector's outcome list. Live books are left out on
+   purpose: the active asset's book ticks constantly and would re-render the
+   whole list; row prices follow the market catalog's live contexts."
+  [state dropdown]
+  (-> (outcome-listing/listing-opts state)
+      (dissoc :books)
+      (assoc :selector (select-keys dropdown [:loading? :phase :error :loaded-at-ms]))))
+
 (defn active-asset-panel-vm [state]
   (let [contexts (get-in state [:active-assets :contexts] {})
         dropdown (dropdown-state state)
@@ -423,4 +438,5 @@
                               :scroll-top (:scroll-top dropdown)
                               :render-limit (:render-limit dropdown)
                               :strict? (:strict? dropdown)
-                              :active-tab (:active-tab dropdown)})}))
+                              :active-tab (:active-tab dropdown)
+                              :outcome-opts (outcome-listing-opts state dropdown)})}))

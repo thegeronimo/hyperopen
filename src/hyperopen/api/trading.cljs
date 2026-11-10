@@ -106,6 +106,12 @@
   ([store address action options]
    (agent-actions/submit-borrow-lend! store address action options)))
 
+(defn submit-outcome-merge!
+  ([store address action]
+   (agent-actions/submit-outcome-merge! store address action))
+  ([store address action options]
+   (agent-actions/submit-outcome-merge! store address action options)))
+
 (defn create-sub-account!
   ([store address name]
    (agent-actions/create-sub-account! store address name))

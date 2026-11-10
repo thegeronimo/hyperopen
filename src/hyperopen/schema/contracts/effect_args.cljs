@@ -421,6 +421,7 @@
    :effects/api-fetch-borrow-lend-user-state ::common/address-args
    :effects/api-fetch-borrow-lend-interest ::common/address-args
    :effects/api-submit-borrow-lend ::api-submit-order-args
+   :effects/api-submit-outcome-merge ::api-submit-order-args
    :effects/api-fetch-staking-validator-summaries ::common/no-args
    :effects/api-fetch-staking-delegator-summary ::common/address-args
    :effects/api-fetch-staking-delegations ::common/address-args

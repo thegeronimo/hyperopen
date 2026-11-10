@@ -28,3 +28,15 @@
                                                 :market-price-missing? false
                                                 :reason :spectate-mode-read-only
                                                 :error-message "Spectate Mode is read-only. Stop Spectate Mode to place trades or move funds."}))))
+
+(deftest outcome-ticket-asks-for-an-amount-not-a-form-field-test
+  (is (= "Enter an amount"
+         (vm-submit/submit-tooltip-message ["Size"] false :validation-errors nil true)))
+  (is (= "Enter an amount"
+         (vm-submit/submit-tooltip-from-policy {:required-fields ["Size"] :reason :validation-errors} true)))
+  (is (= "Fill required fields: Size."
+         (vm-submit/submit-tooltip-from-policy {:required-fields ["Size"] :reason :validation-errors}))
+      "other tickets keep naming the field")
+  (is (= "Fill required fields: Size, Price."
+         (vm-submit/submit-tooltip-message ["Size" "Price"] false nil nil true))
+      "only the single blank amount is rephrased"))

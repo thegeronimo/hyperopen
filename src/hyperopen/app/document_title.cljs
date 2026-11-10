@@ -1,6 +1,7 @@
 (ns hyperopen.app.document-title
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.names :as outcome-names]
             [hyperopen.ui.voice :as voice]
             [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.utils.formatting :as fmt]))
@@ -114,17 +115,38 @@
     (spot-label active-asset active-market)
     (perp-label active-asset active-market)))
 
+(defn- outcome-title-part
+  "\"Thunder Yes 15.6¢ · NBA champion 2026/2027\": the answer and side, its
+   price in cents, then the event. A coin id or a decimal price never leads."
+  [state active-asset active-market context]
+  (when (= :outcome (:market-type active-market))
+    (let [coin (if (outcome-names/outcome-coin? active-asset)
+                 active-asset
+                 (or (some-> (first (:outcome-sides active-market)) :coin)
+                     (:coin active-market)))
+          described (outcome-names/describe active-market coin)
+          price (first-present [(:mark context) (:mark active-market)])
+          price-text (when (some? price) (outcome-names/cents price))]
+      (when described
+        (str (:side-label described)
+             (when (and price-text (not= "—" price-text)) (str " " price-text))
+             " · "
+             (:event described))))))
+
 (defn title-for-state
   [state]
   (let [active-asset (non-blank-text (:active-asset state))
         active-market (resolve-active-market state active-asset)
         context (context-for-active-asset state active-asset active-market)
         locale (get-in state [:ui :locale])
-        mark-text (format-mark-price context active-market locale)
-        asset-text (when (seq active-asset)
+        outcome-text (outcome-title-part state active-asset active-market context)
+        mark-text (when-not outcome-text
+                    (format-mark-price context active-market locale))
+        asset-text (when (and (seq active-asset) (not outcome-text))
                      (active-asset-label active-asset active-market))
         brand (or (voice/label state :brand/title) brand-title)
         parts (cond-> []
+                (seq outcome-text) (conj outcome-text)
                 (seq mark-text) (conj mark-text)
                 (seq asset-text) (conj asset-text)
                 true (conj brand))]

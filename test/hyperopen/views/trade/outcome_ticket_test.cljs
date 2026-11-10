@@ -42,7 +42,8 @@
     (is (every? #(= :button (first %)) sides))
     (is (every? #(vector? (get-in % [1 :on :click])) sides))
     (is (contains? strings "Pick a side"))
-    (is (contains? strings "Pays if DET wins"))
+    (is (contains? strings "If DET wins"))
+    (is (contains? strings "You keep if right"))
     (is (contains? strings "$122.00"))
     (is (contains? strings "Buy DET · $99.92"))
     (is (empty? (by-role view "outcome-ticket-mode")) "no Cash out switch without shares")
@@ -59,5 +60,73 @@
   (let [view (render {:type :limit :form {:size "100" :price "0.68"}} [])
         input (hiccup/find-first-node view #(= "outcome-ticket-limit-price" (get-in % [1 :id])))]
     (is (= "68" (get-in input [1 :value])))
-    (is (fn? (get-in input [1 :on :input])))
+    (is (= [[:actions/set-outcome-ticket-entry {:limit-cents [:event.target/value]}]]
+           (get-in input [1 :on :input]))
+        "one action, no store dispatch inside the view")
     (is (some #{"= 68.0% implied chance"} (hiccup/collect-strings view)))))
+
+(defn- event-handlers
+  "Every [:on event] action vector in the view."
+  [view]
+  (->> (hiccup/find-all-nodes view #(and (vector? %) (map? (get-in % [1 :on]))))
+       (mapcat (fn [node] (vals (get-in node [1 :on]))))
+       (filter vector?)))
+
+(deftest every-ticket-control-dispatches-one-action-test
+  (doseq [[label vm-overrides balances]
+          [["buy market" {} []]
+           ["buy limit" {:type :limit :form {:size "100" :price "0.68"}} []]
+           ["holder" {} [{:coin "+270370" :total "122.0" :entryNtl "99.92"}]]
+           ["cash out" {:side :sell :size-input-mode :base :size-display "100"}
+            [{:coin "+270370" :total "122.0" :entryNtl "99.92"}]]]]
+    (let [handlers (event-handlers (render vm-overrides balances))]
+      (is (seq handlers) label)
+      (is (every? #(= 1 (count %)) handlers)
+          (str label ": " (pr-str (remove #(= 1 (count %)) handlers)))))))
+
+(deftest cash-out-tab-sells-every-held-share-in-one-action-test
+  (is (= [[:actions/set-outcome-ticket-entry {:side :sell :size-input-mode :base :size-display "100"}]]
+         (outcome-ticket/mode-actions :cash-out 100.7)))
+  (is (= [[:actions/set-outcome-ticket-entry {:side :buy :size-input-mode :quote :size-display ""}]]
+         (outcome-ticket/mode-actions :buy 100))))
+
+(deftest limit-button-names-its-price-or-asks-for-one-test
+  (let [strings (set (hiccup/collect-strings (render {:type :limit :form {:size "100" :price ""}} [])))]
+    (is (contains? strings "Enter a limit price"))
+    (is (not-any? #(str/includes? % "at —") strings)))
+  (let [strings (set (hiccup/collect-strings (render {:type :limit :form {:size "100" :price "0.29"}} [])))]
+    (is (some #(str/includes? % "at 29.000¢") strings))))
+
+(defn- render-merge
+  [merge-state]
+  (let [vm {:side :buy :type :market :form {:size "" :price ""} :size-input-mode :quote
+            :size-display "" :available-usdc 275.67 :submit {:disabled? false}}
+        state {:active-asset "#270370"
+               :active-market (game)
+               :orderbooks {"#270370" book}
+               :spot {:clearinghouse-state {:balances [{:coin "+270370" :total "122.0" :entryNtl "99.92"}
+                                                       {:coin "+270371" :total "40.0" :entryNtl "7.0"}]}}
+               :outcome-ticket {:merge merge-state}}]
+    (outcome-ticket/ticket (ticket-vm/ticket-model state vm now-ms) vm (handlers/build-handlers))))
+
+(deftest merge-tab-appears-only-when-both-sides-are-held-test
+  (let [tabs (fn [view] (set (hiccup/collect-strings (first (by-role view "outcome-ticket-mode")))))]
+    (is (contains? (tabs (render-merge nil)) "Merge pairs"))
+    (is (not (contains? (tabs (render {} [{:coin "+270370" :total "122.0" :entryNtl "99.92"}])) "Merge pairs")))))
+
+(deftest merge-tab-is-one-action-and-the-merge-ticket-reads-like-the-board-test
+  (is (= [[:actions/set-outcome-ticket-entry {:merge {:coins ["#270370" "#270371"] :pairs "40"}}]]
+         (outcome-ticket/mode-actions :merge 122 {:coins ["#270370" "#270371"] :pairs "40"})))
+  (let [view (render-merge {:coins ["#270370" "#270371"] :pairs "40"})
+        strings (set (hiccup/collect-strings view))
+        submit (hiccup/find-first-node view #(= "trade-submit-order-button" (get-in % [1 :data-parity-id])))]
+    (is (contains? strings "Pairs to merge"))
+    (is (contains? strings "You receive"))
+    (is (contains? strings "$39.94"))
+    (is (contains? strings "Merge 40 pairs · $39.94"))
+    (is (= [[:actions/submit-outcome-merge {:outcome-id 27037 :pairs 40}]]
+           (get-in submit [1 :on :click]))
+        "the merge button sends the merge action, never the order submit")
+    (is (empty? (by-role view "outcome-ticket-side")) "no side pickers while merging")
+    (doseq [handler (event-handlers view)]
+      (is (= 1 (count handler)) (pr-str handler)))))

@@ -147,7 +147,9 @@
 (defn- format-trade-history-price [row]
   (let [price (or (:px row) (:price row) (:p row))]
     (if-let [num (shared/parse-optional-num price)]
-      (or (fmt/format-trade-price-plain num price) "--")
+      (if (shared/outcome-coin? (trade-shared/trade-history-coin row))
+        (shared/format-outcome-price price)
+        (or (fmt/format-trade-price-plain num price) "--"))
       "--")))
 
 (defn- format-order-history-size [value]
@@ -164,9 +166,10 @@
                     size-string
                     (format-order-history-size size-raw))
         {:keys [base-label]} (shared/resolve-coin-display (trade-shared/trade-history-coin row) market-by-key)]
-    (if (= size-text "--")
-      "--"
-      (str size-text " " base-label))))
+    (cond
+      (= size-text "--") "--"
+      (shared/outcome-coin? (trade-shared/trade-history-coin row)) (shared/format-outcome-shares size-raw)
+      :else (str size-text " " base-label))))
 
 (defn- format-trade-history-value [row]
   (format-usdc-amount (trade-shared/trade-history-value-number row)))

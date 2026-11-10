@@ -229,7 +229,7 @@
     (is (= 2 (count rows)))
     (is (= 2 (count sides)))
     (is (contains? strings "New York"))
-    (is (contains? strings "Not New York"))
+    (is (contains? strings "Any other answer"))
     (is (not (contains? strings "Live Outcomes")))))
 
 (deftest leverage-row-renders-isolated-margin-label-when-selected-test

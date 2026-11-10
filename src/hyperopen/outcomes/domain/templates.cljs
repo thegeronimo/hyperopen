@@ -116,7 +116,9 @@
   [params]
   (let [a (labels/clean (get params "participantA"))
         b (labels/clean (get params "participantB"))]
-    {:title (when (and a b) (str a " vs " b))
+    {:title (or (when (and a b) (str a " vs " b))
+                (some-> (labels/clean (get params "competition")) (str " game"))
+                "Game")
      :category :sports
      :subcategory (labels/sport-key (get params "sport"))
      :competition (labels/clean (get params "competition"))
@@ -124,54 +126,69 @@
      :search-terms (keep labels/clean [a b (get params "shortNameA") (get params "shortNameB")
                                        (get params "competition")])}))
 
+(defn- ladder-key
+  "Two contracts are rungs of one ladder only when every part matches: the
+   template, the subject, the venue, the price source, the window and the
+   deadline. A missing part stays an empty slot, so it still has to match."
+  [& parts]
+  (str/join "|" (map #(or (labels/clean %) "") parts)))
+
 (defn- price-facts
-  "binaryPrice / priceTouch: one strike on one underlying at one time."
-  [template params]
+  "binaryPrice / priceTouch: one strike on one underlying at one time. Nil
+   when the subject, level or time is missing, so the contract reads through
+   the unknown-template path instead of printing holes."
+  [template params venue]
   (let [subject (labels/clean (get params "perp"))
         asset (or (labels/asset-label subject) "Price")
         level-param (if (= :price-touch template) "target" "threshold")
         level (labels/level-text subject (get params level-param))
         time (get params "time")
+        time-text (utc time)
         touch? (= :price-touch template)
         verb (if touch? "reaches" "above")]
-    {:title (str asset " " (if touch? "reaches " "above ") level)
-     :category (if (labels/stocks-subject? subject) :stocks :crypto)
-     :subject subject
-     :clock (clock/clock-spec (if touch? :ends :settles) time nil)
-     :rules (join-sentences
-             (if touch?
-               (str "Yes if " asset " reaches " level " at any time before " (utc time) ".")
-               (str "Yes if " asset " is above " level " at " (utc time) "."))
-             (price-source params)
-             "Otherwise No."
-             pays-sentence)
-     :ladder {:key (str (name template) "|" subject "|" time)
-              :title (str asset " " verb "…")
-              :threshold (labels/parse-number (get params level-param))
-              :rung-label level
-              :kind (if touch? :touch :above)}
-     :search-terms (keep labels/clean [asset subject])}))
+    (when (and subject level time-text)
+      {:title (str asset " " (if touch? "reaches " "above ") level)
+       :category (if (labels/stocks-subject? subject) :stocks :crypto)
+       :subject subject
+       :clock (clock/clock-spec (if touch? :ends :settles) time nil)
+       :rules (join-sentences
+               (if touch?
+                 (str "Yes if " asset " reaches " level " at any time before " time-text ".")
+                 (str "Yes if " asset " is above " level " at " time-text "."))
+               (price-source params)
+               "Otherwise No."
+               pays-sentence)
+       :ladder {:key (ladder-key (name template) subject venue
+                                 (get params "priceDescription") (get params "seconds") time)
+                :title (str asset " " verb "…")
+                :threshold (labels/parse-number (get params level-param))
+                :rung-label level
+                :kind (if touch? :touch :above)}
+       :search-terms (keep labels/clean [asset subject])})))
 
 (defn- ipo-market-cap-facts
-  [params]
-  (let [company (or (labels/clean (get params "company")) "Company")
+  [params venue]
+  (let [company (labels/clean (get params "company"))
         cap (labels/market-cap-text (get params "marketCapThresholdB"))
-        deadline (get params "listingDeadline")]
-    {:title (str company " first-day market cap ≥ " cap)
-     :category :companies
-     :subject company
-     :clock (clock/clock-spec :listing deadline nil)
-     :rules (join-sentences
-             (str "Yes if " company " lists by " (utc deadline)
-                  " and its first-day market cap is at least " cap ".")
-             "Otherwise No."
-             pays-sentence)
-     :ladder {:key (str "company-ipo-market-cap|" company)
-              :title (str company " first-day market cap")
-              :threshold (labels/parse-number (get params "marketCapThresholdB"))
-              :rung-label (str "≥ " cap)
-              :kind :at-least}
-     :search-terms [company "IPO"]}))
+        deadline (get params "listingDeadline")
+        deadline-text (utc deadline)]
+    (when (and company cap)
+      {:title (str company " first-day market cap ≥ " cap)
+       :category :companies
+       :subject company
+       :clock (clock/clock-spec :listing deadline nil)
+       :rules (join-sentences
+               (str "Yes if " company " lists"
+                    (when deadline-text (str " by " deadline-text))
+                    " and its first-day market cap is at least " cap ".")
+               "Otherwise No."
+               pays-sentence)
+       :ladder {:key (ladder-key "company-ipo-market-cap" company venue deadline)
+                :title (str company " first-day market cap")
+                :threshold (labels/parse-number (get params "marketCapThresholdB"))
+                :rung-label (str "≥ " cap)
+                :kind :at-least}
+       :search-terms [company "IPO"]})))
 
 (defn- recurring-binary-facts
   [params]
@@ -179,13 +196,14 @@
         asset (or (labels/asset-label subject) "Price")
         level (labels/level-text subject (get params "targetPrice"))
         expiry (get params "expiry")]
-    {:title (str asset " above " level)
+    {:title (if level (str asset " above " level) (str asset " daily"))
      :category :crypto
      :subcategory :daily
      :subject subject
      :clock (clock/clock-spec :settles expiry nil)
      :rules (join-sentences
-             (str "Yes if the " asset " mark price is above " level " at settlement, " (utc expiry) ".")
+             (str "Yes if the " asset " mark price is above " (or level "the target") " at settlement"
+                  (some->> (utc expiry) (str ", ")) ".")
              "Otherwise No."
              pays-sentence)
      :search-terms (keep labels/clean [asset subject "daily"])}))
@@ -215,7 +233,7 @@
                   params)}))
 
 (defn- outcome-facts
-  [template params name]
+  [template params name venue]
   (case template
     :sports-contest-winner
     (let [game (game-facts params)]
@@ -240,21 +258,32 @@
     :recurring-bucket-option
     {:shape :option :option-index (labels/parse-number (get params "index"))}
 
-    (:binary-price :price-touch) (assoc (price-facts template params) :shape :yes-no)
-    :company-ipo-market-cap (assoc (ipo-market-cap-facts params) :shape :yes-no)
+    (:binary-price :price-touch)
+    (if-let [facts (price-facts template params venue)]
+      (assoc facts :shape :yes-no)
+      (assoc (unknown-facts name params) :shape :yes-no))
+
+    :company-ipo-market-cap
+    (if-let [facts (ipo-market-cap-facts params venue)]
+      (assoc facts :shape :yes-no)
+      (assoc (unknown-facts name params) :shape :yes-no))
 
     :company-ipo-confirmed
-    (let [company (or (labels/clean (get params "company")) "Company")
-          deadline (get params "dateTime")]
-      {:shape :yes-no
-       :title (str company " IPO")
-       :category :companies
-       :subject company
-       :clock (clock/clock-spec :ends deadline nil)
-       :rules (join-sentences (str "Yes if " company "'s IPO is confirmed by " (utc deadline) ".")
-                              "Otherwise No."
-                              pays-sentence)
-       :search-terms [company "IPO"]})
+    (let [company (labels/clean (get params "company"))
+          deadline (get params "dateTime")
+          deadline-text (utc deadline)]
+      (if company
+        {:shape :yes-no
+         :title (str company " IPO")
+         :category :companies
+         :subject company
+         :clock (clock/clock-spec :ends deadline nil)
+         :rules (join-sentences (str "Yes if " company "'s IPO is confirmed"
+                                     (when deadline-text (str " by " deadline-text)) ".")
+                                "Otherwise No."
+                                pays-sentence)
+         :search-terms [company "IPO"]}
+        (assoc (unknown-facts name params) :shape :yes-no)))
 
     :recurring-price-binary (assoc (recurring-binary-facts params) :shape :yes-no)
     :plain {:shape :yes-no :title (labels/clean name)}
@@ -278,7 +307,7 @@
     (merge {:template template
             :venue (labels/clean venue)
             :side-labels sides}
-           (outcome-facts template params name))))
+           (outcome-facts template params name (labels/clean venue)))))
 
 (defn bucket-labels
   "Ranges of a price-bucket question: Below $72,967 · $72,967 – $75,945 · Above $75,945."
@@ -306,8 +335,8 @@
                    (schedule-sentence params)))
 
     :sports-tournament-winner
-    (let [competition (labels/clean (get params "competition"))
-          season (labels/clean (get params "season"))]
+    (let [competition (labels/competition-label (get params "competition"))
+          season (labels/season-label (get params "season"))]
       {:shape :field
        :title (str (or competition "Tournament") " champion" (when season (str " " season)))
        :category :sports
@@ -319,7 +348,7 @@
                     (when season (str " " season)) " champion" (reported-by params) ".")
                "“Other” covers any contender not listed. Each winning share pays $1.00."
                (some->> (utc (get params "resolutionDeadline")) (str "Must resolve by ") (#(str % "."))))
-       :search-terms (keep labels/clean [competition season "champion"])})
+       :search-terms (keep labels/clean [competition (get params "competition") season "champion"])})
 
     :policy-rate-decision
     (let [institution (labels/institution-label (get params "institution"))

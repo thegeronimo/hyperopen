@@ -147,6 +147,7 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/submit-register-referrer", defaultPolicy false ["effects/api-register-referrer"])
   ,("actions/submit-claim-referral-rewards", defaultPolicy false ["effects/api-claim-referral-rewards"])
   ,("actions/submit-order", defaultPolicy false ["effects/api-submit-order"])
+  ,("actions/submit-outcome-merge", defaultPolicy false ["effects/api-submit-outcome-merge"])
   ,("actions/submit-position-margin-update", defaultPolicy false ["effects/api-submit-position-margin"])
   ,("actions/submit-borrow-lend", defaultPolicy false ["effects/api-submit-borrow-lend"])
   ,("actions/submit-staking-delegate", defaultPolicy false ["effects/api-submit-staking-delegate"])

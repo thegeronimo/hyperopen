@@ -230,6 +230,112 @@
 (defn update-order-form [state path value]
   (let [transition (transitions/update-order-form state path value)]
     (or (outcome-side-selection/maybe-switch-side-market state path value transition) (transition-save-many state transition))))
+
+(defn- apply-owned-transition
+  "Fold one ownership-enforced transition into `state` so the next step of a
+   composite action reads what the previous step wrote."
+  [state {:keys [order-form order-form-ui order-form-runtime]}]
+  (cond-> state
+    (map? order-form) (assoc :order-form order-form)
+    (map? order-form-ui) (assoc :order-form-ui order-form-ui)
+    (map? order-form-runtime) (assoc :order-form-runtime order-form-runtime)))
+
+(defn- outcome-ticket-entry-steps
+  [state {:keys [side size-input-mode size-display limit-cents] :as entry}]
+  (let [current-side (:side (trading/order-form-draft state))
+        side-change? (and (some? side) (not= (keyword side) current-side))]
+    (cond-> []
+      (contains? entry :side)
+      (conj #(transitions/update-order-form % [:side] side))
+
+      ;; A confirmation given for one side is not a confirmation for the other.
+      side-change?
+      (conj #(transitions/update-order-form % [:outcome-stale-confirmed?] false))
+
+      (contains? entry :size-input-mode)
+      (conj #(transitions/set-order-size-input-mode % size-input-mode))
+
+      (contains? entry :size-display)
+      (conj #(transitions/set-order-size-display % size-display))
+
+      (contains? entry :limit-cents)
+      (conj #(transitions/update-order-form % [:price] (transitions/outcome-limit-cents->price limit-cents)))
+
+      (contains? entry :stale-confirmed?)
+      (conj #(transitions/update-order-form % [:outcome-stale-confirmed?]
+                                            (true? (:stale-confirmed? entry)))))))
+
+(defn- outcome-merge-writes
+  "Path writes for the merge ticket's own state, `[:outcome-ticket :merge]`:
+   `:merge` {:coins :pairs} opens it, `:merge-pairs` types the pair count, and
+   any `:side` change (Buy or Cash out) closes it."
+  [state entry]
+  (let [current (get-in state [:outcome-ticket :merge])]
+    (cond
+      (contains? entry :merge)
+      [[[:outcome-ticket :merge] (some-> (:merge entry) (select-keys [:coins :pairs]))]]
+
+      (and (contains? entry :merge-pairs) current)
+      [[[:outcome-ticket :merge :pairs] (str (:merge-pairs entry))]
+       [[:outcome-ticket :merge :error] nil]]
+
+      (and (contains? entry :side) current)
+      [[[:outcome-ticket :merge] nil]]
+
+      :else [])))
+
+(def ^:private trade-entry-keys
+  #{:size-display :size-input-mode :limit-cents :open-ticket-sheet?})
+
+(defn- buy-when-nothing-held
+  "A Cash out the trader can no longer make (the side is not held, e.g. after
+   the cash out filled) falls back to Buy in dollars on the next ticket entry
+   that does not name a side itself."
+  [state entry]
+  (let [form-side (:side (trading/order-form-draft state))]
+    (if (and (not (contains? entry :side))
+             (not (contains? entry :merge))
+             (some trade-entry-keys (keys entry))
+             (= :sell (if (string? form-side) (keyword form-side) form-side))
+             (< (trading/outcome-side-available-shares state (:active-asset state)) 1))
+      (cond-> (assoc entry :side :buy)
+        (not (contains? entry :size-input-mode)) (assoc :size-input-mode :quote))
+      entry)))
+
+(defn set-outcome-ticket-entry
+  "One outcome-ticket click as one complete form change.
+
+   Nexus expands every action of an event against the same state snapshot, so a
+   click that dispatched side, size mode and size as three actions kept only the
+   last write (a Cash out of 100 shares became a $100 buy). Here the steps run
+   in order, each reading the previous step's result, and land in one save.
+   `entry` keys, all optional: :side, :size-input-mode, :size-display,
+   :limit-cents (typed cents), :stale-confirmed?, :open-ticket-sheet? (the
+   phone Buy bar: open the ticket sheet as a Buy), and the merge ticket's
+   :merge / :merge-pairs."
+  [state entry]
+  (let [entry* (buy-when-nothing-held state (or entry {}))
+        steps (outcome-ticket-entry-steps state entry*)
+        merge-writes (cond-> (outcome-merge-writes state entry*)
+                       (true? (:open-ticket-sheet? entry*))
+                       (conj [[:trade-ui :mobile-surface] :ticket])
+
+                       ;; The raw typed cents, so the field keeps "68." or "68.5"
+                       ;; while editing instead of re-rendering the parsed price.
+                       (contains? entry* :limit-cents)
+                       (conj [[:outcome-ticket :limit-cents-text] (str (or (:limit-cents entry*) ""))]))]
+    (if (and (empty? steps) (empty? merge-writes))
+      []
+      (let [final (reduce (fn [state* step] (apply-owned-transition state* (step state*)))
+                          state
+                          steps)]
+        [[:effects/save-many (into (if (seq steps)
+                                     [[[:order-form] (:order-form final)]
+                                      [[:order-form-ui] (:order-form-ui final)]
+                                      [[:order-form-runtime] (:order-form-runtime final)]]
+                                     [])
+                                   merge-writes)]]))))
+
 (defn- current-order-feedback-toasts
   [state]
   (let [toasts (->> (or (get-in state [:ui :toasts]) [])

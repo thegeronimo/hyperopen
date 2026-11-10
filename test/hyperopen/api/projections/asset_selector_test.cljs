@@ -1,5 +1,5 @@
 (ns hyperopen.api.projections.asset-selector-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.api.projections.asset-selector :as asset-selector]))
 
 (deftest asset-selector-success-projection-prefers-full-phase-when-bootstrap-finishes-late-test
@@ -76,4 +76,11 @@
     (is (= nil (get-in success [:asset-selector :error-category])))
     (is (= false (get-in failed [:asset-selector :loading?])))
     (is (= "timeout" (get-in failed [:asset-selector :error])))
-    (is (= :transport (get-in failed [:asset-selector :error-category])))))
+    (is (= :transport (get-in failed [:asset-selector :error-category])))
+    (testing "a failed full load is not latched as :full"
+      (is (= :bootstrap (get-in failed [:asset-selector :phase])))
+      (is (= :full (get-in (-> success
+                               (asset-selector/begin-asset-selector-load :full)
+                               (asset-selector/apply-asset-selector-error "timeout"))
+                           [:asset-selector :phase]))
+          "a refresh that fails keeps the catalog that did load"))))

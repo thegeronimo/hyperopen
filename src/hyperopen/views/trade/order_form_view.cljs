@@ -71,7 +71,7 @@
            :data-parity-id "order-form"}
      [:div {:class (into ["flex" "flex-col" "gap-2" "sm:gap-2.5"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
-      (outcome-ticket/ticket (outcome-ticket-vm/ticket-model state vm (.now js/Date)) vm handlers)
+      (outcome-ticket/ticket (outcome-ticket-vm/ticket-model state vm) vm handlers)
       (when error
         [:div {:class ["text-xs" "text-red-400"]} error])
       (when (= :spectate-mode-read-only (:reason submit))

@@ -210,6 +210,12 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-position-margin}}
 
+   :actions/submit-outcome-merge
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-outcome-merge}}
+
    ;; Background recommendation sync fans out one candle fetch per isolated
    ;; coin, so duplicate heavy effects are expected.
    :actions/margin-rec-sync

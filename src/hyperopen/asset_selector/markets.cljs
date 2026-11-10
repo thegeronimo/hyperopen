@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.markets
   (:require [clojure.string :as str]
             [hyperopen.domain.market.instrument :as instrument]
+            [hyperopen.outcomes.domain.book :as outcome-book]
             [hyperopen.outcomes.domain.display :as outcome-display]
             [hyperopen.outcomes.domain.events :as outcome-events]
             [hyperopen.outcomes.domain.quotes :as outcome-quotes]
@@ -366,11 +367,19 @@
                (not (js/isNaN num)))
       (js/Math.floor num))))
 
-(defn expired-outcome-market? [market now-ms]
-  (let [expiry-ms (parse-int-value (:expiry-ms market))
-        now-ms* (parse-int-value now-ms)]
-    (boolean (and (= :outcome (:market-type market)) (number? expiry-ms) (number? now-ms*)
-                  (<= expiry-ms now-ms*)))))
+(defn expired-outcome-market?
+  "True for an outcome market certainly settled by `now-ms`: past its expiry,
+   past its result deadline, or a day past a price contract's settlement."
+  [market now-ms]
+  (let [{:keys [kind at-ms deadline-ms]} (:outcome-clock market)
+        [expiry-ms at-ms* deadline-ms* now-ms*] (map parse-int-value [(:expiry-ms market) at-ms deadline-ms now-ms])]
+    (boolean (and (= :outcome (:market-type market))
+                  (number? now-ms*)
+                  (or (and (number? expiry-ms) (<= expiry-ms now-ms*))
+                      (and (number? deadline-ms*) (<= deadline-ms* now-ms*))
+                      (and (contains? #{:settles "settles"} kind)
+                           (number? at-ms*)
+                           (<= (+ at-ms* (* 24 60 60 1000)) now-ms*)))))))
 
 (defn- canonical-perp-dex-index
   [meta dex perp-dex-index]
@@ -526,17 +535,22 @@
         mid-raw (:midPx ctx)
         prev-raw (:prevDayPx ctx)
         mark (safe-num mark-raw)
-        prev (safe-num prev-raw)]
-    {:mark mark
-     :markRaw mark-raw
-     :mid (safe-num mid-raw)
-     :midRaw mid-raw
-     :prevDayRaw prev-raw
-     :change24h (- mark prev)
-     :change24hPct (pct-change mark prev)
-     :volume24h (safe-num (:dayNtlVlm ctx))
-     :baseVolume24h (safe-num (:dayBaseVlm ctx))
-     :circulatingSupply (safe-num (:circulatingSupply ctx))}))
+        prev (safe-num prev-raw)
+        ;; A previous-day price of 0 is the never-traded placeholder, not a
+        ;; reference: there is no 24h change against it.
+        reference? (pos? prev)]
+    (cond-> {:mark mark
+             :markRaw mark-raw
+             :mid (safe-num mid-raw)
+             :prevDayRaw prev-raw
+             :change24h (when reference? (- mark prev))
+             :change24hPct (when reference? (pct-change mark prev))
+             :volume24h (safe-num (:dayNtlVlm ctx))
+             :baseVolume24h (safe-num (:dayBaseVlm ctx))
+             :circulatingSupply (safe-num (:circulatingSupply ctx))}
+      ;; Only a published midPx (null when the book lost a side) says
+      ;; anything about the book; a missing field says nothing.
+      (contains? ctx :midPx) (assoc :midRaw mid-raw))))
 
 (defn- build-outcome-side
   [outcome-id side-index side-spec ctx]
@@ -569,7 +583,8 @@
   [entry]
   (or (:quoteToken entry)
       (:quote-token entry)
-      "USDH"))
+      ;; Outcome contracts are quoted and paid in USDC.
+      "USDC"))
 
 (defn- outcome-category
   [name parsed metadata]
@@ -581,18 +596,6 @@
       (= "priceBucket" (:outcome-class parsed)) :crypto
       (and name-token (re-find #"\b(cpi|fed)\b" name-token)) :economics
       :else :uncategorized)))
-
-(defn- first-positive-number
-  [values]
-  (some (fn [value]
-          (when (and (number? value)
-                     (pos? value))
-            value))
-        values))
-
-(defn- sum-numbers
-  [values]
-  (reduce + 0 (filter number? values)))
 
 (defn- build-outcome-sides
   [ctx-by-coin outcome-id side-specs]
@@ -645,15 +648,10 @@
                (> (count sides*) 1)
                (every? seq labels)
                (some (complement generic-binary-side-label?) labels))
-      (->> sides*
-           (map (fn [side]
-                  (let [label (side-summary-label side)
-                        mark (:mark side)]
-                    (str label
-                         " "
-                         (if (number? mark)
-                           (str (js/Math.round (* mark 100)) "%")
-                           "--")))))
+      (->> (map (fn [side quote]
+                  (str (side-summary-label side) " " (outcome-quotes/quote-text quote)))
+                sides*
+                (outcome-book/contract-quotes sides* nil))
            (str/join "  *  ")))))
 
 (defn- build-outcome-spec
@@ -690,10 +688,7 @@
         yes-side (or (first sides) {})
         facts (:facts spec)
         title (or (:title facts) (:display-description spec) (str "Outcome " outcome-id))
-        open-interest (some->> sides
-                               (map :circulatingSupply)
-                               (filter pos?)
-                               first)
+        {:keys [shares24h open-interest]} (outcome-display/event-totals {:outcome-sides sides})
         details (or (:rules facts) (:display-description spec) "")
         outcome-category* (or (:category facts) (outcome-category title parsed spec))
         side-summary (outcome-side-summary outcome-category* sides)]
@@ -720,7 +715,7 @@
                     :szDecimals 0
                     :mark (:mark yes-side)
                     :markRaw (:markRaw yes-side)
-                    :volume24h (:volume24h yes-side)
+                    :volume24h (or shares24h 0)
                     :change24h (:change24h yes-side)
                     :change24hPct (:change24hPct yes-side)
                     :prevDayRaw (:prevDayRaw yes-side)
@@ -791,8 +786,9 @@
   [options]
   (first (sort-by (fn [option]
                     (let [quote (outcome-quotes/side-quote (first (:sides option)))]
-                      [(- (if (#{:live :last} (:state quote)) (:chance quote) -1))
-                       (- (safe-num (:volume24h option)))]))
+                      [(- (if (:rankable? quote) (:chance quote) -1))
+                       (if (outcome-quotes/never-traded? (first (:sides option))) 1 0)
+                       (- (or (outcome-display/contract-shares (:sides option)) 0))]))
                   options)))
 
 (def outcome-option-summary outcome-display/option-summary)
@@ -848,9 +844,8 @@
                                 vec)
         details (or (:rules facts) (:display-description question-spec) "")
         fallback-spec (get outcome-specs (:fallback-outcome-id question-spec))
-        volume24h (sum-numbers (map :volume24h options))
-        open-interest (or (first-positive-number (map :openInterest options))
-                          (sum-numbers (map :openInterest options)))]
+        {:keys [shares24h open-interest]} (outcome-display/event-totals {:question-options options})
+        volume24h (or shares24h 0)]
     (merge (dissoc question-spec :facts)
            (outcome-display/market-fields (assoc facts :venue (some #(get-in outcome-specs [% :facts :venue]) (:named-outcome-ids question-spec))))
            {:key question-key

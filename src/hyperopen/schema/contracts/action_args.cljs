@@ -268,6 +268,9 @@
    :actions/close-asset-dropdown ::common/no-args
    :actions/select-asset ::common/market-or-coin-args
    :actions/select-asset-by-market-key ::common/market-key-args
+   :actions/open-outcome-market ::common/outcome-market-args
+   :actions/open-outcome-cash-out ::common/outcome-cash-out-args
+   :actions/merge-outcome-pairs ::common/outcome-merge-args
    :actions/update-asset-search ::common/single-input-args
    :actions/update-asset-selector-sort ::common/keyword-args
    :actions/toggle-asset-selector-strict ::common/no-args
@@ -281,6 +284,8 @@
    :actions/show-all-asset-selector-markets ::common/no-args
    :actions/maybe-increase-asset-selector-render-limit ::common/single-or-double-input-args
    :actions/refresh-asset-markets ::common/no-args
+   :actions/set-outcome-list-sort ::common/keyword-or-string-args
+   :actions/set-outcome-visible-event-keys ::common/single-input-args
    :actions/mark-loaded-asset-icon ::common/market-key-args
    :actions/mark-missing-asset-icon ::common/market-key-args
    :actions/set-funding-tooltip-visible ::common/tooltip-toggle-args
@@ -609,6 +614,8 @@
    :actions/set-order-size-percent ::common/single-input-args
    :actions/set-order-size-display ::common/single-input-args
    :actions/set-order-size-input-mode ::common/keyword-or-string-args
+   :actions/set-outcome-ticket-entry (s/tuple map?)
+   :actions/submit-outcome-merge (s/tuple map?)
    :actions/focus-order-price-input ::common/no-args
    :actions/blur-order-price-input ::common/no-args
    :actions/set-order-price-to-mid ::common/no-args

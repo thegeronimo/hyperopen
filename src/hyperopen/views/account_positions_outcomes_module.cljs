@@ -30,9 +30,9 @@
                                                                   :mobile-expanded-card mobile-expanded-card)})))
 
 (defn ^:export outcomes-tab-renderer
-  [{:keys [outcomes position-reduce-popover read-only?]}]
+  [{:keys [outcomes outcome-user-fees read-only?]}]
   (outcomes-tab/outcomes-tab-content {:outcomes outcomes
-                                      :reduce-popover position-reduce-popover
+                                      :user-fees outcome-user-fees
                                       :read-only? read-only?}))
 
 (goog/exportSymbol "hyperopen.views.account_positions_outcomes_module.positions_tab_renderer" positions-tab-renderer)

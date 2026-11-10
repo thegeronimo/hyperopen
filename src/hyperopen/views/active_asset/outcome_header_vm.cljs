@@ -6,6 +6,8 @@
             [hyperopen.asset-selector.outcome-listing :as listing]
             [hyperopen.outcomes.domain.book :as book]
             [hyperopen.outcomes.domain.clock :as clock]
+            [hyperopen.outcomes.domain.events :as events]
+            [hyperopen.outcomes.domain.labels :as labels]
             [hyperopen.outcomes.domain.quotes :as quotes]))
 
 (def ^:private clock-headings
@@ -23,38 +25,30 @@
    :economics "Economics"
    :companies "Companies"})
 
-(defn market-sides
-  "The contract's sides; a partial market (a cold-start cache entry) gets a
-   Yes side built from its own price fields so the header never goes blank."
-  [market]
-  (let [sides (vec (:outcome-sides market))]
-    (if (seq sides)
-      sides
-      [{:side-index 0 :side-name "Yes" :coin (:coin market) :mark (:mark market) :mid (:mid market)
-        :prevDayRaw (:prevDayRaw market) :volume24h (:volume24h market)}
-       {:side-index 1 :side-name "No"}])))
+(def market-sides book/market-sides)
 
 (defn market-clock
+  "The selected rung's clock for a ladder, else the market's own."
   [market]
-  (or (:outcome-clock market)
+  (or (:clock (events/selected-rung-facts market))
       (when (number? (:expiry-ms market))
         {:kind :settles :at-ms (:expiry-ms market)})))
 
-(defn selected-side-index
-  [market]
-  (or (:outcome-side-index market)
-      (some (fn [side]
-              (when (= (:coin market) (:coin side))
-                (:side-index side)))
-            (:outcome-sides market))
-      0))
+(def selected-side-index book/selected-side-index)
 
 (defn venue-label
+  "Venue name (never the raw deployer code) of the selected rung, else the
+   market's venue."
   [market]
-  (or (:outcome-venue market)
+  (or (labels/venue-label (:venue (events/selected-rung-facts market)))
       (when (seq (:outcome-venues market))
-        (str/join " · " (:outcome-venues market)))
+        (str/join " · " (keep labels/venue-label (:outcome-venues market))))
       "Hyperliquid"))
+
+(defn market-rules
+  "Rules text of the selected rung (ladders), else the market's."
+  [market]
+  (:rules (events/selected-rung-facts market)))
 
 (defn kicker
   [market]
@@ -62,21 +56,28 @@
                                   (:outcome-competition market)])))
 
 (defn side-quotes
-  "[side-0 quote, side-1 quote] for the active contract. The live book of the
-   selected side decides when it has arrived; the other side is its mirror, so
-   the two chances always add up to 100%."
+  "[side-0 quote, side-1 quote] for the active contract under the one chance
+   rule (`book/market-side-quotes`)."
   [market orderbook]
-  (let [sides (market-sides market)
-        index (selected-side-index market)
-        active-side (get sides index)
-        active-quote (or (book/book-quote orderbook (:mark active-side))
-                         (quotes/side-quote active-side))
-        other-quote (if (contains? #{:live :last} (:state active-quote))
-                      (quotes/mirror-quote active-quote)
-                      (quotes/side-quote (get sides (- 1 index))))]
-    (if (= 1 index)
-      [other-quote active-quote]
-      [active-quote other-quote])))
+  (book/market-side-quotes market orderbook))
+
+(defn- chance-entry
+  [label quote]
+  {:label label
+   :text (quotes/quote-text quote)
+   :state (:state quote)
+   :muted? (boolean (:muted? quote))
+   :detail (when (contains? #{:not-traded :no-market} (:state quote))
+             (quotes/standing-quotes-text quote))})
+
+(defn- price-text
+  "The selected side's price: the midpoint in cents, the range in cents, or
+   why there is none."
+  [quote]
+  (case (:state quote)
+    :live (quotes/cents-text (:price quote))
+    :range (str (quotes/cents-text (:low quote)) "–" (quotes/cents-text (:high quote)))
+    (quotes/quote-text quote)))
 
 (defn- side-labels
   [market]
@@ -100,7 +101,9 @@
                        (:selected-outcome-option-label market))
         active-label (get [label-a label-b] index)
         active-quote (get quotes* index)
-        delta (quotes/change-24h (first (market-sides market)))
+        ;; The selected side's own change; a 0 previous-day price is a
+        ;; never-traded placeholder, not a reference (change-24h returns nil).
+        delta (quotes/change-24h (get (market-sides market) index))
         clock (market-clock market)
         clock-kind (:kind clock)
         clock-view (clock/clock-view clock now-ms)]
@@ -108,15 +111,19 @@
      :kicker (kicker market)
      :venue (venue-label market)
      :chances (cond
-                option-label [{:label option-label :text (quotes/quote-text quote-a)}]
-                (= :head-to-head (:outcome-shape market)) [{:label label-a :text (quotes/quote-text quote-a)}
-                                                          {:label label-b :text (quotes/quote-text quote-b)}]
-                :else [{:label label-a :text (quotes/quote-text quote-a)}])
+                option-label [(chance-entry option-label quote-a)]
+                (= :head-to-head (:outcome-shape market)) [(chance-entry label-a quote-a)
+                                                          (chance-entry label-b quote-b)]
+                :else [(chance-entry label-a quote-a)])
+     ;; The selected answer's one chance number (a two-team game shows both
+     ;; in `:chances`).
+     :chance-text (quotes/quote-text active-quote)
+     :quote active-quote
+     :quote-state (:state active-quote)
+     :market-order? (boolean (:market-order? active-quote))
      :price-label (if option-label (str active-label " · " option-label) active-label)
-     :price-text (if (contains? #{:live :last} (:state active-quote))
-                   (str (quotes/cents-text (:price active-quote))
-                        (when (= :last (:state active-quote)) " last"))
-                   (quotes/quote-text active-quote))
+     :price-text (price-text active-quote)
+     :price-muted? (boolean (:muted? active-quote))
      :change-label (if (= :daily (:outcome-subcategory market)) "Since open" "24h")
      :change-text (or (quotes/points-text delta) "—")
      :change-direction (change-direction delta)
@@ -124,14 +131,31 @@
      :clock-label (or (:label clock-view) "—")
      :clock-absolute (:absolute clock-view)
      :clock-phase (:phase clock-view)
-     :volume-text (or (quotes/compact-usd-text (listing/event-volume market)) "—")
-     :open-interest-text (or (quotes/compact-usd-text (:openInterest market)) "—")}))
+     :rules (market-rules market)
+     :volume-text (or (quotes/compact-shares-text (listing/event-volume market)) "—")
+     :open-interest-text (or (quotes/compact-usd-text (listing/event-open-interest market)) "—")}))
+
+(defn bar-model
+  "What the phone's pinned Buy bar says: both sides' chances, each through the
+   one chance rule. {:title :entries [{:label :text :muted?} {...}]}."
+  [market orderbook]
+  (let [[quote-a quote-b] (side-quotes market orderbook)
+        [label-a label-b] (side-labels market)
+        option-label (when (seq (:question-options market))
+                       (:selected-outcome-option-label market))
+        entry (fn [label quote]
+                {:label label
+                 :text (quotes/quote-text quote)
+                 :muted? (boolean (:muted? quote))})]
+    {:title (or (:title market) (:symbol market))
+     :entries [(entry (if option-label (str option-label " " label-a) label-a) quote-a)
+               (entry label-b quote-b)]}))
 
 (defn tooltip-model
   "Rules panel content for the market name hover."
   [market]
   (when (= :outcome (:market-type market))
-    (let [rules (or (:outcome-rules market) (:outcome-details market))
+    (let [rules (market-rules market)
           [label-a label-b] (side-labels market)]
       (when (seq rules)
         {:title (or (:title market) "Rules")
@@ -141,5 +165,5 @@
          :no-label label-b
          :yes-payout-label "$1.00"
          :no-payout-label "$0.00"
-         :footer-label (str "Payouts are in " (or (:quote market) "USDC")
+         :footer-label (str "Payouts are in USDC"
                             ". Venue: " (venue-label market) ".")}))))

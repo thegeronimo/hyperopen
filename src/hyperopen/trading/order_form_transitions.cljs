@@ -722,6 +722,22 @@
       :else
       nil)))
 
+(defn outcome-limit-cents->price
+  "Typed cents (68, 68.5, .5, 20,5 or a half-typed 68.) as the order's dollar
+   price string on the venue's 0.001 cent step. Blank or unreadable text is
+   blank so the submit gate asks for a price instead of guessing one; a price
+   outside 0..1 is kept as typed for the same gate to refuse."
+  [text]
+  (let [text* (-> (str (or text "")) str/trim (str/replace "," "."))]
+    (if (and (re-matches #"\d*\.?\d*" text*)
+             (re-find #"\d" text*))
+      (if-let [cents (parse-utils/parse-localized-decimal
+                      (cond->> text* (str/starts-with? text* ".") (str "0"))
+                      "en-US")]
+        (str (/ (js/Math.round (* cents 1000)) 100000))
+        "")
+      "")))
+
 (defn update-order-form [state path value]
   (if (ui-only-form-path? path)
     (enforce-field-ownership

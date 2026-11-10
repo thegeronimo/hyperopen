@@ -436,6 +436,9 @@
 (def set-order-size-input-mode
   order-actions/set-order-size-input-mode)
 
+(def set-outcome-ticket-entry
+  order-actions/set-outcome-ticket-entry)
+
 (def set-outcome-option-sort
   outcome-option-sort/set-outcome-option-sort)
 

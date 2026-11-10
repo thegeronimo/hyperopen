@@ -39,15 +39,22 @@
                      (assoc :active-market (or active-market (:active-market state)))
                      (assoc-in [:asset-selector :loaded-at-ms] loaded-at-ms)
                      (assoc-in [:asset-selector :phase] phase)
+                     (assoc-in [:asset-selector :loaded-phase] phase)
                      (assoc-in [:asset-selector :cache-hydrated?] false)
                      (assoc-in [:asset-selector :error] nil)
                      (assoc-in [:asset-selector :error-category] nil)))]
     (assoc-in state* [:asset-selector :loading?] false)))
 
 (defn apply-asset-selector-error
+  "A failed load is an error state, not a loaded catalog: the phase rolls back
+   to the last phase that actually loaded (`begin-asset-selector-load` advanced
+   it before the request), so the next open or retry fetches again instead of
+   latching a failed full load as `:full`."
   [state err]
-  (let [{:keys [message category]} (normalized-error err)]
+  (let [{:keys [message category]} (normalized-error err)
+        loaded-phase (get-in state [:asset-selector :loaded-phase] :bootstrap)]
     (-> state
         (assoc-in [:asset-selector :loading?] false)
+        (assoc-in [:asset-selector :phase] loaded-phase)
         (assoc-in [:asset-selector :error] message)
         (assoc-in [:asset-selector :error-category] category))))

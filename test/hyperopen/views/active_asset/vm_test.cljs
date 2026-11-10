@@ -186,7 +186,8 @@
                    :funding-ui {:tooltip {}}
                    :trade-ui {:mobile-asset-details-open? false}})]
     (is (true? (get-in panel-vm [:row-vm :is-outcome])))
-    (is (= "58%" (get-in panel-vm [:row-vm :outcome-chance-label])))
+    ;; No book and no sides: the mark is not a trade, so no chance is shown.
+    (is (= "—" (get-in panel-vm [:row-vm :outcome-chance-label])))
     (is (= "BTC above 78213 on May 3 at 2:00 AM?"
            (get-in panel-vm [:row-vm :outcome-title])))
     (is (= "Settles in 10h 8m"
@@ -204,7 +205,7 @@
             :no-label "No"
             :yes-payout-label "$1.00"
             :no-payout-label "$0.00"
-            :footer-label "Payouts are in USDH. Venue: Hyperliquid."}
+            :footer-label "Payouts are in USDC. Venue: Hyperliquid."}
            (get-in panel-vm [:row-vm :outcome-tooltip])))
     (is (= "Settles" (get-in panel-vm [:row-vm :outcome-header :clock-heading])))))
 

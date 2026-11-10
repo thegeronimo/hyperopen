@@ -141,7 +141,7 @@
         submit-form (:form submit-policy)
         submit-errors (:errors submit-policy)
         required-submit-fields (:required-fields submit-policy)
-        submit-tooltip (submit/submit-tooltip-from-policy submit-policy)
+        submit-tooltip (submit/submit-tooltip-from-policy submit-policy (boolean outcome?))
         submit-disabled? (:disabled? submit-policy)
         mode-label (account-mode-label (get-in state [:account :abstraction-raw]))
         outcome-side-index (parse-outcome-side-index

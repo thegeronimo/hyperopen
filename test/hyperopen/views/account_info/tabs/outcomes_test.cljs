@@ -1,127 +1,112 @@
 (ns hyperopen.views.account-info.tabs.outcomes-test
   (:require [cljs.test :refer-macros [deftest is]]
-            [hyperopen.account.history.position-reduce :as position-reduce]
+            [hyperopen.views.account-info.projections.outcomes :as outcome-projections]
             [hyperopen.views.account-info.test-support.hiccup :as hiccup]
             [hyperopen.views.account-info.tabs.outcomes :as outcomes-tab]))
 
-(def ^:private sample-row
-  {:key "outcome-#0"
-   :title "BTC above 78213 on May 3 at 2:00 AM?"
-   :market-key "outcome:0"
-   :raw-coin "+0"
-   :side-coin "#0"
-   :side-name "Yes"
-   :type-label "Outcome"
-   :size 19
-   :position-value 10.83798
-   :quote "USDH"
-   :entry-price 0.5809
-   :mark-price 0.57042
-   :pnl-value -0.20
-   :roe-pct -1.8})
+(def ^:private det-row
+  {:key "outcome-#270370"
+   :title "Detroit Pistons vs Washington Wizards"
+   :market-key "outcome:27037"
+   :side-coin "#270370"
+   :side-name "DET"
+   :position-label "DET"
+   :market-meta "NBA"
+   :venue "Hyperliquid"
+   :clock {:kind :starts :at-ms (js/Date.UTC 2026 10 10 0 0)}
+   :side-index 0
+   :outcome-id 27037
+   :size 122
+   :entry-price 0.81902
+   :cost 99.9204
+   :position-value 99.9
+   :value-after-fees 99.76
+   :value-basis :bid
+   :fee-known? true
+   :if-right 121.83})
 
-(deftest outcomes-tab-renders-hyperliquid-style-outcome-columns-without-chips-test
-  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]})
-        header-strings (set (hiccup/collect-strings (hiccup/tab-header-node content)))
-        row (hiccup/first-viewport-row content)
-        outcome-cell (first (hiccup/node-children row))
-        outcome-cell-strings (set (hiccup/collect-strings outcome-cell))
-        row-strings (set (hiccup/collect-strings row))]
-    (doseq [label ["Market" "Your side" "Shares" "Avg → now" "Value now" "Pays if right" "P&L" "Resolves" "Action"]]
-      (is (contains? header-strings label) label))
-    (is (= #{"BTC above 78213 on May 3 at 2:00 AM?"} outcome-cell-strings))
-    (is (not (contains? row-strings "#0 / outcome:0")))
-    (is (not (contains? row-strings "#0")))
-    (is (contains? row-strings "Yes"))
-    (is (contains? row-strings "19"))
-    (is (contains? row-strings "58.1¢ → 57.0¢"))
-    (is (contains? row-strings "$10.84"))
-    (is (contains? row-strings "$19.00"))
-    (is (contains? row-strings "-$0.20 (-1.8%)"))))
+(def ^:private was-row
+  (assoc det-row
+         :key "outcome-#270371"
+         :side-coin "#270371"
+         :side-name "WAS"
+         :position-label "WAS"
+         :side-index 1
+         :size 40
+         :entry-price 0.185
+         :cost 7.4
+         :value-after-fees 7.23
+         :if-right 39.94))
 
-(deftest outcomes-tab-names-the-side-and-market-in-words-test
-  (let [row (assoc sample-row
-                   :your-side "DET to win"
-                   :market-meta "Sports · NBA · out"
-                   :clock {:kind :starts :at-ms (js/Date.UTC 2026 10 10 0 0)})
-        content (outcomes-tab/outcomes-tab-content {:outcomes [row]
+(defn- strings
+  [content]
+  (set (hiccup/collect-strings content)))
+
+(deftest positions-are-grouped-by-event-and-priced-after-fees-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [det-row was-row]
                                                     :now-ms (js/Date.UTC 2026 10 9 16 25)})
-        row-strings (set (hiccup/collect-strings (hiccup/first-viewport-row content)))]
-    (is (contains? row-strings "DET to win"))
-    (is (contains? row-strings "Sports · NBA · out"))
-    (is (contains? row-strings "Starts in 7h 35m"))
-    (is (contains? row-strings "Cash out"))))
+        all (strings content)]
+    (doseq [label ["Position" "Shares" "Avg price" "Cost" "Value now" "If right" "Action"]]
+      (is (contains? all label) label))
+    (is (contains? all "Detroit Pistons vs Washington Wizards"))
+    (is (contains? all "NBA · starts in 7h 35m"))
+    (is (contains? all "DET"))
+    (is (contains? all "122"))
+    (is (contains? all "81.902¢"))
+    (is (contains? all "$99.92"))
+    (is (contains? all "$99.76"))
+    (is (contains? all "$121.83"))
+    (is (contains? all "Cash out"))
+    (is (not-any? #(re-find #"#270370|0\.81902" %) all))))
 
-(deftest outcomes-tab-renders-reduce-action-and-active-popover-test
-  (let [popover (assoc (position-reduce/default-popover-state)
-                       :open? true
-                       :position-key (:key sample-row)
-                       :position-side :outcome
-                       :position-side-label "Yes"
-                       :position-size 19
-                       :size-percent-input "100")
-        content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]
-                                                    :reduce-popover popover})
-        row (hiccup/first-viewport-row content)
-        reduce-button (hiccup/find-first-node
-                       row
-                       #(and (= :button (first %))
-                             (contains? (hiccup/direct-texts %) "Cash out")))
-        reduce-actions (get-in reduce-button [1 :on :click])
-        panel-node (hiccup/find-first-node
-                    row
-                    #(= "true" (get-in % [1 :data-position-reduce-surface])))]
-    (is (some? reduce-button))
-    (is (= :actions/open-position-reduce-popover
-           (first (first reduce-actions))))
-    (is (= sample-row
-           (second (first reduce-actions))))
-    (is (= :event.currentTarget/bounds
-           (nth (first reduce-actions) 2)))
-    (is (= "true" (get-in reduce-button [1 :data-position-reduce-trigger])))
-    (is (some? panel-node))))
+(deftest pair-row-and-totals-test
+  (let [groups (outcome-projections/group-by-event [det-row was-row])
+        pair (:pair (first groups))
+        content (outcomes-tab/outcomes-tab-content {:outcomes [det-row was-row]})
+        all (strings content)]
+    (is (= 40 (:pairs pair)))
+    (is (= "40 pairs · worth $40.00 whoever wins" (outcomes-tab/pair-text pair)))
+    (is (= "Merge for $39.94" (outcomes-tab/merge-label pair)))
+    (is (contains? all "40 pairs · worth $40.00 whoever wins"))
+    (is (contains? all "Merge for $39.94"))
+    (is (contains? all "Total"))
+    (is (contains? all "$107.32"))
+    (is (contains? all "$106.99"))
+    (is (contains? all outcomes-tab/footnote))))
 
-(deftest outcomes-tab-read-only-mode-omits-reduce-actions-test
-  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]
-                                                    :read-only? true})
-        row (hiccup/first-viewport-row content)
-        reduce-button (hiccup/find-first-node
-                       row
-                       #(and (= :button (first %))
-                             (contains? (hiccup/direct-texts %) "Cash out")))]
-    (is (nil? reduce-button))))
+(deftest cash-out-is-one-action-that-skips-the-perp-popover-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [det-row]})
+        button (hiccup/find-first-node content #(= "outcome-cash-out" (get-in % [1 :data-role])))
+        click (get-in button [1 :on :click])]
+    (is (= [[:actions/open-outcome-cash-out "outcome:27037" "#270370" 122]] click))
+    (is (nil? (get-in button [1 :data-position-reduce-trigger])))))
 
-(deftest outcomes-tab-title-selects-and-navigates-to-outcome-market-test
-  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row]})
-        row (hiccup/first-viewport-row content)
-        outcome-button (hiccup/find-first-node row #(= "outcome-market-select"
-                                                       (get-in % [1 :data-role])))]
-    (is (some? outcome-button))
-    (is (= [[:actions/select-asset-by-market-key "outcome:0"]
-            [:actions/navigate "/trade/%230"]]
-           (get-in outcome-button [1 :on :click])))))
+(deftest merge-button-is-one-action-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [det-row was-row]})
+        button (hiccup/find-first-node content #(= "outcome-merge" (get-in % [1 :data-role])))]
+    (is (= [[:actions/merge-outcome-pairs "outcome:27037" "#270370" "#270371" 40]]
+           (get-in button [1 :on :click])))))
 
-(deftest outcomes-tab-title-highlight-follows-outcome-side-test
-  (let [no-row (assoc sample-row
-                      :key "outcome-#1"
-                      :raw-coin "+1"
-                      :side-coin "#1"
-                      :side-name "No"
-                      :side-index 1)
-        content (outcomes-tab/outcomes-tab-content {:outcomes [sample-row no-row]})
-        rows (vec (hiccup/node-children (hiccup/tab-rows-viewport-node content)))
-        yes-cell (first (hiccup/node-children (first rows)))
-        no-cell (first (hiccup/node-children (second rows)))
-        yes-label (second (hiccup/node-children (first rows)))
-        no-label (second (hiccup/node-children (second rows)))]
-    (is (= "linear-gradient(90deg, rgb(31, 166, 125) 0px, rgb(31, 166, 125) 4px, rgb(11, 50, 38) 4px, transparent 100%) transparent"
-           (get-in yes-cell [1 :style :background])))
-    (is (contains? (hiccup/node-class-set yes-label) "text-emerald-300"))
-    (is (= "transparent linear-gradient(90deg, rgb(237, 112, 136) 0px, rgb(237, 112, 136) 4px, rgba(52, 36, 46, 1) 0%, transparent 100%)"
-           (get-in no-cell [1 :style :background])))
-    (is (contains? (hiccup/node-class-set no-label) "text-red-300"))))
+(deftest read-only-mode-omits-actions-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [det-row was-row] :read-only? true})]
+    (is (nil? (hiccup/find-first-node content #(= "outcome-cash-out" (get-in % [1 :data-role])))))
+    (is (nil? (hiccup/find-first-node content #(= "outcome-merge" (get-in % [1 :data-role])))))))
+
+(deftest event-title-click-is-one-action-test
+  (let [content (outcomes-tab/outcomes-tab-content {:outcomes [det-row]})
+        button (hiccup/find-first-node content #(= "outcome-market-select" (get-in % [1 :data-role])))]
+    (is (= [[:actions/open-outcome-market "outcome:27037" "#270370"]]
+           (get-in button [1 :on :click])))))
+
+(deftest unconfirmed-venue-fee-is-said-not-printed-test
+  (let [row (assoc det-row :fee-known? false :value-after-fees 99.9 :if-right 122)
+        all (strings (outcomes-tab/outcomes-tab-content {:outcomes [row]}))]
+    (is (contains? all "$99.90 (fee unconfirmed)"))
+    (is (contains? all "$122.00 (fee unconfirmed)"))))
+
+(deftest value-priced-at-the-last-mark-is-marked-approximate-test
+  (is (= "~$99.76" (outcomes-tab/value-now-text (assoc det-row :value-basis :mark)))))
 
 (deftest outcomes-tab-empty-state-is-specific-test
-  (let [content (outcomes-tab/outcomes-tab-content {:outcomes []})
-        strings (set (hiccup/collect-strings content))]
-    (is (contains? strings "No active outcomes"))))
+  (is (contains? (strings (outcomes-tab/outcomes-tab-content {:outcomes []}))
+                 "No active outcomes")))

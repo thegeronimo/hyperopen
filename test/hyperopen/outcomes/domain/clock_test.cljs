@@ -45,6 +45,9 @@
            (:label (clock/clock-view (clock/clock-spec :settles "20261110-0600" nil) now utc))))
     (is (= "Settling"
            (:label (clock/clock-view (clock/clock-spec :settles "20261109-1600" nil) now utc))))
+    (testing "Settling does not last forever"
+      (is (= "Awaiting result"
+             (:label (clock/clock-view (clock/clock-spec :settles "20261109-1000" nil) now utc)))))
     (is (= "Ends Dec 1"
            (:label (clock/clock-view (clock/clock-spec :ends "20261201-0000" nil) now utc))))
     (is (= "Decision Dec 9"

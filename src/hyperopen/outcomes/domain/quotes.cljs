@@ -2,13 +2,24 @@
   "Chance, price and payout rules for outcome sides.
 
    A side's price is what one share costs; a winning share pays $1.00, so the
-   price is also the market's chance. Contracts that never traded report a
-   placeholder mark of 0.50 and a book quoted 1.2¢ / 98.8¢ reports a 0.50 mid,
-   so neither number may be shown as a chance. These rules decide what is.")
+   price is also the market's chance. The feed has no last-trade price
+   (`markPx` is not one) and never-traded contracts carry placeholder quotes
+   whose midpoint sits near 0.50, so neither the mark nor a bare midpoint may
+   be shown as a chance. ONE rule, read from the best bid and ask, decides what
+   every surface (list, header, ticket) shows: `chance-quote`. `side-quote`
+   and `book-quote` only gather its inputs."
+  (:require [clojure.string :as str]))
 
 (def wide-spread
-  "Above this bid/ask spread (5¢) the mid stops being a usable chance."
+  "Up to this bid/ask spread (5¢) the midpoint is the chance."
   0.05)
+
+(def range-spread
+  "Up to this spread (20¢) the bid–ask range is shown, muted, never one
+   number; wider than this there is no market."
+  0.20)
+
+(def ^:private epsilon 1e-9)
 
 (defn- num
   [value]
@@ -31,72 +42,187 @@
     (when (and (number? number) (pos? number))
       number)))
 
-(defn side-quote
-  "Quote for one side from its context alone (lists have no order book):
-   {:state :live|:last|:not-traded|:unknown :chance :price}. A mark far from
-   the mid can only happen when the spread is wider than twice the gap, so the
-   mark (the last trade) is shown and labelled. \"Not traded\" needs positive
-   evidence — a zero previous-day price and no volume — so a side whose context
-   has not arrived yet reads as unknown, not untraded."
-  [{:keys [mark mid prevDayRaw volume24h]}]
-  (let [mark* (price mark)
-        mid* (price mid)
-        prev (num prevDayRaw)
-        untraded? (and (number? prev) (zero? prev) (not (positive? volume24h)))]
+(defn never-traded?
+  "True only on positive evidence: a previous-day price of exactly 0 and no
+   volume today. A side whose context has not arrived (no previous-day price)
+   is not known to be untraded. Supply is not a test."
+  [{:keys [prevDayRaw volume24h baseVolume24h]}]
+  (let [prev (num prevDayRaw)]
+    (boolean (and (number? prev)
+                  (zero? prev)
+                  (not (positive? volume24h))
+                  (not (positive? baseVolume24h))))))
+
+(defn chance-quote
+  "The one chance rule. Input: {:bid :ask :book-loaded? :two-sided?
+   :never-traded?}. `:book-loaded?` says bid/ask are authoritative (a book
+   arrived, so a missing side is really empty); `:two-sided?` is the
+   context's hint (a null `midPx` means the book lost a side). First match
+   wins:
+
+     :live        bid and ask ≤ 5¢ apart → the midpoint is the chance
+     :not-traded  never traded and not tight → \"Not traded\", limit only
+     :no-quotes   nothing known about the book yet → a dash
+     :range       both sides, > 5¢ and ≤ 20¢ apart → bid–ask range, muted
+     :no-market   > 20¢ apart, one-sided or empty → \"No market\", limit only
+
+   Returns {:state :chance :price :low :high :bid :ask :spread :never-traded?
+   :market-order? :rankable? :muted?}. `:chance`/`:price` only for :live;
+   `:low`/`:high` only for :range; `:bid`/`:ask` whenever they stand.
+   `:market-order?` is true for :live and :range; `:rankable?` (may be ranked
+   or summed as a chance) only for :live."
+  [{:keys [bid ask book-loaded? two-sided? never-traded?]}]
+  (let [bid* (price bid)
+        ask* (price ask)
+        both? (and (number? bid*) (number? ask*))
+        spread (when both? (- ask* bid*))
+        no-info? (and (nil? bid*) (nil? ask*) (not book-loaded?))
+        base (cond-> {:never-traded? (boolean never-traded?)
+                      :market-order? false
+                      :rankable? false
+                      :muted? true}
+               (number? bid*) (assoc :bid bid*)
+               (number? ask*) (assoc :ask ask*)
+               (number? spread) (assoc :spread spread))]
     (cond
-      (and (nil? mid*) untraded?) {:state :not-traded}
-      (nil? mid*) (if (number? mark*)
-                    {:state :last :chance mark* :price mark*}
-                    {:state :unknown})
-      (and (number? mark*) (> (js/Math.abs (- mid* mark*)) wide-spread))
-      {:state :last :chance mark* :price mark*}
-      :else {:state :live :chance mid* :price mid*})))
+      (and both? (<= spread (+ wide-spread epsilon)))
+      (let [mid (/ (+ bid* ask*) 2)]
+        (assoc base :state :live :chance mid :price mid
+               :market-order? true :rankable? true :muted? false))
+
+      never-traded?
+      (assoc base :state :not-traded)
+
+      (and no-info? (false? two-sided?))
+      (assoc base :state :no-market)
+
+      no-info?
+      (assoc base :state :no-quotes)
+
+      (and both? (<= spread (+ range-spread epsilon)))
+      (assoc base :state :range :low bid* :high ask* :market-order? true)
+
+      :else
+      (assoc base :state :no-market))))
+
+(defn- context-two-sided
+  "The context's hint about the book: a null `midPx` on a context that has
+   arrived means one side or both are empty. Nil when unknown."
+  [side]
+  (when (and (some? (:prevDayRaw side)) (contains? side :midRaw))
+    (some? (:midRaw side))))
+
+(defn side-quote
+  "Quote for one side from what the side map carries: the best bid/ask when a
+   book feed has written `:bid`/`:ask` (either key present means the book is
+   known), otherwise only the context (never-traded evidence and the
+   two-sided hint). Never reads `:mark`."
+  [side]
+  (let [book-loaded? (or (contains? side :bid) (contains? side :ask))]
+    (chance-quote {:bid (:bid side)
+                   :ask (:ask side)
+                   :book-loaded? book-loaded?
+                   :two-sided? (context-two-sided side)
+                   :never-traded? (never-traded? side)})))
 
 (defn book-quote
-  "Quote from the live book: mid while the spread is at most 5¢, otherwise the
-   last trade; no two-sided book is :no-market."
-  [best-bid best-ask mark]
-  (let [bid (num best-bid)
-        ask (num best-ask)
-        mark* (num mark)]
-    (if (and (number? bid) (number? ask))
-      (let [spread (- ask bid)]
-        (if (<= spread (+ wide-spread 1e-9))
-          {:state :live :chance (/ (+ bid ask) 2) :price (/ (+ bid ask) 2) :bid bid :ask ask :spread spread}
-          {:state :last :chance mark* :price mark* :bid bid :ask ask :spread spread}))
-      (cond-> {:state :no-market}
-        (number? bid) (assoc :bid bid)
-        (number? ask) (assoc :ask ask)
-        (number? mark*) (assoc :last mark*)))))
+  "Quote from a live book's best bid and ask (see `chance-quote`). `mark` is
+   accepted for compatibility and ignored: it is not a trade. The optional
+   `side` supplies never-traded evidence (previous-day price, volume)."
+  ([best-bid best-ask mark] (book-quote best-bid best-ask mark nil))
+  ([best-bid best-ask _mark side]
+   (chance-quote {:bid best-bid
+                  :ask best-ask
+                  :book-loaded? true
+                  :never-traded? (never-traded? side)})))
 
 (defn mirror-quote
-  "The other side of the same contract: prices flip to 1 − p and bid/ask swap."
-  [{:keys [chance price bid ask last] :as quote}]
-  (cond-> (select-keys quote [:state :spread])
+  "The other side of the same contract: prices flip to 1 − p, bid/ask swap and
+   a range turns over. State and flags carry across."
+  [{:keys [chance price bid ask low high] :as quote}]
+  (cond-> (select-keys quote [:state :spread :never-traded? :market-order? :rankable? :muted?])
     (number? chance) (assoc :chance (- 1 chance))
     (number? price) (assoc :price (- 1 price))
     (number? ask) (assoc :bid (- 1 ask))
     (number? bid) (assoc :ask (- 1 bid))
-    (number? last) (assoc :last (- 1 last))))
+    (number? high) (assoc :low (- 1 high))
+    (number? low) (assoc :high (- 1 low))))
+
+(defn- pct-text
+  [chance]
+  (let [pct (js/Math.round (* 100 chance))]
+    (cond
+      (< pct 1) "<1"
+      (> pct 99) ">99"
+      :else (str pct))))
 
 (defn chance-text
   "\"82%\", clamped to \"<1%\" and \">99%\"; nil chance is an em dash."
   [chance]
   (if-let [chance* (num chance)]
-    (let [pct (js/Math.round (* 100 chance*))]
-      (cond
-        (< pct 1) "<1%"
-        (> pct 99) ">99%"
-        :else (str pct "%")))
+    (str (pct-text chance*) "%")
     "—"))
 
+(defn range-text
+  "A bid–ask range as chances: \"30–40%\"."
+  [low high]
+  (let [low* (num low)
+        high* (num high)]
+    (if (and (number? low*) (number? high*))
+      (str (pct-text low*) "–" (pct-text high*) "%")
+      "—")))
+
 (defn quote-text
-  "What a list shows for a quote: the chance, or why there is none."
-  [{:keys [state chance]}]
+  "What a surface shows for a quote: the chance, the muted range, or why there
+   is none. Anything else (no quotes yet) is a dash."
+  [{:keys [state chance low high]}]
   (case state
+    :live (chance-text chance)
+    :range (range-text low high)
     :not-traded "Not traded"
     :no-market "No market"
-    (chance-text chance)))
+    "—"))
+
+(declare cents-text)
+
+(defn standing-quotes-text
+  "The quotes standing behind a Not traded / No market / range quote:
+   \"bid 1.3¢ · ask 98.7¢\". Nil when neither side stands."
+  [{:keys [bid ask]}]
+  (let [parts (cond-> []
+                (number? bid) (conj (str "bid " (cents-text bid)))
+                (number? ask) (conj (str "ask " (cents-text ask))))]
+    (when (seq parts)
+      (str/join " · " parts))))
+
+(def stale-sum-threshold
+  "Answers that exclude each other adding up past this read as stale prices."
+  1.05)
+
+(defn exclusive-sum
+  "Sum check for answers that exclude each other (pick-one, field). Only
+   midpoint chances (:live) count. {:sum :counted :over? :text}; `:text` is
+   \"Adds up to 109%\" when the sum is past 105%, else nil."
+  [quotes]
+  (let [chances (keep (fn [quote] (when (= :live (:state quote)) (:chance quote))) quotes)
+        sum (reduce + 0 chances)
+        over? (> sum (+ stale-sum-threshold epsilon))]
+    {:sum sum
+     :counted (count chances)
+     :over? over?
+     :text (when over? (str "Adds up to " (js/Math.round (* 100 sum)) "%"))}))
+
+(defn compact-shares-text
+  "Shares for volume columns: 943K shares, 1.2M shares, 950 shares."
+  [value]
+  (when-let [value* (num value)]
+    (str (cond
+           (>= value* 1e9) (str (.toFixed (/ value* 1e9) 1) "B")
+           (>= value* 1e6) (str (.toFixed (/ value* 1e6) 1) "M")
+           (>= value* 1e4) (str (js/Math.round (/ value* 1e3)) "K")
+           (>= value* 1e3) (str (.toFixed (/ value* 1e3) 1) "K")
+           :else (str (js/Math.round value*)))
+         " shares")))
 
 (defn cents-text
   "Price in cents: \"81.9¢\"; `{:precise? true}` keeps the book's ticks (81.902¢)."

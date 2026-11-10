@@ -128,8 +128,9 @@
         (is (contains? strings "81.9¢"))
         (is (contains? strings "When"))
         (is (contains? strings "Starts in 7h 35m"))
-        (is (contains? strings "Volume 24h"))
-        (is (contains? strings "Open interest"))
+        (is (contains? strings "Volume"))
+        (is (contains? strings "Locked"))
+        (is (not (contains? strings "Open interest")))
         (is (not (contains? strings "Price (Yes)")))
         (is (not (contains? strings "% Chance")))
         (is (not (contains? strings "Funding / Countdown")))
@@ -254,6 +255,20 @@
         (is (contains? strings "Open Int"))
         (is (contains? strings "Spain"))
         (is (not (contains? strings "Argentina")))))))
+
+(deftest header-answer-pick-is-one-select-outcome-option-action-test
+  (support/with-viewport-width
+    1280
+    (fn []
+      (let [view-node (row/active-asset-row-from-vm
+                       (world-cup-row-vm {:open? true :query "sp"})
+                       {:outcome-handlers (outcome-option-handlers-fixture)})
+            spain (support/find-node
+                   #(and (vector? %)
+                         (map? (second %))
+                         (= [[:actions/select-outcome-option 212]] (get-in % [1 :on :click])))
+                   view-node)]
+        (is (some? spain) "the pick dispatches select-outcome-option alone")))))
 
 (deftest mobile-outcome-row-renders-option-selector-with-market-selector-test
   (support/with-viewport-width

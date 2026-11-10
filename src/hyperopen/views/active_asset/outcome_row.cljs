@@ -6,10 +6,21 @@
             [hyperopen.views.active-asset.outcome-tooltip :as outcome-tooltip]
             [hyperopen.views.trade.order-form-controls :as order-form-controls]))
 
+(defn picker-handlers
+  "Picking an answer is ONE action: `select-outcome-option` closes the menu and
+   selects the answer's coin, which owns the selected answer. A second action
+   in the same click would expand against the stale snapshot."
+  [outcome-handlers]
+  (when outcome-handlers
+    (assoc outcome-handlers
+           :on-select-outcome-option (fn [outcome-id]
+                                       [[:actions/select-outcome-option outcome-id]]))))
+
 (defn option-strip-selector
   "The answer picker beside the title for events with several answers."
-  [{:keys [outcome-options outcome-option-id outcome-option-ui]} outcome-handlers]
-  (when (and outcome-handlers (> (count outcome-options) 1))
+  [{:keys [outcome-options outcome-option-id outcome-option-ui]} outcome-handlers*]
+  (when-let [outcome-handlers (when (> (count outcome-options) 1)
+                                (picker-handlers outcome-handlers*))]
     [:div {:class ["relative" "min-w-[11rem]" "max-w-[18rem]" "flex-none"]
            :style (when (:open? outcome-option-ui)
                     {:z-index 260})
@@ -63,32 +74,98 @@
    (when (seq kicker) [:span {:class ["truncate"]} kicker])
    [:span {:class ["shrink-0" "rounded" "border" "border-base-300" "px-1" "text-ho-text-muted"]} venue]])
 
+(defn- chance-text
+  "One number for the selected answer; a two-team game keeps both teams."
+  [{:keys [chances chance-text]}]
+  (if (= 2 (count chances))
+    (chances-text chances)
+    chance-text))
+
+(defn- chance-stat
+  [{:keys [price-muted?] :as outcome-header}]
+  (stat "Chance" (chance-text outcome-header)
+        {:role "outcome-header-chance"
+         :value-classes (if price-muted? ["text-ho-text-muted"] ["text-trading-text"])}))
+
+(defn- stats
+  "Chance, Price, 24h, Volume (shares) and Locked (dollars in the event)."
+  [{:keys [price-label price-text price-muted? change-label change-text change-direction
+           volume-text open-interest-text] :as outcome-header}]
+  (list
+   (chance-stat outcome-header)
+   (stat price-label price-text {:role "outcome-header-price"
+                                 :value-classes (if price-muted? ["text-ho-text-muted"] ["text-trading-text"])})
+   (stat change-label change-text {:value-classes (change-classes change-direction)})
+   (stat "Volume" volume-text {:title "Shares traded in the last 24 hours, each contract counted once"
+                               :role "outcome-header-volume"})
+   (stat "Locked" open-interest-text {:title "Dollars locked in the event: shares outstanding x $1.00, summed over its contracts"
+                                      :role "outcome-header-locked"})))
+
+(defn- name-button
+  [{:keys [icon-market dropdown-visible? missing-icons loaded-icons] :as row-vm}]
+  [:div {:class ["relative" "group/outcome-name" "flex" "min-w-0" "items-center"]
+         :data-role "outcome-market-name-hover-region"}
+   (icon-button/asset-button icon-market dropdown-visible? missing-icons loaded-icons
+                             {:outcome-hover-glow? true})
+   (outcome-tooltip/outcome-tooltip-panel (:outcome-tooltip row-vm))])
+
+(defn multi-answer?
+  "More than two answers: the header takes two lines at desktop width."
+  [{:keys [outcome-options]}]
+  (> (count outcome-options) 2))
+
+(defn- two-line-row
+  "Line 1: the whole event name, its venue and deadline. Line 2: the answer
+   picker and the selected answer's numbers."
+  [{:keys [outcome-header] :as row-vm} {:keys [outcome-handlers]}]
+  (let [{:keys [kicker venue clock-label clock-absolute clock-phase]} outcome-header]
+    [:div {:class ["asset-strip-row" "relative" "hidden" "flex-col" "gap-1" "py-1.5" "lg:flex"]
+           :data-role "outcome-header"
+           :data-layout "two-line"}
+     [:div {:class ["flex" "min-w-0" "items-center" "gap-3" "app-shell-gutter-left" "pr-4"]
+            :data-role "outcome-header-line-event"}
+      (name-button row-vm)
+      (when (seq kicker)
+        [:span {:class ["shrink-0" "truncate" "text-xs" "text-trading-text-secondary"]
+                :data-role "outcome-header-kicker"} kicker])
+      [:span {:class ["shrink-0" "rounded" "border" "border-base-300" "px-1" "text-xs" "text-ho-text-muted"]
+              :data-role "outcome-header-venue"} venue]
+      [:span {:class ["flex-1"]}]
+      [:span {:class (into ["shrink-0" "text-xs"] (clock-classes clock-phase))
+              :title clock-absolute
+              :data-role "outcome-header-clock"}
+       clock-label]]
+     (into [:div {:class ["flex" "min-w-0" "items-center" "gap-6" "app-shell-gutter-left" "pr-4"]
+                  :data-role "outcome-header-line-answer"}
+            (option-strip-selector row-vm outcome-handlers)]
+           (map (fn [cell] [:div {:class ["w-24" "shrink-0"]} cell]))
+           (stats outcome-header))]))
+
+(defn- one-line-row
+  ;; Tight column gaps: the stat columns take their content width first and
+  ;; the event name gets the rest, so every pixel of gap is taken from the
+  ;; name ("Arizona Cardinals vs Los Angeles Rams" fits at 1440px).
+  [{:keys [outcome-header] :as row-vm} {:keys [outcome-handlers]}]
+  [:div {:class ["asset-strip-row" "relative" "hidden" "items-center" "gap-x-2" "px-0" "py-1.5" "lg:grid"]
+         :style {:grid-template-columns "minmax(10rem, 1fr) repeat(6, minmax(0, max-content))"}
+         :data-role "outcome-header"
+         :data-layout "one-line"}
+   [:div {:class ["flex" "min-w-0" "justify-start" "app-shell-gutter-left" "items-center" "gap-2"]
+          :data-role "outcome-market-selector-group"}
+    [:div {:class ["flex" "min-w-0" "flex-col"]}
+     (kicker-line outcome-header)
+     (name-button row-vm)]
+    (option-strip-selector row-vm outcome-handlers)]
+   (stat "When" (:clock-label outcome-header) {:title (:clock-absolute outcome-header)
+                                              :value-classes (clock-classes (:clock-phase outcome-header))
+                                              :role "outcome-header-clock"})
+   (stats outcome-header)])
+
 (defn desktop-row
-  [{:keys [icon-market dropdown-visible? missing-icons loaded-icons outcome-header] :as row-vm}
-   {:keys [outcome-handlers]}]
-  (let [{:keys [chances price-label price-text change-label change-text change-direction
-                clock-label clock-absolute clock-phase volume-text open-interest-text]} outcome-header]
-    [:div {:class ["asset-strip-row" "relative" "hidden" "items-center" "gap-2" "px-0" "py-1.5" "lg:grid" "md:gap-3"]
-           :style {:grid-template-columns "minmax(10rem, 1fr) repeat(6, minmax(0, max-content))"}
-           :data-role "outcome-header"}
-     [:div {:class ["flex" "min-w-0" "justify-start" "app-shell-gutter-left" "items-center" "gap-2"]
-            :data-role "outcome-market-selector-group"}
-      [:div {:class ["flex" "min-w-0" "flex-col"]}
-       (kicker-line outcome-header)
-       [:div {:class ["relative" "group/outcome-name" "flex" "items-center"]
-              :data-role "outcome-market-name-hover-region"}
-        (icon-button/asset-button icon-market dropdown-visible? missing-icons loaded-icons
-                                  {:outcome-hover-glow? true})
-        (outcome-tooltip/outcome-tooltip-panel (:outcome-tooltip row-vm))]]
-      (option-strip-selector row-vm outcome-handlers)]
-     (stat "Chance" (chances-text chances) {:role "outcome-header-chance"})
-     (stat price-label price-text {:role "outcome-header-price"})
-     (stat change-label change-text {:value-classes (change-classes change-direction)})
-     (stat "When" clock-label {:title clock-absolute
-                                      :value-classes (clock-classes clock-phase)
-                                      :role "outcome-header-clock"})
-     (stat "Volume 24h" volume-text)
-     (stat "Open interest" open-interest-text {:title "Shares outstanding × $1.00"})]))
+  [row-vm opts]
+  (if (multi-answer? row-vm)
+    (two-line-row row-vm opts)
+    (one-line-row row-vm opts)))
 
 (defn mobile-row
   [{:keys [icon-market dropdown-visible? missing-icons loaded-icons outcome-header] :as row-vm}
@@ -114,8 +191,8 @@
        [:span {:class ["num" "text-trading-text"]} price-text]]
       [:div {:class (into ["truncate" "text-right"] (clock-classes clock-phase))} clock-label]
       [:div {:class ["flex" "justify-between" "gap-2"]}
-       [:span {:class ["text-trading-text-secondary"]} "Volume 24h"]
+       [:span {:class ["text-trading-text-secondary"]} "Volume"]
        [:span {:class ["num" "text-trading-text"]} volume-text]]
       [:div {:class ["flex" "justify-end" "gap-2"]}
-       [:span {:class ["text-trading-text-secondary"]} "Open interest"]
+       [:span {:class ["text-trading-text-secondary"]} "Locked"]
        [:span {:class ["num" "text-trading-text"]} open-interest-text]]]]))

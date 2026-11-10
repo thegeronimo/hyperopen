@@ -2,7 +2,11 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.domain.events :as events]
             [hyperopen.outcomes.test-support.fixture :as fixture]))
+
+(def ^:private touch-key
+  "ladder:price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000")
 
 (defn- built-markets
   []
@@ -33,11 +37,15 @@
     (is (= #{"outcome:27037"
              "question:614" "question:430" "question:545" "question:627"
              "outcome:30011" "outcome:5112" "outcome:29614" "outcome:99999"
-             "ladder:price-touch|BTC|20261201-0000"
-             "ladder:binary-price|BTC|20261109-1630"
-             "ladder:company-ipo-market-cap|Anthropic"}
+             touch-key
+             ;; fox and out settle the same strike time on different rules:
+             ;; two singles, not one ladder.
+             "outcome:30516" "outcome:30520"
+             "ladder:company-ipo-market-cap|Anthropic|txyz|20261231-2359"
+             "ladder:company-ipo-market-cap|Anthropic|out|20270101-0000"
+             "ladder:company-ipo-market-cap|Anthropic|skew|20270501-0359"}
            (set (keys market-by-key))))
-    (is (= {:head-to-head 1 :pick-one 3 :field 1 :ladder 3 :yes-no 4}
+    (is (= {:head-to-head 1 :pick-one 3 :field 1 :ladder 4 :yes-no 6}
            (frequencies (map :outcome-shape markets))))))
 
 (deftest head-to-head-market-test
@@ -47,7 +55,8 @@
     (is (= :sports (:outcome-category game)))
     (is (= "NBA" (:outcome-competition game)))
     (is (= "out" (:outcome-venue game)))
-    (is (= "DET 82%  *  WAS 18%" (:outcome-summary game)))
+    ;; No book has arrived: the summary never prints the mark or the mid.
+    (is (= "DET —  *  WAS —" (:outcome-summary game)))
     (is (= 0.81894 (:mid (first (:outcome-sides game)))))))
 
 (deftest pick-one-question-carries-its-fallback-test
@@ -66,7 +75,7 @@
     (is (not= 0.5 (:mark range-question)))))
 
 (deftest price-touch-ladder-test
-  (let [ladder (get (by-key (built-markets)) "ladder:price-touch|BTC|20261201-0000")
+  (let [ladder (get (by-key (built-markets)) touch-key)
         thresholds (mapv :threshold (:question-options ladder))]
     (is (= :ladder (:outcome-kind ladder)))
     (is (= "Bitcoin reaches…" (:title ladder)))
@@ -87,18 +96,100 @@
         (is (= 1 (:outcome-side-index active)))
         (is (= (:outcome-id rung) (:outcome-option-id active)))))))
 
-(deftest multi-venue-ladders-name-the-venue-on-each-rung-test
+(deftest ladders-are-one-venue-source-window-and-deadline-test
   (let [market-by-key (by-key (built-markets))
-        strikes (get market-by-key "ladder:binary-price|BTC|20261109-1630")
-        ipo (get market-by-key "ladder:company-ipo-market-cap|Anthropic")]
-    (is (= ["$75,150 · fox" "$75,101 · out"] (mapv :label (:question-options strikes))))
-    (is (nil? (:outcome-venue strikes)))
-    (is (= 6 (count (:question-options ipo))))
-    (is (= #{"out" "skew" "txyz"} (set (:outcome-venues ipo))))
-    (is (every? #(re-find #"^≥ \$\d.*· (out|skew|txyz)$" %) (map :label (:question-options ipo))))
-    (is (= :companies (:outcome-category ipo)))))
+        txyz (get market-by-key "ladder:company-ipo-market-cap|Anthropic|txyz|20261231-2359")
+        skew (get market-by-key "ladder:company-ipo-market-cap|Anthropic|skew|20270501-0359")]
+    (testing "different venues never merge"
+      (is (nil? (some #(str/starts-with? % "ladder:binary-price") (keys market-by-key))))
+      (is (= "fox" (:outcome-venue (get market-by-key "outcome:30516"))))
+      (is (= "out" (:outcome-venue (get market-by-key "outcome:30520")))))
+    (testing "each venue's IPO rungs are their own ladder with their own deadline"
+      (is (= ["≥ $1.75T" "≥ $1.5T"] (mapv :label (:question-options txyz))))
+      (is (= ["txyz"] (:outcome-venues txyz)))
+      (is (= "txyz" (:outcome-venue txyz)))
+      (is (= (js/Date.UTC 2027 4 1 3 59) (get-in skew [:outcome-clock :at-ms])))
+      (is (= :companies (:outcome-category txyz))))
+    (testing "rungs carry their rule-set key for the order check"
+      (is (every? #(= (subs (:key txyz) 7) (:ladder-key %)) (:question-options txyz))))))
+
+(deftest ladder-key-needs-source-and-window-to-match-test
+  (let [entry (fn [id source seconds]
+                {:outcome id :name "template:priceTouch"
+                 :description (str "perp:BTC|priceDescription:" source "|seconds:" seconds
+                                   "|target:" (+ 80000 id) "|time:20261201-0000")
+                 :sideSpecs [{:name "template:Yes"} {:name "template:No"}] :quoteToken "USDC" :venue "skew"})
+        built (markets/build-outcome-markets {:outcomes [(entry 1 "BTC perp trades" 90)
+                                                         (entry 2 "BTC perp trades" 90)
+                                                         (entry 3 "Pyth BTC/USD" 90)
+                                                         (entry 4 "BTC perp trades" 60)]
+                                              :questions []}
+                                             [])]
+    (is (= 1 (count (filter #(= :ladder (:outcome-shape %)) built))))
+    (is (= 2 (count (:question-options (first (filter #(= :ladder (:outcome-shape %)) built))))))
+    (is (= 3 (count built)))))
 
 (deftest unknown-template-market-reads-as-words-test
   (let [weather (get (by-key (built-markets)) "outcome:99999")]
     (is (str/starts-with? (:title weather) "Weather high temperature"))
     (is (= :other (:outcome-category weather)))))
+
+(deftest touch-direction-comes-from-the-live-price-test
+  (is (= :up (events/rung-direction :touch 80 75)))
+  (is (= :down (events/rung-direction :touch 70 75)))
+  (is (nil? (events/rung-direction :touch 70 nil)) "no live price, no direction")
+  (is (= :up (events/rung-direction :above 75000 nil)))
+  (is (= :up (events/rung-direction :at-least 1500 nil)))
+  (is (= "Rises to $80" (events/direction-label :touch :up "$80")))
+  (is (= "Falls to $70" (events/direction-label :touch :down "$70")))
+  (is (= "$80" (events/direction-label :touch nil "$80"))))
+
+(deftest order-check-compares-every-easier-rung-test
+  (testing "board 4d, txyz Anthropic column: $2.25T and $2.5T are both out of order"
+    (let [rows [{:outcome-id 1 :threshold 1500 :chance 0.626 :label "≥ $1.5T" :venue "txyz" :ladder-key "k"}
+                {:outcome-id 2 :threshold 1750 :chance 0.537 :label "≥ $1.75T" :venue "txyz" :ladder-key "k"}
+                {:outcome-id 3 :threshold 2000 :chance 0.118 :label "≥ $2T" :venue "txyz" :ladder-key "k"}
+                {:outcome-id 4 :threshold 2250 :chance 0.250 :label "≥ $2.25T" :venue "txyz" :ladder-key "k"}
+                {:outcome-id 5 :threshold 2500 :chance 0.145 :label "≥ $2.5T" :venue "txyz" :ladder-key "k"}]
+          flags (events/rung-order-flags rows :at-least nil)]
+      (is (= #{4 5} (set (keys flags))))
+      (is (= {:than-outcome-id 3 :than-label "≥ $2T" :than-chance 0.118 :text "Out of order"}
+             (get flags 5))
+          "$2.5T is compared with the least likely easier rung, not only its neighbour")))
+  (testing "within half a point is not flagged"
+    (is (empty? (events/rung-order-flags [{:outcome-id 1 :threshold 2250 :chance 0.027 :venue "out"}
+                                          {:outcome-id 2 :threshold 2500 :chance 0.030 :venue "out"}]
+                                         :at-least nil))))
+  (testing "venues and rule sets are never compared"
+    (is (empty? (events/rung-order-flags [{:outcome-id 1 :threshold 1500 :chance 0.10 :venue "out"}
+                                          {:outcome-id 2 :threshold 1750 :chance 0.50 :venue "skew"}]
+                                         :at-least nil)))
+    (is (empty? (events/rung-order-flags [{:outcome-id 1 :threshold 1500 :chance 0.10 :venue "out" :ladder-key "a"}
+                                          {:outcome-id 2 :threshold 1750 :chance 0.50 :venue "out" :ladder-key "b"}]
+                                         :at-least nil))))
+  (testing "a touch ladder checks each direction on its own (board 4d HYPE)"
+    (let [rows [{:outcome-id 100 :threshold 100 :chance 0.04}
+                {:outcome-id 95 :threshold 95 :chance 0.08}
+                {:outcome-id 90 :threshold 90 :chance 0.18}
+                {:outcome-id 80 :threshold 80 :chance 0.68}
+                {:outcome-id 70 :threshold 70 :chance 0.68}
+                {:outcome-id 60 :threshold 60 :chance 0.75}]]
+      (is (= #{60} (set (keys (events/rung-order-flags rows :touch 75))))
+          "$80 and $70 are both 68% and in order; $60 above $70's chance is out of order")
+      (is (empty? (events/rung-order-flags rows :touch nil)) "no live price, no check")))
+  (testing "rungs without a midpoint chance are skipped"
+    (is (empty? (events/rung-order-flags [{:outcome-id 1 :threshold 1 :chance nil}
+                                          {:outcome-id 2 :threshold 2 :chance 0.9}]
+                                         :above nil)))))
+
+(deftest selected-rung-drives-clock-rules-and-venue-test
+  (let [ladder (get (by-key (built-markets)) touch-key)
+        rung (last (:question-options ladder))
+        selected (assoc ladder
+                        :outcome-option-id (:outcome-id rung)
+                        :question-options (assoc-in (:question-options ladder) [3 :rules] "Rung rules.")
+                        :outcome-rules "Ladder rules.")
+        facts (events/selected-rung-facts selected)]
+    (is (= (str events/ladder-note " Rung rules.") (:rules facts)))
+    (is (= (:clock rung) (:clock facts)))
+    (is (= "out" (:venue facts)))))

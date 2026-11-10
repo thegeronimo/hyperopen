@@ -254,15 +254,24 @@
             [hyperopen.order.feedback-runtime-test]
             [hyperopen.order.margin-rec-intent-test]
             [hyperopen.order.outcome-option-sort-test]
+            [hyperopen.order.outcome-ticket-entry-test]
             [hyperopen.order.toast-payloads-test]
             [hyperopen.orderbook.actions-test]
             [hyperopen.orderbook.price-aggregation-test]
             [hyperopen.orderbook.settings-test]
             [hyperopen.outcome-side-market-switch-test]
+            [hyperopen.outcomes.application.exit-actions-test]
+            [hyperopen.outcomes.application.merge-actions-test]
+            [hyperopen.outcomes.domain.book-test]
             [hyperopen.outcomes.domain.clock-test]
+            [hyperopen.outcomes.domain.competition-naming-test]
             [hyperopen.outcomes.domain.events-test]
+            [hyperopen.outcomes.domain.fees-test]
             [hyperopen.outcomes.domain.quotes-test]
             [hyperopen.outcomes.domain.templates-test]
+            [hyperopen.outcomes.names-test]
+            [hyperopen.outcomes.receipt-test]
+            [hyperopen.outcomes.surfaces-names-test]
             [hyperopen.platform-test]
             [hyperopen.platform.indexed-db-committed-test]
             [hyperopen.platform.indexed-db-test]
@@ -582,6 +591,7 @@
             [hyperopen.state.trading.order-form-ownership-formal-conformance-test]
             [hyperopen.state.trading.order-form-state-test]
             [hyperopen.state.trading.order-request-test]
+            [hyperopen.state.trading.outcome-order-policy-test]
             [hyperopen.state.trading.scale-pm-summary-test]
             [hyperopen.state.trading.submit-policy-formal-conformance-test]
             [hyperopen.state.trading.twap-venue-model-test]
@@ -671,6 +681,7 @@
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
             [hyperopen.views.account-equity.hyperevm-line-test]
+            [hyperopen.views.account-equity.outcome-shares-metrics-test]
             [hyperopen.views.account-info-view-test]
             [hyperopen.views.account-info.cache-keys-test]
             [hyperopen.views.account-info.hyperevm-equity-invariance-test]
@@ -717,6 +728,7 @@
             [hyperopen.views.active-asset.funding-tooltip-popover-test]
             [hyperopen.views.active-asset.icon-button-test]
             [hyperopen.views.active-asset.market-info-view-test]
+            [hyperopen.views.active-asset.outcome-header-layout-test]
             [hyperopen.views.active-asset.outcome-option-sort-test]
             [hyperopen.views.active-asset.outcome-tooltip-test]
             [hyperopen.views.active-asset.row-helpers-test]
@@ -732,6 +744,7 @@
             [hyperopen.views.asset-selector.annotation-selector-test]
             [hyperopen.views.asset-selector.controls-test]
             [hyperopen.views.asset-selector.outcome-list-test]
+            [hyperopen.views.asset-selector.outcome-panel-test]
             [hyperopen.views.asset-selector.processing-test]
             [hyperopen.views.asset-selector.rows-test]
             [hyperopen.views.asset-selector.runtime-test]
@@ -878,6 +891,7 @@
             [hyperopen.views.trade-view.lazy-tab-module-repaint-test]
             [hyperopen.views.trade-view.loading-shell-test]
             [hyperopen.views.trade-view.mobile-surface-test]
+            [hyperopen.views.trade-view.outcome-mobile-sheet-test]
             [hyperopen.views.trade-view.render-cache-test]
             [hyperopen.views.trade-view.startup-defer-test]
             [hyperopen.views.trade-view.vol-range-slice-repaint-test]
@@ -1105,6 +1119,7 @@
             [hyperopen.websocket.orderbook-level-changes-test]
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
+            [hyperopen.websocket.outcome-bbo-test]
             [hyperopen.websocket.runtime-state-coverage-test]
             [hyperopen.websocket.subscription-errors-test]
             [hyperopen.websocket.subscriptions-runtime-test]
@@ -1380,15 +1395,24 @@
              'hyperopen.order.feedback-runtime-test
              'hyperopen.order.margin-rec-intent-test
              'hyperopen.order.outcome-option-sort-test
+             'hyperopen.order.outcome-ticket-entry-test
              'hyperopen.order.toast-payloads-test
              'hyperopen.orderbook.actions-test
              'hyperopen.orderbook.price-aggregation-test
              'hyperopen.orderbook.settings-test
              'hyperopen.outcome-side-market-switch-test
+             'hyperopen.outcomes.application.exit-actions-test
+             'hyperopen.outcomes.application.merge-actions-test
+             'hyperopen.outcomes.domain.book-test
              'hyperopen.outcomes.domain.clock-test
+             'hyperopen.outcomes.domain.competition-naming-test
              'hyperopen.outcomes.domain.events-test
+             'hyperopen.outcomes.domain.fees-test
              'hyperopen.outcomes.domain.quotes-test
              'hyperopen.outcomes.domain.templates-test
+             'hyperopen.outcomes.names-test
+             'hyperopen.outcomes.receipt-test
+             'hyperopen.outcomes.surfaces-names-test
              'hyperopen.platform-test
              'hyperopen.platform.indexed-db-committed-test
              'hyperopen.platform.indexed-db-test
@@ -1708,6 +1732,7 @@
              'hyperopen.state.trading.order-form-ownership-formal-conformance-test
              'hyperopen.state.trading.order-form-state-test
              'hyperopen.state.trading.order-request-test
+             'hyperopen.state.trading.outcome-order-policy-test
              'hyperopen.state.trading.scale-pm-summary-test
              'hyperopen.state.trading.submit-policy-formal-conformance-test
              'hyperopen.state.trading.twap-venue-model-test
@@ -1797,6 +1822,7 @@
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
              'hyperopen.views.account-equity.hyperevm-line-test
+             'hyperopen.views.account-equity.outcome-shares-metrics-test
              'hyperopen.views.account-info-view-test
              'hyperopen.views.account-info.cache-keys-test
              'hyperopen.views.account-info.hyperevm-equity-invariance-test
@@ -1843,6 +1869,7 @@
              'hyperopen.views.active-asset.funding-tooltip-popover-test
              'hyperopen.views.active-asset.icon-button-test
              'hyperopen.views.active-asset.market-info-view-test
+             'hyperopen.views.active-asset.outcome-header-layout-test
              'hyperopen.views.active-asset.outcome-option-sort-test
              'hyperopen.views.active-asset.outcome-tooltip-test
              'hyperopen.views.active-asset.row-helpers-test
@@ -1858,6 +1885,7 @@
              'hyperopen.views.asset-selector.annotation-selector-test
              'hyperopen.views.asset-selector.controls-test
              'hyperopen.views.asset-selector.outcome-list-test
+             'hyperopen.views.asset-selector.outcome-panel-test
              'hyperopen.views.asset-selector.processing-test
              'hyperopen.views.asset-selector.rows-test
              'hyperopen.views.asset-selector.runtime-test
@@ -2004,6 +2032,7 @@
              'hyperopen.views.trade-view.lazy-tab-module-repaint-test
              'hyperopen.views.trade-view.loading-shell-test
              'hyperopen.views.trade-view.mobile-surface-test
+             'hyperopen.views.trade-view.outcome-mobile-sheet-test
              'hyperopen.views.trade-view.render-cache-test
              'hyperopen.views.trade-view.startup-defer-test
              'hyperopen.views.trade-view.vol-range-slice-repaint-test
@@ -2231,6 +2260,7 @@
              'hyperopen.websocket.orderbook-level-changes-test
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test
+             'hyperopen.websocket.outcome-bbo-test
              'hyperopen.websocket.runtime-state-coverage-test
              'hyperopen.websocket.subscription-errors-test
              'hyperopen.websocket.subscriptions-runtime-test

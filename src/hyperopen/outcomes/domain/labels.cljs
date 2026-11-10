@@ -29,6 +29,39 @@
   (let [text (some-> value str str/trim)]
     (when (seq text) text)))
 
+(defn competition-label
+  "How a person names a competition: the abbreviation the feed puts in
+   parentheses (\"USA National Football League (NFL)\" -> \"NFL\"), else the name
+   without a trailing \"Championship\" (\"MLB Championship\" -> \"MLB\")."
+  [value]
+  (when-let [text (clean value)]
+    (or (some-> (re-find #"\(([A-Za-z0-9&.]{2,8})\)" text) second)
+        (let [stripped (str/trim (str/replace text #"(?i)\s+championships?$" ""))]
+          (when (seq stripped) stripped))
+        text)))
+
+(defn season-label
+  "A season (\"2026/2027\"); the feed's literal placeholder \"season\" is none."
+  [value]
+  (let [text (clean value)]
+    (when (and text (not= "season" (str/lower-case text))) text)))
+
+(def ^:private venue-names
+  ;; Outcome deployers publish a short code. Only names that are certain are
+  ;; mapped; the display names of `out`, `skew` and `fox` are not documented,
+  ;; so those codes are shown as published rather than guessed. Add a name
+  ;; here once confirmed and every surface picks it up.
+  ;; `txyz` is trade.xyz, the deployer of the `xyz:` HIP-3 perps.
+  {"txyz" "trade.xyz"})
+
+(defn venue-label
+  "Display name for an outcome venue (deployer) code: `txyz` -> trade.xyz.
+   Codes without a confirmed name read as published; nil stays nil."
+  [venue]
+  (when-let [code (clean venue)]
+    (or (get venue-names (str/lower-case code))
+        code)))
+
 (defn base-symbol
   [subject]
   (let [text (clean subject)]

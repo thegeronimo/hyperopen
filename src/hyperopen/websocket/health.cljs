@@ -314,6 +314,7 @@
    "trades" trades-descriptor-candidates
    "candle" candle-descriptor-candidates
    "activeAssetCtx" single-coin-descriptor-candidates
+   "bbo" single-coin-descriptor-candidates
    "webData2" user-descriptor-candidates
    "openOrders" user-descriptor-candidates
    "twapStates" user-descriptor-candidates

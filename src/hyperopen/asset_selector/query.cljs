@@ -68,6 +68,30 @@
                (market-fallback-sort-rank b))
       directional-primary)))
 
+(def company-search-aliases
+  "Company names people type, by the ticker the feed carries. \"nvidia\" finds
+   NVDA perps and the outcome markets priced against them."
+  {"NVDA" "nvidia" "TSLA" "tesla" "AAPL" "apple" "MSFT" "microsoft"
+   "GOOGL" "google alphabet" "GOOG" "google alphabet" "AMZN" "amazon"
+   "META" "meta facebook" "NFLX" "netflix" "AMD" "advanced micro devices"
+   "INTC" "intel" "COIN" "coinbase" "MSTR" "microstrategy strategy"
+   "HOOD" "robinhood" "PLTR" "palantir" "ORCL" "oracle" "CRCL" "circle"
+   "SPCX" "spacex space exploration" "OPENAI" "openai" "ANTHROPIC" "anthropic"
+   "GOLD" "gold" "SILVER" "silver" "CL" "crude oil" "SP500" "s&p 500 sp500"})
+
+(defn- ticker-token
+  [value]
+  (some-> value str (str/split #":") last str/upper-case not-empty))
+
+(defn- company-names
+  "Company names for every ticker the asset is priced against."
+  [asset]
+  (->> [(:outcome-subject asset) (:underlying asset) (:base asset) (:symbol asset)]
+       (keep ticker-token)
+       (keep company-search-aliases)
+       (str/join " ")
+       str/lower-case))
+
 (defn matches-search?
   [asset search-term strict?]
   (let [query (str/lower-case (or search-term ""))
@@ -85,7 +109,8 @@
                            str/lower-case)
         ;; The issuer parsed from a HIP-3 description: "space exploration"
         ;; finds xyz:SPCX.
-        descriptor (str/lower-case (or (:descriptor asset) ""))]
+        descriptor (str/lower-case (or (:descriptor asset) ""))
+        company (company-names asset)]
     (if strict?
       (or (str/starts-with? symbol query)
           (str/starts-with? title query)
@@ -96,7 +121,8 @@
           (str/starts-with? underlying query)
           (str/starts-with? outcome-summary query)
           (str/starts-with? option-labels query)
-          (str/starts-with? descriptor query))
+          (str/starts-with? descriptor query)
+          (str/starts-with? company query))
       (or (str/includes? symbol query)
           (str/includes? title query)
           (str/includes? display-symbol query)
@@ -106,7 +132,8 @@
           (str/includes? underlying query)
           (str/includes? outcome-summary query)
           (str/includes? option-labels query)
-          (str/includes? descriptor query)))))
+          (str/includes? descriptor query)
+          (str/includes? company query)))))
 
 (defn- hip3-tab-eligible?
   [asset strict?]
@@ -234,7 +261,9 @@
 
           ;; The Outcome tab renders events in sections, not the virtual list.
           (contains? settings/outcome-tab-set (:active-tab selector-state))
-          (outcome-listing/visible-coins (outcome-listing/sections processed-assets (.now js/Date)))
+          (let [opts (outcome-listing/listing-opts state)]
+            (outcome-listing/visible-coins (outcome-listing/sections processed-assets (.now js/Date) opts)
+                                           (:visible-keys opts)))
 
           :else
           (let [limit (normalize-render-limit (:render-limit selector-state) total)
@@ -243,3 +272,57 @@
             (->> (subvec processed-assets start-index end-index)
                  (keep :coin)
                  set)))))))
+
+;; ---------------------------------------------------------------------------
+;; Outcome top-of-book (`bbo`) subscriptions
+
+(def outcome-top-of-book-limit
+  "Most `bbo` subscriptions held at once: the open event's answers first,
+   then the list rows on screen."
+  60)
+
+(defn- side-zero-coin
+  [sides]
+  (:coin (or (some #(when (= 0 (:side-index %)) %) sides)
+             (first sides))))
+
+(defn- outcome-catalog-side-coins
+  "Every side coin of the loaded catalog's outcome markets. The venue closes
+   the socket on a subscription to a coin it does not list, so only these
+   (and only once the full catalog has loaded) are ever subscribed."
+  [state]
+  (if-not (= :full (get-in state [:asset-selector :phase]))
+    #{}
+    (into #{}
+          (comp (filter #(= :outcome (:market-type %)))
+                (mapcat (fn [market]
+                          (concat (:outcome-sides market)
+                                  (mapcat :sides (:question-options market)))))
+                (keep :coin))
+          (vals (get-in state [:asset-selector :market-by-key])))))
+
+(defn- active-event-side-coins
+  "Side-0 coin of every answer of the event open in the ticket (one book
+   serves both sides of a contract)."
+  [state]
+  (let [market (:active-market state)]
+    (when (= :outcome (:market-type market))
+      (if (seq (:question-options market))
+        (keep (comp side-zero-coin :sides) (:question-options market))
+        (keep identity [(side-zero-coin (:outcome-sides market))])))))
+
+(defn outcome-top-of-book-coins
+  "Outcome side coins whose best bid/ask should stream (`bbo`): every answer
+   of the event open in the ticket, then the selector's visible outcome rows
+   (side 0 only), restricted to the loaded catalog and capped at
+   `outcome-top-of-book-limit`. Pure; ordered, distinct."
+  [state]
+  (let [catalog (outcome-catalog-side-coins state)
+        listed (->> (selector-visible-market-coins state)
+                    (filter catalog)
+                    sort)]
+    (->> (concat (active-event-side-coins state) listed)
+         (filter catalog)
+         distinct
+         (take outcome-top-of-book-limit)
+         vec)))

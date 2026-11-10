@@ -2,15 +2,23 @@
   "Order ticket for outcome markets: pick a side, enter dollars, read what it
    pays. Buying a side is the only entry; selling is Cash out on held shares."
   (:require [clojure.string :as str]
-            [hyperopen.system :as app-system]
-            [hyperopen.views.trade.order-form-commands :as cmd]
-            [hyperopen.views.trade.order-form-footer :as footer]
-            [hyperopen.views.trade.order-form-intent-adapter :as intent-adapter]
-            [nexus.registry :as nxr]))
+            [hyperopen.views.trade.order-form-footer :as footer]))
 
-(defn- command-actions
-  [& commands]
-  (into [] (mapcat intent-adapter/command->actions) commands))
+;; Every control in the ticket dispatches exactly ONE action. Nexus expands all
+;; actions of one event against the same state snapshot, so a second form write
+;; in the same click would read the stale form and undo the first.
+
+(def ^:private event-value [:event.target/value])
+(def ^:private event-checked [:event.target/checked])
+
+(defn entry-actions
+  "The single action that applies one complete ticket change."
+  [entry]
+  [[:actions/set-outcome-ticket-entry entry]])
+
+(defn- price-actions
+  [price]
+  [[:actions/update-order-form [:price] (str (/ (js/Math.round (* price 100000)) 100000))]])
 
 (defn- segmented
   [{:keys [role label items]}]
@@ -59,7 +67,7 @@
   (vec ((get-in handlers [:outcome :on-select-outcome-side]) index)))
 
 (defn- side-button
-  [handlers {:keys [index label sub-label price-text chance-text selected? tone]}]
+  [handlers {:keys [index label sub-label price-text chance-label muted? selected? tone]}]
   [:button {:type "button"
             :class (into ["flex" "min-h-[3.5rem]" "min-w-0" "flex-col" "items-start" "justify-center" "gap-0.5"
                           "rounded-lg" "border" "px-3" "py-2" "text-left" "transition-colors"
@@ -73,7 +81,7 @@
     [:span {:class ["num" "text-sm" "font-semibold" "text-ho-text-hi"]} price-text]]
    [:span {:class ["flex" "w-full" "items-baseline" "justify-between" "gap-2" "text-xs" "text-ho-text-secondary"]}
     [:span {:class ["truncate"]} (or sub-label "")]
-    [:span {:class ["num" "shrink-0"]} (str chance-text " chance")]]])
+    [:span {:class (into ["num" "shrink-0"] (when muted? ["text-ho-text-muted"]))} chance-label]]])
 
 (defn- select-coin-actions
   [coin]
@@ -89,7 +97,7 @@
       [:div {:class ["truncate" "text-ho-text-muted"]} (str/join " · " parts)])))
 
 (defn- option-row
-  [{:keys [label selected? chance-text yes-text no-text yes-coin no-coin kink-note] :as row}]
+  [{:keys [label selected? chance-text muted? detail-text yes-text no-text yes-coin no-coin kink-note] :as row}]
   [:div {:class (into ["grid" "items-center" "gap-2" "rounded-md" "px-2" "py-1.5" "text-xs"]
                       (if selected? ["bg-ho-accent-soft"] ["hover:bg-base-200/60"]))
          :style {:grid-template-columns "minmax(0,1fr) 2.75rem 3.25rem 3.25rem"}
@@ -97,9 +105,13 @@
    [:div {:class ["min-w-0"]}
     [:div {:class ["truncate" "font-medium" "text-ho-text-hi"]} label]
     (option-sub-line row)
+    (when detail-text
+      [:div {:class ["truncate" "text-ho-text-muted"] :data-role "outcome-ticket-option-standing"} detail-text])
     (when kink-note
       [:div {:class ["truncate" "text-ho-warn"] :data-role "outcome-ticket-rung-kink"} kink-note])]
-   [:div {:class ["num" "text-right" "font-semibold" "text-ho-text-hi"]} chance-text]
+   [:div {:class (into ["num" "text-right" "font-semibold"]
+                       (if muted? ["text-ho-text-muted"] ["text-ho-text-hi"]))}
+    chance-text]
    [:button {:type "button"
              :class ["h-8" "rounded-md" "border" "border-base-300" "num" "text-ho-buy" "hover:border-ho-buy"
                      "focus:outline-none" "focus:ring-0" "focus:ring-offset-0"]
@@ -150,7 +162,7 @@
             :role "alert"
             :data-role "outcome-ticket-stale-warning"}
       [:div {:class ["font-semibold" "text-ho-warn"]} (str "Listed answers add up to " listed-sum-text)]
-      [:div "Only one can win, so some of these prices are old last trades. Check the result before you trade."]])])
+      [:div "Only one can win, so some of these prices are out of date. Check the result before you trade."]])])
 
 (defn- input-shell
   [{:keys [prefix suffix input]}]
@@ -164,17 +176,6 @@
   ["min-w-0" "flex-1" "bg-transparent" "text-right" "text-sm" "num" "text-ho-text-hi" "outline-none"
    "focus:outline-none" "focus:ring-0" "border-0" "p-0"])
 
-(defn- cents-input-handler
-  "Typed cents become the order's dollar price. Half-typed numbers (\"68.\")
-   wait for the next keystroke so the field never fights the typist."
-  [event]
-  (let [text (.. event -target -value)
-        complete? (or (= "" text) (re-matches #"\d+(\.\d+)?" text))]
-    (when (and complete? app-system/store)
-      (let [cents (js/parseFloat text)
-            price (if (js/isNaN cents) "" (str (/ (js/Math.round (* cents 1000)) 100000)))]
-        (nxr/dispatch app-system/store nil (command-actions (cmd/update-order-form [:price] price)))))))
-
 (defn- limit-section
   [{:keys [limit-cents-text limit-chance-text limit-note quote-fills]}]
   [:div {:class ["space-y-1.5"] :data-role "outcome-ticket-limit"}
@@ -185,7 +186,7 @@
                  [:button {:type "button"
                            :class ["rounded" "px-1.5" "py-0.5" "text-xs" "text-ho-text-secondary" "hover:text-ho-text"
                                    "hover:bg-base-200" "focus:outline-none" "focus:ring-0"]
-                           :on {:click (command-actions (cmd/update-order-form [:price] (str price)))}}
+                           :on {:click (price-actions price)}}
                   label]))
           quote-fills)]
    (input-shell {:suffix "¢"
@@ -196,7 +197,7 @@
                                  :placeholder "0.0"
                                  :class input-classes
                                  :value (or limit-cents-text "")
-                                 :on {:input cents-input-handler}}]})
+                                 :on {:input (entry-actions {:limit-cents event-value})}}]})
    (when limit-chance-text
      [:div {:class ["text-xs" "text-ho-text-muted"]} limit-chance-text])
    (when limit-note
@@ -206,7 +207,8 @@
   [available]
   (cond-> [["$10" "10"] ["$50" "50"] ["$100" "100"]]
     (and (number? available) (pos? available))
-    (conj ["Max" (str (/ (js/Math.floor (* available 100)) 100))])))
+    ;; The epsilon keeps 0.29 * 100 (28.999…) from flooring to 0.28.
+    (conj ["Max" (str (/ (js/Math.floor (+ (* available 100) 1e-6)) 100))])))
 
 (defn- amount-section
   [{:keys [amount-text available-usdc]}]
@@ -224,15 +226,15 @@
                                  :placeholder "0"
                                  :class input-classes
                                  :value (or amount-text "")
-                                 :on {:input (command-actions (cmd/set-order-size-input-mode :quote)
-                                                              (cmd/set-order-size-display-input))}}]})
+                                 :on {:input (entry-actions {:size-input-mode :quote
+                                                              :size-display event-value})}}]})
    (into [:div {:class ["grid" "grid-cols-4" "gap-1"]}]
          (map (fn [[label value]]
                 [:button {:type "button"
                           :class ["h-8" "rounded-md" "border" "border-base-300" "text-xs" "text-ho-text-secondary"
                                   "hover:text-ho-text" "hover:border-ho-border-accent" "focus:outline-none" "focus:ring-0"]
-                          :on {:click (command-actions (cmd/set-order-size-input-mode :quote)
-                                                       (cmd/set-order-size-display value))}}
+                          :on {:click (entry-actions {:size-input-mode :quote
+                                                       :size-display value})}}
                  label]))
          (usd-presets available-usdc))])
 
@@ -250,33 +252,60 @@
                                  :placeholder "0"
                                  :class input-classes
                                  :value (or shares-text "")
-                                 :on {:input (command-actions (cmd/set-order-size-input-mode :base)
-                                                              (cmd/set-order-size-display-input))}}]})
+                                 :on {:input (entry-actions {:size-input-mode :base
+                                                              :size-display event-value})}}]})
    (into [:div {:class ["grid" "grid-cols-3" "gap-1"]}]
          (map (fn [[label fraction]]
                 [:button {:type "button"
                           :class ["h-8" "rounded-md" "border" "border-base-300" "text-xs" "text-ho-text-secondary"
                                   "hover:text-ho-text" "hover:border-ho-border-accent" "focus:outline-none" "focus:ring-0"]
-                          :on {:click (command-actions (cmd/set-order-size-input-mode :base)
-                                                       (cmd/set-order-size-display
-                                                        (str (js/Math.floor (* held fraction)))))}}
+                          :on {:click (entry-actions {:size-input-mode :base
+                                                       :size-display (str (js/Math.floor (* held fraction)))})}}
                  label]))
          [["25%" 0.25] ["50%" 0.5] [(str "All · " (js/Math.floor held)) 1]])])
 
+(defn- summary-line
+  [[label value]]
+  [:div {:class ["flex" "items-baseline" "justify-between" "gap-3"]}
+   [:span {:class ["text-ho-text-secondary"]} label]
+   [:span {:class ["num" "font-medium" "text-ho-text-hi"]} value]])
+
 (defn- summary-section
-  [rows fees]
+  "Rows after fees; `notes` are one-line asides under them."
+  [rows notes]
   (into [:div {:class ["space-y-1" "rounded-lg" "bg-base-200/50" "px-3" "py-2" "text-xs"]
                :data-role "outcome-ticket-summary"}]
-        (concat (map (fn [[label value]]
-                       [:div {:class ["flex" "items-baseline" "justify-between" "gap-3"]}
-                        [:span {:class ["text-ho-text-secondary"]} label]
-                        [:span {:class ["num" "font-medium" "text-ho-text-hi"]} value]])
-                     rows)
-                [[:div {:class ["flex" "items-baseline" "justify-between" "gap-3"]}
-                  [:span {:class ["text-ho-text-secondary"]
-                          :title (:tooltip (footer/fee-row-copy fees))}
-                   "Fee (taker / maker)"]
-                  [:span {:class ["num" "text-ho-text-secondary"]} (or (:effective fees) "—")]]])))
+        (concat (map summary-line rows)
+                (map (fn [note] [:div {:class ["pt-1" "text-ho-text-secondary"]} note]) notes))))
+
+(defn- merge-section
+  [{:keys [held-text sentence pairs-text max-pairs rows error]}]
+  [:div {:class ["space-y-2"] :data-role "outcome-ticket-merge"}
+   [:div {:class ["flex" "items-baseline" "justify-between" "text-xs" "text-ho-text-secondary"]}
+    [:span "You hold"]
+    [:span {:class ["num" "text-ho-text-hi"]} (str/join " and " held-text)]]
+   [:div {:class ["text-xs" "text-ho-text-secondary"]} sentence]
+   [:div {:class ["space-y-1.5"]}
+    [:div {:class ["flex" "items-center" "justify-between" "text-xs" "text-ho-text-secondary"]}
+     [:label {:for "outcome-ticket-merge-pairs"} "Pairs to merge"]
+     [:span {:class ["num"]} (str "of " max-pairs)]]
+    (input-shell {:suffix "pairs"
+                  :input [:input {:id "outcome-ticket-merge-pairs"
+                                  :type "text"
+                                  :inputmode "numeric"
+                                  :autocomplete "off"
+                                  :placeholder "0"
+                                  :class input-classes
+                                  :value pairs-text
+                                  :on {:input (entry-actions {:merge-pairs event-value})}}]})
+    [:button {:type "button"
+              :class ["h-8" "w-full" "rounded-md" "border" "border-base-300" "text-xs" "text-ho-text-secondary"
+                      "hover:text-ho-text" "hover:border-ho-border-accent" "focus:outline-none" "focus:ring-0"]
+              :on {:click (entry-actions {:merge-pairs (str max-pairs)})}}
+     (str "All · " max-pairs)]]
+   (summary-section rows nil)
+   (when error
+     [:div {:class ["text-xs" "text-red-400"] :role "alert"} error])])
 
 (defn- disclosure
   [title body]
@@ -298,72 +327,94 @@
                             timeline))))
    (disclosure "Market details" details)])
 
-(defn- mode-actions
-  [mode held]
-  (if (= :cash-out mode)
-    (command-actions (cmd/set-order-side :sell)
-                     (cmd/set-order-size-input-mode :base)
-                     (cmd/set-order-size-display (str (js/Math.floor held))))
-    (command-actions (cmd/set-order-side :buy)
-                     (cmd/set-order-size-input-mode :quote)
-                     (cmd/set-order-size-display ""))))
+(defn mode-actions
+  "Buy and Cash out each switch side, size unit and size in one action. Cash
+   out starts from every held share. Merge opens the merge ticket."
+  ([mode held] (mode-actions mode held nil))
+  ([mode held merge-entry]
+   (case mode
+     :cash-out (entry-actions {:side :sell :size-input-mode :base :size-display (str (js/Math.floor held))})
+     :merge (entry-actions {:merge merge-entry})
+     (entry-actions {:side :buy :size-input-mode :quote :size-display ""}))))
+
+(defn- trade-form
+  [{:keys [mode market-order? sides options no-explainer market-blocked? wide-note no-market-note
+           held summary-rows summary-notes] :as model} handlers entry]
+  ;; A wrapper div: Replicant has no fragment tag.
+  [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "outcome-ticket-trade"}
+   (segmented {:role "outcome-ticket-order-type"
+               :label "Order type"
+               :items [{:text "Market"
+                        :active? market-order?
+                        :disabled? (boolean no-market-note)
+                        :title (when no-market-note "Market orders are off: use a limit price")
+                        :actions (:on-select-entry-market entry)}
+                       {:text "Limit" :active? (not market-order?) :actions (:on-select-entry-limit entry)}]})
+   (when options (options-section options))
+   [:div {:class ["space-y-1.5"]}
+    [:div {:class ["text-xs" "text-ho-text-secondary"]} (if (= :cash-out mode) "Your side" "Pick a side")]
+    (into [:div {:class ["grid" "grid-cols-2" "gap-2"]}]
+          (map (partial side-button handlers) sides))
+    (when no-explainer
+      [:div {:class ["text-xs" "text-ho-text-secondary"]} no-explainer])]
+   (when (and no-market-note (or market-blocked? (not market-order?)))
+     [:div {:class ["text-xs" "text-ho-warn"] :data-role "outcome-ticket-no-market"} no-market-note])
+   (when wide-note
+     [:div {:class ["text-xs" "text-ho-warn"]} wide-note])
+   (when-not market-order? (limit-section model))
+   (if (= :cash-out mode)
+     (shares-section model)
+     (amount-section model))
+   (when (seq summary-rows) (summary-section summary-rows summary-notes))])
 
 (defn ticket
   "`model` from `outcome-ticket-vm/ticket-model`; `vm` is the order-form vm."
   [model vm handlers]
-  (let [{:keys [mode market-order? sides options no-explainer market-blocked? wide-note no-market-note two-sided?
-                held held-text holds-any? summary-rows submit-label submit-blocked? fees]} model
+  (let [{:keys [mode options submit-label submit-blocked? stale-confirmed? holds-any? can-merge?
+                merge merge-entry held held-text]} model
         entry (:entry-mode handlers)
         submit (:submit vm)
-        disabled? (boolean (or (:disabled? submit) submit-blocked?))]
+        merge? (= :merge mode)
+        disabled? (boolean (or (:disabled? submit) submit-blocked?))
+        merge-disabled? (boolean (or (:read-only? vm) (:submit-blocked? merge)))]
     [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "outcome-ticket"}
      (when holds-any?
        (segmented {:role "outcome-ticket-mode"
-                   :label "Buy or cash out"
-                   :items [{:text "Buy" :active? (= :buy mode) :actions (mode-actions :buy held)}
-                           {:text "Cash out"
-                            :active? (= :cash-out mode)
-                            :disabled? (not (pos? held))
-                            :title (when-not (pos? held) "You hold no shares of this side")
-                            :actions (mode-actions :cash-out held)}]}))
-     (segmented {:role "outcome-ticket-order-type"
-                 :label "Order type"
-                 :items [{:text "Market"
-                          :active? market-order?
-                          :disabled? (boolean no-market-note)
-                          :title (when no-market-note "No two-sided quotes: use a limit price")
-                          :actions (:on-select-entry-market entry)}
-                         {:text "Limit" :active? (not market-order?) :actions (:on-select-entry-limit entry)}]})
-     (when options (options-section options))
+                   :label "Buy, cash out or merge"
+                   :items (cond-> [{:text "Buy" :active? (= :buy mode) :actions (mode-actions :buy held)}
+                                   {:text "Cash out"
+                                    :active? (= :cash-out mode)
+                                    :disabled? (not (pos? held))
+                                    :title (when-not (pos? held) "You hold no shares of this side")
+                                    :actions (mode-actions :cash-out held)}]
+                            can-merge?
+                            (conj {:text "Merge pairs"
+                                   :active? merge?
+                                   :actions (mode-actions :merge held merge-entry)}))}))
+     (if merge?
+       (merge-section merge)
+       (trade-form model handlers entry))
      [:div {:class ["space-y-1.5"]}
-      [:div {:class ["text-xs" "text-ho-text-secondary"]} (if (= :cash-out mode) "Your side" "Pick a side")]
-      (into [:div {:class ["grid" "grid-cols-2" "gap-2"]}]
-            (map (partial side-button handlers) sides))
-      (when no-explainer
-        [:div {:class ["text-xs" "text-ho-text-secondary"]} no-explainer])]
-     (when (and no-market-note (or market-blocked? (not market-order?)))
-       [:div {:class ["text-xs" "text-ho-warn"] :data-role "outcome-ticket-no-market"} no-market-note])
-     (when wide-note
-       [:div {:class ["text-xs" "text-ho-warn"]} wide-note])
-     (when-not market-order? (limit-section model))
-     (if (= :cash-out mode)
-       (shares-section model)
-       (amount-section model))
-     (when (seq summary-rows) (summary-section summary-rows fees))
-     [:div {:class (cond-> ["space-y-1.5"]
-                     (:stale? options) (conj "outcome-stale-guard"))}
-      (when (:stale? options)
+      (when (and (not merge?) (:stale? options))
         [:label {:class ["flex" "items-center" "gap-2" "text-xs" "text-ho-text"]}
          [:input {:type "checkbox"
                   :class ["h-4" "w-4" "rounded" "border-base-300"]
-                  :data-role "outcome-stale-confirm"}]
+                  :checked (boolean stale-confirmed?)
+                  :data-role "outcome-stale-confirm"
+                  :on {:change (entry-actions {:stale-confirmed? event-checked})}}]
          "I understand these prices may be stale"])
-      (footer/submit-row {:submitting? (:submitting? vm)
-                          :submit-disabled? disabled?
-                          :submit-tooltip (:tooltip submit)
-                          :submit-label submit-label
-                          :submitting-label "Submitting..."
-                          :on-submit (get-in handlers [:submit :on-submit])})]
+      (if merge?
+        (footer/submit-row {:submitting? (:submitting? merge)
+                            :submit-disabled? merge-disabled?
+                            :submit-label (:submit-label merge)
+                            :submitting-label "Merging..."
+                            :on-submit [[:actions/submit-outcome-merge (:submit-args merge)]]})
+        (footer/submit-row {:submitting? (:submitting? vm)
+                            :submit-disabled? disabled?
+                            :submit-tooltip (:tooltip submit)
+                            :submit-label submit-label
+                            :submitting-label "Submitting..."
+                            :on-submit (get-in handlers [:submit :on-submit])}))]
      [:div {:class ["text-xs" "text-ho-text-secondary"] :data-role "outcome-ticket-holdings"}
       (str "You hold " held-text)]
      (about-section model)]))
