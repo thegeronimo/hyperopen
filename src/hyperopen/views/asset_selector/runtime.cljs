@@ -425,8 +425,12 @@
                            :on-scroll (:on-scroll memory))]
     (reset! scroll-top* live-scroll-top)
     (reset! host-node* host-node)
-    (if @scrolling?*
-      (reset! pending-props* props)
+    (cond
+      @scrolling?* (reset! pending-props* props)
+      ;; The hook runs on every app render: same rows, same window, no render.
+      (and (nil? @pending-props*) (= props @props*)
+           (= (asset-list-window-state props @scroll-top*) @last-window-state*)) nil
+      :else
       (do
         (sync-asset-list-props! host-node
                                 props*

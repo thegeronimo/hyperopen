@@ -1,6 +1,6 @@
 (ns hyperopen.views.trading-chart.toolbar-test
   (:require [clojure.string :as str]
-            [cljs.test :refer-macros [deftest is]]
+            [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.views.trading-chart.toolbar :as toolbar]))
 
 (defn- class-values [class-attr]
@@ -198,3 +198,103 @@
     (is (= "false" (get-in off-toggle [1 :aria-pressed])))
     (is (= [[:actions/set-chart-trades-enabled true]]
            (get-in off-toggle [1 :on :click])))))
+
+(defn- axis-unit-group [menu]
+  (find-first-node menu #(= "chart-toolbar-axis-unit" (get-in % [1 :data-role]))))
+
+(defn- axis-unit-button [menu unit]
+  (find-first-node menu #(and (= "chart-toolbar-axis-unit-option" (get-in % [1 :data-role]))
+                              (= unit (get-in % [1 :data-unit])))))
+
+(def ^:private outcome-market
+  {:market-type :outcome :coin "#9900010"})
+
+(deftest axis-unit-control-only-on-outcome-markets-test
+  (let [perp-menu (toolbar/chart-top-menu (toolbar-state {}))
+        lagging-menu (toolbar/chart-top-menu (assoc (toolbar-state {}) :active-market outcome-market))]
+    (is (nil? (axis-unit-group perp-menu)))
+    (is (nil? (axis-unit-group lagging-menu))
+        "an outcome market for another coin shows no control on a BTC chart"))
+  (let [state (assoc (toolbar-state {}) :active-asset "#9900010" :active-market outcome-market)
+        menu (toolbar/chart-top-menu state)
+        group (axis-unit-group menu)
+        percent (axis-unit-button menu "percent")
+        cents (axis-unit-button menu "cents")]
+    (is (= "group" (get-in group [1 :role])))
+    (is (string? (get-in group [1 :aria-label])))
+    (is (some #{"Axis"} (collect-strings group)))
+    (is (= :button (first percent)))
+    (is (= "Percent" (get-in percent [1 :aria-label])))
+    (is (= "Cents" (get-in cents [1 :aria-label])))
+    (is (= "true" (get-in percent [1 :aria-pressed])) "percent by default")
+    (is (= "false" (get-in cents [1 :aria-pressed])))
+    (is (= [[:actions/set-outcome-chart-unit :cents]] (get-in cents [1 :on :click])))
+    (is (contains? (set (class-values (get-in cents [1 :class]))) "h-8"))
+    (is (not-any? spaced-class-string? (collect-class-strings menu))))
+  (let [state (-> (toolbar-state {:outcome-price-unit :cents})
+                  (assoc :active-asset "#9900010" :active-market outcome-market))
+        menu (toolbar/chart-top-menu state)]
+    (is (= "true" (get-in (axis-unit-button menu "cents") [1 :aria-pressed])))
+    (is (= "false" (get-in (axis-unit-button menu "percent") [1 :aria-pressed])))))
+
+(defn- answer-option [id label]
+  {:outcome-id id
+   :label label
+   :sides [{:coin (str "#" (* 10 id)) :side-index 0 :prevDayRaw "0.4"}
+           {:coin (str "#" (inc (* 10 id))) :side-index 1}]})
+
+(def ^:private question-market
+  {:key "question:7"
+   :market-type :outcome
+   :outcome-kind :question
+   :coin "#10"
+   :selected-outcome-option-label "Albania"
+   :question-options [(answer-option 1 "Albania") (answer-option 2 "Draw") (answer-option 3 "Finland")]})
+
+(defn- chart-shows-button [menu mode]
+  (find-first-node menu #(and (= "chart-toolbar-chart-shows-option" (get-in % [1 :data-role]))
+                              (= mode (get-in % [1 :data-mode])))))
+
+(deftest chart-shows-control-only-on-multi-answer-events-test
+  (is (nil? (find-by-data-role (toolbar/chart-top-menu (toolbar-state {})) "chart-toolbar-chart-shows")))
+  (is (nil? (find-by-data-role (toolbar/chart-top-menu (assoc (toolbar-state {})
+                                                               :active-asset "#9900010"
+                                                               :active-market outcome-market))
+                               "chart-toolbar-chart-shows"))
+      "a two-sided market has nothing to compare")
+  (let [state (assoc (toolbar-state {:outcome-price-unit :cents}) :active-asset "#10" :active-market question-market)
+        menu (toolbar/chart-top-menu state)
+        group (find-by-data-role menu "chart-toolbar-chart-shows")
+        single (chart-shows-button menu "single")
+        all (chart-shows-button menu "all")]
+    (is (= "group" (get-in group [1 :role])))
+    (is (= "Chart shows" (get-in group [1 :aria-label])))
+    (is (= ["Albania only"] (collect-strings single)))
+    (is (= ["All answers"] (collect-strings all)))
+    (is (= "true" (get-in single [1 :aria-pressed])) "the selected answer by default")
+    (is (= "false" (get-in all [1 :aria-pressed])))
+    (is (= [[:actions/set-outcome-chart-mode :all]] (get-in all [1 :on :click])))
+    (is (some? (find-by-data-role menu "chart-toolbar-trades-toggle")) "candle tools stay in single mode")
+    (is (= "true" (get-in (axis-unit-button menu "cents") [1 :aria-pressed])))))
+
+(deftest all-answers-locks-the-axis-and-hides-candle-tools-test
+  (let [state (assoc (toolbar-state {:outcome-price-unit :cents :outcome-chart-mode :all})
+                     :active-asset "#10" :active-market question-market)
+        menu (toolbar/chart-top-menu state)
+        percent (axis-unit-button menu "percent")
+        cents (axis-unit-button menu "cents")]
+    (is (= "true" (get-in (chart-shows-button menu "all") [1 :aria-pressed])))
+    (is (= [[:actions/set-outcome-chart-mode :single]]
+           (get-in (chart-shows-button menu "single") [1 :on :click])))
+    (is (= "true" (get-in percent [1 :aria-pressed])) "% shows pressed whatever unit is stored")
+    (is (nil? (get-in percent [1 :on])) "% is inert: a click must not overwrite a stored ¢")
+    (is (true? (get-in cents [1 :disabled])))
+    (is (= "false" (get-in cents [1 :aria-pressed])))
+    (is (= "Cents, not available when all answers are shown" (get-in cents [1 :aria-label])))
+    (is (nil? (get-in cents [1 :on])))
+    (is (nil? (find-by-data-role menu "chart-toolbar-trades-toggle")))
+    (is (not (some #{"Indicators"} (collect-strings menu))))
+    (is (not-any? spaced-class-string? (collect-class-strings menu))))
+  (testing "a stored All answers mode on a market that cannot draw it shows single"
+    (let [state (assoc (toolbar-state {:outcome-chart-mode :all}) :active-asset "#9900010" :active-market outcome-market)]
+      (is (some? (find-by-data-role (toolbar/chart-top-menu state) "chart-toolbar-trades-toggle"))))))

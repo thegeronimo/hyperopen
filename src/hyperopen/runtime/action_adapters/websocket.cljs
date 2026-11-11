@@ -10,16 +10,16 @@
       market)))
 
 (defn- active-market-side-coins
+  "The book to follow for `coin`: an outcome side's own coin (its sibling's
+   book is the same one mirrored), otherwise the coin itself."
   [state coin]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
         market (or (matching-active-market state coin)
                    (markets/resolve-or-infer-market-by-coin market-by-key coin))
         market* (markets/market-with-selected-outcome-coin market coin)
-        side-coins (when (= :outcome (:market-type market))
-                     (markets/outcome-subscription-coins market*))]
-    (vec (or (seq side-coins)
-             (when (string? coin)
-               [coin])))))
+        side-coin (when (= :outcome (:market-type market))
+                    (:coin market*))]
+    (vec (keep identity [(or side-coin (when (string? coin) coin))]))))
 
 (defn init-websockets
   [_state]

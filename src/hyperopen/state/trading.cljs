@@ -5,6 +5,8 @@
             [hyperopen.api.gateway.orders.commands :as order-commands]
             [hyperopen.domain.trading :as trading-domain]
             [hyperopen.domain.trading.market :as trading-market]
+            [hyperopen.outcomes.domain.book :as outcome-book]
+            [hyperopen.outcomes.domain.quotes :as outcome-quotes]
             [hyperopen.state.trading.order-form-key-policy :as order-form-key-policy]
             [hyperopen.state.trading.fee-context :as trading-fee-context]
             [hyperopen.trading.order-form-state :as order-form-state]
@@ -398,6 +400,52 @@
               (:spot state))
       :clearinghouse (or (active-clearinghouse-state state) {})})))
 
+(def outcome-stale-sum-threshold
+  "Listed answers of one event adding up past this read as stale prices."
+  outcome-quotes/stale-sum-threshold)
+
+(defn outcome-listed-quotes
+  "One quote per listed answer (its first side) under the one chance rule
+   (`book/quote-for-side`, the same source the ticket rows and list read)."
+  [market]
+  (mapv (fn [option]
+          (let [[side sibling] (:sides option)]
+            (outcome-book/quote-for-side side sibling nil)))
+        (:question-options market)))
+
+(defn outcome-listed-chance-sum
+  "Sum of the listed answers' midpoint chances. Only :live quotes count: a
+   mark, a range or a one-sided book is not a chance."
+  [market]
+  (:sum (outcome-quotes/exclusive-sum (outcome-listed-quotes market))))
+
+(defn outcome-stale-listed-prices?
+  "True when only one listed answer can win yet their live chances add up past
+   `outcome-stale-sum-threshold` (`quotes/exclusive-sum`): some prices are old
+   and an order needs the trader's explicit confirmation."
+  [market]
+  (boolean
+   (and (outcome-market? market)
+        (contains? #{:pick-one :field} (:outcome-shape market))
+        (:over? (outcome-quotes/exclusive-sum (outcome-listed-quotes market))))))
+
+(defn spot-clearinghouse-state
+  "Spot balances of the account orders are placed for: the selected
+   subaccount's when one is selected, else the master account's."
+  [state]
+  (:clearinghouse-state (:spot (trading-context state))))
+
+(def outcome-coin-encoding trading-market/outcome-coin-encoding)
+
+(defn outcome-side-available-shares
+  "Shares of outcome side `coin` the order account can sell now (total less
+   what open orders hold); 0 when none or balances are not loaded."
+  [state coin]
+  (or (:available (trading-market/outcome-side-shares
+                   {:spot {:clearinghouse-state (spot-clearinghouse-state state)}}
+                   coin))
+      0))
+
 (defn market-max-leverage [state]
   (trading-domain/market-max-leverage (trading-context state)))
 
@@ -599,8 +647,12 @@
 
 (defn normalize-order-form [state form]
   (let [context (trading-context state)
+        outcome? (outcome-market? (:market context))
         normalized-type (:value (trading-domain/order-type-value (:type form)))
-        entry-mode (normalize-entry-mode (:entry-mode form) normalized-type)
+        entry-mode* (normalize-entry-mode (:entry-mode form) normalized-type)
+        ;; The outcome ticket offers market and limit only: a pro type carried
+        ;; over from a perp form trades as a plain limit.
+        entry-mode (if (and outcome? (= :pro entry-mode*)) :limit entry-mode*)
         final-type (case entry-mode
                      :market :market
                      :limit :limit
@@ -626,7 +678,14 @@
                                    :ui-leverage normalized-leverage))]
     (cond-> normalized-form
       (= :scale final-type) (assoc-in [:tp :enabled?] false)
-      (= :scale final-type) (assoc-in [:sl :enabled?] false))))
+      (= :scale final-type) (assoc-in [:sl :enabled?] false)
+      ;; Perp-only settings the outcome ticket never shows must not ride along
+      ;; into an outcome order.
+      outcome? (assoc :post-only false
+                      :reduce-only false
+                      :tif :gtc)
+      outcome? (assoc-in [:tp :enabled?] false)
+      outcome? (assoc-in [:sl :enabled?] false))))
 
 (defn order-summary [state form]
   (let [fee-context (trading-fee-context/select-fee-context state)
@@ -714,6 +773,10 @@
          normalized-form (normalize-order-form state form)]
      (trading-submit-policy/submit-policy
       {:trading-context context
+       :outcome-confirmation-required? (outcome-stale-listed-prices? (:market context))
+       :outcome-market-orders-off? (and (outcome-market? (:market context))
+                                        (outcome-book/market-orders-off? (:market context)
+                                                                         (:orderbook context)))
        :identity identity
        :spectate-mode-message (account-context/mutations-blocked-message state)
        :request-builder (partial order-commands/build-order-request context)}

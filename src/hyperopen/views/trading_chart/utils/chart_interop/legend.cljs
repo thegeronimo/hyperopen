@@ -143,8 +143,9 @@
       (set! (.-position container-style) "relative"))))
 
 (defn- legend-formatters
-  [{:keys [format-price format-delta format-pct]}]
-  {:format-price (or format-price
+  [{:keys [format-price format-delta format-pct show-pct?]}]
+  {:show-pct? (not (false? show-pct?))
+   :format-price (or format-price
                      (fn [price]
                        (when (number? price)
                          (fmt/format-trade-price-plain price))))
@@ -208,10 +209,8 @@
     (legend-set-metric-colors! open-pair-node high-pair-node low-pair-node close-pair-node
                                delta-color)
     (set! (.-textContent delta-node)
-          (str (or (format-delta delta) "--")
-               " ("
-               (or (format-pct pct) "--")
-               ")"))
+          (cond-> (or (format-delta delta) "--")
+            (:show-pct? formatters) (str " (" (or (format-pct pct) "--") ")")))
     (set! (.-color (.-style delta-node)) delta-color)))
 
 (defn- legend-render-state!
@@ -305,7 +304,8 @@
   ([container chart legend-meta {:keys [document
                                         format-price
                                         format-delta
-                                        format-pct]}]
+                                        format-pct
+                                        show-pct?]}]
    (let [document* (legend-document document)]
      (when-not document*
        (throw (js/Error. "Legend rendering requires a DOM document.")))
@@ -314,7 +314,8 @@
            state (atom (build-legend-state nil legend-meta))
            formatters (legend-formatters {:format-price format-price
                                           :format-delta format-delta
-                                          :format-pct format-pct})
+                                          :format-pct format-pct
+                                          :show-pct? show-pct?})
            update-legend (fn [param]
                            (legend-render-state! nodes
                                                  state

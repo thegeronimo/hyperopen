@@ -189,3 +189,23 @@
     (is (= 3 (count (:candle-lookup appended-state))))
     (is (= 14 (get-in appended-state [:latest-entry :candle :close])))
     (is (= 13 (get-in appended-state [:latest-entry :prev-close])))))
+
+(deftest legend-omits-relative-change-when-show-pct-is-false-test
+  (let [document (fake-dom/make-fake-document)
+        container (fake-dom/make-fake-element "div")
+        chart #js {:subscribeCrosshairMove (fn [_] nil)
+                   :unsubscribeCrosshairMove (fn [_] nil)}
+        legend-control (chart-interop/create-legend!
+                        container
+                        chart
+                        {:symbol "#9900010" :timeframe-label "1D" :venue "V"
+                         :candle-data [{:time 1 :open 0.2 :high 0.21 :low 0.19 :close 0.2}
+                                       {:time 2 :open 0.2 :high 0.21 :low 0.2 :close 0.202}]}
+                        {:document document
+                         :format-price (fn [price] (str "P" price))
+                         :format-delta (fn [_] "+0.2 pts")
+                         :show-pct? false})
+        text (str/join " " (fake-dom/collect-text-content (aget (.-children container) 0)))]
+    (is (str/includes? text "+0.2 pts"))
+    (is (not (str/includes? text "(")) "no parenthesised relative change")
+    (.destroy ^js legend-control)))

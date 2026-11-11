@@ -391,12 +391,18 @@
            [:div.pl-1.text-left (or (:type o) "Order")]
            [:div.text-left (open-orders-coin-node (:coin o) market-by-key (:side o))]
            [:div {:class ["text-left" (direction-class (:side o))]} (direction-label (:side o))]
-           [:div.text-left.num (shared/format-currency (:sz o))]
-           [:div.text-left.num (shared/format-currency (or (:orig-sz o) (:sz o)))]
+           [:div.text-left.num (if (shared/outcome-coin? (:coin o))
+                                 (shared/format-outcome-shares (:sz o))
+                                 (shared/format-currency (:sz o)))]
+           [:div.text-left.num (if (shared/outcome-coin? (:coin o))
+                                 (shared/format-outcome-shares (or (:orig-sz o) (:sz o)))
+                                 (shared/format-currency (or (:orig-sz o) (:sz o))))]
            [:div.text-left.num (if-let [val (order-value o)]
                                   (str (shared/format-currency val) " USDC")
                                   "--")]
-           [:div.text-left.num (shared/format-trade-price (:px o))]
+           [:div.text-left.num (if (shared/outcome-coin? (:coin o))
+                                 (shared/format-outcome-price (:px o))
+                                 (shared/format-trade-price (:px o)))]
            [:div.text-left (if (:reduce-only o) "Yes" "No")]
            [:div.text-left (format-trigger-conditions o)]
            [:div.text-left (format-tp-sl o)]

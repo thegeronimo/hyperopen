@@ -35,6 +35,27 @@
                              series-def
                              pane-index)))
 
+(defonce ^:private applied-price-formats (js/WeakMap.))
+
+(defn sync-price-pane-formats!
+  "Label every indicator series drawn on the price pane (pane 0) with the
+   main series' current `price-format`, so an outcome chart's moving average
+   reads in the same unit and precision as the candles — at mount and after
+   any later format change (e.g. new price decimals) without a remount.
+   Separate panes keep their own format; a nil format leaves every series as
+   it is. `indicator-series` holds {series paneIndex} entries (JS objects or
+   maps). Each series is re-labelled only when the format object changed."
+  [indicator-series price-format]
+  (when price-format
+    (doseq [entry (if (array? indicator-series) (array-seq indicator-series) indicator-series)]
+      (let [series* (if (map? entry) (:series entry) (some-> entry (aget "series")))
+            pane-index (if (map? entry) (:paneIndex entry) (some-> entry (aget "paneIndex")))]
+        (when (and series*
+                   (= 0 pane-index)
+                   (not (identical? price-format (.get applied-price-formats series*))))
+          (.applyOptions ^js series* #js {:priceFormat price-format})
+          (.set applied-price-formats series* price-format))))))
+
 (defn set-indicator-data!
   "Set indicator data and preserve whitespace points."
   [series data]

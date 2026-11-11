@@ -1,6 +1,5 @@
 (ns hyperopen.asset-selector.settings
-  (:require [clojure.string :as str]
-            [hyperopen.platform :as platform]))
+  (:require [hyperopen.platform :as platform]))
 
 (def valid-sort-keys #{:name :price :volume :change :openInterest :funding})
 (def valid-sort-directions #{:asc :desc})
@@ -16,35 +15,26 @@
 (def tradfi-tab->asset-class
   (into {} tradfi-asset-class-tabs))
 
+(def outcome-category-tabs
+  "Outcome chips, in display order. Each filters events by `:outcome-category`."
+  [:outcome :outcome-sports :outcome-crypto :outcome-stocks :outcome-economics :outcome-companies])
+
+(def legacy-outcome-tabs
+  ;; Earlier period sub-tabs. Still accepted from saved settings so nobody's
+  ;; selector resets; they filter like Crypto.
+  #{:outcome-15m :outcome-1d})
+
+(def outcome-tab-set
+  (into (set outcome-category-tabs) legacy-outcome-tabs))
+
 (def valid-tabs
-  (into #{:all :perps :spot :outcome :outcome-15m :outcome-1d :outcome-economics :outcome-sports :crypto :tradfi :hip3}
+  (into (into #{:all :perps :spot :crypto :tradfi :hip3} outcome-tab-set)
         (keys tradfi-tab->asset-class)))
-
-(defn- chain-context-value
-  [value]
-  (cond
-    (keyword? value) (name value)
-    (string? value) value
-    :else nil))
-
-(defn- testnet-chain?
-  [chain-context]
-  (let [value (if (map? chain-context)
-                (or (:hyperliquid-chain chain-context)
-                    (:hyperliquidChain chain-context)
-                    (:chain chain-context)
-                    (:environment chain-context))
-                chain-context)
-        value (chain-context-value value)
-        token (some-> value str str/trim str/lower-case)]
-    (contains? #{"testnet" "test"} token)))
 
 (defn outcome-tabs
   ([] (outcome-tabs nil))
-  ([chain-context]
-   (cond-> [:outcome]
-     (testnet-chain? chain-context) (conj :outcome-15m)
-     true (conj :outcome-1d :outcome-economics :outcome-sports))))
+  ([_chain-context]
+   outcome-category-tabs))
 
 (defn- load-sort-setting
   "Read `ls-key` from localStorage, default to `default`,

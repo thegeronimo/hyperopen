@@ -44,6 +44,14 @@
   --ho-chart-long: #4ade80;
   --ho-chart-short: #f87171;
   --ho-chart-liquidation: #f59e0b;
+  --ho-chart-answer-1: #3ddbc4;
+  --ho-chart-answer-2: #e8a65a;
+  --ho-chart-answer-3: #8aa2b4;
+  --ho-chart-answer-4: #e07fae;
+  --ho-chart-answer-5: #cfc867;
+  --ho-chart-answer-6: #a091f0;
+  --ho-chart-answer-7: #74c27a;
+  --ho-chart-answer-8: #cc735c;
   /* Radius tokens: mapped onto the Tailwind rounded scale. */
   --ho-radius-sm: 0px;
   --ho-radius: 0px;

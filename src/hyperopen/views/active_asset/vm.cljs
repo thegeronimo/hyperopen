@@ -4,7 +4,9 @@
             [hyperopen.asset-selector.annotations :as annotations]
             [hyperopen.asset-selector.market-info :as market-info]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
             [hyperopen.state.trading :as trading-state]
+            [hyperopen.views.active-asset.outcome-header-vm :as outcome-header-vm]
             [hyperopen.views.asset-selector.processing :as selector-processing]
             [hyperopen.utils.formatting :as fmt]))
 
@@ -27,26 +29,6 @@
    :active-tab :all})
 
 (declare resolve-active-market)
-
-(def ^:private second-ms 1000)
-(def ^:private minute-ms (* 60 second-ms))
-(def ^:private hour-ms (* 60 minute-ms))
-(def ^:private day-ms (* 24 hour-ms))
-(def ^:private utc-month-names
-  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
-
-(defn- format-outcome-countdown
-  [expiry-ms now-ms]
-  (when (and (number? expiry-ms)
-             (number? now-ms))
-    (let [remaining-ms (max 0 (- expiry-ms now-ms))
-          days (js/Math.floor (/ remaining-ms day-ms))
-          hours (js/Math.floor (/ (mod remaining-ms day-ms) hour-ms))
-          minutes (js/Math.floor (/ (mod remaining-ms hour-ms) minute-ms))
-          seconds (js/Math.floor (/ (mod remaining-ms minute-ms) second-ms))]
-      (if (pos? days)
-        (str days "d " hours "h " minutes "m")
-        (str hours "h " minutes "m " seconds "s")))))
 
 (defn- positive-number
   [value]
@@ -74,82 +56,6 @@
   [base overlay]
   (merge base (present-entries overlay)))
 
-(declare non-blank-text)
-
-(defn- format-outcome-settlement-time
-  [expiry-ms]
-  (when (number? expiry-ms)
-    (let [date (js/Date. expiry-ms)
-          hour (.getUTCHours date)
-          hour12 (let [remainder (mod hour 12)]
-                   (if (zero? remainder) 12 remainder))]
-      (str "on "
-           (get utc-month-names (.getUTCMonth date))
-           " "
-           (fmt/pad2 (.getUTCDate date))
-           ", "
-           (.getUTCFullYear date)
-           " "
-           (fmt/pad2 hour12)
-           ":"
-           (fmt/pad2 (.getUTCMinutes date))
-           " "
-           (if (< hour 12) "AM" "PM")
-           " UTC"))))
-
-(defn- format-title-settlement-time
-  [title expiry-ms]
-  (when (and (string? title) (number? expiry-ms))
-    (when-let [[_ month day hour minute meridiem]
-               (re-find #"(?i)\bon\s+([A-Za-z]+)\s+(\d{1,2})\s+at\s+(\d{1,2}):(\d{2})\s+(AM|PM)\b"
-                        title)]
-      (let [date (js/Date. expiry-ms)]
-        (str "on "
-             month
-             " "
-             (fmt/pad2 (js/parseInt day 10))
-             ", "
-             (.getUTCFullYear date)
-             " "
-             (fmt/pad2 (js/parseInt hour 10))
-             ":"
-             minute
-             " "
-             (.toUpperCase meridiem)
-             " UTC")))))
-
-(defn- outcome-tooltip-model
-  [market]
-  (when (= :outcome (:market-type market))
-    (let [underlying (non-blank-text (or (:underlying market)
-                                         (:base market)))
-          payout-currency (or (non-blank-text (:quote market))
-                              "USDH")
-          target-price-label (or (fmt/format-integer (:target-price market))
-                                 (non-blank-text (:target-price market)))
-          structured-settlement-label (when (and (seq underlying)
-                                                 (seq target-price-label))
-                                        (str underlying " mark price is above " target-price-label))
-          settlement-label (or structured-settlement-label
-                               (non-blank-text (:outcome-details market)))
-          settlement-time-label (or (format-title-settlement-time (:title market) (:expiry-ms market))
-                                    (format-title-settlement-time (:symbol market) (:expiry-ms market))
-                                    (format-outcome-settlement-time (:expiry-ms market))
-                                    "on settlement time")
-          default-summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
-          summary (if (and (seq structured-settlement-label)
-                           (seq settlement-time-label))
-                    default-summary
-                    (or (non-blank-text (:outcome-details market))
-                        default-summary))]
-      {:title "Outcome Details"
-       :summary summary
-       :settlement-label settlement-label
-       :settlement-time-label settlement-time-label
-       :yes-payout-label "$1.00"
-       :no-payout-label "$0.00"
-       :footer-label (str "Payouts are in " payout-currency ".")})))
-
 (def ^:private open-panel-dropdown-state-keys
   [:visible-dropdown
    :search-term
@@ -167,7 +73,12 @@
    :strict?
    :active-tab
    :market-by-key
-   :markets])
+   :markets
+   ;; Outcome list: sort, rows on screen, and how old / how healthy the load is.
+   :outcome-sort
+   :outcome-visible-keys
+   :loaded-at-ms
+   :error])
 
 (defn- non-blank-text [value]
   (let [text (some-> value str str/trim)]
@@ -301,6 +212,9 @@
              :asset-selector (asset-selector-state state active-asset)
              :perp-annotations (:perp-annotations state)
              :perp-dex-full-name-by-name (:perp-dex-full-name-by-name state)
+             ;; Outcome headers price the selected side from its live book.
+             :orderbooks (when (= :outcome (:market-type active-market))
+                           {active-asset (get-in state [:orderbooks active-asset])})
              :order-form {:outcome-option-id (get-in state [:order-form :outcome-option-id])
                           :outcome-option (get-in state [:order-form :outcome-option])}
              :order-form-ui {:outcome-option-dropdown-open?
@@ -339,8 +253,19 @@
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})
+        ;; The projected market names its catalog entry: read it by key
+        ;; rather than resolving the coin against the whole catalog, which
+        ;; for an outcome side is a scan on every render.
+        keyed-market (when (and (map? projected-market)
+                                (= :outcome (:market-type projected-market))
+                                (string? active-asset))
+                       (let [market (get market-by-key (:key projected-market))]
+                         (when (and (map? market)
+                                    (markets/market-matches-coin? market active-asset))
+                           (markets/market-with-selected-outcome-coin market active-asset))))
         resolved-market (when (string? active-asset)
-                          (markets/resolve-or-infer-market-by-coin market-by-key active-asset))]
+                          (or keyed-market
+                              (markets/resolve-or-infer-market-by-coin market-by-key active-asset)))]
     (cond
       (and (map? projected-market)
            (markets/market-matches-coin? projected-market active-asset))
@@ -382,12 +307,14 @@
         selected-outcome-option-id (or (get-in full-state [:order-form :outcome-option-id])
                                        (get-in full-state [:order-form :outcome-option])
                                        (:outcome-option-id market))
-        outcome-chance-label (when (and outcome? (number? mark))
-                               (str (js/Math.round (* mark 100)) "%"))
         now-ms (or (:now-ms full-state) (.now js/Date))
+        outcome-header (when outcome?
+                         (outcome-header-vm/header-model market
+                                                         (get-in full-state [:orderbooks coin])
+                                                         now-ms))
+        outcome-chance-label (some-> outcome-header :chances first :text)
         countdown-text (if outcome?
-                         (or (format-outcome-countdown (:expiry-ms market) now-ms)
-                             "—")
+                         (:clock-label outcome-header)
                          (fmt/format-funding-countdown))
         funding-tooltip-ui (get-in full-state [:funding-ui :tooltip] {})
         funding-tooltip-id (funding-policy/funding-tooltip-pin-id coin)
@@ -464,12 +391,22 @@
                                           [:trade-ui :outcome-option-sort-by])
                          :sort-direction (get-in full-state
                                                  [:trade-ui :outcome-option-sort-direction])}
-     :outcome-tooltip (outcome-tooltip-model market)
+     :outcome-tooltip (outcome-header-vm/tooltip-model market)
+     :outcome-header outcome-header
      :symbol-meta symbol-meta
      :market-info-open? (and (some? symbol-meta) (true? (get-in full-state [:trade-ui :market-info-open?])))
      :outcome-chance-label outcome-chance-label
      :missing-icons (get-in full-state [:asset-selector :missing-icons] #{})
      :loaded-icons (get-in full-state [:asset-selector :loaded-icons] #{})}))
+
+(defn- outcome-listing-opts
+  "Listing options for the selector's outcome list. Live books are left out on
+   purpose: the active asset's book ticks constantly and would re-render the
+   whole list; row prices follow the market catalog's live contexts."
+  [state dropdown]
+  (-> (outcome-listing/listing-opts state)
+      (dissoc :books)
+      (assoc :selector (select-keys dropdown [:loading? :phase :error :loaded-at-ms]))))
 
 (defn active-asset-panel-vm [state]
   (let [contexts (get-in state [:active-assets :contexts] {})
@@ -512,4 +449,5 @@
                               :scroll-top (:scroll-top dropdown)
                               :render-limit (:render-limit dropdown)
                               :strict? (:strict? dropdown)
-                              :active-tab (:active-tab dropdown)})}))
+                              :active-tab (:active-tab dropdown)
+                              :outcome-opts (outcome-listing-opts state dropdown)})}))

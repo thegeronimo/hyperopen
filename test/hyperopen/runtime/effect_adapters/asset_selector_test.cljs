@@ -1,12 +1,14 @@
 (ns hyperopen.runtime.effect-adapters.asset-selector-test
   (:require [cljs.test :refer-macros [async deftest is]]
+            [hyperopen.api.default :as api]
             [hyperopen.api.projections.market :as market-projections]
             [hyperopen.asset-selector.query :as asset-selector-query]
             [hyperopen.runtime.api-effects :as api-effects]
             [hyperopen.runtime.effect-adapters.asset-selector :as asset-adapters]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
-            [hyperopen.websocket.client :as ws-client]))
+            [hyperopen.websocket.client :as ws-client]
+            [hyperopen.websocket.outcome-bbo :as outcome-bbo]))
 
 (deftest asset-selector-markets-effect-deps-carry-spot-meta-projection-test
   ;; Regression: this dependency map and the one in
@@ -138,3 +140,35 @@
     (is (= "BTC" (asset-adapters/correct-unresolved-active-asset!
                   (store-for :full "FOOBAR") dispatch!)))
     (is (= [[[:actions/select-asset "BTC"]]] @dispatched))))
+
+(deftest sync-holds-bbo-subscriptions-for-outcome-rows-on-screen-test
+  (let [store (atom {:asset-selector {}})
+        sent (atom [])
+        seeded (atom [])
+        desired (atom ["#10" "#20"])]
+    (outcome-bbo/reset-runtime!)
+    (with-redefs [asset-selector-query/selector-visible-market-coins (fn [_] #{})
+                  asset-selector-query/outcome-top-of-book-coins (fn [_] @desired)
+                  api/request-l2-book-snapshot! (fn [coin opts]
+                                                  (swap! seeded conj [coin opts])
+                                                  (js/Promise. (fn [_ _] nil)))
+                  ws-client/send-message! (fn [message] (swap! sent conj message) true)]
+      (effect-adapters/sync-asset-selector-active-ctx-subscriptions nil store)
+      (is (= [{:method "subscribe" :subscription {:type "bbo" :coin "#10"}}
+              {:method "subscribe" :subscription {:type "bbo" :coin "#20"}}]
+             @sent))
+      (is (= [["#10" {:priority :low :cache-ttl-ms 1}] ["#20" {:priority :low :cache-ttl-ms 1}]] @seeded)
+          "each new coin with no top of book is seeded once through the info client")
+      (reset! sent [])
+      (reset! desired ["#20"])
+      (effect-adapters/sync-asset-selector-active-ctx-subscriptions nil store)
+      (is (= [{:method "unsubscribe" :subscription {:type "bbo" :coin "#10"}}] @sent)
+          "a row that left the screen (or a closed selector) drops its subscription")
+      (is (= 2 (count @seeded)) "a held subscription is not seeded again")
+      (reset! sent [])
+      (swap! store assoc-in [:asset-selector :live-market-subscriptions-paused?] true)
+      (reset! desired [])
+      (effect-adapters/sync-asset-selector-active-ctx-subscriptions nil store)
+      (is (empty? @sent) "paused live updates keep what is held")
+      (is (= #{"#20"} (outcome-bbo/get-subscribed-coins))))
+    (outcome-bbo/reset-runtime!)))

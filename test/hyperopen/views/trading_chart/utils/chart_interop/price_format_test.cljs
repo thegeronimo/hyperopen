@@ -61,3 +61,22 @@
     (is (= "-8.000" ((.-formatter ^js from-absolute) -8)))
     (is (== 0.01 (:minMove from-fallback-map)))
     (is (= "1,234.50" ((.-formatter ^js from-fallback) 1234.5)))))
+
+(deftest outcome-price-unit-relabels-without-changing-the-scale-test
+  (let [percent (price-format/infer-series-price-format [] (fn [_] []) {:price-decimals 5
+                                                                        :price-unit :percent})
+        cents (price-format/infer-series-price-format [] (fn [_] []) {:price-decimals 5
+                                                                      :price-unit :cents})]
+    (is (= "custom" (.-type ^js percent)))
+    (is (== 0.00001 (.-minMove ^js percent)) "minMove stays in dollars")
+    (is (= "20.9%" ((.-formatter ^js percent) 0.209)))
+    (is (= "20.9¢" ((.-formatter ^js cents) 0.209)))
+    (is (= ["20.0%" "20.5%" "21.0%"]
+           (vec ((.-tickmarksFormatter ^js percent) #js [0.2 0.205 0.21]))))
+    (is (= ["20.85¢" "20.90¢"]
+           (vec ((.-tickmarksFormatter ^js cents) #js [0.2085 0.209]))))))
+
+(deftest non-outcome-price-format-has-no-unit-test
+  (let [plain (price-format/infer-series-price-format [] (fn [_] []) {:price-decimals 5})]
+    (is (= "0.20900" ((.-formatter ^js plain) 0.209)))
+    (is (undefined? (.-tickmarksFormatter ^js plain)))))

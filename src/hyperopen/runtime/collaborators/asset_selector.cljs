@@ -1,12 +1,17 @@
 (ns hyperopen.runtime.collaborators.asset-selector
   (:require [hyperopen.asset-selector.actions :as asset-actions]
-            [hyperopen.asset-selector.funding-drafts :as funding-drafts]))
+            [hyperopen.outcomes.application.exit-actions :as outcome-exit-actions]
+            [hyperopen.asset-selector.funding-drafts :as funding-drafts]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]))
 
 (defn action-deps []
   {:toggle-asset-dropdown asset-actions/toggle-asset-dropdown
    :close-asset-dropdown asset-actions/close-asset-dropdown
    :select-asset asset-actions/select-asset
    :select-asset-by-market-key asset-actions/select-asset-by-market-key
+   :open-outcome-market outcome-exit-actions/open-outcome-market
+   :open-outcome-cash-out outcome-exit-actions/open-outcome-cash-out
+   :merge-outcome-pairs outcome-exit-actions/merge-outcome-pairs
    :select-outcome-option asset-actions/select-outcome-option
    :update-asset-search asset-actions/update-asset-search
    :update-asset-selector-sort asset-actions/update-asset-selector-sort
@@ -18,6 +23,8 @@
    :set-asset-selector-live-market-subscriptions-paused
    asset-actions/set-asset-selector-live-market-subscriptions-paused
    :set-asset-selector-scroll-top asset-actions/set-asset-selector-scroll-top
+   :set-outcome-list-sort outcome-listing/set-outcome-list-sort
+   :set-outcome-visible-event-keys outcome-listing/set-outcome-visible-event-keys
    :increase-asset-selector-render-limit asset-actions/increase-asset-selector-render-limit
    :show-all-asset-selector-markets asset-actions/show-all-asset-selector-markets
    :maybe-increase-asset-selector-render-limit asset-actions/maybe-increase-asset-selector-render-limit

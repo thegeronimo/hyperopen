@@ -1,5 +1,6 @@
 (ns hyperopen.asset-selector.active-market-cache
   (:require [clojure.string :as str]
+            [hyperopen.outcomes.domain.display :as outcome-display]
             [hyperopen.platform :as platform]))
 
 (def ^:private active-market-display-local-storage-key
@@ -215,7 +216,8 @@
 	          (some? expiry-ms) (assoc :expiry-ms expiry-ms)
           (seq target-price) (assoc :target-price target-price)
           (seq period) (assoc :period period)
-          (seq outcome-sides) (assoc :outcome-sides outcome-sides))))))
+          (seq outcome-sides) (assoc :outcome-sides outcome-sides)
+          (= :outcome market-type) (merge (outcome-display/cache-fields market)))))))
 
 (defn persist-active-market-display!
   [market normalize-deps]

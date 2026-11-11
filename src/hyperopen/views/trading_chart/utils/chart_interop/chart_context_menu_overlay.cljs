@@ -307,10 +307,10 @@
 
 (defn- sync-copy-button-label!
   [chart-obj]
-  (let [{:keys [copy-button copy-label copied? copy-enabled?]} (overlay-state chart-obj)
+  (let [{:keys [copy-button copy-label copied? copy-enabled? price-unit-suffix]} (overlay-state chart-obj)
         label-text (cond
                      copied? "Copied"
-                     (seq copy-label) (str "Copy price " copy-label)
+                     (seq copy-label) (str "Copy price " copy-label price-unit-suffix)
                      :else "Copy price --")]
     (when copy-button
       (set! (.-textContent copy-button) "")
@@ -752,6 +752,7 @@
                                        clipboard
                                        format-price
                                        price-decimals
+                                       price-unit-suffix
                                        on-reset
                                        context-key
                                        set-timeout-fn
@@ -785,6 +786,7 @@
             :clipboard clipboard
             :format-price format-price
             :price-decimals price-decimals
+            :price-unit-suffix price-unit-suffix
             :on-reset on-reset
             :context-key context-key
             :set-timeout-fn (or set-timeout-fn
@@ -813,6 +815,7 @@
                                         clipboard
                                         format-price
                                         price-decimals
+                                        price-unit-suffix
                                         on-reset
                                         context-key
                                         set-timeout-fn
@@ -832,6 +835,7 @@
            :clipboard clipboard
            :format-price format-price
            :price-decimals price-decimals
+           :price-unit-suffix price-unit-suffix
            :on-reset on-reset
            :context-key context-key
            :set-timeout-fn set-timeout-fn

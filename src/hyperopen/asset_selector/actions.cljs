@@ -6,6 +6,8 @@
             [hyperopen.asset-selector.funding-drafts :as funding-drafts]
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
+            [hyperopen.chart.outcome-answers :as outcome-answers]
             [hyperopen.router :as router]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.state.trading :as trading]))
@@ -56,11 +58,11 @@
   [:asset-selector :live-market-subscriptions-paused?])
 
 (defn- active-market-side-coins
-  [market canonical-coin]
-  (let [side-coins (when (= :outcome (:market-type market))
-                     (markets/outcome-subscription-coins market))]
-    (vec (or (seq side-coins)
-             [canonical-coin]))))
+  "The coin whose book and trades follow the active market. An outcome side needs
+   only its own book (its sibling's is the same book mirrored), and one subscribe
+   per selection keeps the no-duplicate-heavy-effects contract."
+  [_market canonical-coin]
+  [canonical-coin])
 
 (declare toggle-asset-dropdown
          close-asset-dropdown
@@ -242,10 +244,14 @@
   [state coin]
   (let [current-dropdown (get-in state [:asset-selector :visible-dropdown])
         next-dropdown (if (= current-dropdown coin) nil coin)
-        should-refresh? (and (= coin :asset-selector)
-                             (some? next-dropdown)
+        opening-selector? (and (= coin :asset-selector) (some? next-dropdown))
+        ;; Reload on open when the catalog is missing, partial, or older than
+        ;; `outcome-listing/stale-after-ms` (events leave and join the feed).
+        should-refresh? (and opening-selector?
                              (or (empty? (get-in state [:asset-selector :markets]))
-                                 (not= :full (get-in state [:asset-selector :phase]))))
+                                 (not= :full (get-in state [:asset-selector :phase]))
+                                 (:stale? (outcome-listing/load-status
+                                           (:asset-selector state) (.now js/Date)))))
         path-values (cond-> [[[:asset-selector :visible-dropdown] next-dropdown]]
                       (and (= coin :asset-selector) (some? next-dropdown))
                       (conj [[:asset-selector :scroll-top] 0]
@@ -284,13 +290,26 @@
 (declare select-asset*)
 
 (defn select-asset
-  [state market-or-coin]
-  (if (unknown-coin-for-full-catalog? state market-or-coin)
-    []
-    (select-asset* state market-or-coin)))
+  "Effects that make `market-or-coin` the active market. An outcome market
+   always opens its ticket as a Buy in dollars, except with
+   `{:keep-cash-out? true}` (the ticket's own side switch), which keeps a Cash
+   out going when the new side of the same contract is held."
+  ([state market-or-coin]
+   (select-asset state market-or-coin nil))
+  ([state market-or-coin opts]
+   (if (unknown-coin-for-full-catalog? state market-or-coin)
+     []
+     (select-asset* state market-or-coin opts))))
+
+(defn- form-side-keyword
+  [side]
+  (cond
+    (keyword? side) side
+    (and (string? side) (seq side)) (keyword side)
+    :else nil))
 
 (defn- select-asset*
-  [state market-or-coin]
+  [state market-or-coin {:keys [keep-cash-out?] :as _opts}]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
         input-coin (if (map? market-or-coin)
                      (market-token (:coin market-or-coin))
@@ -315,6 +334,9 @@
                                (assoc :price "")
                                (assoc :size "")
                                (assoc :size-percent 0)
+                               ;; A stale-price confirmation covers one side of one
+                               ;; market only.
+                               (dissoc :outcome-stale-confirmed?)
                                (trading/persist-order-form)))
         reset-order-form-ui (when switched-asset?
                               (assoc (merge (trading/default-order-form-ui)
@@ -322,6 +344,21 @@
                                      :price-input-focused? false
                                      :size-display ""
                                      :size-input-source :manual))
+        ;; An outcome ticket opens as a Buy in dollars: a Sell carried over from
+        ;; a perp, or left by a finished cash out, would open a Cash out on a
+        ;; side the trader may not hold, with no way back. The one exception
+        ;; is switching sides of the same contract while cashing out a side
+        ;; that is held. Cash out and merge composites
+        ;; (`outcomes.application.exit-actions`) set their mode after this.
+        outcome-selection? (= :outcome (:market-type selected-market))
+        keep-cash-out? (and keep-cash-out?
+                            outcome-selection?
+                            (= :sell (form-side-keyword (get-in state [:order-form :side])))
+                            (= (:key selected-market) (:key current-market))
+                            (>= (trading/outcome-side-available-shares state canonical-coin) 1))
+        outcome-buy-reset? (and outcome-selection? (not keep-cash-out?))
+        side-flipped? (and outcome-buy-reset?
+                           (not= :buy (form-side-keyword (get-in state [:order-form :side]))))
         reset-order-form-runtime (when switched-asset?
                                    (trading/default-order-form-runtime))
         immediate-ui-path-values (cond-> [[[:asset-selector :visible-dropdown] nil]
@@ -343,7 +380,29 @@
                                    (conj [[:order-form-runtime] reset-order-form-runtime])
                                    (and (= :outcome (:market-type selected-market))
                                         (some? selected-outcome-side-index))
-                                   (conj [[:order-form :outcome-side] selected-outcome-side-index]))
+                                   (conj [[:order-form :outcome-side] selected-outcome-side-index])
+
+                                   ;; The selected coin owns the selected answer: header
+                                   ;; picker, ticket rows and side buttons all land here,
+                                   ;; so the form's answer always matches the active asset.
+                                   outcome-buy-reset?
+                                   (into (cond-> [[[:order-form :side] :buy]
+                                                  [[:order-form-ui :size-input-mode] :quote]]
+                                           ;; Shares typed for a sale are not dollars.
+                                           side-flipped?
+                                           (into [[[:order-form :size] ""]
+                                                  [[:order-form :size-percent] 0]
+                                                  [[:order-form-ui :size-display] ""]])))
+
+                                   ;; All answers is drawn only on a multi-answer event.
+                                   (outcome-answers/reset-path-value state selected-market)
+                                   (conj (outcome-answers/reset-path-value state selected-market))
+
+                                   (= :outcome (:market-type selected-market))
+                                   (into [[[:order-form :outcome-option-id]
+                                           (parse-int-value (:outcome-option-id selected-market))]
+                                          [[:order-form-ui :outcome-option-dropdown-open?] false]
+                                          [[:order-form-ui :outcome-option-query] ""]]))
         immediate-ui-effects [[:effects/save-many immediate-ui-path-values]
                               sync-asset-selector-active-ctx-subscriptions-effect]
         unsubscribe-effects (if current-asset

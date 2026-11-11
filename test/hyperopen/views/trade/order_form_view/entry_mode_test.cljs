@@ -1,5 +1,5 @@
 (ns hyperopen.views.trade.order-form-view.entry-mode-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.views.trade.order-form.test-support :refer [base-state
                                                                    button-node-by-click-action
                                                                    button-node-by-label
@@ -43,84 +43,38 @@
     (is (not (contains? strings "TIF")))
     (is (not (contains? strings "Pro Order Type")))))
 
-(deftest outcome-market-renders-independent-buy-sell-side-tabs-test
-  (let [outcome-market {:coin "outcome:0"
-                        :quote "USDH"
+(deftest outcome-market-renders-pick-a-side-ticket-test
+  (let [outcome-market {:coin "#0"
+                        :quote "USDC"
                         :market-type :outcome
+                        :outcome-shape :yes-no
                         :mark 0.58
                         :szDecimals 0
-                        :outcome-sides [{:side-index 0
-                                         :side-label "Yes"
-                                         :coin "#0"
-                                         :asset-id 100000000}
-                                        {:side-index 1
-                                         :side-label "No"
-                                         :coin "#1"
-                                         :asset-id 100000001}]}
+                        :outcome-sides [{:side-index 0 :side-name "Yes" :coin "#0" :asset-id 100000000
+                                         :mark 0.58 :mid 0.58 :prevDayRaw "0.5" :volume24h 10}
+                                        {:side-index 1 :side-name "No" :coin "#1" :asset-id 100000001
+                                         :mark 0.42 :mid 0.42 :prevDayRaw "0.5" :volume24h 10}]}
         buy-view (view/order-form-view
                   (assoc (base-state {:type :market
                                       :side :buy
                                       :outcome-side 0})
-                         :active-asset "outcome:0"
+                         :active-asset "#0"
                          :active-market outcome-market))
-        sell-view (view/order-form-view
-                   (assoc (base-state {:type :market
-                                       :side :sell
-                                       :outcome-side 0})
-                          :active-asset "outcome:0"
-                          :active-market outcome-market))
-        buy-tab (button-node-by-label buy-view "Buy")
-        sell-tab (button-node-by-label buy-view "Sell")
-        active-sell-tab (button-node-by-label sell-view "Sell")
-        sell-click (get-in sell-tab [1 :on :click])
-        tablist (find-first-node buy-view
-                                 (fn [candidate]
-                                   (= "outcome-action-side-tabs"
-                                      (get-in candidate [1 :data-role]))))
-        divider (find-first-node buy-view
-                                 (fn [candidate]
-                                   (= "outcome-action-side-divider"
-                                      (get-in candidate [1 :data-role]))))
-        active-dot (find-first-node buy-view
-                                    (fn [candidate]
-                                      (= "outcome-action-side-active-dot"
-                                         (get-in candidate [1 :data-role]))))
-        active-sell-dot (find-first-node sell-view
-                                         (fn [candidate]
-                                           (= "outcome-action-side-active-dot"
-                                              (get-in candidate [1 :data-role]))))
-        tablist-classes (set (get-in tablist [1 :class]))
-        buy-tab-classes (set (get-in buy-tab [1 :class]))
-        sell-tab-classes (set (get-in sell-tab [1 :class]))
-        active-sell-tab-classes (set (get-in active-sell-tab [1 :class]))
-        active-sell-dot-classes (set (get-in active-sell-dot [1 :class]))
-        buy-strings (set (collect-strings buy-view))
-        sell-strings (set (collect-strings sell-view))]
-    (is (some? tablist))
-    (is (= "tablist" (get-in tablist [1 :role])))
-    (is (contains? tablist-classes "grid-cols-2"))
-    (is (contains? tablist-classes "border-y"))
-    (is (some? divider))
-    (is (some? active-dot))
-    (is (some? buy-tab))
-    (is (some? sell-tab))
-    (is (= "tab" (get-in buy-tab [1 :role])))
-    (is (= true (get-in buy-tab [1 :aria-selected])))
-    (is (= false (get-in sell-tab [1 :aria-selected])))
-    (is (contains? buy-tab-classes "w-full"))
-    (is (contains? buy-tab-classes "justify-center"))
-    (is (contains? buy-tab-classes "border-primary"))
-    (is (contains? active-sell-tab-classes "border-ho-sell-hi"))
-    (is (contains? active-sell-tab-classes "text-ho-sell-hi"))
-    (is (contains? active-sell-dot-classes "bg-ho-sell-hi"))
-    (is (not (contains? buy-tab-classes "bg-ho-accent")))
-    (is (not (contains? sell-tab-classes "bg-ho-surface-raised")))
-    (is (= [[:actions/update-order-form [:side] :sell]]
-           sell-click))
-    (is (contains? buy-strings "Buy Yes"))
-    (is (contains? buy-strings "Buy No"))
-    (is (contains? sell-strings "Sell Yes"))
-    (is (contains? sell-strings "Sell No"))))
+        sides (find-all-nodes buy-view #(= "outcome-ticket-side" (get-in % [1 :data-role])))
+        strings (set (collect-strings buy-view))]
+    (is (some? (find-first-node buy-view #(= "outcome-ticket" (get-in % [1 :data-role])))))
+    (is (nil? (find-first-node buy-view #(= "outcome-action-side-tabs" (get-in % [1 :data-role]))))
+        "no separate Buy/Sell tabs: buying the other side is the opposite trade")
+    (is (= 2 (count sides)))
+    (is (contains? strings "Pick a side"))
+    (is (contains? strings "Market"))
+    (is (contains? strings "Limit"))
+    (is (not (contains? strings "Pro")))
+    (is (not (contains? strings "Reduce Only")))
+    (is (contains? strings "Buy Yes"))
+    (testing "picking No is one action: the side switch alone (a second form write would undo it)"
+      (is (= [[:actions/update-order-form [:outcome-side] 1]]
+             (get-in (second sides) [1 :on :click]))))))
 
 (deftest market-mode-button-dispatches-select-order-entry-market-action-test
   (let [view-node (view/order-form-view (base-state {:entry-mode :limit :type :limit}))

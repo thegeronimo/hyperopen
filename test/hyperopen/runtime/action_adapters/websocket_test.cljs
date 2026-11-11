@@ -23,8 +23,6 @@
     (is (= [[:effects/subscribe-active-asset "#0"]
             [:effects/subscribe-orderbook "#0"]
             [:effects/subscribe-trades "#0"]
-            [:effects/subscribe-orderbook "#1"]
-            [:effects/subscribe-trades "#1"]
             [:effects/sync-active-asset-funding-predictability "#0"]]
            (websocket-adapters/subscribe-to-asset state "#0")))))
 
@@ -36,14 +34,8 @@
                 :outcome-subscription-coins ["#1610" "#1611" "#1620" "#1621"]}
         state {:asset-selector {:market-by-key {"question:30" market}}}]
     (is (= [[:effects/subscribe-active-asset "#1620"]
-            [:effects/subscribe-orderbook "#1610"]
-            [:effects/subscribe-trades "#1610"]
-            [:effects/subscribe-orderbook "#1611"]
-            [:effects/subscribe-trades "#1611"]
             [:effects/subscribe-orderbook "#1620"]
             [:effects/subscribe-trades "#1620"]
-            [:effects/subscribe-orderbook "#1621"]
-            [:effects/subscribe-trades "#1621"]
             [:effects/sync-active-asset-funding-predictability "#1620"]]
            (websocket-adapters/subscribe-to-asset state "#1620")))))
 
@@ -58,8 +50,6 @@
     (is (= [[:effects/subscribe-active-asset "#10"]
             [:effects/subscribe-orderbook "#10"]
             [:effects/subscribe-trades "#10"]
-            [:effects/subscribe-orderbook "#11"]
-            [:effects/subscribe-trades "#11"]
             [:effects/sync-active-asset-funding-predictability "#10"]]
            (websocket-adapters/subscribe-to-asset state "#10")))))
 

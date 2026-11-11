@@ -78,6 +78,86 @@
   (select-keys (hyperevm-funds/hyperevm-funds state)
                hyperevm-funds-summary-keys))
 
+(defn- outcome-shares-inputs
+  "Everything `account-equity-outcome-shares` reads, compared by identity."
+  [state]
+  [(get-in state [:spot :clearinghouse-state :balances])
+   (get-in state [:asset-selector :market-by-key])
+   (:active-market state)
+   (get-in state [:asset-selector :active-market])
+   (get-in state [:active-assets :contexts])
+   (:asset-contexts state)
+   (get-in state [:webdata2 :spotAssetCtxs])
+   (:orderbooks state)])
+
+(defn- same-inputs?
+  [inputs cached-inputs]
+  (and (= (count inputs) (count cached-inputs))
+       (every? true? (map identical? inputs cached-inputs))))
+
+(defonce ^:private outcome-shares-memo
+  ;; {:inputs <outcome-shares-inputs> :narrow <outcome-rows-inputs> :value}
+  (atom nil))
+
+(defn account-equity-outcome-shares
+  "Dollars the account's outcome shares are worth at the best bid, before the
+   closing fee, rounded to cents. Account value counts them; buying power and
+   margin never do. Nil when none are held.
+
+   /trade asks on every store write. A write touching none of the inputs
+   costs pointer compares; one touching them (any book tick, any context
+   update) narrows them to the held sides first, and the rows are rebuilt
+   only when a held side's balance, catalog entry, context or book changed."
+  [state]
+  (let [inputs (outcome-shares-inputs state)
+        memo @outcome-shares-memo]
+    (if (and memo (same-inputs? inputs (:inputs memo)))
+      (:value memo)
+      (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
+            options {:active-market (:active-market state)
+                     :selector-active-market (get-in state [:asset-selector :active-market])
+                     :active-contexts (get-in state [:active-assets :contexts] {})
+                     :asset-contexts (:asset-contexts state)
+                     :spot-asset-ctxs (get-in state [:webdata2 :spotAssetCtxs])
+                     :orderbooks (:orderbooks state)}
+            narrow (account-projections/outcome-rows-inputs (:spot state) market-by-key options)
+            value (cond
+                    (nil? narrow) nil
+
+                    (and memo (account-projections/same-outcome-rows-inputs? narrow (:narrow memo)))
+                    (:value memo)
+
+                    :else
+                    (some-> (account-projections/build-outcome-rows (:spot state) market-by-key options)
+                            account-projections/outcome-shares-value
+                            (* 100)
+                            js/Math.round
+                            (/ 100)))]
+        (reset! outcome-shares-memo {:inputs inputs :narrow narrow :value value})
+        value))))
+
+(defonce ^:private outcome-shares-cache (atom nil))
+
+(defn- outcome-shares-summary
+  "The outcome shares value, recomputed only when one of its inputs changed
+   (not on every account-equity read)."
+  [state]
+  (if (contains? state :account-equity/outcome-shares)
+    (get state :account-equity/outcome-shares)
+    (let [inputs (outcome-shares-inputs state)
+          cache @outcome-shares-cache]
+      (if (and (map? cache) (same-inputs? inputs (:inputs cache)))
+        (:value cache)
+        (let [value (account-equity-outcome-shares state)]
+          (reset! outcome-shares-cache {:inputs inputs :value value})
+          value)))))
+
+(defn- plus-outcome-shares
+  [total outcome-shares]
+  (if (and (number? total) (number? outcome-shares))
+    (+ total outcome-shares)
+    total))
+
 (defn- account-equity-hyperevm-funds-summary
   [state]
   ;; A present key belongs to the reduced /trade slice. In particular, nil
@@ -100,7 +180,7 @@
                (zero? unpriced-count))
       usd)))
 
-(defn- derive-account-equity-metrics [state hyperevm-funds-summary]
+(defn- derive-account-equity-metrics [state hyperevm-funds-summary outcome-shares]
   (let [webdata2 (:webdata2 state)
         market-by-key (get-in state [:asset-selector :market-by-key] {})
         balance-rows (derived-cache/memoized-balance-rows webdata2 (:spot state) (:account state) market-by-key (:perp-dex-clearinghouse state))
@@ -164,9 +244,11 @@
         ;; The existing classic Account Value presentation remains Spot + Perps.
         ;; Summing balance rows instead would double-count named-dex equity and
         ;; add its collateral token to a USD total unconverted.
-        account-value-display (if unified?
-                                (derive-account-value-display portfolio-value spot-equity perps-value)
-                                (sum-when-present [spot-equity-from-rows perps-value]))
+        account-value-display (plus-outcome-shares
+                               (if unified?
+                                 (derive-account-value-display portfolio-value spot-equity perps-value)
+                                 (sum-when-present [spot-equity-from-rows perps-value]))
+                               outcome-shares)
         vault-equity (when-not unified?
                        (user-equity/current-vault-equity state))
         hyperevm-equity (when-not unified?
@@ -182,7 +264,8 @@
                                                (number? vault-equity)
                                                (number? hyperevm-equity))
                                       (+ spot-equity perps-value vault-equity hyperevm-equity
-                                         (or earn-equity 0)))
+                                         (or earn-equity 0)
+                                         (or outcome-shares 0)))
         ;; What the cross-only leverage and maintenance figures leave out. The
         ;; panel prints it beside them so an all-isolated book cannot render a
         ;; bare 0.00x that reads as "no exposure".
@@ -215,6 +298,7 @@
      :cross-account-value cross-account-value
      :portfolio-value portfolio-value
      :account-value-display account-value-display
+     :outcome-shares-value outcome-shares
      :vault-equity vault-equity
      :earn-equity earn-equity
      :hyperevm-equity hyperevm-equity
@@ -230,6 +314,7 @@
         borrow-lend (:borrow-lend state)
         effective-address (account-context/effective-account-address state)
         hyperevm-funds-summary (account-equity-hyperevm-funds-summary state)
+        outcome-shares (outcome-shares-summary state)
         perp-dex-states (:perp-dex-clearinghouse state)
         market-by-key (get-in state [:asset-selector :market-by-key])
         cache @account-equity-metrics-cache
@@ -241,11 +326,12 @@
                         (identical? borrow-lend (:borrow-lend cache))
                         (= effective-address (:effective-address cache))
                         (= hyperevm-funds-summary (:hyperevm-funds-summary cache))
+                        (= outcome-shares (:outcome-shares cache))
                         (identical? perp-dex-states (:perp-dex-states cache))
                         (identical? market-by-key (:market-by-key cache)))]
     (if cache-hit?
       (:result cache)
-      (let [result (derive-account-equity-metrics state hyperevm-funds-summary)]
+      (let [result (derive-account-equity-metrics state hyperevm-funds-summary outcome-shares)]
         (reset! account-equity-metrics-cache {:webdata2 webdata2
                                               :spot-data spot-data
                                               :account account
@@ -253,6 +339,7 @@
                                               :borrow-lend borrow-lend
                                               :effective-address effective-address
                                               :hyperevm-funds-summary hyperevm-funds-summary
+                                              :outcome-shares outcome-shares
                                               :perp-dex-states perp-dex-states
                                               :market-by-key market-by-key
                                               :result result})
@@ -263,4 +350,6 @@
 
 (defn reset-account-equity-metrics-cache!
   []
+  (reset! outcome-shares-cache nil)
+  (reset! outcome-shares-memo nil)
   (reset! account-equity-metrics-cache nil))

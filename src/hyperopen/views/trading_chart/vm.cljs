@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [hyperopen.account.chart-fill-history :as chart-fill-history]
             [hyperopen.account.context :as account-context]
+            [hyperopen.outcomes.domain.price-unit :as price-unit]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.trading-settings :as trading-settings]
@@ -79,10 +80,10 @@
 
 (def ^:private memoized-chart-trades-deps
   (memoize-last
-   (fn [perp? coin-label on-open-history older-fills-end-ms on-request-older-fills]
+   (fn [perp? coin-label format-price on-open-history older-fills-end-ms on-request-older-fills]
      {:perp? perp?
       :coin-label coin-label
-      :format-price fmt/format-trade-price-plain
+      :format-price format-price
       :on-open-history on-open-history
       :older-fills-end-ms older-fills-end-ms
       :on-request-older-fills on-request-older-fills})))
@@ -109,9 +110,47 @@
        (assoc :current-liquidation-price (:current-liquidation-price preview)
               :liquidation-price (:target-liquidation-price preview))))))
 
+(defn chart-price-unit
+  "The unit outcome prices are labelled in (:percent or :cents), or nil for
+   every other market. Nil too while the active market still describes
+   another coin, so a perp never borrows an outcome's labels mid-switch."
+  [state]
+  (when (price-unit/outcome-market? (:active-asset state) (:active-market state))
+    (price-unit/normalize-unit (get-in state [:chart-options :outcome-price-unit]))))
+
+(def ^:private memoized-price-formatters
+  (memoize-last
+   (fn [unit price-decimals]
+     (if unit
+       (let [opts {:unit unit :price-decimals price-decimals}]
+         {:format-price #(price-unit/format-price % opts)
+          :format-delta #(price-unit/format-delta % opts)
+          ;; Copy price yields the cents number the ticket's limit field
+          ;; takes, labelled in cents, whichever unit the axis shows.
+          :copy-price {:format-price #(price-unit/cents-number-text % opts)
+                       :price-decimals nil
+                       :price-unit-suffix "¢"}})
+       {:format-price fmt/format-trade-price-plain
+        :format-delta fmt/format-trade-price-delta}))))
+
+(defn price-formatters
+  "Price formatters for everything the chart draws: the outcome unit's on an
+   outcome chart, the plain dollar ones otherwise."
+  [state price-decimals]
+  (memoized-price-formatters (chart-price-unit state) price-decimals))
+
+(defn- legend-deps
+  [price-unit {:keys [format-price format-delta]}]
+  (cond-> {:format-price format-price
+           :format-delta format-delta}
+    ;; "+0.2 pts" already is the change; a relative percent beside it misleads
+    price-unit (assoc :show-pct? false)))
+
 (def ^:private memoized-chart-runtime-options
   (memoize-last
    (fn [price-decimals
+        price-unit
+        formatters
         volume-visible?
         indicator-runtime-ready?
         on-hide-volume-indicator
@@ -126,9 +165,10 @@
         chart-trades-deps
         show-chart-trades?
         vol-range-overlay]
-     {:series-options {:price-decimals price-decimals}
-      :legend-deps {:format-price fmt/format-trade-price-plain
-                    :format-delta fmt/format-trade-price-delta}
+     {:series-options (cond-> {:price-decimals price-decimals}
+                        price-unit (assoc :price-unit price-unit))
+      :legend-deps (legend-deps price-unit formatters)
+      :price-formatters formatters
       :volume-visible? volume-visible?
       :indicator-runtime-ready? indicator-runtime-ready?
       :show-chart-trades? show-chart-trades?
@@ -250,6 +290,12 @@
                       (get api-response :data []))
         candle-data (derived-cache/memoized-candle-data raw-candles selected-timeframe)
         show-chart-trades? (trading-settings/show-chart-trades? state)
+        price-decimals (or (:price-decimals active-market)
+                           (:priceDecimals active-market)
+                           (:pxDecimals active-market)
+                           (fmt/price-decimals-from-raw (:markRaw active-market))
+                           (fmt/price-decimals-from-raw (:prevDayRaw active-market)))
+        formatters (price-formatters state price-decimals)
         ;; positions (and so the ribbon) only exist on perps; spot and outcome
         ;; markets get markers and the card only
         perp? (not (or (contains? #{:spot :outcome} (:market-type active-market))
@@ -271,6 +317,7 @@
                                             perp?)
         chart-trades-deps (memoized-chart-trades-deps perp?
                                                       (chart-coin-label active-asset active-market)
+                                                      (:format-price formatters)
                                                       (actions/open-trade-history-callback dispatch-fn)
                                                       (older-fills-end-ms state show-chart-trades? candle-data)
                                                       (actions/request-older-chart-fills-callback dispatch-fn))
@@ -293,15 +340,12 @@
         ;; stays there and a late-arriving display name never remounts it.
         display-symbol (legend-display-symbol active-asset active-market)
         timeframe-label (str/upper-case (name selected-timeframe))
-        price-decimals (or (:price-decimals active-market)
-                           (:priceDecimals active-market)
-                           (:pxDecimals active-market)
-                           (fmt/price-decimals-from-raw (:markRaw active-market))
-                           (fmt/price-decimals-from-raw (:prevDayRaw active-market)))
         volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))
         indicator-runtime-ready? (trading-indicators-modules/trading-indicators-ready? state)
         chart-runtime-options (memoized-chart-runtime-options
                                price-decimals
+                               (chart-price-unit state)
+                               formatters
                                volume-visible?
                                indicator-runtime-ready?
                                on-hide-volume-indicator

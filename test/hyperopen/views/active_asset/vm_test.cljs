@@ -186,10 +186,11 @@
                    :funding-ui {:tooltip {}}
                    :trade-ui {:mobile-asset-details-open? false}})]
     (is (true? (get-in panel-vm [:row-vm :is-outcome])))
-    (is (= "58%" (get-in panel-vm [:row-vm :outcome-chance-label])))
+    ;; No book and no sides: the mark is not a trade, so no chance is shown.
+    (is (= "—" (get-in panel-vm [:row-vm :outcome-chance-label])))
     (is (= "BTC above 78213 on May 3 at 2:00 AM?"
            (get-in panel-vm [:row-vm :outcome-title])))
-    (is (= "10h 8m 25s"
+    (is (= "Settles in 10h 8m"
            (get-in panel-vm [:row-vm :countdown-text])))
     (is (= 276502
            (get-in panel-vm [:row-vm :open-interest-usd])))
@@ -197,14 +198,16 @@
            (get-in panel-vm [:row-vm :open-interest-tooltip])))
     (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
            (get-in panel-vm [:row-vm :outcome-details])))
-    (is (= {:title "Outcome Details"
-            :summary "This market resolves to YES or NO based on the following settlement condition at the specified time."
-            :settlement-label "BTC mark price is above 78,213"
-            :settlement-time-label "on May 03, 2026 02:00 AM UTC"
+    (is (= {:title "BTC above 78213 on May 3 at 2:00 AM?"
+            :summary "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
+            :settlement-label "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
+            :yes-label "Yes"
+            :no-label "No"
             :yes-payout-label "$1.00"
             :no-payout-label "$0.00"
-            :footer-label "Payouts are in USDH."}
-           (get-in panel-vm [:row-vm :outcome-tooltip])))))
+            :footer-label "Payouts are in USDC. Venue: Hyperliquid."}
+           (get-in panel-vm [:row-vm :outcome-tooltip])))
+    (is (= "Settles" (get-in panel-vm [:row-vm :outcome-header :clock-heading])))))
 
 (deftest active-asset-row-vm-falls-back-to-outcome-side-supply-open-interest-test
   (let [market {:key "outcome:0"

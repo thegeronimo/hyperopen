@@ -120,6 +120,11 @@
          "xl:col-start-3"
          "xl:row-span-2"]))
 
+(def ^:private outcome-sheet-classes
+  "Outcome markets on a phone open the ticket as a bottom sheet over the chart:
+   a full-screen layer whose backdrop and sheet the shell renders."
+  ["fixed" "inset-0" "z-[300]" "flex" "flex-col" "justify-end" "lg:hidden"])
+
 (defn- account-panel-classes
   [mobile-surface mobile-market-surface?]
   (into [(if (= mobile-surface :account)
@@ -152,39 +157,53 @@
    "lg:hidden"])
 
 (defn trade-layout
-  [desktop-layout? mobile-surface funding-tooltip-open?]
-  (let [mobile-market-surface? (contains? trade-layout-actions/market-mobile-surfaces
-                                          mobile-surface)
-        mobile-account-surface? (= mobile-surface :account)
-        mobile-orderbook-surface? (contains? #{:orderbook :trades} mobile-surface)]
-    {:desktop-layout? desktop-layout?
-     :mobile-market-surface? mobile-market-surface?
-     :mobile-account-surface? mobile-account-surface?
-     :mobile-orderbook-surface? mobile-orderbook-surface?
-     :chart-panel-visible? (or desktop-layout? (= mobile-surface :chart))
-     :orderbook-panel-visible? (or desktop-layout? mobile-orderbook-surface?)
-     :order-entry-panel-visible? (or desktop-layout? (= mobile-surface :ticket))
-     :account-panel-visible? (or desktop-layout? mobile-market-surface?)
-     :mobile-account-summary-visible? (and (not desktop-layout?)
-                                           mobile-account-surface?)
-     :show-mobile-active-asset? (and (not desktop-layout?)
-                                     (not mobile-account-surface?))
-     :show-equity-surface? (or desktop-layout?
-                               mobile-account-surface?)
-     :grid-style (desktop-trade-grid-style desktop-layout?)
-     :mobile-active-asset-strip-classes (mobile-active-asset-strip-classes funding-tooltip-open?
-                                                                    mobile-account-surface?)
-     :mobile-surface-tabs-classes (mobile-surface-tabs-classes mobile-account-surface?)
-     :desktop-active-asset-shell-classes (desktop-active-asset-shell-classes funding-tooltip-open?)
-     :chart-panel-classes (chart-panel-classes mobile-surface funding-tooltip-open?)
-     :orderbook-panel-classes (orderbook-panel-classes mobile-orderbook-surface?)
-     :order-entry-panel-classes (order-entry-panel-classes mobile-surface)
-     :account-panel-classes (account-panel-classes mobile-surface mobile-market-surface?)
-     :mobile-account-summary-classes (mobile-account-summary-classes)}))
+  ([desktop-layout? mobile-surface funding-tooltip-open?]
+   (trade-layout desktop-layout? mobile-surface funding-tooltip-open? nil))
+  ([desktop-layout? mobile-surface funding-tooltip-open? {:keys [outcome-market?]}]
+   (let [;; On a phone an outcome market's ticket is a sheet over the chart, not a
+         ;; surface of its own: the chart surface stays underneath.
+         outcome-sheet? (and (not desktop-layout?) (true? outcome-market?) (= :ticket mobile-surface))
+         base-surface (if outcome-sheet? :chart mobile-surface)
+         mobile-market-surface? (contains? trade-layout-actions/market-mobile-surfaces
+                                           base-surface)
+         mobile-account-surface? (= mobile-surface :account)
+         mobile-orderbook-surface? (contains? #{:orderbook :trades} base-surface)]
+     {:desktop-layout? desktop-layout?
+      :mobile-market-surface? mobile-market-surface?
+      :mobile-account-surface? mobile-account-surface?
+      :mobile-orderbook-surface? mobile-orderbook-surface?
+      :outcome-market? (boolean outcome-market?)
+      :outcome-sheet? outcome-sheet?
+      ;; The pinned Buy bar shows on the market surfaces of a phone.
+      :outcome-bar? (and (not desktop-layout?) (true? outcome-market?) mobile-market-surface?
+                         (not outcome-sheet?))
+      :chart-panel-visible? (or desktop-layout? (= base-surface :chart))
+      :orderbook-panel-visible? (or desktop-layout? mobile-orderbook-surface?)
+      :order-entry-panel-visible? (or desktop-layout? (= mobile-surface :ticket))
+      :account-panel-visible? (or desktop-layout? mobile-market-surface?)
+      :mobile-account-summary-visible? (and (not desktop-layout?)
+                                            mobile-account-surface?)
+      :show-mobile-active-asset? (and (not desktop-layout?)
+                                      (not mobile-account-surface?))
+      :show-equity-surface? (or desktop-layout?
+                                mobile-account-surface?)
+      :grid-style (desktop-trade-grid-style desktop-layout?)
+      :mobile-active-asset-strip-classes (mobile-active-asset-strip-classes funding-tooltip-open?
+                                                                            mobile-account-surface?)
+      :mobile-surface-tabs-classes (mobile-surface-tabs-classes mobile-account-surface?)
+      :desktop-active-asset-shell-classes (desktop-active-asset-shell-classes funding-tooltip-open?)
+      :chart-panel-classes (chart-panel-classes base-surface funding-tooltip-open?)
+      :orderbook-panel-classes (orderbook-panel-classes mobile-orderbook-surface?)
+      :order-entry-panel-classes (if outcome-sheet?
+                                   outcome-sheet-classes
+                                   (order-entry-panel-classes mobile-surface))
+      :account-panel-classes (account-panel-classes base-surface mobile-market-surface?)
+      :mobile-account-summary-classes (mobile-account-summary-classes)})))
 
 (defn trade-layout-state
   [state viewport-width funding-tooltip-open?]
   (let [desktop-layout* (desktop-layout? viewport-width)
         mobile-surface (normalize-mobile-surface state)]
-    (assoc (trade-layout desktop-layout* mobile-surface funding-tooltip-open?)
+    (assoc (trade-layout desktop-layout* mobile-surface funding-tooltip-open?
+                         {:outcome-market? (= :outcome (get-in state [:active-market :market-type]))})
            :mobile-surface mobile-surface)))

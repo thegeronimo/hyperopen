@@ -1,6 +1,7 @@
 (ns hyperopen.asset-selector.markets-cache
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.domain.display :as outcome-display]
             [hyperopen.platform.indexed-db :as indexed-db]
             [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
@@ -134,9 +135,8 @@
       (when (and (seq label)
                  (some? outcome-id)
                  (seq sides))
-        (cond-> {:label label
-                 :outcome-id outcome-id
-                 :sides sides}
+        (cond-> (merge (outcome-display/option-cache-fields option)
+                       {:label label :outcome-id outcome-id :sides sides})
           (seq yes-coin) (assoc :yes-coin yes-coin)
           (some? yes-asset-id) (assoc :yes-asset-id yes-asset-id)
           (seq no-coin) (assoc :no-coin no-coin)
@@ -274,6 +274,7 @@
           (seq target-price) (assoc :target-price target-price)
           (seq period) (assoc :period period)
           (seq outcome-sides) (assoc :outcome-sides outcome-sides)
+          (= :outcome market-type) (merge (outcome-display/cache-fields market))
           (some? cache-order) (assoc :cache-order cache-order))))))
 
 (defn normalize-asset-selector-markets-cache
@@ -506,17 +507,17 @@
   [state cached-markets resolve-market-by-coin-fn]
   (if (seq (get-in state [:asset-selector :markets]))
     state
-    (let [market-by-key (market-by-key-from-markets cached-markets)
-          market-index-by-key (market-index-by-key-from-markets cached-markets)
+    (let [now-ms (platform/now-ms)
           active-asset (:active-asset state)
           resolved-active-market (when (string? active-asset)
-                                   (resolve-market-by-coin-fn market-by-key active-asset))
-          expired-active-outcome? (markets/expired-outcome-market?
-                                   resolved-active-market
-                                   (platform/now-ms))
+                                   (resolve-market-by-coin-fn (market-by-key-from-markets cached-markets) active-asset))
+          ;; A settled outcome is not restored: the venue no longer lists it.
+          cached-markets (vec (remove #(markets/expired-outcome-market? % now-ms) cached-markets))
+          market-by-key (market-by-key-from-markets cached-markets)
+          market-index-by-key (market-index-by-key-from-markets cached-markets)
+          expired-active-outcome? (markets/expired-outcome-market? resolved-active-market now-ms)
           fallback-active-market (when expired-active-outcome?
-                                   (resolve-market-by-coin-fn market-by-key
-                                                              default-active-asset))]
+                                   (resolve-market-by-coin-fn market-by-key default-active-asset))]
       (cond-> (-> state
                   (assoc-in [:asset-selector :markets] cached-markets)
                   (assoc-in [:asset-selector :market-by-key] market-by-key)

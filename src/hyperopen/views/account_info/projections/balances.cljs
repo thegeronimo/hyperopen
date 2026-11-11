@@ -425,6 +425,7 @@
                                      [index (or weiDecimals szDecimals 2)]))
                               spot-tokens)
          coin-decimals (build-coin-decimals-map-from-market-state market-by-key)
+         spot-base-index (delay (markets/spot-market-base-index market-by-key)) ; one pass, not one per row
          perps-row (when clearinghouse-state
                      (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
                            total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
@@ -469,7 +470,7 @@
                                        ;; own coin ("@107") for market selection.
                                        market-coin (when-not (= coin "USDC")
                                                      (:coin (markets/resolve-spot-market-by-coin
-                                                             market-by-key coin)))]
+                                                             market-by-key coin @spot-base-index)))]
                                    (cond-> {:key (str "spot-" (or token-idx coin))
                                             :selection-coin coin
                                             :coin coin-label

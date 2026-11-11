@@ -1,5 +1,6 @@
 (ns hyperopen.asset-selector.markets-test
   (:require [cljs.test :refer-macros [deftest is testing]]
+            [clojure.string :as str]
             [hyperopen.asset-selector.outcome-fixtures :as outcome-fixtures]
             [hyperopen.asset-selector.markets :as markets]))
 
@@ -152,43 +153,6 @@
   [expected actual]
   (< (js/Math.abs (- expected actual)) 0.000000001))
 
-(def ^:private expected-local-month-names
-  ["Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"])
-
-(defn- expected-twelve-hour-label
-  [hour]
-  (let [hour* (mod hour 24)
-        hour12 (mod hour* 12)]
-    (str (if (zero? hour12) 12 hour12)
-         ":00 "
-         (if (< hour* 12) "AM" "PM"))))
-
-(defn- expected-local-outcome-title
-  [{:keys [underlying target-price expiry-ms]}]
-  (let [date (js/Date. expiry-ms)]
-    (str underlying
-         " above "
-         target-price
-         " on "
-         (get expected-local-month-names (.getMonth date))
-         " "
-         (.getDate date)
-         " at "
-         (expected-twelve-hour-label (.getHours date))
-         "?")))
-
-(defn- expected-local-price-range-title
-  [{:keys [underlying expiry-ms]}]
-  (let [date (js/Date. expiry-ms)]
-    (str underlying
-         " price range on "
-         (get expected-local-month-names (.getMonth date))
-         " "
-         (.getDate date)
-         " at "
-         (expected-twelve-hour-label (.getHours date))
-         "?")))
-
 (deftest outcome-encoding-and-description-test
   (is (= 0 (markets/outcome-encoding 0 0)))
   (is (= 1 (markets/outcome-encoding 0 1)))
@@ -211,7 +175,7 @@
 (deftest build-outcome-markets-builds-recurring-question-test
   (let [[market] (markets/build-outcome-markets sample-outcome-meta sample-outcome-ctxs)
         [yes no] (:outcome-sides market)
-        expected-title (expected-local-outcome-title market)
+        expected-title "Bitcoin above $78,213"
         market-by-key {(:key market) market}]
     (is (= "outcome:0" (:key market)))
     (is (= "#0" (:coin market)))
@@ -225,7 +189,7 @@
     (is (= "1d" (:period market)))
     (is (= 1777788000000 (:expiry-ms market)))
     (is (= "78213" (:target-price market)))
-    (is (= "USDH" (:quote market)))
+    (is (= "USDC" (:quote market)))
     (is (= 0 (:szDecimals market)))
     (is (= 100000000 (:asset-id market)))
     (is (= 0 (:side-index yes)))
@@ -242,10 +206,15 @@
     (is (= "0.65012" (:markRaw market)))
     (is (close-to? 0.10012 (:change24h market)))
     (is (close-to? 18.20363636363638 (:change24hPct market)))
-    (is (= 415908.3249700002 (:volume24h market)))
+    ;; Event volume is shares, each contract once: the two sides' notionals
+    ;; add up to shares × $1 when the feed omits dayBaseVlm.
+    (is (= 683834 (js/Math.round (:volume24h market))))
     (is (= 204692.0 (:openInterest market)))
-    (is (= "If the BTC mark price at time of settlement is above 78213 at May 03, 2026 06:00 UTC, YES tokens pay out $1 each. Otherwise, NO tokens pay out $1 each."
+    (is (= "Yes if the Bitcoin mark price is above $78,213 at settlement, May 3, 2026 06:00 UTC. Otherwise No. Each winning share pays $1.00; the other side pays $0."
            (:outcome-details market)))
+    (is (= :yes-no (:outcome-shape market)))
+    (is (= {:kind :settles :at-ms 1777788000000} (:outcome-clock market)))
+    (is (= :crypto (:outcome-category market)))
     (is (= (:key market)
            (:key (markets/resolve-market-by-coin market-by-key "#0"))))
     (is (= (:key market)
@@ -265,8 +234,8 @@
         game (get market-by-key "outcome:141")
         finals (get market-by-key "outcome:142")
         btc-binary (get market-by-key "outcome:159")
-        expected-btc-binary-title (expected-local-outcome-title btc-binary)
-        expected-range-title (expected-local-price-range-title range-market)]
+        expected-btc-binary-title "Bitcoin above $62,290"
+        expected-range-title "Bitcoin price range"]
     (is (= #{"question:19"
              "question:30"
              "question:32"
@@ -290,8 +259,9 @@
     (is (= :economics (:outcome-category cpi)))
     (is (= ["Below 4.3%" "Exactly 4.3%" "Above 4.3%"]
            (mapv :label (:question-options cpi))))
-    (is (= "#1010" (:coin cpi)))
-    (is (= 100001010 (:asset-id cpi)))
+    ;; No answer has a midpoint yet, so the default is the most traded one.
+    (is (= "#1030" (:coin cpi)))
+    (is (= 100001030 (:asset-id cpi)))
 
     (is (= :question (:outcome-kind range-market)))
     (is (= expected-range-title (:title range-market)))
@@ -299,13 +269,15 @@
     (is (= 30 (:question-id range-market)))
     (is (= 160 (:fallback-outcome-id range-market)))
     (is (= [161 162 163] (:named-outcome-ids range-market)))
-    (is (= ["Below 61044" "61044 to 63535" "Above 63535"]
+    (is (= ["Below $61,044" "$61,044 – $63,535" "Above $63,535"]
            (mapv :label (:question-options range-market))))
-    (is (= ["#1610" "#1611"] (mapv :coin (:outcome-sides range-market))))
+    (is (= ["#1630" "#1631"] (mapv :coin (:outcome-sides range-market))))
     (is (= ["#1610" "#1611" "#1620" "#1621" "#1630" "#1631"]
            (markets/outcome-subscription-coins range-market)))
-    (is (= "Below 61044 61%  *  61044 to 63535 30%  *  Above 63535 1%"
+    ;; Summaries read the one chance rule: no book yet, no number.
+    (is (= "Below $61,044 —  *  $61,044 – $63,535 —  *  Above $63,535 —"
            (:outcome-summary range-market)))
+    (is (= "Other" (get-in range-market [:fallback-option :label])))
     (is (= (:key range-market)
            (:key (markets/resolve-market-by-coin market-by-key "#1620"))))
     (is (= (:key range-market)
@@ -321,9 +293,9 @@
     (is (= [172 173 178 189 212] (:named-outcome-ids world-cup)))
     (is (= ["Algeria" "Argentina" "Brazil" "France" "Spain"]
            (mapv :label (:question-options world-cup))))
-    (is (= "France 17%  *  Spain 17%  *  Argentina 14%"
-           (:outcome-summary world-cup)))
-    (is (= "#1890" (:coin world-cup)))
+    (is (= 3 (count (str/split (:outcome-summary world-cup) #"  \*  "))))
+    (is (not (re-find #"\d%" (:outcome-summary world-cup))) "never the raw mark")
+    (is (= "#1730" (:coin world-cup)))
     (is (= "#1890" (get-in world-cup [:question-options 3 :yes-coin])))
     (is (= (:key world-cup)
            (:key (markets/resolve-market-by-coin market-by-key "#2120"))))
@@ -336,7 +308,7 @@
     (is (= ["Change" "No Change"] (mapv :side-name (:outcome-sides fed))))
     (is (= :sports (:outcome-category game)))
     (is (= :basketball (:outcome-subcategory game)))
-    (is (= "San Antonio 47%  *  New York 53%"
+    (is (= "San Antonio —  *  New York —"
            (:outcome-summary finals)))))
 
 (deftest classify-market-test

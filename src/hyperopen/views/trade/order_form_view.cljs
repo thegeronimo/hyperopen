@@ -12,6 +12,8 @@
             [hyperopen.views.trade.order-form-footer :as footer]
             [hyperopen.views.trade.order-form-handlers :as handlers]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.views.trade.outcome-ticket :as outcome-ticket]
+            [hyperopen.views.trade.outcome-ticket-vm :as outcome-ticket-vm]
             [hyperopen.vol-range.application.dock-model :as dock-model]
             [hyperopen.vol-range.application.projections :as vol-range-projections]
             [hyperopen.vol-range.application.replace-model :as replace-model]
@@ -61,7 +63,30 @@
    (action-side-tab "Buy" :buy (= side :buy) ((:on-select-side side-handlers) :buy))
    (action-side-tab "Sell" :sell (= side :sell) ((:on-select-side side-handlers) :sell))])
 
+(defn- render-outcome-order-form
+  [{:keys [state vm handlers]}]
+  (let [{:keys [read-only? error submit]} vm]
+    [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "spectate-none" "p-2.5" "sm:p-3"
+                   "font-sans" "flex" "flex-col" "gap-2" "sm:gap-2.5"]
+           :data-parity-id "order-form"}
+     [:div {:class (into ["flex" "flex-col" "gap-2" "sm:gap-2.5"]
+                         (when read-only? ["opacity-60" "pointer-events-none"]))}
+      (outcome-ticket/ticket (outcome-ticket-vm/ticket-model state vm) vm handlers)
+      (when error
+        [:div {:class ["text-xs" "text-red-400"]} error])
+      (when (= :spectate-mode-read-only (:reason submit))
+        (feedback/spectate-mode-stop-affordance))]]))
+
+(declare render-standard-order-form)
+
 (defn render-order-form
+  [{:keys [vm] :as props}]
+  (if (and (:outcome? vm)
+           (not (get-in vm [:controls :show-vol-range?])))
+    (render-outcome-order-form props)
+    (render-standard-order-form props)))
+
+(defn- render-standard-order-form
   [{:keys [state vm handlers ui]}]
   (let [{:keys [form
                 side

@@ -1,6 +1,7 @@
 (ns hyperopen.views.asset-selector.controls
   (:require [clojure.string :as str]
             [hyperopen.asset-selector.annotations :as annotations]
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
             [hyperopen.asset-selector.settings :as settings]
             [hyperopen.platform :as platform]
             [hyperopen.system :as app-system]
@@ -147,7 +148,7 @@
 
 (defn- outcome-tab?
   [active-tab]
-  (contains? (set (settings/outcome-tabs :testnet)) active-tab))
+  (contains? settings/outcome-tab-set active-tab))
 
 (defn- tradfi-tab?
   [active-tab]
@@ -167,12 +168,8 @@
 (defn outcome-subtab-row [active-tab]
   (when (outcome-tab? active-tab)
     [:div.flex.items-center.gap-4.mb-3
-     (for [[label tab-key] [["All" :outcome]
-                            ["Crypto (1d)" :outcome-1d]
-                            ["Economics" :outcome-economics]
-                            ["Sports" :outcome-sports]]]
-       ^{:key (name tab-key)}
-       (tab-button label (= active-tab tab-key) tab-key))]))
+     (for [{:keys [label tab]} outcome-listing/category-chips]
+       (tab-button label (= active-tab tab) tab))]))
 
 (defn tradfi-subtab-row [active-tab]
   (when (tradfi-tab? active-tab)

@@ -1,5 +1,7 @@
 (ns hyperopen.views.active-asset.row-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.asset-selector.markets :as markets]
+            [hyperopen.outcomes.test-support.fixture :as fixture]
             [hyperopen.state.trading :as trading]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.active-asset.row :as row]
@@ -104,75 +106,47 @@
   (support/with-viewport-width
     1280
     (fn []
-      (let [market {:coin "#0"
-                    :symbol "BTC above 78213 on May 3 at 2:00 AM?"
-                    :title "BTC above 78213 on May 3 at 2:00 AM?"
-                    :market-type :outcome
-                    :underlying "BTC"
-                    :quote "USDH"
-                    :target-price 78213
-                    :mark 0.57841
-                    :markRaw "0.57841"
-                    :change24h 0.0268
-                    :change24hPct 4.87
-                    :volume24h 180211.68
-                    :openInterest 537233
-                    :expiry-ms 1777788000000
-                    :outcome-details "If BTC settles above 78213, YES pays $1."}
-            view-node (row/active-asset-row {} market {:visible-dropdown nil} {:asset-selector {:missing-icons #{}}
-                                                                                :now-ms 1777751495000})
+      (let [market (-> (some #(when (= "outcome:27037" (:key %)) %)
+                             (markets/build-outcome-markets fixture/outcome-meta fixture/asset-ctxs))
+                       (markets/market-with-selected-outcome-coin "#270370"))
+            view-node (row/active-asset-row {:coin "#270370"}
+                                            market
+                                            {:visible-dropdown nil}
+                                            {:asset-selector {:missing-icons #{}}
+                                             :now-ms (js/Date.UTC 2026 10 9 16 25)
+                                             :orderbooks {"#270370" {:asks [{:px "0.81902" :sz "758"}]
+                                                                     :bids [{:px "0.81886" :sz "69"}]}}})
             strings (set (support/collect-strings view-node))
             tooltip (support/find-node-by-role view-node "outcome-market-tooltip")
-            scroll-container (support/find-node-by-role view-node "outcome-tooltip-scroll-container")
-            summary-scroll (support/find-node-by-role view-node "outcome-tooltip-summary-scroll")
-            settlement-label (support/find-node-by-role view-node "outcome-tooltip-settlement-label")]
-        (is (contains? strings "Countdown"))
-        (is (contains? strings "10h 8m 25s"))
-        (is (contains? strings "% Chance"))
-        (is (contains? strings "Price (Yes)"))
-        (is (contains? strings "58%"))
-        (is (contains? strings "$537,233"))
-        (is (contains? strings "Two sided-open interest: the sum of Yes and No shares on this contract"))
-        (is (not (contains? strings "Details")))
-        (is (some? tooltip))
-        (is (some? summary-scroll))
-        (is (contains? strings "Outcome Details"))
-        (is (contains? strings "This market resolves to YES or NO based on the following settlement condition at the specified time."))
-        (is (contains? strings "Settlement Condition"))
-        (is (contains? strings "BTC mark price is above 78,213"))
-        (is (contains? strings "on May 03, 2026 02:00 AM UTC"))
-        (is (contains? strings "Payout Rule"))
-        (is (contains? strings "YES"))
-        (is (contains? strings "$1.00"))
-        (is (contains? strings "NO"))
-        (is (contains? strings "$0.00"))
-        (is (contains? strings "each"))
-        (is (contains? strings "Payouts are in USDH."))
-        (is (not (contains? strings "All payouts are in USDC.")))
-        (is (not (contains? strings "Learn more")))
-        (is (support/contains-class? view-node "group/outcome-name"))
-        (is (support/contains-class? view-node "group/outcome-open-interest"))
-        (is (support/contains-class? tooltip "left-0"))
-        (is (= {:width "min(44rem, calc(100vw - 2rem))"
-                :max-width "calc(100vw - 2rem)"}
-               (get-in tooltip [1 :style])))
-        (is (= {:max-height "min(40rem, calc(100vh - 5rem))"}
-               (get-in scroll-container [1 :style])))
-        (is (support/contains-class? scroll-container "overflow-y-auto"))
-        (is (not (support/contains-class? summary-scroll "overflow-y-auto")))
-        (is (support/contains-class? view-node "shadow-[0_0_24px_rgba(45,212,191,0.10),0_18px_70px_rgba(0,0,0,0.55)]"))
-        (is (support/contains-class? settlement-label "whitespace-normal"))
-        (is (support/contains-class? settlement-label "break-words"))
-        (is (not (support/contains-class? settlement-label "whitespace-nowrap")))
-        (is (support/contains-class? view-node "items-center"))
-        (is (support/contains-class? view-node "group-hover/outcome-name:border-[#2dd4bf]/35"))
-        (is (not (support/contains-class? tooltip "right-0")))
-        (is (not (support/contains-class? view-node "w-[min(50rem,calc(100vw-3rem))]")))
-        (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100"))
-        (is (support/contains-class? view-node "group-hover/outcome-open-interest:opacity-100"))
-        (is (support/contains-class? view-node "group-focus-within/outcome-name:opacity-100"))
-        (is (support/contains-class? view-node "pointer-events-none"))
-        (is (not (contains? strings "Funding / Countdown")))))))
+            scroll-container (support/find-node-by-role view-node "outcome-tooltip-scroll-container")]
+        (is (some? (support/find-node-by-role view-node "outcome-header")))
+        (is (contains? strings "Sports · NBA"))
+        (is (contains? strings "out"))
+        (is (contains? strings "Chance"))
+        (is (contains? strings "DET 82% · 18% WAS"))
+        (is (contains? strings "DET"))
+        (is (contains? strings "81.9¢"))
+        (is (contains? strings "When"))
+        (is (contains? strings "Starts in 7h 35m"))
+        (is (contains? strings "Volume"))
+        (is (contains? strings "Locked"))
+        (is (not (contains? strings "Open interest")))
+        (is (not (contains? strings "Price (Yes)")))
+        (is (not (contains? strings "% Chance")))
+        (is (not (contains? strings "Funding / Countdown")))
+        (testing "the market name opens the rules"
+          (is (some? tooltip))
+          (is (contains? strings "Detroit Pistons vs Washington Wizards"))
+          (is (some #(re-find #"wins the full game including overtime" %) strings))
+          (is (contains? strings "$1.00"))
+          (is (contains? strings "$0.00"))
+          (is (contains? strings "Payouts are in USDC. Venue: out."))
+          (is (= {:width "min(44rem, calc(100vw - 2rem))"
+                  :max-width "calc(100vw - 2rem)"}
+                 (get-in tooltip [1 :style])))
+          (is (support/contains-class? scroll-container "overflow-y-auto"))
+          (is (support/contains-class? view-node "group/outcome-name"))
+          (is (support/contains-class? view-node "group-hover/outcome-name:opacity-100")))))))
 
 (defn- outcome-option-handlers-fixture []
   {:on-select-outcome-option (fn [outcome-id]
@@ -281,6 +255,20 @@
         (is (contains? strings "Open Int"))
         (is (contains? strings "Spain"))
         (is (not (contains? strings "Argentina")))))))
+
+(deftest header-answer-pick-is-one-select-outcome-option-action-test
+  (support/with-viewport-width
+    1280
+    (fn []
+      (let [view-node (row/active-asset-row-from-vm
+                       (world-cup-row-vm {:open? true :query "sp"})
+                       {:outcome-handlers (outcome-option-handlers-fixture)})
+            spain (support/find-node
+                   #(and (vector? %)
+                         (map? (second %))
+                         (= [[:actions/select-outcome-option 212]] (get-in % [1 :on :click])))
+                   view-node)]
+        (is (some? spain) "the pick dispatches select-outcome-option alone")))))
 
 (deftest mobile-outcome-row-renders-option-selector-with-market-selector-test
   (support/with-viewport-width

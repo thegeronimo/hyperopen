@@ -161,6 +161,7 @@
   {"l2Book" :market_data
    "l2" :market_data
    "trades" :market_data
+   "bbo" :market_data
    "candle" :market_data
    "activeAssetCtx" :market_data
    "activeSpotAssetCtx" :market_data

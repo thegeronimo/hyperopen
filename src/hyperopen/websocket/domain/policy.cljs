@@ -9,6 +9,8 @@
    ;; every frame immediately, in order, which is what deltas require.
    "l2" :lossless
    "trades" :market
+   ;; Outcome top of book: a snapshot per message, last one per coin wins.
+   "bbo" :market
    "candle" :market
    "activeAssetCtx" :market
    "activeSpotAssetCtx" :market

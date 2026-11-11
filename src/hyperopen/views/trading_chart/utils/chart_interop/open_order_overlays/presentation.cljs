@@ -162,6 +162,8 @@
       "0.00"))
 
 (defn- ensure-dollar-prefixed-price
+  "Dollar prices read \"$1.23\". A price already in a unit (an outcome
+   chart's \"20.9%\" or \"20.9¢\") is not dollars and keeps no `$`."
   [price-text]
   (let [text (some-> price-text str str/trim)]
     (cond
@@ -169,6 +171,7 @@
       (or (str/starts-with? text "$")
           (str/starts-with? text "<$"))
       text
+      (or (str/ends-with? text "%") (str/ends-with? text "¢")) text
       :else (str "$" text))))
 
 (defn- format-order-size

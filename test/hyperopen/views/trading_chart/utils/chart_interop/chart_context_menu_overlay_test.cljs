@@ -364,3 +364,30 @@
     (is (not (true? (:menu-open? (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay/overlay-state
                                   chart-obj)))))
     (chart-context-menu-overlay/clear-chart-context-menu-overlay! chart-obj)))
+
+(deftest chart-context-menu-outcome-copy-labels-and-copies-cents-test
+  (let [document (fake-dom/make-fake-document)
+        container (.createElement document "div")
+        chart-obj (make-chart-obj {:coordinate->price (fn [_y] 0.209)})
+        clipboard-payloads* (atom [])]
+    (sync-overlay! chart-obj
+                   container
+                   [{:close 0.209}]
+                   {:price-decimals nil
+                    :format-price (fn [_price] "20.9")
+                    :price-unit-suffix "¢"
+                    :clipboard #js {:writeText (fn [payload]
+                                                (swap! clipboard-payloads* conj payload)
+                                                (resolved-promise))}})
+    (fake-dom/dispatch-dom-event-with-payload!
+     container
+     "contextmenu"
+     #js {:target container :button 2 :clientX 40 :clientY 20
+          :preventDefault (fn [] nil) :stopPropagation (fn [] nil)})
+    (let [state (@#'hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay/overlay-state
+                 chart-obj)
+          copy-button (:copy-button state)]
+      (is (= "Copy price 20.9¢" (.-textContent (aget copy-button "labelNode"))))
+      (fake-dom/click-dom-node! copy-button)
+      (is (= ["20.9"] @clipboard-payloads*) "the cents number the ticket's limit field takes"))
+    (chart-context-menu-overlay/clear-chart-context-menu-overlay! chart-obj)))

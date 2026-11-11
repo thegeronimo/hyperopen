@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-order-contract
   (:require [hyperopen.runtime.effect-order.borrow-lend-policies :as borrow-lend-policies]
+            [hyperopen.runtime.effect-order.outcome-chart-policies :as outcome-chart-policies]
             [hyperopen.runtime.effect-order.policy-registration :as policy-registration]
             [hyperopen.runtime.validation :as validation]))
 (declare effect-phase assert-action-effect-order!)
@@ -209,6 +210,12 @@
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-position-margin}}
+
+   :actions/submit-outcome-merge
+   {:required-phase-order [:projection :persistence :heavy-io]
+    :require-projection-before-heavy? true
+    :allow-duplicate-heavy-effects? false
+    :heavy-effect-ids #{:effects/api-submit-outcome-merge}}
 
    ;; Background recommendation sync fans out one candle fetch per isolated
    ;; coin, so duplicate heavy effects are expected.
@@ -587,7 +594,7 @@
                         :effects/fetch-asset-selector-markets}}})
 
 (def ^:private validated-effect-order-policy-by-action-id
-  (policy-registration/validate-policy-by-action-id! (merge effect-order-policy-by-action-id borrow-lend-policies/policy-by-action-id)))
+  (policy-registration/validate-policy-by-action-id! (merge effect-order-policy-by-action-id borrow-lend-policies/policy-by-action-id outcome-chart-policies/policy-by-action-id)))
 (defn action-policy
   [action-id]
   (get validated-effect-order-policy-by-action-id action-id))

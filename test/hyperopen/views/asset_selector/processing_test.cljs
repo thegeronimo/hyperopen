@@ -46,30 +46,38 @@
                                                      :outcome)]
       (is (= ["outcome:0"] (mapv :key results)))))
 
-  (testing "outcome period subfilters narrow outcome rows"
-    (let [assets [{:key "outcome:0" :symbol "BTC 15m" :coin "#0" :market-type :outcome :category :outcome :period "15m" :volume24h 1}
-                  {:key "outcome:1" :symbol "BTC 1d" :coin "#10" :market-type :outcome :category :outcome :period "1d" :volume24h 2}]]
-      (is (= ["outcome:0"]
-             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-15m))))
+  (testing "outcome category chips filter by template category; legacy period tabs act as Crypto"
+    (let [assets [{:key "outcome:0" :symbol "Bitcoin above $75,000" :coin "#0" :market-type :outcome
+                   :category :outcome :outcome-category :crypto :volume24h 1}
+                  {:key "outcome:1" :symbol "S&P 500 above 7,376" :coin "#10" :market-type :outcome
+                   :category :outcome :outcome-category :stocks :volume24h 2}
+                  {:key "outcome:2" :symbol "Anthropic IPO" :coin "#20" :market-type :outcome
+                   :category :outcome :outcome-category :companies :volume24h 3}]]
+      (doseq [tab [:outcome-crypto :outcome-1d :outcome-15m]]
+        (is (= ["outcome:0"]
+               (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false tab)))))
       (is (= ["outcome:1"]
-             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-1d))))))
+             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-stocks))))
+      (is (= ["outcome:2"]
+             (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-companies))))))
 
   (testing "outcome category subfilters include economics and sports grouped rows"
     (let [assets (markets/build-outcome-markets outcome-fixtures/live-outcome-meta
                                                 outcome-fixtures/live-outcome-ctxs)]
-      (is (= ["question:19" "outcome:104"]
+      ;; Outcome volume is shares traded, each contract counted once.
+      (is (= ["outcome:104" "question:19"]
              (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-economics))))
-      (is (= ["outcome:142" "outcome:141" "question:32"]
+      (is (= ["outcome:142" "question:32" "outcome:141"]
              (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-sports))))
       (is (= ["question:32"]
              (mapv :key (processing/filter-and-sort-assets assets "France" :volume :desc #{} false false :outcome-sports))))
       (is (= ["outcome:159" "question:30"]
              (mapv :key (processing/filter-and-sort-assets assets "BTC" :volume :desc #{} false false :outcome-1d))))))
 
-  (testing "mainnet outcome tabs match Hyperliquid while testnet keeps 15m"
-    (is (= [:outcome :outcome-1d :outcome-economics :outcome-sports]
+  (testing "outcome chips are the template categories on every chain"
+    (is (= [:outcome :outcome-sports :outcome-crypto :outcome-stocks :outcome-economics :outcome-companies]
            (settings/outcome-tabs {:hyperliquid-chain :mainnet})))
-    (is (= [:outcome :outcome-15m :outcome-1d :outcome-economics :outcome-sports]
+    (is (= (settings/outcome-tabs {:hyperliquid-chain :mainnet})
            (settings/outcome-tabs {:hyperliquid-chain :testnet}))))
 
   (testing "hip3 tab strict mode parity: strict off shows full HIP3 set, strict on applies eligibility"

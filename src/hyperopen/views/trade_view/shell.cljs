@@ -1,5 +1,118 @@
 (ns hyperopen.views.trade-view.shell
-  (:require [hyperopen.views.ui.funding-modal-positioning :as funding-modal-positioning]))
+  (:require [hyperopen.platform :as platform]
+            [hyperopen.system :as app-system]
+            [hyperopen.views.ui.dialog-focus :as dialog-focus]
+            [hyperopen.views.ui.funding-modal-positioning :as funding-modal-positioning]
+            [nexus.registry :as nxr]))
+
+(defn- dispatch!
+  [actions]
+  (when app-system/store
+    (nxr/dispatch app-system/store nil actions)))
+
+(def ^:private outcome-buy-selector "[data-role='outcome-mobile-buy']")
+
+(defn- sit-above-bottom-nav!
+  "Pin the bar to the top edge of the phone's bottom navigation."
+  [{:replicant/keys [node]}]
+  (when node
+    (let [nav (.querySelector js/document "[data-role='mobile-bottom-nav']")
+          nav-top (when nav (.-top (.getBoundingClientRect nav)))
+          offset (if (and (number? nav-top) (pos? nav-top))
+                   (max 0 (- (.-innerHeight js/window) nav-top))
+                   0)]
+      (set! (.. node -style -bottom) (str offset "px")))))
+
+(defn render-outcome-mobile-bar
+  "Both chances and one Buy button, pinned above the bottom navigation on a
+   phone. Buy opens the ticket as a sheet (ONE action)."
+  [{:keys [layout]} {:keys [entries title]}]
+  (when (and (:outcome-bar? layout) (seq entries))
+    [:div {:class ["fixed" "inset-x-0" "z-[180]" "flex" "items-center" "gap-3" "border-t" "border-base-300"
+                   "bg-base-200" "px-3" "py-2" "lg:hidden"]
+           :style {:bottom "0px"}
+           :replicant/on-render sit-above-bottom-nav!
+           :data-role "outcome-mobile-bar"}
+     (into [:div {:class ["flex" "min-w-0" "flex-1" "items-baseline" "gap-2" "text-sm" "font-medium"]
+                  :title title
+                  :data-role "outcome-mobile-bar-chances"}]
+           (comp (map (fn [{:keys [label text muted?]}]
+                        [:span {:class ["flex" "min-w-0" "items-baseline" "gap-1"]}
+                         [:span {:class ["truncate" "text-trading-text-secondary"]} label]
+                         [:span {:class (into ["num" "shrink-0"]
+                                              (if muted? ["text-ho-text-muted"] ["text-trading-text"]))}
+                          text]]))
+                 (interpose [:span {:class ["text-ho-text-muted"] :aria-hidden true} "·"]))
+           entries)
+     [:button {:type "button"
+               :class ["h-10" "shrink-0" "rounded-md" "bg-primary" "px-6" "text-sm" "font-semibold"
+                       "text-primary-content" "focus:outline-none"]
+               :data-role "outcome-mobile-buy"
+               ;; ONE action: open the sheet as a Buy in dollars, whatever side
+               ;; the form last carried.
+               :on {:click [[:actions/set-outcome-ticket-entry {:side :buy
+                                                                :size-input-mode :quote
+                                                                :open-ticket-sheet? true}]]}}
+      "Buy"]]))
+
+(defn- close-sheet!
+  []
+  (dispatch! [[:actions/select-trade-mobile-surface :chart]]))
+
+(defn- sheet-keydown
+  [event]
+  (when (= "Escape" (.-key event))
+    (.preventDefault event)
+    (.stopPropagation event)
+    (close-sheet!)))
+
+(def ^:private dialog-focus-hook
+  (dialog-focus/dialog-focus-on-render {:restore-selector outcome-buy-selector}))
+
+(defn- focus-buy-button!
+  "The Buy bar re-mounts as the sheet leaves; give focus back to it as soon as
+   it is there (the dialog helper cannot, because nothing was focused when the
+   sheet opened: the bar had already left the page)."
+  [attempts-left]
+  (platform/set-timeout!
+   (fn []
+     (if-let [buy (.querySelector js/document outcome-buy-selector)]
+       (.focus buy)
+       (when (pos? attempts-left)
+         (focus-buy-button! (dec attempts-left)))))
+   32))
+
+(defn- sheet-focus
+  [{:replicant/keys [life-cycle] :as context}]
+  (dialog-focus-hook context)
+  (when (= :replicant.life-cycle/unmount life-cycle)
+    (focus-buy-button! 12)))
+
+(defn- outcome-ticket-sheet
+  "The ticket as a bottom sheet: dimmed backdrop, close button, Escape; focus
+   moves in and returns to the Buy bar on close."
+  [title ticket]
+  [:div {:class ["relative" "flex" "max-h-[88vh]" "flex-col" "overflow-hidden" "rounded-t-xl" "border-t"
+                 "border-base-300" "bg-base-100" "shadow-2xl"]
+         :role "dialog"
+         :aria-modal "true"
+         :aria-label (str "Buy " (or title "outcome market"))
+         :tabindex -1
+         :replicant/on-render sheet-focus
+         :on {:keydown sheet-keydown}
+         :style {:padding-bottom "env(safe-area-inset-bottom)"}
+         :data-role "outcome-ticket-sheet"}
+   [:div {:class ["flex" "shrink-0" "items-center" "justify-between" "gap-3" "border-b" "border-base-300" "px-3" "py-2"]}
+    [:div {:class ["min-w-0" "truncate" "text-sm" "font-semibold" "text-trading-text"]} (or title "Buy")]
+    [:button {:type "button"
+              :class ["inline-flex" "h-9" "w-9" "items-center" "justify-center" "rounded-md"
+                      "text-trading-text-secondary" "hover:text-trading-text" "focus:outline-none"]
+              :aria-label "Close ticket"
+              :data-role "outcome-ticket-sheet-close"
+              :on {:click [[:actions/select-trade-mobile-surface :chart]]}}
+     [:svg {:class ["h-5" "w-5"] :fill "none" :stroke "currentColor" :viewBox "0 0 24 24" :aria-hidden true}
+      [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "M6 18L18 6M6 6l12 12"}]]]]
+   [:div {:class ["min-h-0" "flex-1" "overflow-y-auto"]} ticket]])
 
 (def trade-mobile-surfaces
   [[:chart "Chart"]
@@ -106,12 +219,20 @@
            equity-metrics
            hide-account-equity?
            hyperevm-line-model
-           order-form-panel-state]}
+           order-form-panel-state
+           outcome-bar-model]}
    {:keys [render-account-equity-panel-state render-order-form-panel]}]
   [:div {:class (:order-entry-panel-classes layout)
          :data-parity-id funding-modal-positioning/trade-order-entry-panel-parity-id}
+   (if (:outcome-sheet? layout)
+     [:div {:class ["absolute" "inset-0" "bg-black/60"]
+            :on {:click [[:actions/select-trade-mobile-surface :chart]]}
+            :data-role "outcome-ticket-sheet-backdrop"}]
+     nil)
    (when (:order-entry-panel-visible? layout)
-     (render-order-form-panel order-form-panel-state))
+     (if (:outcome-sheet? layout)
+       (outcome-ticket-sheet (:title outcome-bar-model) (render-order-form-panel order-form-panel-state))
+       (render-order-form-panel order-form-panel-state)))
    (when-not hide-account-equity?
      [:div {:class ["hidden" "border-t" "border-base-300" "lg:block"]
             :data-parity-id "trade-desktop-account-equity-panel"}

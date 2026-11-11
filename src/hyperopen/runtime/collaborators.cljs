@@ -19,6 +19,7 @@
             [hyperopen.runtime.collaborators.wallet :as wallet-collaborators]
             [hyperopen.runtime.effect-adapters.borrow-lend :as borrow-lend-effect-adapters]
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
+            [hyperopen.runtime.effect-adapters.outcome-merge :as outcome-merge-effect-adapters]
             [hyperopen.staking.effects :as staking-effects]))
 
 (defn- merge-nested
@@ -54,6 +55,7 @@
           :api-fetch-borrow-lend-user-state borrow-lend-effect-adapters/api-fetch-borrow-lend-user-state-effect
           :api-fetch-borrow-lend-interest borrow-lend-effect-adapters/api-fetch-borrow-lend-interest-effect
           :api-submit-borrow-lend borrow-lend-effect-adapters/api-submit-borrow-lend-effect
+          :api-submit-outcome-merge outcome-merge-effect-adapters/api-submit-outcome-merge-effect
           :api-fetch-hyperunit-fee-estimate funding-effects/api-fetch-hyperunit-fee-estimate!
           :api-fetch-hyperunit-withdrawal-queue funding-effects/api-fetch-hyperunit-withdrawal-queue!
           :api-submit-funding-send funding-effects/api-submit-funding-send!

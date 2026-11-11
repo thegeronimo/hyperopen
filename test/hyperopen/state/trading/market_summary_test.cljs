@@ -344,6 +344,16 @@
     (is (= "0.00002" (trading/base-size-string state 0.0000285)))
     (is (nil? (trading/base-size-string state 0.0000099)))))
 
+(deftest base-size-string-keeps-whole-number-zeros-test
+  ;; Outcome shares (and some perps) trade in whole units: 50 must not become "5".
+  (let [state {:active-market {:szDecimals 0}}]
+    (is (= "50" (trading/base-size-string state 50)))
+    (is (= "100" (trading/base-size-string state 100.9)))
+    (is (= "120" (trading/base-size-string state 120))))
+  (let [state {:active-market {:szDecimals 2}}]
+    (is (= "50" (trading/base-size-string state 50)))
+    (is (= "0.5" (trading/base-size-string state 0.5)))))
+
 (deftest canonical-order-price-string-respects-zero-decimal-price-markets-test
   (let [context {:active-asset "BTC"
                  :market {:market-type :perp

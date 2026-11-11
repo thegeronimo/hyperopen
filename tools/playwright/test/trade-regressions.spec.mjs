@@ -1017,10 +1017,9 @@ async function seedSportsOutcomeOrderForm(page) {
 
 async function seedSportsOutcomeOrderFormUntilReady(page) {
   const orderForm = page.locator('[data-parity-id="order-form"]');
-  const sanAntonioButton = orderForm.getByRole("button", {
-    name: "Buy San Antonio",
-    exact: true
-  });
+  const sanAntonioButton = orderForm
+    .locator('[data-role="outcome-ticket-side"]')
+    .filter({ hasText: "San Antonio" });
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await seedSportsOutcomeOrderForm(page);
@@ -1705,7 +1704,7 @@ test("asset selector opens and selects ETH @regression", async ({ page }) => {
   );
 });
 
-test("asset selector outcome rows use full-width question copy without duplicate chip @regression", async ({ page }) => {
+test("asset selector outcome tab lists one row per event with answer buttons @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
   await stubAssetSelectorMarketInfo(page);
 
@@ -1716,25 +1715,20 @@ test("asset selector outcome rows use full-width question copy without duplicate
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   const row = page
-    .locator('[data-role="asset-selector-row"]')
+    .locator('[data-role="outcome-event-row"]')
     .filter({ hasText: "BTC price range on Jun 6 at 2:00 AM?" })
     .first();
-  const question = row.locator(".truncate").first();
+  const answers = row.locator('[data-role="outcome-answer"]');
 
-  await expect(row).toContainText("BTC price range on Jun 6 at 2:00 AM?");
+  await expect(row).toBeVisible();
   await expect(row).toContainText("61044 to 63535");
   await expect(row).toContainText(/\d+%/);
   await expect(row).not.toContainText("OUTCOME");
-  await expect(question).not.toContainText("—");
-
-  const textGeometry = await question.evaluate((node) => ({
-    clientWidth: node.clientWidth,
-    scrollWidth: node.scrollWidth
-  }));
-  expect(textGeometry.clientWidth).toBeGreaterThan(90);
+  await expect(answers).toHaveCount(3);
+  await expect(answers.first()).toHaveAttribute("type", "button");
 });
 
-test("asset selector outcome subtabs render grouped question markets @smoke @regression", async ({ page }) => {
+test("asset selector outcome category chips render grouped events @smoke @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
   await stubAssetSelectorMarketInfo(page);
   await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
@@ -1743,46 +1737,51 @@ test("asset selector outcome subtabs render grouped question markets @smoke @reg
   await seedGroupedOutcomeAssetSelectorState(page, { activeTab: "outcome" });
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
-  const rows = page.locator('[data-role="asset-selector-row"]');
-  await expect(page.getByRole("button", { name: "Crypto (1d)", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Economics", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sports", exact: true })).toBeVisible();
+  const rows = page.locator('[data-role="outcome-event-row"]');
+  const chip = (label) =>
+    page.locator('[data-role="outcome-category-chip"]').filter({ hasText: new RegExp(`^${label}\\s*\\d+$`) });
+  for (const label of ["All", "Sports", "Crypto", "Stocks & commodities", "Economics", "Companies"]) {
+    await expect(chip(label)).toBeVisible();
+  }
   const cryptoRangeRow = rows.filter({ hasText: "BTC price range on Jun 6 at 2:00 AM?" }).first();
   await expect(cryptoRangeRow).toBeVisible();
   await expect(cryptoRangeRow).toContainText("61044 to 63535");
 
-  await page.getByRole("button", { name: "Economics", exact: true }).click();
+  await chip("Economics").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await seedGroupedOutcomeAssetSelectorState(page);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(rows.first()).toContainText("May CPI year-over-year");
   await expect(rows.first()).toContainText("Below 4.3%");
 
-  await page.getByRole("button", { name: "Sports", exact: true }).click();
+  await chip("Sports").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await seedGroupedOutcomeAssetSelectorState(page);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   const worldCupRow = rows.filter({ hasText: "2026 World Cup Champion" }).first();
   const nbaChampionRow = rows.filter({ hasText: "2026 NBA Finals champion" }).first();
   await expect(worldCupRow).toBeVisible();
-  await expect(worldCupRow).toContainText(/France\s+\d+%/);
-  await expect(worldCupRow).toContainText(/Spain\s+\d+%/);
-  await expect(worldCupRow).toContainText(/\*\s+[A-Za-z][A-Za-z ]+\s+\d+%/);
+  await expect(worldCupRow).toContainText(/France\s*\d+%/);
+  await expect(worldCupRow).toContainText(/\+\d+ more/);
   await expect(nbaChampionRow).toBeVisible();
-  await expect(nbaChampionRow).toContainText("San Antonio 67%");
-  await expect(nbaChampionRow).toContainText("New York 33%");
-  await expect(rows.first()).not.toContainText("May CPI year-over-year");
+  await expect(nbaChampionRow).toContainText(/San Antonio\s*67%/);
+  await expect(nbaChampionRow).toContainText(/New York\s*33%/);
+  await expect(page.locator('[data-role="outcome-event-row"]').filter({ hasText: "May CPI year-over-year" }))
+    .toHaveCount(0);
 
-  await page.getByRole("button", { name: "Crypto (1d)", exact: true }).click();
+  await chip("Crypto").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await seedGroupedOutcomeAssetSelectorState(page);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
-  await expect(rows.first()).toContainText("BTC price range on Jun 6 at 2:00 AM?");
-  await expect(rows.first()).not.toContainText("NBA Finals Game 2");
+  await expect(rows.filter({ hasText: "BTC price range on Jun 6 at 2:00 AM?" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "NBA Finals Game 2" })).toHaveCount(0);
 });
 
 test("market strip uses searchable dropdown for multi-option outcome markets @smoke @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
+  // Seed after the catalog settles: a later catalog load would swap the
+  // seeded (unlisted) coin back to the default market.
+  await waitForAssetSelectorLoadSettled(page);
   await seedWorldCupOutcomeOrderForm(page);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
@@ -1890,20 +1889,24 @@ test("market strip uses searchable dropdown for multi-option outcome markets @sm
 
 test("two-sided outcome side selector switches chart and order book market @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
+  await waitForAssetSelectorLoadSettled(page);
   await seedSportsOutcomeOrderFormUntilReady(page);
 
   const orderForm = page.locator('[data-parity-id="order-form"]');
-  await expect(orderForm.getByRole("button", { name: "Buy San Antonio", exact: true })).toBeVisible();
-  await expect(orderForm.getByRole("button", { name: "Buy New York", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "#1420 price chart, 1D timeframe" })).toBeVisible();
+  const sides = orderForm.locator('[data-role="outcome-ticket-side"]');
+  // Picking a side is the only entry: no separate Buy/Sell tabs.
+  await expect(sides).toHaveCount(2);
+  await expect(sides.filter({ hasText: "San Antonio" })).toHaveAttribute("aria-pressed", "true");
+  await expect(orderForm.getByText("Pick a side", { exact: true })).toBeVisible();
+  await expect(orderForm.getByRole("tab", { name: "Sell", exact: true })).toHaveCount(0);
   await expect(page.locator('[data-parity-id="orderbook-panel"]')).toContainText("0.3724");
 
-  await orderForm.getByRole("button", { name: "Buy New York", exact: true }).click();
+  await sides.filter({ hasText: "New York" }).click();
   await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
   await seedOutcomeSideOrderbook(page, { coin: "#1421", bidPx: "0.61760", askPx: "0.62851" });
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
-  await expect(page.getByRole("region", { name: "#1421 price chart, 1D timeframe" })).toBeVisible();
+  await expect(sides.filter({ hasText: "New York" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-parity-id="orderbook-panel"]')).toContainText("0.6176");
   await expect(page.locator('[data-parity-id="orderbook-panel"]')).not.toContainText("0.3724");
   await expect.poll(async () => {
@@ -1931,6 +1934,7 @@ test("two-sided outcome side selector switches chart and order book market @regr
 
 test("outcome market tooltip uses adaptive readable width and glows on hover @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
+  await waitForAssetSelectorLoadSettled(page);
   await seedOutcomeActiveAsset(page);
   await waitForIdle(page, { quietMs: 200, timeoutMs: 4_000, pollMs: 50 });
 
@@ -1991,11 +1995,11 @@ test("outcome market tooltip uses adaptive readable width and glows on hover @re
   expect(triggerGlow.borderColor).toContain("45, 212, 191");
   expect(triggerGlow.boxShadow).toContain("45, 212, 191");
 
-  const settlementLabel = tooltip.locator('[data-role="outcome-tooltip-settlement-label"]');
-  await expect(settlementLabel).toHaveCSS("white-space", "normal");
-  await expect(settlementLabel).toContainText("BTC mark price is above 78,213");
-  await expect(tooltip.getByText("on May 03, 2026 02:00 AM UTC")).toBeVisible();
-  await expect(tooltip.getByText("Payouts are in USDH.")).toBeVisible();
+  // The panel states the market's rules once and what each side pays.
+  const summary = tooltip.locator('[data-role="outcome-tooltip-summary-scroll"]');
+  await expect(summary).toContainText("If BTC settles above 78213, YES pays $1.");
+  await expect(tooltip.getByText("$1.00")).toBeVisible();
+  await expect(tooltip.getByText("Payouts are in USDH. Venue: Hyperliquid.")).toBeVisible();
   await expect(tooltip.getByText("Learn more")).toHaveCount(0);
 });
 
@@ -2014,6 +2018,7 @@ test("outcome market tooltip scrolls long outcome details without becoming narro
   const longDetails = Array.from({ length: 3 }, () => longDetailsSection).join(" ");
 
   await visitRoute(page, "/trade");
+  await waitForAssetSelectorLoadSettled(page);
   await seedOutcomeActiveAsset(page, {
     coin: "#1890",
     symbol: "2026 World Cup Champion",

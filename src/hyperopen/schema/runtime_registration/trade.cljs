@@ -27,6 +27,7 @@
    [:effects/api-cancel-order :api-cancel-order]
    [:effects/api-submit-position-tpsl :api-submit-position-tpsl]
    [:effects/api-submit-position-margin :api-submit-position-margin]
+   [:effects/api-submit-outcome-merge :api-submit-outcome-merge]
    [:effects/clear-order-feedback-toast-timeout :clear-order-feedback-toast-timeout]
    [:effects/vol-range-execute :vol-range-execute]])
 
@@ -37,11 +38,14 @@
     :actions/refresh-vol-range-daily-candles
     :actions/request-chart-candle-backfill
     :actions/request-older-chart-fills
+    :actions/set-outcome-chart-mode
+    :actions/sync-outcome-answer-chart
     :actions/select-orderbook-price-aggregation
     :actions/select-account-info-tab
     :actions/open-position-reduce-popover
     :actions/submit-order
     :actions/submit-position-margin-update
+    :actions/submit-outcome-merge
     :actions/confirm-order-submission
     :actions/submit-cancel-visible-open-orders-confirmation
     :actions/cancel-visible-open-orders
@@ -54,6 +58,9 @@
    [:actions/close-asset-dropdown :close-asset-dropdown]
    [:actions/select-asset :select-asset]
    [:actions/select-asset-by-market-key :select-asset-by-market-key]
+   [:actions/open-outcome-market :open-outcome-market]
+   [:actions/open-outcome-cash-out :open-outcome-cash-out]
+   [:actions/merge-outcome-pairs :merge-outcome-pairs]
    [:actions/update-asset-search :update-asset-search]
    [:actions/update-asset-selector-sort :update-asset-selector-sort]
    [:actions/toggle-asset-selector-strict :toggle-asset-selector-strict]
@@ -67,6 +74,8 @@
    [:actions/show-all-asset-selector-markets :show-all-asset-selector-markets]
    [:actions/maybe-increase-asset-selector-render-limit :maybe-increase-asset-selector-render-limit]
    [:actions/refresh-asset-markets :refresh-asset-markets]
+   [:actions/set-outcome-list-sort :set-outcome-list-sort]
+   [:actions/set-outcome-visible-event-keys :set-outcome-visible-event-keys]
    [:actions/mark-loaded-asset-icon :mark-loaded-asset-icon]
    [:actions/mark-missing-asset-icon :mark-missing-asset-icon]
    [:actions/set-funding-tooltip-visible :set-funding-tooltip-visible]
@@ -86,6 +95,9 @@
    [:actions/select-chart-type :select-chart-type]
    [:actions/toggle-indicators-dropdown :toggle-indicators-dropdown]
    [:actions/update-indicators-search :update-indicators-search]
+   [:actions/set-outcome-chart-unit :set-outcome-chart-unit]
+   [:actions/set-outcome-chart-mode :set-outcome-chart-mode]
+   [:actions/sync-outcome-answer-chart :sync-outcome-answer-chart]
    [:actions/toggle-orderbook-size-unit-dropdown :toggle-orderbook-size-unit-dropdown]
    [:actions/select-orderbook-size-unit :select-orderbook-size-unit]
    [:actions/toggle-orderbook-price-aggregation-dropdown :toggle-orderbook-price-aggregation-dropdown]
@@ -105,7 +117,8 @@
    [:actions/hide-volume-indicator :hide-volume-indicator]])
 
 (def ^:private post-order-form-action-binding-rows
-  [[:actions/select-account-info-tab :select-account-info-tab]
+  [[:actions/submit-outcome-merge :submit-outcome-merge]
+   [:actions/select-account-info-tab :select-account-info-tab]
    [:actions/select-account-info-twap-subtab :select-account-info-twap-subtab]
    [:actions/set-trade-history-page-size :set-trade-history-page-size]
    [:actions/set-trade-history-page :set-trade-history-page]

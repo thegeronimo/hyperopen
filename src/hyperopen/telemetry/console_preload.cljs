@@ -12,6 +12,7 @@
             [hyperopen.telemetry.console-preload.vol-range-fixture :as vol-range-fixture]
             [hyperopen.views.account-info.vm :as account-info-vm]
             [hyperopen.views.trade.order-form-vm :as order-form-vm]
+            [hyperopen.views.trading-chart.utils.chart-interop.axis-debug :as chart-axis-debug]
             [hyperopen.views.trading-chart.utils.chart-interop.trade-layer :as chart-trade-layer]
             [hyperopen.websocket.market-projection-runtime :as market-projection-runtime]
             [hyperopen.websocket.client-compat :as ws-client-compat]
@@ -353,6 +354,7 @@
       "position-overlay" (position-overlay-oracle args)
       "effect-order" (effect-order-oracle args)
       "chart-trades" (chart-trade-layer/debug-snapshot)
+      "chart-axis" (chart-axis-debug/snapshot)
       (throw (js/Error. (str "Unknown QA oracle: " name))))))
 
 (defn- wait-for-idle-digest

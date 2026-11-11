@@ -9,6 +9,32 @@
 (def ^:dynamic *collect-positions* projections/collect-positions)
 (def ^:dynamic *normalized-open-orders* projections/normalized-open-orders)
 
+(defn same-spot-markets?
+  "True when two catalogs hold the very same spot markets (by identity).
+   Balance rows read only spot markets from the catalog, while live ticks
+   replace perp and outcome entries many times a second; comparing the spot
+   entries alone keeps the rows when only those other entries moved. Cheap:
+   pointer comparisons, no deep equality."
+  [a b]
+  (or (identical? a b)
+      (and (map? a)
+           (map? b)
+           (= (count a) (count b))
+           (reduce-kv (fn [_ market-key market]
+                        (if (or (not= :spot (:market-type market))
+                                (identical? market (get b market-key)))
+                          true
+                          (reduced false)))
+                      true
+                      a)
+           (reduce-kv (fn [_ market-key market]
+                        (if (or (not= :spot (:market-type market))
+                                (contains? a market-key))
+                          true
+                          (reduced false)))
+                      true
+                      b))))
+
 (defn memoized-balance-rows
   [webdata2 spot-data account market-by-key perp-dex-states]
   (let [cache @balance-rows-cache
@@ -16,7 +42,7 @@
                         (identical? webdata2 (:webdata2 cache))
                         (identical? spot-data (:spot-data cache))
                         (identical? account (:account cache))
-                        (identical? market-by-key (:market-by-key cache))
+                        (same-spot-markets? market-by-key (:market-by-key cache))
                         (identical? perp-dex-states (:perp-dex-states cache)))]
     (if cache-hit?
       (:result cache)

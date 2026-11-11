@@ -1,5 +1,6 @@
 (ns hyperopen.views.l2-orderbook-view
-  (:require [hyperopen.trading-settings :as trading-settings]
+  (:require [hyperopen.outcomes.domain.price-unit :as price-unit]
+            [hyperopen.trading-settings :as trading-settings]
             [hyperopen.ui.voice :as voice]
             [hyperopen.views.l2-orderbook.depth :as depth]
             [hyperopen.views.l2-orderbook.dropdowns :as dropdowns]
@@ -86,7 +87,8 @@
      [:div {:class ["flex-1" "h-full" "min-h-0" "overflow-hidden" "bg-base-100"]}
       (if (= active-tab :trades)
         (tabs/tab-content-viewport
-         (trades/trades-panel coin base-symbol))
+         (trades/trades-panel coin base-symbol
+                              {:cents? (price-unit/outcome-market? coin market)}))
         (tabs/tab-content-viewport
          (cond
            loading? (panel/loading-orderbook)

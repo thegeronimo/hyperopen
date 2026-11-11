@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.vm-test
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.state.trading :as trading-state]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
             [hyperopen.views.trading-chart.utils.position-overlay-model :as position-overlay-model]
@@ -200,3 +201,43 @@
         deps (get-in (vm/chart-view-model state (fn [_ _] nil)) [:chart-runtime-options :chart-trades-deps])]
     (is (= 1700000059999 (:older-fills-end-ms deps)))
     (is (fn? (:on-request-older-fills deps)))))
+
+(defn- outcome-state
+  [unit]
+  (-> (base-state)
+      (assoc :active-asset "#9900010"
+             :active-market {:market-type :outcome :coin "#9900010" :price-decimals 5}
+             :candles {"#9900010" {:1d raw-candles}})
+      (assoc-in [:chart-options :outcome-price-unit] unit)))
+
+(deftest chart-price-unit-only-for-the-active-outcome-market-test
+  (is (nil? (vm/chart-price-unit (base-state))))
+  (is (= :percent (vm/chart-price-unit (outcome-state nil))) "percent by default")
+  (is (= :cents (vm/chart-price-unit (outcome-state :cents))))
+  (is (nil? (vm/chart-price-unit (assoc (outcome-state :cents) :active-asset "BTC")))
+      "a lagging outcome market never labels a perp chart"))
+
+(deftest chart-view-model-swaps-formatters-between-outcome-and-perp-test
+  (binding [derived-cache/*process-candle-data* (fn [_] transformed-candles)]
+    (with-redefs [trading-state/position-for-active-asset (fn [_] nil)
+                  position-overlay-model/build-position-overlay (fn [_] nil)]
+      (let [run (fn [state] (:chart-runtime-options (vm/chart-view-model state (fn [_ _] nil))))
+            outcome (run (outcome-state :cents))
+            perp (run (base-state))
+            outcome-pct (run (outcome-state :percent))]
+        (is (= {:price-decimals 5 :price-unit :cents} (:series-options outcome)))
+        (is (= "20.9¢" ((get-in outcome [:legend-deps :format-price]) 0.209)))
+        (is (= "20.9%" ((get-in outcome-pct [:legend-deps :format-price]) 0.209)))
+        (testing "overlays, trade tooltips and copy price follow the unit"
+          (is (= "20.9¢" ((get-in outcome [:price-formatters :format-price]) 0.209)))
+          (is (= "20.9%" ((get-in outcome-pct [:price-formatters :format-price]) 0.209)))
+          (is (= "20.9¢" ((get-in outcome [:chart-trades-deps :format-price]) 0.209)))
+          (is (= "20.9" ((get-in outcome-pct [:price-formatters :copy-price :format-price]) 0.209))
+              "copy price is the cents number in either unit")
+          (is (= "¢" (get-in outcome-pct [:price-formatters :copy-price :price-unit-suffix])))
+          (is (false? (get-in outcome [:legend-deps :show-pct?])) "no relative % beside points"))
+        (is (= {:price-decimals 2} (:series-options perp)) "no unit on a perp")
+        (is (nil? (get-in perp [:price-formatters :copy-price])))
+        (is (not (contains? (:legend-deps perp) :show-pct?)))
+        (is (identical? fmt/format-trade-price-plain (get-in perp [:chart-trades-deps :format-price])))
+        (is (not (re-find #"[%¢]" ((get-in perp [:legend-deps :format-price]) 100))))))))

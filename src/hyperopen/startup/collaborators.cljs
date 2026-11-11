@@ -18,6 +18,7 @@
             [hyperopen.vol-range.infrastructure.live-ingress :as vol-range-live-ingress]
             [hyperopen.wallet.address-watcher :as address-watcher]
             [hyperopen.websocket.active-asset-ctx :as active-ctx]
+            [hyperopen.websocket.outcome-bbo :as outcome-bbo]
             [hyperopen.websocket.candles :as candles]
             [hyperopen.websocket.client :as ws-client]
             [hyperopen.websocket.orderbook :as orderbook]
@@ -377,6 +378,8 @@
      :apply-asset-selector-success api-projections/apply-asset-selector-success
      :apply-asset-selector-error api-projections/apply-asset-selector-error
      :after-asset-selector-success! (fn [runtime-store _phase _market-state]
+                                      ;; the reloaded catalog carries no quotes
+                                      (outcome-bbo/restore-known-tops! runtime-store)
                                       (ws-adapters/sync-active-outcome-market-side-streams!
                                        runtime-store)
                                       (asset-adapters/correct-unresolved-active-asset!
@@ -466,7 +469,9 @@
                                         (fetch-asset-selector-markets! api-ops store opts)))
       :ws-url runtime-state/websocket-url
       :init-connection! ws-client/init-connection!
-      :init-active-ctx! active-ctx/init!
+      :init-active-ctx! (fn [store]
+                          (active-ctx/init! store)
+                          (outcome-bbo/init! store))
       :init-candles! candles/init!
       :init-orderbook! orderbook/init!
       :init-trades! trades/init!

@@ -351,6 +351,16 @@
   ([store address action options]
    (sign-and-post-agent-action! store address action options)))
 
+(defn submit-outcome-merge!
+  "Signs and posts a Hyperliquid `userOutcome` L1 action (`mergeOutcome`) using
+   the active agent session. `action` is the fully-built action map from
+   `outcomes.application.merge-actions/merge-outcome-action`; pass
+   `:vault-address` in `options` to target a subaccount."
+  ([store address action]
+   (submit-outcome-merge! store address action {}))
+  ([store address action options]
+   (sign-and-post-agent-action! store address action options)))
+
 (defn- management-action-options
   [options]
   (assoc (or options {}) :vault-address nil))

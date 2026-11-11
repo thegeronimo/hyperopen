@@ -155,9 +155,14 @@
                           (max 0)
                           (min 8))]
     (if (number? value)
-      (-> (.toFixed value safe-decimals)
-          (str/replace #"0+$" "")
-          (str/replace #"\.$" ""))
+      (let [fixed (.toFixed value safe-decimals)]
+        ;; Only fractional zeros are noise. With no decimal point (0 decimals,
+        ;; e.g. whole outcome shares) trailing zeros are the number: 50 stays "50".
+        (if (str/includes? fixed ".")
+          (-> fixed
+              (str/replace #"0+$" "")
+              (str/replace #"\.$" ""))
+          fixed))
       "")))
 
 (defn normalize-scale-order-count [count]

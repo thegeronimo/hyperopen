@@ -23,6 +23,7 @@
                       :account-equity-view ["hyperopen" "views" "account_surfaces_module" "account_equity_view"]
                       :account-equity-metrics ["hyperopen" "views" "account_surfaces_module" "account_equity_metrics"]
                       :account-equity-hyperevm-funds ["hyperopen" "views" "account_surfaces_module" "account_equity_hyperevm_funds"]
+                      :account-equity-outcome-shares ["hyperopen" "views" "account_surfaces_module" "account_equity_outcome_shares"]
                       :hyperevm-line-model ["hyperopen" "views" "account_surfaces_module" "hyperevm_line_model"]
                       :funding-actions-view ["hyperopen" "views" "account_surfaces_module" "funding_actions_view"]}})
 

@@ -1,8 +1,10 @@
 (ns hyperopen.views.trade-view
-  (:require [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
+  (:require [clojure.string :as str]
+            [hyperopen.hyperevm.panel-slice :as hyperevm-panel-slice]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.vol-range.application.projections :as vol-range-projections]
+            [hyperopen.views.active-asset.outcome-header-vm :as outcome-header-vm]
             [hyperopen.views.active-asset.vm :as active-asset-vm]
             [hyperopen.views.active-asset-view :as active-asset-view]
             [hyperopen.ui.voice :as voice]
@@ -15,6 +17,7 @@
             [hyperopen.views.trade.vol-range.dock :as vol-dock]
             [hyperopen.views.trade-view.layout-state :as layout-state]
             [hyperopen.views.trade-view.loading-shell :as loading-shell]
+            [hyperopen.views.trade-view.market-lookup :as market-lookup]
             [hyperopen.views.trade-view.shell :as shell]))
 
 (def ^:private trade-chart-view-base-state-keys
@@ -116,8 +119,8 @@
   (active-asset-vm/panel-dependency-state state))
 
 (defn- asset-selector-market-lookup-state
-  [state]
-  {:asset-selector {:market-by-key (get-in state [:asset-selector :market-by-key] {})}})
+  [state] ;; stable across outcome quote batches: see trade-view.market-lookup
+  {:asset-selector {:market-by-key (market-lookup/stable-market-by-key (get-in state [:asset-selector :market-by-key] {}))}})
 
 (defn- ui-voice-state
   "The slice hyperopen.ui.voice reads; memoized panels that voice their
@@ -130,12 +133,24 @@
   [state]
   (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
+                 ;; the chart reads no side bid/ask: same object across quotes
+                 {:active-market (market-lookup/stable-active-market (:active-market state))}
                  ;; Draft overlay model (nil outside Volatility range mode) so the
                  ;; memoized chart decorates on draft edits without remounting.
                  {:vol-range-chart (vol-range-projections/stable-chart-model state (.now js/Date))})
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
+
+(defn- outcome-books-slice
+  "Outcome share values are marked at the best bid, so the account tables get
+   the outcome books (and the fee rates that price the exit), nothing else."
+  [state]
+  {:orderbooks (into {}
+                     (filter (fn [[coin _]]
+                               (and (string? coin) (str/starts-with? coin "#"))))
+                     (:orderbooks state))
+   :portfolio {:user-fees (get-in state [:portfolio :user-fees])}})
 
 (defn- account-info-view-state
   ;; HyperEVM enters as a projected slice, never the raw :hyperevm subtree:
@@ -147,13 +162,25 @@
                  (ui-voice-state state)
                  (vol-dock/view-state state)
                  (hyperevm-panel-slice/balances-panel-slice state))
+    (= :outcomes (get-in state [:account-info :selected-tab]))
+    (merge (outcome-books-slice state))
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
            :websocket-ui (:websocket-ui state))))
 
+(defn- outcome-underlying-slice
+  "An outcome ladder's ticket draws its rungs against the underlying's live
+   price; pass that one number rather than the whole market catalog."
+  [state]
+  (when-let [subject (get-in state [:active-market :outcome-subject])]
+    {:outcome-underlying-price
+     (or (get-in state [:active-assets :contexts subject :mark])
+         (get-in state [:asset-selector :market-by-key (str "perp:" subject) :mark]))}))
+
 (defn- order-form-view-state
   [state]
   (merge (select-view-state state order-form-view-state-keys)
+         (outcome-underlying-slice state)
          (vol-dock/order-form-slice state)
          (ui-voice-state state)
          (vol-dock/ticket-input-slice state)))
@@ -172,7 +199,12 @@
                 (asset-selector-market-lookup-state state))
          :account-equity/hyperevm-funds
          (when-let [funds-fn (account-surface-export :account-equity-hyperevm-funds)]
-           (funds-fn state))))
+           (funds-fn state))
+         ;; Outcome shares at the best bid, as one number, so a book tick that
+         ;; moves no cent does not repaint the panel.
+         :account-equity/outcome-shares
+         (when-let [shares-fn (account-surface-export :account-equity-outcome-shares)]
+           (shares-fn (merge-with merge state (asset-selector-market-lookup-state state))))))
 
 (def ^:private memoized-active-asset-view
   (memoize-last (fn [render-fn state]
@@ -387,6 +419,13 @@
   (or (not desktop-layout?)
       (not= false (get-in state [:trade-ui :desktop-secondary-panels-ready?]))))
 
+(defn- outcome-bar-model
+  "Both chances for the phone's pinned Buy bar and the sheet's title."
+  [state active-asset orderbook-data]
+  (when-let [market (active-asset-vm/resolve-active-market state active-asset)]
+    (when (= :outcome (:market-type market))
+      (outcome-header-vm/bar-model market orderbook-data))))
+
 (defn- trade-view-panel-context
   [state {:keys [desktop-layout? layout mobile-surface]}]
   (let [active-asset (:active-asset state)
@@ -448,6 +487,8 @@
      :hyperevm-line-model hyperevm-line-model*
      :orderbook-panel-state orderbook-panel-state
      :order-form-panel-state order-form-panel-state
+     :outcome-bar-model (when (and (not desktop-layout?) (:outcome-market? layout))
+                          (outcome-bar-model state active-asset orderbook-data))
      :mobile-orderbook-panel-state (when-not desktop-layout?
                                     (mobile-orderbook-view-state orderbook-panel-state mobile-surface))}))
 
@@ -485,4 +526,5 @@
                                          :orderbook (voice/label state :mobile-surface/orderbook)
                                          :trades (voice/label state :mobile-surface/trades)})
       (shell/render-trade-grid state layout-context panel-context renderers)
+      (shell/render-outcome-mobile-bar layout-context (:outcome-bar-model panel-context))
       (degen-widgets/widgets-row state)]]))

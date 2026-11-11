@@ -1,6 +1,7 @@
 (ns hyperopen.views.account-info.shared
   (:require ["lucide/dist/esm/icons/external-link.js" :default lucide-external-link-node]
             [clojure.string :as str]
+            [hyperopen.outcomes.names :as outcome-names]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.account-info.projections :as projections]))
 
@@ -154,6 +155,21 @@
       (if (js/isNaN num-val)
         "0.00"
         (or (fmt/format-trade-price num-val value) "0.00")))))
+
+(defn outcome-coin?
+  "True for an outcome side token (a hash or plus token)."
+  [coin]
+  (outcome-names/outcome-coin? (non-blank-text coin)))
+
+(defn format-outcome-price
+  "An outcome price is a probability: cents, never 0.156325."
+  [value]
+  (outcome-names/cents (parse-optional-num value)))
+
+(defn format-outcome-shares
+  "\"122 shares\" for an outcome size; nil value is an em dash."
+  [value]
+  (or (outcome-names/shares-text (parse-optional-num value)) "--"))
 
 (defn format-amount [value decimals]
   (let [safe-decimals (-> (or decimals fallback-decimals)

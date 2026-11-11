@@ -89,6 +89,7 @@
                                             account-value-display
                                             vault-equity
                                             earn-equity
+                                            outcome-shares-value
                                             total-account-value-display
                                             base-balance
                                             maintenance-margin
@@ -116,6 +117,9 @@
     (metric-row "Vaults" (display-currency vault-equity))
     (metric-row "Earn" (display-currency earn-equity)
                 :tooltip "Supplied to HyperCore lending, including collateral, at oracle prices, minus borrows.")
+    (when (number? outcome-shares-value)
+      (metric-row "Outcome shares" (display-currency outcome-shares-value)
+                  :tooltip "Outcome shares at the best bid, before the closing fee. Counted in the total; never buying power."))
     ;; HyperEVM is included in the grouped total but remains separate here:
     ;; it cannot margin a position, and this row keeps its Move action.
     (hyperevm-line hyperevm-line-model)]
@@ -135,6 +139,7 @@
 
 (defn- unified-account-summary-view [{:keys [unified-account-ratio
                                              account-value-display
+                                             outcome-shares-value
                                              maintenance-margin
                                              unified-account-leverage
                                              isolated-notional
@@ -163,6 +168,9 @@
                 :tooltip unified-maintenance-margin-tooltip)
     (metric-row "Unified Account Leverage" (display-leverage unified-account-leverage)
                 :tooltip unified-account-leverage-tooltip)
+    (when (number? outcome-shares-value)
+      (metric-row "Outcome shares" (display-currency outcome-shares-value)
+                  :tooltip "Outcome shares at the best bid, before the closing fee. Counted in Portfolio Value; never buying power."))
     (unified-isolated-notional-note isolated-notional)
     (hyperevm-line hyperevm-line-model)]])
 

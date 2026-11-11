@@ -3,6 +3,7 @@
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.order.feedback-runtime :as order-feedback-runtime]
+            [hyperopen.outcomes.names :as outcome-names]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.trading-settings :as trading-settings]
@@ -93,11 +94,14 @@
                            (:asset (first rows)))
                        str
                        str/trim)
+         outcome? (outcome-names/outcome-coin? coin*)
          market (markets/resolve-market-by-coin (or market-by-key {}) coin*)
-         display-coin (some-> (instrument/resolve-base-symbol coin* market nil)
-                              str
-                              str/trim
-                              str/upper-case)]
+         display-coin (if outcome?
+                        (:short-label (outcome-names/resolve-coin market-by-key coin*))
+                        (some-> (instrument/resolve-base-symbol coin* market nil)
+                                str
+                                str/trim
+                                str/upper-case))]
      (if (seq display-coin)
        (str "Order filled: " display-coin ".")
        "Order filled."))))
@@ -174,14 +178,24 @@
           str
           str/trim))
 
+(defn- fill-outcome-names
+  "Event, answer and side for a fill on an outcome contract; nil otherwise."
+  [row market-by-key]
+  (let [coin* (fill-coin-token row)]
+    (when (outcome-names/outcome-coin? coin*)
+      (or (outcome-names/resolve-coin market-by-key coin*)
+          {:side-label "shares"}))))
+
 (defn- fill-display-coin
   [row market-by-key]
   (let [coin* (fill-coin-token row)
         market (markets/resolve-market-by-coin (or market-by-key {}) coin*)]
-    (some-> (instrument/resolve-base-symbol coin* market nil)
-            str
-            str/trim
-            str/upper-case)))
+    (if (outcome-names/outcome-coin? coin*)
+      (:side-label (fill-outcome-names row market-by-key))
+      (some-> (instrument/resolve-base-symbol coin* market nil)
+              str
+              str/trim
+              str/upper-case))))
 
 (defn- fill-size
   [row]
@@ -239,8 +253,8 @@
        (number? price)))
 
 (defn- normalized-fill-row-map
-  [{:keys [coin display-coin id side size price order-type ts slippage-pct]}]
-  {:coin coin
+  [{:keys [coin display-coin id side size price order-type ts slippage-pct event]}]
+  (cond-> {:coin coin
    :display-coin display-coin
    :id (str id)
    :side side
@@ -250,7 +264,8 @@
    :price price
    :orderType order-type
    :ts (or ts 0)
-   :slippagePct slippage-pct})
+   :slippagePct slippage-pct}
+    (seq event) (assoc :outcome-event event)))
 
 (defn- normalized-fill-row
   ([row]
@@ -267,7 +282,9 @@
          ts* (fill-timestamp row)
          order-type* (normalize-order-type row)
          slippage-pct* (parse-slippage-pct row)
+         outcome-names* (fill-outcome-names row market-by-key)
          normalized-fields {:coin coin*
+                            :event (:event-short outcome-names*)
                             :display-coin display-coin*
                             :side side*
                             :size size*
@@ -295,14 +312,19 @@
                 fills)
         average-price (when (pos? weighted-size)
                         (/ weighted-notional weighted-size))
-        {:keys [coin symbol side]} (first fills)
+        {:keys [coin symbol side outcome-event]} (first fills)
+        outcome? (outcome-names/outcome-coin? coin)
         action-label (if (= :buy side) "Bought" "Sold")
         headline (str action-label " "
                       (format-fill-size total-size)
                       " "
-                      (or symbol coin))]
+                      (or symbol coin)
+                      (when (and outcome? (number? average-price))
+                        (str " at " (outcome-names/cents average-price)))
+                      (when (seq outcome-event)
+                        (str " · " outcome-event)))]
     {:headline headline
-     :subline (when (number? average-price)
+     :subline (when (and (not outcome?) (number? average-price))
                 (str "At average price of " (format-fill-price average-price)))}))
 
 (defn- time-windowed?
