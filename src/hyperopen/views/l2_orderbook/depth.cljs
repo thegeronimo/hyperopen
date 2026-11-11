@@ -58,7 +58,8 @@
   "A clickable level: sets the order form's limit price to the level's raw price."
   [row label-prefix own-size]
   (cond-> {:type "button"
-           :aria-label (cond-> (str label-prefix " " (row-price-label row) ", set limit price")
+           :aria-label (cond-> (str label-prefix " " (row-price-label row)
+                                    (get-in row [:display :price-unit]) ", set limit price")
                          own-size (str ". " (own-order-note own-size)))
            :on {:click [[:actions/set-order-price-from-orderbook (:px row)]]}}
     own-size (assoc :title (own-order-note own-size))))
@@ -155,34 +156,38 @@
                (str (format-percent (:percentage spread) 3) "%"))]]])
 
 ;; Column headers
-(defn column-headers [size-symbol]
-  [:div {:class ["grid" orderbook-columns-class "items-center" "py-2" "pl-2" "pr-2" "bg-base-100" "border-b" "border-base-300"]
-         :data-role "orderbook-column-headers-row"}
-   [:div {:class ["text-left"]
-          :data-role "orderbook-price-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} "Price"]]
-   [:div {:class ["text-right" "num-right"]
-          :data-role "orderbook-size-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Size (" size-symbol ")")]]
-   [:div {:class ["text-right" "num-right"]
-          :data-role "orderbook-total-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]])
+(defn column-headers
+  ([size-symbol] (column-headers size-symbol nil))
+  ([size-symbol price-label]
+   [:div {:class ["grid" orderbook-columns-class "items-center" "py-2" "pl-2" "pr-2" "bg-base-100" "border-b" "border-base-300"]
+          :data-role "orderbook-column-headers-row"}
+    [:div {:class ["text-left"]
+           :data-role "orderbook-price-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (or price-label "Price")]]
+    [:div {:class ["text-right" "num-right"]
+           :data-role "orderbook-size-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Size (" size-symbol ")")]]
+    [:div {:class ["text-right" "num-right"]
+           :data-role "orderbook-total-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]]))
 
-(defn mobile-split-column-headers [size-symbol]
-  [:div {:class ["grid" mobile-split-columns-class "items-center" "gap-x-2" "px-2" "py-2" "bg-base-100" "border-b" "border-base-300"]
-         :data-role "orderbook-mobile-split-headers"}
-   [:div {:class ["text-left"]
-          :data-role "orderbook-mobile-bid-total-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]
-   [:div {:class ["text-right" "num-right"]
-          :data-role "orderbook-mobile-bid-price-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} "Bid"]]
-   [:div {:class ["text-left"]
-          :data-role "orderbook-mobile-ask-price-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} "Ask"]]
-   [:div {:class ["text-right" "num-right"]
-          :data-role "orderbook-mobile-ask-total-header-cell"}
-    [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]])
+(defn mobile-split-column-headers
+  ([size-symbol] (mobile-split-column-headers size-symbol nil))
+  ([size-symbol price-suffix]
+   [:div {:class ["grid" mobile-split-columns-class "items-center" "gap-x-2" "px-2" "py-2" "bg-base-100" "border-b" "border-base-300"]
+          :data-role "orderbook-mobile-split-headers"}
+    [:div {:class ["text-left"]
+           :data-role "orderbook-mobile-bid-total-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]
+    [:div {:class ["text-right" "num-right"]
+           :data-role "orderbook-mobile-bid-price-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Bid" (some->> price-suffix (str " ")))]]
+    [:div {:class ["text-left"]
+           :data-role "orderbook-mobile-ask-price-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Ask" (some->> price-suffix (str " ")))]]
+    [:div {:class ["text-right" "num-right"]
+           :data-role "orderbook-mobile-ask-total-header-cell"}
+     [:span {:class [header-neutral-text-class "text-xs" "num"]} (str "Total (" size-symbol ")")]]]))
 
 (defn mobile-split-order-row
   ([row size-unit]

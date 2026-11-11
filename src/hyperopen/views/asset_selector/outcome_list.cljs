@@ -280,6 +280,19 @@
         (set! (.-width style) (str (min panel-width-px viewport-w) "px"))
         (set! (.-height style) (str (max 240 (- viewport-h top)) "px"))))))
 
+(defn sync-panel-box!
+  "The selector's desktop node is reused across tabs. On the Outcome tab it is
+   fitted under the strip; on every other tab the box that fit wrote (top,
+   left, width, height) is removed, or the plain dropdown would stay 520 px
+   wide and pinned to the window."
+  [{:replicant/keys [node] :as args}]
+  (when node
+    (if (= "outcome-panel" (.getAttribute ^js node "data-layout"))
+      (fit-panel-under-strip! args)
+      (let [style (.-style ^js node)]
+        (doseq [prop ["top" "left" "width" "height"]]
+          (.removeProperty style prop))))))
+
 ;; ---------------------------------------------------------------------------
 ;; Rows on screen -> live price subscriptions
 

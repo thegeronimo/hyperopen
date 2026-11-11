@@ -241,6 +241,53 @@ function perpCtx(price) {
 }
 
 /**
+ * Synthetic candles for one side coin (opt-in, see `installOutcomeWorld`):
+ * `bars` bars of `interval` ending at `endTime`, drifting toward the side's
+ * mark so the axis spans a few cents. Deterministic for a given coin.
+ */
+function outcomeCandles(coinName, { interval = "1d", endTime = Date.now(), bars = 90 } = {}, overrides = {}) {
+  const match = /^#(\d+)$/.exec(coinName);
+  if (!match) return [];
+  const encoded = Number(match[1]);
+  const side = encoded % 10;
+  const entry = { ...CONTRACTS, ...overrides }[(encoded - side) / 10];
+  if (!entry) return [];
+  const mark = side === 0 ? entry.mark : 1 - entry.mark;
+  const stepMs = { "1m": 60e3, "5m": 300e3, "15m": 900e3, "1h": 3600e3, "4h": 14400e3, "1d": 86400e3 }[interval] ?? 86400e3;
+  const out = [];
+  let open = Math.max(0.02, mark - 0.06);
+  for (let i = 0; i < bars; i += 1) {
+    const t = Math.floor(endTime / stepMs) * stepMs - (bars - 1 - i) * stepMs;
+    const target = open + (mark - open) * 0.08 + Math.sin(i * 1.7 + encoded) * 0.004;
+    const close = Math.min(0.99, Math.max(0.01, i === bars - 1 ? mark : target));
+    const high = Math.min(0.99, Math.max(open, close) + 0.003);
+    const low = Math.max(0.01, Math.min(open, close) - 0.003);
+    out.push({ t, T: t + stepMs - 1, s: coinName, i: interval, o: money(open), c: money(close), h: money(high), l: money(low), v: "1200.0", n: 12 });
+    open = close;
+  }
+  return out;
+}
+
+const PERP_PRICES = { BTC: 66880, ETH: 3410, SOL: 168 };
+
+/** Synthetic perp candles (opt-in with outcome candles): a gentle drift to the mark. */
+function perpCandles(coinName, { interval = "1d", endTime = Date.now(), bars = 90 } = {}) {
+  const mark = PERP_PRICES[coinName];
+  if (!mark) return [];
+  const stepMs = { "1m": 60e3, "5m": 300e3, "15m": 900e3, "1h": 3600e3, "4h": 14400e3, "1d": 86400e3 }[interval] ?? 86400e3;
+  const out = [];
+  let open = mark * 0.94;
+  for (let i = 0; i < bars; i += 1) {
+    const t = Math.floor(endTime / stepMs) * stepMs - (bars - 1 - i) * stepMs;
+    const close = i === bars - 1 ? mark : open + (mark - open) * 0.08 + Math.sin(i * 1.3) * mark * 0.004;
+    const fix = (n) => n.toFixed(1);
+    out.push({ t, T: t + stepMs - 1, s: coinName, i: interval, o: fix(open), c: fix(close), h: fix(Math.max(open, close) * 1.002), l: fix(Math.min(open, close) * 0.998), v: "50.0", n: 12 });
+    open = close;
+  }
+  return out;
+}
+
+/**
  * Own `/info`, `/exchange` and the websocket for `page` (call before the first
  * navigation). Returns a handle:
  *   `exchangeRequests`  real POSTs that reached `/exchange` (must stay empty:
@@ -248,10 +295,13 @@ function perpCtx(price) {
  *   `catalogFails(on)`  make `outcomeMeta` fail (503) while `on` is true
  *   `subscriptions`     parsed websocket subscribe messages
  *   `l2BookRequests`    coins of REST `l2Book` snapshots asked for
+ *   `candleRequests`    `{coin, interval}` of every `candleSnapshot` asked for
  *   `overrides`         per-contract overrides of CONTRACTS, applied to the
  *                       catalog and the books served from now on
+ * Options: `candles: true` serves synthetic candles for outcome side coins
+ * and the BTC/ETH/SOL perps (spot still gets none).
  */
-export async function installOutcomeWorld(page, { now = Date.now() } = {}) {
+export async function installOutcomeWorld(page, { now = Date.now(), candles = false } = {}) {
   const world = {
     now,
     overrides: {},
@@ -260,6 +310,7 @@ export async function installOutcomeWorld(page, { now = Date.now() } = {}) {
     failCatalog: false,
     infoTypes: [],
     l2BookRequests: [],
+    candleRequests: [],
     catalogFails(on) {
       world.failCatalog = Boolean(on);
     },
@@ -294,8 +345,14 @@ export async function installOutcomeWorld(page, { now = Date.now() } = {}) {
         return json([null]);
       case "perpConciseAnnotations":
         return json([]);
-      case "candleSnapshot":
-        return json([]);
+      case "candleSnapshot": {
+        // Off by default: the other specs run against an empty chart.
+        const req = payload?.req || {};
+        world.candleRequests.push({ coin: req.coin, interval: req.interval });
+        if (!candles) return json([]);
+        const opts = { interval: req.interval, endTime: now };
+        return json(/^#/.test(req.coin || "") ? outcomeCandles(req.coin, opts, world.overrides) : perpCandles(req.coin, opts));
+      }
       case "l2Book": {
         world.l2BookRequests.push(payload.coin);
         const book = sideBook(payload.coin, world.overrides);
@@ -522,3 +579,42 @@ export async function simulatedOrders(page) {
     .map((call) => call?.request?.action)
     .filter((action) => action?.type === "order");
 }
+
+/**
+ * A resting open order of the connected account, written where the venue's
+ * `frontendOpenOrders` lands. The coin uses the `#` form the catalog uses;
+ * the live venue's form for outcome sides is not confirmed.
+ */
+export async function seedOpenOrders(page, orders) {
+  await page.evaluate((rows) => {
+    const c = globalThis.cljs?.core;
+    const store = globalThis.hyperopen?.system?.store;
+    const kw = c.keyword;
+    const opts = c.PersistentArrayMap.fromArray([kw("keywordize-keys"), true], true);
+    const state = c.assoc_in(
+      c.deref(store),
+      c.PersistentVector.fromArray([kw("orders"), kw("open-orders")], true),
+      c.js__GT_clj(rows, opts)
+    );
+    c.reset_BANG_(store, state);
+    globalThis.hyperopen?.app?.bootstrap?.render_app_BANG_?.(c.deref(store));
+  }, orders);
+}
+
+export const restingOrder = (coinName, { px, sz = "100.0", side = "B", oid = 4242 } = {}) => ({
+  coin: coinName,
+  side,
+  limitPx: String(px),
+  sz: String(sz),
+  origSz: String(sz),
+  oid,
+  timestamp: Date.now() - 60_000,
+  orderType: "Limit",
+  tif: "Gtc",
+  reduceOnly: false,
+  isTrigger: false,
+  triggerPx: "0.0",
+  triggerCondition: "N/A",
+  isPositionTpsl: false,
+  children: []
+});

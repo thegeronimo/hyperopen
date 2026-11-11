@@ -427,6 +427,7 @@
         chart (when chart-obj (.-chart ^js chart-obj))
         volume-series (when chart-obj (.-volumeSeries ^js chart-obj))]
     (update-main-series-data! chart-obj previous-chart-type chart-type candle-data series-options)
+    (ci/sync-overlay-indicator-formats! chart-obj)
     (when volume-series
       (ci/set-volume-data! volume-series candle-data))
     (when chart

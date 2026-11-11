@@ -13,7 +13,9 @@ import {
   installOutcomeWorld,
   openOutcomeTab,
   outcomeBalance,
+  restingOrder,
   seedBalances,
+  seedOpenOrders,
   seedReadySession,
   simulatedOrders,
   usdcBalance,
@@ -34,8 +36,8 @@ const OK_ORDER = { status: "ok", response: { type: "order", data: { statuses: [{
 const settle = (page, quietMs = 250) => waitForIdle(page, { quietMs, timeoutMs: 6_000, pollMs: 50 });
 
 /** Boot /trade on the stubbed world; optionally a ready wallet with balances. */
-async function boot(page, { overrides = {}, failCatalog = false, balances = null, feed = true } = {}) {
-  const world = await installOutcomeWorld(page);
+async function boot(page, { overrides = {}, failCatalog = false, balances = null, feed = true, candles = false } = {}) {
+  const world = await installOutcomeWorld(page, { candles });
   Object.assign(world.overrides, overrides);
   world.catalogFails(failCatalog);
   await visitRoute(page, "/trade");
@@ -603,4 +605,316 @@ test("a busy top-of-book feed keeps side switch and selector open fast @regressi
   } finally {
     clearInterval(feed);
   }
+});
+
+test("chart axis reads % or ¢, remembers the choice, and the book prices in cents @regression", async ({ page }) => {
+  const world = await boot(page, { candles: true });
+  await pickFromList(page, GAME_TITLE, "DET");
+
+  const axisGroup = page.locator('[data-role="chart-toolbar-axis-unit"]');
+  const percent = axisGroup.getByRole("button", { name: "Percent", exact: true });
+  const cents = axisGroup.getByRole("button", { name: "Cents", exact: true });
+  // The legend is DOM (axis labels are canvas): its O/H/L/C values carry the unit.
+  const legend = page.locator('[data-role="trading-chart-canvas"]');
+
+  await test.step("an outcome chart opens on percent", async () => {
+    await expect(axisGroup).toHaveAttribute("role", "group");
+    await expect(axisGroup).toContainText("Axis");
+    await expect(percent).toHaveAttribute("aria-pressed", "true");
+    await expect(cents).toHaveAttribute("aria-pressed", "false");
+    await expect(legend).toContainText(/O\s*\d+\.\d+%H\s*\d+\.\d+%L\s*\d+\.\d+%C\s*\d+\.\d+%/);
+    await expect(legend).toContainText(/[+−]?\d+\.\d+ pts/);
+    await expect(legend).not.toContainText(/\(\S*%\)/);
+  });
+
+  await test.step("one click on ¢ flips the unit", async () => {
+    await cents.click();
+    await settle(page);
+    await expect(cents).toHaveAttribute("aria-pressed", "true");
+    await expect(percent).toHaveAttribute("aria-pressed", "false");
+    await expect(legend).toContainText(/O\s*\d+\.\d+¢H\s*\d+\.\d+¢L\s*\d+\.\d+¢C\s*\d+\.\d+¢/);
+  });
+
+  await test.step("the order book reads in cents; a click still fills the dollar price", async () => {
+    await expect(page.locator('[data-role="orderbook-price-header-cell"]')).toHaveText("Price ¢");
+    const bid = page.locator('[data-role="orderbook-bids-pane"] [data-role="orderbook-level-row"]').first();
+    await expect(bid.locator('[data-role="orderbook-level-price-cell"]')).toHaveText("64.000");
+    await bid.click();
+    await settle(page);
+    // The form keeps dollars; the ticket's limit field shows cents.
+    const formPrice = await page.evaluate(() => {
+      const c = globalThis.cljs.core;
+      const path = c.PersistentVector.fromArray([c.keyword("order-form"), c.keyword("price")], true);
+      return c.get_in(c.deref(globalThis.hyperopen.system.store), path);
+    });
+    expect(Number(formPrice)).toBe(0.64);
+    expect((await orderForm(page)).entryMode).toBe("limit");
+    await expect(page.locator("#outcome-ticket-limit-price")).toHaveValue("64");
+  });
+
+  await test.step("the choice survives a reload", async () => {
+    await page.reload();
+    await waitForCatalog(page);
+    await feedWorldBooks(page, world);
+    await pickFromList(page, GAME_TITLE, "DET");
+    await expect(cents).toHaveAttribute("aria-pressed", "true");
+    await expect(legend).toContainText(/O\s*\d+\.\d+¢H\s*\d+\.\d+¢L\s*\d+\.\d+¢C\s*\d+\.\d+¢/);
+  });
+
+  // O/H/L/C values with nothing between the number and the next label: no unit.
+  const plainOhlc = /O\s*[\d,.]+H\s*[\d,.]+L\s*[\d,.]+C\s*[\d,.]+/;
+  const centsOhlc = /O\s*\d+\.\d+¢H\s*\d+\.\d+¢L\s*\d+\.\d+¢C\s*\d+\.\d+¢/;
+
+  await test.step("a perp chart has no axis control and no unit", async () => {
+    await dispatch(page, [":actions/select-asset", "BTC"]);
+    await settle(page, 400);
+    await expect(axisGroup).toHaveCount(0);
+    await expect(legend).toContainText("BTC");
+    await expect(legend).toContainText(plainOhlc);
+    await expect(legend).not.toContainText("¢");
+    await expect(legend).not.toContainText("pts");
+    await expect(page.locator('[data-role="orderbook-price-header-cell"]').filter({ hasText: "¢" })).toHaveCount(0);
+  });
+
+  await test.step("outcome -> perp -> outcome swaps the legend unit each time", async () => {
+    await dispatch(page, [":actions/select-asset", coin(GAME, 0)]);
+    await settle(page, 400);
+    await expect(cents).toHaveAttribute("aria-pressed", "true");
+    await expect(legend).toContainText(centsOhlc);
+    // points or cents only: no relative percent beside the change
+    await expect(legend).not.toContainText(/\(\S*%\)/);
+    await dispatch(page, [":actions/select-asset", "BTC"]);
+    await settle(page, 400);
+    await expect(axisGroup).toHaveCount(0);
+    await expect(legend).toContainText(plainOhlc);
+    await expect(legend).not.toContainText("¢");
+    await dispatch(page, [":actions/select-asset", coin(GAME, 0)]);
+    await settle(page, 400);
+    await expect(legend).toContainText(centsOhlc);
+  });
+
+  await expectNoOrderSent(page, world);
+});
+
+const SHOTS_DIR = process.env.OUTCOME_SHOTS_DIR || "";
+const shot = async (page, name) => {
+  if (!SHOTS_DIR) return;
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(150);
+  await page.screenshot({ path: `${SHOTS_DIR}/${name}`, fullPage: false });
+};
+
+/** The chart's painted price-axis labels (canvas), read through the QA oracle. */
+const chartAxis = (page) => oracle(page, "chart-axis");
+
+test("all answers: one percent chart of every answer on a multi-answer event @regression", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const world = await boot(page, { candles: true });
+  const chartShows = page.locator('[data-role="chart-toolbar-chart-shows"]');
+  const axisGroup = page.locator('[data-role="chart-toolbar-axis-unit"]');
+  const percent = axisGroup.getByRole("button", { name: "Percent", exact: true });
+  const legendEntries = page.locator('[data-role="outcome-answers-legend-entry"]');
+
+  await test.step("a two-sided game has no Chart shows control; cents is the stored unit", async () => {
+    await pickFromList(page, GAME_TITLE, "DET");
+    await expect(axisGroup).toBeVisible();
+    await expect(chartShows).toHaveCount(0);
+    await axisGroup.getByRole("button", { name: "Cents", exact: true }).click();
+    await settle(page);
+  });
+
+  await test.step("a multi-answer event offers it, selected answer first", async () => {
+    await pickFromList(page, FED_TITLE, "Hold");
+    await expect(chartShows).toHaveAttribute("role", "group");
+    await expect(chartShows).toHaveAttribute("aria-label", "Chart shows");
+    await expect(chartShows.getByRole("button", { name: "Hold only" })).toHaveAttribute("aria-pressed", "true");
+    await expect(chartShows.getByRole("button", { name: "All answers" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator('[data-role="trading-chart-canvas"]')).toBeVisible();
+    // Off: only the selected answer's own candles are fetched.
+    const requested = world.candleRequests.map((r) => r.coin);
+    expect(requested).not.toContain(coin(FED.cut, 0));
+    expect(requested).not.toContain(coin(FED.hike, 0));
+  });
+
+  await test.step("All answers draws one line per traded answer on 0–100%", async () => {
+    await chartShows.getByRole("button", { name: "All answers" }).click();
+    await settle(page, 400);
+    await expect(chartShows.getByRole("button", { name: "All answers" })).toHaveAttribute("aria-pressed", "true");
+    await expect(legendEntries).toHaveCount(3);
+    for (const label of ["Hold", "Cut", "Hike"]) {
+      await expect(legendEntries.filter({ hasText: label }).locator('[data-role="outcome-answers-legend-percent"]')).toHaveText(
+        /^\d+(\.\d)?%$/
+      );
+    }
+    await expect(legendEntries.filter({ hasText: "Hold" })).toHaveAttribute("data-selected", "true");
+    await expect(page.locator('[data-role="outcome-answers-legend"]')).toContainText("Other · not traded, not drawn");
+    await expect(page.locator('[data-role="outcome-answers-caption"]')).toContainText("Lines are last traded prices.");
+    await expect
+      .poll(async () => (await chartAxis(page)).labels, { timeout: 10_000 })
+      .toEqual(["100%", "75%", "50%", "25%", "0%"]);
+    const axis = await chartAxis(page);
+    expect(axis.kind).toBe("answers");
+    expect(axis.lastLabels).toHaveLength(3);
+    for (const label of axis.lastLabels) expect(label).toMatch(/^\d+(\.\d)?%$/);
+    // The fallback never traded: never fetched, never drawn.
+    expect(world.candleRequests.map((r) => r.coin)).not.toContain(coin(FED.fallback, 0));
+    for (const id of [FED.hold, FED.cut, FED.hike]) {
+      expect(world.candleRequests.map((r) => r.coin)).toContain(coin(id, 0));
+    }
+    await shot(page, "all-answers.png");
+  });
+
+  await test.step("the axis is percent only; candle tools are hidden", async () => {
+    await expect(percent).toHaveAttribute("aria-pressed", "true");
+    await expect(percent).toHaveAttribute("aria-disabled", "true");
+    const cents = axisGroup.getByRole("button", { name: "Cents, not available when all answers are shown" });
+    await expect(cents).toBeDisabled();
+    await expect(page.locator('[data-parity-id="chart-toolbar"]').getByRole("button", { name: "Indicators" })).toHaveCount(0);
+    await expect(page.locator('[data-role="chart-toolbar-trades-toggle"]')).toHaveCount(0);
+  });
+
+  await test.step("another answer moves the emphasis, keeps the mode, fetches nothing", async () => {
+    const before = world.candleRequests.length;
+    const trigger = page.locator('[data-role="outcome-option-select-trigger"]');
+    await trigger.click();
+    await page.locator('[data-role="outcome-option-select-menu"] [role="option"]').filter({ hasText: "Hike" }).first().click();
+    await settle(page, 600);
+    await expect(trigger).toContainText("Hike");
+    await expect(chartShows.getByRole("button", { name: "All answers" })).toHaveAttribute("aria-pressed", "true");
+    await expect(chartShows.getByRole("button", { name: "Hike only" })).toHaveAttribute("aria-pressed", "false");
+    await expect(legendEntries.filter({ hasText: "Hike" })).toHaveAttribute("data-selected", "true");
+    await expect(legendEntries.filter({ hasText: "Hold" })).toHaveAttribute("data-selected", "false");
+    await expect(legendEntries.filter({ hasText: "Hike" })).toContainText("(selected)");
+    // The legend has moved and the app is idle: any plan request would have
+    // been issued by now (the 60 s refresh timer cannot fire within the test).
+    await settle(page, 400);
+    expect(world.candleRequests.slice(before)).toEqual([]);
+    await shot(page, "all-answers-other-selected.png");
+  });
+
+  await test.step("a timeframe flip loads each answer once; flipping back loads nothing", async () => {
+    const answerCoins = [FED.hold, FED.cut, FED.hike].map((id) => coin(id, 0));
+    const before = world.candleRequests.length;
+    await page.locator('[data-parity-id="chart-toolbar"]').getByRole("button", { name: "1h", exact: true }).click();
+    await expect.poll(() => world.candleRequests.slice(before).filter((r) => r.interval === "1h").length).toBeGreaterThanOrEqual(3);
+    await expect(legendEntries.first().locator('[data-role="outcome-answers-legend-percent"]')).toHaveText(/%$/);
+    await settle(page, 400);
+    const flipped = world.candleRequests.slice(before);
+    for (const c of answerCoins) {
+      expect(flipped.filter((r) => r.coin === c && r.interval === "1h"), `one 1h load of ${c}`).toHaveLength(1);
+    }
+    expect(flipped.every((r) => r.interval === "1h")).toBe(true);
+    const back = world.candleRequests.length;
+    await page.locator('[data-parity-id="chart-toolbar"]').getByRole("button", { name: "1d", exact: true }).click();
+    await expect(chartShows.getByRole("button", { name: "All answers" })).toHaveAttribute("aria-pressed", "true");
+    await settle(page, 600);
+    expect(world.candleRequests.slice(back), "cached and fresh: no refetch").toEqual([]);
+  });
+
+  await test.step("back to one answer: candles and the stored unit return", async () => {
+    await chartShows.getByRole("button", { name: "Hike only" }).click();
+    await settle(page, 400);
+    const legend = page.locator('[data-role="trading-chart-canvas"]');
+    await expect(legend).toBeVisible();
+    await expect(page.locator('[data-role="outcome-answers-chart"]')).toHaveCount(0);
+    await expect(axisGroup.getByRole("button", { name: "Cents", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(legend).toContainText(/C\s*\d+\.\d+¢/);
+    await expect.poll(async () => (await chartAxis(page)).kind).toBe("candles");
+    const axis = await chartAxis(page);
+    expect(axis.labels.length).toBeGreaterThan(1);
+    for (const label of axis.labels) expect(label).toMatch(/¢$/);
+  });
+
+  await test.step("a market that cannot draw it resets the mode", async () => {
+    await chartShows.getByRole("button", { name: "All answers" }).click();
+    await settle(page, 300);
+    await dispatch(page, [":actions/select-asset", coin(GAME, 0)]);
+    await settle(page, 400);
+    await expect(chartShows).toHaveCount(0);
+    await dispatch(page, [":actions/select-asset", coin(FED.hold, 0)]);
+    await settle(page, 400);
+    await expect(chartShows.getByRole("button", { name: "Hold only" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  await expectNoOrderSent(page, world);
+});
+
+test("chart badges and axis labels read in the active unit @regression", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const world = await boot(page, { candles: true, balances: [usdcBalance("1000"), outcomeBalance(GAME, 0, 100, 50)] });
+  await pickFromList(page, GAME_TITLE, "DET");
+  await seedOpenOrders(page, [restingOrder(coin(GAME, 0), { px: 0.56, sz: 100 })]);
+  await settle(page, 300);
+  const axisGroup = page.locator('[data-role="chart-toolbar-axis-unit"]');
+  const badge = page.locator('.chart-open-order-overlays [data-order-kind="order"]');
+
+  await test.step("percent: the order badge and the axis read %", async () => {
+    await expect(badge).toHaveCount(1);
+    await expect(badge).toContainText(/@ 56(\.0+)?%/);
+    await expect(badge).not.toContainText("$");
+    await expect(badge).not.toContainText(/0\.6/);
+    await expect(badge.locator("button")).toHaveAttribute("aria-label", /at 56(\.0+)?%$/);
+    await expect.poll(async () => (await chartAxis(page)).labels?.length ?? 0, { timeout: 10_000 }).toBeGreaterThan(1);
+    const axis = await chartAxis(page);
+    for (const label of axis.labels) expect(label).toMatch(/^\d+\.\d+%$/);
+    for (const label of axis.lastLabels) expect(label).toMatch(/%$/);
+    await shot(page, "badge-percent.png");
+  });
+
+  await test.step("cents: the same badge and axis read ¢", async () => {
+    await axisGroup.getByRole("button", { name: "Cents", exact: true }).click();
+    await settle(page, 400);
+    await expect(badge).toHaveCount(1);
+    await expect(badge).toContainText(/@ 56(\.0+)?¢/);
+    await expect(badge).not.toContainText("$");
+    await expect.poll(async () => ((await chartAxis(page)).labels || []).every((l) => /¢$/.test(l))).toBe(true);
+    const axis = await chartAxis(page);
+    expect(axis.labels.length).toBeGreaterThan(1);
+    for (const label of axis.lastLabels) expect(label).toMatch(/¢$/);
+    await shot(page, "badge-cents.png");
+  });
+
+  await test.step("a perp axis carries no unit", async () => {
+    await dispatch(page, [":actions/select-asset", "BTC"]);
+    await settle(page, 400);
+    await expect
+      .poll(async () => {
+        const labels = (await chartAxis(page)).labels || [];
+        return labels.length > 1 && labels.every((l) => /^[\d,.]+$/.test(l));
+      }, { timeout: 10_000 })
+      .toBe(true);
+  });
+
+  await expectNoOrderSent(page, world);
+});
+
+test("leaving the Outcome tab returns the selector to its full-width dropdown @regression", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await boot(page);
+  await openOutcomeTab(page);
+
+  const panel = page.locator('[data-parity-id="asset-selector-desktop"]');
+  await expect(panel).toHaveAttribute("data-layout", "outcome-panel");
+  const box = () =>
+    panel.evaluate((node) => {
+      const r = node.getBoundingClientRect();
+      const s = node.style;
+      const strip = node.closest("[data-parity-id='market-strip']").getBoundingClientRect();
+      return { width: Math.round(r.width), strip: Math.round(strip.width), inline: [s.top, s.left, s.width, s.height] };
+    });
+  expect((await box()).width).toBeLessThanOrEqual(520);
+
+  // The node is reused across tabs: the Outcome panel's fitted box must not
+  // stay on the plain dropdown (it left the Perps table squeezed to 520 px).
+  await panel.getByRole("button", { name: "Perps", exact: true }).click();
+  await expect(panel).toHaveAttribute("data-layout", "dropdown");
+  await expect.poll(async () => (await box()).inline).toEqual(["", "", "", ""]);
+  const perps = await box();
+  expect(perps.width).toBeGreaterThan(520);
+  expect(Math.abs(perps.width - perps.strip)).toBeLessThanOrEqual(2);
+
+  // and back: the Outcome panel is fitted again
+  await panel.getByRole("button", { name: "Outcome", exact: true }).click();
+  await expect(panel).toHaveAttribute("data-layout", "outcome-panel");
+  await expect.poll(async () => (await box()).width).toBeLessThanOrEqual(520);
 });

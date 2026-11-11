@@ -1,5 +1,6 @@
 (ns hyperopen.chart.settings
   (:require [clojure.string :as str]
+            [hyperopen.outcomes.domain.price-unit :as price-unit]
             [hyperopen.platform :as platform]
             [hyperopen.utils.parse :as parse-utils]))
 
@@ -25,6 +26,10 @@
 
 (def ^:private chart-volume-visible-storage-key
   "chart-volume-visible")
+
+(def outcome-price-unit-storage-key
+  "One unit (percent or cents) for every outcome chart's price labels."
+  "chart-outcome-price-unit")
 
 (defn- load-chart-option
   [ls-key default valid-set]
@@ -83,6 +88,10 @@
     (when (contains? #{:area :bars} style)
       style)))
 
+(defn- load-outcome-price-unit
+  []
+  (price-unit/normalize-unit (platform/local-storage-get outcome-price-unit-storage-key)))
+
 (defn- save-volume-visible-effects
   [visible?]
   [[:effects/save [:chart-options :volume-visible?] visible?]
@@ -94,13 +103,15 @@
         chart-type (load-chart-type)
         indicators (load-indicators)
         volume-visible? (load-volume-visible?)
-        funding-chart-style (load-funding-chart-style)]
+        funding-chart-style (load-funding-chart-style)
+        outcome-price-unit (load-outcome-price-unit)]
     (swap! store (fn [state]
                    (cond-> (update state :chart-options merge
                                    {:selected-timeframe timeframe
                                     :selected-chart-type chart-type
                                     :volume-visible? volume-visible?
-                                    :active-indicators indicators})
+                                    :active-indicators indicators
+                                    :outcome-price-unit outcome-price-unit})
                      funding-chart-style
                      (assoc-in [:funding-ui :chart-style] funding-chart-style))))))
 
@@ -140,3 +151,16 @@
 (defn hide-volume-indicator
   [_state]
   (save-volume-visible-effects false))
+
+(defn set-outcome-chart-unit
+  "Outcome charts label prices in percent or cents (one preference for all
+   outcome markets). Only relabels; the chart's prices stay in dollars.
+   Anything but percent or cents is ignored."
+  [state unit]
+  (let [unit* (price-unit/units (cond (keyword? unit) unit
+                                       (string? unit) (keyword unit)))]
+    (if (or (nil? unit*)
+            (= unit* (get-in state [:chart-options :outcome-price-unit])))
+      []
+      [[:effects/save [:chart-options :outcome-price-unit] unit*]
+       [:effects/local-storage-set outcome-price-unit-storage-key (name unit*)]])))

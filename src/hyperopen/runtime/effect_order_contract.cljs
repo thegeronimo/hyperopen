@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.effect-order-contract
   (:require [hyperopen.runtime.effect-order.borrow-lend-policies :as borrow-lend-policies]
+            [hyperopen.runtime.effect-order.outcome-chart-policies :as outcome-chart-policies]
             [hyperopen.runtime.effect-order.policy-registration :as policy-registration]
             [hyperopen.runtime.validation :as validation]))
 (declare effect-phase assert-action-effect-order!)
@@ -593,7 +594,7 @@
                         :effects/fetch-asset-selector-markets}}})
 
 (def ^:private validated-effect-order-policy-by-action-id
-  (policy-registration/validate-policy-by-action-id! (merge effect-order-policy-by-action-id borrow-lend-policies/policy-by-action-id)))
+  (policy-registration/validate-policy-by-action-id! (merge effect-order-policy-by-action-id borrow-lend-policies/policy-by-action-id outcome-chart-policies/policy-by-action-id)))
 (defn action-policy
   [action-id]
   (get validated-effect-order-policy-by-action-id action-id))

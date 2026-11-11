@@ -110,6 +110,8 @@ def policyCorpus : List (String × Policy) :=
   ,("actions/select-scale-mode", projectionHeavyPolicy false ["effects/fetch-candle-snapshot"])
   ,("actions/refresh-vol-range-daily-candles", projectionHeavyPolicy false ["effects/fetch-candle-snapshot"])
   ,("actions/select-chart-timeframe", defaultPolicy false ["effects/fetch-candle-snapshot", "effects/sync-active-candle-subscription"])
+  ,("actions/set-outcome-chart-mode", projectionHeavyPolicy true ["effects/fetch-candle-snapshot"])
+  ,("actions/sync-outcome-answer-chart", projectionHeavyPolicy true ["effects/fetch-candle-snapshot"])
   ,("actions/request-chart-candle-backfill", heavyOnlyPolicy false ["effects/fetch-candle-snapshot"])
   ,("actions/request-older-chart-fills", heavyOnlyPolicy false ["effects/fetch-older-chart-fills"])
   ,("actions/select-orderbook-price-aggregation", defaultPolicy false ["effects/subscribe-orderbook"])

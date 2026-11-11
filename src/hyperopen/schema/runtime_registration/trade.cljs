@@ -38,6 +38,8 @@
     :actions/refresh-vol-range-daily-candles
     :actions/request-chart-candle-backfill
     :actions/request-older-chart-fills
+    :actions/set-outcome-chart-mode
+    :actions/sync-outcome-answer-chart
     :actions/select-orderbook-price-aggregation
     :actions/select-account-info-tab
     :actions/open-position-reduce-popover
@@ -93,6 +95,9 @@
    [:actions/select-chart-type :select-chart-type]
    [:actions/toggle-indicators-dropdown :toggle-indicators-dropdown]
    [:actions/update-indicators-search :update-indicators-search]
+   [:actions/set-outcome-chart-unit :set-outcome-chart-unit]
+   [:actions/set-outcome-chart-mode :set-outcome-chart-mode]
+   [:actions/sync-outcome-answer-chart :sync-outcome-answer-chart]
    [:actions/toggle-orderbook-size-unit-dropdown :toggle-orderbook-size-unit-dropdown]
    [:actions/select-orderbook-size-unit :select-orderbook-size-unit]
    [:actions/toggle-orderbook-price-aggregation-dropdown :toggle-orderbook-price-aggregation-dropdown]

@@ -122,6 +122,7 @@
             [hyperopen.borrow-lend.model-test]
             [hyperopen.borrow-lend.normalize-test]
             [hyperopen.borrow-lend.returns-test]
+            [hyperopen.chart.outcome-answers-test]
             [hyperopen.chart.settings-test]
             [hyperopen.config-test]
             [hyperopen.core-bootstrap.account-history-pagination-test]
@@ -262,11 +263,13 @@
             [hyperopen.outcome-side-market-switch-test]
             [hyperopen.outcomes.application.exit-actions-test]
             [hyperopen.outcomes.application.merge-actions-test]
+            [hyperopen.outcomes.domain.answer-chart-test]
             [hyperopen.outcomes.domain.book-test]
             [hyperopen.outcomes.domain.clock-test]
             [hyperopen.outcomes.domain.competition-naming-test]
             [hyperopen.outcomes.domain.events-test]
             [hyperopen.outcomes.domain.fees-test]
+            [hyperopen.outcomes.domain.price-unit-test]
             [hyperopen.outcomes.domain.quotes-test]
             [hyperopen.outcomes.domain.templates-test]
             [hyperopen.outcomes.names-test]
@@ -776,6 +779,7 @@
             [hyperopen.views.l2-orderbook-view-test]
             [hyperopen.views.l2-orderbook.depth-readout-test]
             [hyperopen.views.l2-orderbook.depth-transition-test]
+            [hyperopen.views.l2-orderbook.outcome-cents-test]
             [hyperopen.views.l2-orderbook.own-orders-test]
             [hyperopen.views.leaderboard-view-test]
             [hyperopen.views.leaderboard.vm-test]
@@ -921,6 +925,7 @@
             [hyperopen.views.trade.vol-range.review-test]
             [hyperopen.views.trade.vol-range.ticket-test]
             [hyperopen.views.trading-chart.actions-test]
+            [hyperopen.views.trading-chart.answers-vm-test]
             [hyperopen.views.trading-chart.chart-type-dropdown-test]
             [hyperopen.views.trading-chart.core-test]
             [hyperopen.views.trading-chart.derived-cache-test]
@@ -932,6 +937,7 @@
             [hyperopen.views.trading-chart.timeframe-dropdown-test]
             [hyperopen.views.trading-chart.toolbar-test]
             [hyperopen.views.trading-chart.utils.chart-interop-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.answer-lines-test]
             [hyperopen.views.trading-chart.utils.chart-interop.baseline-test]
             [hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test]
             [hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay-test]
@@ -941,6 +947,8 @@
             [hyperopen.views.trading-chart.utils.chart-interop.legend-test]
             [hyperopen.views.trading-chart.utils.chart-interop.markers-test]
             [hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays.presentation-test]
+            [hyperopen.views.trading-chart.utils.chart-interop.overlay-format-sync-test]
             [hyperopen.views.trading-chart.utils.chart-interop.position-overlays-drag-test]
             [hyperopen.views.trading-chart.utils.chart-interop.position-overlays-lifecycle-test]
             [hyperopen.views.trading-chart.utils.chart-interop.position-overlays-test]
@@ -1264,6 +1272,7 @@
              'hyperopen.borrow-lend.model-test
              'hyperopen.borrow-lend.normalize-test
              'hyperopen.borrow-lend.returns-test
+             'hyperopen.chart.outcome-answers-test
              'hyperopen.chart.settings-test
              'hyperopen.config-test
              'hyperopen.core-bootstrap.account-history-pagination-test
@@ -1404,11 +1413,13 @@
              'hyperopen.outcome-side-market-switch-test
              'hyperopen.outcomes.application.exit-actions-test
              'hyperopen.outcomes.application.merge-actions-test
+             'hyperopen.outcomes.domain.answer-chart-test
              'hyperopen.outcomes.domain.book-test
              'hyperopen.outcomes.domain.clock-test
              'hyperopen.outcomes.domain.competition-naming-test
              'hyperopen.outcomes.domain.events-test
              'hyperopen.outcomes.domain.fees-test
+             'hyperopen.outcomes.domain.price-unit-test
              'hyperopen.outcomes.domain.quotes-test
              'hyperopen.outcomes.domain.templates-test
              'hyperopen.outcomes.names-test
@@ -1918,6 +1929,7 @@
              'hyperopen.views.l2-orderbook-view-test
              'hyperopen.views.l2-orderbook.depth-readout-test
              'hyperopen.views.l2-orderbook.depth-transition-test
+             'hyperopen.views.l2-orderbook.outcome-cents-test
              'hyperopen.views.l2-orderbook.own-orders-test
              'hyperopen.views.leaderboard-view-test
              'hyperopen.views.leaderboard.vm-test
@@ -2063,6 +2075,7 @@
              'hyperopen.views.trade.vol-range.review-test
              'hyperopen.views.trade.vol-range.ticket-test
              'hyperopen.views.trading-chart.actions-test
+             'hyperopen.views.trading-chart.answers-vm-test
              'hyperopen.views.trading-chart.chart-type-dropdown-test
              'hyperopen.views.trading-chart.core-test
              'hyperopen.views.trading-chart.derived-cache-test
@@ -2074,6 +2087,7 @@
              'hyperopen.views.trading-chart.timeframe-dropdown-test
              'hyperopen.views.trading-chart.toolbar-test
              'hyperopen.views.trading-chart.utils.chart-interop-test
+             'hyperopen.views.trading-chart.utils.chart-interop.answer-lines-test
              'hyperopen.views.trading-chart.utils.chart-interop.baseline-test
              'hyperopen.views.trading-chart.utils.chart-interop.candle-sync-policy-test
              'hyperopen.views.trading-chart.utils.chart-interop.chart-context-menu-overlay-test
@@ -2083,6 +2097,8 @@
              'hyperopen.views.trading-chart.utils.chart-interop.legend-test
              'hyperopen.views.trading-chart.utils.chart-interop.markers-test
              'hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays-test
+             'hyperopen.views.trading-chart.utils.chart-interop.open-order-overlays.presentation-test
+             'hyperopen.views.trading-chart.utils.chart-interop.overlay-format-sync-test
              'hyperopen.views.trading-chart.utils.chart-interop.position-overlays-drag-test
              'hyperopen.views.trading-chart.utils.chart-interop.position-overlays-lifecycle-test
              'hyperopen.views.trading-chart.utils.chart-interop.position-overlays-test

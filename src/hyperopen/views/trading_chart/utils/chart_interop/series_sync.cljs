@@ -91,13 +91,14 @@
     nil))
 
 (defn sync-main-series!
-  [series* candles chart-type {:keys [price-decimals]}]
+  [series* candles chart-type {:keys [price-decimals price-unit]}]
   (let [candles* (vectorize-candles candles)
         chart-type* (transforms/normalize-main-chart-type chart-type)
         state (sidecar-state main-series-sync-sidecar series*)
         config-changed?
         (or (not= chart-type* (:chart-type state))
-            (not= price-decimals (:price-decimals state)))
+            (not= price-decimals (:price-decimals state))
+            (not= price-unit (:price-unit state)))
         decision (if config-changed?
                    (config-reset-decision (:source-candles state) candles*)
                    (candle-sync-policy/infer-decision (:source-candles state) candles*))]
@@ -111,7 +112,8 @@
                            transformed-data
                            (fn [points]
                              (series/extract-series-prices points chart-type*))
-                           {:price-decimals price-decimals})
+                           {:price-decimals price-decimals
+                            :price-unit price-unit})
             series-options (cond-> {:priceFormat price-format*}
                              (some? base-value)
                              (assoc :baseValue {:type "price" :price base-value}))
@@ -126,7 +128,16 @@
           :transformed-data transformed-data
           :chart-type chart-type*
           :price-decimals price-decimals
+          :price-unit price-unit
           :series-options series-options})))))
+
+(defn main-series-unit-price-format
+  "The price format last applied to `series*` when it labels an outcome
+   unit (percent or cents), else nil. Price-pane indicators copy it."
+  [series*]
+  (let [state (sidecar-state main-series-sync-sidecar series*)]
+    (when (:price-unit state)
+      (get-in state [:series-options :priceFormat]))))
 
 (defn sync-volume-series!
   [volume-series candles]

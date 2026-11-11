@@ -1,6 +1,8 @@
 (ns hyperopen.views.trading-chart.core
   (:require [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.trading-chart.actions :as actions]
+            [hyperopen.views.trading-chart.answers-chart :as answers-chart]
+            [hyperopen.views.trading-chart.answers-vm :as answers-vm]
             [hyperopen.views.trading-chart.derived-cache :as derived-cache]
             [hyperopen.views.trading-chart.runtime :as runtime]
             [hyperopen.views.trading-chart.toolbar :as toolbar]
@@ -66,16 +68,21 @@
          on-history-backfill-request (:on-history-backfill-request chart-runtime-options)
          history-backfill-loading? (boolean (:history-backfill-loading? chart-runtime-options))
          main-series-markers (memoized-main-series-markers indicator-markers)
+         {:keys [format-price copy-price]
+          :or {format-price fmt/format-trade-price-plain}} (:price-formatters chart-runtime-options)
          overlay-deps {:on-cancel-order on-cancel-order
-                       :format-price fmt/format-trade-price-plain
+                       :format-price format-price
                        :format-size format-chart-overlay-size}
-         position-overlay-deps {:format-price fmt/format-trade-price-plain
+         position-overlay-deps {:format-price format-price
                                 :format-size format-chart-overlay-size
                                 :on-liquidation-drag-preview on-liquidation-drag-preview
                                 :on-liquidation-drag-confirm on-liquidation-drag-confirm}
          volume-indicator-deps {:on-remove on-hide-volume-indicator}
-         context-menu-deps {:format-price fmt/format-trade-price-plain
-                            :price-decimals (:price-decimals series-options)
+         context-menu-deps {:format-price (or (:format-price copy-price) fmt/format-trade-price-plain)
+                            :price-decimals (if copy-price
+                                              (:price-decimals copy-price)
+                                              (:price-decimals series-options))
+                            :price-unit-suffix (:price-unit-suffix copy-price)
                             :context-key (str (or (:symbol legend-meta) "")
                                               "::"
                                               (name selected-timeframe))}
@@ -128,13 +135,16 @@
             :aria-busy history-backfill-loading?
             :aria-label chart-accessible-label
             :tabindex 0
-            :replicant/key (str "chart-" (hash active-indicators) "-" legend-key "-" volume-visible?)
+            ;; The outcome price unit is in the key: the legend's formatters
+            ;; are fixed when it mounts, so a unit switch remounts the chart.
+            :replicant/key (cond-> (str "chart-" (hash active-indicators) "-" legend-key "-" volume-visible?)
+                             (:price-unit series-options)
+                             (str "-" (name (:price-unit series-options))))
             :replicant/on-render on-render}])))
 
-(defn trading-chart-view
-  [state]
-  (let [dispatch-fn (actions/current-dispatch-fn)
-        {:keys [has-error?
+(defn- candle-chart
+  [state dispatch-fn]
+  (let [{:keys [has-error?
                 candle-data
                 selected-chart-type
                 selected-timeframe
@@ -143,17 +153,26 @@
                 chart-runtime-options
                 active-open-orders
                 on-cancel-order]} (vm/chart-view-model state dispatch-fn)]
+    (if has-error?
+      [:div {:class ["text-red-500" "p-4" "flex-1"]} "Error fetching chart data."]
+      (chart-canvas candle-data
+                    selected-chart-type
+                    active-indicators
+                    legend-meta
+                    selected-timeframe
+                    chart-runtime-options
+                    active-open-orders
+                    on-cancel-order))))
+
+(defn trading-chart-view
+  [state]
+  (let [dispatch-fn (actions/current-dispatch-fn)]
     [:div {:class ["w-full" "h-full" "min-h-0" "min-w-0" "overflow-hidden"]
            :data-parity-id "chart-panel"}
      [:div {:class ["w-full" "h-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
       (chart-top-menu state)
-      (if has-error?
-        [:div {:class ["text-red-500" "p-4" "flex-1"]} "Error fetching chart data."]
-        (chart-canvas candle-data
-                      selected-chart-type
-                      active-indicators
-                      legend-meta
-                      selected-timeframe
-                      chart-runtime-options
-                      active-open-orders
-                      on-cancel-order))]]))
+      ;; All answers draws the event's lines whatever the selected coin's own
+      ;; candle slot says (a failed load there must not blank every line).
+      (if (answers-vm/all-answers? state)
+        (answers-chart/answers-chart (answers-vm/answers-view-model state dispatch-fn))
+        (candle-chart state dispatch-fn))]]))

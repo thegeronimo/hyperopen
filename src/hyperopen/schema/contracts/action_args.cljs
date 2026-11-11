@@ -9,6 +9,9 @@
 (s/def ::funding-history-filter-path (s/or :path ::common/state-path :key keyword?))
 (s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
 (s/def ::add-indicator-args (s/tuple keyword? map?))
+(s/def ::outcome-chart-unit-args (s/tuple #{:percent :cents "percent" "cents"}))
+(s/def ::outcome-chart-mode-args (s/tuple #{:single :all "single" "all"}))
+(s/def ::outcome-answer-chart-sync-args (s/or :none ::common/no-args :opts (s/tuple (s/map-of #{:refresh?} boolean?))))
 (s/def ::update-indicator-period-args (s/tuple keyword? any?))
 (s/def ::cancel-order-args (s/tuple map?))
 (s/def ::funding-hypothetical-seed-args
@@ -302,6 +305,9 @@
    :actions/select-chart-type ::common/keyword-args
    :actions/toggle-indicators-dropdown ::common/no-args
    :actions/update-indicators-search ::common/single-input-args
+   :actions/set-outcome-chart-unit ::outcome-chart-unit-args
+   :actions/set-outcome-chart-mode ::outcome-chart-mode-args
+   :actions/sync-outcome-answer-chart ::outcome-answer-chart-sync-args
    :actions/toggle-portfolio-summary-scope-dropdown ::common/no-args
    :actions/select-portfolio-summary-scope ::common/keyword-or-string-args
    :actions/toggle-portfolio-summary-time-range-dropdown ::common/no-args

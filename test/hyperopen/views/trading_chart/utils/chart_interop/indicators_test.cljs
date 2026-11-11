@@ -42,3 +42,30 @@
            (mapv :pane-index (:assignments allocation))))
     (is (= {:next-pane-index 1 :assignments []} empty-allocation))))
 
+
+(defn- recording-series
+  [calls id]
+  #js {:applyOptions (fn [options]
+                       (swap! calls conj [id (aget options "priceFormat")]))})
+
+(deftest price-pane-indicators-follow-the-main-series-format-test
+  (let [calls (atom [])
+        overlay (recording-series calls :overlay)
+        separate (recording-series calls :separate)
+        entries #js [#js {:series overlay :paneIndex 0}
+                     #js {:series separate :paneIndex 1}]
+        format-a #js {:type "custom" :minMove 0.00001}
+        format-b #js {:type "custom" :minMove 0.001}]
+    (indicator-interop/sync-price-pane-formats! entries format-a)
+    (is (= [[:overlay format-a]] @calls) "only the price pane is relabelled")
+    (indicator-interop/sync-price-pane-formats! entries format-a)
+    (is (= 1 (count @calls)) "an unchanged format is not re-applied")
+    (indicator-interop/sync-price-pane-formats! entries format-b)
+    (is (= [:overlay format-b] (last @calls))
+        "new price decimals (a new format object) reach the overlay without a remount")
+    (indicator-interop/sync-price-pane-formats! entries nil)
+    (is (= 2 (count @calls)) "no unit format: overlays keep their own")
+    (let [map-calls (atom [])
+          map-overlay (recording-series map-calls :map)]
+      (indicator-interop/sync-price-pane-formats! [{:series map-overlay :paneIndex 0}] format-a)
+      (is (= [[:map format-a]] @map-calls) "mount-time vector entries work too"))))

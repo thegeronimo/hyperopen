@@ -74,3 +74,35 @@
     (with-redefs [platform/local-storage-get (local-storage-get-stub {"funding-chart-style" "pie"})]
       (chart-settings/restore-chart-options! store))
     (is (nil? (get-in @store [:funding-ui :chart-style])))))
+
+(deftest restore-outcome-price-unit-defaults-to-percent-test
+  (let [store (atom {:chart-options {}})]
+    (with-redefs [platform/local-storage-get (local-storage-get-stub {})]
+      (chart-settings/restore-chart-options! store))
+    (is (= :percent (get-in @store [:chart-options :outcome-price-unit])))))
+
+(deftest restore-outcome-price-unit-reads-saved-cents-test
+  (let [store (atom {:chart-options {}})]
+    (with-redefs [platform/local-storage-get (local-storage-get-stub {"chart-outcome-price-unit" "cents"})]
+      (chart-settings/restore-chart-options! store))
+    (is (= :cents (get-in @store [:chart-options :outcome-price-unit])))))
+
+(deftest restore-outcome-price-unit-ignores-unknown-value-test
+  (let [store (atom {:chart-options {}})]
+    (with-redefs [platform/local-storage-get (local-storage-get-stub {"chart-outcome-price-unit" "dollars"})]
+      (chart-settings/restore-chart-options! store))
+    (is (= :percent (get-in @store [:chart-options :outcome-price-unit])))))
+
+(deftest set-outcome-chart-unit-saves-and-persists-test
+  (is (= [[:effects/save [:chart-options :outcome-price-unit] :cents]
+          [:effects/local-storage-set "chart-outcome-price-unit" "cents"]]
+         (chart-settings/set-outcome-chart-unit {:chart-options {:outcome-price-unit :percent}} :cents)))
+  (is (= [[:effects/save [:chart-options :outcome-price-unit] :percent]
+          [:effects/local-storage-set "chart-outcome-price-unit" "percent"]]
+         (chart-settings/set-outcome-chart-unit {:chart-options {:outcome-price-unit :cents}} "percent")))
+  (is (= [] (chart-settings/set-outcome-chart-unit {:chart-options {:outcome-price-unit :cents}} :cents))))
+
+(deftest set-outcome-chart-unit-rejects-junk-test
+  (doseq [junk [:dollars "bogus" nil 42 {:unit :cents}]]
+    (is (= [] (chart-settings/set-outcome-chart-unit {:chart-options {:outcome-price-unit :percent}} junk))
+        (str "ignored: " (pr-str junk)))))

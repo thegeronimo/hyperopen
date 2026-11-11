@@ -12,6 +12,7 @@
                                                          resolve-base-symbol
                                                          resolve-quote-symbol
                                                          resolve-reference-price]]
+            [hyperopen.views.l2-orderbook.outcome-cents :as outcome-cents]
             [hyperopen.views.l2-orderbook.own-orders :as own-orders]
             [hyperopen.views.l2-orderbook.readout :as readout]
             [hyperopen.views.l2-orderbook.tabs :refer [orderbook-header]]
@@ -46,19 +47,24 @@
          desktop-layout? (desktop-orderbook-layout? layout)
          visible-branch (if desktop-layout? :desktop :mobile)
          snapshot (render-snapshot orderbook-data visible-branch)
-         desktop-asks (:desktop-asks snapshot)
-         desktop-bids (:desktop-bids snapshot)
-         mobile-pairs (:mobile-pairs snapshot)
          best-bid (:best-bid snapshot)
          best-ask (:best-ask snapshot)
-         spread (:spread snapshot)
          reference-price (resolve-reference-price best-bid best-ask market)
          market-type (infer-market-type coin market)
          sz-decimals (:szDecimals market)
-         price-options (price-agg/build-options {:market-type market-type
-                                                 :sz-decimals sz-decimals
-                                                 :reference-price reference-price})
-         selected-option (price-agg/option-for-mode price-options selected-mode)
+         dollar-price-options (price-agg/build-options {:market-type market-type
+                                                        :sz-decimals sz-decimals
+                                                        :reference-price reference-price})
+         dollar-selected-option (price-agg/option-for-mode dollar-price-options selected-mode)
+         ;; Outcome books read in cents; nil for every other market.
+         cents (outcome-cents/context coin market dollar-selected-option)
+         price-options (outcome-cents/relabel-options cents dollar-price-options)
+         selected-option (cond-> dollar-selected-option
+                           cents outcome-cents/relabel-option)
+         desktop-asks (outcome-cents/relabel-rows cents (:desktop-asks snapshot))
+         desktop-bids (outcome-cents/relabel-rows cents (:desktop-bids snapshot))
+         mobile-pairs (outcome-cents/relabel-pairs cents (:mobile-pairs snapshot))
+         spread (outcome-cents/relabel-spread cents (:spread snapshot))
          freshness-cue (when show-freshness-cue?
                          (ws-freshness/surface-cue websocket-health
                                                    {:topic "l2Book"
@@ -107,9 +113,12 @@
                        :readout (when hovered?
                                   (readout/readout-card readout-data
                                                         (:side row)
-                                                        (or (get-in row [:display :price]) (:px row))
+                                                        (cond-> (or (get-in row [:display :price]) (:px row))
+                                                          cents (str "¢"))
                                                         (or (:price-decimals snapshot) 2)
-                                                        base-symbol))}))]
+                                                        base-symbol
+                                                        (when cents
+                                                          {:format-avg-price #(outcome-cents/avg-price-text cents %)})))}))]
      [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col" "num" "orderbook-panel-aligned"]}
       ;; Header
       (orderbook-header selected-option
@@ -125,7 +134,7 @@
       (if desktop-layout?
         [:div {:class ["hidden" "flex-1" "min-h-0" "flex-col" "lg:flex"]
                :data-role "orderbook-desktop-panel"}
-         (column-headers selected-size-symbol)
+         (column-headers selected-size-symbol (when cents "Price ¢"))
          [:div {:class (cond-> ["flex-1" "min-h-0" "flex" "flex-col"]
                          depth-dimmed? (conj "opacity-90"))
                 :data-role "orderbook-depth-body"
@@ -147,7 +156,7 @@
         [:div {:class (cond-> ["flex" "flex-1" "min-h-0" "flex-col" "lg:hidden"]
                         depth-dimmed? (conj "opacity-90"))
                :data-role "orderbook-mobile-split-panel"}
-         (mobile-split-column-headers selected-size-symbol)
+         (mobile-split-column-headers selected-size-symbol (when cents "¢"))
          [:div {:class ["flex-1" "min-h-0" "overflow-hidden" "bg-base-100"]
                 :data-role "orderbook-mobile-split-body"}
           (for [split-row mobile-pairs]

@@ -1,5 +1,6 @@
 (ns hyperopen.runtime.collaborators.chart
   (:require [hyperopen.chart.actions :as chart-actions]
+            [hyperopen.chart.outcome-answers :as outcome-answers]
             [hyperopen.chart.settings :as chart-settings]
             [hyperopen.orderbook.actions :as orderbook-actions]
             [hyperopen.portfolio.account-activity-actions :as account-activity-actions]
@@ -16,6 +17,9 @@
    :select-chart-type chart-actions/select-chart-type
    :toggle-indicators-dropdown chart-actions/toggle-indicators-dropdown
    :update-indicators-search chart-actions/update-indicators-search
+   :set-outcome-chart-unit chart-settings/set-outcome-chart-unit
+   :set-outcome-chart-mode outcome-answers/set-outcome-chart-mode
+   :sync-outcome-answer-chart outcome-answers/sync-outcome-answer-chart
    :toggle-portfolio-summary-scope-dropdown portfolio-actions/toggle-portfolio-summary-scope-dropdown
    :select-portfolio-summary-scope portfolio-actions/select-portfolio-summary-scope
    :toggle-portfolio-summary-time-range-dropdown portfolio-actions/toggle-portfolio-summary-time-range-dropdown

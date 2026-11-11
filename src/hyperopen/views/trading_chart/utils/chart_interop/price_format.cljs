@@ -1,5 +1,6 @@
 (ns hyperopen.views.trading-chart.utils.chart-interop.price-format
-  (:require [hyperopen.utils.formatting :as fmt]
+  (:require [hyperopen.outcomes.domain.price-unit :as price-unit]
+            [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.trading-chart.utils.chart-interop.numeric :as numeric]))
 
 (defn- normalize-decimals
@@ -29,25 +30,62 @@
           (str value))
       (str value))))
 
-(defn infer-series-price-format
-  "Infer Lightweight Charts price format options from metadata or transformed prices.
-   When `:price-decimals` is provided, skip transformed-data scanning."
-  ([transformed-data extract-prices]
-   (infer-series-price-format transformed-data extract-prices nil))
-  ([transformed-data extract-prices {:keys [price-decimals]}]
-   (let [metadata-decimals (normalize-decimals price-decimals)
-         prices (when (nil? metadata-decimals)
-                  (->> (extract-prices transformed-data)
-                       (numeric/coerce-number-values)))
-         positive-prices (when (seq prices) (filter pos? prices))
-         reference-price (when (seq prices)
-                           (or (when (seq positive-prices)
-                                 (apply min positive-prices))
-                               (apply min (map js/Math.abs prices))))
-         decimals (or metadata-decimals
-                      (fmt/infer-price-decimals reference-price)
-                      2)
-         min-move (min-move-for-decimals decimals)]
+(defn- build-unit-price-format
+  [unit decimals]
+  (let [opts {:unit unit :price-decimals decimals}]
+    #js {:type "custom"
+         :minMove (min-move-for-decimals decimals)
+         :formatter (fn [value]
+                      (or (price-unit/format-price (numeric/coerce-number value) opts)
+                          (str value)))
+         :tickmarksFormatter (fn [values]
+                               (clj->js (price-unit/format-ticks (vec (array-seq values)) opts)))}))
+
+(defonce ^:private unit-price-formats
+  ;; {[unit decimals] format}: one object per pair, so a candle tick hands
+  ;; the series (and the price-pane indicators) the identical format and
+  ;; their identity guards skip `applyOptions`. At most 2 units x 13 decimals.
+  (atom {}))
+
+(defn unit-price-format
+  "Outcome price labels in percent or cents (price x 100). `minMove` stays in
+   dollars: only the labels change, never the scale. The same object for the
+   same unit and decimals."
+  [unit price-decimals]
+  (let [decimals (or (normalize-decimals price-decimals) 5)
+        k [unit decimals]]
+    (or (get @unit-price-formats k)
+        (let [fmt (build-unit-price-format unit decimals)]
+          (swap! unit-price-formats assoc k fmt)
+          fmt))))
+
+(defn- infer-series-price-format*
+  [transformed-data extract-prices {:keys [price-decimals]}]
+  (let [metadata-decimals (normalize-decimals price-decimals)
+        prices (when (nil? metadata-decimals)
+                 (->> (extract-prices transformed-data)
+                      (numeric/coerce-number-values)))
+        positive-prices (when (seq prices) (filter pos? prices))
+        reference-price (when (seq prices)
+                          (or (when (seq positive-prices)
+                                (apply min positive-prices))
+                              (apply min (map js/Math.abs prices))))
+        decimals (or metadata-decimals
+                     (fmt/infer-price-decimals reference-price)
+                     2)
+        min-move (min-move-for-decimals decimals)]
     #js {:type "custom"
          :minMove min-move
-         :formatter (commaized-price-formatter decimals)})))
+         :formatter (commaized-price-formatter decimals)}))
+
+(defn infer-series-price-format
+  "Infer Lightweight Charts price format options from metadata or transformed prices.
+   When `:price-decimals` is provided, skip transformed-data scanning. With
+   `:price-unit` (outcome markets) the labels read in percent or cents."
+  ([transformed-data extract-prices]
+   (infer-series-price-format transformed-data extract-prices nil))
+  ([transformed-data extract-prices {:keys [price-decimals price-unit]
+                                     :as opts}]
+   (if price-unit
+     (unit-price-format price-unit price-decimals)
+     (infer-series-price-format* transformed-data extract-prices opts))))

@@ -82,8 +82,9 @@
                       :transform "translateY(0)"
                       :background-color "var(--color-base-100)"}
               :replicant/mounting {:style {:opacity 0 :transform "translateY(-4px)"}}
-              :replicant/unmounting {:style {:opacity 0 :transform "translateY(-4px)"}}}
-       outcome? (assoc :replicant/on-render outcome-list/fit-panel-under-strip!))
+              :replicant/unmounting {:style {:opacity 0 :transform "translateY(-4px)"}}
+              ;; every tab: fits the Outcome panel, clears that fit elsewhere
+              :replicant/on-render outcome-list/sync-panel-box!})
      (when-not outcome?
        [:div {:class ["absolute" "inset-0" "pointer-events-none"]
               :style {:background-color "var(--color-base-100)"}}

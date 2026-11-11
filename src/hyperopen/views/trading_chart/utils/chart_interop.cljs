@@ -151,11 +151,12 @@
   "Set data for any series type with registry-based transformation."
   ([series* data chart-type]
    (set-series-data! series* data chart-type {}))
-  ([series* data chart-type {:keys [price-decimals]}]
+  ([series* data chart-type {:keys [price-decimals price-unit]}]
    (chart-contracts/assert-candles! data
                                     {:boundary :chart-interop/set-series-data
                                      :chart-type chart-type})
-   (series-sync/sync-main-series! series* data chart-type {:price-decimals price-decimals})))
+   (series-sync/sync-main-series! series* data chart-type {:price-decimals price-decimals
+                                                           :price-unit price-unit})))
 
 (defn set-volume-data!
   "Set volume data for volume series."
@@ -164,6 +165,15 @@
                                    {:boundary :chart-interop/set-volume-data}
                                    {:require-volume? true})
   (series-sync/sync-volume-series! volume-series data))
+
+(defn sync-overlay-indicator-formats!
+  "Price-pane indicators follow the main series' unit format after it
+   changes without a remount (see `indicators/sync-price-pane-formats!`)."
+  [chart-obj]
+  (when chart-obj
+    (indicator-interop/sync-price-pane-formats!
+     (.-indicatorSeries ^js chart-obj)
+     (series-sync/main-series-unit-price-format (.-mainSeries ^js chart-obj)))))
 
 (defn add-series!
   "Add a series of the specified type to the chart."
@@ -410,6 +420,8 @@
          volume-series (when volume-visible?
                          (create-volume-series! chart volume-pane-index))]
      (set-series-data! main-series data chart-type series-options)
+     (indicator-interop/sync-price-pane-formats! indicator-series
+                                                 (series-sync/main-series-unit-price-format main-series))
      (when volume-series
        (set-volume-data! volume-series data))
      (doseq [pane-index (range 1 next-pane-index)]

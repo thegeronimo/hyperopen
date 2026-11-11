@@ -7,6 +7,7 @@
             [hyperopen.asset-selector.list-metrics :as list-metrics]
             [hyperopen.asset-selector.markets :as markets]
             [hyperopen.asset-selector.outcome-listing :as outcome-listing]
+            [hyperopen.chart.outcome-answers :as outcome-answers]
             [hyperopen.router :as router]
             [hyperopen.utils.parse :as parse-utils]
             [hyperopen.state.trading :as trading]))
@@ -392,6 +393,10 @@
                                            (into [[[:order-form :size] ""]
                                                   [[:order-form :size-percent] 0]
                                                   [[:order-form-ui :size-display] ""]])))
+
+                                   ;; All answers is drawn only on a multi-answer event.
+                                   (outcome-answers/reset-path-value state selected-market)
+                                   (conj (outcome-answers/reset-path-value state selected-market))
 
                                    (= :outcome (:market-type selected-market))
                                    (into [[[:order-form :outcome-option-id]
