@@ -41,9 +41,9 @@ Local scratch refs (non-authoritative):
 - [x] (2026-11-10) Second pass, fees and exits (4c): `outcomes/domain/fees.cljs`; buy, cash-out and merge summaries after fees; `mergeOutcome` action built from the documented payload (NOT verified against the exchange).
 - [x] (2026-11-10) Second pass, surfaces (4e) and room (4f): event names in tab title, toasts and order tables; positions grouped by event after fees; account value counts outcome shares; full-height list panel with sort, load age, Refresh and Retry; two-line header for multi-answer events; phone Buy bar and ticket sheet.
 - [x] (2026-11-10) Validation: `npm run gates` 34/34 on Node 22 (8996 tests); `tools/playwright/test/outcome-markets.spec.mjs` 12/12 on a stubbed feed where mark differs from the midpoint; live check of list, header and ticket at 1440x900 with no wallet.
-- [ ] Not built: the settled-market receipt is written (`outcomes/receipt.cljs`, `views/account_info/outcome_receipt.cljs`) but not mounted, because the feed drops a settled contract and nothing records its result.
-- [ ] Unverified: `mergeOutcome` signing scheme and `outcome` id meaning; fees on skew, txyz and fox; the venue's open-interest definition ("Locked" is the larger side's supply summed per event).
-- [ ] Owner review of the branch, then commit, land, and move this plan to `docs/exec-plans/completed/`.
+- [x] (2026-11-10) Performance pass (`cc9336c92`): owner reported seconds of lag with an outcome market selected. `bbo` quotes rewrote the catalog about 10 times a second and missed every catalog-keyed memo; quotes are now batched to at most 4 store writes a second, and account panels and the chart get a catalog that is stable across quote-only changes. Main thread busy fell from 8.4 s to 1.7 s per 10 s (dev build); side switch and selector open about 110 ms.
+- [x] (2026-11-11) Chance-scaled chart axis and cents order book (`cbbaa730a`, canvas https://claude.ai/artifact/HBjhb16Ufc5RfPn5tsFnzZ): chart Axis `%`/`¢` control (percent by default, stored in `chart-outcome-price-unit`); order book and Trades in cents; All answers chart (one line per answer on a 0-100% scale) on events with two or more named answers; selector tab switch no longer leaves the Outcome panel's box on the dropdown.
+- [x] (2026-11-11) Owner review, commit and landing: merged to `main` as `3acd9c4ab` (branch `feature/outcome-markets-redesign`) after `npm run gates` 34/34 on the merged result and 17/17 outcome Playwright tests; plan moved to `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
@@ -113,7 +113,12 @@ Local scratch refs (non-authoritative):
 
 Milestones 1–5 are in place and checked on live data (2026-11-09): every outcome reads in words, the Outcome tab lists 135 events under six category chips (Sports was empty before), an answer opens the trade page on that side, the ticket asks side → amount → payout with Cash out on held shares, multi-answer events list every answer with an "Other" line, ladders sit against the live underlying, and the Outcomes tab reads as bets. Browser work surfaced two pre-existing defects outside the views that this branch fixes: whole-number sizes lost their trailing zeros in `number->clean-string` (orders of 50 outcome shares went out as 5), and outcome selection broke the dev-only effect-order contract by subscribing one book per side.
 
-Complexity: overall it went up in the outcome domain (six new pure namespaces, about 900 lines) and down in the shared files — `markets.cljs` shrank by about 100 lines and `active_asset/row.cljs` and `vm.cljs` dropped under the 500-line cap — because display logic moved out of the market builder and header into named, tested modules. Not done: the per-answer history chart (3a), settled receipts (2d F), ←/→ answer keys in the list, a chance-scaled chart axis, and trading the "Other" fallback from the ticket.
+Complexity: overall it went up in the outcome domain (six new pure namespaces, about 900 lines) and down in the shared files — `markets.cljs` shrank by about 100 lines and `active_asset/row.cljs` and `vm.cljs` dropped under the 500-line cap — because display logic moved out of the market builder and header into named, tested modules. Not done: settled receipts (2d F), ←/→ answer keys in the list, and trading the "Other" fallback from the ticket.
+
+Closed 2026-11-11 with these left open, not done and not tracked elsewhere:
+- Not built: the settled-market receipt is written (`outcomes/receipt.cljs`, `views/account_info/outcome_receipt.cljs`) but not mounted, because the feed drops a settled contract and nothing records its result.
+- Unverified against the venue: the `mergeOutcome` signing scheme and the meaning of its `outcome` id (built from docs, never sent); fees on skew, txyz and fox; the open-interest definition ("Locked" is the larger side's supply summed per event); the open-order coin form behind the chart's order badges.
+- Not done: ←/→ answer keys in the list; trading the "Other" fallback from the ticket; tail-refreshing a revisited coin's cached candles (a pre-existing gap).
 
 ## Context and Orientation
 
