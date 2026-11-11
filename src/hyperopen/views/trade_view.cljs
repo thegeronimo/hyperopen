@@ -17,6 +17,7 @@
             [hyperopen.views.trade.vol-range.dock :as vol-dock]
             [hyperopen.views.trade-view.layout-state :as layout-state]
             [hyperopen.views.trade-view.loading-shell :as loading-shell]
+            [hyperopen.views.trade-view.market-lookup :as market-lookup]
             [hyperopen.views.trade-view.shell :as shell]))
 
 (def ^:private trade-chart-view-base-state-keys
@@ -118,8 +119,8 @@
   (active-asset-vm/panel-dependency-state state))
 
 (defn- asset-selector-market-lookup-state
-  [state]
-  {:asset-selector {:market-by-key (get-in state [:asset-selector :market-by-key] {})}})
+  [state] ;; stable across outcome quote batches: see trade-view.market-lookup
+  {:asset-selector {:market-by-key (market-lookup/stable-market-by-key (get-in state [:asset-selector :market-by-key] {}))}})
 
 (defn- ui-voice-state
   "The slice hyperopen.ui.voice reads; memoized panels that voice their
@@ -132,6 +133,8 @@
   [state]
   (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
+                 ;; the chart reads no side bid/ask: same object across quotes
+                 {:active-market (market-lookup/stable-active-market (:active-market state))}
                  ;; Draft overlay model (nil outside Volatility range mode) so the
                  ;; memoized chart decorates on draft edits without remounting.
                  {:vol-range-chart (vol-range-projections/stable-chart-model state (.now js/Date))})
@@ -201,7 +204,7 @@
          ;; moves no cent does not repaint the panel.
          :account-equity/outcome-shares
          (when-let [shares-fn (account-surface-export :account-equity-outcome-shares)]
-           (shares-fn state))))
+           (shares-fn (merge-with merge state (asset-selector-market-lookup-state state))))))
 
 (def ^:private memoized-active-asset-view
   (memoize-last (fn [render-fn state]

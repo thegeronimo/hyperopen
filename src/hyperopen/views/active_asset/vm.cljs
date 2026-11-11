@@ -253,8 +253,19 @@
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})
+        ;; The projected market names its catalog entry: read it by key
+        ;; rather than resolving the coin against the whole catalog, which
+        ;; for an outcome side is a scan on every render.
+        keyed-market (when (and (map? projected-market)
+                                (= :outcome (:market-type projected-market))
+                                (string? active-asset))
+                       (let [market (get market-by-key (:key projected-market))]
+                         (when (and (map? market)
+                                    (markets/market-matches-coin? market active-asset))
+                           (markets/market-with-selected-outcome-coin market active-asset))))
         resolved-market (when (string? active-asset)
-                          (markets/resolve-or-infer-market-by-coin market-by-key active-asset))]
+                          (or keyed-market
+                              (markets/resolve-or-infer-market-by-coin market-by-key active-asset)))]
     (cond
       (and (map? projected-market)
            (markets/market-matches-coin? projected-market active-asset))

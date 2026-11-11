@@ -115,8 +115,10 @@
           without-line (mapv first (per-render-counts states (atom []) false))
           with-line (mapv first (per-render-counts states (atom []) true))]
       (is (= without-line with-line) label)
-      (is (= [1 0 1 1 1 1] with-line)
-          (str label ": the equity metrics' own builds (a catalogue or webdata2 change), shared")))))
+      ;; Balance rows read only spot markets, so a perp mark tick (a new
+      ;; catalogue object, same spot entries) rebuilds nothing.
+      (is (= [1 0 0 0 1 1] with-line)
+          (str label ": the equity metrics' own builds (a spot catalogue or webdata2 change), shared")))))
 
 (deftest the-line-reprices-only-when-a-held-token-price-input-changes-test
   (let [models (atom [])

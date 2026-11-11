@@ -1,5 +1,6 @@
 (ns hyperopen.asset-selector.markets
   (:require [clojure.string :as str]
+            [hyperopen.asset-selector.market-index :as market-index]
             [hyperopen.domain.market.instrument :as instrument]
             [hyperopen.outcomes.domain.book :as outcome-book]
             [hyperopen.outcomes.domain.display :as outcome-display]
@@ -179,30 +180,31 @@
   "Best spot market whose base token matches a bare coin (\"HYPE\" ->
    HYPE/USDC), USDC-quoted pairs first."
   [market-by-key coin*]
-  (let [base-token (some-> coin* str/trim str/upper-case)
-        base-coin? (and (seq base-token)
-                        (not (numeric-coin-string? coin*))
-                        (not (str/includes? coin* "/"))
-                        (not (str/includes? coin* ":"))
-                        (not (str/starts-with? coin* "@")))]
-    (when base-coin?
-      (some->> (vals market-by-key)
-               (keep (fn [market]
-                       (let [market-coin* (some-> (:coin market) str str/trim)
-                             [coin-base coin-quote] (when (and (seq market-coin*)
-                                                               (str/includes? market-coin* "/"))
-                                                      (str/split market-coin* #"/" 2))
-                             market-base (some-> (or (:base market) coin-base) str str/trim str/upper-case)
-                             market-quote (some-> (or (:quote market) coin-quote) str str/trim str/upper-case)]
-                         (when (and (= :spot (:market-type market))
-                                    (= base-token market-base))
-                           {:market market
-                            :rank [(if (= "USDC" market-quote) 0 1)
-                                   (or market-quote "")
-                                   (or (:key market) "")]}))))
-               (sort-by :rank)
-               first
-               :market))))
+  (when-let [base-token (market-index/base-coin-token coin*)]
+    (some->> (vals market-by-key)
+             (keep (fn [market]
+                     (let [candidate (market-index/spot-base-candidate market)]
+                       (when (= base-token (:base candidate))
+                         candidate))))
+             (sort-by :rank)
+             first
+             :market)))
+
+(def spot-market-base-index
+  "See `market-index/spot-market-base-index`." market-index/spot-market-base-index)
+
+(defn- resolve-outcome-market
+  "The first catalog market matching an outcome coin. Side coins are looked
+   up in an index of the catalog (built once per catalog value) instead of
+   scanning every market on every call; anything the index does not hold
+   falls back to the scan."
+  [market-by-key coin*]
+  (let [match (fn [market]
+                (when (market-matches-coin? market coin*)
+                  (market-with-selected-outcome-coin market coin*)))]
+    (or (when (outcome-side-coin? coin*)
+          (some match (get (market-index/outcome-token-index market-by-key) coin*)))
+        (some match (vals market-by-key)))))
 
 (defn resolve-market-by-coin
   "Resolve a market from market-by-key using deterministic fallback keys."
@@ -211,10 +213,7 @@
     (when (and (map? market-by-key) (seq coin*))
       (or (when (or (outcome-side-coin? coin*)
                     (outcome-market-key? coin*))
-            (some (fn [market]
-                    (when (market-matches-coin? market coin*)
-                      (market-with-selected-outcome-coin market coin*)))
-                  (vals market-by-key)))
+            (resolve-outcome-market market-by-key coin*))
           (some #(get market-by-key %)
                 (candidate-market-keys coin*))
           (spot-market-by-base-token market-by-key coin*)))))
@@ -225,16 +224,21 @@
    the token also trades as a perp, so `resolve-market-by-coin` hands spot
    consumers the perp market (wrong instrument id, symbol, and mark source).
    This variant filters the candidate-key hits to spot markets and falls through
-   to the base-token spot scan."
-  [market-by-key coin]
-  (let [coin* (when (scalar-coin-id? coin) (str coin))]
-    (when (and (map? market-by-key) (seq coin*))
-      (or (some (fn [market-key]
-                  (let [market (get market-by-key market-key)]
-                    (when (= :spot (:market-type market))
-                      market)))
-                (candidate-market-keys coin*))
-          (spot-market-by-base-token market-by-key coin*)))))
+   to the base-token spot scan (or to `base-index`, a `spot-market-base-index`
+   of the same catalog, when given)."
+  ([market-by-key coin]
+   (resolve-spot-market-by-coin market-by-key coin nil))
+  ([market-by-key coin base-index]
+   (let [coin* (when (scalar-coin-id? coin) (str coin))]
+     (when (and (map? market-by-key) (seq coin*))
+       (or (some (fn [market-key]
+                   (let [market (get market-by-key market-key)]
+                     (when (= :spot (:market-type market))
+                       market)))
+                 (candidate-market-keys coin*))
+           (if (map? base-index)
+             (some->> (market-index/base-coin-token coin*) (get base-index) :market)
+             (spot-market-by-base-token market-by-key coin*)))))))
 
 (defn bare-spot-token-market
   "The spot market a bare spot-token name stands for, when the name is not a

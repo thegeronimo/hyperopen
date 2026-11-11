@@ -78,32 +78,10 @@
   (select-keys (hyperevm-funds/hyperevm-funds state)
                hyperevm-funds-summary-keys))
 
-(defn account-equity-outcome-shares
-  "Dollars the account's outcome shares are worth at the best bid, before the
-   closing fee, rounded to cents. Account value counts them; buying power and
-   margin never do. Nil when none are held."
-  [state]
-  (let [webdata2 (:webdata2 state)
-        rows (account-projections/build-outcome-rows
-              (:spot state)
-              (get-in state [:asset-selector :market-by-key] {})
-              {:active-market (:active-market state)
-               :selector-active-market (get-in state [:asset-selector :active-market])
-               :active-contexts (get-in state [:active-assets :contexts] {})
-               :asset-contexts (:asset-contexts state)
-               :spot-asset-ctxs (:spotAssetCtxs webdata2)
-               :orderbooks (:orderbooks state)})]
-    (some-> (account-projections/outcome-shares-value rows)
-            (* 100)
-            js/Math.round
-            (/ 100))))
-
-(defonce ^:private outcome-shares-cache (atom nil))
-
 (defn- outcome-shares-inputs
   "Everything `account-equity-outcome-shares` reads, compared by identity."
   [state]
-  [(:spot state)
+  [(get-in state [:spot :clearinghouse-state :balances])
    (get-in state [:asset-selector :market-by-key])
    (:active-market state)
    (get-in state [:asset-selector :active-market])
@@ -111,6 +89,54 @@
    (:asset-contexts state)
    (get-in state [:webdata2 :spotAssetCtxs])
    (:orderbooks state)])
+
+(defn- same-inputs?
+  [inputs cached-inputs]
+  (and (= (count inputs) (count cached-inputs))
+       (every? true? (map identical? inputs cached-inputs))))
+
+(defonce ^:private outcome-shares-memo
+  ;; {:inputs <outcome-shares-inputs> :narrow <outcome-rows-inputs> :value}
+  (atom nil))
+
+(defn account-equity-outcome-shares
+  "Dollars the account's outcome shares are worth at the best bid, before the
+   closing fee, rounded to cents. Account value counts them; buying power and
+   margin never do. Nil when none are held.
+
+   /trade asks on every store write. A write touching none of the inputs
+   costs pointer compares; one touching them (any book tick, any context
+   update) narrows them to the held sides first, and the rows are rebuilt
+   only when a held side's balance, catalog entry, context or book changed."
+  [state]
+  (let [inputs (outcome-shares-inputs state)
+        memo @outcome-shares-memo]
+    (if (and memo (same-inputs? inputs (:inputs memo)))
+      (:value memo)
+      (let [market-by-key (get-in state [:asset-selector :market-by-key] {})
+            options {:active-market (:active-market state)
+                     :selector-active-market (get-in state [:asset-selector :active-market])
+                     :active-contexts (get-in state [:active-assets :contexts] {})
+                     :asset-contexts (:asset-contexts state)
+                     :spot-asset-ctxs (get-in state [:webdata2 :spotAssetCtxs])
+                     :orderbooks (:orderbooks state)}
+            narrow (account-projections/outcome-rows-inputs (:spot state) market-by-key options)
+            value (cond
+                    (nil? narrow) nil
+
+                    (and memo (account-projections/same-outcome-rows-inputs? narrow (:narrow memo)))
+                    (:value memo)
+
+                    :else
+                    (some-> (account-projections/build-outcome-rows (:spot state) market-by-key options)
+                            account-projections/outcome-shares-value
+                            (* 100)
+                            js/Math.round
+                            (/ 100)))]
+        (reset! outcome-shares-memo {:inputs inputs :narrow narrow :value value})
+        value))))
+
+(defonce ^:private outcome-shares-cache (atom nil))
 
 (defn- outcome-shares-summary
   "The outcome shares value, recomputed only when one of its inputs changed
@@ -120,9 +146,7 @@
     (get state :account-equity/outcome-shares)
     (let [inputs (outcome-shares-inputs state)
           cache @outcome-shares-cache]
-      (if (and (map? cache)
-               (= (count inputs) (count (:inputs cache)))
-               (every? true? (map identical? inputs (:inputs cache))))
+      (if (and (map? cache) (same-inputs? inputs (:inputs cache)))
         (:value cache)
         (let [value (account-equity-outcome-shares state)]
           (reset! outcome-shares-cache {:inputs inputs :value value})
@@ -327,4 +351,5 @@
 (defn reset-account-equity-metrics-cache!
   []
   (reset! outcome-shares-cache nil)
+  (reset! outcome-shares-memo nil)
   (reset! account-equity-metrics-cache nil))

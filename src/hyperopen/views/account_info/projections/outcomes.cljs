@@ -3,6 +3,7 @@
             [hyperopen.outcomes.domain.book :as book]
             [hyperopen.outcomes.domain.fees :as fees]
             [hyperopen.outcomes.names :as outcome-names]
+            [hyperopen.views.account-info.projections.outcome-contexts :as outcome-contexts]
             [hyperopen.views.account-info.projections.parse :as parse]))
 
 (def parse-num parse/parse-num)
@@ -152,21 +153,30 @@
     (seq (:token-name side-entry))
     (assoc (:token-name side-entry) side-entry)))
 
-(defn- outcome-market-candidates
+(defn- holds-coin?
+  "True when `market` has a side (or is primary on) a coin in `coins`."
+  [coins market]
+  (or (contains? coins (:coin market))
+      (some #(contains? coins (:coin %)) (:outcome-sides market))
+      (some (fn [option] (some #(contains? coins (:coin %)) (:sides option)))
+            (:question-options market))))
+
+(defn- market-identity
+  [market]
+  [(or (:key market) "") (or (:coin market) "") (:outcome-id market)])
+
+(defn- extra-candidates
+  "The active and selector-active markets, unless the catalog holds the same
+   market (same key, coin and contract) already."
   [market-by-key {:keys [active-market selector-active-market]}]
-  (->> (concat (vals (or market-by-key {}))
-               [active-market selector-active-market])
+  (->> [active-market selector-active-market]
        (filter #(= :outcome (:market-type %)))
-       (reduce (fn [{:keys [seen markets]} market]
-                 (let [identity [(or (:key market) "")
-                                 (or (:coin market) "")
-                                 (:outcome-id market)]]
-                   (if (contains? seen identity)
-                     {:seen seen :markets markets}
-                     {:seen (conj seen identity)
-                      :markets (conj markets market)})))
-               {:seen #{} :markets []})
-       :markets))
+       (remove #(= (market-identity %) (some-> (get market-by-key (:key %)) market-identity)))
+       (reduce (fn [acc market]
+                 (if (some #(= (market-identity %) (market-identity market)) acc)
+                   acc
+                   (conj acc market)))
+               [])))
 
 (defn- question-option-sides
   [market]
@@ -179,23 +189,58 @@
                       (:sides option))))
        vec))
 
-(defn outcome-side-lookup
-  [market-by-key options]
+(defn- side-lookup-over
+  "Side entries of `markets`, only for sides `wanted?` accepts."
+  [lookup markets wanted?]
   (reduce (fn [lookup market]
-            (if (= :outcome (:market-type market))
-              (let [lookup* (if-let [side-entry (outcome-market-primary-side-entry market)]
-                              (assoc-side-lookup lookup side-entry)
-                              lookup)]
-                (reduce (fn [lookup** side]
-                          (if-let [side-entry (outcome-side-entry market side)]
-                            (assoc-side-lookup lookup** side-entry)
-                            lookup**))
-                        lookup*
-                        (concat (or (:outcome-sides market) [])
-                                (question-option-sides market))))
-              lookup))
-          {}
-          (outcome-market-candidates market-by-key options)))
+            (let [primary {:coin (:coin market)}
+                  lookup* (if-let [side-entry (when (wanted? primary)
+                                                (outcome-market-primary-side-entry market))]
+                            (assoc-side-lookup lookup side-entry)
+                            lookup)]
+              (reduce (fn [lookup** side]
+                        (if-let [side-entry (when (wanted? side)
+                                              (outcome-side-entry market side))]
+                          (assoc-side-lookup lookup** side-entry)
+                          lookup**))
+                      lookup*
+                      (concat (or (:outcome-sides market) [])
+                              (question-option-sides market)))))
+          lookup
+          markets))
+
+(defonce ^:private catalog-lookup-cache
+  ;; One slot, keyed on the catalog value and the held coins: Account Equity
+  ;; and the account tables ask for the same sides many times a second.
+  (atom nil))
+
+(defn- catalog-side-lookup
+  [market-by-key coins wanted?]
+  (let [cached @catalog-lookup-cache]
+    (if (and cached
+             (identical? market-by-key (:market-by-key cached))
+             (= coins (:coins cached)))
+      (:lookup cached)
+      (let [markets (cond->> (filter #(= :outcome (:market-type %)) (vals (or market-by-key {})))
+                      (set? coins) (filter #(holds-coin? coins %)))
+            lookup (side-lookup-over {} markets wanted?)]
+        (reset! catalog-lookup-cache {:market-by-key market-by-key :coins coins :lookup lookup})
+        lookup))))
+
+(defn outcome-side-lookup
+  "Side coin (and token name) -> side entry for the catalog's outcome sides
+   (and the active markets the catalog does not hold as such). With `:coins`
+   in `options` (a set of side coins), only those sides get an entry: the
+   account tables only need the sides they hold, and building an entry for
+   every side of every event on each render is what made a held balance cost
+   a whole-catalog pass per book tick. The catalog part is cached per
+   catalog value."
+  [market-by-key options]
+  (let [coins (:coins options)
+        wanted? (if (set? coins) #(contains? coins (:coin %)) (constantly true))
+        extra (cond->> (extra-candidates market-by-key options)
+                (set? coins) (filter #(holds-coin? coins %)))]
+    (side-lookup-over (catalog-side-lookup market-by-key coins wanted?) extra wanted?)))
 
 (defn- balance-entry-notional
   [balance]
@@ -228,61 +273,6 @@
            (:markPx ctx)
            (get-in ctx [:funding :mark])
            (get-in ctx [:funding :markPx])])))
-
-(defn- present-text
-  [value]
-  (some-> value str str/trim not-empty))
-
-(defn- assoc-context-entry
-  [lookup key ctx]
-  (if-let [key* (present-text key)]
-    (assoc lookup key* ctx)
-    lookup))
-
-(defn- context-entry-keys
-  [entry-key ctx]
-  (let [funding (:funding ctx)
-        info (:info ctx)]
-    (->> [entry-key
-          (:coin ctx)
-          (:name ctx)
-          (:coin funding)
-          (:name funding)
-          (:name info)
-          (:coin info)]
-         (keep present-text)
-         distinct
-         vec)))
-
-(defn- add-context-entry
-  [lookup entry-key ctx]
-  (reduce #(assoc-context-entry %1 %2 ctx)
-          lookup
-          (context-entry-keys entry-key ctx)))
-
-(defn- context-map->lookup
-  [contexts]
-  (if (map? contexts)
-    (reduce-kv (fn [lookup entry-key ctx]
-                 (add-context-entry lookup entry-key ctx))
-               {}
-               contexts)
-    {}))
-
-(defn- context-seq->lookup
-  [contexts]
-  (if (sequential? contexts)
-    (reduce (fn [lookup ctx]
-              (add-context-entry lookup (:coin ctx) ctx))
-            {}
-            contexts)
-    {}))
-
-(defn- build-context-lookup
-  [{:keys [active-contexts asset-contexts spot-asset-ctxs]}]
-  (merge (context-seq->lookup spot-asset-ctxs)
-         (context-map->lookup asset-contexts)
-         (context-map->lookup active-contexts)))
 
 (defn- side-mark-price
   [context-by-coin side-entry side-coin]
@@ -376,18 +366,73 @@
       :cost entry-notional}
      figures)))
 
+(defonce ^:private held-cache
+  ;; {:raw <balances vector> :held <its outcome part>}
+  (atom nil))
+
+(defn- held-outcome-balances
+  "{:balances :coins :wanted}: the non-zero outcome balances, their side
+   coins, and every alias (side coin and token name) their contexts may sit
+   under. Kept per balances value."
+  [spot-data]
+  (let [raw (get-in spot-data [:clearinghouse-state :balances])
+        cached @held-cache]
+    (if (and cached (identical? raw (:raw cached)))
+      (:held cached)
+      (let [balances (filterv non-zero-outcome-balance? raw)
+            coins (into #{} (keep balance-side-coin) balances)
+            held {:balances balances
+                  :coins coins
+                  :wanted (into coins (keep token-name-from-encoding (keep balance-encoding balances)))}]
+        (reset! held-cache {:raw raw :held held})
+        held))))
+
 (defn build-outcome-rows
   ([spot-data market-by-key]
    (build-outcome-rows spot-data market-by-key {}))
   ([spot-data market-by-key options]
-   (let [side-by-coin (outcome-side-lookup market-by-key options)
-         context-by-coin (build-context-lookup options)
-         rates (fees/spot-rates (:user-fees options))
-         orderbooks (:orderbooks options)]
-     (->> (get-in spot-data [:clearinghouse-state :balances])
-          (filter non-zero-outcome-balance?)
-          (map #(outcome-row side-by-coin context-by-coin rates orderbooks %))
-          vec))))
+   ;; Most accounts hold no outcome shares: nothing is looked up then. With
+   ;; shares held, only the held sides are resolved from the catalog.
+   (let [{:keys [balances coins wanted]} (held-outcome-balances spot-data)]
+     (if (empty? balances)
+       []
+       (let [side-by-coin (outcome-side-lookup market-by-key (assoc options :coins coins))
+             context-by-coin (outcome-contexts/context-lookup options wanted)
+             rates (fees/spot-rates (:user-fees options))
+             orderbooks (:orderbooks options)]
+         (mapv #(outcome-row side-by-coin context-by-coin rates orderbooks %) balances))))))
+
+(defn outcome-rows-inputs
+  "Everything `build-outcome-rows` reads for these arguments, narrowed to the
+   held sides (their balances, catalog, extra active markets, contexts and
+   books); nil when no outcome share is held. Two equal by
+   `same-outcome-rows-inputs?` build equal rows."
+  [spot-data market-by-key options]
+  (let [{:keys [balances coins wanted]} (held-outcome-balances spot-data)
+        orderbooks (:orderbooks options)]
+    (when (seq balances)
+      {:balances balances
+       :market-by-key market-by-key
+       :extra (filterv #(holds-coin? coins %) (extra-candidates market-by-key options))
+       :contexts (outcome-contexts/context-lookup options wanted)
+       :books (mapv #(when (map? orderbooks) (get orderbooks %)) coins)
+       :user-fees (:user-fees options)})))
+
+(defn- all-identical?
+  [xs ys]
+  (and (= (count xs) (count ys))
+       (every? true? (map identical? xs ys))))
+
+(defn same-outcome-rows-inputs?
+  "Pointer compares (a value compare only for the few held contexts)."
+  [a b]
+  (and (map? a) (map? b)
+       (identical? (:balances a) (:balances b))
+       (identical? (:market-by-key a) (:market-by-key b))
+       (all-identical? (:extra a) (:extra b))
+       (all-identical? (:books a) (:books b))
+       (= (:contexts a) (:contexts b))
+       (= (:user-fees a) (:user-fees b))))
 
 (defn shares-value
   "Dollars the account's outcome shares are worth at the best bid, before the

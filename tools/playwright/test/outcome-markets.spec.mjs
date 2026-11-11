@@ -519,3 +519,88 @@ test("a failed catalog load shows an error with Retry, not No events found @regr
   await expect(listRow(page, GAME_TITLE)).toHaveCount(1, { timeout: 20_000 });
   await expect(alert).toHaveCount(0);
 });
+
+/** Click the `index`th match of `selector`; ms until `done()` holds (polled each task). */
+async function clickLatency(page, selector, doneSource, index = 0) {
+  return page.evaluate(
+    async ({ selector, doneSource, index }) => {
+      const done = new Function(`return (${doneSource})();`);
+      const el = document.querySelectorAll(selector)[index];
+      if (!el) return -1;
+      const t0 = performance.now();
+      el.click();
+      return new Promise((resolve) => {
+        const poll = () => {
+          if (done()) resolve(performance.now() - t0);
+          else if (performance.now() - t0 > 10_000) resolve(10_000);
+          else setTimeout(poll, 0);
+        };
+        poll();
+      });
+    },
+    { selector, doneSource, index }
+  );
+}
+
+test("a busy top-of-book feed keeps side switch and selector open fast @regression", async ({ page }) => {
+  const world = await boot(page);
+  await pickFromList(page, FED_TITLE, "Hold");
+
+  // Every bbo coin the app asked for gets a new top every 20 ms (50 a second
+  // per coin, far busier than the venue), the shape that froze the page when
+  // each message re-priced the whole catalog.
+  let tick = 0;
+  const bboCoins = () => [...new Set(world.subscriptions.filter((s) => s.type === "bbo").map((s) => s.coin))];
+  const feed = setInterval(() => {
+    tick += 1;
+    for (const c of bboCoins()) {
+      const mid = 0.3 + 0.2 * Math.abs(Math.sin(tick / 7 + c.length));
+      const level = (px) => ({ px: px.toFixed(3), sz: "10.0", n: 1 });
+      world.push({ channel: "bbo", data: { coin: c, time: Date.now(), bbo: [level(mid - 0.01), level(mid + 0.01)] } });
+    }
+  }, 20);
+
+  try {
+    // the bbo subscriptions follow the pick asynchronously
+    await expect.poll(() => bboCoins().length).toBeGreaterThanOrEqual(3);
+    const writes = await page.evaluate(async () => {
+      const c = globalThis.cljs.core;
+      const store = globalThis.hyperopen.system.store;
+      let n = 0;
+      const key = c.keyword("busy-feed-write-count");
+      c.add_watch(store, key, () => (n += 1));
+      await new Promise((r) => setTimeout(r, 2_000));
+      c.remove_watch(store, key);
+      return n;
+    });
+    // Quotes are batched to at most 4 writes a second; per-message (or
+    // per-frame) writes would be 60+ a second here.
+    expect(writes, "store writes in 2 s under a 50/s-per-coin bbo feed").toBeLessThanOrEqual(24);
+
+    const sideButtons = '[data-role="outcome-ticket"] [data-role="outcome-ticket-side"]';
+    const pressed = (index) =>
+      `() => document.querySelectorAll('${sideButtons}')[${index}]?.getAttribute("aria-pressed") === "true"`;
+    const sideLatencies = [];
+    for (const index of [1, 0, 1, 0]) {
+      sideLatencies.push(await clickLatency(page, sideButtons, pressed(index), index));
+      await page.waitForTimeout(300);
+    }
+    await expect(page.locator(sideButtons).first()).toHaveAttribute("aria-pressed", "true");
+
+    const panelOpen = `() => { const p = document.querySelector('[data-parity-id="asset-selector-desktop"]'); return !!(p && p.getClientRects().length > 0); }`;
+    const openLatencies = [];
+    for (let i = 0; i < 3; i += 1) {
+      openLatencies.push(await clickLatency(page, '[data-role="outcome-market-name-hover-region"] button', panelOpen));
+      await dispatch(page, [":actions/close-asset-dropdown"]);
+      await page.waitForTimeout(300);
+    }
+
+    // Generous bounds (CI machines vary); the regression took seconds.
+    expect(Math.max(...sideLatencies), `side switch ms ${sideLatencies}`).toBeLessThan(500);
+    expect(sideLatencies.every((ms) => ms >= 0), "side buttons found").toBe(true);
+    expect(Math.max(...openLatencies), `selector open ms ${openLatencies}`).toBeLessThan(500);
+    expect(openLatencies.every((ms) => ms >= 0), "market name button found").toBe(true);
+  } finally {
+    clearInterval(feed);
+  }
+});

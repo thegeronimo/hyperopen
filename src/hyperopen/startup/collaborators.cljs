@@ -378,6 +378,8 @@
      :apply-asset-selector-success api-projections/apply-asset-selector-success
      :apply-asset-selector-error api-projections/apply-asset-selector-error
      :after-asset-selector-success! (fn [runtime-store _phase _market-state]
+                                      ;; the reloaded catalog carries no quotes
+                                      (outcome-bbo/restore-known-tops! runtime-store)
                                       (ws-adapters/sync-active-outcome-market-side-streams!
                                        runtime-store)
                                       (asset-adapters/correct-unresolved-active-asset!

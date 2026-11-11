@@ -1120,6 +1120,7 @@
             [hyperopen.websocket.orderbook-policy-test]
             [hyperopen.websocket.orderbook-test]
             [hyperopen.websocket.outcome-bbo-test]
+            [hyperopen.websocket.outcome-bbo-write-rate-test]
             [hyperopen.websocket.runtime-state-coverage-test]
             [hyperopen.websocket.subscription-errors-test]
             [hyperopen.websocket.subscriptions-runtime-test]
@@ -2261,6 +2262,7 @@
              'hyperopen.websocket.orderbook-policy-test
              'hyperopen.websocket.orderbook-test
              'hyperopen.websocket.outcome-bbo-test
+             'hyperopen.websocket.outcome-bbo-write-rate-test
              'hyperopen.websocket.runtime-state-coverage-test
              'hyperopen.websocket.subscription-errors-test
              'hyperopen.websocket.subscriptions-runtime-test

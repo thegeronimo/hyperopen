@@ -340,8 +340,9 @@
 (defn- patch-sides-top-of-book
   "Write `top` onto the side of `sides` whose coin is `coin`, and its mirror
    onto the other side of the same two-sided contract, so both sides read one
-   book."
-  [sides coin top]
+   book — unless that other side is in `quoted` (quoted directly in the same
+   batch), whose own quote then stands whatever order the batch applies in."
+  [sides coin top quoted]
   (let [sides* (vec (or sides []))
         index (first (keep-indexed (fn [i side] (when (= coin (:coin side)) i)) sides*))]
     (if (nil? index)
@@ -350,44 +351,118 @@
         (vec (map-indexed (fn [i side]
                             (cond
                               (= i index) (assoc side :bid (:bid top) :ask (:ask top))
+                              (contains? quoted (:coin side)) side
                               (= 2 (count sides*)) (assoc side :bid (:bid mirrored) :ask (:ask mirrored))
                               :else side))
                           sides*))))))
 
 (defn- patch-market-top-of-book
-  [market coin top]
+  [market coin top quoted]
   (if-not (= :outcome (:market-type market))
     market
-    (cond-> (update market :outcome-sides patch-sides-top-of-book coin top)
+    (cond-> (update market :outcome-sides patch-sides-top-of-book coin top quoted)
       (seq (:question-options market))
       (update :question-options
               (fn [options]
                 (mapv (fn [option]
-                        (update option :sides patch-sides-top-of-book coin top))
+                        (update option :sides patch-sides-top-of-book coin top quoted))
                       options))))))
 
-(defn- patch-active-market-top-of-book
-  "The ticket and header read `:active-market`; keep its sides on the same
-   book as the catalog so every surface quotes one source."
-  [state coin top]
-  (let [active (:active-market state)]
-    (if (and (map? active) (= :outcome (:market-type active)))
-      (let [patched (patch-market-top-of-book active coin top)]
-        (if (= patched active) state (assoc state :active-market patched)))
-      state)))
-
-(defn apply-outcome-top-of-book-update
-  "Write an outcome side's best bid and ask (`{:bid :ask}`, nil for an empty
-   side) onto every selector market that holds it and onto the active market,
-   so list rows, header and ticket read the same book through the one chance
-   rule. The sibling side gets the mirror (bid = 1 - ask, ask = 1 - bid): one
-   contract trades one book. Pure; fed by the `bbo` subscription runtime
-   (`hyperopen.websocket.outcome-bbo`)."
-  [state coin {:keys [bid ask]}]
+(defn- normalize-top
+  [{:keys [bid ask]}]
   (let [price (fn [value]
                 (let [number (parse-number value)]
-                  (when (and (number? number) (pos? number)) number)))
-        top {:bid (price bid) :ask (price ask)}]
-    (-> state
-        (apply-market-update coin #(patch-market-top-of-book % coin top))
-        (patch-active-market-top-of-book coin top))))
+                  (when (and (number? number) (pos? number)) number)))]
+    {:bid (price bid) :ask (price ask)}))
+
+(defn- market-side-coins
+  [market]
+  (concat (map :coin (:outcome-sides market))
+          (mapcat #(map :coin (:sides %)) (:question-options market))))
+
+(defn- outcome-market-keys-by-coin
+  "coin -> keys of the outcome markets holding a side with that coin, for
+   the coins in `coins` only. One pass over the catalog, whatever the number
+   of coins."
+  [market-by-key coins]
+  (reduce-kv (fn [acc market-key market]
+               (if (= :outcome (:market-type market))
+                 (reduce (fn [acc* coin]
+                           (if (contains? coins coin)
+                             (update acc* coin (fnil conj #{}) market-key)
+                             acc*))
+                         acc
+                         (market-side-coins market))
+                 acc))
+             {}
+             (or market-by-key {})))
+
+(defn- patch-market-tops
+  "Every top in `tops` onto `market`. A directly quoted side beats the mirror
+   of its sibling, so the result does not depend on the map's order."
+  [market tops]
+  (let [quoted (set (keys tops))]
+    (reduce-kv (fn [market* coin top]
+                 (patch-market-top-of-book market* coin top quoted))
+               market
+               tops)))
+
+(defn apply-outcome-top-of-book-updates
+  "Write outcome sides' best bids and asks (`tops`: coin -> `{:bid :ask}`, nil
+   for an empty side) onto every selector market that holds them and onto
+   the active market, so list rows, header and ticket read the same book
+   through the one chance rule. The sibling side gets the mirror (bid = 1 -
+   ask, ask = 1 - bid): one contract trades one book. Every coin is applied
+   in one pass, and a market whose sides end up equal is not replaced: tops
+   that change nothing return `state` itself (no store write, no render).
+   Pure; fed by the `bbo` subscription runtime
+   (`hyperopen.websocket.outcome-bbo`)."
+  [state tops]
+  (if-not (and (map? state) (map? tops) (seq tops))
+    state
+    (let [tops* (into {}
+                      (keep (fn [[coin top]]
+                              (when (string? coin) [coin (normalize-top top)])))
+                      tops)
+          market-by-key (get-in state [:asset-selector :market-by-key] {})
+          keys-by-coin (outcome-market-keys-by-coin market-by-key (set (keys tops*)))
+          tops-by-market (reduce-kv (fn [acc coin market-keys]
+                                      (reduce #(assoc-in %1 [%2 coin] (get tops* coin))
+                                              acc
+                                              market-keys))
+                                    {}
+                                    keys-by-coin)
+          changed-markets (reduce-kv (fn [acc market-key market-tops]
+                                       (let [market (get market-by-key market-key)
+                                             patched (patch-market-tops market market-tops)]
+                                         (if (= market patched)
+                                           acc
+                                           (assoc acc market-key patched))))
+                                     {}
+                                     tops-by-market)
+          state* (if (empty? changed-markets)
+                   state
+                   (let [selector-markets (normalize-selector-markets
+                                           (get-in state [:asset-selector :markets] []))
+                         {:keys [patched-markets patched-market-index-by-key changed?]}
+                         (patch-selector-markets-by-index selector-markets
+                                                          (get-in state [:asset-selector :market-index-by-key] {})
+                                                          changed-markets)]
+                     (cond-> (assoc-in state [:asset-selector :market-by-key]
+                                       (merge market-by-key changed-markets))
+                       changed?
+                       (assoc-in [:asset-selector :markets] patched-markets)
+
+                       (not= patched-market-index-by-key
+                             (get-in state [:asset-selector :market-index-by-key]))
+                       (assoc-in [:asset-selector :market-index-by-key] patched-market-index-by-key))))
+          active (:active-market state*)]
+      (if (and (map? active) (= :outcome (:market-type active)))
+        (let [patched (patch-market-tops active tops*)]
+          (if (= patched active) state* (assoc state* :active-market patched)))
+        state*))))
+
+(defn apply-outcome-top-of-book-update
+  "One side's top of book (see `apply-outcome-top-of-book-updates`)."
+  [state coin top]
+  (apply-outcome-top-of-book-updates state {coin top}))
