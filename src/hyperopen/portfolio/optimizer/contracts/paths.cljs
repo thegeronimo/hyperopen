@@ -96,6 +96,14 @@
   (conj optimizer-ui-path :universe-search-type-filter))
 (def ui-universe-search-quote-filter-path
   (conj optimizer-ui-path :universe-search-quote-filter))
+;; Same-underlying guard. The prompt holds the market-key whose add is waiting
+;; on the inline "already in your mix" confirm (nil when none is open); the
+;; acknowledged list holds underlyings the trader chose to keep twice this
+;; session, so the confirm is asked once per underlying.
+(def ui-universe-duplicate-prompt-path
+  (conj optimizer-ui-path :universe-duplicate-prompt))
+(def ui-universe-duplicate-acknowledged-path
+  (conj optimizer-ui-path :universe-duplicate-acknowledged))
 ;; Per-thin-asset proxy search query: {thin-instrument-id query-string}. Each
 ;; proxy card's catalog typeahead reads/writes its own entry.
 (def ui-proxy-search-queries-path
@@ -232,6 +240,8 @@
    :optimizer-ui/universe-search-active-index ui-universe-search-active-index-path
    :optimizer-ui/universe-search-type-filter ui-universe-search-type-filter-path
    :optimizer-ui/universe-search-quote-filter ui-universe-search-quote-filter-path
+   :optimizer-ui/universe-duplicate-prompt ui-universe-duplicate-prompt-path
+   :optimizer-ui/universe-duplicate-acknowledged ui-universe-duplicate-acknowledged-path
    :optimizer-ui/draft-add-asset-open ui-draft-add-asset-open-path
    :optimizer-ui/selected-risk-instrument ui-selected-risk-instrument-path
    :optimizer-ui/objective-menu-open ui-objective-menu-open-path

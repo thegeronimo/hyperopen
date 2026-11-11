@@ -1,10 +1,12 @@
 (ns hyperopen.portfolio.optimizer.actions.universe
   (:require [hyperopen.portfolio.optimizer.actions.common :as common]
             [hyperopen.portfolio.optimizer.actions.run :as run-actions]
+            [hyperopen.portfolio.optimizer.actions.universe-duplicates :as universe-duplicate-actions]
             [hyperopen.portfolio.optimizer.application.current-portfolio :as current-portfolio]
             [hyperopen.portfolio.optimizer.application.history-loader.api-v2 :as history-api-v2]
             [hyperopen.portfolio.optimizer.application.history-prefetch :as history-prefetch]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.portfolio.optimizer.application.universe-duplicates :as universe-duplicates]
             [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
             [hyperopen.portfolio.optimizer.black-litterman-actions.views :as black-litterman-views]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
@@ -32,8 +34,11 @@
         ;; Typing keeps the facets: narrowing a query under an active chip is the
         ;; point of the chip. Only an emptied field is a full reset.
         [[contracts/ui-universe-search-query-path query*]
-         [contracts/ui-universe-search-active-index-path 0]]
-        (cleared-search-path-values))]]))
+         [contracts/ui-universe-search-active-index-path 0]
+         [contracts/ui-universe-duplicate-prompt-path nil]]
+        ;; A same-stock confirm belongs to the result list it opened on.
+        (conj (cleared-search-path-values)
+              [contracts/ui-universe-duplicate-prompt-path nil]))]]))
 
 (defn set-portfolio-optimizer-universe-search-type-filter
   [_state value]
@@ -69,7 +74,12 @@
 
 (defn handle-portfolio-optimizer-universe-search-keydown
   [state key market-keys]
-  (universe-keyboard/handle-keydown add-portfolio-optimizer-universe-instrument state key market-keys))
+  (universe-duplicate-actions/handle-keydown
+   add-portfolio-optimizer-universe-instrument
+   #(universe-keyboard/handle-keydown add-portfolio-optimizer-universe-instrument
+                                      state key market-keys)
+   state
+   key))
 
 (declare add-portfolio-optimizer-universe-instrument-and-run)
 
@@ -214,7 +224,7 @@
      :omitted (mapv #(holdings-omission :unusable-history (:instrument %))
                     unusable)}))
 
-(defn add-portfolio-optimizer-universe-instrument
+(defn- add-universe-instrument-unguarded
   [state market-key]
   (let [market-key* (common/non-blank-text market-key)
         universe (common/draft-universe state)
@@ -256,7 +266,7 @@
                          (remove #(common/instrument-present? universe
                                                               (:instrument-id %)))
                          common/dedupe-instruments
-                         vec)]
+                         (universe-duplicates/skip-same-underlying universe))]
     (if (seq instruments)
       (let [universe* (into universe instruments)
             prefetch-plan (history-prefetch/enqueue-missing-instruments state
@@ -373,9 +383,27 @@
              (projected-state-after-save-effects state effects)))
       [])))
 
+(declare remove-portfolio-optimizer-universe-instrument)
+
+(defn- duplicate-deps
+  []
+  {:add add-universe-instrument-unguarded
+   :remove remove-portfolio-optimizer-universe-instrument
+   :project projected-state-after-save-effects
+   :side position-side-for-instrument})
+
+(defn add-portfolio-optimizer-universe-instrument
+  "Add a searched market to the universe, behind the same-stock confirm (see
+  actions.universe-duplicates). `choice` answers an open confirm:
+  swap | both | keep."
+  ([state market-key]
+   (add-portfolio-optimizer-universe-instrument state market-key nil))
+  ([state market-key choice]
+   (universe-duplicate-actions/guarded-add (duplicate-deps) state market-key choice)))
+
 (defn add-portfolio-optimizer-universe-instrument-and-run
   [state market-key]
-  (let [effects (add-portfolio-optimizer-universe-instrument state market-key)]
+  (let [effects (add-universe-instrument-unguarded state market-key)]
     (if (seq effects)
       (let [effects* (vec (remove selection-prefetch-effect?
                                   (update effects 0 draft-add-run-save-effect)))]

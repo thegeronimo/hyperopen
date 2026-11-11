@@ -107,7 +107,8 @@
   {:proxy-history-used "Used when direct history is limited."
    :stale-history "Cached history is used; refreshing rarely changes the result."
    :source-fetch-failed "Refresh retries the history provider."
-   :missing-market-cap-prior "The optimizer could not load market-cap baseline data for some assets."})
+   :missing-market-cap-prior "The optimizer could not load market-cap baseline data for some assets."
+   :duplicate-underlying "Listings of the same asset move together, so the optimizer may split weight between them arbitrarily. Remove one in Universe."})
 
 (defn- provider-limit-code?
   [code]

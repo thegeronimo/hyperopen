@@ -124,6 +124,11 @@
   (s/tuple map?))
 (s/def ::portfolio-optimizer-instrument-id-args
   (s/tuple ::common/non-empty-string))
+(s/def ::portfolio-optimizer-universe-add-args
+  ;; [market-key] for a plain add, or [market-key choice] when answering the
+  ;; same-stock confirm (choice: swap | both | keep).
+  (s/or :add (s/tuple ::common/non-empty-string)
+        :resolve (s/tuple ::common/non-empty-string ::common/keyword-or-string)))
 (s/def ::portfolio-optimizer-instrument-side-args
   (s/tuple ::common/non-empty-string ::common/keyword-or-string))
 (s/def ::portfolio-optimizer-execution-row-type-args
@@ -445,7 +450,7 @@
    :actions/set-portfolio-optimizer-results-tab ::common/tab-args
    :actions/set-portfolio-optimizer-selected-risk-instrument
    ::portfolio-optimizer-instrument-id-args
-   :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-instrument-id-args
+   :actions/add-portfolio-optimizer-universe-instrument ::portfolio-optimizer-universe-add-args
    :actions/add-portfolio-optimizer-universe-instrument-and-run
    ::portfolio-optimizer-instrument-id-args
 	   :actions/toggle-portfolio-optimizer-universe-instrument-exclusion-and-run

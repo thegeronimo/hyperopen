@@ -157,9 +157,12 @@
   (let [node (view)
         add-all (node-by-role node "portfolio-optimizer-universe-search-add-all")
         [[action keys*]] (click-actions add-all)]
-    (is (= "+ add all 11" (node-text add-all)))
+    ;; Same-stock listings collapse to one per underlying (PUMP perp + three
+    ;; PUMP spot pairs add once), and the label says how many were skipped.
+    (is (= "+ add all 5 · skips 6 duplicates" (node-text add-all)))
     (is (= :actions/add-portfolio-optimizer-universe-matches action))
-    (is (= 11 (count keys*)))))
+    (is (= ["perp:PUMP" "perp:HPUMP" "spot:UPUMP/USDC" "spot:PUMPX/USDC" "vault:0xabc"]
+           keys*))))
 
 (deftest keyboard-hints-are-present-test
   (let [strings (set (collect-strings (view)))]

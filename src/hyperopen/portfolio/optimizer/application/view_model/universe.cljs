@@ -4,6 +4,7 @@
             [hyperopen.portfolio.optimizer.application.history-loader.api-v2.sparse-lane :as sparse-lane]
             [hyperopen.portfolio.optimizer.application.setup-readiness :as setup-readiness]
             [hyperopen.portfolio.optimizer.application.universe-candidates :as universe-candidates]
+            [hyperopen.portfolio.optimizer.application.universe-duplicates :as universe-duplicates]
             [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
             [hyperopen.portfolio.optimizer.coercion :as coercion]
             [hyperopen.portfolio.optimizer.contracts :as contracts]
@@ -600,7 +601,7 @@
                                                   %
                                                   assumption-context)
                              universe)
-         candidate-rows (mapv (fn [market idx]
+         candidate-rows* (mapv (fn [market idx]
                                 (let [row (candidate-row-model market idx active-index)]
                                   (merge row
                                          ;; The flat render index travels WITH the
@@ -612,14 +613,28 @@
                                           row
                                           search-query))))
                               markets
-                              (range))]
+                              (range))
+         ;; Same-stock guard: rows that duplicate a mix member, the confirm row,
+         ;; and the add-all batch with those twins removed.
+         candidate-rows (universe-duplicates/annotate-candidate-rows state universe candidate-rows*)
+         duplicate-summary (universe-duplicates/search-summary candidate-rows)
+         addable-market-keys (universe-duplicates/addable-market-keys candidate-rows)
+         twins (universe-duplicates/twin-groups universe)]
      {:state state
       :draft draft
       :readiness readiness
       :history-load-state history-load-state*
       :history-status-by-id history-status-by-id*
       :universe universe
-      :selected-rows selected-rows
+      :selected-rows (universe-duplicates/group-selected-rows selected-rows twins)
+      :twin-underlyings (vec (sort (keys twins)))
+      :search-duplicate-summary (when searching? duplicate-summary)
+      :search-addable-market-keys addable-market-keys
+      :search-add-all-label (some-> (universe-search/add-all-label
+                                     (count addable-market-keys))
+                                    (str (universe-duplicates/skipped-suffix
+                                          (- (count markets)
+                                             (count addable-market-keys)))))
       :search-query search-query
       :searching? searching?
       :markets markets
