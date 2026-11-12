@@ -21,6 +21,7 @@
             [hyperopen.api.projections.user-fees :as user-fees]
             [hyperopen.api.trading.action-coordinator :as action-coordinator]
             [hyperopen.api.trading.delivery :as delivery]
+            [hyperopen.order.effects :as order-effects]
             [hyperopen.order.effects.spot-refresh :as spot-refresh]
             [hyperopen.platform :as platform]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace :as repair-replace]
@@ -132,15 +133,21 @@
 
 (def ^:private nothing-sent-statuses #{:refused :busy :coordination-unavailable})
 
-(defn- refresh-spot-after-send!
-  "Best effort: refetch spot balances (and so each token's `hold`) after an
-  operation that may have placed or canceled ladder orders."
+(defn refresh-surfaces-after-send!
+  "Best effort, after an operation that may have placed or canceled ladder
+  orders: refetch spot balances (and so each token's `hold`). For a perp
+  ladder, refetch what the order form refetches after a submit instead: open
+  orders and clearinghouse state for every perp dex. The `openOrders` stream
+  carries the first perp dex and spot only, so without this a HIP-3 ladder's
+  orders stay out of Open Orders until the page reloads."
   [store op {:keys [grid status]}]
   (when (and (contains? spot-mutating-ops op)
              (not (contains? nothing-sent-statuses status)))
     (when-let [address (or (get-in grid [:scope :account-address])
                            (account-context/active-trading-account-address @store))]
-      (spot-refresh/refresh-spot-clearinghouse-snapshot! store address {:priority :high}))))
+      (if (contracts/perp-market? (or (:scope grid) (snapshots/current-scope @store)))
+        (order-effects/refresh-account-surfaces-after-order-mutation! store address)
+        (spot-refresh/refresh-spot-clearinghouse-snapshot! store address {:priority :high})))))
 
 ;; ---------------------------------------------------------------------------
 ;; Operations
@@ -389,6 +396,6 @@
                         {:status :error :error (str "Unknown operation " op)})))))
         (.then (fn [result]
                  (let [finished (finish! store busy-key (tag result) op)]
-                   (refresh-spot-after-send! store op result)
+                   (refresh-surfaces-after-send! store op result)
                    finished)))
         (.catch (fn [e] (finish! store busy-key (tag {:status :error :error (ex/error-text e)}) op))))))
