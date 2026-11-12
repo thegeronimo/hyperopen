@@ -8,7 +8,8 @@
                                                                      funding-actions-view]]
             [hyperopen.views.account-equity.hyperevm-line :refer [hyperevm-line]]
             [hyperopen.views.account-equity.metrics :refer [account-equity-metrics
-                                                            unified-account?]]))
+                                                            unified-account?]]
+            [hyperopen.views.account-equity.venue-breakdown :as venue-breakdown]))
 
 (def ^:private unified-account-ratio-tooltip
   "Represents the risk of portfolio liquidation. When the value is greater than 95%, your portfolio may be liquidated. Cross positions only: isolated positions liquidate one at a time and cannot take the portfolio with them, so this reads -- when every position is isolated.")
@@ -96,6 +97,7 @@
                                             cross-margin-ratio
                                             cross-account-leverage
                                             pnl-info
+                                            perp-venues
                                             fill-height?
                                             show-funding-actions?
                                             hyperevm-line-model
@@ -112,8 +114,7 @@
     [:div {:class ["border-t" "border-base-300"]
            :data-role "account-equity-total-divider"}]
     (metric-row "Spot" (display-currency spot-equity))
-    (metric-row "Perps" (display-currency perps-value)
-                :tooltip "Balance + Unrealized PNL (approximate account value if all positions were closed)")
+    (venue-breakdown/perps-row {:perps-value perps-value :perp-venues perp-venues :state state})
     (metric-row "Vaults" (display-currency vault-equity))
     (metric-row "Earn" (display-currency earn-equity)
                 :tooltip "Supplied to HyperCore lending, including collateral, at oracle prices, minus borrows.")
@@ -124,18 +125,21 @@
     ;; it cannot margin a position, and this row keeps its Move action.
     (hyperevm-line hyperevm-line-model)]
 
-   [:div.border-t.border-base-300.pt-3.space-y-2
-    [:div.text-xs.font-semibold.text-trading-text "Perps Overview"]
-    (metric-row "Balance" (display-currency base-balance)
-                :tooltip "Total Net Transfers + Total Realized Profit + Total Net Funding Fees")
-    (metric-row "Unrealized PNL" (:text pnl-info)
-                :value-class (:class pnl-info))
-    (metric-row "Cross Margin Ratio" (display-percent cross-margin-ratio)
-                :tooltip "Maintenance Margin / Portfolio Value. Your cross positions will be liquidated if Margin Ratio reaches 100%.")
-    (metric-row "Maintenance Margin" (display-currency maintenance-margin)
-                :tooltip "The minimum portfolio value required to keep your cross positions open")
-    (metric-row "Cross Account Leverage" (display-leverage cross-account-leverage)
-                :tooltip "Cross Account Leverage = Total Cross Positions Value / Cross Account Value.")]])
+   (if perp-venues
+     [:div.border-t.border-base-300.pt-3
+      (venue-breakdown/venue-overview perp-venues)]
+     [:div.border-t.border-base-300.pt-3.space-y-2
+      [:div.text-xs.font-semibold.text-trading-text "Perps Overview"]
+      (metric-row "Balance" (display-currency base-balance)
+                  :tooltip "Total Net Transfers + Total Realized Profit + Total Net Funding Fees")
+      (metric-row "Unrealized PNL" (:text pnl-info)
+                  :value-class (:class pnl-info))
+      (metric-row "Cross Margin Ratio" (display-percent cross-margin-ratio)
+                  :tooltip "Maintenance Margin / Portfolio Value. Your cross positions will be liquidated if Margin Ratio reaches 100%.")
+      (metric-row "Maintenance Margin" (display-currency maintenance-margin)
+                  :tooltip "The minimum portfolio value required to keep your cross positions open")
+      (metric-row "Cross Account Leverage" (display-leverage cross-account-leverage)
+                  :tooltip "Cross Account Leverage = Total Cross Positions Value / Cross Account Value.")])])
 
 (defn- unified-account-summary-view [{:keys [unified-account-ratio
                                              account-value-display

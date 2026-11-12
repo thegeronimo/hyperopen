@@ -67,7 +67,7 @@
 
 (def ^:private account-equity-view-state-keys
   [:account
-   :account-context
+   :account-context :active-asset ; the venue breakdown marks the market's venue
    :borrow-lend
    :perp-dex-clearinghouse
    :router

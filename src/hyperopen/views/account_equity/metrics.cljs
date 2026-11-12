@@ -15,6 +15,7 @@
              :refer [aggregate-clearinghouse-usd balance-rows-by-token
                      clearinghouse-state-records sum-when-present]]
             [hyperopen.views.account-equity.unified :as unified]
+            [hyperopen.views.account-equity.venues :as venues]
             [hyperopen.views.account-info.derived-cache :as derived-cache]
             [hyperopen.views.account-info.projections :as account-projections]
             [hyperopen.views.account-info.projections.hyperevm-funds :as hyperevm-funds]))
@@ -303,6 +304,7 @@
      :earn-equity earn-equity
      :hyperevm-equity hyperevm-equity
      :total-account-value-display total-account-value-display
+     :perp-venues (venues/perp-venues state records balance-row-by-token market-by-key)
      :pnl-info pnl-info}))
 
 (defn- memoized-account-equity-metrics
@@ -317,6 +319,7 @@
         outcome-shares (outcome-shares-summary state)
         perp-dex-states (:perp-dex-clearinghouse state)
         market-by-key (get-in state [:asset-selector :market-by-key])
+        active-venue (venues/active-venue-id (:active-asset state))
         cache @account-equity-metrics-cache
         cache-hit? (and (map? cache)
                         (identical? webdata2 (:webdata2 cache))
@@ -328,6 +331,7 @@
                         (= hyperevm-funds-summary (:hyperevm-funds-summary cache))
                         (= outcome-shares (:outcome-shares cache))
                         (identical? perp-dex-states (:perp-dex-states cache))
+                        (= active-venue (:active-venue cache))
                         (identical? market-by-key (:market-by-key cache)))]
     (if cache-hit?
       (:result cache)
@@ -341,6 +345,7 @@
                                               :hyperevm-funds-summary hyperevm-funds-summary
                                               :outcome-shares outcome-shares
                                               :perp-dex-states perp-dex-states
+                                              :active-venue active-venue
                                               :market-by-key market-by-key
                                               :result result})
         result))))

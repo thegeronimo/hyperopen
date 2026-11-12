@@ -684,6 +684,7 @@
             [hyperopen.views.account-equity-parity-test]
             [hyperopen.views.account-equity-unified-metrics-test]
             [hyperopen.views.account-equity-vaults-test]
+            [hyperopen.views.account-equity-venues-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
             [hyperopen.views.account-equity.hyperevm-line-test]
@@ -1840,6 +1841,7 @@
              'hyperopen.views.account-equity-parity-test
              'hyperopen.views.account-equity-unified-metrics-test
              'hyperopen.views.account-equity-vaults-test
+             'hyperopen.views.account-equity-venues-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
              'hyperopen.views.account-equity.hyperevm-line-test
