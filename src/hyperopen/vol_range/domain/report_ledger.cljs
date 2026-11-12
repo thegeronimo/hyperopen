@@ -70,6 +70,32 @@
          :net-base-delta (ds (if (= :base kind) (precision/sub base-delta fee) base-delta))
          :net-cash-delta (ds (if (= :quote kind) (precision/sub cash-delta fee) cash-delta))}))))
 
+(defn funding-event
+  "The signed cash event for a stored perp funding record ({:record-id :time
+  :coin :usdc}): the position is unchanged and the quote cash changes by the
+  venue's signed `usdc` (negative when the position paid). nil when `usdc`
+  is not a decimal."
+  [funding {:keys [campaign-id]}]
+  (when-let [usdc (some-> (:usdc funding) str str/trim precision/parse-decimal)]
+    {:event-id (:record-id funding)
+     :kind :funding
+     :time (:time funding)
+     :tid nil
+     :coin (:coin funding)
+     :tracked? true
+     :campaign-id campaign-id
+     :base-delta "0"
+     :cash-delta (ds usdc)
+     :fee "0"
+     :fee-kind :quote
+     :net-base-delta "0"
+     :net-cash-delta (ds usdc)}))
+
+(defn fills
+  "The fill events among `events` (funding events are cash only)."
+  [events]
+  (filterv #(= :fill (:kind %)) events))
+
 (defn- tid-key [tid]
   (let [t (str tid)] [(count t) t]))
 
@@ -112,8 +138,11 @@
   "Execution activity over `events`: fill count, gross bought and sold base
   and quote, VWAPs, maker and taker counts (`:crossed`), and signed fees by
   their actual token."
-  [events]
-  (let [side-sum (fn [side k] (reduce precision/add zero
+  [all-events]
+  (let [events (fills all-events)
+        funding (reduce precision/add zero
+                        (keep #(when (= :funding (:kind %)) (d (:net-cash-delta %))) all-events))
+        side-sum (fn [side k] (reduce precision/add zero
                                       (keep #(when (= side (:side %)) (precision/abs-dec (d (get % k)))) events)))
         bought-base (side-sum :buy :base-delta)
         bought-quote (side-sum :buy :cash-delta)
@@ -128,6 +157,9 @@
      :sell-vwap (vwap sold-quote sold-base)
      :maker (count (filter #(false? (:crossed %)) events))
      :taker (count (filter #(true? (:crossed %)) events))
+     ;; Signed perp funding (negative = paid); "0" for a spot market.
+     :funding (ds funding)
+     :funding-payments (count (filter #(= :funding (:kind %)) all-events))
      :fees-by-token (->> events
                          (filter :fee-token)
                          (reduce (fn [acc e] (update acc (:fee-token e) #(precision/add (or % zero) (d (:fee e)))))

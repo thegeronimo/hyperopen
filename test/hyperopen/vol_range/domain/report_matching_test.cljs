@@ -37,7 +37,7 @@
   (let [events (ledger/events [(event fx/matched-buy-row) (event fx/matched-sell-row)])
         m (match events "100")]
     (is (= {:fills 2 :pairs 1 :matched-qty "9.9" :gross "99" :unmatched-buy-qty "0.1" :unmatched-buys "2"
-            :unmatched-sell-qty "0" :unmatched-sells "0" :usdc-fees "0" :base-fees "0.1" :fee-impact "-10"
+            :unmatched-sell-qty "0" :unmatched-sells "0" :usdc-fees "0" :base-fees "0.1" :fee-impact "-10" :funding "0"
             :total "91" :p-end "100" :fees-by-token {"VRT" "0.1" "USDC" "0"} :reconciles? true}
            m))
     (testing "equal to the contribution: 891 − 800 with zero net base change"

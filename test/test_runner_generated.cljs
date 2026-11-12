@@ -1054,12 +1054,14 @@
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
             [hyperopen.vol-range.infrastructure.live-ingress-test]
             [hyperopen.vol-range.infrastructure.monitoring-gate-test]
+            [hyperopen.vol-range.infrastructure.perp-scenarios-test]
             [hyperopen.vol-range.infrastructure.repair-scenarios-test]
             [hyperopen.vol-range.infrastructure.replace-scenarios-test]
             [hyperopen.vol-range.infrastructure.report-executor-test]
             [hyperopen.vol-range.infrastructure.report-reads-test]
             [hyperopen.vol-range.infrastructure.report-watcher-test]
             [hyperopen.vol-range.journal-and-cloid-test]
+            [hyperopen.vol-range.perp-markets-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
             [hyperopen.vol-range.repair-actions-test]
@@ -2207,12 +2209,14 @@
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
              'hyperopen.vol-range.infrastructure.live-ingress-test
              'hyperopen.vol-range.infrastructure.monitoring-gate-test
+             'hyperopen.vol-range.infrastructure.perp-scenarios-test
              'hyperopen.vol-range.infrastructure.repair-scenarios-test
              'hyperopen.vol-range.infrastructure.replace-scenarios-test
              'hyperopen.vol-range.infrastructure.report-executor-test
              'hyperopen.vol-range.infrastructure.report-reads-test
              'hyperopen.vol-range.infrastructure.report-watcher-test
              'hyperopen.vol-range.journal-and-cloid-test
+             'hyperopen.vol-range.perp-markets-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
              'hyperopen.vol-range.repair-actions-test

@@ -56,7 +56,8 @@
     (is (= "unavailable" (get-in d [:valuation :cost-basis])))
     (is (= 5000 (get-in d [:policy :boundary-skew-ms])))
     (is (= #{:format :format-version :exported-at-ms :network :account-address :versions :valuation :policy
-             :selection :storage :campaigns :orders :fills :ledger-updates :coverage-records :balance-checks :marks}
+             :selection :storage :campaigns :orders :fills :ledger-updates :funding-payments :coverage-records
+             :balance-checks :marks}
            (set (keys d))))))
 
 (deftest campaigns-carry-baseline-coverage-and-windows-test

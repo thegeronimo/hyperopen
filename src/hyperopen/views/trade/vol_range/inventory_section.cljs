@@ -31,7 +31,7 @@
 
 (def limits-region-id "vol-range-limits")
 
-(defn- limit-fields [{:keys [base-symbol limit-unit limit-note tilt? core-input target-input maximum-input
+(defn- limit-fields [{:keys [base-symbol limit-unit limit-note tilt? perp? core-input target-input maximum-input
                              core-placeholder target-placeholder maximum-placeholder]}
                      fe]
   (let [quote? (= :quote limit-unit)
@@ -56,6 +56,7 @@
      [:p {:class ["text-xs" "text-ho-text-muted"] :data-role "vol-range-limit-hint"}
       (str "A plan is refused if all its sells filling could leave less than Keep at least, or all its buys"
            " filling (with your open orders) could hold more than Hold at most."
+           (when perp? " A short position is a negative number.")
            (when tilt? " Tilt shifts prices only when holdings differ from Lean toward; blank means current holdings, so no shift.")
            " A blank field uses the value shown.")]
      (when limit-note
@@ -65,12 +66,16 @@
 (defn inventory-section
   ([inventory] (inventory-section inventory {}))
   ([{:keys [base-symbol current available-to-sell summary open? collapsible? track set-maximum-offer
-            starting-breach] :as inventory}
+            starting-breach current-label available-label margin-note] :as inventory}
     fe]
    (p/section {:title "Inventory" :data-role "vol-range-inventory"}
               [:div {:class ["grid" "grid-cols-2" "gap-2"]}
-               (p/tile {:label "Current spot inventory" :value (str current " " base-symbol)})
-               (p/tile {:label "Available to sell" :value (str available-to-sell " " base-symbol)})]
+               (p/tile {:label (or current-label "Current spot inventory") :value (str current " " base-symbol)})
+               (p/tile {:label (or available-label "Available to sell")
+                        :value (str available-to-sell " " base-symbol)})]
+              (when margin-note
+                [:p {:class ["text-xs" "text-ho-text-muted" "num"] :data-role "vol-range-margin-note"}
+                 margin-note])
               (when starting-breach
                 [:p {:class ["rounded-md" "border" "border-ho-warn" "p-2" "text-xs" "text-ho-warn"]
                      :data-role "vol-range-starting-breach"}

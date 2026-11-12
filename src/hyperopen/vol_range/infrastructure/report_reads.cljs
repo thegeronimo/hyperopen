@@ -60,6 +60,46 @@
                     (.catch (fn [e] (done rows false (error-text e) :ledger/read-error)))))]
         (page start-ms [] #{} 0)))))
 
+(defn read-funding-window!
+  "Raw `userFunding` rows (perp funding payments, every dex) for one account
+  in `[start-ms, end-ms]`, paged forward from the newest row's time with
+  overlap exactly like `read-ledger-window!` (the venue returns at most 500
+  rows per response). Resolves to {:rows :complete? :requested-at-ms
+  :received-at-ms :error :reason} where `:reason` is :funding/read-error,
+  :funding/no-progress or :funding/page-cap when incomplete. Never rejects."
+  [post-info! {:keys [account-address start-ms end-ms read-id now-ms!]}]
+  (let [address (normalize-address account-address)
+        now-ms! (or now-ms! #(.now js/Date))
+        requested-at (now-ms!)
+        page-limit (policy :ledger-page-limit)
+        max-pages (policy :max-ledger-pages)
+        done (fn [rows complete? error reason]
+               {:rows (vec (distinct rows)) :complete? complete? :requested-at-ms requested-at
+                :received-at-ms (now-ms!) :error error :reason reason})]
+    (if-not (and address (number? start-ms) (number? end-ms))
+      (js/Promise.resolve (done [] false "Account and window are required" :funding/read-error))
+      (letfn [(page [from rows seen n]
+                (-> (post-info! {"type" "userFunding" "user" address
+                                 "startTime" (js/Math.floor from) "endTime" (js/Math.floor end-ms)}
+                                {:priority :low :cache-ttl-ms 0
+                                 :dedupe-key [:vol-range-report :funding address read-id from n]})
+                    (.then (fn [resp]
+                             (if-not (sequential? resp)
+                               (done rows false "Unexpected funding response shape" :funding/read-error)
+                               (let [rows (into rows resp)
+                                     seen* (into seen resp)
+                                     newest (reduce max from (filter number? (map :time resp)))]
+                                 (cond
+                                   (empty? resp) (done rows true nil nil)
+                                   (and (<= newest from) (>= (count resp) page-limit))
+                                   (done rows false "Funding pagination made no progress" :funding/no-progress)
+                                   (= (count seen*) (count seen)) (done rows true nil nil)
+                                   (>= (inc n) max-pages) (done rows false "Funding page cap reached"
+                                                                :funding/page-cap)
+                                   :else (page newest rows seen* (inc n)))))))
+                    (.catch (fn [e] (done rows false (error-text e) :funding/read-error)))))]
+        (page start-ms [] #{} 0)))))
+
 (defn read-hourly-candles!
   "Completed and in-progress 1h candles for `coin` covering
   `[from-ms, to-ms)`, paged BACKWARD by `:end-time-ms` with at most

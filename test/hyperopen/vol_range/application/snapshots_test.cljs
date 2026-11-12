@@ -112,9 +112,9 @@
         (is (= :unavailable (get-in s [:auto-volatility :status])))))))
 
 (deftest unsupported-market-test
-  (testing "a perp market is unsupported"
-    (let [state (assoc (sf/base-state) :active-market {:coin "BTC" :market-type :perp :base "BTC"
-                                                       :quote "USDC" :szDecimals 5})
+  (testing "an outcome market is unsupported"
+    (let [state (assoc (sf/base-state) :active-market {:coin "#12" :market-type :outcome :base "YES"
+                                                       :quote "USDC" :szDecimals 0})
           snap (snapshots/market-snapshot state now)]
       (is (= :unavailable (:status snap)))
       (is (= [:capability/market-unsupported] (mapv :code (:errors snap))))

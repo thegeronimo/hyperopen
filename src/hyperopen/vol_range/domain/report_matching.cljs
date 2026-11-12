@@ -84,9 +84,9 @@
   "The matched-fill diagnostic of `campaign`'s tracked `events` over `[a-ms,
   b-ms)` at the end mark `p-end` (a decimal string): {:fills :pairs
   :matched-qty :gross :unmatched-buy-qty :unmatched-buys :unmatched-sell-qty
-  :unmatched-sells :usdc-fees :base-fees :fee-impact :total :p-end
+  :unmatched-sells :usdc-fees :base-fees :fee-impact :funding :total :p-end
   :fees-by-token :reconciles?}, decimal strings. `:total` (gross + unmatched
-  + fee impact) is nil when a fee is in a third token (`:reconciles?`
+  + fee impact + funding) is nil when a fee is in a third token (`:reconciles?`
   false). Nil when `p-end` is not a decimal."
   [{:keys [campaign events a-ms b-ms p-end]}]
   (when-let [pe (some-> p-end str str/trim precision/parse-decimal)]
@@ -100,7 +100,15 @@
           base-fees (fee-of :base)
           unsupported? (some #(and (= :unsupported (:fee-kind %)) (not (precision/zero-dec? (d (:fee %))))) fills)
           fee-impact (precision/neg (precision/add usdc-fees (precision/mul base-fees pe)))
-          total (sum [gross (:value ub) (:value us) fee-impact])]
+          ;; Perp funding in the window is cash of the campaign too (signed;
+          ;; zero on a spot market), so the total still equals the ladder
+          ;; contribution.
+          funding (sum (->> (ledger/in-window (ledger/events events) [a-ms b-ms])
+                            (filter #(and (= :funding (:kind %)) (:tracked? %)
+                                          (or (nil? (:campaign-id campaign)) (nil? (:campaign-id %))
+                                              (= (:campaign-id campaign) (:campaign-id %)))))
+                            (map (comp d :net-cash-delta))))
+          total (sum [gross (:value ub) (:value us) fee-impact funding])]
       {:fills (count fills)
        :pairs pairs
        :matched-qty (ds matched-qty)
@@ -112,6 +120,7 @@
        :usdc-fees (ds usdc-fees)
        :base-fees (ds base-fees)
        :fee-impact (ds fee-impact)
+       :funding (ds funding)
        :total (when-not unsupported? (ds total))
        :p-end (ds pe)
        :fees-by-token (fees-by-token fills)

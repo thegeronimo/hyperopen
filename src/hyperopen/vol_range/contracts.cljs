@@ -72,7 +72,7 @@
 
 (def capability-matrix
   {:network :hyperliquid-mainnet
-   :market-types #{:spot}
+   :market-types #{:spot :perp}
    :quote-symbols #{"USDC"}
    ;; Spec 3.1: admission inspects the RAW `userAbstraction` value. The
    ;; normalized `[:account :mode]` maps unknown values to :classic, so it is
@@ -150,7 +150,7 @@
    [:data/balances-unavailable :data :unavailable "Balances are unavailable"]
    [:data/fee-quote-unavailable :data :unavailable "Fee quote is unavailable"]
    [:data/market-metadata-unavailable :data :unavailable "Market metadata is unavailable"]
-   [:capability/market-unsupported :capability :unavailable "Vol Range supports USDC spot markets only"]
+   [:capability/market-unsupported :capability :unavailable "Volatility range supports USDC spot and perp markets"]
    [:capability/account-mode-unsupported :capability :unavailable "This account mode is not supported"]
    [:capability/preview-disabled :capability :unavailable "Vol Range preview is disabled"]
    [:capability/account-required :capability :unavailable "Connect an account to plan"]
@@ -166,6 +166,7 @@
    [:plan/usdc-cap-exceeded :plan :invalid "Buys exceed the maximum USDC debit"]
    [:plan/insufficient-usdc :plan :invalid "Not enough available USDC"]
    [:plan/insufficient-base :plan :invalid "Not enough available base asset"]
+   [:plan/insufficient-margin :plan :invalid "Not enough available margin"]
    [:plan/corrective-direction :plan :invalid "Orders move inventory away from the target"]
    [:plan/unbounded-commitment :plan :invalid "Commitment cannot be bounded"]
    [:capability/fee-settlement-unverified :capability :invalid "Fee settlement currency is not verified"]
@@ -192,6 +193,32 @@
 
 (defn error [code data] (entry code data))
 (defn warning [code data] (entry code data))
+
+(defn perp-market?
+  "True for a perp market or scope (base dex or HIP-3)."
+  [market]
+  (= :perp (:market-type market)))
+
+(defn perp-base-id
+  "The synthetic base id of a perp position: \"perp:<coin>\". The coin carries
+  the HIP-3 dex prefix, so it is unique per account."
+  [coin]
+  (when (and (string? coin) (seq coin)) (str "perp:" coin)))
+
+(defn perp-base-id?
+  [x]
+  (and (string? x) (.startsWith x "perp:")))
+
+(defn supported-market?
+  "Delta-one markets quoted in USDC: spot pairs, base-dex perps and HIP-3
+  perps. Outcome markets and other quote tokens are not supported. Accepts
+  an active market ({:market-type :quote}) or a market snapshot
+  ({:market-type :quote-symbol})."
+  [market]
+  (let [quote (or (:quote-symbol market) (:quote market))]
+    (boolean (and (contains? (:market-types capability-matrix) (:market-type market))
+                  (contains? (:quote-symbols capability-matrix)
+                             (some-> quote str .trim .toUpperCase))))))
 
 (defn status-for-errors
   "Plan status for a set of errors: :unavailable beats :invalid; none is :ready."
@@ -300,8 +327,11 @@
 (defn- balance? [b] (exact-keys? b #{:total :hold :available}))
 
 (s/def ::account-snapshot
-  (s/and #(exact-keys? % #{:status :errors :account-address :account-mode :raw-account-mode
-                           :read-only? :base :quote :open-orders :observed-at-ms})
+  ;; `:margin` is present only on perp snapshots.
+  (s/and #(exact-keys? (dissoc % :margin)
+                       #{:status :errors :account-address :account-mode :raw-account-mode
+                         :read-only? :base :quote :open-orders :observed-at-ms})
+         #(nil-or-keys? (:margin %) #{:leverage :type :available :notional-capacity})
          #(or (nil? (:raw-account-mode %)) (string? (:raw-account-mode %)))
          #(contains? #{:ready :invalid :unavailable} (:status %))
          #(or (nil? (:base %)) (balance? (:base %)))

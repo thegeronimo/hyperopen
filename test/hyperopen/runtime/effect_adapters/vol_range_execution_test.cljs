@@ -464,3 +464,37 @@
           (.then (fn [_] (done)))
           (.catch (fail done))
           (.finally (fn [] (set! spot-refresh/refresh-spot-clearinghouse-snapshot! orig-refresh)))))))
+
+(deftest the-venue-leverage-of-a-perp-market-is-read-into-the-store-test
+  (async done
+    (let [owner "0x1234567890abcdef1234567890abcdef12345678"
+          state {:wallet {:address owner}
+                 :active-asset "xyz:NVDA"
+                 :active-market {:coin "xyz:NVDA" :market-type :perp :dex "xyz" :base "NVDA" :quote "USDC"
+                                 :szDecimals 2 :idx 3 :asset-id 110003}}
+          store (atom state)
+          spot-store (atom (assoc state :active-market {:coin "@1" :market-type :spot :base "SYN" :quote "USDC"
+                                                        :szDecimals 2 :idx 1 :asset-id 10001}))
+          calls (atom [])
+          restore (atom nil)
+          original api-state/post-info!]
+      ;; Two arities, like the real one: call sites are compiled to a fixed arity.
+      (set! api-state/post-info! (fn
+                                   ([body] (swap! calls conj body) (js/Promise.resolve nil))
+                                   ([body _opts]
+                                    (swap! calls conj body)
+                                    (js/Promise.resolve {:coin "xyz:NVDA" :markPx "166"
+                                                         :leverage {:type "isolated" :value 7}}))))
+      (reset! restore #(set! api-state/post-info! original))
+      (-> (vre/refresh-perp-asset! store)
+          (.then (fn [_] (vre/refresh-perp-asset! spot-store)))
+          (.then (fn [_]
+                   (is (= [{"type" "activeAssetData" "user" owner "coin" "xyz:NVDA"}] @calls)
+                       "one read for the perp market, none for spot")
+                   (is (= {:account-address owner :coin "xyz:NVDA" :leverage 7 :type :isolated}
+                          (dissoc (get-in @store [:vol-range :perp-asset]) :loaded-at-ms)))
+                   (is (nil? (get-in @spot-store [:vol-range :perp-asset])))
+                   (@restore)
+                   (done)))
+          (.catch (fn [e] (@restore) ((fail done) e)))))))
+

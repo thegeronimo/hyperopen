@@ -172,6 +172,31 @@
     result
     (.then (sync! store) (fn [_] result))))
 
+(defn refresh-perp-asset!
+  "Read the venue's leverage and margin mode for the active perp market
+  (`activeAssetData`) into `[:vol-range :perp-asset]`, so the ticket plans a
+  flat market at the leverage the exchange will use, not at the ticket's own
+  leverage setting. Never rejects; a failed read leaves the store unchanged."
+  [store]
+  (let [state @store
+        account (lower (account-context/active-trading-account-address state))
+        scope (snapshots/current-scope state)
+        coin (:coin scope)]
+    (if-not (and account (contracts/perp-market? scope) (contracts/supported-market? scope) (string? coin))
+      (js/Promise.resolve nil)
+      (-> (api-state/post-info! {"type" "activeAssetData" "user" account "coin" coin}
+                                {:priority :high :cache-ttl-ms 0
+                                 :dedupe-key [:vol-range-perp-asset account coin]})
+          (.then (fn [resp]
+                   (let [lev (when (map? resp) (:leverage resp))]
+                     (when (and (map? lev) (number? (:value lev)) (pos? (:value lev)))
+                       (swap! store assoc-in [:vol-range :perp-asset]
+                              {:account-address account :coin coin :leverage (:value lev)
+                               :type (if (= "isolated" (:type lev)) :isolated :cross)
+                               :loaded-at-ms (platform/now-ms)})))
+                   nil))
+          (.catch (fn [_] nil))))))
+
 (defn- place! [store]
   (let [plan (get-in @store [:vol-range :frozen-review])
         context (get-in @store [:vol-range :frozen-context])
@@ -198,6 +223,10 @@
                                    (and predecessor
                                         (= (:grid-id predecessor) (get-in % [:vol-range :replace :grid-id])))
                                    (assoc-in [:vol-range :replace] nil))))
+                 ;; The exchange's leverage differs from the one planned with:
+                 ;; read it, so the next review shows it.
+                 (when (some #{:guard/leverage-changed} (:errors result))
+                   (refresh-perp-asset! store))
                  (sync-after-send store result))))))
 
 (defn- replace-opts
@@ -229,6 +258,7 @@
         state @store
         account (account-context/active-trading-account-address state)
         scope (snapshots/current-scope state)]
+    (refresh-perp-asset! store)
     (-> (ex/load! deps)
         (.then (fn [{:keys [ok? records error]}]
                  (if-not ok?
@@ -240,7 +270,7 @@
                      (swap! store #(-> (grid-store/merge-account-grids % account (jr/grids records nil))
                                        (assoc-in [:vol-range :campaigns] campaigns)
                                        (assoc-in [:vol-range :campaign-closures] closures)))
-                     (if (and account (= :spot (:market-type scope)))
+                     (if (and account (contracts/supported-market? scope))
                        (ex/recover! deps {:scope scope :scope-key (contracts/scope-key scope)})
                        {:status :ok :grids []})))))
         (.then (fn [{:keys [grids] :as r}]

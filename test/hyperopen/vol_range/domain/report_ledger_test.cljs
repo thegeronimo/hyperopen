@@ -66,5 +66,6 @@
                            (event (assoc fx/builder-fee-row :crossed true))])]
     (is (= {:fills 4 :bought-base "27" :bought-quote "2134.8" :buy-vwap "79.066666666667"
             :sold-base "30" :sold-quote "2652" :sell-vwap "88.4" :maker 3 :taker 1
+            :funding "0" :funding-payments 0
             :fees-by-token {"USDC" "0.4" "VRT" "0.004"}}
            (ledger/activity es)))))

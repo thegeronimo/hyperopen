@@ -75,7 +75,7 @@
   [:campaign-id :campaign-key :campaign-schema-version :accounting-model-version :model-versions :started-by
    :first-operation-id :first-grid-id :t0-ms :supersedes-campaign-id :saved-at-ms])
 (def ^:private scope-keys
-  [:network :account-address :coin :spot-pair-index :base-token-id :quote-token-id :symbol :quote-symbol
+  [:network :account-address :market-type :dex :coin :spot-pair-index :base-token-id :quote-token-id :symbol :quote-symbol
    :sz-decimals])
 (def ^:private baseline-keys [:q0 :p0 :p0-source :p0-bid :p0-ask :p0-observed-at-ms :c0])
 (def ^:private boundary-keys [:barrier-id :requested-at-ms :received-at-ms :skew-ms])
@@ -125,12 +125,14 @@
         token (some-> (get-in c [:scope :base-token-id]) str)
         found (attribution/campaign-findings {:campaign c :ended-at-ms ended
                                               :fills (vals (:fills led)) :updates (vals (:updates led))
+                                              :fundings (vals (:fundings led))
                                               :markets markets :index (:attribution report)
                                               :unreadable (:unreadable report)})
         cov-of (fn [until]
                  (coverage/campaign-coverage {:campaign c
                                               :coverage {:fills (get-in led [:coverage :fills token])
-                                                         :ledger (get-in led [:coverage :ledger token])}
+                                                         :ledger (get-in led [:coverage :ledger token])
+                                                         :funding (get-in led [:coverage :funding token])}
                                               :breaks (:breaks found) :balance-checks (:balance-checks led)
                                               :until-ms until :unreadable (:unreadable found)
                                               :storage-ok? (not (false? (:storage-ok? report)))}))
@@ -152,7 +154,7 @@
                     :closure (some-> (get-in report [:closures (:campaign-id c)]) (pick closure-keys))
                     :coverage (coverage-view (cov-of (if (number? ended) (min ended now-ms) now-ms)))
                     :unreadable (mapv #(pick % [:time :record-id]) (:unreadable found))
-                    :fill-keys (mapv :event-id (:events found))
+                    :fill-keys (mapv :event-id (ledger/fills (:events found)))
                     :activity (ledger/activity (:events found))
                     ;; Headline windows exist only for open campaigns.
                     :windows (if (nil? ended) (mapv (comp window-view window-of) windows/window-ids) [])})}))
@@ -247,7 +249,9 @@
       :orders (orders (:attribution report))
       :fills (fill-entries ctx parts)
       :ledger-updates (->> (vals (:updates led)) (sort-by (juxt :time :record-id)) (mapv #(pick % ledger-update-keys)))
-      :coverage-records (vec (for [stream [:fills :ledger]
+      :funding-payments (->> (vals (:fundings led)) (sort-by (juxt :time :record-id))
+                             (mapv #(pick % [:record-id :time :hash :coin :usdc :szi :funding-rate])))
+      :coverage-records (vec (for [stream [:fills :ledger :funding]
                                    [_ r] (sort-by key (get-in led [:coverage stream]))]
                                (assoc (pick r coverage-record-keys)
                                       :failures (mapv #(pick % failure-keys) (:failures r)))))

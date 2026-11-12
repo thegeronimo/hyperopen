@@ -31,6 +31,11 @@
   []
   {:buy :base :sell :quote})
 
+(defn perp-settlement
+  "Perp fees are charged in the quote (collateral) token on both sides."
+  []
+  {:buy :quote :sell :quote})
+
 (defn fee-capability
   "Normalize a fee quote into a ::fee-capability map. A missing quote or the
   generic display fallback is :unavailable."

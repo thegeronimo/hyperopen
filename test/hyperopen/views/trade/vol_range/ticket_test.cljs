@@ -153,11 +153,11 @@
 
 (deftest mode-control-disables-volatility-range-with-reason-test
   (let [node (ticket/mode-control {:scale-mode :price-range :eligible? false
-                                   :ineligible-reason "Volatility range is available on USDC spot markets."})
+                                   :ineligible-reason "Volatility range is available on USDC spot and perp markets."})
         vol (hiccup/find-by-data-role node "vol-range-mode-volatility-range")]
     (is (= "radiogroup" (get-in (hiccup/find-by-data-role node "vol-range-mode") [1 :role])))
     (is (true? (get-in vol [1 :disabled])))
-    (is (str/includes? (text node) "Volatility range is available on USDC spot markets."))
+    (is (str/includes? (text node) "Volatility range is available on USDC spot and perp markets."))
     (is (= [[:actions/select-scale-mode :price-range]]
            (get-in (hiccup/find-by-data-role node "vol-range-mode-price-range") [1 :on :click])))))
 
@@ -176,15 +176,15 @@
   (with-fees
     (fn []
       (let [state (-> (sf/base-state)
-                      (assoc-in [:active-market :market-type] :perp))
+                      (assoc-in [:active-market :market-type] :outcome))
             model (projections/ticket-model state sf/now-ms)
             html (ticket/vol-range-ticket model)
             t (text html)]
         (is (false? (:eligible? model)))
-        (is (= "Perp" (get-in model [:identity :market-type-label])))
+        (is (= "Outcome" (get-in model [:identity :market-type-label])))
         (is (not (str/includes? t "· Spot")))
         (is (some? (hiccup/find-by-data-role html "vol-range-ticket-ineligible")))
-        (is (str/includes? t "Volatility range is available on USDC spot markets."))
+        (is (str/includes? t "Volatility range is available on USDC spot and perp markets."))
         (is (nil? (hiccup/find-by-data-role html "vol-range-review-open")))
         (is (nil? (hiccup/find-by-data-role html "vol-range-model")))))))
 

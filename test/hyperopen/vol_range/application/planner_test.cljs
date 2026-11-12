@@ -149,7 +149,7 @@
                                              :sell-fee-token nil :settlement-verified? nil :source nil
                                              :loaded-at-ms nil}}))))
   (is (contains? (codes (plan {:fees nil})) :data/fee-quote-unavailable))
-  (is (contains? (codes (plan {:market (fx/market-snapshot {:market-type :perp})})) :capability/market-unsupported))
+  (is (contains? (codes (plan {:market (fx/market-snapshot {:market-type :outcome})})) :capability/market-unsupported))
   (testing "raw account mode allowlist (spec 3.1, 15.2)"
     (doseq [raw ["default" "disabled" "dexAbstraction"]]
       (is (= :ready (:status (plan {:account (fx/account-snapshot {:raw-account-mode raw})}))) raw))

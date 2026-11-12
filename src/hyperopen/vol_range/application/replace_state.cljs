@@ -110,7 +110,14 @@
         (and release? (map? (:quote account))) (update :quote release-hold quote-held)
         (and release? (map? (:base account))) (update :base release-hold base-held)))))
 
-(defn- balances [account] (select-keys account [:base :quote]))
+(defn- balances
+  "What tells one account observation from the next. A perp's available
+  figures are priced at the mid and move with every book tick, so a perp is
+  compared by its position and its venue margin facts."
+  [account]
+  (if-let [margin (:margin account)]
+    {:position (get-in account [:base :total]) :margin (select-keys margin [:available :leverage :type])}
+    (select-keys account [:base :quote])))
 
 (defn account-for-plan
   "The account snapshot the planner should use for the current scope.

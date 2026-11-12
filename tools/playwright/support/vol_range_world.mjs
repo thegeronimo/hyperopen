@@ -314,7 +314,11 @@ export async function seedTicket(page) {
     await debugCall(page, "seedVolRangeFixture");
     await waitForIdle(page);
     await page.waitForTimeout(500);
-    seeded = await heading.isVisible();
+    // The ticket also shows on the default perp market, so the fixture has stuck only once
+    // its own market is the one the ticket names.
+    seeded =
+      (await heading.isVisible()) &&
+      ((await page.locator('[data-role="vol-range-identity"]').first().textContent()) || "").includes("VRT/USDC");
   }
   await expect(heading).toBeVisible({ timeout: 15_000 });
 }

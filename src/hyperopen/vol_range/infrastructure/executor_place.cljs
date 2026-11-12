@@ -79,13 +79,14 @@
     (-> (js/Promise.all
          #js [(reads/read-account-snapshot! (:post-info! deps)
                                             {:account-address (:account-address scope) :barrier-id barrier-id
+                                             :scopes [scope]
                                              :now-ms! (:now-ms! deps)})
               (reads/read-book! (:post-info! deps) {:coin (:coin scope) :barrier-id barrier-id
                                                     :now-ms! (:now-ms! deps)})])
         (.then (fn [arr]
                  (let [[read book] (array-seq arr)]
                    {:read read
-                    :account (snapshots/account-snapshot-from-read scope read live)
+                    :account (snapshots/account-snapshot-from-read scope (reads/with-book-mid read book) live)
                     :input (with-fresh-book (:input live) book)}))))))
 
 (defn- admission-status [{:keys [status value error]}]

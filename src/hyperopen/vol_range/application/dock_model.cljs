@@ -249,6 +249,10 @@
    :reconciliation-required "Checking an earlier placement before placing again."
    :error "Something went wrong."})
 
+(def ^:private leverage-changed-text
+  (str "Nothing was sent: this market's leverage or margin mode on the exchange differs from the one reviewed. "
+       "Set the leverage for this market, then review the ladder again."))
+
 (defn status-message
   "The polite live-region text for the latest operation (spec 11.4)."
   [state]
@@ -266,6 +270,9 @@
         ;; ladder's cancel was confirmed; Refresh balances reads them again.
         (and (= :place op) (= :admission-failed status) (:replacement? last-result))
         replace-model/replacement-admission-text
+
+        (and (= :place op) (some #{:guard/leverage-changed} errors))
+        leverage-changed-text
 
         (contains? #{:repair-preview :repair} op)
         (repair-model/status-message

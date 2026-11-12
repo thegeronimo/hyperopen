@@ -9,6 +9,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.domain.trading.fees :as trading-fees]
             [hyperopen.domain.trading.precision :as precision]
+            [hyperopen.state.trading :as trading]
             [hyperopen.state.trading.fee-context :as fee-context]
             [hyperopen.views.account-info.projections :as account-projections]
             [hyperopen.vol-range.application.freshness :as freshness]
@@ -51,7 +52,8 @@
   "Resolved identity of the active market and account (spec 3.2)."
   [state]
   (let [market (or (:active-market state) {})
-        entry (spot-universe-entry state (:idx market))
+        ;; A perp's :idx is its own universe index, never a spot pair.
+        entry (when-not (contracts/perp-market? market) (spot-universe-entry state (:idx market)))
         [base-token quote-token] (when (sequential? (:tokens entry)) (:tokens entry))]
     {:network (contracts/current-network)
      :owner-address (account-context/owner-address state)
@@ -62,7 +64,11 @@
      :spot-pair-index (:idx market)
      :asset-id (:asset-id market)
      :coin (:coin market)
-     :base-token-id (some-> base-token str)
+     ;; A perp has no token ids: its position is identified by the coin (which
+     ;; carries the HIP-3 dex prefix), as the synthetic base id "perp:<coin>".
+     :base-token-id (if (contracts/perp-market? market)
+                      (contracts/perp-base-id (:coin market))
+                      (some-> base-token str))
      :quote-token-id (some-> quote-token str)
      :symbol (:base market)
      :quote-symbol (:quote market)
@@ -164,8 +170,7 @@
         sz (size-decimals market)
         errors (cond
                  (empty? market) [(contracts/error :data/market-metadata-unavailable {})]
-                 (or (not= :spot (:market-type market))
-                     (not= "USDC" (some-> quote-symbol str str/trim str/upper-case)))
+                 (not (contracts/supported-market? market))
                  [(contracts/error :capability/market-unsupported {})]
                  (nil? sz) [(contracts/error :data/market-metadata-unavailable {})]
                  :else [])
@@ -255,14 +260,85 @@
                    {:oid (str (:oid o)) :side side :price price :remaining remaining}))))
        vec))
 
+(defn- floor-dec [x scale] (precision/quantize x scale :floor))
+
+(defn perp-balances
+  "The ::account-snapshot `:base`, `:quote` and `:margin` of a perp market.
+
+  `:base :total` is the SIGNED position. Margin available is the dex
+  clearinghouse `withdrawable` (the ticket's Available to Trade) and the
+  notional capacity is that times the venue leverage. `:quote :available` is
+  the buy capacity in quote notional; `:base :available` is the sell capacity
+  in base units at `mid` (floored to the lot). Quantity that only reduces the
+  current position needs no margin, so each side's capacity also includes the
+  position it can close. nil balances when `withdrawable`, the leverage or
+  the mid are unknown."
+  [{:keys [position withdrawable leverage leverage-type mid sz-decimals]}]
+  (let [q (or (->dec position) zero)
+        w (some-> (->dec withdrawable) (precision/dec-max zero))
+        lev (->dec leverage)
+        m (->dec mid)]
+    (if-not (and w lev m (precision/pos-dec? lev) (precision/pos-dec? m) (some? sz-decimals))
+      {:base nil :quote nil :margin nil}
+      (let [capacity (floor-dec (precision/mul w lev) 6)
+            long-q (precision/dec-max zero q)
+            short-q (precision/dec-max zero (precision/neg q))
+            sell-base (precision/add long-q (floor-dec (precision/divide capacity m 20 :floor) sz-decimals))
+            buy-quote (precision/add capacity (floor-dec (precision/mul short-q m) 6))]
+        {:base {:total (ds q) :hold "0" :available (ds sell-base)}
+         :quote {:total (ds buy-quote) :hold "0" :available (ds buy-quote)}
+         :margin {:leverage (ds lev)
+                  :type (or leverage-type :cross)
+                  :available (ds w)
+                  :notional-capacity (ds capacity)}}))))
+
+(defn- leverage-type [x]
+  (case (some-> x str str/lower-case)
+    "isolated" :isolated
+    "cross" :cross
+    nil))
+
+(defn- mid-string [bbo]
+  (:price (bbo-mid-anchor bbo)))
+
+(defn- perp-state-balances
+  "`perp-balances` from app state: the active dex's clearinghouse state, the
+  position's own leverage or, while flat, the ticket's leverage setting."
+  [state scope]
+  (let [market (or (:active-market state) {})
+        position (trading/position-for-market state (:coin scope) market)
+        clearinghouse (:clearinghouse (trading/trading-context state))
+        ;; The venue's own leverage for the market: the position's, else the
+        ;; last `activeAssetData` read for this account and coin. Only
+        ;; without either does the ticket's leverage setting stand in; the
+        ;; placement guard then refuses a venue leverage that differs.
+        venue (let [a (get-in state [:vol-range :perp-asset])]
+                (when (and (= (:coin scope) (:coin a))
+                           (= (some-> (:account-address scope) str str/lower-case) (:account-address a)))
+                  a))
+        lev (or (get-in position [:leverage :value])
+                (:leverage venue)
+                (trading/normalize-ui-leverage state (get-in state [:order-form-ui :ui-leverage])))]
+    (if-not (contains? (or clearinghouse {}) :withdrawable)
+      {:base nil :quote nil :margin nil}
+      (perp-balances {:position (or (:szi position) "0")
+                      :withdrawable (:withdrawable clearinghouse)
+                      :leverage lev
+                      :leverage-type (or (leverage-type (get-in position [:leverage :type])) (:type venue))
+                      :mid (mid-string (book-bbo state (:coin scope)))
+                      :sz-decimals (:sz-decimals scope)}))))
+
 (defn account-snapshot
   "::account-snapshot for the active trading account. Without any account the
-  snapshot is :unavailable."
+  snapshot is :unavailable. On a perp market the balances are the signed
+  position and the margin capacity (`perp-balances`)."
   [state now-ms]
   (let [scope (current-scope state)
         address (or (:account-address scope) (account-context/effective-account-address state))
         errors (if address [] [(contracts/error :capability/account-required {})])
-        balances (when address (spot-balances state))]
+        perp? (contracts/perp-market? scope)
+        balances (when (and address (not perp?)) (spot-balances state))
+        perp (when (and address perp?) (perp-state-balances state scope))]
     {:status (if (seq errors) :unavailable :ready)
      :errors errors
      :account-address address
@@ -270,8 +346,11 @@
      :raw-account-mode (let [raw (get-in state [:account :abstraction-raw])]
                          (when (string? raw) (str/trim raw)))
      :read-only? (boolean (account-context/mutations-blocked-message state))
-     :base (when address (find-balance balances (:base-token-id scope) (:symbol scope)))
-     :quote (when address (find-balance balances (:quote-token-id scope) (:quote-symbol scope)))
+     :base (when address
+             (if perp? (:base perp) (find-balance balances (:base-token-id scope) (:symbol scope))))
+     :quote (when address
+              (if perp? (:quote perp) (find-balance balances (:quote-token-id scope) (:quote-symbol scope))))
+     :margin (:margin perp)
      :open-orders (if (and address (:coin scope)) (open-orders state (:coin scope)) [])
      :observed-at-ms now-ms}))
 
@@ -279,18 +358,30 @@
   "::account-snapshot from an awaited raw barrier read
   (`reads/read-account-snapshot!`) instead of app state, for the final
   pre-send guard (spec 8.1 step 8). Raw open orders are used before any
-  optimistic cancel filtering; an incomplete read is :unavailable."
-  [scope {:keys [account-address balances open-orders complete? received-at-ms]}
+  optimistic cancel filtering; an incomplete read is :unavailable. For a perp
+  scope the read's `:perps` entry for the coin ({:position :withdrawable
+  :leverage :leverage-type :mark-px}) gives the balances, priced at the
+  read's `:mid` (a fresh book midpoint the caller adds) or else the venue
+  mark."
+  [scope {:keys [account-address balances open-orders complete? received-at-ms perps mid]}
    {:keys [raw-account-mode read-only?]}]
-  (let [ok? (and complete? (some? account-address))]
+  (let [perp? (contracts/perp-market? scope)
+        perp (get perps (:coin scope))
+        perp-b (when (and complete? perp? perp)
+                 (perp-balances (assoc perp :mid (or mid (:mark-px perp)) :sz-decimals (:sz-decimals scope))))
+        ok? (and complete? (some? account-address)
+                 (or (not perp?) (some? (:base perp-b))))]
     {:status (if ok? :ready :unavailable)
      :errors (if ok? [] [(contracts/error :data/balances-unavailable {})])
      :account-address account-address
      :account-mode nil
      :raw-account-mode raw-account-mode
      :read-only? (boolean read-only?)
-     :base (when ok? (find-balance balances (:base-token-id scope) (:symbol scope)))
-     :quote (when ok? (find-balance balances (:quote-token-id scope) (:quote-symbol scope)))
+     :base (when ok?
+             (if perp? (:base perp-b) (find-balance balances (:base-token-id scope) (:symbol scope))))
+     :quote (when ok?
+              (if perp? (:quote perp-b) (find-balance balances (:quote-token-id scope) (:quote-symbol scope))))
+     :margin (when ok? (:margin perp-b))
      :open-orders (if ok?
                     (->> open-orders
                          (filter #(= (:coin scope) (:coin %)))
@@ -322,6 +413,8 @@
     (vr-fees/fee-capability {:quote (or quote (trading-fees/default-fee-quote))
                              :fallback? (nil? quote)
                              :loaded-at-ms (epoch-ms (get-in state [:portfolio :user-fees-loaded-at-ms]))
-                             :settlement (vr-fees/live-spot-settlement)
-                             :settlement-verified? false
+                             :settlement (if (contracts/perp-market? (:active-market state))
+                                           (vr-fees/perp-settlement)
+                                           (vr-fees/live-spot-settlement))
+                             :settlement-verified? (contracts/perp-market? (:active-market state))
                              :source :user-fees})))

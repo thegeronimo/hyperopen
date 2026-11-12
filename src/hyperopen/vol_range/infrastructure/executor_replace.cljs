@@ -21,6 +21,7 @@
     (-> (reads/read-account-snapshot! (:post-info! deps)
                                       {:account-address (:account-address scope)
                                        :barrier-id ((:random-id! deps) "rb")
+                                       :scopes [scope]
                                        :now-ms! (:now-ms! deps)})
         (.then (fn [read]
                  (if-not (:complete? read)

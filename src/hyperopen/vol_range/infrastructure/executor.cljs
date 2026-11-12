@@ -210,6 +210,7 @@
         (.then (fn [g]
                  (-> (reads/read-account-snapshot! (:post-info! deps)
                                                    {:account-address (account-of g) :barrier-id barrier-id
+                                                    :scopes [(:scope g)]
                                                     :now-ms! (:now-ms! deps)})
                      (.then (fn [snap]
                               (let [g (cond-> (evidence/apply-orders-snapshot g snap)
@@ -253,6 +254,7 @@
                           (reads/read-account-snapshot! (:post-info! deps)
                                                         {:account-address (:account-address scope)
                                                          :barrier-id ((:random-id! deps) "rb")
+                                                         :scopes [scope]
                                                          :now-ms! (:now-ms! deps)})))
                  ;; Re-read the journal AFTER the snapshot, so a grid another tab
                  ;; committed meanwhile is never mistaken for recovered orders.

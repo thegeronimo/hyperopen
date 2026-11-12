@@ -267,13 +267,13 @@
       (is (vrc/ticket-model-valid? m))))
   (testing "other order types"
     (is (false? (:visible? (ticket (assoc-in (sf/base-state) [:order-form :type] :limit))))))
-  (testing "perp market is ineligible with the documented reason"
-    (let [state (assoc (sf/base-state) :active-market {:coin "BTC" :market-type :perp :base "BTC"
-                                                       :quote "USDC" :szDecimals 5})
+  (testing "an outcome market is ineligible with the documented reason"
+    (let [state (assoc (sf/base-state) :active-market {:coin "#12" :market-type :outcome :base "YES"
+                                                       :quote "USDC" :szDecimals 0})
           m (ticket state)]
       (is (true? (:visible? m)))
       (is (false? (:eligible? m)))
-      (is (= "Volatility range is available on USDC spot markets." (:eligibility-reason m)))
+      (is (= "Volatility range is available on USDC spot and perp markets." (:eligibility-reason m)))
       (is (= :unavailable (:status m)))
       (is (vrc/ticket-model-valid? m) (pr-str m))))
   (testing "read-only accounts are flagged"

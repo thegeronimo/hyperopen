@@ -69,10 +69,12 @@
 (defn checked-through
   "Where both streams' complete coverage ends (the earlier of the two last
   complete ends), or nil when either stream was never read completely."
-  [{:keys [fills] ledger-cov :ledger}]
+  [{:keys [fills] ledger-cov :ledger :as records}]
   (let [end (fn [r] (some-> (:complete r) last second))
-        a (end fills) b (end ledger-cov)]
-    (when (and (number? a) (number? b)) (min a b))))
+        ;; A perp campaign's records also carry its funding stream.
+        ends (cond-> [(end fills) (end ledger-cov)]
+               (contains? records :funding) (conj (end (:funding records))))]
+    (when (every? number? ends) (apply min ends))))
 
 (defn- break-context
   "Names for the break text: the base symbol, and the pair, ledger type or
@@ -122,7 +124,11 @@
      :sold (str (qty-text (:sold-base a) sym) " · " (display/fixed (:sold-quote a) 2) " " quote-sym)
      :sell-vwap (or (price-text (:sell-vwap a)) "—")
      :maker-taker (str (:maker a) " / " (:taker a))
-     :fees (fees-text (:fees-by-token a))}))
+     :fees (fees-text (:fees-by-token a))
+     ;; Signed perp funding (negative = paid); a spot market has none.
+     :funding (if (coverage/perp-campaign? c)
+                (str (:display (headline/usdc-text (:funding a))) )
+                "—")}))
 
 (defn- baseline-view [c]
   (let [{:keys [q0 p0]} (:baseline c)]
@@ -144,9 +150,12 @@
      :ended ended
      :found (attribution/campaign-findings {:campaign c :ended-at-ms ended
                                             :fills (vals (:fills led)) :updates (vals (:updates led))
+                                            :fundings (vals (:fundings led))
                                             :markets markets :index (:attribution report)
                                             :unreadable (:unreadable report)})
-     :records {:fills (get-in led [:coverage :fills token]) :ledger (get-in led [:coverage :ledger token])}}))
+     :records (cond-> {:fills (get-in led [:coverage :fills token])
+                       :ledger (get-in led [:coverage :ledger token])}
+                (coverage/perp-campaign? c) (assoc :funding (get-in led [:coverage :funding token])))}))
 
 (defn- coverage-until [report {:keys [campaign found records]} until]
   (coverage/campaign-coverage {:campaign campaign :coverage records :breaks (:breaks found)

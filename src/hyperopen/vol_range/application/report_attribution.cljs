@@ -18,7 +18,12 @@
   - any of these, or a fill of an order admitted before the baseline, inside
     the skew-widened inception boundary (`:break/ambiguous-boundary`).
 
-  Perp and HIP-3 coins are never relevant. Events before `T0 - skew` are in
+  A perp campaign tracks the SIGNED position of its coin (base id
+  \"perp:<coin>\", HIP-3 coins carry their dex prefix): a fill of that coin no
+  tracked ladder owns is a `:break/untracked-same-base-trade` (a liquidation
+  is such a fill), no other market or ledger transfer can change it, and its
+  funding payments are cash events of the campaign. Outcome coins are never
+  relevant. Events before `T0 - skew` are in
   `q0`. A break suppresses dollar figures from `max(t, T0)` onward.
   Classification uses only persisted identity (never maker status). Pure."
   (:require [clojure.string :as str]
@@ -108,13 +113,29 @@
           (when (and b q)
             {:coin coin :pair-index nil :base-token-id b :quote-token-id q :base-symbol bn :quote-symbol qn})))))
 
+(defn perp-coin?
+  "A perp coin: a plain name (\"BTC\") or a HIP-3 \"dex:COIN\". Spot coins
+  (\"@index\", \"BASE/QUOTE\") and outcome coins (\"#n\", \"+n\") are not."
+  [coin]
+  (boolean (and (string? coin) (seq (str/trim coin)) (not (spot-coin? coin))
+                (not (re-find #"^[#+]" coin)))))
+
+(defn- perp-market [coin]
+  (let [id (contracts/perp-base-id coin)]
+    {:coin coin :pair-index nil :base-token-id id :quote-token-id nil
+     :base-symbol (last (str/split coin #":" 2)) :quote-symbol nil}))
+
 (defn classify-fill
-  "{:status :ignored} for a non-spot coin, {:status :unknown-market} for a
-  spot coin the metadata cannot resolve, else {:status :spot :market {...}
-  :token-ids #{b q} :attribution entry-or-nil}."
+  "{:status :ignored} for an outcome coin, {:status :perp :market {...}
+  :token-ids #{\"perp:<coin>\"} :attribution entry-or-nil} for a perp coin,
+  {:status :unknown-market} for a spot coin the metadata cannot resolve, else
+  {:status :spot :market {...} :token-ids #{b q} :attribution entry-or-nil}."
   [markets index fill]
   (let [coin (:coin fill)]
     (cond
+      (perp-coin? coin) (let [m (perp-market coin)]
+                          {:status :perp :market m :token-ids #{(:base-token-id m)}
+                           :attribution (attribution-for index fill)})
       (not (spot-coin? coin)) {:status :ignored}
       :else (if-let [m (resolve-market markets coin)]
               {:status :spot :market m
@@ -128,7 +149,7 @@
   [classification token-ids]
   (case (:status classification)
     :unknown-market (boolean (seq token-ids))
-    :spot (boolean (some (set token-ids) (:token-ids classification)))
+    (:spot :perp) (boolean (some (set token-ids) (:token-ids classification)))
     false))
 
 (defn unparsed-fill-token-ids
@@ -143,8 +164,9 @@
       tokens
       (let [c (classify-fill markets nil {:coin coin})]
         (case (:status c)
-          :unknown-market tokens
-          :spot (into #{} (filter (:token-ids c)) tokens)
+          ;; An unresolved spot market cannot be a perp position.
+          :unknown-market (into #{} (remove contracts/perp-base-id?) tokens)
+          (:spot :perp) (into #{} (filter (:token-ids c)) tokens)
           #{})))))
 
 ;; ---------------------------------------------------------------------------
@@ -242,6 +264,41 @@
              second)))))
 
 ;; ---------------------------------------------------------------------------
+;; Funding
+;; ---------------------------------------------------------------------------
+
+(defn unparsed-funding-row?
+  "True when a `userFunding` row cannot be read as a funding payment."
+  [row]
+  (let [delta (:delta row)]
+    (not (and (number? (:time row)) (map? delta) (string? (:coin delta))
+              (some? (re-matches #"-?\d+(\.\d+)?" (str (:usdc delta))))))))
+
+(defn funding-records
+  "[record] for one venue `userFunding` row ({:time :hash :delta {:type
+  \"funding\" :coin :usdc :szi :fundingRate}}) of `account-address` when its
+  coin is a tracked perp position (`tracked`, a set of base ids), else []."
+  [{:keys [tracked account-address row now-ms]}]
+  (let [account (lower account-address)
+        delta (:delta row)
+        coin (:coin delta)
+        id (contracts/perp-base-id coin)]
+    (if (or (unparsed-funding-row? row) (nil? account) (not (contains? (set tracked) id)))
+      []
+      [{:schema-version contracts/ledger-schema-version
+        :record-id (str "funding:" account "|" (:time row) "|" (:hash row) "|" coin)
+        :kind :ledger-funding
+        :account-address account
+        :time (:time row)
+        :hash (:hash row)
+        :coin coin
+        :base-token-id id
+        :usdc (str (:usdc delta))
+        :szi (some-> (:szi delta) str)
+        :funding-rate (some-> (:fundingRate delta) str)
+        :saved-at-ms now-ms}])))
+
+;; ---------------------------------------------------------------------------
 ;; Unreadable stored rows
 ;; ---------------------------------------------------------------------------
 
@@ -264,7 +321,10 @@
       "fill" (let [[_ _ coin time] parts
                    c (when (seq coin) (classify-fill markets nil {:coin coin}))]
                (assoc base :kind :fill :time (int-or-nil time)
-                      :token-ids (case (:status c) :ignored #{} :spot (:token-ids c) :any)))
+                      :token-ids (case (:status c) :ignored #{} (:spot :perp) (:token-ids c) :any)))
+      "funding" (let [[_ time _ coin] parts]
+                  (assoc base :kind :funding :time (int-or-nil time)
+                         :token-ids (if (seq coin) #{(contracts/perp-base-id coin)} :any)))
       "ledger" (let [[_ time _ _ symbol] parts
                      token (get-in markets [:token-ids (ledger/token-name symbol)])]
                  (assoc base :kind :ledger-update :time (int-or-nil time) :token-ids (if token #{token} :any)))
@@ -299,7 +359,7 @@
   complete from there on. A tracked fill inside the inception boundary is a
   break and stays in `:events` (activity), except before T0 of a campaign
   that superseded another one, whose interval already holds it."
-  [{:keys [campaign ended-at-ms fills updates markets index unreadable]}]
+  [{:keys [campaign ended-at-ms fills updates fundings markets index unreadable]}]
   (let [scope (:scope campaign)
         base-id (some-> (:base-token-id scope) str)
         k (:campaign-key campaign)
@@ -320,13 +380,15 @@
                 c (classify-fill markets index fill)]
             (when (in-campaign? t)
               (case (:status c)
-                :unknown-market {:break (brk t :break/unknown-market-fill :fill (:fill-key fill))}
-                :spot
+                :unknown-market (when-not (contracts/perp-base-id? base-id)
+                                  {:break (brk t :break/unknown-market-fill :fill (:fill-key fill))})
+                (:spot :perp)
                 (when (contains? (:token-ids c) base-id)
                   (let [att (:attribution c)
                         m (:market c)
                         same-pair? (and (= base-id (:base-token-id m))
-                                        (= (:spot-pair-index scope) (:pair-index m)))
+                                        (or (= :perp (:status c))
+                                            (= (:spot-pair-index scope) (:pair-index m))))
                         tracked? (and att (not (:recovered? att)) (= k (:campaign-key att)) same-pair?)
                         early? (or (< t t0)
                                    (and (ambiguous? t)
@@ -368,11 +430,21 @@
           (let [t (:time u)
                 found {:time (if (number? t) (max t start) start) :record-id (:record-id u)}]
             (case (:kind u)
-              (:fill :ledger-update) (when (and (unreadable-touches? u base-id) (or (nil? t) (in-campaign? t))) found)
+              (:fill :ledger-update :funding)
+              (when (and (unreadable-touches? u base-id) (or (nil? t) (in-campaign? t))) found)
               :coverage (when (unreadable-touches? u base-id) found)
               :balance-check (when (= (:campaign-id u) (:campaign-id campaign)) found)
               found)))
-        found (concat (keep fill-finding fills) (keep update-finding updates))]
+        ;; Funding from T0 on is the campaign's cash; earlier payments belong
+        ;; to the time before the baseline.
+        funding-finding
+        (fn [f]
+          (let [t (:time f)]
+            (when (and (= base-id (some-> (:base-token-id f) str)) (number? t) (>= t t0)
+                       (or (not (number? ended-at-ms)) (< t ended-at-ms)))
+              (when-let [e (ledger/funding-event f {:campaign-id (:campaign-id campaign)})]
+                {:event e}))))
+        found (concat (keep fill-finding fills) (keep update-finding updates) (keep funding-finding fundings))]
     {:events (ledger/events (keep :event found))
      :breaks (vec (sort-by (juxt :at-ms :time #(str (:event-id %))) (keep :break found)))
      :unreadable (vec (sort-by (juxt :time #(str (:record-id %)))

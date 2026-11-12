@@ -88,6 +88,8 @@
   [campaigns]
   (into #{} (keep base-token) (vals campaigns)))
 
+(defn- perp-tokens [tokens] (into #{} (filter contracts/perp-base-id?) tokens))
+
 (defn- heal-from
   "The earliest venue time of a stored `kind` row (:fill or :ledger-update)
   that no longer decodes and could concern a tracked token, or nil. Reading
@@ -102,10 +104,14 @@
 
 (defn- start-for [deps loaded markets tokens stream]
   (let [overlap (policy :fills-overlap-ms)
-        start (coverage/read-start {:campaigns (:campaigns loaded) :closures (:closures loaded)
+        ;; Only the campaigns of `tokens` need this stream (funding is read
+        ;; for perp positions only).
+        start (coverage/read-start {:campaigns (into {} (filter #(contains? tokens (base-token (val %))))
+                                                     (:campaigns loaded))
+                                    :closures (:closures loaded)
                                     :coverage (get-in loaded [:ledger :coverage stream])
                                     :overlap overlap :now-ms (now deps)})
-        heal (heal-from loaded markets tokens (if (= :fills stream) :fill :ledger-update))]
+        heal (heal-from loaded markets tokens (case stream :fills :fill :funding :funding :ledger-update))]
     (if (number? heal) (min start (max 0 (- heal overlap))) start)))
 
 (defn- earliest-by-token
@@ -156,6 +162,22 @@
          (reduce (fn [acc r] (assoc acc (:record-id r) r)) {})
          vals vec)))
 
+(defn- unparsed-fundings [tokens read start]
+  (earliest-by-token
+   (for [row (:rows read)
+         :when (attribution/unparsed-funding-row? row)]
+     [tokens (if (number? (:time row)) (:time row) start)])))
+
+(defn- new-funding-records [deps loaded tokens read]
+  (let [at (now deps)
+        known (:fundings (:ledger loaded))]
+    (->> (:rows read)
+         (mapcat #(attribution/funding-records {:tracked tokens :account-address (:account-address loaded)
+                                                :row % :now-ms at}))
+         (remove #(contains? known (:record-id %)))
+         (reduce (fn [acc r] (assoc acc (:record-id r) r)) {})
+         vals vec)))
+
 (defn- evaluate-checks! [deps loaded markets fills-read]
   (let [{:keys [campaigns closures ledger]} loaded
         checks (:balance-checks ledger)
@@ -169,6 +191,7 @@
                               (attribution/campaign-findings
                                {:campaign c :ended-at-ms (get-in closures [(:campaign-id c) :ended-at-ms])
                                 :fills (vals (:fills ledger)) :updates (vals (:updates ledger))
+                                :fundings (vals (:fundings ledger))
                                 :markets markets :index (:attribution loaded) :unreadable (:unreadable loaded)}))
                       evaluated (coverage/evaluate-balance-check
                                  check
@@ -195,6 +218,8 @@
     (-> loaded
         (update-in [:ledger :fills] merge (:fills g))
         (update-in [:ledger :updates] merge (:updates g))
+        (update-in [:ledger :fundings] merge (:fundings g))
+        (update-in [:ledger :coverage :funding] merge (get-in g [:coverage :funding]))
         (update-in [:ledger :coverage :fills] merge (get-in g [:coverage :fills]))
         (update-in [:ledger :coverage :ledger] merge (get-in g [:coverage :ledger]))
         (update-in [:ledger :balance-checks]
@@ -204,10 +229,12 @@
   "Why this backfill confirmed less than it read for, or nil: a fills or
   ledger read that did not complete, rows that could not be read, or fills
   the venue no longer serves."
-  [{:keys [fills ledger-read unparsed deltas]}]
+  [{:keys [fills ledger-read funding-read unparsed deltas]}]
   (cond
     (not (:complete? fills)) (or (:error fills) "the fills read did not complete")
     (not (:complete? ledger-read)) (or (:error ledger-read) "the account updates read did not complete")
+    (and funding-read (not (:complete? funding-read)))
+    (or (:error funding-read) "the funding payments read did not complete")
     (some seq (vals unparsed)) "some fills or account updates couldn't be read"
     (some #(= :coverage/retention (get-in % [:failure :reason])) deltas)
     "the venue keeps only its most recent 10,000 fills"
@@ -217,10 +244,12 @@
   (let [account (:account-address loaded)
         tokens (tracked-base-tokens (:campaigns loaded))
         read-id ((:random-id! deps) "rpt")
+        perps (perp-tokens tokens)
         open (remove #(contains? (:closures loaded) (:campaign-id %)) (vals (:campaigns loaded)))
         state (atom {})]
     (-> (reads/read-account-snapshot! (:post-info! deps)
                                       {:account-address account :barrier-id ((:random-id! deps) "rb")
+                                       :scopes (map :scope open)
                                        :now-ms! (:now-ms! deps)})
         (.then (fn [snap]
                  (swap! state assoc :snapshot snap)
@@ -245,22 +274,40 @@
                                                       :start-ms start :end-ms (now deps) :now-ms! (:now-ms! deps)}))))
         (.then (fn [ledger-read]
                  (swap! state assoc :ledger-read ledger-read)
-                 (let [fills (:fills @state)
-                       records (into (new-fill-records deps loaded markets tokens fills)
-                                     (new-update-records deps loaded markets tokens ledger-read))]
+                 ;; Funding exists only for perp positions.
+                 (when (seq perps)
+                   (let [start (start-for deps loaded markets perps :funding)]
+                     (swap! state assoc :funding-start start)
+                     (report-reads/read-funding-window! (:post-info! deps)
+                                                        {:account-address account :read-id read-id
+                                                         :start-ms start :end-ms (now deps)
+                                                         :now-ms! (:now-ms! deps)})))))
+        (.then (fn [funding-read]
+                 (swap! state assoc :funding-read funding-read)
+                 (let [{:keys [fills ledger-read]} @state
+                       records (-> (new-fill-records deps loaded markets tokens fills)
+                                   (into (new-update-records deps loaded markets tokens ledger-read))
+                                   (into (when funding-read
+                                           (new-funding-records deps loaded perps funding-read))))]
                    (swap! state assoc :records records)
                    ((get-in deps [:ledger :put-records!]) records))))
         (.then (fn [_]
-                 (let [{:keys [fills ledger-read fills-start ledger-start]} @state
+                 (let [{:keys [fills ledger-read funding-read fills-start ledger-start funding-start]} @state
                        unparsed {:fills (unparsed-fills deps loaded markets tokens fills fills-start)
-                                 :ledger (unparsed-updates tokens ledger-read ledger-start)}
-                       deltas (into (coverage/fills-read->coverage {:read fills :start-ms fills-start
-                                                                    :base-token-ids tokens :network (:network deps)
-                                                                    :account-address account
-                                                                    :unparsed (:fills unparsed)})
-                                    (coverage/ledger-read->coverage {:read ledger-read :start-ms ledger-start
-                                                                     :base-token-ids tokens
-                                                                     :unparsed (:ledger unparsed)}))]
+                                 :ledger (unparsed-updates tokens ledger-read ledger-start)
+                                 :funding (when funding-read
+                                            (unparsed-fundings perps funding-read funding-start))}
+                       deltas (-> (coverage/fills-read->coverage {:read fills :start-ms fills-start
+                                                                  :base-token-ids tokens :network (:network deps)
+                                                                  :account-address account
+                                                                  :unparsed (:fills unparsed)})
+                                  (into (coverage/ledger-read->coverage {:read ledger-read :start-ms ledger-start
+                                                                         :base-token-ids tokens
+                                                                         :unparsed (:ledger unparsed)}))
+                                  (into (when funding-read
+                                          (coverage/funding-read->coverage
+                                           {:read funding-read :start-ms funding-start
+                                            :base-token-ids perps :unparsed (:funding unparsed)}))))]
                    (swap! state assoc :unparsed unparsed :deltas deltas)
                    ((get-in deps [:ledger :merge-coverage!]) account deltas (now deps)))))
         (.then (fn [merged]
@@ -280,7 +327,10 @@
                                        :fills {:complete? (boolean (:complete? fills)) :rows (count (:rows fills))
                                                :reason (:reason fills)}
                                        :ledger {:complete? (boolean (:complete? ledger-read))
-                                                :rows (count (:rows ledger-read)) :reason (:reason ledger-read)}}}))))))
+                                                :rows (count (:rows ledger-read)) :reason (:reason ledger-read)}
+                                       :funding (when-let [f (:funding-read st)]
+                                                  {:complete? (boolean (:complete? f))
+                                                   :rows (count (:rows f)) :reason (:reason f)})}}))))))
         (.catch (fn [e]
                   ;; Reads never reject, so a rejection here is a storage failure.
                   {:status (if (contains? @state :snapshot) :storage/unavailable :error)

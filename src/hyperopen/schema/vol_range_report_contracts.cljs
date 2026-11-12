@@ -44,6 +44,9 @@
 (def ledger-update-record-keys
   #{:schema-version :record-id :kind :account-address :time :hash :delta-type :token :base-token-id :amount
     :classification :raw-delta :saved-at-ms})
+(def ledger-funding-record-keys
+  #{:schema-version :record-id :kind :account-address :time :hash :coin :base-token-id :usdc :szi
+    :funding-rate :saved-at-ms})
 (def coverage-record-keys
   #{:schema-version :record-id :kind :account-address :stream :base-token-id :complete :failures :saved-at-ms})
 
@@ -51,7 +54,9 @@
   (and (exact-keys? r campaign-record-keys)
        (= :campaign (:kind r))
        (contains? #{:first-placement :user-restart} (:started-by r))
-       (exact-keys? (:scope r) campaign-scope-keys)
+       ;; `:market-type` and `:dex` are recorded since perps are supported;
+       ;; older (spot) campaigns have neither.
+       (exact-keys? (dissoc (:scope r) :market-type :dex) campaign-scope-keys)
        (exact-keys? (:baseline r) baseline-keys)
        (exact-keys? (get-in r [:baseline :boundary]) boundary-keys)
        (contains? #{:book-midpoint :unavailable} (get-in r [:baseline :p0-source]))
@@ -70,6 +75,7 @@
   (case (:kind r)
     :ledger-fill (exact-keys? r ledger-fill-record-keys)
     :ledger-update (exact-keys? r ledger-update-record-keys)
+    :ledger-funding (exact-keys? r ledger-funding-record-keys)
     :coverage (exact-keys? r coverage-record-keys)
     :balance-check (map? r)
     false))
@@ -99,7 +105,7 @@
     :restart})
 (def coverage-keys #{:state :label :icon :detail :intervals})
 (def interval-keys #{:from-ms :to-ms :state :text})
-(def activity-keys #{:market :fills :bought :buy-vwap :sold :sell-vwap :maker-taker :fees})
+(def activity-keys #{:market :fills :bought :buy-vwap :sold :sell-vwap :maker-taker :fees :funding})
 (def restart-keys #{:visible? :confirming? :busy?})
 
 (def coverage-states #{:complete :partial :gap :attribution-break :unavailable})

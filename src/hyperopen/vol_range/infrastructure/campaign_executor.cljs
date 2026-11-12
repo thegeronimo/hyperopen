@@ -72,20 +72,22 @@
       (.then (fn [_] ((get-in deps [:journal :commit!]) records)))
       (.then (fn [_] {:ok? true}) (fn [e] {:ok? false :error (error-text e)}))))
 
-(defn- barrier! [deps account coin]
+(defn- barrier! [deps account scope]
   (let [barrier-id ((:random-id! deps) "rb")]
     (-> (js/Promise.all
          #js [(reads/read-account-snapshot! (:post-info! deps)
                                             {:account-address account :barrier-id barrier-id
+                                             :scopes [scope]
                                              :now-ms! (:now-ms! deps)})
-              (reads/read-book! (:post-info! deps) {:coin coin :barrier-id barrier-id :now-ms! (:now-ms! deps)})])
+              (reads/read-book! (:post-info! deps) {:coin (:coin scope) :barrier-id barrier-id :now-ms! (:now-ms! deps)})])
         (.then (fn [arr] (let [[read book] (array-seq arr)] {:read read :book book}))))))
 
 (defn- successor-for [deps previous {:keys [read book]}]
   (campaign/baseline-record
    {:campaign-id ((:random-id! deps) "cmp")
-    ;; A campaign's scope is always a spot USDC pair (its key says so).
-    :scope (assoc (:scope previous) :market-type :spot)
+    ;; Campaigns recorded before perps were supported have no market type:
+    ;; they are spot.
+    :scope (update (:scope previous) :market-type #(or % :spot))
     :read read
     :bbo (select-keys book [:bid :ask :observed-at-ms])
     :started-by :user-restart
@@ -106,7 +108,7 @@
          (seq blockers) {:status :refused :errors blockers}
          :else
          (.then
-          (barrier! deps account (get-in previous [:scope :coin]))
+          (barrier! deps account (:scope previous))
           (fn [{:keys [read book] :as reads}]
             (let [successor (when (and (:complete? read) (:complete? book)) (successor-for deps previous reads))]
               (cond

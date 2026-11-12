@@ -48,7 +48,9 @@ This specification replaces the mathematical, execution, and placement assumptio
 
 **Release B adds analytical reporting:** cross-asset health, campaign accounting, coverage-aware P&L, a holding comparison, execution exports, and descriptive cycle statistics. Capture the necessary manifests and fills during Release A so this can be added without fabricating earlier history.
 
-**Later extensions require their own capability gates:** perpetuals, short inventory, unified or portfolio-margin buying power, non-USDC quotes, automatic funding or weekend adjustments, and the Spectate volatility lens. They are not implicit consequences of a generic market flag.
+**Perpetuals (amendment 2026-11-12, section 3.4):** USDC-quoted base-dex and HIP-3 perps are admitted with their own account, margin, fee and reporting rules.
+
+**Later extensions require their own capability gates:** unified or portfolio-margin buying power, non-USDC quotes, outcome markets, automatic funding or weekend adjustments, and the Spectate volatility lens. They are not implicit consequences of a generic market flag.
 
 No new top-level route is required. Keep the Portfolio optimizer’s existing route family and implementation independent.
 
@@ -209,6 +211,17 @@ Transfer a pending reservation into venue-held or settled accounting only when a
 If other spot pairs use the base token as a quote currency, or conditional/automated orders have exposure that the adapter cannot bound, block the affected plan with a specific remediation. Do not infer that “no visible limit orders” means no commitments.
 
 The one-grid rule is enforced within the coordinated application and against observed exchange state. Browser-only storage cannot provide a globally atomic lock across independently submitting devices. Recheck before placement; discover and surface conflicts without claiming stronger exclusivity.
+
+### 3.4 Perpetual markets (amendment 2026-11-12)
+
+Sections 3.1 to 3.3 describe spot pairs. A plan is also executable on a perp market (the first perp dex or a HIP-3 dex) whose quote is USDC, under these rules. Outcome markets and non-USDC quotes stay blocked. The raw account-mode allowlist of 3.1 applies unchanged.
+
+- **Identity.** `:market-type :perp`, `:dex` (nil for the first dex) and `:coin` (HIP-3 coins carry the dex prefix, `xyz:NVDA`) identify the market. There are no token ids: the base id is the synthetic `perp:<coin>`. The campaign key is `network|account|perp|<coin>|`.
+- **Inventory is the signed position.** `q` is the position size (`szi`); a sell ladder from flat opens a short. Protected core ("Keep at least") defaults to no limit and may be negative; the maximum may be any number. With tilt on and no protected core, the lower bound mirrors the maximum around the target.
+- **Funding is margin, not cash.** Margin available is the dex clearinghouse `withdrawable`; notional capacity is that times the venue's leverage for the asset (the position's leverage, or `activeAssetData` in the barrier read; the ticket's leverage setting stands in while flat, before review). Buy capacity is the capacity plus the notional of the short the buys can cover; sell capacity is the long plus the capacity in base units at the mid. The planner also checks the quote notional of the sells that open or add to a short against the capacity, because they rest above the mid. Each side is checked on its own. Leverage and margin mode are never changed as a pre-action. The venue remains the final arbiter; a leg it rejects follows the per-leg lifecycle of section 8.
+- **Fees** settle in the quote token on both sides; base fee bounds are zero.
+- **Reads.** The barrier read adds the dex `clearinghouseState` and the coin's `activeAssetData`, and reads `frontendOpenOrders` for the market's dex (the venue returns one dex per request).
+- **Reporting.** A fill of the coin that no tracked ladder owns (a manual trade, a liquidation) is an attribution break. No other market and no ledger transfer changes the position. `userFunding` payments from T0 on are cash events of the campaign, read and covered as a third stream; they are counted in the ladder contribution, and Hold P&L excludes the funding the held position would have paid. Balance checks compare the reconstructed position with `szi`.
 
 ## 4 Ticket and review behavior
 

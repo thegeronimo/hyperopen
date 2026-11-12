@@ -119,10 +119,12 @@
 (defn- sellable-excess
   "Largest lot multiple `x` with x + base fee bound(x) inside both the room above
   protected core (after existing sells) and the available base (spec 4.2)."
-  [{:keys [q s-existing core available-base sz fee-f]}]
-  (when (and q available-base core sz)
-    (let [room (precision/dec-max zero (precision/dec-min available-base
-                                                          (precision/sub (precision/sub q s-existing) core)))]
+  [{:keys [q s-existing core available-base sz fee-f signed?]}]
+  (when (and q available-base sz (or core signed?))
+    (let [room (precision/dec-max zero (if core
+                                         (precision/dec-min available-base
+                                                            (precision/sub (precision/sub q s-existing) core))
+                                         available-base))]
       (if-not fee-f
         (precision/quantize room sz :floor)
         (let [lot (precision/lots->decimal 1 sz)
@@ -133,6 +135,44 @@
             (cond (not (pos? (precision/cmp x zero))) zero
                   (fits? x) x
                   :else (recur (precision/sub x lot)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Perp margin
+;; ---------------------------------------------------------------------------
+
+(def ^:private funds-code->side
+  {:plan/insufficient-usdc :buy :plan/insufficient-base :sell})
+
+(defn- margin-errors
+  "On a perp the buy and sell capacities are margin capacities, so a funds
+  shortfall on either side is reported as one `:plan/insufficient-margin`
+  per side."
+  [errors]
+  (->> errors
+       (map (fn [e]
+              (if-let [side (funds-code->side (:code e))]
+                (contracts/error :plan/insufficient-margin (assoc (:data e) :side side))
+                e)))
+       (reduce (fn [[seen out] e]
+                 (let [k (when (= :plan/insufficient-margin (:code e)) (get-in e [:data :side]))]
+                   (if (and k (contains? seen k)) [seen out] [(cond-> seen k (conj k)) (conj out e)])))
+               [#{} []])
+       second))
+
+(defn- perp-sell-margin-errors
+  "The base-unit sell capacity is priced at the mid, but sells rest above
+  it. Check the quote notional of the sell quantity that opens or adds to a
+  short (prorated by quantity; closing a long needs no margin), plus the
+  quote fee bound, against the margin notional capacity."
+  [{:keys [q sell-legs sell-total reserve margin]}]
+  (when (and margin (precision/pos-dec? sell-total))
+    (let [capacity (d (:notional-capacity margin))
+          opening (precision/dec-max zero (precision/sub sell-total (precision/dec-max zero q)))
+          notional (precision/divide (precision/mul (sum-by sell-legs :notional) opening) sell-total 8 :ceil)
+          fee (if (= :quote (:token reserve)) (d (:amount reserve)) zero)
+          required (precision/add notional fee)]
+      (when (and (precision/pos-dec? opening) (pos? (precision/cmp required capacity)))
+        [(contracts/error :plan/insufficient-base {:required (ds required) :available (ds capacity)})]))))
 
 ;; ---------------------------------------------------------------------------
 ;; Totals
@@ -236,7 +276,9 @@
   [{:keys [plan-id scope draft market account fees capabilities model-version precision-version] :as input}]
   (let [caps (merge contracts/capability-matrix {:preview? true} capabilities)
         market (or market {})
-        {:keys [resolved errors]} (admission/validate-inputs draft contracts/product-policy)
+        perp? (contracts/perp-market? market)
+        {:keys [resolved errors]} (admission/validate-inputs
+                                   draft (cond-> contracts/product-policy perp? (assoc :signed-inventory? true)))
         cap-f (capability-findings caps market account)
         account-ok? (and account (:base account) (:quote account) (some? (:account-address account)))
         sz (:sz-decimals market)
@@ -264,7 +306,9 @@
                       (and t limits-quote? maximum) (precision/dec-min maximum)))
         ;; Defaults: protected core 0 (sells may use all holdings), no
         ;; maximum, target = current holdings kept within the limits.
-        core (or core-in zero)
+        ;; A perp position is signed: without a protected core there is no
+        ;; lower limit, and sells may open or add to a short.
+        core (if perp? core-in (or core-in zero))
         target (or target-in
                    (some-> q (cond-> core (precision/dec-max core)) (cond-> maximum (precision/dec-min maximum))))
         converted-limit-errors
@@ -284,8 +328,15 @@
                       [(contracts/error :input/maximum-required-for-tilt
                                         {:path [:inventory :maximum]})])
         kappa (when tilt? (or (:tilt-strength resolved) (d (get-in contracts/product-policy [:tilt-strength :default]))))
+        ;; Tilt needs a lower bound too. A perp without one mirrors the
+        ;; maximum around the target.
+        tilt-target (or target zero)
+        tilt-core (or core
+                      (if (and perp? maximum)
+                        (precision/sub tilt-target (precision/sub maximum tilt-target))
+                        zero))
         delta (when (and tilt? anchor v q maximum)
-                (grid/inventory-delta {:q q :core (or core zero) :target (or target zero)
+                (grid/inventory-delta {:q q :core tilt-core :target tilt-target
                                        :maximum maximum}))
         ;; Without a delta (tilt on but no maximum yet) the legs are built
         ;; untilted so the plan still shows them and can size the Set maximum
@@ -319,14 +370,18 @@
                      (admission/check-legs {:buy-legs buy-legs :sell-legs sell-legs :bbo (:bbo market)
                                             :mid (:mid bbo) :policy contracts/product-policy}))
         bound-errors (when (and capable? q)
-                       (admission/check-bounds
-                        {:q q :core core :maximum maximum :b-existing (:buy exposure)
-                         :s-existing (:sell exposure) :b-new buy-total :s-new sell-total
-                         :base-credit-bound base-credit :base-debit-bound base-debit
-                         :usdc-debit-bound usdc-bound :buy-notional (sum-by buy-legs :notional)
-                         :cap buy-cap :available-usdc avail-usdc :available-base avail-base}))
+                       (cond->> (admission/check-bounds
+                                 {:q q :core core :maximum maximum :b-existing (:buy exposure)
+                                  :s-existing (:sell exposure) :b-new buy-total :s-new sell-total
+                                  :base-credit-bound base-credit :base-debit-bound base-debit
+                                  :usdc-debit-bound usdc-bound :buy-notional (sum-by buy-legs :notional)
+                                  :cap buy-cap :available-usdc avail-usdc :available-base avail-base})
+                         perp? (into (perp-sell-margin-errors
+                                      {:q q :sell-legs sell-legs :sell-total sell-total
+                                       :reserve (:sell reserves) :margin (:margin account)}))
+                         perp? (margin-errors)))
         excess (sellable-excess {:q q :s-existing (:sell exposure) :core core :available-base avail-base
-                                 :sz sz :fee-f (base-sell-fee-fraction fees)})
+                                 :sz sz :fee-f (base-sell-fee-fraction fees) :signed? perp?})
         breach-warnings (when (and capable? q)
                           (admission/existing-commitment-warnings
                            {:q q :core core :maximum maximum :b-existing (:buy exposure)
@@ -360,7 +415,9 @@
                                              (if (precision/pos-dec? core)
                                                {:message "Nothing to sell above protected core. Lower protected core to distribute inventory."
                                                 :path [:inventory :protected-core]}
-                                               {:message "Nothing available to sell."
+                                               {:message (if perp?
+                                                           "No margin available to sell."
+                                                           "Nothing available to sell.")
                                                 :path [:sell :quantity]})))))
         entered (fn [t side]
                   (let [sd (get resolved side)]

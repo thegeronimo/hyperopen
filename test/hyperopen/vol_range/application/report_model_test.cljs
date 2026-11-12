@@ -66,7 +66,7 @@
     (is (= "VRT/USDC" (:market row)))
     (is (true? (:open? row)))
     (is (= {:market "VRT/USDC" :fills "1" :bought "7 VRT · 534.80 USDC" :buy-vwap "76.40"
-            :sold "0 VRT · 0.00 USDC" :sell-vwap "—" :maker-taker "1 / 0" :fees "0 USDC"}
+            :sold "0 VRT · 0.00 USDC" :sell-vwap "—" :maker-taker "1 / 0" :fees "0 USDC" :funding "—"}
            (:activity row)))
     (is (= [:complete "Complete" "✓"] ((juxt :state :label :icon) (:coverage row))))
     (is (= "Fills checked through Oct 21, 18:42 UTC." (get-in row [:coverage :detail])))
