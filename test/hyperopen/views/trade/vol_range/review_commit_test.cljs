@@ -78,8 +78,9 @@
     (let [html (render {:enabled? true :max-ladder-usdc "150" :monitoring m} ready)
           b (hiccup/find-by-data-role html "vol-range-submit")]
       (is (true? (get-in b [1 :disabled])) (pr-str m))
-      (is (= "Placement waits for live order and fill updates to catch up."
-             (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-note"))))
+      (is (str/starts-with?
+           (str/join "" (hiccup/collect-strings (hiccup/find-by-data-role html "vol-range-submit-note")))
+           "Placement waits for live order and fill updates to catch up. ")
           (pr-str m))))
   (testing "a tick gap alone does not disable the view (the executor applies it with real time)"
     (is (false? (get-in (hiccup/find-by-data-role (render {:enabled? true :monitoring (assoc live-monitoring :last-tick-ms 0)}

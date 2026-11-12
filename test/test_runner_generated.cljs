@@ -1032,6 +1032,7 @@
             [hyperopen.vol-range.application.report-model-test]
             [hyperopen.vol-range.application.report-windows-test]
             [hyperopen.vol-range.application.snapshots-test]
+            [hyperopen.vol-range.application.waiting-note-test]
             [hyperopen.vol-range.contracts-test]
             [hyperopen.vol-range.domain.admission-test]
             [hyperopen.vol-range.domain.fees-test]
@@ -2189,6 +2190,7 @@
              'hyperopen.vol-range.application.report-model-test
              'hyperopen.vol-range.application.report-windows-test
              'hyperopen.vol-range.application.snapshots-test
+             'hyperopen.vol-range.application.waiting-note-test
              'hyperopen.vol-range.contracts-test
              'hyperopen.vol-range.domain.admission-test
              'hyperopen.vol-range.domain.fees-test

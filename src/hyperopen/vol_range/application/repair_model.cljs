@@ -300,4 +300,4 @@
                                                   (get-in state [:vol-range :execution :enabled?])
                                                   (= :ready (:status selection))))
                           :busy? (boolean sending?)}
-                   waiting? (assoc :note monitoring-copy/review-note))}))))
+                   waiting? (assoc :note (monitoring-copy/waiting-note state)))}))))

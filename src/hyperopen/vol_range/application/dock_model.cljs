@@ -72,7 +72,7 @@
      :placing? placing?
      :label (if placing? "Placing orders…" (str "Place " (plural n "order")))
      :note (cond
-             waiting? monitoring-copy/review-note
+             waiting? (monitoring-copy/waiting-note state)
              over-cap? (str "This ladder is " (ds total) " USDC; this browser's ladder cap is " max-ladder-usdc " USDC.")
              max-ladder-usdc (str "Post-only orders. Ladder cap " max-ladder-usdc " USDC in this browser.")
              :else "Post-only orders.")}))

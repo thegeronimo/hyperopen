@@ -85,7 +85,7 @@
                         [[:wallet :address] "0xfedcba0987654321fedcba0987654321fedcba09"]]]
         (let [m (dm/review-commit (assoc-in state path v))]
           (is (false? (:enabled? m)) (pr-str path v))
-          (is (= "Placement waits for live order and fill updates to catch up." (:note m))))))))
+          (is (re-find #"^Placement waits for live order and fill updates to catch up\. \S" (:note m))))))))
 
 (deftest review-commit-shows-why-its-own-plan-did-not-place-test
   (let [state {:vol-range {:execution {:enabled? true
