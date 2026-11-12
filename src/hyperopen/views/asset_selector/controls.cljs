@@ -86,13 +86,17 @@
                        (or extra-classes []))}
    label])
 
-(defn toggle-button [label active? on-click]
-  [:button.flex.items-center.px-2.py-1.text-xs.font-medium.rounded.transition-colors
-   {:class (if active?
-             ["bg-primary" "text-primary-content"]
-             ["bg-base-200" "text-gray-300" "hover:text-gray-100" "border" "border-base-300"])
-    :on {:click on-click}}
-   label])
+(defn toggle-button
+  ([label active? on-click]
+   (toggle-button label active? on-click nil))
+  ([label active? on-click attrs]
+   [:button.flex.items-center.px-2.py-1.text-xs.font-medium.rounded.transition-colors
+    (merge {:class (if active?
+                     ["bg-primary" "text-primary-content"]
+                     ["bg-base-200" "text-gray-300" "hover:text-gray-100" "border" "border-base-300"])
+            :on {:click on-click}}
+           attrs)
+    label]))
 
 (defn segmented-control [favorites-only?]
   [:div.flex.items-center.bg-base-200.border.border-base-300.rounded-md.overflow-hidden
@@ -113,6 +117,10 @@
   ([search-term strict? favorites-only?]
    (search-controls search-term strict? favorites-only? nil))
   ([search-term strict? favorites-only? market-keys]
+   (search-controls search-term strict? favorites-only? market-keys nil))
+  ;; `active-tab` and `include-outcomes?` drive the Outcomes pill, which only
+  ;; the All tab offers: every other tab is already one kind of market.
+  ([search-term strict? favorites-only? market-keys {:keys [active-tab include-outcomes?]}]
   [:div.flex.items-center.gap-2.mb-4
    [:div.relative.flex-1
     [:input
@@ -136,6 +144,14 @@
       [:path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width 2 :d "m21 21-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"}]]]]
    [:div.flex.items-center.gap-2
     (toggle-button "Strict" strict? [[:actions/toggle-asset-selector-strict]])
+    (when (= :all active-tab)
+      (toggle-button "Outcomes"
+                     (boolean include-outcomes?)
+                     [[:actions/toggle-asset-selector-include-outcomes]]
+                     {:type "button"
+                      :aria-pressed (if include-outcomes? "true" "false")
+                      :title "Show outcome markets in the All tab"
+                      :data-role "asset-selector-include-outcomes"}))
     (segmented-control favorites-only?)]]))
 
 (defn tab-button [label active? tab-key]

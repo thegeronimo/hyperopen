@@ -2,7 +2,8 @@
   (:require [hyperopen.asset-selector.actions :as asset-actions]
             [hyperopen.outcomes.application.exit-actions :as outcome-exit-actions]
             [hyperopen.asset-selector.funding-drafts :as funding-drafts]
-            [hyperopen.asset-selector.outcome-listing :as outcome-listing]))
+            [hyperopen.asset-selector.outcome-listing :as outcome-listing]
+            [hyperopen.asset-selector.settings :as selector-settings]))
 
 (defn action-deps []
   {:toggle-asset-dropdown asset-actions/toggle-asset-dropdown
@@ -16,6 +17,7 @@
    :update-asset-search asset-actions/update-asset-search
    :update-asset-selector-sort asset-actions/update-asset-selector-sort
    :toggle-asset-selector-strict asset-actions/toggle-asset-selector-strict
+   :toggle-asset-selector-include-outcomes selector-settings/toggle-asset-selector-include-outcomes
    :toggle-asset-favorite asset-actions/toggle-asset-favorite
    :set-asset-selector-favorites-only asset-actions/set-asset-selector-favorites-only
    :set-asset-selector-tab asset-actions/set-asset-selector-tab

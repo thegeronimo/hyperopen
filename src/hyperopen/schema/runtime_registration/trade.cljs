@@ -64,6 +64,7 @@
    [:actions/update-asset-search :update-asset-search]
    [:actions/update-asset-selector-sort :update-asset-selector-sort]
    [:actions/toggle-asset-selector-strict :toggle-asset-selector-strict]
+   [:actions/toggle-asset-selector-include-outcomes :toggle-asset-selector-include-outcomes]
    [:actions/toggle-asset-favorite :toggle-asset-favorite]
    [:actions/set-asset-selector-favorites-only :set-asset-selector-favorites-only]
    [:actions/set-asset-selector-tab :set-asset-selector-tab]
