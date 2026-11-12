@@ -61,6 +61,7 @@
   (let [sort-by        (load-sort-setting "asset-selector-sort-by"        "volume" valid-sort-keys)
         sort-direction (load-sort-setting "asset-selector-sort-direction" "desc"   valid-sort-directions)
         strict?        (load-bool-setting "asset-selector-strict" false)
+        include-outcomes? (load-bool-setting "asset-selector-include-outcomes" false)
         favorites      (load-json-set "asset-selector-favorites")
         active-tab     (load-sort-setting "asset-selector-active-tab" "all" valid-tabs)]
     (swap! store
@@ -70,5 +71,16 @@
       {:sort-by        sort-by
        :sort-direction sort-direction
        :strict?        strict?
+       :include-outcomes? include-outcomes?
        :favorites      favorites
-       :active-tab     active-tab}))) 
+       :active-tab     active-tab})))
+
+(defn toggle-asset-selector-include-outcomes
+  "Whether the All tab lists outcome markets above the assets. Off by default:
+   a search or the Favs filter still surfaces the outcome markets they match."
+  [state]
+  (let [new-value (not (get-in state [:asset-selector :include-outcomes?] false))]
+    [[:effects/save-many [[[:asset-selector :include-outcomes?] new-value]
+                          [[:asset-selector :highlighted-market-key] nil]]]
+     [:effects/local-storage-set "asset-selector-include-outcomes" (str new-value)]
+     [:effects/sync-asset-selector-active-ctx-subscriptions]]))

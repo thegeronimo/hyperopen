@@ -209,6 +209,29 @@
                :title (:absolute clock)}
          (or (:label clock) "—")])]]))
 
+(defn- compact-desktop-row
+  "An event on one line, for the All tab: title, answers, volume. Half the
+   height of the Outcome tab's two-line row; the answer buttons still make it
+   taller than an asset row."
+  [row selected-market-key highlighted-market-key favorites]
+  (let [{:keys [key title clock volume-text meta venue]} row]
+    [:div {:class ["flex" "min-w-0" "cursor-pointer" "items-center" "gap-2" "border-b" "border-base-300/60"
+                   "px-2" "py-1" "asset-selector-row-surface"]
+           :replicant/key key
+           :replicant/on-render highlight-scroll!
+           :title (str title " · " meta " · " venue (when-let [label (:label clock)] (str " · " label)))
+           :data-role "outcome-event-row"
+           :data-row-layout "compact"
+           :data-market-key key
+           :data-row-state (row-state row selected-market-key highlighted-market-key)
+           :on {:click (select-event-handler key)}}
+     (icons/favorite-button (contains? favorites key) key)
+     [:div {:class ["min-w-0" "max-w-[45%]" "shrink-0" "truncate" "text-sm" "font-medium" "text-ho-text-hi"]}
+      title]
+     (desktop-answers row)
+     [:div {:class ["num" "shrink-0" "text-xs" "text-ho-text-secondary"]}
+      (or volume-text "—")]]))
+
 (defn- mobile-row
   [row selected-market-key highlighted-market-key favorites]
   (let [{:keys [key title clock volume-text]} row]
@@ -442,13 +465,20 @@
   (mapv :key (all-tab-rows model)))
 
 (defn all-tab-events-block
-  "Outcome events in the All tab: the first few matching events as the same
-   rows the Outcome tab renders, and a link to the whole list."
-  [{:keys [sections] :as model} selected-market-key highlighted-market-key favorites mobile?]
+  "Outcome events in the All tab: the first few matching events, one line each
+   on desktop, and a link to the whole list. `:placement` is `:top` (above the
+   assets, the default) or `:bottom` (after them)."
+  ([model selected-market-key highlighted-market-key favorites mobile?]
+   (all-tab-events-block model selected-market-key highlighted-market-key favorites mobile? nil))
+  ([{:keys [sections] :as model} selected-market-key highlighted-market-key favorites mobile? {:keys [placement]}]
   (let [rows (all-tab-rows model)
-        total (reduce + 0 (map (comp count :rows) sections))]
-    (into [:div {:class ["mb-2" "border-b" "border-base-300"]
-                 :data-role "all-tab-outcome-events"}
+        total (reduce + 0 (map (comp count :rows) sections))
+        bottom? (= :bottom placement)]
+    (into [:div {:class (if bottom?
+                          ["mt-2" "border-t" "border-base-300"]
+                          ["mb-2" "border-b" "border-base-300"])
+                 :data-role "all-tab-outcome-events"
+                 :data-placement (if bottom? "bottom" "top")}
            [:div {:class (into ["flex" "items-center" "justify-between" "py-1.5" "text-xs" "font-semibold"
                                 "uppercase" "tracking-wide" "text-ho-text-muted"]
                                (if mobile? ["px-4"] ["px-2"]))}
@@ -461,6 +491,6 @@
                         :on {:click [[:actions/set-asset-selector-tab :outcome]]}}
                (str "Show all " total)])]]
           (map (fn [row]
-                 ((if mobile? mobile-row desktop-row)
+                 ((if mobile? mobile-row compact-desktop-row)
                   row selected-market-key highlighted-market-key favorites)))
-          rows)))
+          rows))))

@@ -282,6 +282,7 @@
    :actions/update-asset-search ::common/single-input-args
    :actions/update-asset-selector-sort ::common/keyword-args
    :actions/toggle-asset-selector-strict ::common/no-args
+   :actions/toggle-asset-selector-include-outcomes ::common/no-args
    :actions/toggle-asset-favorite ::common/market-key-args
    :actions/set-asset-selector-favorites-only ::common/boolean-args
    :actions/set-asset-selector-tab ::common/tab-args

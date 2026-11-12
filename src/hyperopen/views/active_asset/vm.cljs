@@ -26,6 +26,7 @@
    :last-render-limit-increase-ms nil
    :favorites-only? false
    :strict? false
+   :include-outcomes? false
    :active-tab :all})
 
 (declare resolve-active-market)
@@ -71,6 +72,7 @@
    :render-limit
    :favorites-only?
    :strict?
+   :include-outcomes?
    :active-tab
    :market-by-key
    :markets
@@ -449,5 +451,6 @@
                               :scroll-top (:scroll-top dropdown)
                               :render-limit (:render-limit dropdown)
                               :strict? (:strict? dropdown)
+                              :include-outcomes? (:include-outcomes? dropdown)
                               :active-tab (:active-tab dropdown)
                               :outcome-opts (outcome-listing-opts state dropdown)})}))

@@ -112,6 +112,59 @@
     (is (seq rows))
     (is (some #{"Detroit Pistons vs Washington Wizards"} strings))))
 
+(defn- with-btc-perp
+  [props]
+  (let [perp {:key "perp:BTC" :coin "BTC" :symbol "BTC-USDC" :base "BTC" :market-type :perp
+              :mark 71360 :markRaw "71360" :volume24h 3000000000 :openInterest 2000000000}]
+    (-> props
+        (update :markets conj perp)
+        (assoc-in [:market-by-key "perp:BTC"] perp))))
+
+(deftest all-tab-leaves-outcome-events-out-until-switched-on-test
+  (doseq [desktop? [true false]]
+    (let [view (layout/asset-selector-dropdown (assoc (selector-props :all "") :desktop? desktop?))
+          pill (first (by-role view "asset-selector-include-outcomes"))]
+      (is (empty? (by-role view "all-tab-outcome-events")))
+      (is (empty? (by-role view "outcome-event-row")) "nor as plain asset rows")
+      (is (= "false" (get-in pill [1 :aria-pressed])))
+      (is (= [[:actions/toggle-asset-selector-include-outcomes]] (get-in pill [1 :on :click]))))))
+
+(deftest all-tab-outcomes-pill-puts-one-line-events-above-the-assets-test
+  (let [view (layout/asset-selector-dropdown (assoc (selector-props :all "") :include-outcomes? true))
+        block (first (by-role view "all-tab-outcome-events"))
+        rows (by-role block "outcome-event-row")]
+    (is (= "top" (get-in block [1 :data-placement])))
+    (is (= 5 (count rows)))
+    (is (every? #(= "compact" (get-in % [1 :data-row-layout])) rows))
+    (is (= "true" (get-in (first (by-role view "asset-selector-include-outcomes")) [1 :aria-pressed])))))
+
+(deftest all-tab-search-and-favs-surface-outcome-events-after-the-assets-test
+  (let [searched (layout/asset-selector-dropdown (selector-props :all "pistons"))
+        event-key (get-in (first (by-role searched "outcome-event-row")) [1 :data-market-key])
+        faved (layout/asset-selector-dropdown (assoc (selector-props :all "")
+                                                     :favorites #{event-key}
+                                                     :favorites-only? true))]
+    (is (= "bottom" (get-in (first (by-role searched "all-tab-outcome-events")) [1 :data-placement])))
+    (is (empty? (by-role searched "asset-selector-scroll-container"))
+        "outcome matches alone are the result: no empty asset list above them")
+    (is (= [event-key] (mapv #(get-in % [1 :data-market-key]) (by-role faved "outcome-event-row"))))))
+
+(deftest all-tab-keyboard-order-follows-the-placement-test
+  (let [keys-of (fn [props]
+                  (let [view (layout/asset-selector-dropdown (with-btc-perp props))
+                        panel (first (by-role view "asset-selector-desktop-dropdown"))]
+                    (last (first (get-in panel [1 :on :keydown])))))
+        off (keys-of (selector-props :all ""))
+        on (keys-of (assoc (selector-props :all "") :include-outcomes? true))]
+    (is (= ["perp:BTC"] off))
+    (is (= 6 (count on)))
+    (is (= "perp:BTC" (last on)) "events lead when switched on")))
+
+(deftest outcomes-pill-is-only-on-the-all-tab-test
+  (doseq [tab [:perps :spot :outcome :hip3]]
+    (is (empty? (by-role (layout/asset-selector-dropdown (selector-props tab "")) "asset-selector-include-outcomes"))
+        (str tab))))
+
 (deftest toggle-asset-dropdown-reloads-a-stale-catalog-in-one-action-test
   (let [now (.now js/Date)
         refetch? #(= [:effects/fetch-asset-selector-markets] %)

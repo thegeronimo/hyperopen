@@ -1,5 +1,6 @@
 (ns hyperopen.views.asset-selector.layout
-  (:require [hyperopen.views.asset-selector.controls :as controls]
+  (:require [clojure.string :as str]
+            [hyperopen.views.asset-selector.controls :as controls]
             [hyperopen.views.asset-selector.outcome-list :as outcome-list]
             [hyperopen.views.asset-selector.processing :as processing]
             [hyperopen.views.asset-selector.rows :as rows]
@@ -22,27 +23,53 @@
   [market]
   (= :outcome (:market-type market)))
 
+(defn- all-tab-outcomes-shown?
+  "Outcome markets are opt-in on the All tab (the Outcomes pill). A search or
+   the Favs filter still surfaces the ones it matches, so neither can hide a
+   market the user asked for by name or starred."
+  [{:keys [include-outcomes? favorites-only? search-term]}]
+  (or (true? include-outcomes?)
+      (true? favorites-only?)
+      (not (str/blank? search-term))))
+
 (defn- all-tab-events
   "The All tab shows outcome markets as the same event rows the Outcome tab
    does (never one plain row per side): the event model for the outcome markets
-   a search left in `assets`, else nil."
-  [active-tab assets now-ms opts]
-  (when (= :all active-tab)
+   left in `assets`, else nil. Nil too while they are switched off."
+  [active-tab assets now-ms opts selector]
+  (when (and (= :all active-tab)
+             (all-tab-outcomes-shown? selector))
     (let [events (filterv outcome-market? assets)]
       (when (seq events)
         (outcome-list/list-model events :outcome now-ms opts)))))
 
+(defn- all-tab-events-placement
+  "Switched on, the outcome events lead the list. Surfaced only by a search or
+   Favs, they follow the assets so the asset matches stay first."
+  [include-outcomes?]
+  (if (true? include-outcomes?) :top :bottom))
+
+(defn- all-tab-plain-assets
+  "The All tab's asset rows never include outcome markets: those render as
+   event rows or not at all."
+  [active-tab assets]
+  (if (= :all active-tab)
+    (filterv (complement outcome-market?) assets)
+    assets))
+
 (defn- keyboard-keys
-  [outcome? outcome-model all-events plain-assets]
+  [outcome? outcome-model all-events placement plain-assets]
   (cond
     outcome? (:ordered-keys outcome-model)
+    (and all-events (= :bottom placement))
+    (into (mapv :key plain-assets) (outcome-list/all-tab-event-keys all-events))
     all-events (into (outcome-list/all-tab-event-keys all-events) (map :key) plain-assets)
     :else (mapv :key plain-assets)))
 
 (defn desktop-asset-selector-dropdown
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
            markets market-by-key selected-market-key favorites missing-icons loaded-icons highlighted-market-key
-           render-limit scroll-top outcome-opts]}]
+           render-limit scroll-top outcome-opts include-outcomes?]}]
   (let [outcome? (outcome-list/outcome-tab? active-tab)
         processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
                                                            favorites favorites-only? strict?
@@ -52,15 +79,17 @@
         suppress-empty-state? (and loading? (empty? markets))
         scroll-reset-key (pr-str [search-term strict? favorites-only? active-tab sort-by sort-direction])
         all-events (when-not outcome?
-                     (all-tab-events active-tab processed-assets-list (.now js/Date) outcome-opts))
-        plain-assets (if all-events
-                       (filterv (complement outcome-market?) processed-assets-list)
-                       processed-assets-list)
-        ordered-market-keys (keyboard-keys outcome? outcome-model all-events plain-assets)
+                     (all-tab-events active-tab processed-assets-list (.now js/Date) outcome-opts
+                                     {:include-outcomes? include-outcomes?
+                                      :favorites-only? favorites-only?
+                                      :search-term search-term}))
+        events-placement (all-tab-events-placement include-outcomes?)
+        plain-assets (all-tab-plain-assets active-tab processed-assets-list)
+        ordered-market-keys (keyboard-keys outcome? outcome-model all-events events-placement plain-assets)
         highlighted-market-key* (rows/effective-highlighted-market-key
                                   (if (or outcome? all-events)
                                     (mapv (fn [k] {:key k}) ordered-market-keys)
-                                    processed-assets-list)
+                                    plain-assets)
                                   selected-market-key
                                   highlighted-market-key)]
     [:div
@@ -110,7 +139,8 @@
             (if (= phase :full)
               "Loading markets..."
               "Loading markets (bootstrap)...")])
-         (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
+         (controls/search-controls search-term strict? favorites-only? ordered-market-keys
+                                   {:active-tab active-tab :include-outcomes? include-outcomes?})
          (controls/tab-row active-tab)
          (controls/tradfi-subtab-row active-tab)
          (controls/sort-controls sort-by sort-direction active-tab)])
@@ -122,16 +152,22 @@
                                   :suppress-empty-state? suppress-empty-state?
                                   :load (:load outcome-model)
                                   :panel? true})
-        [:div
-         (when all-events
-           (outcome-list/all-tab-events-block all-events selected-market-key highlighted-market-key* favorites false))
-         (runtime/asset-list plain-assets selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key)])
+        (let [events-block (when all-events
+                             (outcome-list/all-tab-events-block all-events selected-market-key highlighted-market-key*
+                                                                favorites false {:placement events-placement}))]
+          [:div
+           (when (= :top events-placement) events-block)
+           ;; Outcome matches alone are a result: no "No assets found" above them.
+           (when-not (and events-block (empty? plain-assets))
+             (runtime/asset-list plain-assets selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key))
+           (when (= :bottom events-placement) events-block)]))
       (when-not outcome?
         (rows/selector-shortcut-footer))]]))
 
 (defn mobile-asset-selector-dropdown
   [{:keys [loading? phase search-term strict? favorites-only? active-tab sort-by sort-direction
-           markets market-by-key selected-market-key favorites highlighted-market-key outcome-opts]}]
+           markets market-by-key selected-market-key favorites highlighted-market-key outcome-opts
+           include-outcomes?]}]
   (let [outcome? (outcome-list/outcome-tab? active-tab)
         processed-assets-list (processing/processed-assets markets market-by-key search-term sort-by sort-direction
                                                            favorites favorites-only? strict?
@@ -140,15 +176,17 @@
                         (outcome-list/list-model processed-assets-list active-tab (.now js/Date) outcome-opts))
         suppress-empty-state? (and loading? (empty? markets))
         all-events (when-not outcome?
-                     (all-tab-events active-tab processed-assets-list (.now js/Date) outcome-opts))
-        plain-assets (if all-events
-                       (filterv (complement outcome-market?) processed-assets-list)
-                       processed-assets-list)
-        ordered-market-keys (keyboard-keys outcome? outcome-model all-events plain-assets)
+                     (all-tab-events active-tab processed-assets-list (.now js/Date) outcome-opts
+                                     {:include-outcomes? include-outcomes?
+                                      :favorites-only? favorites-only?
+                                      :search-term search-term}))
+        events-placement (all-tab-events-placement include-outcomes?)
+        plain-assets (all-tab-plain-assets active-tab processed-assets-list)
+        ordered-market-keys (keyboard-keys outcome? outcome-model all-events events-placement plain-assets)
         highlighted-market-key* (rows/effective-highlighted-market-key
                                   (if (or outcome? all-events)
                                     (mapv (fn [k] {:key k}) ordered-market-keys)
-                                    processed-assets-list)
+                                    plain-assets)
                                   selected-market-key
                                   highlighted-market-key)]
     [:div {:class ["fixed" "inset-0" "z-[260]" "bg-base-100" "flex" "flex-col" "lg:hidden"]
@@ -187,7 +225,8 @@
          (if (= phase :full)
            "Loading markets..."
            "Loading markets (bootstrap)...")])
-      (controls/search-controls search-term strict? favorites-only? ordered-market-keys)
+      (controls/search-controls search-term strict? favorites-only? ordered-market-keys
+                                {:active-tab active-tab :include-outcomes? include-outcomes?})
       (controls/mobile-tab-row active-tab)
       (when outcome?
         (outcome-list/category-chip-row active-tab (:counts outcome-model)))
@@ -204,15 +243,19 @@
                                   :suppress-empty-state? suppress-empty-state?
                                   :load (:load outcome-model)
                                   :mobile? true})
-        [:div {:class ["min-h-0" "flex-1" "overflow-y-auto"]}
-         (when all-events
-           (outcome-list/all-tab-events-block all-events selected-market-key highlighted-market-key* favorites true))
-         (rows/mobile-asset-list plain-assets selected-market-key highlighted-market-key* favorites suppress-empty-state?)])]]))
+        (let [events-block (when all-events
+                             (outcome-list/all-tab-events-block all-events selected-market-key highlighted-market-key*
+                                                                favorites true {:placement events-placement}))]
+          [:div {:class ["min-h-0" "flex-1" "overflow-y-auto"]}
+           (when (= :top events-placement) events-block)
+           (when-not (and events-block (empty? plain-assets))
+             (rows/mobile-asset-list plain-assets selected-market-key highlighted-market-key* favorites suppress-empty-state?))
+           (when (= :bottom events-placement) events-block)]))]]))
 
 (defn asset-selector-dropdown
   [{:keys [visible? markets selected-market-key search-term sort-by sort-direction
            market-by-key favorites favorites-only? strict? active-tab missing-icons loaded-icons
-           highlighted-market-key render-limit scroll-top loading? phase desktop? outcome-opts]}]
+           highlighted-market-key render-limit scroll-top loading? phase desktop? outcome-opts include-outcomes?]}]
   (when visible?
     (let [desktop-layout? (controls/desktop-selector-layout? desktop?)]
       [:div
@@ -234,7 +277,8 @@
                                            :highlighted-market-key highlighted-market-key
                                            :render-limit render-limit
                                            :scroll-top scroll-top
-                                           :outcome-opts outcome-opts})
+                                           :outcome-opts outcome-opts
+                                           :include-outcomes? include-outcomes?})
          (mobile-asset-selector-dropdown {:loading? loading?
                                           :phase phase
                                           :search-term search-term
@@ -248,7 +292,8 @@
                                           :selected-market-key selected-market-key
                                           :favorites favorites
                                           :highlighted-market-key highlighted-market-key
-                                          :outcome-opts outcome-opts}))])))
+                                          :outcome-opts outcome-opts
+                                          :include-outcomes? include-outcomes?}))])))
 
 (def ^:private memoized-asset-selector-wrapper
   (memoize-last
