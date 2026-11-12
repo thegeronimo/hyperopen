@@ -12,7 +12,7 @@
   #{:value :max-display :max-input :symbol :notice})
 
 (def ^:private required-transfer-keys
-  #{:to-perp? :route :from-options :to-options :swap-action :asset :balances
+  #{:to-perp? :route :from-options :to-options :perps-accounts :swap-action :asset :balances
     :destination :summary :usd-estimate :percent-actions :blocked :evm :amount
     :message :actions})
 
@@ -93,6 +93,13 @@
   (s/coll-of :funding-modal-vm/transfer-location-option :kind vector?))
 (s/def :funding-modal-vm.transfer/to-options
   (s/coll-of :funding-modal-vm/transfer-location-option :kind vector?))
+(s/def :funding-modal-vm.transfer/perps-accounts
+  (s/coll-of (exact-map (s/keys :req-un [:funding-modal-vm.transfer-location/label
+                                         :funding-modal-vm.transfer-location/selected?
+                                         :funding-modal-vm.transfer-location/action
+                                         :funding-modal-vm.transfer-location/data-role])
+                        #{:label :selected? :action :data-role})
+             :kind vector?))
 (s/def :funding-modal-vm.transfer/swap-action ::action)
 
 (s/def :funding-modal-vm.transfer-asset-option/index nat-int?)
@@ -253,6 +260,7 @@
                               :funding-modal-vm.transfer/route
                               :funding-modal-vm.transfer/from-options
                               :funding-modal-vm.transfer/to-options
+                              :funding-modal-vm.transfer/perps-accounts
                               :funding-modal-vm.transfer/swap-action
                               :funding-modal-vm.transfer/asset
                               :funding-modal-vm.transfer/balances

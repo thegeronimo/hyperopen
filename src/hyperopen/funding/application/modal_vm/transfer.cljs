@@ -121,6 +121,37 @@
       (str dex " Perps")
       (get transfer-route/location-labels location ""))))
 
+(defn- active-market-dex
+  "The HIP-3 dex of the market on screen, when it is one the app knows."
+  [state]
+  (let [coin (str (:active-asset state))
+        i (.indexOf coin ":")
+        dex (when (pos? i) (availability/transfer-dex-name (subs coin 0 i)))]
+    (when (contains? (:perp-dex-clearinghouse state) dex)
+      dex)))
+
+(defn- perps-accounts-model
+  "Which perps account a Perps <-> Spot move uses, on an account that holds
+   collateral per perp dex: the main one, the dex the dialog was opened for
+   and the dex of the market on screen. Empty when there is no choice.
+   Choosing one reopens the dialog scoped to it, so the amount starts over."
+  [state modal route]
+  (let [current (availability/transfer-dex-name (:transfer-dex modal))
+        dexes (distinct (keep identity [current (active-market-dex state)]))]
+    (if (or (empty? dexes)
+            (not= :core-internal (transfer-route/route-kind route))
+            (availability/pooled-perps-collateral? state))
+      []
+      (mapv (fn [dex]
+              {:label (or dex "Main")
+               :selected? (= dex current)
+               :action [:actions/open-funding-transfer-modal
+                        (:anchor modal)
+                        (:opener-data-role modal)
+                        {:dex (or dex "") :to-perp? (= :perps (:to route))}]
+               :data-role (str "funding-transfer-perps-account-" (or dex "main"))})
+            (cons nil dexes)))))
+
 (defn- balances-model
   "Before/after balances of both places. The Perps <-> Spot route shows the
    legacy USDC max of each place, but only once that place's balances were
@@ -240,6 +271,7 @@
                    :kind (transfer-route/route-kind route))
      :from-options []
      :to-options []
+     :perps-accounts []
      :swap-action [:actions/swap-funding-transfer-locations]
      :asset {:visible? false :options [] :selected nil :empty-message nil}
      :balances {:from empty-side :to empty-side}
@@ -290,6 +322,7 @@
                                   :kind (transfer-route/route-kind route))
                     :from-options from
                     :to-options to
+                    :perps-accounts (perps-accounts-model state modal route)
                     :swap-action [:actions/swap-funding-transfer-locations]
                     :asset (asset-model state route token owner)
                     :balances (balances-model deps state modal route token owner amount symbol)
