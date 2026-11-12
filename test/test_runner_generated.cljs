@@ -545,6 +545,7 @@
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.vol-range-execution-test]
+            [hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
             [hyperopen.runtime.effect-adapters.vol-range-replace-test]
             [hyperopen.runtime.effect-adapters.vol-range-report-test]
@@ -1703,6 +1704,7 @@
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.vol-range-execution-test
+             'hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test
              'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
              'hyperopen.runtime.effect-adapters.vol-range-replace-test
              'hyperopen.runtime.effect-adapters.vol-range-report-test
