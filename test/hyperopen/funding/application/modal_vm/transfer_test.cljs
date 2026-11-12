@@ -40,6 +40,33 @@
            (get-in transfer [:balances :from])))
     (is (= "Your wallet 0x123…5678" (get-in transfer [:destination :display])))))
 
+(deftest perps-account-picker-offers-the-market-dex-test
+  (let [base (support/state {:to-perp? true})
+        on-hip3 (assoc base :active-asset "xyz:NVDA" :perp-dex-clearinghouse {"xyz" {}})
+        accounts (fn [state] (get-in (vm state) [:transfer :perps-accounts]))]
+    (testing "no HIP-3 dex in play: no picker"
+      (is (= [] (accounts base)))
+      (is (= [] (accounts (assoc base :active-asset "BTC")))))
+    (testing "on a HIP-3 market the main account is selected and the dex is offered"
+      (let [view-model (vm on-hip3)
+            [main dex] (get-in view-model [:transfer :perps-accounts])]
+        (is (contracts/funding-modal-vm-valid? view-model))
+        (is (= ["Main" true] ((juxt :label :selected?) main)))
+        (is (= ["xyz" false] ((juxt :label :selected?) dex)))
+        (is (= :actions/open-funding-transfer-modal (first (:action dex))))
+        (is (= {:dex "xyz" :to-perp? true} (last (:action dex))))
+        (is (= {:dex "" :to-perp? true} (last (:action main))))))
+    (testing "a dialog scoped to the dex selects it and keeps the direction"
+      (let [[main dex] (accounts (update-in on-hip3 [:funding-ui :modal] assoc
+                                            :transfer-dex "xyz" :to-perp? false))]
+        (is (false? (:selected? main)))
+        (is (true? (:selected? dex)))
+        (is (= {:dex "" :to-perp? false} (last (:action main))))))
+    (testing "a pooled (unified) account has one perps balance: no picker"
+      (is (= [] (accounts (assoc-in on-hip3 [:account :mode] :unified)))))
+    (testing "a HyperEVM route has no perps side"
+      (is (= [] (accounts (update-in on-hip3 [:funding-ui :modal] merge spot->evm)))))))
+
 (deftest core-to-evm-form-model-test
   (let [view-model (vm (support/state (assoc spot->evm :transfer-asset support/hype-index
                                              :amount-input "250")))

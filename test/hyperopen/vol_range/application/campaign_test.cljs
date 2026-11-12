@@ -29,7 +29,11 @@
 (deftest campaign-key-format-test
   (is (= "hyperliquid-mainnet|0xabc|spot|150|107" (campaign/campaign-key scope))
       "network, lower-cased account, spot, base token id and pair index")
-  (is (nil? (campaign/campaign-key (assoc scope :market-type :perp))))
+  (is (= "hyperliquid-mainnet|0xabc|perp|xyz:NVDA|"
+         (campaign/campaign-key (assoc scope :market-type :perp :coin "xyz:NVDA" :spot-pair-index 3)))
+      "a perp is keyed by its coin, which carries the HIP-3 dex")
+  (is (nil? (campaign/campaign-key (assoc scope :market-type :perp :coin nil))))
+  (is (nil? (campaign/campaign-key (assoc scope :market-type :outcome))))
   (is (nil? (campaign/campaign-key (assoc scope :account-address nil))))
   (is (nil? (campaign/campaign-key (assoc scope :spot-pair-index nil))))
   (is (= "hyperliquid-mainnet|0xabc|spot||107" (campaign/campaign-key (assoc scope :base-token-id nil)))))
@@ -53,7 +57,8 @@
             :accounting-model-version contracts/accounting-model-version
             :model-versions {:model 1 :precision 1 :estimator "parkinson-v1"}}
            (select-keys r [:campaign-schema-version :accounting-model-version :model-versions])))
-    (is (= {:network :hyperliquid-mainnet :account-address "0xabc" :coin "@107" :spot-pair-index 107
+    (is (= {:network :hyperliquid-mainnet :account-address "0xabc" :market-type :spot :dex nil
+            :coin "@107" :spot-pair-index 107
             :base-token-id "150" :quote-token-id "0" :symbol "HYPE" :quote-symbol "USDC" :sz-decimals 2}
            (:scope r)))
     (is (jr/record-valid? r) "versioned, keyed, timestamped and free of signing material")))
@@ -143,8 +148,8 @@
                                               (assoc args :records records)))))))
     (testing "no id or no market identity: nothing"
       (is (= [] (campaign/baseline-records-for-placement (assoc args :campaign-id nil))))
-      (is (false? (campaign/campaign-needed? [] (assoc scope :market-type :perp))))
-      (is (= [] (campaign/baseline-records-for-placement (assoc args :scope (assoc scope :market-type :perp))))))))
+      (is (false? (campaign/campaign-needed? [] (assoc scope :market-type :outcome))))
+      (is (= [] (campaign/baseline-records-for-placement (assoc args :scope (assoc scope :market-type :outcome))))))))
 
 (deftest grid-campaign-test
   (let [c (baseline)

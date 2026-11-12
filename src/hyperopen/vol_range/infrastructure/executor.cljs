@@ -180,11 +180,21 @@
           (js/Promise.resolve []))
         (.then (fn [statuses] [(evidence/apply-order-statuses grid statuses (now deps)) (count ids)])))))
 
+(defn fills-window-start
+  "Where a grid's fills read starts: the lookback before its fills watermark,
+  or before its creation when no complete fills read has covered it yet. A
+  watermark of 0 means none (a merged recovered grid carries 0, not nil); the
+  start is never negative, which the venue rejects."
+  [grid]
+  (let [through (:fills-through-ms grid)
+        from (if (and (number? through) (pos? through)) through (or (:created-at-ms grid) 0))]
+    (max 0 (- from fills-lookback-ms))))
+
 (defn- read-fills! [deps grid barrier-id]
   (let [end (now deps)]
     (-> (reads/read-fills-window! (:post-info! deps)
                                   {:account-address (account-of grid) :barrier-id barrier-id
-                                   :start-ms (- (or (:fills-through-ms grid) (:created-at-ms grid)) fills-lookback-ms)
+                                   :start-ms (fills-window-start grid)
                                    :end-ms end :now-ms! (:now-ms! deps)})
         (.then (fn [fills]
                  ;; Fill evidence is "as of" the window end: a balance read
@@ -210,6 +220,7 @@
         (.then (fn [g]
                  (-> (reads/read-account-snapshot! (:post-info! deps)
                                                    {:account-address (account-of g) :barrier-id barrier-id
+                                                    :scopes [(:scope g)]
                                                     :now-ms! (:now-ms! deps)})
                      (.then (fn [snap]
                               (let [g (cond-> (evidence/apply-orders-snapshot g snap)
@@ -253,6 +264,7 @@
                           (reads/read-account-snapshot! (:post-info! deps)
                                                         {:account-address (:account-address scope)
                                                          :barrier-id ((:random-id! deps) "rb")
+                                                         :scopes [scope]
                                                          :now-ms! (:now-ms! deps)})))
                  ;; Re-read the journal AFTER the snapshot, so a grid another tab
                  ;; committed meanwhile is never mistaken for recovered orders.

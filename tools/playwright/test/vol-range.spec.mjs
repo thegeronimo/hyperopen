@@ -83,7 +83,11 @@ async function openSeededTicket(page, { mobile = false } = {}) {
       // The 375px layout shows the order form on the bottom-nav Trade surface.
       await page.getByRole("button", { name: "Trade", exact: true }).last().click();
     }
-    seeded = await heading.isVisible();
+    // The ticket also shows on the default perp market, so the fixture has stuck only once
+    // its own market is the one the ticket names.
+    seeded =
+      (await heading.isVisible()) &&
+      ((await page.locator('[data-role="vol-range-identity"]').first().textContent()) || "").includes("VRT/USDC");
   }
   await expect(heading).toBeVisible({ timeout: 15_000 });
 }

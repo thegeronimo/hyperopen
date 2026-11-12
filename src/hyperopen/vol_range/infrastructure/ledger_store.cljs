@@ -103,18 +103,20 @@
                        rows)))))
 
 (defn group-records
-  "{:fills {fill-key fill} :updates {record-id record}
-   :coverage {:fills {base-token-id record} :ledger {base-token-id record}}
+  "{:fills {fill-key fill} :updates {record-id record} :fundings {record-id
+   record} :coverage {:fills {base-token-id record} :ledger {base-token-id
+   record} :funding {base-token-id record}}
    :balance-checks [record ...]} for loaded records."
   [records]
   (reduce (fn [acc r]
             (case (:kind r)
               :ledger-fill (assoc-in acc [:fills (get-in r [:fill :fill-key])] (:fill r))
               :ledger-update (assoc-in acc [:updates (:record-id r)] r)
+              :ledger-funding (assoc-in acc [:fundings (:record-id r)] r)
               :coverage (assoc-in acc [:coverage (:stream r) (:base-token-id r)] r)
               :balance-check (update acc :balance-checks conj r)
               acc))
-          {:fills {} :updates {} :coverage {:fills {} :ledger {}} :balance-checks []}
+          {:fills {} :updates {} :fundings {} :coverage {:fills {} :ledger {} :funding {}} :balance-checks []}
           records))
 
 (defn load-account!

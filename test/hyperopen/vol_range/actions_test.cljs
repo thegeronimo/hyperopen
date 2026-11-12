@@ -293,9 +293,13 @@
     (testing "invalid modes are no-ops"
       (is (= [] (actions/select-scale-mode legacy :bogus now)))
       (is (= [] (actions/select-scale-mode legacy nil now))))
-    (testing "non-spot markets never fetch"
+    (testing "unsupported markets never fetch"
+      (let [outcome (assoc legacy :active-market {:coin "#12" :market-type :outcome :base "YES" :quote "USDC"})]
+        (is (= [:effects/save-many] (mapv first (actions/select-scale-mode outcome :volatility-range now))))))
+    (testing "a perp market fetches its daily candles like a spot market"
       (let [perp (assoc legacy :active-market {:coin "BTC" :market-type :perp :base "BTC" :quote "USDC"})]
-        (is (= [:effects/save-many] (mapv first (actions/select-scale-mode perp :volatility-range now))))))))
+        (is (= [:effects/save-many :effects/fetch-candle-snapshot]
+               (mapv first (actions/select-scale-mode perp :volatility-range now))))))))
 
 (deftest refresh-daily-candles-test
   (let [state (sf/base-state)
@@ -332,10 +336,10 @@
       (let [requested (assoc-in state [:vol-range :daily-fetch "@107" :requested-at-ms] (- rollover 10000))]
         (is (false? (actions/daily-refresh-due? requested rollover)))
         (is (true? (actions/daily-refresh-due? requested (+ rollover 25000))))))
-    (testing "never due when the ticket is not visible or the market is not spot"
+    (testing "never due when the ticket is not visible or the market is not supported"
       (is (false? (actions/daily-refresh-due? (assoc-in state [:order-form :scale :mode] :price-range) rollover)))
       (is (false? (actions/daily-refresh-due?
-                   (assoc state :active-market {:coin "BTC" :market-type :perp :base "BTC" :quote "USDC"})
+                   (assoc state :active-market {:coin "#12" :market-type :outcome :base "YES" :quote "USDC"})
                    rollover))))
     (testing "never due with the preview capability off"
       (with-redefs [config/vol-range-preview-enabled? (fn [] false)]

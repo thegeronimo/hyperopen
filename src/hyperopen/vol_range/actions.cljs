@@ -46,7 +46,7 @@
 
 (defn- active-spot-coin [state]
   (let [market (:active-market state)]
-    (when (and (= :spot (:market-type market)) (seq (:coin market)))
+    (when (and (contracts/supported-market? market) (seq (:coin market)))
       (:coin market))))
 
 (defn daily-refresh-due?

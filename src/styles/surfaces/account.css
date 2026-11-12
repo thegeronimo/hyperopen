@@ -1,4 +1,60 @@
 @layer components {
+  /* Perps by venue: a native <details> row and a CSS-read radio switch. */
+  .perp-venue-breakdown > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .perp-venue-breakdown[open] .perp-venue-chevron {
+    transform: rotate(90deg);
+  }
+
+  .perp-venue-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .perp-venue-tabs-title {
+    margin-right: auto;
+  }
+
+  .perp-venue-tab {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: rgb(var(--ho-text-secondary));
+    cursor: pointer;
+  }
+
+  .perp-venue-tab:hover {
+    color: rgb(var(--ho-text));
+  }
+
+  .perp-venue-tab:has(input:checked),
+  .perp-venue-tabs:not(:has(input:checked)) .perp-venue-tab[data-default] {
+    background: rgb(var(--ho-surface-raised));
+    color: rgb(var(--ho-text-hi));
+  }
+
+  .perp-venue-tab:has(input:focus-visible) {
+    outline: 2px solid rgb(var(--ho-accent) / 0.5);
+  }
+
+  .perp-venue-panel {
+    display: none;
+    order: 2;
+    flex-basis: 100%;
+    padding-top: 8px;
+  }
+
+  .perp-venue-tab:has(input:checked) + .perp-venue-panel,
+  .perp-venue-tabs:not(:has(input:checked)) .perp-venue-panel[data-default] {
+    display: block;
+  }
+
   .account-info-tab-strip {
     position: relative;
     display: flex;

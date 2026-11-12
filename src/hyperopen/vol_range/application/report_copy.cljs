@@ -19,7 +19,7 @@
 (def activity-note "Orders, fills and fees of your Vol Range ladders. Execution detail, not P&L.")
 (def tracking-title "Tracking")
 (def coverage-title "Coverage")
-(def activity-columns ["Market" "Fills" "Bought" "Buy VWAP" "Sold" "Sell VWAP" "Maker/Taker" "Fees (by token)"])
+(def activity-columns ["Market" "Fills" "Bought" "Buy VWAP" "Sold" "Sell VWAP" "Maker/Taker" "Fees (by token)" "Funding"])
 
 (def empty-no-tracking
   "No Vol Range tracking for this account in this browser yet. Tracking starts when you place your first ladder.")
@@ -43,7 +43,7 @@
   {:net-pnl "Net tracked asset P&L" :hold-pnl "Hold P&L" :contribution "Ladder contribution versus hold"})
 (def benchmark-label "Hold inventory at the selected window start")
 (def benchmark-note
-  "Benchmark: Hold inventory at the selected window start. A descriptive comparison, not a claim that every wallet action would still have been possible.")
+  "Benchmark: Hold inventory at the selected window start. A descriptive comparison, not a claim that every wallet action would still have been possible. On perp markets, funding payments are counted in the ladder contribution.")
 (def headline-title-all "All tracked markets")
 (def marks-loading "Loading hourly prices…")
 (def partial-message "Checking fills… Figures appear once every fill in this window is confirmed.")
@@ -124,6 +124,7 @@
 (def matched-gross "Gross matched spread")
 (def matched-unmatched-sells "Sold inventory not reaccumulated")
 (def matched-fee-impact "Fee and rebate impact at the report mark")
+(def matched-funding "Funding received or paid")
 (def matched-total "= Ladder contribution versus hold")
 
 (defn matched-qty-text [qty symbol pairs]

@@ -52,7 +52,8 @@
 ;; prove everything before their newest row.
 (def ^:private read-reasons
   {:fills/no-progress :coverage/no-progress :fills/page-cap :coverage/page-cap
-   :ledger/no-progress :coverage/no-progress :ledger/page-cap :coverage/page-cap})
+   :ledger/no-progress :coverage/no-progress :ledger/page-cap :coverage/page-cap
+   :funding/no-progress :coverage/no-progress :funding/page-cap :coverage/page-cap})
 
 (defn distinct-fill-count
   "Distinct fill keys among raw fill `rows` (every coin)."
@@ -123,6 +124,18 @@
   apply."
   [args]
   (read->coverage :ledger args nil))
+
+(defn funding-read->coverage
+  "Coverage deltas (stream :funding) for a `report-reads/read-funding-window!`
+  result, for the tracked perp base ids in `base-token-ids`."
+  [args]
+  (read->coverage :funding args nil))
+
+(defn perp-campaign?
+  "True when `campaign` tracks a perp position (its funding stream is part of
+  its coverage)."
+  [campaign]
+  (contracts/perp-base-id? (some-> (get-in campaign [:scope :base-token-id]) str)))
 
 (defn coverage-record-id [account stream base-token-id]
   (str "coverage:" account "|" (name stream) "|" base-token-id))
@@ -237,7 +250,7 @@
   "Combined coverage of `[T0 - skew, until-ms)` for `campaign` (for a window
   `[a,b)` pass b): {:state :reason :from-ms :to-ms :intervals :breaks
   :headline-allowed?}. `coverage` is {:fills record :ledger record} for the
-  campaign's base token; `breaks` come from `report-attribution/
+  campaign's base token, plus `:funding` for a perp campaign; `breaks` come from `report-attribution/
   campaign-findings`; mismatched `balance-checks` add breaks.
   `storage-ok?` false (the ledger could not be read) is `:unavailable`.
   `unreadable` ([{:time}] from `campaign-findings`) are stored rows that no
@@ -263,11 +276,18 @@
                                      (max from))
             fills (stream-intervals (:fills coverage) [from to])
             ledger-ivs (stream-intervals (:ledger coverage) [from to])
-            points (concat (mapcat (juxt :from-ms :to-ms) (concat fills ledger-ivs)) (map :at-ms all-breaks)
+            ;; A perp's funding payments are cash of the campaign from T0 on.
+            funding-ivs (when (perp-campaign? campaign)
+                          (let [t0 (min (:t0-ms campaign) to)]
+                            (into (if (< from t0) [{:from-ms from :to-ms t0 :state :complete :reason nil}] [])
+                                  (stream-intervals (:funding coverage) [t0 to]))))
+            points (concat (mapcat (juxt :from-ms :to-ms) (concat fills ledger-ivs funding-ivs))
+                           (map :at-ms all-breaks)
                            (when unreadable-from [unreadable-from]))
             intervals (merge-adjacent
                        (for [[a b] (segments [from to] points)]
                          (let [candidates (cond-> [(state-at fills a) (state-at ledger-ivs a)]
+                                            funding-ivs (conj (state-at funding-ivs a))
                                             (and unreadable-from (>= a unreadable-from))
                                             (conj {:state :gap :reason :storage/unreadable-rows})
                                             (and first-break (>= a (:at-ms first-break)))
@@ -340,7 +360,8 @@
                 (iv/covers? (get-in coverage [:ledger :complete]) need)))
       check
       (some #(<= (or (:time %) (:at-ms %)) (+ r skew)) breaks) (decided :inconclusive)
-      (some #(<= (js/Math.abs (- (:time %) r)) skew) events) (decided :inconclusive)
+      ;; Funding moves cash only, never the position.
+      (some #(<= (js/Math.abs (- (:time %) r)) skew) (ledger/fills events)) (decided :inconclusive)
       :else
       (let [expected (:q (ledger/state-before campaign events r))
             observed (some-> (:observed-total check) str precision/parse-decimal)]

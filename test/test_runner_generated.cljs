@@ -545,6 +545,7 @@
             [hyperopen.runtime.effect-adapters.staking-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.vol-range-execution-test]
+            [hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test]
             [hyperopen.runtime.effect-adapters.vol-range-repair-replace-test]
             [hyperopen.runtime.effect-adapters.vol-range-replace-test]
             [hyperopen.runtime.effect-adapters.vol-range-report-test]
@@ -615,6 +616,7 @@
             [hyperopen.telemetry.console-preload.simulators-test]
             [hyperopen.telemetry.console-warning-test]
             [hyperopen.test-runner-support-test]
+            [hyperopen.test-support.node-env-test]
             [hyperopen.trade-modules-test]
             [hyperopen.trading-crypto-modules-test]
             [hyperopen.trading-crypto.module-exports-test]
@@ -683,6 +685,7 @@
             [hyperopen.views.account-equity-parity-test]
             [hyperopen.views.account-equity-unified-metrics-test]
             [hyperopen.views.account-equity-vaults-test]
+            [hyperopen.views.account-equity-venues-test]
             [hyperopen.views.account-equity-view-test]
             [hyperopen.views.account-equity-view-token-price-test]
             [hyperopen.views.account-equity.hyperevm-line-test]
@@ -1030,6 +1033,7 @@
             [hyperopen.vol-range.application.report-model-test]
             [hyperopen.vol-range.application.report-windows-test]
             [hyperopen.vol-range.application.snapshots-test]
+            [hyperopen.vol-range.application.waiting-note-test]
             [hyperopen.vol-range.contracts-test]
             [hyperopen.vol-range.domain.admission-test]
             [hyperopen.vol-range.domain.fees-test]
@@ -1054,12 +1058,14 @@
             [hyperopen.vol-range.infrastructure.lifecycle-scenarios-test]
             [hyperopen.vol-range.infrastructure.live-ingress-test]
             [hyperopen.vol-range.infrastructure.monitoring-gate-test]
+            [hyperopen.vol-range.infrastructure.perp-scenarios-test]
             [hyperopen.vol-range.infrastructure.repair-scenarios-test]
             [hyperopen.vol-range.infrastructure.replace-scenarios-test]
             [hyperopen.vol-range.infrastructure.report-executor-test]
             [hyperopen.vol-range.infrastructure.report-reads-test]
             [hyperopen.vol-range.infrastructure.report-watcher-test]
             [hyperopen.vol-range.journal-and-cloid-test]
+            [hyperopen.vol-range.perp-markets-test]
             [hyperopen.vol-range.preview-gate-test]
             [hyperopen.vol-range.registration-test]
             [hyperopen.vol-range.repair-actions-test]
@@ -1698,6 +1704,7 @@
              'hyperopen.runtime.effect-adapters.staking-test
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.vol-range-execution-test
+             'hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test
              'hyperopen.runtime.effect-adapters.vol-range-repair-replace-test
              'hyperopen.runtime.effect-adapters.vol-range-replace-test
              'hyperopen.runtime.effect-adapters.vol-range-report-test
@@ -1768,6 +1775,7 @@
              'hyperopen.telemetry.console-preload.simulators-test
              'hyperopen.telemetry.console-warning-test
              'hyperopen.test-runner-support-test
+             'hyperopen.test-support.node-env-test
              'hyperopen.trade-modules-test
              'hyperopen.trading-crypto-modules-test
              'hyperopen.trading-crypto.module-exports-test
@@ -1836,6 +1844,7 @@
              'hyperopen.views.account-equity-parity-test
              'hyperopen.views.account-equity-unified-metrics-test
              'hyperopen.views.account-equity-vaults-test
+             'hyperopen.views.account-equity-venues-test
              'hyperopen.views.account-equity-view-test
              'hyperopen.views.account-equity-view-token-price-test
              'hyperopen.views.account-equity.hyperevm-line-test
@@ -2183,6 +2192,7 @@
              'hyperopen.vol-range.application.report-model-test
              'hyperopen.vol-range.application.report-windows-test
              'hyperopen.vol-range.application.snapshots-test
+             'hyperopen.vol-range.application.waiting-note-test
              'hyperopen.vol-range.contracts-test
              'hyperopen.vol-range.domain.admission-test
              'hyperopen.vol-range.domain.fees-test
@@ -2207,12 +2217,14 @@
              'hyperopen.vol-range.infrastructure.lifecycle-scenarios-test
              'hyperopen.vol-range.infrastructure.live-ingress-test
              'hyperopen.vol-range.infrastructure.monitoring-gate-test
+             'hyperopen.vol-range.infrastructure.perp-scenarios-test
              'hyperopen.vol-range.infrastructure.repair-scenarios-test
              'hyperopen.vol-range.infrastructure.replace-scenarios-test
              'hyperopen.vol-range.infrastructure.report-executor-test
              'hyperopen.vol-range.infrastructure.report-reads-test
              'hyperopen.vol-range.infrastructure.report-watcher-test
              'hyperopen.vol-range.journal-and-cloid-test
+             'hyperopen.vol-range.perp-markets-test
              'hyperopen.vol-range.preview-gate-test
              'hyperopen.vol-range.registration-test
              'hyperopen.vol-range.repair-actions-test

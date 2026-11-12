@@ -72,7 +72,7 @@
      :placing? placing?
      :label (if placing? "Placing orders…" (str "Place " (plural n "order")))
      :note (cond
-             waiting? monitoring-copy/review-note
+             waiting? (monitoring-copy/waiting-note state)
              over-cap? (str "This ladder is " (ds total) " USDC; this browser's ladder cap is " max-ladder-usdc " USDC.")
              max-ladder-usdc (str "Post-only orders. Ladder cap " max-ladder-usdc " USDC in this browser.")
              :else "Post-only orders.")}))
@@ -249,6 +249,10 @@
    :reconciliation-required "Checking an earlier placement before placing again."
    :error "Something went wrong."})
 
+(def ^:private leverage-changed-text
+  (str "Nothing was sent: this market's leverage or margin mode on the exchange differs from the one reviewed. "
+       "Set the leverage for this market, then review the ladder again."))
+
 (defn status-message
   "The polite live-region text for the latest operation (spec 11.4)."
   [state]
@@ -266,6 +270,9 @@
         ;; ladder's cancel was confirmed; Refresh balances reads them again.
         (and (= :place op) (= :admission-failed status) (:replacement? last-result))
         replace-model/replacement-admission-text
+
+        (and (= :place op) (some #{:guard/leverage-changed} errors))
+        leverage-changed-text
 
         (contains? #{:repair-preview :repair} op)
         (repair-model/status-message

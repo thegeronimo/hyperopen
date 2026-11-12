@@ -215,7 +215,8 @@
                 (assoc-in s [:wallet :address] "0xfedcba0987654321fedcba0987654321fedcba09")]]
       (let [m (rm/repair-model s*)]
         (is (contracts/repair-model-valid? m))
-        (is (= {:label "Place 1 repair order" :enabled? false :busy? false :note note} (:submit m)))
+        (is (= {:label "Place 1 repair order" :enabled? false :busy? false} (dissoc (:submit m) :note)))
+        (is (re-find (re-pattern (str "^" note " \\S")) (get-in m [:submit :note])))
         (is (true? (get-in m [:refresh :enabled?])) "Refresh prices never waits")))
     (testing "a send refused for monitoring explains itself in the dialog"
       (is (= ["Nothing was placed: live order and fill updates were catching up. Try again in a moment."]

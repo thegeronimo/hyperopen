@@ -100,12 +100,22 @@
           (precision/neg-dec? value) {:errors [(err :input/invalid-number path)]}
           :else {:value value})))
 
+(defn- optional-signed [x path]
+  (let [{:keys [value blank? invalid?]} (parse-field x)]
+    (cond blank? {}
+          invalid? {:errors [(err :input/invalid-number path)]}
+          :else {:value value})))
+
 (defn validate-inputs
   "Validate a locale-normalized draft. Returns {:resolved ... :errors [...]}.
   Fields resolve independently (nil when invalid) so geometry can still be
-  computed for diagnostics. Blank protected core / target are not errors."
+  computed for diagnostics. Blank protected core / target are not errors.
+  With `:signed-inventory? true` in `policy` (perp markets, where inventory is
+  a signed position) the limits may be negative."
   [draft policy]
-  (let [policy (or policy contracts/product-policy)
+  (let [signed? (boolean (:signed-inventory? policy))
+        optional-nonneg (if signed? optional-signed optional-nonneg)
+        policy (or policy contracts/product-policy)
         {:keys [anchor volatility inventory buy sell]} draft
         anchor-mode (or (:mode anchor) :vwap-24h)
         custom (when (= :custom anchor-mode)
@@ -134,7 +144,7 @@
         maximum (cond
                   (:invalid? maximum-parsed) {:errors [(err :input/invalid-number (limit-path :maximum))]}
                   (:blank? maximum-parsed) nil
-                  (precision/pos-dec? (:value maximum-parsed)) {:value (:value maximum-parsed)}
+                  (or signed? (precision/pos-dec? (:value maximum-parsed))) {:value (:value maximum-parsed)}
                   :else {:errors [(err :input/maximum-required (limit-path :maximum))]})
         strength (when tilt?
                    (let [{:keys [value blank? invalid?]} (parse-field (:tilt-strength inventory))]

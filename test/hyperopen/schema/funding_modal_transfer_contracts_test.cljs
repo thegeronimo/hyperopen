@@ -18,7 +18,7 @@
 (deftest transfer-submap-contract-accepts-the-built-view-model-test
   (let [vm (transfer-vm)]
     (is (= :transfer/form (get-in vm [:content :kind])))
-    (is (= #{:to-perp? :route :from-options :to-options :swap-action :asset :balances
+    (is (= #{:to-perp? :route :from-options :to-options :perps-accounts :swap-action :asset :balances
              :destination :summary :usd-estimate :percent-actions :blocked :evm :amount
              :message :actions}
            (set (keys (:transfer vm)))))

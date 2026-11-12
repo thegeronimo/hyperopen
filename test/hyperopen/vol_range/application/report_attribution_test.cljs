@@ -44,8 +44,16 @@
     (is (= [:break/other-pair-trade] (reasons f)))
     (is (= (:time fx/other-pair-row) (:at-ms (first (:breaks f)))))))
 
-(deftest perp-and-hip3-coins-are-ignored-test
+(deftest perp-and-hip3-coins-never-touch-a-spot-campaign-test
   (doseq [coin ["BTC" "xyz:GOLD" "HYPE"]]
+    (let [row (assoc fx/manual-row :coin coin)
+          c (attribution/classify-fill markets {} (fx/fill row))]
+      (is (= {:events [] :breaks [] :unreadable []} (findings [row])) coin)
+      (is (= :perp (:status c)))
+      (is (= #{(str "perp:" coin)} (:token-ids c))))))
+
+(deftest outcome-coins-are-ignored-test
+  (doseq [coin ["#12" "+12"]]
     (let [row (assoc fx/manual-row :coin coin)]
       (is (= {:events [] :breaks [] :unreadable []} (findings [row])) coin)
       (is (= :ignored (:status (attribution/classify-fill markets {} (fx/fill row))))))))

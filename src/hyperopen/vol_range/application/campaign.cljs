@@ -23,14 +23,20 @@
 
 (defn campaign-key
   "\"network|account|spot|base-token-id|spot-pair-index\" for a spot scope,
-  or nil when the scope cannot identify a market (no account, no pair index,
-  not spot). The account is lower-cased; a missing base token id is an empty
-  segment."
-  [{:keys [network account-address market-type base-token-id spot-pair-index]}]
-  (let [account (lower account-address)]
-    (when (and account (= :spot market-type) (some? spot-pair-index))
-      (str (name (or network (contracts/current-network))) "|" account "|spot|"
-           (or (some-> base-token-id str) "") "|" spot-pair-index))))
+  \"network|account|perp|coin|\" for a perp scope (the coin carries the HIP-3
+  dex prefix), or nil when the scope cannot identify a market (no account, no
+  pair index or coin, another market type). The account is lower-cased; a
+  missing base token id is an empty segment."
+  [{:keys [network account-address market-type base-token-id spot-pair-index coin]}]
+  (let [account (lower account-address)
+        prefix (str (name (or network (contracts/current-network))) "|" account)]
+    (cond
+      (nil? account) nil
+      (and (= :spot market-type) (some? spot-pair-index))
+      (str prefix "|spot|" (or (some-> base-token-id str) "") "|" spot-pair-index)
+      (and (= :perp market-type) (string? coin) (seq coin))
+      (str prefix "|perp|" coin "|")
+      :else nil)))
 
 ;; ---------------------------------------------------------------------------
 ;; Baseline
@@ -39,17 +45,24 @@
 (defn- dec-string [x]
   (some-> x str precision/parse-decimal precision/decimal->string))
 
-(defn base-total
-  "The base token's total (held units included) in a raw barrier read: by
-  token id when the rows carry `:token`, else by coin symbol. A read without
-  the token is a zero balance. nil only for an unparseable total."
-  [{:keys [balances]} {:keys [base-token-id symbol]}]
+(defn- spot-base-total [balances base-token-id symbol]
   (let [rows (if (sequential? balances) balances [])
         by-token? (boolean (some #(some? (:token %)) rows))
         row (if by-token?
               (first (filter #(and (some? base-token-id) (= (str base-token-id) (str (:token %)))) rows))
               (first (filter #(and symbol (= symbol (:coin %))) rows)))]
     (if row (dec-string (:total row)) "0")))
+
+(defn base-total
+  "The base token's total (held units included) in a raw barrier read: by
+  token id when the rows carry `:token`, else by coin symbol. A read without
+  the token is a zero balance. nil only for an unparseable total. For a perp
+  scope it is the SIGNED position the read's `:perps` holds for the coin, nil
+  when the read did not cover it."
+  [{:keys [balances perps]} {:keys [base-token-id symbol market-type coin]}]
+  (if (= :perp market-type)
+    (dec-string (get-in perps [coin :position]))
+    (spot-base-total balances base-token-id symbol)))
 
 (defn- midpoint
   "(bid + ask) / 2 at 12 places, half-up, trimmed; nil for a missing,
@@ -64,6 +77,10 @@
 (defn- campaign-scope [scope]
   {:network (or (:network scope) (contracts/current-network))
    :account-address (lower (:account-address scope))
+   ;; Campaigns recorded before perps were supported have no market type:
+   ;; they are spot.
+   :market-type (or (:market-type scope) :spot)
+   :dex (:dex scope)
    :coin (:coin scope)
    :spot-pair-index (:spot-pair-index scope)
    :base-token-id (some-> (:base-token-id scope) str)

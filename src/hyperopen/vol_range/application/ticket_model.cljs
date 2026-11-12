@@ -12,9 +12,10 @@
             [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.plan-state :as plan-state]
-            [hyperopen.vol-range.application.snapshots :as snapshots]))
+            [hyperopen.vol-range.application.snapshots :as snapshots]
+            [hyperopen.vol-range.contracts :as contracts]))
 
-(def eligibility-message "Volatility range is available on USDC spot markets.")
+(def eligibility-message "Volatility range is available on USDC spot and perp markets.")
 (def footer-note "Orders fill independently. Prices stay fixed until you update them.")
 (def sell-proceeds-note "Sale proceeds don't fund the staged buys.")
 (def vwap-gap-explanation
@@ -180,15 +181,15 @@
 (defn- limits-summary
   "One line for the folded limits: what sells may use, how much can be held,
   and the tilt target when tilt is on."
-  [outcomes tilt? sz base-symbol]
+  [outcomes tilt? sz base-symbol signed?]
   (let [amt #(str (display/amount (get outcomes %) sz) " " base-symbol)
         core (d (:core outcomes))]
     (if-not outcomes
       "Limits are checked once your balances load"
       (str/join " · "
-                (cond-> [(if (or (nil? core) (precision/zero-dec? core))
-                           "Sells can go down to 0"
-                           (str "Keeps at least " (amt :core)))
+                (cond-> [(cond (and (nil? core) signed?) "Sells can open a short"
+                               (or (nil? core) (precision/zero-dec? core)) "Sells can go down to 0"
+                               :else (str "Keeps at least " (amt :core)))
                          (if (:maximum outcomes)
                            (str "holds at most " (amt :maximum))
                            "no holding limit")]
@@ -201,17 +202,42 @@
     (when-let [v (d (get outcomes k))]
       (precision/to-fixed (precision/quantize (precision/mul v px) 2 :half-up) 2))))
 
-(defn- inventory-section [{:keys [draft market account plan]} {:keys [limits-open?]}]
+(defn- transfer-offer
+  "Offer to fund the market's perps account when a perp plan lacks margin. A
+  standard account holds collateral per perp dex, and the Transfer button
+  elsewhere only reaches the main perps account."
+  [{:keys [scope market account plan]}]
+  (let [margin (:margin account)
+        dex (some-> (:dex scope) str str/trim not-empty)]
+    (when (and (contracts/perp-market? market) margin (not (:read-only? account))
+               (or (precision/zero-dec? (d (:available margin)))
+                   (some #(= :plan/insufficient-margin (:code %)) (:errors plan))))
+      {:label (str "Transfer " (or (:quote-symbol market) "USDC") " to " (if dex (str dex " perps") "Perps"))
+       :dex (or dex "")})))
+
+(defn- inventory-section [{:keys [draft market account plan] :as ctx} {:keys [limits-open?]}]
   (let [sz (:sz-decimals market)
         outcomes (:inventory-outcomes plan)
         quote? (= :quote (get-in draft [:inventory :limit-unit]))
         tilt? (boolean (get-in draft [:inventory :tilt-enabled?]))
-        forced? (boolean (or (limit-issue? plan) (:starting-breach outcomes)))]
+        forced? (boolean (or (limit-issue? plan) (:starting-breach outcomes)))
+        perp? (contracts/perp-market? market)
+        margin (:margin account)]
     {:base-symbol (:base-symbol market)
      :current (display/amount (get-in account [:base :total]) sz)
      :available-to-sell (display/amount (get-in account [:base :available]) sz)
+     ;; A perp holds a signed position funded by margin, not a token balance.
+     :perp? perp?
+     :current-label (if perp? "Current position" "Current spot inventory")
+     :available-label (if perp? "Max sell at this leverage" "Available to sell")
+     :margin-note (when (and perp? margin)
+                    (str "Margin available " (display/fixed (:available margin) 2) " " (:quote-symbol market)
+                         " · " (display/exact (:leverage margin)) "x "
+                         (name (:type margin))
+                         " · orders that reduce your position need no margin"))
+     :transfer-offer (transfer-offer ctx)
      :limit-unit (if quote? :quote :base)
-     :summary (limits-summary outcomes tilt? sz (:base-symbol market))
+     :summary (limits-summary outcomes tilt? sz (:base-symbol market) perp?)
      :open? (or forced? limits-open?)
      :collapsible? (not forced?)
      :tilt? tilt?
@@ -229,7 +255,7 @@
                                  " · no limit")
                                " " (:base-symbol market)))))
      ;; Blank fields use these defaults; the placeholder shows the value in use.
-     :core-placeholder "0"
+     :core-placeholder (if perp? "No limit" "0")
      :target-placeholder (or (if quote?
                                (quote-placeholder outcomes :target)
                                (some-> (:target outcomes) (display/amount sz)))

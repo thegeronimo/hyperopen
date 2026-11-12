@@ -41,6 +41,8 @@
                       (row :unmatched-buys (copy/unmatched-buys-text (price-text (:p-end m))) (:unmatched-buys m))
                       (row :unmatched-sells copy/matched-unmatched-sells (:unmatched-sells m))
                       (row :fee-impact copy/matched-fee-impact (:fee-impact m))]
+               (not (precision/zero-dec? (precision/parse-decimal (:funding m))))
+               (conj (row :funding copy/matched-funding (:funding m)))
                (matching/reconciles-with? m contribution) (conj (row :total copy/matched-total (:total m))))
        :fees-paid (copy/fees-paid-text (fees-text (:fees-by-token m)))})))
 

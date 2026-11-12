@@ -7,7 +7,8 @@
   nothing re-anchors to a newer quote. The footer says placement is not
   available and carries no commit control (VR-24). `:replacement` is always
   nil here; a replacement review gets its lineage at the view boundary."
-  (:require [hyperopen.vol-range.application.display :as display]
+  (:require [clojure.string :as str]
+            [hyperopen.vol-range.application.display :as display]
             [hyperopen.vol-range.application.draft-scope :as draft-scope]
             [hyperopen.vol-range.application.ticket-model :as ticket-model]
             [hyperopen.vol-range.contracts :as contracts]))
@@ -172,7 +173,11 @@
          :available? true
          :title (str "Review " n (if (= 1 n) " post-only order" " post-only orders"))
          :base-symbol (:symbol scope)
-         :identity-line (str (:symbol scope) "/" (:quote-symbol scope) " · Spot · "
+         :identity-line (str (:symbol scope) "/" (:quote-symbol scope) " · "
+                             (if (contracts/perp-market? scope)
+                               (if-let [dex (some-> (:dex scope) str str/trim not-empty)] (str dex " perp") "Perp")
+                               "Spot")
+                             " · "
                              (ticket-model/account-label (:account-address scope)) " · Post-only")
          :plan-as-of (str "Plan as of " (display/utc-clock (or (:frozen-at-ms context)
                                                                (get-in plan [:source-versions :bbo-observed-at-ms]))))

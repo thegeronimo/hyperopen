@@ -103,6 +103,31 @@
                    reason]))
            reasons)]))
 
+(defn- perps-accounts
+  "Which perps account the move uses. Shown only when there is a choice."
+  [options locked?]
+  (do
+    [:div {:class (hidden-unless (seq options) ["flex" "flex-wrap" "items-center" "gap-2"])
+           :data-role "funding-transfer-perps-accounts"}
+     [:span {:class parts/label-classes :id "funding-transfer-perps-account-label"} "Perps account"]
+     (into [:div {:role "group"
+                  :aria-labelledby "funding-transfer-perps-account-label"
+                  :class ["flex" "gap-0.5" "rounded-lg" "border" "border-ho-border" "bg-ho-bg-deep" "p-0.5"]}]
+           (map (fn [{:keys [label selected? action data-role]}]
+                  [:button (cond-> {:type "button"
+                                    :class (into ["h-11" "rounded-md" "px-2.5" "text-xs" "font-medium"
+                                                  "transition-colors" "sm:h-8" "focus:outline-none"
+                                                  "focus-visible:ring-2" "focus-visible:ring-ho-accent/50"]
+                                                 (if selected?
+                                                   ["bg-ho-surface-raised" "text-ho-text-hi"]
+                                                   ["text-ho-text-secondary" "hover:text-ho-text"]))
+                                    :aria-pressed (if selected? "true" "false")
+                                    :data-role data-role}
+                             locked? (assoc :aria-disabled "true")
+                             (not (or locked? selected?)) (assoc :on {:click [action]}))
+                   label]))
+           options)]))
+
 ;; --- asset ----------------------------------------------------------------------
 
 (defn- asset-row
@@ -390,6 +415,7 @@
            :data-role "funding-transfer-form"
            :replicant/on-render (parts/view-root-hook :form)}
      (places transfer locked?)
+     (perps-accounts (:perps-accounts transfer) locked?)
      (asset-list asset locked?)
      (amount-field transfer locked?)
      (blocked-card blocked)

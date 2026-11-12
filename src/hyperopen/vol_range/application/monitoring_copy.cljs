@@ -66,3 +66,14 @@
                             "Couldn't catch up yet. Retrying automatically."
                             "Catching up on fills and orders…")
                (stale-text reason))})))
+
+(defn waiting-note
+  "The note under a disabled review or repair submit: that placement is
+  waiting, and why. The dock's monitoring line is behind the dialog, so the
+  reason is repeated here, with the last catch-up error when one failed."
+  [state]
+  (let [{:keys [status text]} (line state)
+        error (some-> (get-in (monitoring-map state) [:resync :error]) str str/trim not-empty)]
+    (cond-> review-note
+      (and text (not= :live status)) (str " " text)
+      (and error (= :resyncing status)) (str " Last attempt: " error))))

@@ -7,7 +7,8 @@
   barrier rather than a UI read that happened to be in flight. Nothing here
   writes to the app store; callers get raw rows plus provenance and decide."
   (:require [clojure.string :as str]
-            [hyperopen.api.endpoints.orders :as orders]))
+            [hyperopen.api.endpoints.orders :as orders]
+            [hyperopen.domain.trading.precision :as precision]))
 
 (defn- normalize-address [a] (some-> a str str/trim str/lower-case not-empty))
 
@@ -16,41 +17,113 @@
    :cache-ttl-ms 0
    :dedupe-key [:vol-range-barrier kind address barrier-id]})
 
+(defn- dex-of [scope] (or (some-> (:dex scope) str str/trim not-empty) ""))
+
+(defn- perp-scopes [scopes]
+  (->> scopes
+       (filter #(and (= :perp (:market-type %)) (string? (:coin %))))
+       (map (fn [s] {:coin (:coin s) :dex (dex-of s)}))
+       distinct
+       vec))
+
+(defn- position-row [state coin]
+  (some (fn [entry]
+          (let [p (if (map? (:position entry)) (:position entry) entry)]
+            (when (= coin (:coin p)) p)))
+        (:assetPositions state)))
+
+(defn- perp-facts
+  "{:position :withdrawable :leverage :leverage-type :mark-px} for `coin`
+  from its dex `clearinghouseState` and its `activeAssetData`, or nil when
+  either has an unexpected shape. A coin without a position row is flat."
+  [state asset coin]
+  (let [lev (:leverage asset)]
+    (when (and (map? state) (sequential? (:assetPositions state)) (string? (:withdrawable state))
+               (map? asset) (map? lev) (number? (:value lev)) (pos? (:value lev)))
+      {:position (or (some-> (position-row state coin) :szi str) "0")
+       :withdrawable (:withdrawable state)
+       :leverage (:value lev)
+       :leverage-type (if (= "isolated" (:type lev)) :isolated :cross)
+       :mark-px (when (string? (:markPx asset)) (:markPx asset))})))
+
 (defn read-account-snapshot!
-  "Spot balances and raw open orders for one account, read together.
+  "Spot balances and raw open orders for one account, read together, plus,
+  for every perp market in `scopes` ({:market-type :perp :coin :dex}), its
+  dex's clearinghouse state and the coin's active asset data.
   Resolves to {:account-address :barrier-id :requested-at-ms :received-at-ms
-  :balances [...] :open-orders [...] :complete? bool :error text-or-nil}.
-  `complete?` is true only when BOTH reads succeeded with the expected shapes;
-  unknown completeness is false (spec 9.1). Never rejects."
-  [post-info! {:keys [account-address barrier-id now-ms!]}]
+  :balances [...] :open-orders [...] :perps {coin {:position :withdrawable
+  :leverage :leverage-type :mark-px}} :complete? bool :error text-or-nil}.
+  Open orders are read for the first perp dex (which includes spot) and for
+  every named dex in `scopes`: the venue returns one dex per request.
+  `complete?` is true only when EVERY read succeeded with the expected
+  shapes; unknown completeness is false (spec 9.1). Never rejects."
+  [post-info! {:keys [account-address barrier-id now-ms! scopes]}]
   (let [address (normalize-address account-address)
         now-ms! (or now-ms! #(.now js/Date))
-        requested-at (now-ms!)]
+        requested-at (now-ms!)
+        perps (perp-scopes scopes)
+        dexes (vec (distinct (map :dex perps)))
+        named (vec (remove #{""} dexes))]
     (if-not (and address barrier-id)
       (js/Promise.resolve {:account-address nil :barrier-id barrier-id :requested-at-ms requested-at
-                           :received-at-ms nil :balances [] :open-orders [] :complete? false
+                           :received-at-ms nil :balances [] :open-orders [] :perps {} :complete? false
                            :error "Account address and barrier id are required"})
       (-> (js/Promise.all
-           #js [(post-info! {"type" "spotClearinghouseState" "user" address}
-                            (fresh-opts :spot-balances address barrier-id))
-                (post-info! {"type" "frontendOpenOrders" "user" address}
-                            (fresh-opts :open-orders address barrier-id))])
+           (clj->js
+            (concat
+             [(post-info! {"type" "spotClearinghouseState" "user" address}
+                          (fresh-opts :spot-balances address barrier-id))
+              (post-info! {"type" "frontendOpenOrders" "user" address}
+                          (fresh-opts :open-orders address barrier-id))]
+             (for [dex named]
+               (post-info! {"type" "frontendOpenOrders" "user" address "dex" dex}
+                           (fresh-opts [:open-orders dex] address barrier-id)))
+             (for [dex dexes]
+               (post-info! (cond-> {"type" "clearinghouseState" "user" address}
+                             (seq dex) (assoc "dex" dex))
+                           (fresh-opts [:clearinghouse dex] address barrier-id)))
+             (for [{:keys [coin]} perps]
+               (post-info! {"type" "activeAssetData" "user" address "coin" coin}
+                           (fresh-opts [:active-asset coin] address barrier-id))))))
           (.then (fn [results]
-                   (let [[spot open] (array-seq results)
+                   (let [results (vec (array-seq results))
+                         [spot open] results
+                         dex-open (subvec results 2 (+ 2 (count named)))
+                         states (zipmap dexes (subvec results (+ 2 (count named))
+                                                      (+ 2 (count named) (count dexes))))
+                         assets (subvec results (+ 2 (count named) (count dexes)))
+                         facts (into {} (map (fn [{:keys [coin dex]} asset]
+                                               [coin (perp-facts (get states dex) asset coin)])
+                                             perps assets))
                          balances (:balances spot)
-                         complete? (and (map? spot) (sequential? balances) (sequential? open))]
+                         complete? (and (map? spot) (sequential? balances) (sequential? open)
+                                        (every? sequential? dex-open)
+                                        (every? some? (vals facts)))]
                      {:account-address address
                       :barrier-id barrier-id
                       :requested-at-ms requested-at
                       :received-at-ms (now-ms!)
                       :balances (if (sequential? balances) (vec balances) [])
-                      :open-orders (if (sequential? open) (vec open) [])
+                      :open-orders (into (if (sequential? open) (vec open) [])
+                                         (mapcat #(when (sequential? %) %))
+                                         dex-open)
+                      :perps (into {} (filter (comp some? val)) facts)
                       :complete? (boolean complete?)
                       :error (when-not complete? "Unexpected account snapshot shape")})))
           (.catch (fn [e]
                     {:account-address address :barrier-id barrier-id :requested-at-ms requested-at
-                     :received-at-ms nil :balances [] :open-orders [] :complete? false
+                     :received-at-ms nil :balances [] :open-orders [] :perps {} :complete? false
                      :error (if (instance? js/Error e) (.-message e) (str e))}))))))
+
+(defn with-book-mid
+  "`read` (an account snapshot read) with `:mid`, the midpoint of a complete
+  `read-book!` result, so perp capacities are priced at the fresh book."
+  [read {:keys [bid ask complete?]}]
+  (let [b (when complete? (some-> bid precision/parse-decimal))
+        a (when complete? (some-> ask precision/parse-decimal))]
+    (cond-> read
+      (and b a) (assoc :mid (precision/decimal->string
+                             (precision/divide (precision/add b a) (precision/parse-decimal "2") 12 :half-up))))))
 
 (defn read-order-statuses!
   "Order-status lookups for original identities (oid string or CLOID), one

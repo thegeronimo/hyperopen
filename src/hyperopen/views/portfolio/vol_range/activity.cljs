@@ -18,7 +18,7 @@
        (for [c copy/activity-columns] ^{:key c} [:th {:class (conj cell "font-medium") :scope "col"} c])]]
      [:tbody
       (for [{:keys [campaign-id activity]} campaigns
-            :let [{:keys [market fills bought buy-vwap sold sell-vwap maker-taker fees]} activity]]
+            :let [{:keys [market fills bought buy-vwap sold sell-vwap maker-taker fees funding]} activity]]
         ^{:key campaign-id}
         [:tr {:class ["border-b" "border-ho-border"] :data-role "vol-range-report-activity-row"
               :data-campaign-id campaign-id}
@@ -29,4 +29,5 @@
          [:td {:class (conj cell "num") :data-role "vol-range-report-activity-sold"} sold]
          [:td {:class (conj cell "num") :data-role "vol-range-report-activity-sell-vwap"} sell-vwap]
          [:td {:class (conj cell "num") :data-role "vol-range-report-activity-maker-taker"} maker-taker]
-         [:td {:class (conj cell "num") :data-role "vol-range-report-activity-fees"} fees]])]]]])
+         [:td {:class (conj cell "num") :data-role "vol-range-report-activity-fees"} fees]
+         [:td {:class (conj cell "num") :data-role "vol-range-report-activity-funding"} funding]])]]]])

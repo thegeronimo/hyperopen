@@ -1,5 +1,6 @@
 (ns test-runner
-  (:require [hyperopen.test-runner-support :as runner-support]
+  (:require [hyperopen.test-support.node-env]
+            [hyperopen.test-runner-support :as runner-support]
             [hyperopen.trading-crypto.module]
             [test-runner-generated :as generated-runner]))
 

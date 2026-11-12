@@ -52,7 +52,7 @@
                       :summary :open? :collapsible? :tilt?
                       :core-input :target-input :maximum-input
                       :core-placeholder :target-placeholder :maximum-placeholder :track :set-maximum-offer
-                      :starting-breach})
+                      :starting-breach :perp? :current-label :available-label :margin-note :transfer-offer})
 (def track-keys #{:domain-low :domain-high :markers})
 (def marker-keys #{:id :label :value :position})
 (def offer-keys #{:id :label})
@@ -131,7 +131,9 @@
         (contains? #{:base :quote} (:limit-unit %))
         (boolean? (:open? %)) (boolean? (:collapsible? %)) (boolean? (:tilt? %))
         (all-str-or-nil? % [:base-symbol :current :available-to-sell :limit-note :summary :core-input :target-input :maximum-input
-                            :core-placeholder :target-placeholder :maximum-placeholder :starting-breach])
+                            :core-placeholder :target-placeholder :maximum-placeholder :starting-breach
+                            :current-label :available-label :margin-note])
+        (boolean? (:perp? %))
         (nil-or track? (:track %))
         (nil-or offer? (:set-maximum-offer %))))
 

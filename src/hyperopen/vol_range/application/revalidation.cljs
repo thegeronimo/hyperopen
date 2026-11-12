@@ -66,7 +66,15 @@
                           (age-error now-ms (:observed-at-ms account) (:account-ms policy)
                                      :guard/account-stale)])
         account-errors (when (not= :ready (:status account)) [:guard/account-unavailable])
-        fresh (when (and (empty? scope-errors) (empty? account-errors))
+        ;; A perp review shows the leverage and margin mode it planned with
+        ;; (the ticket's setting while flat). The venue's own may differ; a
+        ;; ladder is never sent at a leverage the user did not review.
+        reviewed-margin (get-in input [:account :margin])
+        leverage-errors (when (and (:margin account)
+                                   (not= (select-keys (:margin account) [:leverage :type])
+                                         (select-keys reviewed-margin [:leverage :type])))
+                          [:guard/leverage-changed])
+        fresh (when (and (empty? scope-errors) (empty? account-errors) (empty? leverage-errors))
                 (planner/prepare-plan (assoc (pin-anchor input frozen-plan)
                                              :plan-id (:plan-id frozen-plan)
                                              :account (account-with-pending account pending)
@@ -77,7 +85,7 @@
                       (not= :ready (:status fresh)) [:guard/plan-not-admissible]
                       (not= (fixed-vector (:legs frozen-plan)) (fixed-vector (:legs fresh))) [:guard/plan-changed]
                       :else [])
-        errors (vec (concat scope-errors account-errors age-errors plan-errors))]
+        errors (vec (concat scope-errors account-errors leverage-errors age-errors plan-errors))]
     {:ok? (and (= :ready (:status frozen-plan)) (empty? errors))
      :errors (if (= :ready (:status frozen-plan)) errors (into [:guard/plan-not-ready] errors))
      :plan fresh}))
