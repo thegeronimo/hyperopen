@@ -5,7 +5,9 @@
   funding in the report."
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.vol-range.application.campaign :as campaign]
+            [hyperopen.schema.vol-range-contracts :as vrc]
             [hyperopen.vol-range.application.planner :as planner]
+            [hyperopen.vol-range.application.projections :as projections]
             [hyperopen.vol-range.application.replace-state :as replace-state]
             [hyperopen.vol-range.application.report-attribution :as attribution]
             [hyperopen.vol-range.application.report-coverage :as coverage]
@@ -417,3 +419,12 @@
       (is (= {:buy "Not enough margin for the buys: about 577.83 USDC needed at 5x, 100.00 USDC available in your perps account."
               :sell "Not enough margin for the sells: about 530.61 USDC needed at 5x, 100.00 USDC available in your perps account."}
              (msgs {:withdrawable "100"} {:dex nil}))))))
+
+(deftest a-perp-ticket-without-margin-offers-the-dex-transfer-test
+  (with-redefs [snapshots/fee-snapshot (fn [_ _] perp-fees)]
+    (let [offer (fn [state] (get-in (projections/ticket-model state sf/now-ms) [:inventory :transfer-offer]))
+          empty-dex (assoc-in (perp-state nil) [:perp-dex-clearinghouse "xyz" :withdrawable] "0")]
+      (is (= {:label "Transfer USDC to xyz perps" :dex "xyz"} (offer empty-dex)))
+      (is (nil? (offer (perp-state nil))) "margin is available and nothing is planned yet")
+      (is (nil? (offer (sf/base-state))) "never on spot")
+      (is (vrc/ticket-model-valid? (projections/ticket-model empty-dex sf/now-ms))))))

@@ -66,7 +66,7 @@
 (defn inventory-section
   ([inventory] (inventory-section inventory {}))
   ([{:keys [base-symbol current available-to-sell summary open? collapsible? track set-maximum-offer
-            starting-breach current-label available-label margin-note] :as inventory}
+            starting-breach current-label available-label margin-note transfer-offer] :as inventory}
     fe]
    (p/section {:title "Inventory" :data-role "vol-range-inventory"}
               [:div {:class ["grid" "grid-cols-2" "gap-2"]}
@@ -76,6 +76,17 @@
               (when margin-note
                 [:p {:class ["text-xs" "text-ho-text-muted" "num"] :data-role "vol-range-margin-note"}
                  margin-note])
+              (when transfer-offer
+                ;; Opens the Transfer dialog preset to Spot -> this market's perps account.
+                [:button {:type "button"
+                          :class ["self-start" "rounded-md" "border" "border-ho-warn" "px-2" "py-1" "text-xs"
+                                  "font-medium" "text-ho-warn" "transition-colors"]
+                          :data-role "vol-range-transfer-margin"
+                          :on {:click [[:actions/open-funding-transfer-modal
+                                        :event.currentTarget/bounds
+                                        "vol-range-transfer-margin"
+                                        {:dex (:dex transfer-offer) :to-perp? true}]]}}
+                 (:label transfer-offer)])
               (when starting-breach
                 [:p {:class ["rounded-md" "border" "border-ho-warn" "p-2" "text-xs" "text-ho-warn"]
                      :data-role "vol-range-starting-breach"}

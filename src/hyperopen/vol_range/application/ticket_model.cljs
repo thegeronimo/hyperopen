@@ -202,7 +202,20 @@
     (when-let [v (d (get outcomes k))]
       (precision/to-fixed (precision/quantize (precision/mul v px) 2 :half-up) 2))))
 
-(defn- inventory-section [{:keys [draft market account plan]} {:keys [limits-open?]}]
+(defn- transfer-offer
+  "Offer to fund the market's perps account when a perp plan lacks margin. A
+  standard account holds collateral per perp dex, and the Transfer button
+  elsewhere only reaches the main perps account."
+  [{:keys [scope market account plan]}]
+  (let [margin (:margin account)
+        dex (some-> (:dex scope) str str/trim not-empty)]
+    (when (and (contracts/perp-market? market) margin (not (:read-only? account))
+               (or (precision/zero-dec? (d (:available margin)))
+                   (some #(= :plan/insufficient-margin (:code %)) (:errors plan))))
+      {:label (str "Transfer " (or (:quote-symbol market) "USDC") " to " (if dex (str dex " perps") "Perps"))
+       :dex (or dex "")})))
+
+(defn- inventory-section [{:keys [draft market account plan] :as ctx} {:keys [limits-open?]}]
   (let [sz (:sz-decimals market)
         outcomes (:inventory-outcomes plan)
         quote? (= :quote (get-in draft [:inventory :limit-unit]))
@@ -222,6 +235,7 @@
                          " · " (display/exact (:leverage margin)) "x "
                          (name (:type margin))
                          " · orders that reduce your position need no margin"))
+     :transfer-offer (transfer-offer ctx)
      :limit-unit (if quote? :quote :base)
      :summary (limits-summary outcomes tilt? sz (:base-symbol market) perp?)
      :open? (or forced? limits-open?)

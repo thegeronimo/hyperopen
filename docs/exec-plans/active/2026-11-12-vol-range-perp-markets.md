@@ -41,7 +41,8 @@ Volatility range ladders are admitted only on USDC spot pairs (HO-SPEC-014 v2.1 
 
 - The Playwright vol-range helpers detected "fixture seeded" by the ticket heading being visible. The default BTC perp now shows the ticket too, so they check the identity strip for the fixture market.
 
-- `hyperopen.vol-range.infrastructure.campaign-executor-test/an-unresolved-send-attempt-refuses-the-restart-test` fails at `1d103b490` before this change (6 assertions, `:busy` instead of `:checking`); it is not touched here.
+- On Node 24 (`navigator.locks` exists) `npm test` stops silently at `nonce-coordinator-test` with exit 0, so `npm run gates` reports PASS without running most of the suite, and `campaign-executor-test/an-unresolved-send-attempt-refuses-the-restart-test` fails (`:busy`). Both predate this change. With `node --no-experimental-global-navigator out/test.js` the main suite runs 8,414 tests (one unrelated failure, `footer_view_test` 3g hints, which needs `navigator`) and `out/vol-range-test.js` runs 1,607 with 0 failures.
+- A standard account has no in-app way to fund a HIP-3 dex it holds nothing in: the Transfer dialog reaches a named dex only from that dex's Balances row. The ticket now offers the transfer, and the dialog names the dex.
 
 - `frontendOpenOrders` without `dex` omits HIP-3 orders, so the barrier read must pass the market's dex.
 - The capability matrix says `:execution? false`, but execution is enabled by config flags and is live on mainnet.

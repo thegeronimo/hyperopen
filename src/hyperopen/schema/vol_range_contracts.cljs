@@ -52,7 +52,7 @@
                       :summary :open? :collapsible? :tilt?
                       :core-input :target-input :maximum-input
                       :core-placeholder :target-placeholder :maximum-placeholder :track :set-maximum-offer
-                      :starting-breach :perp? :current-label :available-label :margin-note})
+                      :starting-breach :perp? :current-label :available-label :margin-note :transfer-offer})
 (def track-keys #{:domain-low :domain-high :markers})
 (def marker-keys #{:id :label :value :position})
 (def offer-keys #{:id :label})

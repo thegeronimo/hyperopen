@@ -15,6 +15,7 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.funding.application.modal-vm.transfer-details :as details]
             [hyperopen.funding.domain.amounts :as amounts]
+            [hyperopen.funding.domain.availability :as availability]
             [hyperopen.funding.domain.evm-transfer-amounts :as evm-amounts]
             [hyperopen.funding.domain.transfer-balances :as transfer-balances]
             [hyperopen.funding.domain.transfer-route :as transfer-route]
@@ -110,6 +111,16 @@
       :delta delta
       :available (show available)})))
 
+(defn- place-label
+  "The place's name. On an account that holds collateral per perp dex, a
+   transfer scoped to a HIP-3 dex names it (\"xyz Perps\"): that balance is
+   not the main Perps one."
+  [state modal location]
+  (let [dex (availability/transfer-dex-name (:transfer-dex modal))]
+    (if (and (= :perps location) dex (not (availability/pooled-perps-collateral? state)))
+      (str dex " Perps")
+      (get transfer-route/location-labels location ""))))
+
 (defn- balances-model
   "Before/after balances of both places. The Perps <-> Spot route shows the
    legacy USDC max of each place, but only once that place's balances were
@@ -135,13 +146,13 @@
                          (evm-amounts/source-available state route token)
                          from-before)
         shown (some-> amount transfer-balances/display-amount)]
-    {:from (side-model (get transfer-route/location-labels (:from route) "")
+    {:from (side-model (place-label state modal (:from route))
                        from-before
                        (when amount (transfer-balances/sub-text from-before amount))
                        (when shown (str "−" shown))
                        symbol
                        from-available)
-     :to (side-model (get transfer-route/location-labels (:to route) "")
+     :to (side-model (place-label state modal (:to route))
                      to-before
                      (when amount (transfer-balances/add-text to-before amount))
                      (when shown (str "+" shown))
