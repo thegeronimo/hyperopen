@@ -615,6 +615,7 @@
             [hyperopen.telemetry.console-preload.simulators-test]
             [hyperopen.telemetry.console-warning-test]
             [hyperopen.test-runner-support-test]
+            [hyperopen.test-support.node-env-test]
             [hyperopen.trade-modules-test]
             [hyperopen.trading-crypto-modules-test]
             [hyperopen.trading-crypto.module-exports-test]
@@ -1770,6 +1771,7 @@
              'hyperopen.telemetry.console-preload.simulators-test
              'hyperopen.telemetry.console-warning-test
              'hyperopen.test-runner-support-test
+             'hyperopen.test-support.node-env-test
              'hyperopen.trade-modules-test
              'hyperopen.trading-crypto-modules-test
              'hyperopen.trading-crypto.module-exports-test

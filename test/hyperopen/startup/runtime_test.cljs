@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.platform :as platform]
             [hyperopen.startup.runtime :as startup-runtime]
+            [hyperopen.test-support.node-env]
             [hyperopen.wallet.address-watcher :as address-watcher]))
 
 (defn- with-global-property

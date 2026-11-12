@@ -8,6 +8,7 @@
             [clojure.string :as str]
             [hyperopen.api.trading.action-coordinator :as coord]
             [hyperopen.domain.trading.precision :as precision]
+            [hyperopen.test-support.node-env]
             [hyperopen.vol-range.application.planner :as planner]
             [hyperopen.vol-range.application.snapshots :as snapshots]
             [hyperopen.vol-range.fixtures :as fixtures]))
