@@ -397,3 +397,23 @@
       (let [h (snapshots/fee-snapshot (assoc-in (perp-state nil) [:portfolio :user-fees] fees) sf/now-ms)]
         (is (= :ok (:status h)) (pr-str h))
         (is (= [:quote :quote] ((juxt :buy-fee-token :sell-fee-token) h)))))))
+
+(deftest the-margin-refusal-names-the-dex-account-test
+  (let [msgs (fn [facts scope]
+               (->> (planner/prepare-plan
+                     (fx/plan-input {:scope (merge {:network :hyperliquid-mainnet :account-address "0xabc"} scope)
+                                     :market (fx/market-snapshot {:market-type :perp :coin coin})
+                                     :account (perp-account facts) :fees perp-fees
+                                     :draft (assoc fx/draft-13-2 :inventory {:tilt-enabled? false})}))
+                    :errors
+                    (filter #(= :plan/insufficient-margin (:code %)))
+                    (map (juxt #(get-in % [:data :side]) :message))
+                    (into {})))]
+    (testing "nothing in the HIP-3 dex: funds in the main perps account do not back it"
+      (is (= {:buy "No margin in your xyz perps account. Transfer USDC there to trade this market."
+              :sell "No margin in your xyz perps account. Transfer USDC there to trade this market."}
+             (msgs {:withdrawable "0"} {:dex "xyz"}))))
+    (testing "some, but not enough: the margin needed at the venue leverage"
+      (is (= {:buy "Not enough margin for the buys: about 577.83 USDC needed at 5x, 100.00 USDC available in your perps account."
+              :sell "Not enough margin for the sells: about 530.61 USDC needed at 5x, 100.00 USDC available in your perps account."}
+             (msgs {:withdrawable "100"} {:dex nil}))))))
