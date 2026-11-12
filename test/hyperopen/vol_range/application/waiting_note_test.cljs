@@ -5,7 +5,8 @@
             [hyperopen.account.context :as account-context]
             [hyperopen.vol-range.application.monitoring-copy :as monitoring-copy]
             [hyperopen.vol-range.application.review-model :as review-model]
-            [hyperopen.vol-range.application.draft-scope :as draft-scope]))
+            [hyperopen.vol-range.application.draft-scope :as draft-scope]
+            [hyperopen.vol-range.infrastructure.executor :as ex]))
 
 (def ^:private account "0xabc")
 
@@ -45,3 +46,17 @@
     (is (re-find #"^NVDA/USDC · xyz perp · " (line {:market-type :perp :dex "xyz"})))
     (is (re-find #"^NVDA/USDC · Perp · " (line {:market-type :perp :dex nil})))
     (is (re-find #"^NVDA/USDC · Spot · " (line {:market-type :spot})))))
+
+(deftest fills-window-start-ignores-a-zero-watermark-test
+  ;; A recovered grid merged from the journal carries `:fills-through-ms 0`.
+  ;; Reading from it asked the venue for a negative start time (HTTP 422),
+  ;; so the catch-up never completed and placement stayed disabled.
+  (let [lookback ex/fills-lookback-ms]
+    (is (= (- 1794502807082 lookback)
+           (ex/fills-window-start {:created-at-ms 1794502807082 :fills-through-ms 0})))
+    (is (= (- 1794502807082 lookback)
+           (ex/fills-window-start {:created-at-ms 1794502807082})))
+    (is (= (- 1794510000000 lookback)
+           (ex/fills-window-start {:created-at-ms 1794502807082 :fills-through-ms 1794510000000})))
+    (is (= 0 (ex/fills-window-start {:created-at-ms 5 :fills-through-ms 0})))
+    (is (= 0 (ex/fills-window-start {})))))
