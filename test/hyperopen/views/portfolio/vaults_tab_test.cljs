@@ -59,6 +59,15 @@
       (is (every? #(re-find (re-pattern %) (hiccup/node-text (hiccup/find-by-data-role node "portfolio-vaults-table")))
                   ["Vault" "Status" "Deposited" "Withdrawn" "Value" "PNL" "Money-weighted"
                    "Vault return while held" "Held"])))
+    (testing "the two return headings explain themselves on hover"
+      (doseq [[id pattern] [["portfolio-vaults-help-money-weighted" #"yearly rate of return"]
+                            ["portfolio-vaults-help-vault-return-while-held" #"vault itself performed"]]]
+        (let [tip (hiccup/find-by-data-role node id)
+              trigger (hiccup/find-by-data-role node (str id "-trigger"))]
+          (is (= "tooltip" (get-in tip [1 :role])))
+          (is (re-find pattern (hiccup/node-text tip)))
+          (is (= id (get-in trigger [1 :aria-describedby])))
+          (is (= 0 (get-in trigger [1 :tabindex]))))))
     (testing "open and closed"
       (is (re-find #"Open" (first row-text)))
       (is (re-find #"Closed" (nth row-text 2))))
@@ -69,6 +78,10 @@
     (testing "totals row"
       (let [total (hiccup/find-by-data-role node "portfolio-vaults-total-row")]
         (is (re-find #"All vaults" (hiccup/node-text total)))
+        (is (= "portfolio-vaults-total-row"
+               (get-in (hiccup/find-first-node node #(= :tbody (first %))) [1 1 :data-role]))
+            "the total is the first body row")
+        (is (hiccup/contains-class? total "border-b-2"))
         (is (re-find #"~" (hiccup/node-text total)))))
     (testing "scrolls horizontally"
       (is (hiccup/contains-class? (hiccup/find-by-data-role node "portfolio-vaults-table-wrap")

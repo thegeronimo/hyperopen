@@ -52,8 +52,47 @@
   ["px-3" "py-2.5" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"])
 
 (def ^:private columns
+  "`[label right-aligned? help]`; `help` is the hover explanation, when the
+   heading needs one."
   [["Vault" false] ["Status" false] ["Deposited" true] ["Withdrawn" true] ["Value" true]
-   ["PNL" true] ["Money-weighted" true] ["Vault return while held" true] ["Held" true]])
+   ["PNL" true]
+   ["Money-weighted" true
+    "Your yearly rate of return on the dollars you put in. It counts how much you had in the vault and when, so a deposit made just before a drop weighs more than one made after it. Shown as -- for positions held under 30 days."]
+   ["Vault return while held" true
+    "How the vault itself performed over the time you were in it, as if you had put in one deposit and left it alone. It ignores the size and timing of your deposits and is not annualised. Marked ~ because it is estimated from the vault's sampled history."]
+   ["Held" true]])
+
+(defn- help-id
+  [label]
+  (str "portfolio-vaults-help-" (.toLowerCase (.replace label (js/RegExp. "\\s+" "g") "-"))))
+
+(defn- header-cell
+  "A column heading. With `help`, the label takes focus and shows the
+   explanation on hover or focus; the panel hangs from the heading's right edge
+   so it stays inside the table."
+  [[label right? help]]
+  [:th {:replicant/key label
+        :scope "col"
+        :class (into header-classes
+                     [(if right? "text-right" "text-left")
+                      "bg-base-200" "first:rounded-tl-xl" "last:rounded-tr-xl"])}
+   (if-not help
+     label
+     [:span {:class ["group" "relative" "inline-block" "cursor-help" "underline" "decoration-dotted"
+                     "underline-offset-4" "outline-none" "focus-visible:text-trading-text"]
+             :tabindex 0
+             :aria-describedby (help-id label)
+             :data-role (str (help-id label) "-trigger")}
+      label
+      [:span {:id (help-id label)
+              :role "tooltip"
+              :data-role (help-id label)
+              :class ["pointer-events-none" "absolute" "right-0" "top-full" "z-30" "mt-2" "block" "w-72"
+                      "rounded-lg" "border" "border-base-300" "bg-gray-800" "px-3" "py-2.5" "text-left"
+                      "text-xs" "font-normal" "normal-case" "leading-5" "tracking-normal" "text-gray-100"
+                      "whitespace-normal" "opacity-0" "transition-opacity" "duration-100"
+                      "group-hover:opacity-100" "group-focus:opacity-100"]}
+       help]])])
 
 (defn- num-cell
   ([content]
@@ -95,11 +134,16 @@
    (num-cell held)])
 
 (defn- total-row
+  "The sum over all vaults: the first body row, set apart from the vault rows
+   by a label in header style, a tinted background and a heavier rule."
   [{:keys [deposited withdrawn value pnl money-weighted while-held]}]
   [:tr {:replicant/key "total"
-        :class ["bg-base-200" "font-medium"]
+        :class ["border-b-2" "border-base-300" "bg-base-200" "font-semibold"]
         :data-role "portfolio-vaults-total-row"}
-   [:td {:class ["px-3" "py-2.5" "text-sm" "text-trading-text"]} "All vaults"]
+   [:th {:scope "row"
+         :class ["px-3" "py-3" "text-left" "text-xs" "font-semibold" "uppercase" "tracking-wide"
+                 "text-trading-text-secondary"]}
+    "Total · All vaults"]
    [:td {:class ["px-3" "py-2.5"]} ""]
    (num-cell deposited)
    (num-cell withdrawn)
@@ -111,20 +155,19 @@
 
 (defn- table
   [state {:keys [rows total]}]
-  [:div {:class ["overflow-x-auto" "rounded-xl" "border" "border-base-300"]
+  ;; A horizontal scroller also clips vertically, which would cut the heading
+  ;; tooltips off below a short table, so the scroller keeps a minimum height
+  ;; tall enough for them; the visible frame is the inner box.
+  [:div {:class ["min-h-[13rem]" "overflow-x-auto"]
          :data-role "portfolio-vaults-table-wrap"}
-   [:table {:class ["w-full" "min-w-[56rem]" "border-collapse"]
-            :data-role "portfolio-vaults-table"}
-    [:thead {:class ["bg-base-200"]}
-     (into [:tr]
-           (map (fn [[label right?]]
-                  [:th {:replicant/key label
-                        :class (conj header-classes (if right? "text-right" "text-left"))}
-                   label]))
-           columns)]
-    (into [:tbody]
-          (concat (map #(vault-row state %) rows)
-                  [(total-row total)]))]])
+   [:div {:class ["min-w-[56rem]" "rounded-xl" "border" "border-base-300"]}
+    [:table {:class ["w-full" "border-collapse"]
+             :data-role "portfolio-vaults-table"}
+     [:thead
+      (into [:tr] (map header-cell) columns)]
+     (into [:tbody]
+           (cons (total-row total)
+                 (map #(vault-row state %) rows)))]]])
 
 (defn- muted-line
   [data-role text]
