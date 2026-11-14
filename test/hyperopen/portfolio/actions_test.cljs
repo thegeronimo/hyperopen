@@ -425,3 +425,16 @@
           {}
           {:status :ok
            :series [1 2 3]}))))
+
+(deftest select-portfolio-summary-scope-vaults-loads-vault-attribution-test
+  (let [address "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        state {:wallet {:address address}}
+        effects (actions/select-portfolio-summary-scope state :vaults)]
+    (is (= [[:portfolio-ui :summary-scope] :vaults]
+           (get-in (first effects) [1 0])))
+    (is (= replace-shareable-route-query-effect (second effects)))
+    (is (= [[:effects/api-fetch-portfolio-vault-attribution address]]
+           (drop 2 effects))))
+  (is (= :vaults (actions/normalize-summary-scope "vault")))
+  (is (= 2 (count (actions/select-portfolio-summary-scope {:wallet {:address "0xabc"}} :perps))))
+  (is (= 2 (count (actions/select-portfolio-summary-scope {} :vaults)))))

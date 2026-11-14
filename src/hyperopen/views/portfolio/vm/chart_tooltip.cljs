@@ -1,6 +1,7 @@
 (ns hyperopen.views.portfolio.vm.chart-tooltip
   (:require [hyperopen.utils.formatting :as fmt]
-            [hyperopen.views.chart.tooltip-core :as tooltip-core]))
+            [hyperopen.views.chart.tooltip-core :as tooltip-core]
+            [hyperopen.views.portfolio.vm.vaults-scope :as vaults-scope]))
 
 (def ^:private tooltip-currency-format-options
   {:style "currency"
@@ -41,13 +42,18 @@
           "$0"))))
 
 (defn build-chart-hover-tooltip
-  [summary-time-range selected-tab hover series]
-  (tooltip-core/build-hover-tooltip {:time-range summary-time-range
-                                     :metric-kind selected-tab
-                                     :hover-point (:point hover)
-                                     :hovered-index (:index hover)
-                                     :series series}
-                                    {:format-date format-tooltip-date
-                                     :format-time format-tooltip-time
-                                     :format-metric-value format-tooltip-value
-                                     :format-benchmark-value #(format-tooltip-value :returns %)}))
+  ([summary-time-range selected-tab hover series]
+   (build-chart-hover-tooltip summary-time-range selected-tab hover series nil))
+  ([summary-time-range selected-tab hover series summary-scope]
+   (tooltip-core/build-hover-tooltip {:time-range summary-time-range
+                                      :metric-kind selected-tab
+                                      :hover-point (:point hover)
+                                      :hovered-index (:index hover)
+                                      :series series}
+                                     {:format-date format-tooltip-date
+                                      :format-time format-tooltip-time
+                                      :format-metric-value format-tooltip-value
+                                      :format-benchmark-value #(format-tooltip-value :returns %)
+                                      :metric-label-fn (fn [metric-kind]
+                                                         (or (vaults-scope/metric-label summary-scope metric-kind)
+                                                             (tooltip-core/metric-label metric-kind)))})))

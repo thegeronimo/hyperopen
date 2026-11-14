@@ -5,6 +5,7 @@
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.portfolio.vault-scope-load :as vault-scope-load]
             [hyperopen.referrals.actions :as referrals-actions]
             [hyperopen.router :as router]
             [hyperopen.staking.actions :as staking-actions]
@@ -103,6 +104,18 @@
                    (when (and (router/trade-route? route)
                               (= :earn (get-in state [:account-info :selected-tab])))
                      [[:actions/load-borrow-lend]])))
+      ;; Page load, URL restore and account switch all land here: the Vaults
+      ;; scope and the Vaults tab have nothing to show until the vault history
+      ;; is loaded for the shown account.
+      (and (portfolio-routes/portfolio-route? route)
+           (not (portfolio-routes/portfolio-optimize-route? route)))
+      (into (vault-scope-load/load-effects
+             state
+             (portfolio-actions/normalize-summary-scope
+              (get-in state [:portfolio-ui :summary-scope]))
+             (portfolio-actions/normalize-portfolio-account-info-tab
+              (get-in state [:portfolio-ui :account-info-tab]))))
+
       (and new-address
            (portfolio-routes/portfolio-route? route)
            (not (portfolio-routes/portfolio-optimize-route? route)))

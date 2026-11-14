@@ -401,6 +401,7 @@
    :effects/clear-order-feedback-toast-timeout ::common/optional-string-args
    :effects/api-load-user-data ::common/address-args
    :effects/api-fetch-trader-portfolio-benchmark ::common/address-args
+   :effects/api-fetch-portfolio-vault-attribution ::common/address-args
    :effects/api-fetch-vault-index ::common/no-args
    :effects/api-fetch-vault-index-with-cache ::common/no-args
    :effects/api-fetch-vault-summaries ::common/no-args

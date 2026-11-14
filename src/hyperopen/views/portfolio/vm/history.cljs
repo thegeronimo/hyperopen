@@ -98,8 +98,10 @@
                                  (contains? supported-benchmark-time-ranges effective-key)
                                  effective-key
                                  (and (keyword? effective-key)
-                                      (str/starts-with? (name effective-key) "perp-"))
-                                 (let [unscoped-key (keyword (subs (name effective-key) 5))]
+                                      (re-find #"^(perp|vault)-" (name effective-key)))
+                                 (let [unscoped-key (keyword (str/replace-first (name effective-key)
+                                                                                #"^(perp|vault)-"
+                                                                                ""))]
                                    (when (contains? supported-benchmark-time-ranges unscoped-key)
                                      unscoped-key))
                                  :else nil)]

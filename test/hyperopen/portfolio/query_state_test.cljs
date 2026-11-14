@@ -81,3 +81,25 @@
   (is (= :all-time (query-state/parse-range-value "all")))
   (is (= "3m" (query-state/range-token :three-month)))
   (is (= "1y" (query-state/range-token :one-year))))
+
+(deftest vaults-scope-round-trips-through-the-query-test
+  (is (= :vaults (:summary-scope (query-state/parse-portfolio-query "?scope=vaults"))))
+  (is (= ["scope" "vaults"]
+         (some #(when (= "scope" (first %)) %)
+               (query-state/portfolio-query-params
+                {:portfolio-ui {:summary-scope :vaults}}))))
+  (is (= :vaults
+         (get-in (query-state/apply-portfolio-query-state
+                  {} (query-state/parse-portfolio-query "?scope=vaults"))
+                 [:portfolio-ui :summary-scope]))))
+
+(deftest vaults-tab-round-trips-through-the-query-test
+  (is (= :vaults (:account-info-tab (query-state/parse-portfolio-query "?tab=vaults"))))
+  (is (= ["tab" "vaults"]
+         (some #(when (= "tab" (first %)) %)
+               (query-state/portfolio-query-params
+                {:portfolio-ui {:account-info-tab :vaults}}))))
+  (is (= :vaults
+         (get-in (query-state/apply-portfolio-query-state
+                  {} (query-state/parse-portfolio-query "?tab=vaults"))
+                 [:portfolio-ui :account-info-tab]))))

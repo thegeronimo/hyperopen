@@ -490,7 +490,7 @@
                     :on {:click (or (get tab-click-actions-by-tab tab)
                                     [[:actions/select-account-info-tab tab]])}}
            (tab-registry/tab-label tab counts tab-labels*)
-           (when (= tab :monte-carlo)
+           (when (contains? #{:monte-carlo :vaults} tab)
              [:span {:class ["account-info-tab-badge"]
                      :data-role "account-info-tab-badge-new"}
               "New"])])]]

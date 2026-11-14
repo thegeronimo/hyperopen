@@ -66,8 +66,9 @@
 
 (defn- scoped-summary-key
   [scope base-key]
-  (if (= scope :perps)
-    (keyword (str "perp-" (name base-key)))
+  (case scope
+    :perps (keyword (str "perp-" (name base-key)))
+    :vaults (keyword (str "vault-" (name base-key)))
     base-key))
 
 (defn- base-summary-key
@@ -87,8 +88,14 @@
 (defn- aliased-summary-key
   [token]
   (let [[scope alias-token]
-        (if (str/starts-with? token "perp")
+        (cond
+          (str/starts-with? token "perp")
           [:perps (str/replace-first token #"^perp-?" "")]
+
+          (str/starts-with? token "vault-")
+          [:vaults (str/replace-first token #"^vault-" "")]
+
+          :else
           [:all token])]
     (some->> alias-token
              summary-key-aliases
@@ -286,6 +293,10 @@
          all-time-end-time-ms (points-end-time-ms all-time-points)
          all-time-usable? (and (not= requested-range :all-time)
                                (seq all-time-points)
+                               ;; Vault windows are real or absent: with none for
+                               ;; this window the all-time series must not stand in.
+                               (or (not= scope :vaults)
+                                   (seq selected-points))
                                (or (nil? selected-end-time-ms)
                                    (>= all-time-end-time-ms selected-end-time-ms)))
          source-points (custom-range/clip-rows-to-end
@@ -354,15 +365,23 @@
          :effective-key requested-key
          :source-key source-key
          :source :derived}
-        (if-let [fallback-key (some #(when (contains? summary-by-key* %)
-                                       %)
-                                    (summary-key-candidates scope time-range))]
+        ;; The Vaults scope has no fallback chain at all. A vault key is omitted
+        ;; when no vault was held in that window, so walking out to a wider
+        ;; bucket would plot the whole history under a 30D label.
+        (if-let [fallback-key (when-not (= scope :vaults)
+                                (some #(when (contains? summary-by-key* %)
+                                         %)
+                                      (summary-key-candidates scope time-range)))]
           {:entry (get summary-by-key* fallback-key)
            :requested-key requested-key
            :effective-key fallback-key
            :source-key fallback-key
            :source :fallback}
-          (if-let [[first-key first-entry] (first summary-by-key*)]
+          ;; Never for the Vaults scope: the first entry of an arbitrary map is a
+          ;; whole-account or perps series, and a missing vault entry must read
+          ;; as "no data", not as another scope's numbers.
+          (if-let [[first-key first-entry] (when-not (= scope :vaults)
+                                             (first summary-by-key*))]
             {:entry first-entry
              :requested-key requested-key
              :effective-key first-key
@@ -410,3 +429,26 @@
                    peak-pnl*
                    peak-account-value*
                    max-ratio*)))))))
+
+(defn return-index-drawdown-ratio
+  "Deepest peak-to-trough fall of the cumulative-return index, as a positive
+  ratio in [0, 1]. `rows` are `[[time-ms cumulative-percent] ...]` (the rows
+  the returns chart and tearsheet use); the index is `1 + pct/100`. Nil
+  without a usable row. Unlike `max-drawdown-ratio` (P&L over peak account
+  value) this cannot exceed 100% when capital moves in and out."
+  [rows]
+  (let [indexes (keep (fn [row]
+                        (let [pct (when (sequential? row) (second row))]
+                          (when (and (number? pct) (js/isFinite pct))
+                            (max 0 (+ 1 (/ pct 100))))))
+                      rows)]
+    (when (seq indexes)
+      (:drawdown
+       (reduce (fn [{:keys [peak drawdown]} index]
+                 (let [peak* (max peak index)]
+                   {:peak peak*
+                    :drawdown (if (pos? peak*)
+                                (max drawdown (- 1 (/ index peak*)))
+                                drawdown)}))
+               {:peak (first indexes) :drawdown 0}
+               indexes)))))

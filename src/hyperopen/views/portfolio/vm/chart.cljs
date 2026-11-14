@@ -2,9 +2,9 @@
   (:require [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.metrics :as portfolio-metrics]
             [hyperopen.views.portfolio.vm.chart-math :as vm-chart-math]
-            [hyperopen.views.portfolio.vm.constants :as constants]
             [hyperopen.views.portfolio.vm.history :as vm-history]
-            [hyperopen.views.portfolio.vm.utils :as utils]))
+            [hyperopen.views.portfolio.vm.utils :as utils]
+            [hyperopen.views.portfolio.vm.vaults-scope :as vaults-scope]))
 
 (def ^:private chart-empty-y-ticks
   [{:value 3 :y-ratio 0}
@@ -122,7 +122,7 @@
                                  selected-benchmark-coins)
                            [])
         raw-series (cond-> [{:id :strategy
-                             :label "Portfolio"
+                             :label (vaults-scope/strategy-label summary-scope)
                              :stroke (strategy-series-stroke)
                              :raw-points strategy-points}]
                      (seq benchmark-series)
@@ -153,7 +153,8 @@
         strategy-points (:points strategy-series)]
      {:selected-tab selected-tab
       :axis-kind axis-kind
-      :tabs constants/chart-tab-options
+      :summary-scope summary-scope
+      :tabs (vaults-scope/chart-tabs summary-scope)
       :points strategy-points
       :series series
      :benchmark-selected? (and (= selected-tab :returns)

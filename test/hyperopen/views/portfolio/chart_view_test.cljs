@@ -59,3 +59,16 @@
     (is (nil? (get-in plot-area [1 :on])))
     (is (some? host))
     (is (fn? (get-in host [1 :replicant/on-render])))))
+
+(deftest chart-card-estimate-note-is-hidden-unless-present-test
+  (let [hidden (hiccup/find-by-data-role (chart-view/chart-card returns-chart)
+                                         "portfolio-chart-estimate-note")
+        shown-view (chart-view/chart-card
+                    (assoc-in returns-chart [:chart :estimate-note]
+                              "Estimated before Jul 01, 2026 from vault history sampled about every 12 days"))
+        shown (hiccup/find-by-data-role shown-view "portfolio-chart-estimate-note")]
+    (is (contains? (hiccup/node-class-set hidden) "hidden"))
+    (is (not (contains? (hiccup/node-class-set shown) "hidden")))
+    (is (some #(re-find #"^Estimated before Jul 01, 2026 from vault history sampled about every 12 days$" %)
+              (hiccup/collect-strings shown)))
+    (is (some #{"~"} (hiccup/collect-strings shown)))))

@@ -4,6 +4,8 @@
   [[:effects/run-portfolio-optimizer :run-portfolio-optimizer]
    [:effects/api-fetch-trader-portfolio-benchmark
     :api-fetch-trader-portfolio-benchmark]
+   [:effects/api-fetch-portfolio-vault-attribution
+    :api-fetch-portfolio-vault-attribution]
    [:effects/run-portfolio-optimizer-pipeline :run-portfolio-optimizer-pipeline]
    [:effects/load-portfolio-optimizer-history :load-portfolio-optimizer-history]
    [:effects/load-portfolio-optimizer-history-discovery
@@ -66,7 +68,8 @@
     :actions/auto-recompute-stale-portfolio-optimizer-scenario})
 
 (def action-binding-rows
-  [[:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
+  [[:actions/load-portfolio-vault-attribution :load-portfolio-vault-attribution]
+   [:actions/toggle-portfolio-summary-scope-dropdown :toggle-portfolio-summary-scope-dropdown]
    [:actions/select-portfolio-summary-scope :select-portfolio-summary-scope]
    [:actions/toggle-portfolio-summary-time-range-dropdown :toggle-portfolio-summary-time-range-dropdown]
    [:actions/toggle-portfolio-performance-metrics-time-range-dropdown :toggle-portfolio-performance-metrics-time-range-dropdown]

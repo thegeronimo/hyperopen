@@ -160,3 +160,35 @@
             [:actions/select-portfolio-chart-tab :returns]
             [:effects/api-load-subaccounts]]
            (route-refresh/current-route-refresh-effects state address)))))
+
+(deftest portfolio-vaults-scope-loads-vault-attribution-on-refresh-test
+  (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        state (fn [path scope]
+                {:router {:path path}
+                 :wallet {:address address}
+                 :portfolio-ui {:summary-scope scope}})
+        load [:effects/api-fetch-portfolio-vault-attribution address]]
+    (testing "page load / URL restore (no new address) and account switch"
+      (is (some #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :vaults) nil)))
+      (is (some #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :vaults) address))))
+    (testing "other scopes and routes do not load it"
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :all) address)))
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :perps) nil)))
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/trade" :vaults) address))))))
+
+(deftest portfolio-vaults-tab-loads-vault-attribution-on-refresh-test
+  (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        state (fn [path tab]
+                {:router {:path path}
+                 :wallet {:address address}
+                 :portfolio-ui {:summary-scope :all :account-info-tab tab}})
+        load [:effects/api-fetch-portfolio-vault-attribution address]]
+    (testing "page load with tab=vaults, and account switch while it is selected"
+      (is (some #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :vaults) nil)))
+      (is (some #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :vaults) address)))
+      (is (some #{load} (route-refresh/current-route-refresh-effects
+                         (state (str "/portfolio/trader/" address) :vaults) address))))
+    (testing "other tabs and routes do not"
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" :positions) address)))
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/portfolio" nil) nil)))
+      (is (not-any? #{load} (route-refresh/current-route-refresh-effects (state "/trade" :vaults) address))))))

@@ -38,7 +38,8 @@
 
 (def ^:private scope-labels
   {:all "Perps + Spot + Vaults"
-   :perps "Perps"})
+   :perps "Perps"
+   :vaults "Vaults"})
 
 (def ^:private range-labels
   {:day "24H"

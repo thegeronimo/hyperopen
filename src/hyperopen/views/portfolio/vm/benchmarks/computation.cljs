@@ -5,7 +5,8 @@
             [hyperopen.vaults.detail.performance :as vault-performance]
             [hyperopen.views.portfolio.vm.benchmarks.selector :as selector]
             [hyperopen.views.portfolio.vm.history :as vm-history]
-            [hyperopen.views.portfolio.vm.summary :as vm-summary]))
+            [hyperopen.views.portfolio.vm.summary :as vm-summary]
+            [hyperopen.views.portfolio.vm.vaults-scope :as vaults-scope]))
 
 (def ^:private empty-source-version-counter
   0)
@@ -69,7 +70,13 @@
   ([state summary-scope summary-time-range benchmark-coins _strategy-cumulative-rows anchor-time-ms end-time-ms]
    (if (seq benchmark-coins)
      (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
-           normalized-range (portfolio-actions/normalize-summary-time-range summary-time-range)]
+           normalized-range (portfolio-actions/normalize-summary-time-range summary-time-range)
+           ;; Another trader's vault sleeve is never loaded here, so a trader
+           ;; benchmark against the Vaults scope compares with that trader's
+           ;; whole account.
+           summary-scope (if (vaults-scope/vaults-scope? summary-scope)
+                           :all
+                           summary-scope)]
        (reduce (fn [rows-by-coin coin]
                  (if (seq coin)
                    (if-let [vault-address (selector/vault-benchmark-address coin)]
@@ -105,7 +112,7 @@
                           summary-context-or-entry
                           {:entry summary-context-or-entry
                            :effective-key summary-time-range})
-        summary-by-key (get-in state [:portfolio :summary-by-key])
+        summary-by-key (vaults-scope/summary-by-key state summary-scope)
         returns-history-context (vm-summary/returns-history-context summary-by-key
                                                                     summary-scope
                                                                     summary-time-range
@@ -128,7 +135,9 @@
                                                                                     strategy-cumulative-rows
                                                                                     anchor-time-ms
                                                                                     end-time-ms)
-        strategy-source-version (sampled-series-source-version-counter strategy-cumulative-rows)
+        strategy-source-version (vaults-scope/salt-source-version
+                                 summary-scope
+                                 (sampled-series-source-version-counter strategy-cumulative-rows))
         benchmark-source-version-map (benchmark-source-version-by-coin benchmark-cumulative-rows-by-coin
                                                                       selected-benchmark-coins)]
     {:strategy-cumulative-rows strategy-cumulative-rows

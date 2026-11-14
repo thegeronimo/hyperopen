@@ -70,6 +70,8 @@
                                 ;; The Vol Range report revises as loads, backfills and
                                 ;; restarts land; hover must not freeze it.
                                 (get-in state [:vol-range :report])]
+        ;; Vault attribution loads/refreshes while the chart may be hovered.
+        vault-attribution (get-in state [:portfolio :vault-attribution])
         cached-entry @portfolio-view-cache
         sections (when-not optimizer-route?
                    (if (and hover-active?
@@ -79,6 +81,7 @@
                             (= fee-schedule-cache-key (:fee-schedule-cache-key cached-entry))
                             (= account-tab-modules (:account-tab-modules cached-entry))
                             (= custom-range-cache-key (:custom-range-cache-key cached-entry))
+                            (identical? vault-attribution (:vault-attribution cached-entry))
                             (map? (:sections cached-entry)))
                      (:sections cached-entry)
                      (let [next-sections (build-portfolio-view-sections state fee-schedule-model)]
@@ -87,6 +90,7 @@
                                                     :fee-schedule-cache-key fee-schedule-cache-key
                                                     :account-tab-modules account-tab-modules
                                                     :custom-range-cache-key custom-range-cache-key
+                                                    :vault-attribution vault-attribution
                                                     :sections next-sections})
                        next-sections)))]
     (if optimizer-route?

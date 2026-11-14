@@ -82,3 +82,19 @@
       (portfolio-view/portfolio-view loaded)
       (is (= 2 @calls)
           "hover cache must not hold back an account tab chunk that just arrived"))))
+
+(deftest portfolio-view-repaints-when-vault-attribution-lands-during-hover-test
+  (let [route "/portfolio-hover-vault-attribution-test"
+        loading (-> sample-state
+                    (assoc :router {:path route})
+                    (assoc-in [:portfolio :vault-attribution] {:status :loading}))
+        ready (assoc-in loading [:portfolio :vault-attribution] {:status :ready})
+        calls (atom 0)]
+    (with-redefs [account-info-view/account-info-view
+                  (fn
+                    ([_state] (swap! calls inc) [:div])
+                    ([_state _options] (swap! calls inc) [:div]))]
+      (portfolio-view/portfolio-view loading)
+      (chart-hover-state/set-surface-hover-active! :portfolio true)
+      (portfolio-view/portfolio-view ready)
+      (is (= 2 @calls) "hover must not freeze the vault attribution loading state"))))

@@ -18,6 +18,7 @@
             [hyperopen.portfolio.account-activity-actions :as account-activity-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.defaults :as portfolio-optimizer-defaults]
+            [hyperopen.portfolio.vault-attribution-state :as vault-attribution-state]
             [hyperopen.surface-modules :as surface-modules]
             [hyperopen.trade-modules :as trade-modules]
             [hyperopen.trading-settings :as trading-settings]
@@ -202,6 +203,7 @@
    :user-fees-loaded-at-ms nil
    :user-fees-loaded-for-address nil
    :ledger-loaded-at-ms nil
+   :vault-attribution (vault-attribution-state/default-state)
    :optimizer (portfolio-optimizer-defaults/default-optimizer-state)})
 
 (defn default-vaults-ui-state

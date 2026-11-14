@@ -1,4 +1,5 @@
-(ns hyperopen.startup.runtime.account-state)
+(ns hyperopen.startup.runtime.account-state
+  (:require [hyperopen.portfolio.vault-attribution-state :as vault-attribution-state]))
 
 (defn reset-account-surface-state
   [state]
@@ -62,5 +63,6 @@
               :loading? false :user-fees-loading? false :user-fees-loading-for-address nil :ledger-loading? false
               :error nil :user-fees-error nil :user-fees-error-for-address nil :ledger-error nil
               :loaded-at-ms nil :user-fees-loaded-at-ms nil :user-fees-loaded-for-address nil
-              :ledger-loaded-at-ms nil)
+              :ledger-loaded-at-ms nil
+              :vault-attribution (vault-attribution-state/default-state))
       (assoc :account {:mode :classic :abstraction-raw nil})))

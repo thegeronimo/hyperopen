@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.summary-cards
-  (:require [hyperopen.views.portfolio.format :as portfolio-format]))
+  (:require [hyperopen.views.portfolio.format :as portfolio-format]
+            [hyperopen.views.portfolio.vaults-summary :as vaults-summary]))
 
 (defn summary-selector
   "Range/scope chip.
@@ -160,6 +161,10 @@
                         :actions/toggle-portfolio-summary-time-range-dropdown
                         :actions/select-portfolio-summary-time-range
                         "portfolio-summary-time-range-selector")]
+     (if-let [vaults (:vaults-scope summary)]
+       (into [:div {:class ["space-y-2.5" "px-4" "py-3"]
+                    :data-role "portfolio-vaults-summary"}]
+             (vaults-summary/rows vaults))
      [:div {:class ["space-y-2.5" "px-4" "py-3"]}
       (summary-row "PNL" (:value pnl-info) (:class pnl-info))
       (summary-row "Volume" (portfolio-format/format-currency (:volume summary)))
@@ -188,7 +193,7 @@
         [:div {:data-role "portfolio-summary-staking-unstaking"}
          (summary-row "In 7-day unstaking queue"
                       (portfolio-format/format-hype unstaking-hype)
-                      ["text-ho-warn"])])])))
+                      ["text-ho-warn"])])]))))
 
 (defn metric-cards [{:keys [volume-14d-usd fees fee-schedule]}]
   (let [fee-schedule-open? (if (:open? fee-schedule) "true" "false")]

@@ -4,6 +4,7 @@
             [hyperopen.api.default :as api]
             [hyperopen.api.projections :as api-projections]
             [hyperopen.platform :as platform]
+            [hyperopen.portfolio.vault-attribution-state :as vault-attribution-state]
             [hyperopen.runtime.effect-adapters.common :as common]
             [hyperopen.runtime.effect-adapters.order :as order-adapters]
             [hyperopen.vaults.effects :as vault-effects]
@@ -158,19 +159,26 @@
    (api-submit-vault-transfer-effect nil store request {}))
   ([_ store request {:keys [show-toast!]
                      :or {show-toast! (fn [_store _kind _message] nil)}}]
-   (vault-effects/api-submit-vault-transfer!
-    {:store store
-     :request request
-     :dispatch! nxr/dispatch
-     :fetch-user-vault-equities! (fn [store* address opts]
-                                   (api-fetch-user-vault-equities-effect
-                                    nil
-                                    store*
-                                    address
-                                    (assoc (or opts {}) :skip-route-gate? true)))
-     :exchange-response-error common/exchange-response-error
-     :runtime-error-message common/runtime-error-message
-     :show-toast! show-toast!})))
+   (let [result (vault-effects/api-submit-vault-transfer!
+                 {:store store
+                  :request request
+                  :dispatch! nxr/dispatch
+                  :fetch-user-vault-equities! (fn [store* address opts]
+                                                (api-fetch-user-vault-equities-effect
+                                                 nil
+                                                 store*
+                                                 address
+                                                 (assoc (or opts {}) :skip-route-gate? true)))
+                  :exchange-response-error common/exchange-response-error
+                  :runtime-error-message common/runtime-error-message
+                  :show-toast! show-toast!})]
+     ;; Money moved: the Portfolio vault attribution snapshot is now behind.
+     (if (instance? js/Promise result)
+       (.then result (fn [resp]
+                       (when (= "ok" (:status resp))
+                         (swap! store vault-attribution-state/mark-stale))
+                       resp))
+       result))))
 
 (defn- sleep-ms!
   [ms]

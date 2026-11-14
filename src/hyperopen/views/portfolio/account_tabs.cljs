@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.account-tabs
   (:require [hyperopen.platform :as platform]
+            [hyperopen.portfolio.vault-attribution-selector :as selector]
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.vol-range.application.report-model :as vol-range-report-model]
             [hyperopen.vol-range.contracts :as vol-range-contracts]
@@ -7,7 +8,9 @@
             [hyperopen.views.portfolio.account-activity :as account-activity-view]
             [hyperopen.views.portfolio.montecarlo.panel :as montecarlo-panel]
             [hyperopen.views.portfolio.performance-metrics-view :as performance-metrics-view]
+            [hyperopen.views.portfolio.vaults-tab :as vaults-tab]
             [hyperopen.views.portfolio.vm.montecarlo :as montecarlo-vm]
+            [hyperopen.views.portfolio.vm.vaults-tab :as vaults-tab-vm]
             [hyperopen.views.portfolio.vol-range-report :as vol-range-report]))
 
 (def ^:private performance-metrics-panel-height
@@ -21,6 +24,9 @@
   (into
    {:deposits-withdrawals [[:actions/set-portfolio-account-info-tab :deposits-withdrawals]]
     :performance-metrics [[:actions/set-portfolio-account-info-tab :performance-metrics]]
+    ;; Selecting the tab is also what loads its data.
+    :vaults [[:actions/set-portfolio-account-info-tab :vaults]
+             [:actions/load-portfolio-vault-attribution]]
     :monte-carlo [[:actions/set-portfolio-account-info-tab :monte-carlo]]
     :vol-range [[:actions/set-portfolio-account-info-tab :vol-range]]}
    (map (fn [tab]
@@ -31,6 +37,7 @@
 
 (def ^:private portfolio-account-tab-order
   [:performance-metrics
+   :vaults
    :monte-carlo
    :vol-range
    :balances
@@ -46,6 +53,13 @@
 (def ^:private portfolio-account-tab-label-overrides
   {:funding-history "Interest"})
 
+(defn- vaults-tab-label
+  "`Vaults (3)` once the open-vault count is known, else plain `Vaults`."
+  [state]
+  (if-let [n (vaults-tab-vm/open-count (selector/model state))]
+    (str "Vaults (" n ")")
+    "Vaults"))
+
 (defn account-info-options [state view-model trader-portfolio-route?]
   (let [extra-tabs (-> (cond-> [{:id :performance-metrics
                                  :label "Performance Metrics"
@@ -55,7 +69,14 @@
                                            (performance-metrics-view/performance-metrics-card
                                             (assoc (:performance-metrics view-model)
                                                    :time-range-selector (get-in view-model [:selectors :performance-metrics-time-range])
+                                                   :scope-selector (get-in view-model [:selectors :summary-scope])
                                                    :range-strip (:metrics-range-strip view-model))))}]
+                         true
+                         (conj {:id :vaults
+                                :label (vaults-tab-label state)
+                                :panel-classes ["min-h-0"]
+                                :panel-style portfolio-account-panel-style
+                                :render (fn [_] (vaults-tab/vaults-tab state))})
                          (not trader-portfolio-route?)
                          (into [{:id :deposits-withdrawals
                                  :label "Account Activity"

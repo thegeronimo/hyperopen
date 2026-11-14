@@ -48,6 +48,16 @@
       :else
       "Some metrics are estimated from incomplete or limited data.")))
 
+(def ^:private estimated-color-class
+  "text-[#7fb5ff]")
+
+(defn estimated-mark
+  "The `~` that flags a figure as estimated, in the shared low-confidence blue."
+  [data-role]
+  [:span {:class ["text-xs" "font-semibold" "leading-none" estimated-color-class]
+          :data-role data-role}
+   "~"])
+
 (defn- low-confidence-info-icon
   [classes]
   [:svg {:viewBox "0 0 20 20"
@@ -82,7 +92,7 @@
            :data-role "portfolio-performance-metrics-estimated-banner"
            :tabindex 0}
      [:div {:class ["flex" "min-w-0" "items-start" "gap-2.5"]}
-      (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" "text-[#7fb5ff]"])
+      (low-confidence-info-icon ["mt-0.5" "h-4" "w-4" "shrink-0" estimated-color-class])
       [:div {:class ["min-w-0" "text-sm" "leading-5" "text-[#d5e4ff]"]}
        summary]]
      (metrics-tooltip/estimated-banner-tooltip reasons
