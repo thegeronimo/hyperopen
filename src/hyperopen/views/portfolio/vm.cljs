@@ -7,39 +7,17 @@
             [hyperopen.views.portfolio.vm.benchmarks :as vm-benchmarks]
             [hyperopen.views.chart.range-strip-model :as range-strip-model]
             [hyperopen.views.portfolio.vm.chart :as vm-chart]
+            [hyperopen.views.portfolio.vm.constants :as constants]
             [hyperopen.views.portfolio.vm.history :as vm-history]
             [hyperopen.views.portfolio.vm.equity :as vm-equity]
             [hyperopen.views.portfolio.vm.montecarlo :as vm-montecarlo]
             [hyperopen.views.portfolio.vm.performance :as vm-performance]
             [hyperopen.views.portfolio.vm.summary :as vm-summary]
             [hyperopen.views.portfolio.vm.utils :as vm-utils]
+            [hyperopen.views.portfolio.vm.vaults-scope :as vaults-scope]
             [hyperopen.views.portfolio.vm.volume :as vm-volume]
             [hyperopen.views.account-equity-view :as account-equity-view]
             [hyperopen.views.account-info.projections :as projections]))
-
-(def ^:private summary-scope-options
-  [{:value :all
-    :label "Perps + Spot + Vaults"}
-   {:value :perps
-    :label "Perps"}])
-
-(def ^:private summary-time-range-options
-  [{:value :day
-    :label "24H"}
-   {:value :week
-    :label "7D"}
-   {:value :month
-    :label "30D"}
-   {:value :three-month
-    :label "3M"}
-   {:value :six-month
-    :label "6M"}
-   {:value :one-year
-    :label "1Y"}
-   {:value :two-year
-    :label "2Y"}
-   {:value :all-time
-    :label "All-time"}])
 
 (defn- normalize-worker-metrics-result
   [payload]
@@ -362,10 +340,11 @@
 
 (defn portfolio-vm [state]
   (let [metrics (account-equity-view/account-equity-metrics state)
-        summary-by-key (normalize-summary-by-key (get-in state [:portfolio :summary-by-key]))
         summary-scope (portfolio-actions/normalize-summary-scope
                        (get-in state [:portfolio-ui :summary-scope]
                                portfolio-actions/default-summary-scope))
+        vaults-model (vaults-scope/attribution-model state summary-scope)
+        summary-by-key (normalize-summary-by-key (vaults-scope/summary-by-key state summary-scope))
         preset-time-range (let [normalized (portfolio-actions/normalize-summary-time-range
                                             (get-in state [:portfolio-ui :summary-time-range]
                                                     portfolio-actions/default-summary-time-range))]
@@ -421,14 +400,16 @@
         tooltip-range (or (custom-range/span-preset custom-range) preset-time-range)
         range-label (if custom-range
                       (or (:span-label range-strip)
-                          (selector-option-label summary-time-range-options preset-time-range))
-                      (selector-option-label summary-time-range-options preset-time-range))
+                          (selector-option-label constants/summary-time-range-options preset-time-range))
+                      (selector-option-label constants/summary-time-range-options preset-time-range))
         summary-context (selected-summary-context summary-by-key summary-scope summary-time-range)
         summary-entry (:entry summary-context)
         selected-key (:requested-key summary-context)
         top-up-enabled? (vm-equity/top-up-abstraction-enabled? state)
-        pnl (or (vm-summary/pnl-delta summary-entry)
-                (optional-number (:unrealized-pnl metrics))
+        vault-pnl (vm-summary/pnl-delta summary-entry)
+        pnl (or vault-pnl
+                (when-not vaults-model
+                  (optional-number (:unrealized-pnl metrics)))
                 0)
         volume-from-summary (or (optional-number (:vlm summary-entry))
                                 (optional-number (:volume summary-entry)))
@@ -439,7 +420,6 @@
         volume (or volume-from-summary
                    volume-14d
                    0)
-        max-drawdown-pct (vm-summary/max-drawdown-ratio summary-entry)
         perps-equity (vm-equity/perp-account-equity state metrics)
         spot-equity (vm-equity/spot-account-equity metrics)
         vault-equity-value (vm-equity/vault-equity state)
@@ -464,6 +444,13 @@
                                                          summary-scope
                                                          summary-time-range
                                                          returns-benchmark-selector)
+        ;; Vaults: drawdown of the sleeve's return index (P&L over peak value
+        ;; breaks when capital moves); same rows as the returns tearsheet.
+        max-drawdown-pct (if vaults-model
+                           (vm-summary/return-index-drawdown-ratio (:strategy-cumulative-rows benchmark-context))
+                           (vm-summary/max-drawdown-ratio summary-entry))
+        vaults-summary (when vaults-model
+                         (vaults-scope/summary-view vaults-model summary-entry vault-pnl max-drawdown-pct))
         performance-metrics (performance-metrics-model state
                                                        summary-time-range
                                                        returns-benchmark-selector
@@ -482,24 +469,30 @@
                                                 returns-benchmark-selector
                                                 benchmark-context
                                                 performance-metrics)
-     :performance-metrics performance-metrics
-     :chart chart
+     :performance-metrics (cond-> performance-metrics
+                            vaults-model
+                            (vaults-scope/performance-metrics vaults-model summary-scope))
+     :chart (cond-> chart
+              vaults-model
+              (assoc :estimate-note (vaults-scope/estimate-note vaults-model summary-entry)))
      :range-strip range-strip
      :metrics-range-strip metrics-range-strip
      :monte-carlo {:strategy-cumulative-rows (:strategy-cumulative-rows benchmark-context)
                    :strategy-source-version (:strategy-source-version benchmark-context)
-                   :start-equity total-equity
+                   :start-equity (if vaults-model
+                                   (get-in vaults-summary [:totals :value])
+                                   total-equity)
                    :summary-scope summary-scope
                    :summary-time-range summary-time-range}
      :selectors {:summary-scope {:value summary-scope
-                                 :label (selector-option-label summary-scope-options summary-scope)
+                                 :label (selector-option-label constants/summary-scope-options summary-scope)
                                  :open? (boolean (get-in state [:portfolio-ui :summary-scope-dropdown-open?]))
-                                 :options summary-scope-options}
+                                 :options constants/summary-scope-options}
                  :summary-time-range {:value preset-time-range
                                       :tooltip-range tooltip-range
                                       :label range-label
                                       :open? (boolean (get-in state [:portfolio-ui :summary-time-range-dropdown-open?]))
-                                      :options summary-time-range-options
+                                      :options constants/summary-time-range-options
                                       :custom (custom-selector :chart)}
                  ;; The tearsheet reads the SAME window, so it shows the same
                  ;; label, offers the same Custom... row, and reveals its own
@@ -508,28 +501,30 @@
                  :performance-metrics-time-range {:value preset-time-range
                                                   :label range-label
                                                   :open? (boolean (get-in state [:portfolio-ui :performance-metrics-time-range-dropdown-open?]))
-                                                  :options summary-time-range-options
+                                                  :options constants/summary-time-range-options
                                                   :custom (custom-selector :metrics)}
                  :returns-benchmark returns-benchmark-selector}
-     :summary {:selected-key selected-key
-               :requested-key (:requested-key summary-context)
-               :effective-key (:effective-key summary-context)
-               :source-key (:source-key summary-context)
-               :source (:source summary-context)
-               :pnl pnl
-               :volume volume
-               :max-drawdown-pct max-drawdown-pct
-               :total-equity total-equity
-               :show-perps-account-equity? (not top-up-enabled?)
-               :perps-account-equity perps-equity
-               :spot-equity-label (if top-up-enabled?
-                                    "Trading Equity"
-                                    "Spot Account Equity")
-               :spot-account-equity spot-equity
-               :show-earn-balance? (not top-up-enabled?)
-               :earn-balance earn-equity
-               :show-vault-equity? true
-               :vault-equity vault-equity-value
-               :show-staking-account? true
-               :staking-account-hype staking-hype
-               :staking-unstaking-hype staking-unstaking-hype}}))
+     :summary (cond-> {:selected-key selected-key
+                       :requested-key (:requested-key summary-context)
+                       :effective-key (:effective-key summary-context)
+                       :source-key (:source-key summary-context)
+                       :source (:source summary-context)
+                       :pnl pnl
+                       :volume volume
+                       :max-drawdown-pct max-drawdown-pct
+                       :total-equity total-equity
+                       :show-perps-account-equity? (not top-up-enabled?)
+                       :perps-account-equity perps-equity
+                       :spot-equity-label (if top-up-enabled?
+                                            "Trading Equity"
+                                            "Spot Account Equity")
+                       :spot-account-equity spot-equity
+                       :show-earn-balance? (not top-up-enabled?)
+                       :earn-balance earn-equity
+                       :show-vault-equity? true
+                       :vault-equity vault-equity-value
+                       :show-staking-account? true
+                       :staking-account-hype staking-hype
+                       :staking-unstaking-hype staking-unstaking-hype}
+                      vaults-summary
+                      (assoc :vaults-scope vaults-summary))}))

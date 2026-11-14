@@ -1,5 +1,6 @@
 (ns hyperopen.views.portfolio.vm.performance
   (:require [hyperopen.portfolio.metrics :as portfolio-metrics]
+            [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.application.metrics-bridge :as vm-metrics-bridge]))
 
 (def ^:private performance-periods-per-year
@@ -136,10 +137,17 @@
                                           []))
         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector)
                                     {})
-        request-signature (*metrics-request-signature* summary-time-range
-                                                       selected-benchmark-coins
-                                                       strategy-source-version
-                                                       benchmark-source-version-map)
+        ;; The scope is part of the question: after a scope switch the result on
+        ;; screen answers the previous scope until the new one lands.
+        summary-scope (portfolio-actions/normalize-summary-scope
+                       (get-in state [:portfolio-ui :summary-scope]
+                               portfolio-actions/default-summary-scope))
+        request-signature (let [signature (*metrics-request-signature* summary-time-range
+                                                                       selected-benchmark-coins
+                                                                       strategy-source-version
+                                                                       benchmark-source-version-map)]
+                            (cond-> signature
+                              (map? signature) (assoc :summary-scope summary-scope)))
         worker (current-worker *metrics-worker*)
         ;; The candle store is keyed by INTERVAL and every preset resolves to a
         ;; different one, so on the first render after a range switch the new
@@ -183,7 +191,9 @@
         ;; every few hundred milliseconds while nothing the trader chose had
         ;; changed. "A few seconds behind" is not stale; "answers the wrong
         ;; window" is.
-        question-of (juxt :summary-time-range :selected-benchmark-coins)
+        question-of (juxt :summary-time-range
+                         :selected-benchmark-coins
+                         #(get % :summary-scope portfolio-actions/default-summary-scope))
         stale? (boolean (and worker
                              (some? metrics-result)
                              (not= (question-of request-signature)

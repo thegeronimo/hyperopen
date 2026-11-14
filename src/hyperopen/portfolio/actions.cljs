@@ -4,7 +4,8 @@
             [hyperopen.portfolio.candle-coverage :as candle-coverage]
             [hyperopen.portfolio.custom-range :as custom-range]
             [hyperopen.portfolio.fee-schedule :as fee-schedule]
-            [hyperopen.platform :as platform]))
+            [hyperopen.platform :as platform]
+            [hyperopen.portfolio.vault-scope-load :as vault-scope-load]))
 
 (def ^:private portfolio-summary-time-range-storage-key
   "portfolio-summary-time-range")
@@ -22,7 +23,7 @@
   :returns)
 
 (def ^:private summary-scope-options
-  #{:all :perps})
+  #{:all :perps :vaults})
 
 (def ^:private summary-time-range-options
   #{:day :week :month :three-month :six-month :one-year :two-year :all-time})
@@ -94,7 +95,7 @@
     :order-history
     :outcomes
     :monte-carlo
-    :vol-range})
+    :vol-range :vaults})
 
 (def ^:private account-info-tab-aliases
   {:performancemetrics :performance-metrics
@@ -127,6 +128,7 @@
   (let [token (normalize-keyword-like value)
         normalized (case token
                      :perp :perps
+                     :vault :vaults
                      token)]
     (if (contains? summary-scope-options normalized)
       normalized
@@ -562,10 +564,11 @@
     []))
 
 (defn select-portfolio-summary-scope
-  [_state scope]
-  [(selector-projection-effect nil [[[:portfolio-ui :summary-scope]
-                                     (normalize-summary-scope scope)]])
-   replace-shareable-route-query-effect])
+  [state scope]
+  (let [scope* (normalize-summary-scope scope)]
+    (into [(selector-projection-effect nil [[[:portfolio-ui :summary-scope] scope*]])
+           replace-shareable-route-query-effect]
+          (vault-scope-load/load-effects state scope*))))
 
 ;; --- custom chart range (design 1c: drag the context strip) --------------------------------
 ;;

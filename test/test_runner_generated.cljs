@@ -77,6 +77,7 @@
             [hyperopen.api.projections.market-test]
             [hyperopen.api.projections.orders-test]
             [hyperopen.api.projections.portfolio-test]
+            [hyperopen.api.projections.portfolio-vault-attribution-test]
             [hyperopen.api.projections.referrals-test]
             [hyperopen.api.projections.staking-test]
             [hyperopen.api.projections.user-abstraction-test]
@@ -500,6 +501,12 @@
             [hyperopen.portfolio.query-state-test]
             [hyperopen.portfolio.route-runtime-module-test]
             [hyperopen.portfolio.routes-test]
+            [hyperopen.portfolio.vault-attribution-actions-test]
+            [hyperopen.portfolio.vault-attribution-edge-test]
+            [hyperopen.portfolio.vault-attribution-effects-test]
+            [hyperopen.portfolio.vault-attribution-returns-test]
+            [hyperopen.portfolio.vault-attribution-selector-test]
+            [hyperopen.portfolio.vault-attribution-test]
             [hyperopen.portfolio.worker-test]
             [hyperopen.referrals.actions-test]
             [hyperopen.referrals.effects-test]
@@ -543,6 +550,7 @@
             [hyperopen.runtime.effect-adapters.portfolio-optimizer-view-library-test]
             [hyperopen.runtime.effect-adapters.referrals-test]
             [hyperopen.runtime.effect-adapters.staking-test]
+            [hyperopen.runtime.effect-adapters.vault-transfer-attribution-test]
             [hyperopen.runtime.effect-adapters.vaults-test]
             [hyperopen.runtime.effect-adapters.vol-range-execution-test]
             [hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test]
@@ -799,6 +807,7 @@
             [hyperopen.views.portfolio-view-status-test]
             [hyperopen.views.portfolio-view-test]
             [hyperopen.views.portfolio.account-activity-test]
+            [hyperopen.views.portfolio.account-tabs-test]
             [hyperopen.views.portfolio.chart-view-test]
             [hyperopen.views.portfolio.fee-schedule-test]
             [hyperopen.views.portfolio.funds-locations-reconcile-test]
@@ -866,6 +875,8 @@
             [hyperopen.views.portfolio.optimize.workspace-view-test]
             [hyperopen.views.portfolio.performance-metrics-view-test]
             [hyperopen.views.portfolio.summary-cards-test]
+            [hyperopen.views.portfolio.vaults-summary-test]
+            [hyperopen.views.portfolio.vaults-tab-test]
             [hyperopen.views.portfolio.vm-test]
             [hyperopen.views.portfolio.vm.benchmark-chart-path-test]
             [hyperopen.views.portfolio.vm.benchmarks-helpers-test]
@@ -882,6 +893,8 @@
             [hyperopen.views.portfolio.vm.performance-helpers-test]
             [hyperopen.views.portfolio.vm.summary-helpers-test]
             [hyperopen.views.portfolio.vm.summary-test]
+            [hyperopen.views.portfolio.vm.vaults-scope-test]
+            [hyperopen.views.portfolio.vm.vaults-tab-test]
             [hyperopen.views.portfolio.vm.volume-helpers-test]
             [hyperopen.views.portfolio.vm.volume-test]
             [hyperopen.views.portfolio.vol-range-report-test]
@@ -1236,6 +1249,7 @@
              'hyperopen.api.projections.market-test
              'hyperopen.api.projections.orders-test
              'hyperopen.api.projections.portfolio-test
+             'hyperopen.api.projections.portfolio-vault-attribution-test
              'hyperopen.api.projections.referrals-test
              'hyperopen.api.projections.staking-test
              'hyperopen.api.projections.user-abstraction-test
@@ -1659,6 +1673,12 @@
              'hyperopen.portfolio.query-state-test
              'hyperopen.portfolio.route-runtime-module-test
              'hyperopen.portfolio.routes-test
+             'hyperopen.portfolio.vault-attribution-actions-test
+             'hyperopen.portfolio.vault-attribution-edge-test
+             'hyperopen.portfolio.vault-attribution-effects-test
+             'hyperopen.portfolio.vault-attribution-returns-test
+             'hyperopen.portfolio.vault-attribution-selector-test
+             'hyperopen.portfolio.vault-attribution-test
              'hyperopen.portfolio.worker-test
              'hyperopen.referrals.actions-test
              'hyperopen.referrals.effects-test
@@ -1702,6 +1722,7 @@
              'hyperopen.runtime.effect-adapters.portfolio-optimizer-view-library-test
              'hyperopen.runtime.effect-adapters.referrals-test
              'hyperopen.runtime.effect-adapters.staking-test
+             'hyperopen.runtime.effect-adapters.vault-transfer-attribution-test
              'hyperopen.runtime.effect-adapters.vaults-test
              'hyperopen.runtime.effect-adapters.vol-range-execution-test
              'hyperopen.runtime.effect-adapters.vol-range-perp-refresh-test
@@ -1958,6 +1979,7 @@
              'hyperopen.views.portfolio-view-status-test
              'hyperopen.views.portfolio-view-test
              'hyperopen.views.portfolio.account-activity-test
+             'hyperopen.views.portfolio.account-tabs-test
              'hyperopen.views.portfolio.chart-view-test
              'hyperopen.views.portfolio.fee-schedule-test
              'hyperopen.views.portfolio.funds-locations-reconcile-test
@@ -2025,6 +2047,8 @@
              'hyperopen.views.portfolio.optimize.workspace-view-test
              'hyperopen.views.portfolio.performance-metrics-view-test
              'hyperopen.views.portfolio.summary-cards-test
+             'hyperopen.views.portfolio.vaults-summary-test
+             'hyperopen.views.portfolio.vaults-tab-test
              'hyperopen.views.portfolio.vm-test
              'hyperopen.views.portfolio.vm.benchmark-chart-path-test
              'hyperopen.views.portfolio.vm.benchmarks-helpers-test
@@ -2041,6 +2065,8 @@
              'hyperopen.views.portfolio.vm.performance-helpers-test
              'hyperopen.views.portfolio.vm.summary-helpers-test
              'hyperopen.views.portfolio.vm.summary-test
+             'hyperopen.views.portfolio.vm.vaults-scope-test
+             'hyperopen.views.portfolio.vm.vaults-tab-test
              'hyperopen.views.portfolio.vm.volume-helpers-test
              'hyperopen.views.portfolio.vm.volume-test
              'hyperopen.views.portfolio.vol-range-report-test

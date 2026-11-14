@@ -165,10 +165,12 @@
                            :strategy-source-version 101
                            :benchmark-source-version-map {"SPY" 201
                                                           "QQQ" 301}}
-        request-signature (vm-metrics-bridge/metrics-request-signature summary-time-range
-                                                                       selected-benchmark-coins
-                                                                       (:strategy-source-version benchmark-context)
-                                                                       (:benchmark-source-version-map benchmark-context))
+        ;; the posted signature also names the summary scope (default :all)
+        request-signature (assoc (vm-metrics-bridge/metrics-request-signature summary-time-range
+                                                                              selected-benchmark-coins
+                                                                              (:strategy-source-version benchmark-context)
+                                                                              (:benchmark-source-version-map benchmark-context))
+                                 :summary-scope :all)
         state {:portfolio-ui {:metrics-loading? false
                               :metrics-result {:portfolio-values {:metric-status {}
                                                                   :metric-reason {}}
@@ -343,3 +345,30 @@
                               :label-by-coin {"BTC" "BTC" "ETH" "ETH"}}
                              context)))
             "adding a benchmark changes the question, so the numbers are stale")))))
+
+(deftest performance-metrics-model-stale-tracks-summary-scope-test
+  ;; Switching scope keeps the previous scope's numbers on screen until the new
+  ;; result lands; they must be labelled stale meanwhile.
+  (let [applied (assoc (vm-metrics-bridge/metrics-request-signature :two-year ["BTC"] 101 {"BTC" 201})
+                       :summary-scope :all)
+        context {:strategy-cumulative-rows [[1 0] [2 11]]
+                 :benchmark-cumulative-rows-by-coin {"BTC" [[1 0] [2 4]]}
+                 :strategy-source-version 101
+                 :benchmark-source-version-map {"BTC" 201}}
+        stale-for (fn [scope]
+                    (binding [vm-performance/*metrics-worker* (delay #js {:postMessage (fn [_] nil)})
+                              vm-performance/*last-metrics-request* (atom {:signature applied})
+                              vm-performance/*build-metrics-request-data* (fn [& _] {})
+                              vm-performance/*request-metrics-computation!* (fn [& _] nil)]
+                      (with-redefs [portfolio-metrics/metric-rows (fn [_] [])]
+                        (:stale? (vm-performance/performance-metrics-model
+                                  {:portfolio-ui {:summary-scope scope
+                                                  :metrics-loading? false
+                                                  :metrics-result {:portfolio-values {:metric-status {}
+                                                                                      :metric-reason {}}}
+                                                  :metrics-result-signature applied}}
+                                  :two-year
+                                  {:selected-coins ["BTC"] :label-by-coin {"BTC" "BTC"}}
+                                  context)))))]
+    (is (false? (stale-for :all)))
+    (is (true? (stale-for :vaults)) "the previous scope's numbers are stale under Vaults")))

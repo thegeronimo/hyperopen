@@ -340,3 +340,36 @@
               effects
               {:phase :action-emission
                :action-id :actions/navigate})))))) 
+
+(deftest navigate-into-portfolio-vaults-scope-loads-vault-attribution-test
+  (let [wallet "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        trader "0x1111111111111111111111111111111111111111"
+        base {:wallet {:address wallet}
+              :router {:path "/trade"}
+              :portfolio-ui {:summary-scope :vaults}}]
+    (doseq [[path address] [["/portfolio" wallet]
+                            [(str "/portfolio/trader/" trader) trader]]]
+      (let [effects (navigation-adapters/navigate base path)]
+        (is (= 1 (count (filter #{[:effects/api-fetch-portfolio-vault-attribution address]} effects)))
+            path)
+        (is (= effects
+               (effect-order-contract/assert-action-effect-order!
+                :actions/navigate effects {:phase :test}))
+            path)))
+    ;; other scopes do not load it
+    (is (not-any? #(= :effects/api-fetch-portfolio-vault-attribution (first %))
+                  (navigation-adapters/navigate
+                   (assoc-in base [:portfolio-ui :summary-scope] :all)
+                   "/portfolio")))))
+
+(deftest navigate-into-portfolio-with-vaults-tab-loads-vault-attribution-test
+  (let [wallet "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        base {:wallet {:address wallet}
+              :router {:path "/trade"}
+              :portfolio-ui {:summary-scope :all :account-info-tab :vaults}}]
+    (is (= 1 (count (filter #{[:effects/api-fetch-portfolio-vault-attribution wallet]}
+                            (navigation-adapters/navigate base "/portfolio")))))
+    (is (not-any? #(= :effects/api-fetch-portfolio-vault-attribution (first %))
+                  (navigation-adapters/navigate
+                   (assoc-in base [:portfolio-ui :account-info-tab] :positions)
+                   "/portfolio")))))

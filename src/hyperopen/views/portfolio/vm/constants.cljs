@@ -7,7 +7,9 @@
   [{:value :all
     :label "Perps + Spot + Vaults"}
    {:value :perps
-    :label "Perps"}])
+    :label "Perps"}
+   {:value :vaults
+    :label "Vaults"}])
 
 (def summary-time-range-options
   [{:value :day

@@ -104,18 +104,35 @@
 (def ^:private default-metric-column-width
   "220px")
 
-(def ^:private custom-range-metric-column-width
-  "Room for a custom span in the header chip — see the vault twin for why the
-  column has to be widened explicitly rather than content-sized."
-  "320px")
-
 (defn- performance-metrics-grid-style
-  [benchmark-column-count metric-column-width]
+  [benchmark-column-count]
   {:grid-template-columns (string/join " "
-                                       (concat [(or metric-column-width
-                                                    default-metric-column-width)]
+                                       (concat [default-metric-column-width]
                                                (repeat benchmark-column-count "132px")
                                                ["132px"]))})
+
+(def ^:private scope-switch-labels
+  {:all "All" :perps "Perps" :vaults "Vaults"})
+
+(defn- scope-switch
+  "Re-scopes the tab (whole account, perps, vault sleeve) without leaving it."
+  [{:keys [value options]}]
+  (into [:div {:class ["flex" "items-center" "gap-0.5" "rounded-md" "bg-base-100" "p-0.5"]
+               :role "group"
+               :aria-label "Metrics scope"
+               :data-role "portfolio-performance-metrics-scope-switch"}]
+        (for [{option-value :value option-label :label} options
+              :let [active? (= option-value value)]]
+          [:button {:type "button"
+                    :class (into ["rounded" "px-1.5" "py-0.5" "text-xs" "font-medium" "uppercase" "tracking-wide"]
+                                 (if active?
+                                   ["bg-base-300" "text-trading-text"]
+                                   ["text-trading-text-secondary" "hover:text-trading-text"]))
+                    :aria-pressed active?
+                    :title option-label
+                    :data-role (str "portfolio-performance-metrics-scope-" (name option-value))
+                    :on {:click [[:actions/select-portfolio-summary-scope option-value]]}}
+           (get scope-switch-labels option-value option-label)])))
 
 (defn- performance-metric-row [{:keys [key label description kind value] :as row} benchmark-columns grid-style]
   (let [portfolio-value (if (contains? row :portfolio-value)
@@ -168,16 +185,15 @@
                                         benchmark-label
                                         benchmark-columns
                                         benchmark-coin
+                                        portfolio-label
                                         groups
-                                        time-range-selector]}]
+                                        time-range-selector
+                                        scope-selector]}]
   (let [benchmark-columns* (resolved-benchmark-metric-columns {:benchmark-columns benchmark-columns
                                                                :benchmark-selected? benchmark-selected?
                                                                :benchmark-label benchmark-label
                                                                :benchmark-coin benchmark-coin})
-        grid-style (performance-metrics-grid-style
-                    (count benchmark-columns*)
-                    (when (:active? (:custom time-range-selector))
-                      custom-range-metric-column-width))
+        grid-style (performance-metrics-grid-style (count benchmark-columns*))
         visible-groups (->> (or groups [])
                             (keep (fn [{:keys [rows] :as group}]
                                     (let [rows* (->> (or rows [])
@@ -201,6 +217,34 @@
           "Calculating performance metrics"]
          [:span {:class ["text-xs" "leading-5" "text-trading-text-secondary"]}
           "Returns stay visible while the remaining analytics finish in the background."]]])
+     ;; Controls sit in their own bar above the table, so the header row below
+     ;; holds nothing but column labels and every value lines up under one.
+     (when (or (map? scope-selector) (map? time-range-selector))
+       [:div {:class ["relative" "z-20" "flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-1.5"
+                      "border-b" "border-base-300" "bg-base-200" "px-4" "py-2"]
+              :data-role "portfolio-performance-metrics-toolbar"}
+        (when (map? scope-selector)
+          [:div {:class ["flex" "items-center" "gap-2"]}
+           [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]} "Scope"]
+           (scope-switch scope-selector)])
+        (when (map? time-range-selector)
+          [:div {:class ["flex" "items-center" "gap-1.5"]}
+           [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]}
+            "Range"]
+           (summary-cards/summary-selector time-range-selector
+                                           :actions/toggle-portfolio-performance-metrics-time-range-dropdown
+                                           :actions/select-portfolio-summary-time-range
+                                           "portfolio-performance-metrics-time-range-selector")
+           ;; The numbers below stay on screen while the new window is computed.
+           ;; This chip says they still belong to the old one. Always rendered
+           ;; (it hides itself) so the bar never reflows when it toggles.
+           [:span {:class (into ["ho-spinner" "ho-spinner-sm" "text-trading-text-secondary"]
+                                (when-not stale? ["invisible"]))
+                   :aria-hidden true}]
+           [:span {:class (into ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
+                                (when-not stale? ["invisible"]))
+                   :data-role "portfolio-performance-metrics-stale-badge"}
+            "Updating…"]])])
      [:div {:class ["flex-1"
                     "min-h-0"
                     "overflow-x-auto"
@@ -221,31 +265,9 @@
                      "px-4"
                      "py-2.5"]
              :style grid-style}
-       [:div {:class ["flex" "min-w-0" "items-center" "justify-between" "gap-2"]}
-        [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
-                :data-role "portfolio-performance-metrics-metric-label"}
-         "Metric"]
-        (when (map? time-range-selector)
-          [:div {:class ["flex" "items-center" "gap-1.5"]}
-           ;; The numbers below stay on screen while the new window is
-           ;; computed — blanking them is the churn this work removed. Without
-           ;; this chip they would sit under the NEW range label with nothing
-           ;; saying they belong to the old one, which is the dishonest half of
-           ;; that trade. Always rendered (it hides itself) so the surrounding
-           ;; flex row never reflows when it toggles.
-           [:span {:class (into ["ho-spinner" "ho-spinner-sm" "text-trading-text-secondary"]
-                                (when-not stale? ["invisible"]))
-                   :aria-hidden true}]
-           [:span {:class (into ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
-                                (when-not stale? ["invisible"]))
-                   :data-role "portfolio-performance-metrics-stale-badge"}
-            "Updating…"]
-           [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]}
-            "Range"]
-           (summary-cards/summary-selector time-range-selector
-                                           :actions/toggle-portfolio-performance-metrics-time-range-dropdown
-                                           :actions/select-portfolio-summary-time-range
-                                           "portfolio-performance-metrics-time-range-selector")])]
+       [:span {:class ["text-xs" "font-medium" "uppercase" "tracking-wide" "text-trading-text-secondary"]
+               :data-role "portfolio-performance-metrics-metric-label"}
+        "Metric"]
        (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
          ^{:key (str "portfolio-performance-metrics-benchmark-label-" coin)}
          [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-trading-text-secondary"]
@@ -253,9 +275,11 @@
                               "portfolio-performance-metrics-benchmark-label"
                               (str "portfolio-performance-metrics-benchmark-label-" coin))}
           label])
-       [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-trading-text-secondary"]
+       [:span {:class ["justify-self-start" "text-xs" "font-medium" "uppercase" "tracking-wide" "text-left" "text-trading-text"]
                :data-role "portfolio-performance-metrics-portfolio-label"}
-        "Portfolio"]]
+        (if (= :perps (:value scope-selector))
+          "Perps"
+          (or portfolio-label "Portfolio"))]]
       [:div {:class ["space-y-2.5" "px-4" "py-3"]}
        ;; The tearsheet edits the same window as the chart, so Custom... here
        ;; reveals a strip HERE rather than one on a card the trader may have

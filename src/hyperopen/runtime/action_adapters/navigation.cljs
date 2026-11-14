@@ -8,6 +8,7 @@
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
+            [hyperopen.portfolio.vault-scope-load :as vault-scope-load]
             [hyperopen.referrals.actions :as referrals-actions]
             [hyperopen.route-modules :as route-modules]
             [hyperopen.router :as router]
@@ -45,11 +46,20 @@
 (defn- portfolio-route-effects
   [state normalized-path]
   (if (entering-portfolio-route? state normalized-path)
-    (->> (portfolio-actions/select-portfolio-chart-tab
-          state
-          (get-in state [:portfolio-ui :chart-tab]))
-         (remove #(= shareable-route-query-effect-id (first %)))
-         vec)
+    (into (->> (portfolio-actions/select-portfolio-chart-tab
+                state
+                (get-in state [:portfolio-ui :chart-tab]))
+               (remove #(= shareable-route-query-effect-id (first %)))
+               vec)
+          ;; Resolved against the DESTINATION route: `/portfolio/trader/<addr>`
+          ;; names the account to load, and the router path is only saved after
+          ;; these effects are built.
+          (vault-scope-load/load-effects
+           (assoc-in state [:router :path] normalized-path)
+           (portfolio-actions/normalize-summary-scope
+            (get-in state [:portfolio-ui :summary-scope]))
+           (portfolio-actions/normalize-portfolio-account-info-tab
+            (get-in state [:portfolio-ui :account-info-tab]))))
     []))
 
 (defn- navigation-browser-path

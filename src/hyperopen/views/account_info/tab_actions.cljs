@@ -489,10 +489,6 @@
                                    ["account-info-tab-button-inactive"]))
                     :on {:click (or (get tab-click-actions-by-tab tab)
                                     [[:actions/select-account-info-tab tab]])}}
-           (tab-registry/tab-label tab counts tab-labels*)
-           (when (= tab :monte-carlo)
-             [:span {:class ["account-info-tab-badge"]
-                     :data-role "account-info-tab-badge-new"}
-              "New"])])]]
+           (tab-registry/tab-label tab counts tab-labels*)])]]
       (or actions-node
           (empty-tab-actions-shell))])))

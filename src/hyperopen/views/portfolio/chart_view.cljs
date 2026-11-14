@@ -3,6 +3,7 @@
             [hyperopen.views.chart.d3.runtime :as chart-d3-runtime]
             [hyperopen.views.chart.range-strip :as range-strip]
             [hyperopen.views.portfolio.format :as portfolio-format]
+            [hyperopen.views.portfolio.low-confidence :as low-confidence]
             [hyperopen.views.portfolio.summary-cards :as summary-cards]
             [hyperopen.views.portfolio.vm.chart-tooltip :as chart-tooltip]))
 
@@ -198,6 +199,17 @@
           [:span {:class ["text-xs" "text-trading-text-secondary"]}
            label]])])))
 
+(defn- estimate-note
+  "Disclosure for the estimated stretch of a Vaults-scope series. Always
+  rendered, hidden when there is nothing to disclose, so it never leaves a nil
+  hole among the siblings around it."
+  [note]
+  [:div {:class (cond-> ["flex" "items-center" "gap-1" "text-xs" "text-trading-text-secondary"]
+                  (not (seq note)) (conj "hidden"))
+         :data-role "portfolio-chart-estimate-note"}
+   (low-confidence/estimated-mark "portfolio-chart-estimate-mark")
+   [:span (or note "")]])
+
 (defn- chart-theme-css-var
   "Themes may recolor the d3 chart chrome via --portfolio-chart-* CSS
   variables (set in src/styles/surfaces/institutional.css); without a DOM or
@@ -236,7 +248,7 @@
                    ;; format; the selected tab decides which metric the tooltip
                    ;; names, and :pnl and :account-value share an `:axis-kind`,
                    ;; so it would otherwise be invisible to the update key.
-                   :tooltip-key (:selected-tab chart)
+                   :tooltip-key [(:selected-tab chart) (:summary-scope chart)]
                    :theme (portfolio-chart-d3-theme)}]
     (assoc base-spec
            :update-key (chart-d3-runtime/spec-update-key base-spec)
@@ -244,7 +256,8 @@
                             (chart-tooltip/build-chart-hover-tooltip summary-time-range
                                                                      (:selected-tab chart)
                                                                      hover
-                                                                     series)))))
+                                                                     series
+                                                                     (:summary-scope chart))))))
 
 (defn chart-card [{:keys [chart selectors range-strip]}]
   (let [{:keys [tabs selected-tab axis-kind y-ticks series]} chart
@@ -319,6 +332,7 @@
                :data-role "portfolio-chart-d3-host"
                :replicant/on-render (chart-d3-runtime/on-render d3-spec)}]]]
       (chart-legend series)
+      (estimate-note (:estimate-note chart))
       (when (= selected-tab :returns)
         (returns-benchmark-chip-rail returns-benchmark*))
       ;; Always rendered (it hides itself) rather than wrapped in a `when`: the

@@ -7,6 +7,7 @@
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.runtime.effect-adapters.margin-rec :as margin-rec-effects]
             [hyperopen.runtime.effect-adapters.pnl-share :as pnl-share-effects]
+            [hyperopen.runtime.effect-adapters.portfolio-vault-attribution :as portfolio-vault-attribution-effects]
             [hyperopen.runtime.effect-adapters.spectate-mode :as spectate-mode-effects]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vol-range-execution]
             [hyperopen.runtime.effect-adapters.vol-range-report :as vol-range-report]
@@ -117,6 +118,7 @@
                   :api-fetch-predicted-fundings effect-adapters/api-fetch-predicted-fundings-effect
                   :api-load-user-data effect-adapters/api-load-user-data-effect
                   :api-fetch-trader-portfolio-benchmark effect-adapters/api-fetch-trader-portfolio-benchmark-effect
+                  :api-fetch-portfolio-vault-attribution portfolio-vault-attribution-effects/api-fetch-portfolio-vault-attribution-effect
                   :api-fetch-staking-validator-summaries effect-adapters/api-fetch-staking-validator-summaries-effect
                   :api-fetch-staking-delegator-summary effect-adapters/api-fetch-staking-delegator-summary-effect
                   :api-fetch-staking-delegations effect-adapters/api-fetch-staking-delegations-effect

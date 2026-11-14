@@ -341,6 +341,7 @@
    :actions/update-vault-detail-custom-range-drag ::chart-range-drag-move-args
    :actions/end-vault-detail-custom-range-drag ::common/no-args
    :actions/select-portfolio-chart-tab ::common/keyword-or-string-args
+   :actions/load-portfolio-vault-attribution ::common/no-args
    :actions/set-portfolio-account-info-tab ::common/tab-args
    :actions/set-portfolio-account-activity-sub-tab ::common/keyword-or-string-args
    :actions/sort-portfolio-account-activity ::common/sort-column-args

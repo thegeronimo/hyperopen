@@ -146,3 +146,20 @@
     (is (nil? (hiccup/find-by-data-role (render true)
                                         "portfolio-performance-metrics-loading-overlay"))
         "a stale recompute must not raise the blocking overlay")))
+
+(deftest performance-metrics-card-scope-switch-test
+  (let [view (performance-metrics-view/performance-metrics-card
+              (assoc metrics-card-input
+                     :scope-selector {:value :vaults
+                                      :options [{:value :all :label "Perps + Spot + Vaults"}
+                                                {:value :perps :label "Perps"}
+                                                {:value :vaults :label "Vaults"}]}))
+        vaults (hiccup/find-by-data-role view "portfolio-performance-metrics-scope-vaults")
+        all (hiccup/find-by-data-role view "portfolio-performance-metrics-scope-all")]
+    (is (true? (get-in vaults [1 :aria-pressed])))
+    (is (false? (get-in all [1 :aria-pressed])))
+    (is (= [[:actions/select-portfolio-summary-scope :all]]
+           (get-in all [1 :on :click])))
+    ;; Controls live in the toolbar; the header row keeps a plain column label.
+    (is (some? (hiccup/find-by-data-role view "portfolio-performance-metrics-toolbar")))
+    (is (some? (hiccup/find-by-data-role view "portfolio-performance-metrics-portfolio-label")))))
