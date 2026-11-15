@@ -6,7 +6,7 @@
   here can build an exchange action."
   (:require [clojure.walk :as walk]
             [hyperopen.domain.trading.precision :as precision]
-            [hyperopen.vol-range.application.display :as display]
+            [hyperopen.vol-range.application.plan-margin :as plan-margin]
             [hyperopen.vol-range.contracts :as contracts]
             [hyperopen.vol-range.domain.admission :as admission]
             [hyperopen.vol-range.domain.fees :as fees]
@@ -136,68 +136,6 @@
             (cond (not (pos? (precision/cmp x zero))) zero
                   (fits? x) x
                   :else (recur (precision/sub x lot)))))))))
-
-;; ---------------------------------------------------------------------------
-;; Perp margin
-;; ---------------------------------------------------------------------------
-
-(def ^:private funds-code->side
-  {:plan/insufficient-usdc :buy :plan/insufficient-base :sell})
-
-(defn- usd [x] (display/fixed (ds x) 2))
-
-(defn- margin-message
-  "Says where the margin is missing: a standard account holds collateral per perp dex."
-  [side required-notional {:keys [leverage available]} {:keys [dex quote-symbol]}]
-  (let [quote (or quote-symbol "USDC")
-        account (if (seq dex) (str "your " dex " perps account") "your perps account")
-        lev (d leverage)
-        avail (d available)]
-    (if (precision/zero-dec? avail)
-      (str "No margin in " account ". Transfer " quote " there to trade this market.")
-      (str "Not enough margin for the " (if (= :buy side) "buys" "sells") ": "
-           (when required-notional
-             (str "about " (usd (precision/divide required-notional lev 8 :ceil)) " " quote " needed at "
-                  (ds lev) "x, "))
-           (usd avail) " " quote " available in " account "."))))
-
-(defn- margin-errors
-  "On a perp the buy and sell capacities are margin capacities, so a funds
-  shortfall on either side is reported as one `:plan/insufficient-margin`
-  per side, with a message naming the dex account that lacks the margin."
-  [margin scope errors]
-  (->> errors
-       (map (fn [e]
-              (if-let [side (funds-code->side (:code e))]
-                ;; The sell capacity check is in base units; the others in quote.
-                (let [notional (when (or (= :buy side) (= :quote (get-in e [:data :unit])))
-                                 (some-> (get-in e [:data :required]) d))]
-                  (contracts/error :plan/insufficient-margin
-                                   (cond-> (assoc (:data e) :side side)
-                                     margin
-                                     (assoc :message (margin-message side notional margin scope)))))
-                e)))
-       (reduce (fn [[seen out] e]
-                 (let [k (when (= :plan/insufficient-margin (:code e)) (get-in e [:data :side]))]
-                   (if (and k (contains? seen k)) [seen out] [(cond-> seen k (conj k)) (conj out e)])))
-               [#{} []])
-       second))
-
-(defn- perp-sell-margin-errors
-  "The base-unit sell capacity is priced at the mid, but sells rest above
-  it. Check the quote notional of the sell quantity that opens or adds to a
-  short (prorated by quantity; closing a long needs no margin), plus the
-  quote fee bound, against the margin notional capacity."
-  [{:keys [q sell-legs sell-total reserve margin]}]
-  (when (and margin (precision/pos-dec? sell-total))
-    (let [capacity (d (:notional-capacity margin))
-          opening (precision/dec-max zero (precision/sub sell-total (precision/dec-max zero q)))
-          notional (precision/divide (precision/mul (sum-by sell-legs :notional) opening) sell-total 8 :ceil)
-          fee (if (= :quote (:token reserve)) (d (:amount reserve)) zero)
-          required (precision/add notional fee)]
-      (when (and (precision/pos-dec? opening) (pos? (precision/cmp required capacity)))
-        [(contracts/error :plan/insufficient-base {:required (ds required) :available (ds capacity)
-                                                   :unit :quote})]))))
 
 ;; ---------------------------------------------------------------------------
 ;; Totals
@@ -402,12 +340,31 @@
                                   :usdc-debit-bound usdc-bound :buy-notional (sum-by buy-legs :notional)
                                   :cap buy-cap :available-usdc avail-usdc :available-base avail-base})
                          ;; First, so its notional figures name the sell shortfall.
-                         perp? (into (vec (perp-sell-margin-errors
+                         perp? (into (vec (plan-margin/sell-margin-errors
                                            {:q q :sell-legs sell-legs :sell-total sell-total
                                             :reserve (:sell reserves) :margin (:margin account)})))
-                         perp? (margin-errors (:margin account)
-                                              {:dex (:dex scope) :quote-symbol (:quote-symbol market)})))
-        excess (sellable-excess {:q q :s-existing (:sell exposure) :core core :available-base avail-base
+                         perp? (plan-margin/margin-errors (:margin account)
+                                              {:dex (:dex scope) :quote-symbol (:quote-symbol market)
+                                               :base-symbol (:base-symbol market)})))
+        ;; On a perp the shortcuts never size from the mid-priced base
+        ;; capacity. Without a protected core a long is the whole room (floor
+        ;; 0, less resting sells): a shortcut must not flip it into a short.
+        perp-room (when perp?
+                    (plan-margin/sell-room
+                     {:q q :margin (:margin account)
+                      :sell-prices (when (and capable? r v sz (:enabled? (:sell resolved))
+                                                 (every? some? (map (:sell resolved) [:count :start :end])))
+                                     (keep :price (:prices (grid/side-prices
+                                                            {:side :sell :r r :v v :sz-decimals sz
+                                                             :count (:count (:sell resolved))
+                                                             :z-start (:start (:sell resolved))
+                                                             :z-end (:end (:sell resolved))
+                                                             :market-type (:market-type market)}))))
+                      :fee-f (when fee-ok? (some-> (:maker-fraction fees) d))}))
+        long? (and perp? q (precision/pos-dec? q))
+        excess (sellable-excess {:q q :s-existing (:sell exposure)
+                                 :core (or core (when long? zero))
+                                 :available-base (if perp? perp-room avail-base)
                                  :sz sz :fee-f (base-sell-fee-fraction fees) :signed? perp?})
         breach-warnings (when (and capable? q)
                           (admission/existing-commitment-warnings
@@ -442,9 +399,9 @@
                                              (if (precision/pos-dec? core)
                                                {:message "Nothing to sell above protected core. Lower protected core to distribute inventory."
                                                 :path [:inventory :protected-core]}
-                                               {:message (if perp?
-                                                           "No margin available to sell."
-                                                           "Nothing available to sell.")
+                                               {:message (cond long? "Resting sells already cover your long position."
+                                                               perp? "No margin available to sell."
+                                                               :else "Nothing available to sell.")
                                                 :path [:sell :quantity]})))))
         entered (fn [t side]
                   (let [sd (get resolved side)]
