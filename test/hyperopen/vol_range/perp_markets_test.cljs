@@ -148,6 +148,61 @@
     (let [r (perp-plan {:facts {:withdrawable "500"}})]
       (is (some #(and (= :plan/insufficient-margin (:code %)) (= :sell (get-in % [:data :side]))) (:errors r))))))
 
+(defn- sell-plan [facts quantity]
+  (planner/prepare-plan
+   (fx/plan-input {:market (fx/market-snapshot {:market-type :perp :coin coin})
+                   :account (perp-account facts)
+                   :fees perp-fees
+                   :draft (-> fx/draft-13-2
+                              (assoc :inventory {:tilt-enabled? false})
+                              (assoc-in [:buy :enabled?] false)
+                              (assoc-in [:sell :quantity] quantity))})))
+
+(defn- sell-margin-errors [r]
+  (filter #(and (= :plan/insufficient-margin (:code %)) (= :sell (get-in % [:data :side]))) (:errors r)))
+
+(deftest perp-sell-shortcuts-never-refuse-their-own-quantity-test
+  (testing "with a long, the shortcuts size from the long, not from the margin behind it"
+    (let [facts {:position "8" :withdrawable "480"}
+          excess (get-in (sell-plan facts "38") [:totals :sellable-excess])]
+      (is (= "8" excess))
+      (is (empty? (sell-margin-errors (sell-plan facts excess))))
+      (is (= "0" (get-in (sell-plan facts excess) [:inventory-outcomes :all-sells-first])))))
+  (testing "resting sells already use part of the long"
+    (let [r (planner/prepare-plan
+             (fx/plan-input {:market (fx/market-snapshot {:market-type :perp :coin coin})
+                             :account (assoc (perp-account {:position "8" :withdrawable "480"})
+                                             :open-orders [{:oid "1" :side :sell :price "90" :remaining "3"}])
+                             :fees perp-fees
+                             :draft (assoc fx/draft-13-2 :inventory {:tilt-enabled? false})}))]
+      (is (= "5" (get-in r [:totals :sellable-excess])))))
+  (testing "flat, the short room is priced at the sell rungs, so 100% is admitted"
+    (let [facts {:withdrawable "480"}
+          excess (get-in (sell-plan facts "30") [:totals :sellable-excess])]
+      (is (seq (sell-margin-errors (sell-plan facts "30"))) "the mid-priced 30 is refused")
+      (is (pos? (js/Number excess)))
+      (is (< (js/Number excess) 30))
+      (is (empty? (sell-margin-errors (sell-plan facts excess))))))
+  (testing "a protected core below zero: the room past the long is rung-priced too"
+    (let [plan (fn [quantity]
+                 (planner/prepare-plan
+                  (fx/plan-input {:market (fx/market-snapshot {:market-type :perp :coin coin})
+                                  :account (perp-account {:position "8" :withdrawable "480"})
+                                  :fees perp-fees
+                                  :draft (-> fx/draft-13-2
+                                             (assoc :inventory {:tilt-enabled? false :protected-core "-30"
+                                                                :target "8"})
+                                             (assoc-in [:buy :enabled?] false)
+                                             (assoc-in [:sell :quantity] quantity))})))
+          excess (get-in (plan "38") [:totals :sellable-excess])]
+      (is (< 8 (js/Number excess) 38))
+      (is (empty? (sell-margin-errors (plan excess))))))
+  (testing "a typed quantity above the long says it flips the position"
+    (let [e (first (sell-margin-errors (sell-plan {:position "8" :withdrawable "480"} "38")))]
+      (is (= {:closing "8" :opening "30"} (get-in e [:data :flip])))
+      (is (re-find #"^These sells are larger than your 8 \S+ long: they would close it and open a 30 \S+ short\. Not enough margin for the short: "
+                   (:message e))))))
+
 (deftest perp-inventory-limits-are-signed-test
   (testing "a negative Keep at least bounds the short"
     (is (some #{:plan/protected-core-breach} (codes (perp-plan {:inventory {:protected-core "-20"}}))))
