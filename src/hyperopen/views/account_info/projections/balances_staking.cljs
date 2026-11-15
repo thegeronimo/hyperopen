@@ -47,7 +47,6 @@
            :amount-decimals nil
            :unstaking-hype amount
            :staking-only? true}
-    ;; Unstaked HYPE lands in spot, so the row opens the spot market, not the perp.
     (seq market-coin) (assoc :market-coin market-coin)))
 
 (defn with-unstaking-hype

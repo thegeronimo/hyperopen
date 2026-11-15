@@ -388,10 +388,6 @@
                            "optimizer-risk-diversification-legend-marker--recommended"]
                    :aria-hidden true}]
            "Recommended"]]]
-        ;; Verdict first, picture second, evidence third: the decision
-        ;; sentence leads, the bridge shows where the recommended book's
-        ;; volatility comes from, and the benchmark matrix carries the
-        ;; numbers for both books.
         (render-decision-summary (:decision-summary model))
         (volatility-bridge model)
         (comparison-matrix (assoc model :help-prefix help-prefix))])

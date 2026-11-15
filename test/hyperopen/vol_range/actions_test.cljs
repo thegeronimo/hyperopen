@@ -366,10 +366,6 @@
     (is (some #(= [[:vol-range :ui :limits-open?] true] %) (saves [:inventory :maximum-quote] "500")))
     (is (not-any? #(= [:vol-range :ui :limits-open?] (first %)) (saves [:buy :quantity] "41")))))
 
-;; ---------------------------------------------------------------------------
-;; Ladder update (replace stage P2)
-;; ---------------------------------------------------------------------------
-
 (defn- with-update [state update]
   (let [key (scope/current-scope-key state)]
     (-> state

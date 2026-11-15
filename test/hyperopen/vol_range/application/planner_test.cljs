@@ -85,7 +85,6 @@
       (is (nil? (get-in r [:inventory-outcomes :maximum])))
       (is (empty? (:remediations r)))))
   (testing "tilt needs a maximum; blank offers all buys filled"
-    ;; Tilt raises the buy prices here, so the cap leaves room for that.
     (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true
                                  [:buy :max-usdc-debit] "3000")})]
       (is (contains? (codes r) :input/maximum-required-for-tilt))
@@ -231,7 +230,6 @@
    {:draft (draft [:buy :end-sigma] "0.75" [:buy :start-sigma] "0.75")}])
 
 (deftest every-offer-replans-ready-test
-  ;; VR-23 read literally: every offer's OWN patch yields a ready plan.
   (doseq [overrides (fixtures-for-property)
           :let [input (fx/plan-input overrides)
                 r (planner/prepare-plan input)]
@@ -287,8 +285,6 @@
     (is (= [:buy :quantity] (get-in e [:data :path])))))
 
 (deftest zero-size-diagnostic-legs-keep-a-valid-contract-test
-  ;; Spec 13.3: Q=0.02 over three 0.01 lots leaves a zero-size rung. The plan
-  ;; is :invalid, keeps the diagnostic leg, and still satisfies ::plan-result.
   (let [r (plan {:draft (draft [:sell :enabled?] false [:buy :quantity] "0.02" [:buy :count] 3
                                [:buy :max-usdc-debit] "3000")})]
     (is (contains? (codes r) :plan/zero-size-rung))
@@ -311,5 +307,3 @@
   (let [r (plan {:draft (draft [:inventory :maximum] "" [:inventory :tilt-enabled?] true)})]
     (is (not (contains? (codes r) :input/maximum-required)))
     (is (contains? (codes r) :input/maximum-required-for-tilt))))
-
-

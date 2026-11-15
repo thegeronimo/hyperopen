@@ -159,19 +159,8 @@
              :open? true
              :exit-instrument-ids exits
              :plan plan)]
-     ;; Reset run-state so re-staging shows a clean staged surface rather than a stale
-     ;; terminal status from a previous execution attempt.
      [:effects/save contracts/execution-path (optimizer-defaults/default-execution-state)]
-     ;; Refresh every open-order surface (base + per-dex frontendOpenOrders, the only
-     ;; cloid-bearing source — the generic openOrders stream never hydrates named-dex
-     ;; rows). By confirm time the run can then recognize and cancel its own resting
-     ;; orders from previous sessions, and surface untagged overlaps for review.
      [:effects/refresh-portfolio-optimizer-open-orders]
-     ;; Re-price the plan against live books. This used to fire ONLY on run success, so a
-     ;; tab entry that did not follow a fresh solve — a deep link, a reload, a restored
-     ;; autosave, a loaded scenario — quoted flat fallback costs with no live book at all
-     ;; (which also collapses the TWAP estimate onto Market). The effect restages the plan
-     ;; when the snapshots land.
      [:effects/refresh-portfolio-optimizer-rebalance-slippage-snapshots]
      [:effects/save contracts/ui-results-tab-path :execution]
      [:effects/replace-shareable-route-query]]))
@@ -421,10 +410,6 @@
         (or (:disabled-message plan)
             "Execution is disabled for this scenario.")]]
 
-      ;; Stale recommendation: the staged plan was solved against inputs the trader has since
-      ;; changed (the Recommendation tab is already showing the same `:stale?` banner). Refuse
-      ;; to send — a re-run is the only honest way to bring the orders back in line with intent.
-      ;; This backstops the Arm gate in case the surface goes stale between arming and confirming.
       (stale-recommendation? state)
       [[:effects/save
         contracts/execution-modal-error-path
@@ -435,16 +420,6 @@
         contracts/execution-modal-error-path
         "No executable rows are ready."]]
 
-      ;; Trading must be ready before any order is sent — mirror manual order entry
-      ;; (order/effects.cljs api-submit-order), which routes every non-ready agent status
-      ;; instead of submitting. Without this the orders dispatch and each row dead-ends on a
-      ;; "Trading is locked" / "Enable trading first" rejection with no recovery affordance.
-      ;;
-      ;; A locked agent prompts the passkey unlock and replays confirm on success. An action
-      ;; can only EMIT effects (`effects/*`) — it cannot return `[:actions/...]` (that fails
-      ;; the effect-id schema). So inline what :actions/unlock-agent-trading itself emits:
-      ;; flip the agent status to :unlocking (so a second confirm-click can't double-prompt
-      ;; the passkey) and run the unlock effect with confirm queued as the replay.
       (= :locked agent-status)
       [[:effects/save contracts/execution-modal-error-path nil]
        [:effects/save-many [[[:wallet :agent :status] :unlocking]
@@ -452,15 +427,11 @@
        [:effects/unlock-agent-trading
         {:after-success-actions [[:actions/confirm-portfolio-optimizer-execution]]}]]
 
-      ;; Unlock already in flight (awaiting passkey): hold without submitting.
       (= :unlocking agent-status)
       [[:effects/save
         contracts/execution-modal-error-path
         "Awaiting passkey before executing."]]
 
-      ;; Trading not enabled yet (the default :not-ready, plus :approving / :error): open the
-      ;; enable-trading recovery modal — the same prompt manual order entry shows — instead of
-      ;; submitting orders that would each be rejected with "Enable trading first".
       (not= :ready agent-status)
       [[:effects/save [:wallet :agent :recovery-modal-open?] true]
        [:effects/save
@@ -540,11 +511,6 @@
           [[:effects/save contracts/execution-modal-error-path
             (amend-refusal-message error)]]
 
-          ;; Trading must be ready before the cancel+replace is sent — the same gate
-          ;; stack as confirm (see its comment for the emit-effects-only constraint).
-          ;; Checked AFTER amendability so a passkey prompt is never raised for an
-          ;; order that can no longer be amended; the unlock replays this action
-          ;; (with its row-id), which re-resolves the live target.
           (= :locked agent-status)
           [[:effects/save contracts/execution-modal-error-path nil]
            [:effects/save-many [[[:wallet :agent :status] :unlocking]
@@ -605,8 +571,6 @@
             "No orders are eligible to resume."]]
           [[:effects/save contracts/execution-modal-submitting-path true]
            [:effects/save contracts/execution-modal-error-path nil]
-           ;; A halted run may have failed BEFORE its pre-run cancellation succeeded, so
-           ;; resume re-attaches the still-live carryover the same way confirm does.
            [:effects/execute-portfolio-optimizer-plan
             (attach-carryover-cancels state resume-plan)]])))))
 
@@ -664,8 +628,6 @@
         [[:effects/save (conj contracts/execution-modal-path :plan) restaged]
          [:effects/save phase-path :staged]
          [:effects/save contracts/execution-modal-error-path nil]
-         ;; Reset run-state out of the terminal :halted status but keep the prior
-         ;; ledger history for the audit trail.
          [:effects/save contracts/execution-path
           (assoc (optimizer-defaults/default-execution-state)
                  :history (vec (get-in state contracts/execution-history-path)))]]))))

@@ -4,13 +4,6 @@
             [hyperopen.views.account-info.tabs.balances.moves :as balances-moves]
             [hyperopen.views.account-info.tabs.balances.shared :as balances-shared]))
 
-;; The Coin track's minimum is `--balances-coin-min` (84px unless set): the
-;; Balances tab widens it while HyperCore rows carry a place chip, so
-;; "USDC" and its PERPS chip never squeeze each other to an ellipsis.
-;; The Transfer track keeps a 104px minimum and wraps a row's two moves
-;; onto two lines where it is that narrow: on /trade at 1280 px the account
-;; panel is 960 px wide, and a wider minimum pushed the second move past
-;; the panel's edge (`balances_geometry_test.cljs` pins the budget).
 (def ^:private balances-desktop-grid-template-class
   "grid-cols-[minmax(var(--balances-coin-min,84px),0.78fr)_minmax(132px,0.98fr)_minmax(152px,1.08fr)_minmax(102px,0.74fr)_minmax(176px,1.28fr)_minmax(64px,0.4fr)_minmax(104px,0.8fr)_minmax(48px,0.2fr)_minmax(120px,0.64fr)]")
 
@@ -122,8 +115,6 @@
                   send-enabled?*
                   (balances-shared/balance-row-action-button "Send" send-action)
 
-                  ;; HyperCore Send and Repay never act on a HyperEVM
-                  ;; balance, so its cells stay empty rather than muted.
                   hyperevm?
                   [:span]
 
@@ -131,8 +122,6 @@
                   (balances-shared/balance-row-disabled-action "Send"))]
                [:div.text-left
                 (cond
-                  ;; Rows from the Balances-tab view-model carry their move
-                  ;; targets; any other caller keeps the one Transfer control.
                   (contains? row :move-targets)
                   (balances-moves/desktop-move-cell row)
 

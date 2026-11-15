@@ -111,9 +111,6 @@
    and leverage are per venue; a sum across venues describes none of them."
   [{:keys [rows]}]
   (let [default-id (:id (or (some #(when (:this-market? %) %) rows) (first rows)))]
-    ;; A form scopes the radio group, so two copies of the panel on one page
-    ;; (desktop and mobile layouts) do not share a selection; the inputs sit
-    ;; inside their labels, so no element ids are needed either.
     (into [:form {:class ["perp-venue-tabs"] :data-role "perp-venue-overview"}
            [:div {:class ["perp-venue-tabs-title" "text-xs" "font-semibold" "text-trading-text"]}
             "Perps Overview"]]

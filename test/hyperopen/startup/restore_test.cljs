@@ -247,8 +247,6 @@
         (restore-fn store)
         (is (= false (get-in @store [:trading-settings :confirm-open-orders?])))
         (is (= false (get-in @store [:trading-settings :confirm-close-position?])))
-        ;; The legacy default-off `show-fill-markers?` key is ignored: trades on
-        ;; chart default on.
         (is (= true (get-in @store [:trading-settings :show-chart-trades?])))
         (is (not (contains? (:trading-settings @store) :show-fill-markers?)))))))
 

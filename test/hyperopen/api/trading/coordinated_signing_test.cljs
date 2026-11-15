@@ -32,7 +32,6 @@
                           ((or fetch (fn [] (js/Promise.resolve (support/json-response {:status "ok"})))))))]
     (nonce-coordinator/reset-memory-cursors!)
     (locks/reset-in-tab-state!)
-    ;; An advancing clock owned by this test, independent of other suites.
     (set! hyperopen.platform/now-ms (fn [] (swap! clock inc)))
     (set! agent-session/load-agent-session-by-mode
           (fn [_ _] {:agent-address agent-address
@@ -69,7 +68,6 @@
         (.finally done))))
 
 (deftest concurrent-producers-never-share-a-nonce-test
-  ;; VR-10: a manual order and two other producers on the same agent at once.
   (async done
     (let [cursor (+ (hyperopen.platform/now-ms) 600000)]
       (-> (with-agent {:cursor cursor}
@@ -205,7 +203,6 @@
         (.finally done))))
 
 (deftest signing-and-cancel-survive-storage-failure-test
-  ;; Review B1 / spec 7.4: identified cancellation must not depend on storage.
   (async done
     (let [orig-get hyperopen.platform/local-storage-get
           orig-set hyperopen.platform/local-storage-set!]

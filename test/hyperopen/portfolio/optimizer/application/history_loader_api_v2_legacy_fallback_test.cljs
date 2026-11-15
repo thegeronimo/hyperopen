@@ -133,9 +133,6 @@
                        :source])))))
 
 (deftest align-api-v2-history-skips-legacy-series-work-for-api-served-instruments-test
-  ;; Building the legacy series (candle + funding normalization) dominated
-  ;; alignment cost when it ran for every instrument; it must run ONLY for
-  ;; instruments whose api series actually needs the fallback.
   (let [universe [{:instrument-id "perp:BTC"
                    :market-type :perp
                    :coin "BTC"
@@ -183,10 +180,7 @@
                                 (swap! calls conj (:instrument-id instrument))
                                 (apply original-series instrument args))]
                   (history-loader/align-history-inputs inputs))]
-    ;; Only the api gap pays the fallback cost.
     (is (= ["perp:DOGE"] @calls))
-    ;; Output is unchanged by the laziness: same eligibility and sources as the
-    ;; eager behavior asserted in the api-gaps test above.
     (is (= ["perp:BTC" "perp:DOGE"]
            (mapv :instrument-id (:eligible-instruments aligned))))
     (is (= :history-api-v2

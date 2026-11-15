@@ -1,31 +1,3 @@
-// The HyperEVM RPC guard every Playwright spec runs under.
-//
-// The HyperEVM balance poller reads https://rpc.hyperliquid.xyz/evm for any
-// account the app shows on /trade or /portfolio (a connected wallet, a
-// spectated address, a trader route). The public RPC allows 100 requests a
-// minute per IP and serves live balances, so a spec must never reach it.
-//
-// `guarded_test.mjs` runs `createHyperEvmRpcGuard()` as an automatic fixture
-// for every test. For the test's own browser context, and for every context
-// the test opens through `browser.newContext()` / `browser.newPage()`, the
-// guard:
-//
-// - routes the RPC host at the CONTEXT level, answering from an empty
-//   fixture (live bridge state, no balances), so every page in it is
-//   deterministic whether or not it went through `visitRoute`. A page-level
-//   `routeHyperEvmRpc(page, fixture)` still takes precedence;
-// - observes every request to the host with `context.on("request")`, apart
-//   from any route, and at the end of the test fails it for each request no
-//   mock handler answered (`wasHyperEvmRequestMocked`), for each JSON-RPC
-//   method a mock could not answer, and for each batch over the public RPC's
-//   20-entry cap.
-//
-// A request escapes the mock when a page-level handler registered after the
-// mock calls `route.continue()`/`abort()` for it, when it comes from a
-// context the guard never saw, or when it bypasses routing altogether; the
-// guard reports all of these the same way because it never looks at routes.
-//
-// Nothing here imports Playwright, so node tests can drive it with fakes.
 import {
   createHyperEvmRpcState,
   emptyHyperEvmFixture,
@@ -44,8 +16,6 @@ function describeRequest(request) {
   return `${request.method()} ${request.url()}`;
 }
 
-// Wait until `request` is answered or fails, at most `ms`, so a request
-// still waiting for its route handler at teardown is not misreported.
 async function settled(request, ms) {
   await Promise.race([
     Promise.resolve()
@@ -63,8 +33,6 @@ export function createHyperEvmRpcGuard({ settleMs = 1_500 } = {}) {
   const acknowledged = new WeakSet();
 
   const guard = {
-    // Route the RPC host for every page of `context` and observe its
-    // requests. Idempotent per context.
     async protectContext(context, fixture = emptyHyperEvmFixture()) {
       if (protectedContexts.has(context)) return guard.stateFor(context);
       protectedContexts.add(context);
@@ -79,20 +47,15 @@ export function createHyperEvmRpcGuard({ settleMs = 1_500 } = {}) {
       return state;
     },
 
-    // The context-level default state of `context` (its fixture and the
-    // entries it answered), or null.
     stateFor(context) {
       return contextStates.find((entry) => entry.context === context)?.state || null;
     },
 
-    // Every JSON-RPC entry the context-level default answered for `context`.
     contextEntries(context) {
       const state = guard.stateFor(context);
       return state ? rpcEntries(state) : [];
     },
 
-    // Make `browser.newContext()` (and `browser.newPage()`, which calls it)
-    // protect each context it opens. Returns the function that undoes it.
     patchBrowser(browser) {
       const ownNewContext = Object.prototype.hasOwnProperty.call(browser, "newContext");
       const previous = browser.newContext;
@@ -110,8 +73,6 @@ export function createHyperEvmRpcGuard({ settleMs = 1_500 } = {}) {
       };
     },
 
-    // Everything the test did wrong so far: requests no mock answered,
-    // methods a mock could not answer, and oversized batches.
     async violations() {
       const pending = observed.filter(
         (request) => !wasHyperEvmRequestMocked(request) && !acknowledged.has(request)
@@ -132,8 +93,6 @@ export function createHyperEvmRpcGuard({ settleMs = 1_500 } = {}) {
       };
     },
 
-    // Forget what has been recorded so far. Only the guard's own self-test
-    // uses this, after proving a deliberate escape was caught.
     acknowledge() {
       for (const request of observed) acknowledged.add(request);
       const states = [
@@ -163,7 +122,6 @@ export function createHyperEvmRpcGuard({ settleMs = 1_500 } = {}) {
       }
     },
 
-    // Test-only view of the observed requests.
     observedUrls() {
       return observed.map(describeRequest);
     }

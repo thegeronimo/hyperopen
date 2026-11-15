@@ -190,7 +190,6 @@
             (let [t (nth grid i)
                   live-now? (live? i)
                   live-before? (when (pos? i) (live? (dec i)))
-                  ;; grow each holding over (i-1, i]
                   [holdings* idx* hwm* added*]
                   (if (nil? holdings)
                     [nil idx hwm added]

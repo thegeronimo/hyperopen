@@ -206,10 +206,6 @@
 (defn- start-visible-range-restore!
   [node chart candles selected-timeframe persistence-deps]
   (let [restore-token (inc (or (:visible-range-restore-token (chart-runtime/get-state node)) 0))]
-    ;; Apply the default range before sampling the interaction epoch: the
-    ;; range change it triggers bumps the epoch when the persistence
-    ;; subscription is already attached (re-restore path), and sampling
-    ;; afterwards keeps allow-apply-fn true unless the user interacted.
     (ci/apply-default-visible-range! chart candles)
     (let [interaction-epoch (or (:visible-range-interaction-epoch (chart-runtime/get-state node)) 0)]
       (chart-runtime/assoc-state! node

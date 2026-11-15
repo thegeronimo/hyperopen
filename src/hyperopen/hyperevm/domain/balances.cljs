@@ -79,8 +79,6 @@
    :core-account {}
    :backoff {:strikes 0 :until-ms nil}})
 
-;; --- addresses ----------------------------------------------------------------
-
 (defn display-address
   "The account whose HyperEVM balances the UI shows: the effective account,
    so spectate mode and trader routes show theirs, read-only."
@@ -99,8 +97,6 @@
        (keep account-context/normalize-address)
        distinct
        vec))
-
-;; --- reads --------------------------------------------------------------------
 
 (defn entry
   [state address]
@@ -179,8 +175,6 @@
      (when (read? entry*)
        (fees/evm-gas-status (units/format-units (:native-wei entry*) hype-evm-decimals)
                             (fees/evm-tx-cost-hype (:gas-price-wei entry*) kinds))))))
-
-;; --- refresh policy -------------------------------------------------------------
 
 (defn surface-active?
   "Whether a surface that shows HyperEVM balances is up: /trade, /portfolio
@@ -292,8 +286,6 @@
                          addresses)]
         (when (seq due)
           {:addresses due :requested-at-ms now-ms})))))
-
-;; --- projections ------------------------------------------------------------------
 
 (defn- update-entries
   [state f]

@@ -142,7 +142,6 @@
     {:store store
      :request request
      :dispatch! nxr/dispatch
-     ;; HyperEVM runs time their "slow" arrival state and Spot re-reads.
      :set-timeout-fn platform/set-timeout!
      :now-ms-fn platform/now-ms
      :exchange-response-error common/exchange-response-error

@@ -45,8 +45,6 @@
                   :transfer-account-menu-open? false
                   :transfer-token "USDC"
                   :transfer-token-menu-open? false}}
-   ;; Production `spotMeta` shape: :name, :index, and :tokenId arrive
-   ;; separately; Hyperliquid never returns a prejoined "NAME:0x..." string.
    :spot {:meta {:tokens [{:name "USDH"
                            :index 12
                            :tokenId "0xabc"
@@ -188,12 +186,6 @@
     (is (= [:effects/api-refresh-subaccounts] (second effects)))))
 
 (deftest refresh-subaccounts-reloads-spot-metadata-when-missing-test
-  ;; Regression: the Send Tokens dialog disables any token it cannot name on the
-  ;; wire and tells the user to refresh balances, but
-  ;; `:effects/api-refresh-subaccounts` only reloads clearinghouse state — it
-  ;; never touches `[:spot :meta]`. Without this the advertised remedy was a
-  ;; guaranteed no-op and a failed catalog load could not be recovered from
-  ;; without a full page reload.
   (let [state {:wallet {:address owner-address}
                :account-context {:subaccounts {:status :loaded
                                                :loaded-for-owner owner-address
@@ -295,10 +287,6 @@
          (actions/set-subaccount-form-field {} :unknown "value"))))
 
 (deftest show-zero-balances-is-stored-as-a-boolean-and-leaves-the-menu-open-test
-  ;; The default branch of `normalize-form-value` stringifies, which would store
-  ;; "false" -- truthy in CLJS -- and pin the list permanently open. And unlike
-  ;; the token/account fields, this one must NOT close the dropdown: the user
-  ;; toggles it from inside the open menu to reveal the rows it is hiding.
   (is (= [[:effects/save-many [[[:account-context :subaccounts :show-zero-balances?] true]
                                 [[:account-context :subaccounts :error] nil]]]]
          (actions/set-subaccount-form-field {} :show-zero-balances? true)))

@@ -70,7 +70,6 @@
 (defn- assert-parity!
   [fixture problem expected]
   (if-let [rejection (::plan-error problem)]
-    ;; Resolve rather than throw: the caller's `done` must still fire.
     (do (is false (str fixture " fixture was rejected before the solver: " rejection))
         (js/Promise.resolve))
     (let [quadprog-result (solver-adapter/solve-with-quadprog problem)]
@@ -92,14 +91,6 @@
 (deftest signed-gross-and-net-exposure-fixture-matches-between-solvers-test
   (async done
     (let [problem (first-problem
-                   ;; :position-side pins each asset to one side, which is what
-                   ;; makes gross linear (gross-floor-signs -> [1 -1]) so the
-                   ;; :gross-floor survives encoding. Both are required: minimum
-                   ;; variance has no budget row, so with only ceilings w = 0 is
-                   ;; globally optimal at zero variance and build-solver-plan
-                   ;; rejects the request as :objective-collapses-to-cash. The
-                   ;; 0.5x floor is slack at the asserted 1.2x gross, so it fixes
-                   ;; the degeneracy without moving the optimum.
                    {:universe [{:instrument-id "perp:A"
                                 :instrument-type :perp
                                 :position-side :long}
@@ -127,11 +118,6 @@
 (deftest turnover-cap-fixture-matches-between-solvers-test
   (async done
     (let [problem (first-problem
-                   ;; Same non-degeneracy pairing as the fixture above: a flat
-                   ;; current book cannot forbid cash through the turnover row,
-                   ;; so single-signed sides plus a 0.2x gross floor are what keep
-                   ;; this minimum-variance request off the all-cash optimum. The
-                   ;; floor is slack at the asserted 0.5x gross.
                    {:universe [{:instrument-id "perp:A"
                                 :instrument-type :perp
                                 :position-side :long}
@@ -247,9 +233,6 @@
     (is (near? 0.17 (get-in plan [:details :max-return])))))
 
 (deftest gross-floor-holds-leverage-instead-of-delevering-test
-  ;; Regression for the "min-vol delevers my book" report: with a gross FLOOR,
-  ;; minimum-variance holds gross at the floor (preserves leverage) instead of
-  ;; collapsing toward the net floor. Verified through both solver paths.
   (async done
     (let [base {:universe [{:instrument-id "perp:A" :instrument-type :perp
                             :position-side :long}
@@ -265,21 +248,15 @@
                              [0 1]]}
           no-floor (first-problem base)
           with-floor (first-problem (assoc-in base [:constraints :gross-floor] 1.0))]
-      ;; This test solves directly instead of going through assert-parity!, so it
-      ;; needs its own guard: calling the adapter with a rejected plan would throw
-      ;; synchronously inside this (async done) body and abandon the whole run.
       (if-let [rejection (some ::plan-error [no-floor with-floor])]
         (do (is false (str "gross floor fixture was rejected before the solver: " rejection))
             (done))
         (let [no-floor-qp (solver-adapter/solve-with-quadprog no-floor)
               with-floor-qp (solver-adapter/solve-with-quadprog with-floor)]
-          ;; control: without a floor, min-vol delevers to ~the net floor
           (is (= :solved (:status no-floor-qp)))
           (is (near? 0.2 (gross (:weights no-floor-qp))) "no-floor delevers to net floor")
-          ;; with the floor, gross is held at the floor (leverage preserved)
           (is (= :solved (:status with-floor-qp)))
           (is (near? 1.0 (gross (:weights with-floor-qp))) "floor preserves gross (quadprog)")
-          ;; same result through OSQP
           (-> (solver-adapter/solve-with-osqp with-floor)
               (.then (fn [osqp-res]
                        (is (= :solved (:status osqp-res)))

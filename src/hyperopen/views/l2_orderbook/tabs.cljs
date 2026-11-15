@@ -15,7 +15,6 @@
           :data-role "orderbook-freshness-cue"}
    text])
 
-;; Header component
 (defn orderbook-header [selected-option
                         price-options
                         price-dropdown-visible?

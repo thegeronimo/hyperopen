@@ -1,6 +1,5 @@
 (ns hyperopen.utils.interval)
 
-;; dispatch on the keyword (e.g. :1m, :5m, :1h…)
 (defmulti interval-to-milliseconds
   "Return number of ms for a given interval keyword."
   identity

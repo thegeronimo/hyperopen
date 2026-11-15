@@ -164,8 +164,6 @@
     (is (not (re-find #"^Ladder " (msg {:op :replace-confirm :status :error}))) "never the generic fallback")))
 
 (deftest a-refused-replacement-points-at-refresh-balances-test
-  ;; The replacement plans from the balances read at the cancel's
-  ;; confirmation; reviewing again alone may re-freeze the same legs.
   (let [last-result {:op :place :status :admission-failed :errors [:guard/plan-changed]}]
     (is (= (str "The market or your balances changed since review. "
                 "Refresh balances on the update banner, then review the ladder again.")
@@ -240,8 +238,7 @@
    :campaign-key "hyperliquid-mainnet|0xabc|spot|9001|1" :t0-ms t0 :saved-at-ms t0})
 
 (deftest rows-carry-the-tracking-line-test
-  ;; Spec 12.1: when the market's tracking began; no figures in the dock.
-  (let [t0 1761054120000 ; 2025-10-21 13:42 UTC
+  (let [t0 1761054120000
         g (-> (placed #{}) (assoc :scope spot-scope :created-at-ms (+ t0 500)))
         state {:vol-range {:campaigns {"cmp-1" (tracked-campaign t0)}}}
         untracked {:text "Not tracked" :campaign-key nil :view-report? false}]

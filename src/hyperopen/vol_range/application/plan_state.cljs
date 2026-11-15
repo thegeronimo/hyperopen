@@ -99,13 +99,8 @@
         inputs {:draft (draft-scope/effective-draft state)
                 :scope (snapshots/current-scope state)
                 :market (snapshots/market-snapshot state now*)
-                ;; While a ladder update is under way the planner leaves out the
-                ;; old ladder's own orders (preview) or uses the account read
-                ;; after its cancel was confirmed (spec 10.2 step 4, 13.4).
                 :account (replace-state/account-for-plan state (snapshots/account-snapshot state now*))
                 :fees (snapshots/fee-snapshot state now*)}
-        ;; Provenance times alone never re-plan; they are captured separately
-        ;; when a review is frozen (`snapshots/provenance`).
         key [(plan-core/without-provenance inputs) (capabilities) now*]
         cached @cache]
     (if (and cached (= key (:key cached)))

@@ -47,8 +47,6 @@
                   :history-load-state {:status :idle}
                   :history-status-by-id {"perp:BTC" :aligned}}))]
     (is (= ["purr"] @calls))
-    ;; An aligned (:sufficient) asset is "all clear" so the history chip is
-    ;; suppressed (by-exception display): no :history-label / :history-tone.
     (is (= [{:instrument-id "perp:BTC"
              :market-type :perp
              :primary-label "BTC"
@@ -98,9 +96,6 @@
     (is (= "History load failed. Existing history, if any, is retained."
            (:copy failed-model)))
     (is (= "history endpoint unavailable" (:error-message failed-model)))
-    ;; Warnings are now GROUPED by code: one row per kind with a count + affected-asset list. A
-    ;; single warning is a count-1 group whose message is the per-asset message. Groups built
-    ;; from blocking-warnings carry :severity :blocking so the panel can rank them.
     (is (= [{:code :missing-candle-history
              :code-label "missing-candle-history"
              :count 1
@@ -131,19 +126,12 @@
           "the affected-asset labels are resolved from the requested universe")
       (is (= ["perp:BTC" "perp:ETH"] (mapv :instrument-id (:assets stale)))))
     (let [stale (first (filter #(= :stale-history (:code %)) warnings))]
-      ;; Stale cache is an informational NOTE, not a caution: a refresh adds
-      ;; at most the newest day of data, which does not move a covariance
-      ;; estimate or the allocation (owner review 2026-07-04).
       (is (= :info (:severity stale)))
       (is (some? (:detail stale)) "stale groups carry a plain-language context line"))
     (let [insufficient (first (filter #(= :insufficient-common-history (:code %)) warnings))]
       (is (= 1 (:count insufficient)))
       (is (= ["perp:BTC"] (mapv :instrument-id (:assets insufficient))))
-      ;; Provider limits are not user-fixable here — informational, never an
-      ;; action item.
       (is (= :info (:severity insufficient)))
-      ;; Provider-limit groups lead with the human headline, never the raw
-      ;; provider/vendor message.
       (is (= "History source is limited — not enough shared history across the selected assets."
              (:message insufficient))))))
 
@@ -337,9 +325,6 @@
         "Plain Ready rows carry no tooltip.")))
 
 (deftest universe-row-modeled-badge-and-tooltip-test
-  ;; A complete proxy (basket-modeled) assumption reads "Modeled" — named for its
-  ;; result, not the "proxy" mechanism — so it never collides with the
-  ;; unconfigured "Needs proxy" cue, and its chip carries a hover explanation.
   (let [draft {:universe [btc-instrument new-perp-instrument]
                :objective {:kind :minimum-variance}
                :history-assumptions
@@ -364,11 +349,6 @@
         "Its chip hover explains that returns are modeled from similar assets.")))
 
 (deftest run-verdict-reflects-readiness-test
-  ;; ONE vocabulary for "ready": the footer pill and the rail Status row both
-  ;; consume this verdict, so a green "Ready to run" can never sit next to a
-  ;; visible readiness warning elsewhere on the page. (Exposure-policy
-  ;; compliance no longer folds in here — comparing the CURRENT portfolio
-  ;; against a freshly-edited policy is the normal state, not a warning.)
   (let [clean {:status :ok :runnable? true :warnings [] :blocking-warnings []}
         loaded {:status :succeeded}]
     (is (= {:level :ready :label "Ready to run" :warning-count 0}
@@ -394,11 +374,6 @@
       (is (= "Ready with 1 warning" (:label cautioned))))))
 
 (deftest run-verdict-reports-refreshing-not-loading-over-a-loaded-bundle-test
-  ;; The rail Status row read a blocking "Loading…" for the whole background
-  ;; refresh on every repeat visit, over a bundle that was already on screen.
-  ;; readiness-status gates on a two-armed `or`, and the SECOND arm reads the
-  ;; load-state directly — so this also pins that narrowing build-readiness alone
-  ;; is not enough: with :refreshing? set, {:status :loading} must not win.
   (let [refreshing {:status :ready
                     :runnable? true
                     :refreshing? true
@@ -407,7 +382,6 @@
         verdict (view-model/run-verdict refreshing {:status :loading})]
     (is (= :refreshing (:level verdict)))
     (is (= "Refreshing…" (:label verdict))))
-  ;; A cold load — nothing usable behind it — is unchanged.
   (let [cold (view-model/run-verdict {:reason :history-loading}
                                      {:status :loading})]
     (is (= :loading (:level cold)))

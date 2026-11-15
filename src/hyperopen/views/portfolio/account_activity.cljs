@@ -43,8 +43,6 @@
 (def ^:private row-base-classes
   ["grid" "gap-2" "px-3" "py-px" "text-sm" "hover:bg-base-300"])
 
-;; --- sub-tab strip --------------------------------------------------------
-
 (defn- sub-tab-button
   [{:keys [id label]} selected-sub-tab]
   [:button {:type "button"
@@ -75,8 +73,6 @@
                 (sub-tab-button sub-tab selected-sub-tab)))
          sub-tabs)])
 
-;; --- header ---------------------------------------------------------------
-
 (defn- header-cell
   [column sort-state]
   [:div (account-table/sortable-header-button
@@ -92,8 +88,6 @@
                ^{:key (str "account-activity-header-" (name column))}
                (header-cell column sort-state)))
         columns))
-
-;; --- cells ----------------------------------------------------------------
 
 (defn- transaction-link
   [{:keys [explorer-url hash]}]
@@ -164,16 +158,12 @@
 
 (defn- activity-row
   [columns row]
-  ;; `into` targets the tag vector directly: handing Replicant a list as a
-  ;; single child renders it stringified.
   (with-meta
     (into [:div {:class (grid-classes columns row-base-classes)
                  :style (grid-style columns)}]
           (map #(row-cell % row))
           columns)
     {:key (:id row)}))
-
-;; --- states ---------------------------------------------------------------
 
 (defn- empty-state
   [message]

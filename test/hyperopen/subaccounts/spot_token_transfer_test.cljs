@@ -183,13 +183,6 @@
                     (is false (str "Unexpected classic spot transfer error: " err))
                     (done)))))))
 
-;; --- Action layer -----------------------------------------------------------
-;;
-;; A unified master used to have its selected token silently rewritten to a
-;; USDC perps transfer. That rewrite was pinned as expected behavior by
-;; `hyperopen.subaccounts.actions-test`, which is what made "no option to send
-;; spot HYPE" a bug protected by a green test.
-
 (def ^:private action-state
   {:wallet {:address owner-address}
    :account {:mode :unified}
@@ -222,9 +215,6 @@
     (is (= 8 (:amount-decimals (transfer-request action-state))))))
 
 (deftest unified-master-defaulting-to-usdc-still-resolves-to-the-spot-path-test
-  ;; Precision is metadata-driven on the spot path, so USDC uses its own
-  ;; weiDecimals (8) rather than the six-decimal constant the perps path hard
-  ;; codes. This matches what the classic spot path already did for USDC.
   (is (= {:sub-account-user subaccount-address
           :is-deposit true
           :amount "1.5"

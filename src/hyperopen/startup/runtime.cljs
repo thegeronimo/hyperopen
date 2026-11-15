@@ -43,7 +43,6 @@
 
 (defn schedule-post-render-startup!
   [f]
-  ;; Yield one macrotask so browser can paint before startup fetch/subscription work.
   (platform/set-timeout! f 0))
 
 (defn- normalize-delay-ms
@@ -118,7 +117,6 @@
         service-worker (some-> navigator-object (.-serviceWorker))
         register-fn (some-> service-worker (.-register))]
     (when (fn? register-fn)
-      ;; Persist icon responses across reloads to avoid repeated broken-image flashes.
       (-> (.register service-worker icon-service-worker-path)
           (.then (fn [_registration]
                    (log-fn "Registered icon cache service worker.")))
@@ -389,15 +387,10 @@
   (when (fn? stop-watching!)
     (stop-watching! store))
   (when (fn? remove-handler!)
-    ;; default-webdata2-handler-name stays in the cleanup list so hot reloads
-    ;; drop any handler installed before the webData2 stream was retired.
     (doseq [handler-name [default-webdata2-handler-name
                           default-user-handler-name
                           address-handler-name]]
       (remove-handler! handler-name)))
-  ;; The provider removed the webData2 subscription; the base-dex book now
-  ;; arrives via the dex "" clearinghouseState stream managed by the user
-  ;; subscription handler below.
   (when (fn? start-watching!)
     (start-watching! store))
   (add-handler! (create-user-handler subscribe-user! unsubscribe-user!))
@@ -409,7 +402,6 @@
         (clear-disconnected-account-state! deps))
       (refresh-current-route! store dispatch! new-address))
     address-handler-name))
-  ;; Ensure already-connected wallets are handled after handlers are in place.
   (when sync-current-address-on-install?
     (sync-current-address! store)))
 
@@ -430,17 +422,6 @@
                        (fetch-asset-selector-markets! store {:phase :bootstrap})]))
             (.then
              (fn [results]
-               ;; The bootstrap catalog is perp-only. A cold landing on a
-               ;; non-perp pair (spot/outcome trade route) resolves no
-               ;; :active-market from it, and the trade form needs the market's
-               ;; params — chase the full catalog immediately instead of
-               ;; waiting for a demand path.
-               ;;
-               ;; The same goes for a route that needs spotMeta: the
-               ;; post-paint demand path checks while this bootstrap load is
-               ;; still in flight, sees it loading, and skips. Nothing else
-               ;; asks again, so without this spotMeta stays nil and the
-               ;; HyperEVM balance check never starts.
                (let [state @store]
                  (when (or (and (some? (:active-asset state))
                                 (nil? (:active-market state)))
@@ -456,10 +437,6 @@
 (defn run-deferred-bootstrap!
   [{:keys [mark-performance!]}]
   (let [bootstrap-promise
-        ;; Startup no longer owns full selector-market expansion. Keep the
-        ;; deferred completion mark, but let explicit demand paths request the
-        ;; full catalog when the user opens the selector or enters a route that
-        ;; needs it.
         (js/Promise.resolve nil)]
     (-> bootstrap-promise
         (.finally
@@ -498,9 +475,7 @@
            start-critical-bootstrap!
            schedule-deferred-bootstrap!]}]
   (log-fn "Initializing remote data streams...")
-  ;; Initialize websocket client.
   (init-connection! ws-url)
-  ;; Initialize WebSocket modules.
   (init-active-ctx! store)
   (init-candles! store)
   (init-orderbook! store)
@@ -509,16 +484,10 @@
   (init-webdata2! store)
   (when (fn? init-subscription-errors!)
     (init-subscription-errors!))
-  ;; Ensure active-asset market streams are requested on startup.
   (when-let [asset (:active-asset @store)]
     (dispatch! store nil [[:actions/subscribe-to-asset asset]]))
-  ;; Keep startup route refreshes scoped to the actual current route only.
   (refresh-current-route! store dispatch! nil)
   (install-address-handlers!)
-  ;; Keep startup scoped to the active route. Startup only hydrates the
-  ;; bootstrap selector data; full selector-market expansion belongs to
-  ;; explicit demand paths such as opening the selector or entering a route
-  ;; that already requests the full catalog.
   (start-critical-bootstrap!)
   (when (fn? schedule-deferred-bootstrap!)
     (schedule-deferred-bootstrap!)))

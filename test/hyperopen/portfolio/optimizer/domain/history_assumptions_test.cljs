@@ -44,7 +44,6 @@
                               :volatility 0.9
                               :correlation-floor 0.75
                               :max-weight 0.03}
-                  ;; proxy is excluded; off-universe id is excluded
                   "perp:PXY" {:behavior :proxy :volatility 0.8 :max-weight 0.05}
                   "perp:GONE" {:behavior :conservative :volatility 0.5
                                :correlation-floor 0.75 :max-weight 0.03}}}]
@@ -151,10 +150,8 @@
                                  :proxy-prior-weights {"perp:BTC" 1}
                                  :relationship-strength :high
                                  :regression-series {:observations 10}}
-                  ;; conservative entries are not proxy inputs
                   "perp:NEW" {:behavior :conservative :volatility 0.9
                               :correlation-floor 0.75 :max-weight 0.03}
-                  ;; off-universe proxy entries are excluded
                   "perp:GONE" {:behavior :proxy :volatility 0.8 :max-weight 0.05
                                :proxy-instrument-ids ["perp:BTC"]}}}
         inputs (history-assumptions/proxy-engine-inputs request)]
@@ -216,16 +213,8 @@
         "An assumption without a usable volatility is ignored.")))
 
 (deftest augment-risk-result-keeps-the-psd-repair-warning-test
-  ;; A conservative volatility assumption plus a correlation floor can push the
-  ;; matrix indefinite; repair-psd diagonally loads it back into shape. The
-  ;; sibling call site in estimate-risk-model threads that warning through,
-  ;; but this one destructured only :covariance and dropped it, so the user was
-  ;; never told their covariance had been altered.
   (let [base {:model :diagonal-shrink
               :instrument-ids ["perp:BTC" "perp:ETH"]
-              ;; BTC and ETH strongly ANTI-correlated (-0.9), while the floor
-              ;; asserts +0.99 from each to the new asset. No such geometry
-              ;; exists, so the matrix is indefinite and must be repaired.
               :covariance [[0.04 -0.036]
                            [-0.036 0.04]]
               :warnings []}

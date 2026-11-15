@@ -67,11 +67,7 @@
                                   [:websocket :health :groups :market_data]
                                   {:worst-status :degraded
                                    :gap-detected? true})]
-    ;; Default candle migration disabled -> keep REST fetches.
     (is (true? (migration-flags/should-fetch-candle-snapshot? base-state coin interval)))
-    ;; Candle migration enabled with cached rows -> no REST fetch.
     (is (false? (migration-flags/should-fetch-candle-snapshot? with-cache coin interval)))
-    ;; Candle migration enabled but cache missing -> one-shot backfill allowed.
     (is (true? (migration-flags/should-fetch-candle-snapshot? candle-migration-enabled coin interval)))
-    ;; Health guardrail should force REST fallback even when candle migration is enabled.
     (is (true? (migration-flags/should-fetch-candle-snapshot? market-degraded coin interval)))))

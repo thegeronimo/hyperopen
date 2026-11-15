@@ -9,7 +9,6 @@
 (def ^:private trade-ring-kind ::trade-ring)
 (def ^:private empty-trade-ring-items (vec (repeat max-recent-trades nil)))
 
-;; Trades state
 (defonce trades-state (atom {:subscriptions #{}
                              :trades []
                              :trades-by-coin {}}))
@@ -239,7 +238,6 @@
                                        vec))
                  (update :trades-by-coin upsert-trades-by-coin normalized))))))
 
-;; Subscribe to trades for a symbol
 (defn subscribe-trades! [symbol]
   (when symbol
     (if (contains? (:subscriptions @trades-state) symbol)
@@ -251,7 +249,6 @@
         (ws-client/send-message! subscription-msg)
         (telemetry/log! "Subscribed to trades for:" symbol)))))
 
-;; Unsubscribe from trades for a symbol
 (defn unsubscribe-trades! [symbol]
   (when symbol
     (let [unsubscription-msg {:method "unsubscribe"
@@ -311,16 +308,6 @@
                            500)]
           (swap! trades-buffer assoc :timer timeout-id))))))
 
-;; Handle incoming trade data
-(defn handle-trade-data! [data]
-  (telemetry/log! "Processing trade data:" data)
-  (when (and (map? data) (= (:channel data) "trades"))
-    (let [trades (:data data)]
-      (when (seq trades)
-        (ingest-trades! trades)
-        (telemetry/log! "Received" (count trades) "new trades")
-        (telemetry/log! "Latest trade:" (first trades))))))
-
 (defn create-trades-handler [store]
   (fn [data]
     (when (and (map? data) (= (:channel data) "trades"))
@@ -329,11 +316,6 @@
           (ingest-trades! trades)
           (schedule-candle-update! store trades))))))
 
-;; Get current subscriptions
-(defn get-subscriptions []
-  (:subscriptions @trades-state))
-
-;; Get recent trades
 (defn get-recent-trades []
   (:trades @trades-state))
 
@@ -342,12 +324,9 @@
     (trade-ring->descending-trades (get-in @trades-state [:trades-by-coin coin]))
     []))
 
-;; Clear all trades data
 (defn clear-trades! []
   (swap! trades-state assoc :trades [] :trades-by-coin {}))
 
-;; Initialize trades module
 (defn init! [store]
   (telemetry/log! "Trades subscription module initialized")
-  ;; Register handler for trades channel
   (ws-client/register-handler! "trades" (create-trades-handler store)))

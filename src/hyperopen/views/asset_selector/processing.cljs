@@ -2,12 +2,6 @@
   (:require [hyperopen.asset-selector.annotations :as annotations]
             [hyperopen.asset-selector.query :as query]))
 
-(defn matches-search? [asset search-term strict?]
-  (query/matches-search? asset search-term strict?))
-
-(defn tab-match? [asset active-tab strict?]
-  (query/tab-match? asset active-tab strict?))
-
 (defn filter-and-sort-assets
   [assets search-term sort-key sort-direction favorites favorites-only? strict? active-tab]
   (query/filter-and-sort-assets assets

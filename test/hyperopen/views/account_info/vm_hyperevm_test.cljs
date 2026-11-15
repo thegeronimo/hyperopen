@@ -110,7 +110,6 @@
                             "40000000000")
         hype (some #(when (= "hyperevm-150" (:key %)) %)
                    (:balance-rows (vm/account-info-vm expensive)))]
-    ;; 30000 gas x 2 x 40 gwei = 0.0024 HYPE, above the 0.001 floor.
     (is (= "0.0024" (:gas-reserve-text hype)))
     (is (= "12.4976" (:available-text hype)))))
 

@@ -184,18 +184,6 @@
                               (:warnings base)))})
     (base-return-estimate request)))
 
-;; The two by-instrument helpers below exist for UI reads (return-views panel,
-;; Black-Litterman preview) and are called on every render while those panels
-;; are visible — including once per pointermove during an exposure-pad drag.
-;; Each call estimates the full covariance matrix (plus PSD repair) from
-;; history, which is far too expensive per frame, so both memoize on the exact
-;; request sub-values they consume. A drag rebuilds the request but only its
-;; :constraints differ, so these keys stay value-equal and the cache hits.
-;;
-;; Every memo key drops the history's :freshness stamp: it is re-stamped from
-;; the wall clock on each request rebuild and influences nothing here, but
-;; keying on it re-ran the multi-second covariance estimate every as-of bucket
-;; roll while a Max-Sharpe panel was visible.
 (defn- history-sans-freshness
   [request]
   (dissoc (:history request) :freshness))
@@ -212,9 +200,6 @@
 (defonce ^:private ui-risk-result-memo (volatile! nil))
 
 (defn- ui-risk-result
-  ;; One covariance estimate shared by both UI helpers below: they were each
-  ;; estimating it independently, so a single objective switch paid the full
-  ;; Ledoit-Wolf cost twice in one render.
   [request]
   (return-inputs-memo-lookup
    ui-risk-result-memo
@@ -356,10 +341,6 @@
              :detail "encoding constraints"})
          current-portfolio-analysis* (current-portfolio-analysis request
                                                                  return-result)]
-     ;; Covariance-only objectives (Equal Risk, Risk-weighted sizing) never
-     ;; consume returns: an invalid return model must not block their solve
-     ;; (risk-model readiness still applies). Return-dependent objectives keep
-     ;; the invalid-return-model infeasibility.
      (if (and (= :invalid (:status return-result))
               (not (contains? contracts-constants/covariance-only-objective-kinds
                               (get-in request [:objective :kind]))))

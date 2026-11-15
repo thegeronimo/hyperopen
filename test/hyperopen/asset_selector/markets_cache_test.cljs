@@ -198,7 +198,6 @@
     (is (= "BTC" (:active-asset result)))
     (is (= "BTC" (:selected-asset result)))
     (is (= btc-market (:active-market result)))
-    ;; A settled outcome is not restored into the list.
     (is (= [btc-market]
            (get-in result [:asset-selector :markets])))))
 

@@ -38,18 +38,10 @@
    :confirm-open-orders? false
    :confirm-close-position? false
    :confirm-market-orders? true
-   ;; Off by default: Strict and Extended arm Hyperliquid's scheduled cancel (a
-   ;; dead-man's switch that cancels every open order, GTC included, unless this
-   ;; tab keeps renewing it), which manual traders do not expect. Opt-in only.
    :open-order-safety-mode :off
    :open-order-safety-chosen? false
    :margin-rec-risk-mode :balanced
    :margin-rec-auto-topup? false
-   ;; Optimizer execution: stage closing orders (sell longs / buy back shorts) for
-   ;; held PERP positions the trader removed from the allocation, by default.
-   ;; Spot holdings and assets the trader requested but the engine dropped (missing
-   ;; history, ...) are never auto-closed. Default-on: an allocation the trader
-   ;; edited an asset out of reads as "I want out of it".
    :optimizer-auto-exit-excluded? true})
 
 (defn normalize-state

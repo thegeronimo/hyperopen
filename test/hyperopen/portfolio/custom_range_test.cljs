@@ -14,8 +14,6 @@
   {:from (ms "2024-08-24T00:00:00.000Z")
    :to now})
 
-;; --- the range value ----------------------------------------------------------------------
-
 (deftest normalize-snaps-orders-and-rejects-test
   (testing "day-snaps both bounds"
     (is (= {:from mar-3 :to jun-12}
@@ -86,8 +84,6 @@
                                           domain)))
   (is (false? (custom-range/covers-domain? {:from mar-3 :to jun-12} domain))))
 
-;; --- windowing ----------------------------------------------------------------------------
-
 (deftest cutoff-and-end-bounds-test
   (is (= mar-3 (custom-range/cutoff-ms {:from mar-3 :to jun-12})))
   (testing "the end bound covers the whole final day"
@@ -99,7 +95,6 @@
 (deftest clip-rows-to-end-drops-only-the-tail-test
   (let [rows [{:time-ms mar-3 :value 1}
               {:time-ms jun-12 :value 2}
-              ;; same day as the end bound, later hour: must survive
               {:time-ms (+ jun-12 (* 23 3600000)) :value 3}
               {:time-ms (+ jun-12 custom-range/day-ms) :value 4}]
         clipped (custom-range/clip-rows-to-end rows {:from mar-3 :to jun-12})]
@@ -122,8 +117,6 @@
               {:time-ms jun-12 :value 2}
               {:time-ms (+ jun-12 custom-range/day-ms) :value 3}]]
     (is (= [1 2] (mapv :value (custom-range/clip-rows rows {:from mar-3 :to jun-12}))))))
-
-;; --- formatting ---------------------------------------------------------------------------
 
 (deftest iso-round-trip-test
   (is (= "2026-03-03" (custom-range/format-iso mar-3)))
@@ -156,8 +149,6 @@
   (is (= "Mar 3, 2026" (custom-range/format-full-date mar-3)))
   (is (nil? (custom-range/format-full-date nil))))
 
-;; --- strip geometry -----------------------------------------------------------------------
-
 (deftest fraction-maps-both-ways-test
   (is (= 0.0 (custom-range/time->fraction (:from domain) domain)))
   (is (= 1.0 (custom-range/time->fraction (:to domain) domain)))
@@ -178,8 +169,6 @@
     (is (nil? (custom-range/pointer-fraction 150 {:left 100 :width 0})))
     (is (nil? (custom-range/pointer-fraction 150 nil)))
     (is (nil? (custom-range/pointer-fraction nil {:left 100 :width 100})))))
-
-;; --- drag ---------------------------------------------------------------------------------
 
 (def ^:private bounds {:left 0 :width 1000})
 
@@ -355,8 +344,6 @@
       (is (= 1.0 (:x geometry)))
       (is (= 0.0 (:width geometry)))))
   (is (nil? (custom-range/selection-geometry nil domain 0.004))))
-
-;; --- strip domain -------------------------------------------------------------------------
 
 (deftest utc-day-start-and-end-bracket-the-day-test
   (let [noon (+ mar-3 (* 12 3600000))]

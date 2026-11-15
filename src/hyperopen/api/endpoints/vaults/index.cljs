@@ -74,9 +74,6 @@
              :fetch-opts
              (-> fetch-opts
                  (assoc :headers (strip-conditional-vault-index-headers headers))
-                 ;; Cross-origin conditional request headers trigger a CORS preflight
-                 ;; against the live vault index. Let the browser cache revalidate
-                 ;; instead of attaching custom validators directly.
                  ((fn [fetch-opts*]
                     (if (contains? fetch-opts* :cache)
                       fetch-opts*

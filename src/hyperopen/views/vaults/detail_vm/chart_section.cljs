@@ -160,14 +160,6 @@
                                                  (:loading? performance-metrics-base)))
         return-for-range (:return-for-range metrics-context)
         month-return (:month-return metrics-context)
-        ;; Build the Monte Carlo model only when its tab is active so the engine
-        ;; runs lazily on tab open rather than on every vault detail re-render.
-        ;; The vault MC tab has no range control of its own, so it always
-        ;; resamples the vault's all-time realized returns (not the chart
-        ;; range-windowed series) to maximize bootstrap samples.
-        ;; The strip is context, not the selection: it always plots the vault's
-        ;; whole history so a drag can reach any window, including one wider than
-        ;; the preset currently applied.
         strip-source-rows (strip-rows (performance-model/portfolio-summary details :all-time))
         build-strip (fn [target]
                       (range-strip-model/build-model
@@ -175,15 +167,9 @@
                         :range (:custom range-ui)
                         :strip-open? (= (:strip-target range-ui) target)
                         :drag-mode (:drag-mode range-ui)}))
-        ;; One range, two places it can be edited from: the chart card and the
-        ;; tearsheet each render their own strip, and only the one that was
-        ;; opened is visible. Both read the same window, so they cannot disagree.
         range-strip (build-strip :chart)
         metrics-range-strip (build-strip :metrics)
         strip-domain (:domain range-strip)
-        ;; Re-opening the strip on an already-custom window seeds with that
-        ;; window verbatim; recomputing the end from the domain would stretch the
-        ;; selection to today behind the trader's back.
         custom-seed-to (or (:to (:custom range-ui)) (:to strip-domain))
         custom-seed-from (or (:from (:custom range-ui))
                              (vm-history/summary-window-cutoff-ms snapshot-range
@@ -218,11 +204,6 @@
      :performance-metrics (assoc performance-metrics
                                  :vault-label vault-label
                                  :timeframe-options chart-timeframe-options
-                                 ;; The PRESET keyword, which is what highlights
-                                 ;; the ON row and what the panel gates its whole
-                                 ;; chip on. The CUSTOM window travels separately
-                                 ;; in `:custom-range` below, so the chip can label
-                                 ;; itself with the window actually in force.
                                  :selected-timeframe (:preset range-ui)
                                  :custom-range (custom-selector :metrics)
                                  :range-strip metrics-range-strip
@@ -241,12 +222,7 @@
                             :label "PNL"}]
              :timeframe-options chart-timeframe-options
              :timeframe-menu-open? (true? (get-in state [:vaults-ui :detail-chart-timeframe-dropdown-open?]))
-             ;; The MENU shows the preset; the data pipeline above already ran on
-             ;; the effective window. Handing the menu a custom range map would
-             ;; make `timeframe-token` return nil and mislabel the chip.
              :selected-timeframe (:preset range-ui)
-             ;; The window on screen, for the tooltip's timestamp format. The
-             ;; menu label above needs the preset; the tooltip needs the truth.
              :tooltip-timeframe (or (custom-range/span-preset (:custom range-ui))
                                     (:preset range-ui))
              :custom-range (custom-selector :chart)

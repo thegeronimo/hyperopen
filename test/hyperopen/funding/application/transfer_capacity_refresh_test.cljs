@@ -129,15 +129,10 @@
               effects {:phase :action-emission :action-id action-id})))
 
 (deftest every-transfer-action-emits-contract-valid-effects-test
-  ;; Actions are unit-tested through the facade, which skips the runtime's
-  ;; emission validation; run it here so a bad path (a string key in an
-  ;; `:effects/save` path) fails in `npm test`, not only in a debug build.
   (at stale-ms
       (fn []
         (let [evm-in (update-in (hype-in {:amount-input "2"})
                                 [:hyperevm :core-account] dissoc support/owner)
-              ;; The HyperEVM bridge reading is current at this clock (the
-              ;; poll stamps it), so MAX and percent have a cap to fill.
               core-out (assoc-in (support/state {:transfer-from :spot :transfer-to :hyperevm
                                                  :transfer-asset support/purr-index
                                                  :amount-input "100"})

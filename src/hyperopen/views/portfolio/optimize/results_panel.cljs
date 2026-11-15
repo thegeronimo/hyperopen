@@ -22,13 +22,6 @@
              :as volatility-intuition-card]))
 
 (defn- active-views-editor
-  ;; Rendered while the return model consumes views AND the objective consumes
-  ;; returns. Views are an input policy, not an objective — but covariance-only
-  ;; goals (Equal Risk keeps Black-Litterman set when selected after Maximum
-  ;; Sharpe) never read the forecast, so soliciting return edits that "rerun
-  ;; automatically" yet cannot move the weights would be dishonest. Collapsed by
-  ;; default here: on the results page view editing is a by-exception input
-  ;; task, so the rail shows only the title + live counts until opened.
   [state draft result readiness]
   (when (and (= :black-litterman (get-in draft [:return-model :kind]))
              (not (contains? setup-summary/return-free-objective-kinds
@@ -62,9 +55,6 @@
          equal-risk? (= :equal-risk (get-in result [:solver :objective-kind]))
          inverse-volatility? (= :inverse-volatility
                                 (get-in result [:solver :objective-kind]))
-         ;; No covariance-only objective is selected from a frontier: each
-         ;; replaces the frontier chart with its own proof-of-objective card,
-         ;; and the frontier-density refinement machinery disappears.
          frontier? (not (contains? contracts-constants/covariance-only-objective-kinds
                                    (get-in result [:solver :objective-kind])))]
      (when (= :solved (:status result))
@@ -72,8 +62,6 @@
                   :replicant/key "optimizer-results-surface"
                   :data-role "portfolio-optimizer-results-surface"}
         (summary/stale-result-banner stale?)
-        ;; Keyed so the stale banner toggling above cannot recreate the grid —
-        ;; the rail's collapsible editors hold their open/closed state in the DOM.
         [:div {:class ["optimizer-results-grid" "grid" "grid-cols-1"
                        "xl:grid-cols-[420px_minmax(0,1fr)]"
                        "2xl:grid-cols-[500px_minmax(0,1fr)_320px]"]
@@ -89,36 +77,17 @@
          [:div {:class ["optimizer-results-center-panel" "min-h-0" "bg-base-100" "p-6"
                         "space-y-4"]
                 :data-role "portfolio-optimizer-results-center-panel"}
-          ;; Equal Risk yields one selected portfolio, not a frontier: the
-          ;; risk-contribution balance card replaces the frontier chart (a
-          ;; one-point "curve" whose click handler would silently switch the
-          ;; objective to Target Return) and carries the Risk/Return scatter
-          ;; as its second DOM-state tab, the why-card speaks in risk
-          ;; contributions, and the frontier-density refinement card
-          ;; disappears — there is no sweep to refine.
-          ;; Plain conditional siblings, never a list-as-one-child (Replicant
-          ;; stringifies those); the whole set only toggles when the solved
-          ;; objective itself changes.
           [:div {:class ["space-y-4"]
                  :replicant/key (cond
                                   equal-risk? "equal-risk-center"
                                   inverse-volatility? "inverse-volatility-center"
                                   :else "frontier-center")}
-           ;; The implications lead: current → target imbalance / volatility /
-           ;; modeled outcome, each deep-linking into the card below. Above
-           ;; the chart so "what does executing change?" is answered before
-           ;; the per-asset detail starts.
            (when equal-risk?
              (equal-risk-impact-strip/equal-risk-impact-strip result))
            (when equal-risk?
              (risk-contributions-card/risk-contributions-card
               result
               {:selected-risk-instrument selected-risk-instrument}))
-           ;; Risk-weighted sizing takes the same slot with its own
-           ;; centerpiece: the sizing-fidelity card that proves the |w|·σ
-           ;; parity the objective promises, plus the objective-agnostic
-           ;; analytics tabs (its DIVERSIFICATION tab shares the same
-           ;; selected-instrument app state as the equal-risk card).
            (when inverse-volatility?
              (risk-weighted-sizing-card/risk-weighted-sizing-card
               result
@@ -129,48 +98,24 @@
               result
               frontier-overlay-mode
               constrain-frontier?))
-           ;; The shared slot always follows the center column's primary
-           ;; result visual. Its component keeps the gross/volatility gate,
-           ;; while the stable wrapper keeps context cards below it from
-           ;; shifting when that panel appears or disappears across reruns.
            [:div {:replicant/key "optimizer-leverage-impact-slot"
                   :data-role "portfolio-optimizer-leverage-impact-slot"}
             (leverage-impact-panel/leverage-impact-panel result)]
            (when equal-risk?
              (summary/equal-risk-context-card result))
-           ;; Decision-support before solver tuning: the engine-derived "why
-           ;; this target" facts sit directly under the chart; the refinement
-           ;; card below is compact with its options behind a disclosure.
            (when-not equal-risk?
              (summary/target-context-card result))
            (when frontier?
              (refinement-card/refinement-status-card refinement))]]
-         ;; Rail order is review-first: the next-step row leads, then the
-         ;; volatility-intuition context, then frontier solve-quality detail,
-         ;; then trust diagnostics, then the collapsed views editor — input
-         ;; editing is the by-exception task on this page.
          [:div {:class ["optimizer-results-right-panel" "min-h-0"
                         "xl:col-span-2" "2xl:col-span-1"]
                 :data-role "portfolio-optimizer-results-right-panel"}
-          ;; Equal Risk gets its own confidence rail (fit / allocation freedom
-          ;; / solution stability / real stop reasons); the refinement-based
-          ;; rail speaks frontier language that exists for neither
-          ;; covariance-only objective (Risk-weighted sizing is deterministic
-          ;; — there is nothing to refine).
           (or (equal-risk-confidence-rail/equal-risk-confidence-rail result)
               (when frontier?
                 (diagnostics-rail/result-confidence-rail refinement)))
-          ;; Always-present wrapper: the volatility card is conditional (it
-          ;; needs a solved σ), and without a stable slot its mounting would
-          ;; shift the trust rail and views editor below — resetting open
-          ;; <details> state. (Leverage impact lives in the center column
-          ;; under each objective's primary result visual.)
           [:div {:replicant/key "optimizer-volatility-risk-cards"
                  :data-role "portfolio-optimizer-volatility-risk-cards"}
            (volatility-intuition-card/volatility-intuition-card result)]
-          ;; Quality detail follows volatility intuition for both objectives;
-          ;; their lead cards remain above it. Each renderer owns the rows
-          ;; meaningful to its objective.
           (cond
             equal-risk?
             (equal-risk-confidence-rail/equal-risk-confidence-quality-rail result)

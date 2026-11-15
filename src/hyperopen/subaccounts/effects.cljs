@@ -140,8 +140,6 @@
   (when mode
     (swap! store
            (fn [state]
-             ;; Guard against the owner changing while the abstraction request
-             ;; was in flight so we never stamp a stale master's mode.
              (if (= owner-address (actions/viewed-master-address state))
                (assoc-in state
                          [:account-context :subaccounts :owner-mode]
@@ -532,11 +530,6 @@
         token (:token request)
         amount (:amount request)
         amount-display (or (:amount-display request) amount)
-        ;; Account mode decides which exchange primitive is legal at all, so it
-        ;; is the outer question; the asset kind is the inner one. Hyperliquid
-        ;; rejects the classic sub-account primitives for unified accounts
-        ;; ("Unified account only supports sending assets through spot"), so
-        ;; `unified?` must be tested before `spot?`.
         wire-token (when (or unified? spot?)
                      (spot-wire-token @store token))
         submit! (cond

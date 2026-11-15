@@ -39,8 +39,6 @@
                 :current-exposure {:gross 1.8 :net 1.0}
                 :highlighted-controls #{:gross-max}})]
     (is (= :balanced (:active-preset model)) "default constraints are the Balanced preset")
-    ;; The preset chip vector left the model with the preset buttons
-    ;; (2026-07-10 simplified default view); only :active-preset remains.
     (is (not (contains? model :presets)))
     (is (true? (get-in model [:highlighted :gross])) "gross-max infeasible highlights the gross axis")
     (is (false? (get-in model [:highlighted :net])))

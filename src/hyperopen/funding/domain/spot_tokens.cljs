@@ -23,9 +23,6 @@
    turns a visible gap into an opaque exchange error."
   (:require [clojure.string :as str]))
 
-;; Full mainnet USDC spot token id expected by Hyperliquid signing. Used only as
-;; a last-resort fallback for USDC when `spotMeta` is unavailable; every other
-;; token must resolve through metadata or fail honestly.
 (def mainnet-usdc-token
   "USDC:0x6d1e7cde53ba9467b783cb7c530ce054")
 

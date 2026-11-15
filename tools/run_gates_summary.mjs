@@ -3,18 +3,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-// Run every validation gate WITHOUT short-circuiting, then print a full
-// PASS/FAIL matrix with a copy-pasteable rerun command for each failure.
-//
-// `npm run check` is a single ~29-link `&&` chain that stops at the first
-// failing gate, so an agent fixes one gate, re-pays every earlier gate, and
-// only then discovers the next failure -- serial discovery that wastes turns
-// and loses the thread of which gate to iterate on. This aggregator derives the
-// gate list FROM the `check` script (so it stays in sync automatically), runs
-// each gate to completion regardless of earlier failures, and surfaces all
-// failures at once. Gates must run serially (later segments depend on artifacts
-// from earlier ones, e.g. `compile test` needs `test:runner:generate`).
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = join(__dirname, "..", "package.json");
 
@@ -29,13 +17,10 @@ function checkSegments() {
         .filter((segment) => segment.length > 0);
     }
   } catch {
-    // fall through to a safe default
   }
   return ["npm run check"];
 }
 
-// Worktree bootstrap runs first so a missing node_modules surfaces at the top
-// (and is auto-linked) instead of failing every compile gate with opaque errors.
 const gates = [
   "npm run setup:worktree",
   ...checkSegments(),
@@ -143,7 +128,6 @@ function renderStatus(result) {
 
 const results = [];
 
-// Serial, no short-circuit: every gate runs even after an earlier one fails.
 for (const gate of gates) {
   results.push(await runGate(gate));
 }

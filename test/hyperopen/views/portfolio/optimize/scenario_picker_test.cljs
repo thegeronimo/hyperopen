@@ -30,7 +30,6 @@
     (is (= [[:actions/open-portfolio-optimizer-scenario-save-modal]]
            (click-actions
             (node-by-role strip "portfolio-optimizer-header-save-scenario"))))
-    ;; Closed by default: no menu in the tree.
     (is (nil? (node-by-role strip "portfolio-optimizer-scenario-menu")))))
 
 (deftest strip-save-disabled-while-saving-test
@@ -53,7 +52,6 @@
     (is (= [[:actions/close-portfolio-optimizer-scenario-menu]
             [:actions/navigate "/portfolio/optimize/scn_01"]]
            (click-actions row)))
-    ;; Row management affordances survive the index page's removal.
     (is (some? (node-by-role strip "portfolio-optimizer-scenario-duplicate-scn_01")))
     (is (some? (node-by-role strip "portfolio-optimizer-scenario-archive-scn_01")))
     (is (= [[:actions/new-portfolio-optimizer-scenario]]

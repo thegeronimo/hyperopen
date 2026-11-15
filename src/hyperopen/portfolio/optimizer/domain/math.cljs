@@ -33,10 +33,6 @@
   [& vectors]
   (apply mapv + vectors))
 
-(defn vec-sub
-  [a b]
-  (mapv - a b))
-
 (defn scalar-vec
   [scalar vector]
   (mapv #(* scalar %) vector))

@@ -34,10 +34,6 @@
         pctp0 (fn [v] (fmt/unsigned-pct v 0))
         r2 (fn [v] (fmt/ratio v 2))]
     (if (= method :shuffle)
-      ;; Shuffle: mirror QuantStats' montecarlo_sharpe / montecarlo_drawdown /
-      ;; montecarlo_cagr. Drawdown genuinely varies with the ordering; Sharpe
-      ;; varies only via QuantStats' per-path day-drop. CAGR is fixed in this
-      ;; mode, so the card is intentionally omitted.
       [:div {:class ["mc-dist-grid" "mc-dist-grid-2"]
              :data-role (str prefix "-distributions")}
        (dist-card {:title "Sharpe ratio"

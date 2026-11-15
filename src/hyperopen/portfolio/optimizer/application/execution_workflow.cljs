@@ -37,9 +37,6 @@
   [attempt started-at-ms]
   {:status :submitting
    :attempt attempt
-   ;; Live, per-row in-flight copy the running view reads. Ready rows render as
-   ;; "queued" and flip to :working then :submitted/:failed as each order lands. The
-   ;; terminal apply-execution-ledger rebuilds execution-path without it (auto-clear).
    :run-attempt attempt
    :started-at-ms started-at-ms
    :completed-at-ms nil
@@ -80,9 +77,6 @@
                            :history history
                            :error (when (= :failed scenario-status)
                                     {:message "Execution failed before any rows submitted."})})
-                ;; Track the run's resting orders (and drop the ones a successful pre-run
-                ;; cancellation removed) so the NEXT run can cancel what this one left on
-                ;; the book instead of over-allocating on top of it.
                 (update-in contracts/execution-resting-carryover-path
                            carryover/record-resting-carryover ledger)
                 (assoc-in contracts/execution-modal-submitting-path false)

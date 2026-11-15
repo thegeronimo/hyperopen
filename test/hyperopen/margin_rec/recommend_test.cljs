@@ -154,8 +154,6 @@
                                             :liquidation-px nil})))))))
 
 (deftest calibration-from-exchange-liquidation
-  ;; No table and no max leverage, but the exchange's liquidation price is
-  ;; enough to imply a flat maintenance rate.
   (let [schedule (tiers/flat-schedule 20)
         szi 2
         equity (* 0.1 szi last-close)

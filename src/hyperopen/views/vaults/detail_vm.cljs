@@ -74,9 +74,6 @@
          snapshot-range (vault-ui-state/normalize-vault-snapshot-range
                          (get-in state [:vaults-ui :snapshot-range]))
          detail-custom-range (detail-commands/vault-detail-custom-range state)
-         ;; The data pipeline reads the custom window when one is applied; the
-         ;; shared preset key is left alone so the vault LIST keeps its own
-         ;; meaning and clearing restores what was selected.
          effective-range (or detail-custom-range snapshot-range)
          detail-loading? (true? (get-in state [:vaults-ui :detail-loading?]))
          details-base (get-in state [:vaults :details-by-address vault-address])

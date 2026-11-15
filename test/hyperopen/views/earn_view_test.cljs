@@ -25,8 +25,6 @@
 (defn- with-tab [tab] (assoc-in state [:borrow-lend-ui :active-tab] tab))
 
 (deftest every-tab-renders-test
-  ;; A render that throws leaves the browser half-patched, so each tab and the
-  ;; modal must at least build their hiccup.
   (testing "markets"
     (let [view (earn-view/earn-view (with-tab :markets))]
       (is (some? (hiccup/find-by-data-role view "earn-pool-row-0")))
@@ -81,7 +79,6 @@
       (is (some? (hiccup/find-by-data-role view "earn-returns-USDC-all"))))
     (testing "7 days: interest over balance-hours, annualized"
       (let [text (hiccup/node-text (hiccup/find-by-data-role view "earn-returns-USDC-7d"))]
-        ;; Rows ending after the window start: 167 × 0.05 = 8.35 USDC on ~4,008 average → ≈10.93%.
         (is (re-find #"10\.9\d%" text) text)
         (is (re-find #"\+8\.35 USDC" text) text)
         (is (re-find #"7 / 7" text) text))))

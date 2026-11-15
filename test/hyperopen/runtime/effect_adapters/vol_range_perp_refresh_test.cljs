@@ -5,8 +5,6 @@
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vre]))
 
 (deftest a-perp-ladder-send-refreshes-every-dex-open-orders-test
-  ;; The `openOrders` stream carries the first perp dex and spot only, so a
-  ;; HIP-3 ladder's orders appeared in Open Orders only after a page reload.
   (let [surfaces (atom [])
         spot (atom [])
         store (atom {})

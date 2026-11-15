@@ -27,11 +27,8 @@
                          :viewport-width 1440 :viewport-height 960}
                 :preferred-width-px 780
                 :preferred-height-px 560})]
-    ;; Centered on the viewport regardless of where the low trigger sits.
     (is (= "780px" (:width style)))
     (is (= "330px" (:left style)))
-    ;; Biased into the upper third (0.16 * 960 ≈ 154) so it covers the chart,
-    ;; well above the bottom trigger at top=900.
     (is (= "154px" (:top style)))))
 
 (deftest centered-overlay-clamps-within-short-viewport-test
@@ -39,8 +36,6 @@
                {:anchor {:viewport-width 400 :viewport-height 500}
                 :preferred-width-px 780
                 :preferred-height-px 560})]
-    ;; Width clamps to viewport minus margins; too short for the height, so it
-    ;; pins to the top margin and relies on the panel's internal scroll.
     (is (= "376px" (:width style)))
     (is (= "12px" (:left style)))
     (is (= "12px" (:top style)))))

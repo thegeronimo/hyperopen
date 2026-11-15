@@ -238,12 +238,6 @@
           return-calendar)))
 
 (def default-stale-after-ms
-  ;; Aligned daily closes legitimately trail the run date by a few days
-  ;; (weekends, market holidays, proxy serve cadence). Past a week the shared
-  ;; covariance window is materially out of date — the same threshold as the
-  ;; per-instrument stale-history incident escalation. Without a default at the
-  ;; request-input seam, a nil runtime override makes `freshness` report
-  ;; stale? false no matter how old the calendar is.
   (* 7 24 60 60 1000))
 
 (defn freshness

@@ -124,9 +124,6 @@
                    {:type :market :side :sell :size "5"}))))
 
     (testing "unified (portfolio-margin) account skips the spot affordability cap"
-      ;; In PM the exchange auto-borrows USDC against unified collateral, and
-      ;; buying/selling the borrowed asset is how a borrow is repaid, so idle
-      ;; spot USDC / held base is the wrong cap — the exchange enforces margin.
       (is (empty? (buy-over :unified)))
       (is (empty? (sell-over :unified))))
 
@@ -139,7 +136,6 @@
   (testing "a committed quote-denominated spot buy that becomes affordable again
             once re-projected against the live best-ask"
     (let [state0 (support/spot-buy-state {:ask "1.00" :usdc "100"})
-          ;; User commits a 100 USDC buy while the best-ask is 1.00.
           committed (support/apply-order-form-transition
                      state0
                      (transitions/set-order-size-display state0 "100"))]
@@ -147,8 +143,7 @@
         (is (empty? (validation-codes
                      (trading/validate-order-form committed
                                                   (trading/order-form-draft committed))))))
-      (let [;; Best-ask ticks up ~1%; the canonical :size is frozen but the
-            ;; displayed Size notional still reads 100 USDC.
+      (let [
             ticked (support/set-active-best-ask committed "1.01")
             frozen-form (trading/order-form-draft ticked)]
         (testing "frozen size produces a false insufficient-USDC reject"
@@ -159,20 +154,16 @@
         (testing "re-projecting the form on the book tick keeps it coherent"
           (let [reconciled (context-sync/reconcile-active-order-form ticked)
                 form (trading/order-form-draft reconciled)]
-            ;; Displayed commitment is preserved...
             (is (= "100" (:size-display form)))
-            ;; ...while the canonical base size is re-derived against the new ask.
             (is (not= (:size frozen-form) (:size form)))
             (is (empty? (validation-codes
                          (trading/validate-order-form reconciled form))))))))))
 
 (deftest spot-percent-buy-reprojects-on-best-ask-tick-test
   (let [state0 (support/spot-buy-state {:ask "1.00" :usdc "100"})
-        ;; Commit a max (100%) spot buy at ask 1.00.
         committed (support/apply-order-form-transition
                    state0
                    (transitions/set-order-size-percent state0 100))
-        ;; Best-ask jumps 5%; the frozen percent-derived size is now unaffordable.
         ticked (support/set-active-best-ask committed "1.05")
         frozen-form (trading/order-form-draft ticked)]
     (is (contains? (validation-codes

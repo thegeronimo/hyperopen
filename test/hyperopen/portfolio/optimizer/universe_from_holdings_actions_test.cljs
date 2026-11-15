@@ -138,9 +138,6 @@
            (mapv :instrument-id spot-included-universe)))))
 
 (deftest auto-preseed-seeds-universe-on-fresh-optimize-new-draft-with-holdings-test
-  ;; Entering a fresh /optimize/new draft with holdings already loaded seeds the
-  ;; universe automatically, so a returning user reaches a result without
-  ;; hand-searching every asset.
   (let [state (assoc-in (holdings-state-with-spot true)
                         [:portfolio :optimizer :draft] nil)
         effects (actions/auto-preseed-portfolio-optimizer-universe-from-current
@@ -151,8 +148,6 @@
     (is (some #{"perp:BTC"} (map :instrument-id universe)))))
 
 (deftest auto-preseed-never-clobbers-a-touched-draft-test
-  ;; A universe the user has built (or deliberately cleared) must never be
-  ;; overwritten: a non-default draft no-ops.
   (let [state (assoc-in (holdings-state-with-spot true)
                         [:portfolio :optimizer :draft]
                         {:universe [{:instrument-id "perp:ETH"}]
@@ -163,17 +158,12 @@
 (deftest auto-preseed-only-fires-on-the-workspace-route-test
   (let [state (assoc-in (holdings-state-with-spot true)
                         [:portfolio :optimizer :draft] nil)]
-    ;; The bare path IS the workspace (index page removed), so it preseeds like
-    ;; the legacy /new alias; loaded-scenario routes never preseed.
     (is (seq (actions/auto-preseed-portfolio-optimizer-universe-from-current
               state "/portfolio/optimize")))
     (is (= [] (actions/auto-preseed-portfolio-optimizer-universe-from-current
                state "/portfolio/optimize/some-scenario-id")))))
 
 (deftest auto-preseed-no-ops-when-holdings-not-loaded-test
-  ;; Cold load before the account snapshot is present -> graceful no-op (the
-  ;; "Load my holdings" strip button covers this), draft left untouched
-  ;; so a later route event re-attempts.
   (let [state {:portfolio {:optimizer {:draft nil}}}]
     (is (= [] (actions/auto-preseed-portfolio-optimizer-universe-from-current
                state "/portfolio/optimize/new")))))

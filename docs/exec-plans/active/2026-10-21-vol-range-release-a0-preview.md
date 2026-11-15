@@ -252,8 +252,6 @@ Lints that each milestone must keep green:
     npm run lint:namespace-sizes
     npm run lint:input-parsing
     npm run lint:hiccup
-    npm run lint:class-attrs
-    npm run lint:style-keys
     npm run lint:theme-colors
     npm run lint:docs
 

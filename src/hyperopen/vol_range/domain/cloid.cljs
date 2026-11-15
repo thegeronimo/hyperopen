@@ -9,7 +9,6 @@
   (:require [clojure.string :as str]))
 
 (def prefix "0x484f5652")
-(def suffix-hex-length 24)
 
 (defn valid-suffix? [s]
   (boolean (and (string? s) (re-matches #"[0-9a-f]{24}" s))))

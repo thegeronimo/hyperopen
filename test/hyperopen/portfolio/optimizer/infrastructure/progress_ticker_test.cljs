@@ -9,8 +9,6 @@
   Returns the moving parts so a test can drive transitions and ticks by hand."
   [initial]
   (let [store (atom initial)
-        ;; Fake interval registry: set-interval! returns an incrementing id and
-        ;; stashes the callback so the test can fire it deterministically.
         next-id (atom 0)
         captured (atom {})
         cleared (atom [])
@@ -53,14 +51,11 @@
     (let [p (get-in @store progress-path)]
       (is (= 2500 (:now-ms p)))
       (is (< 40 (:display-percent p)) "display trickles ahead of true progress"))
-    ;; A second frame at a later clock keeps advancing.
     (reset! now 3000)
     (fire! 1)
     (is (= 3000 (get-in @store (conj progress-path :now-ms))))))
 
 (deftest ticker-does-not-rearm-on-its-own-tick-swaps-test
-  ;; Each frame swaps the store (which the watcher also sees); it must not start
-  ;; a second interval because status stays :running across its own writes.
   (let [{:keys [store captured fire! install!]} (harness {:optimizer {:optimization-progress {:status :idle}}})]
     (install!)
     (swap! store assoc-in (conj progress-path :status) :running)

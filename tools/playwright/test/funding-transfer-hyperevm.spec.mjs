@@ -1,20 +1,3 @@
-// HyperCore <-> HyperEVM Transfer, end to end against this build.
-//
-// Every case runs the real app with:
-// - the debug wallet simulator (EIP-1193), which signs and sends and logs
-//   every request in order (`walletSimulatorSnapshot`);
-// - the debug exchange simulator, which records each signed Hyperliquid
-//   action (`exchangeSimulatorSnapshot`);
-// - a mocked HyperEVM RPC (`routeHyperEvmRpc`), the only source of HyperEVM
-//   balances, gas, estimates and receipts, keyed by the wallet simulator's
-//   deterministic hashes;
-// - fixture HyperCore account reads (`routeHyperCoreInfo`, strict: every
-//   user-carrying read the spec depends on is answered, and afterEach fails
-//   on any that reached the live API) with the live balance streams
-//   unsubscribed (`routeHyperCoreAccountStreams`).
-// The shared guard (`guarded_test.mjs`) also fails any case in which a
-// request reached the HyperEVM RPC host without the mock answering it.
-// Every fixture value is production-shaped (see hyperevm_fixtures.mjs).
 import { expect, test } from "../support/guarded_test.mjs";
 import {
   debugCall,
@@ -64,9 +47,6 @@ const CHAIN_LEFT =
 const IN_FLIGHT_PENDING =
   "Your last HyperEVM transfer hasn't confirmed yet. If your wallet shows it finished, was replaced or was cancelled, reload the page to start another.";
 
-// Gas every HyperEVM transaction must carry for the fixture's live gas price
-// (0.107 gwei, below the 0.2 gwei floor): maxFeePerGas = 2 x 0.2 gwei, and
-// gas = the live estimate x 1.3, rounded up.
 const GAS_PRICE_FLOOR_WEI = 200000000n;
 const MAX_FEE_PER_GAS = quantityHex(
   2n * (BigInt(PROBE_GAS_PRICE_WEI) > GAS_PRICE_FLOOR_WEI ? BigInt(PROBE_GAS_PRICE_WEI) : GAS_PRICE_FLOOR_WEI)
@@ -86,14 +66,9 @@ const UNEXPECTED = { status: "err", response: "Unexpected signed action in this 
 const modal = (page) => page.locator("[data-role='funding-modal']");
 const role = (page, name) => page.locator(`[data-role='${name}']`);
 
-// The HyperCore info fixture of each page, so afterEach can check that no
-// account read reached the live API.
 const coreInfoFixtures = new WeakMap();
 
 test.afterEach(async ({ page }) => {
-  // Every wallet method the app used is one the simulator implements: an
-  // unknown one rejects with 4200 and is logged here, so a read routed
-  // through the wallet instead of the mocked RPC fails the case.
   const snapshot = await page
     .evaluate(() => globalThis.HYPEROPEN_DEBUG?.walletSimulatorSnapshot?.() ?? null)
     .catch(() => null);
@@ -125,8 +100,6 @@ async function storeValue(page, path) {
   }, path);
 }
 
-// Info responses by type and status, printed when a case can't get going
-// (the live info API rate-limits bursts of test runs).
 const infoLogs = new WeakMap();
 
 function trackInfoResponses(page) {
@@ -168,7 +141,6 @@ async function waitForAccountReads(page, address) {
   }
 }
 
-// Route everything, open `route`, and connect the fixture owner.
 async function setupAccount(page, {
   route = "/portfolio",
   evm = { HYPE: "12.5" },
@@ -197,9 +169,6 @@ async function setupAccount(page, {
     chainId: ARBITRUM,
     ...wallet
   });
-  // The simulator matches only its `default` queue (action types arrive
-  // keywordized), so each case queues its answers in order, followed by
-  // refusals so nothing unexpected ever reaches the real exchange.
   await debugCall(page, "installExchangeSimulator", {
     signedActions: {
       default: { responses: [...exchange, ...Array.from({ length: 8 }, () => UNEXPECTED)] }
@@ -250,8 +219,6 @@ function inViewport(box, viewport) {
     box.x + box.width <= viewport.width;
 }
 
-// Whether the control is what a pointer at its centre would hit (nothing,
-// such as the app's fixed footer, painted over it).
 async function hitTestable(locator) {
   return locator.evaluate((node) => {
     const rect = node.getBoundingClientRect();
@@ -260,10 +227,6 @@ async function hitTestable(locator) {
   });
 }
 
-// Scroll so `locator`'s bottom sits as low as a pointer can still reach it:
-// 24 px above the viewport's bottom, or just above a fixed layer (the app
-// footer) covering that edge. Scrolls the nearest scrolling ancestor (the
-// /trade rows viewport) or the page. Returns its box and the viewport height.
 async function placeNearViewportBottom(locator) {
   return locator.evaluate((node) => {
     node.scrollIntoView({ block: "end" });
@@ -299,12 +262,7 @@ function usd(text) {
   return match ? Number(match[1].replace(/,/g, "")) : NaN;
 }
 
-// --- guard -------------------------------------------------------------------------
-
 test("the shared guard mocks the HyperEVM RPC for every page and context and catches an escape @regression", async ({ page, browser, hyperEvmRpcGuard }) => {
-  // 1. visitRoute's page-level empty default answers the poller of a
-  //    connected wallet. (The HyperCore catalog is routed only so spotMeta
-  //    lands even when the live info API rate-limits.)
   await routeHyperCoreInfo(page);
   await routeHyperCoreAccountStreams(page);
   await visitRoute(page, "/trade");
@@ -325,9 +283,6 @@ test("the shared guard mocks the HyperEVM RPC for every page and context and cat
     expect.arrayContaining(["eth_getBalance", "eth_gasPrice", "eth_call"])
   );
 
-  // 2. A page in a context the test opens itself, loaded with page.goto and
-  //    no visitRoute (as shareable-view-url's fresh-link cases do), is
-  //    answered by the guard's context-level mock.
   const context = await browser.newContext();
   try {
     const fresh = await context.newPage();
@@ -344,9 +299,6 @@ test("the shared guard mocks the HyperEVM RPC for every page and context and cat
   }
   expect(await hyperEvmRpcGuard.violations()).toEqual({ unmocked: [], unknown: [], oversizedBatches: [] });
 
-  // 3. The guard watches requests, not routes: one that a later page handler
-  //    lets past the mock (abort here; continue() would go live) is reported
-  //    although this page has the mock installed.
   const escape = "https://rpc.hyperliquid.xyz/evm?guard-probe";
   await page.route((url) => url.href === escape, (route) => route.abort());
   await page.evaluate((url) =>
@@ -354,12 +306,8 @@ test("the shared guard mocks the HyperEVM RPC for every page and context and cat
       .then(() => "answered", () => "failed"), escape);
   expect((await hyperEvmRpcGuard.violations()).unmocked).toEqual([`POST ${escape}`]);
   await expect(hyperEvmRpcGuard.assertClean()).rejects.toThrow(/without the mock answering them/);
-  // Acknowledged so this case's own teardown check passes; every other case
-  // fails on such a request.
   hyperEvmRpcGuard.acknowledge();
 });
-
-// --- (a) ------------------------------------------------------------------------------
 
 test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 and 375 px @regression", async ({ page }) => {
   await setupAccount(page, {
@@ -368,8 +316,6 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   });
   await openBalances(page);
 
-  // HOPE's on-chain decimals() disagrees with spotMeta (live): its row has no
-  // move at all.
   await expect(page.locator("[data-parity-id='account-tables']")).toContainText("5,000.00000 HOPE");
   await expect(page.locator("[data-role^='balances-move-spot-122-']")).toHaveCount(0);
 
@@ -380,7 +326,6 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   await expect(role(page, "location-chip-perps").first()).toBeVisible();
   await expect(role(page, "balance-row-gas-reserve-note")).toContainText("0.001 kept for gas");
 
-  // The filter narrows the rows and keeps its state in aria-pressed.
   const table = page.locator("[data-parity-id='account-tables']");
   await role(page, "balances-location-filter-hyperevm").click();
   await expect(role(page, "balances-location-filter-hyperevm")).toHaveAttribute("aria-pressed", "true");
@@ -395,10 +340,6 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   await expect(role(page, "balances-hyperevm-note")).toBeHidden();
   expect(await noHorizontalOverflow(page)).toBe(true);
 
-  // A disabled move keeps focus and shows its reason only while focused:
-  // SIX's HyperEVM bridge is empty (live: 0 at its system address). The
-  // tooltip is opacity-0 until its group has focus (toBeVisible ignores
-  // opacity, so the computed style is what is asserted).
   const sixMove = role(page, "balances-move-spot-6-hyperevm");
   const sixReason = role(page, "balances-move-spot-6-hyperevm-reason");
   await expect(sixMove).toHaveAttribute("aria-disabled", "true");
@@ -408,12 +349,10 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   await sixMove.focus();
   await expect(sixReason).toHaveCSS("opacity", "1");
   await expect(sixReason).toContainText("bridge is empty");
-  // Escape hides it without moving focus (WCAG 1.4.13).
   await page.keyboard.press("Escape");
   await expect(sixReason).toHaveCSS("visibility", "hidden");
   await expect(sixMove).toBeFocused();
 
-  // /trade at 1280x800: the Spot USDC row's "To HyperEVM" stays inside the panel.
   await page.setViewportSize({ width: 1280, height: 800 });
   await dispatch(page, [":actions/navigate", "/trade"]);
   await openBalances(page);
@@ -424,10 +363,6 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   expect(moveBox.x + moveBox.width).toBeLessThanOrEqual(panelBox.x + panelBox.width);
   expect(await noHorizontalOverflow(page)).toBe(true);
 
-  // 375 px: the toolbar wraps onto a second row (search and filter, then Hide
-  // Small Balances) with every control on screen, the HyperEVM card carries
-  // its chip, the filter narrows the cards, and a disabled move's reason
-  // shows under its card.
   await page.setViewportSize({ width: 375, height: 812 });
   await dispatch(page, [":actions/navigate", "/portfolio"]);
   await openBalances(page);
@@ -465,8 +400,6 @@ test("(a) HyperEVM rows, chips and the location filter at desktop, /trade 1280 a
   expect(await noHorizontalOverflow(page)).toBe(true);
 });
 
-// --- (b) ------------------------------------------------------------------------------
-
 test("(b) Spot -> HyperEVM PURR signs the exact sendAsset, arrives, and adds the token to the wallet @regression", async ({ page }) => {
   const { rpc } = await setupAccount(page, {
     evm: { HYPE: "12.5" },
@@ -484,7 +417,6 @@ test("(b) Spot -> HyperEVM PURR signs the exact sendAsset, arrives, and adds the
   await expect(submit).toBeEnabled();
   await submit.click();
 
-  // Exactly one signed action, the plan's exact sendAsset.
   await expect.poll(async () => (await signedActions(page, "sendAsset")).length).toBe(1);
   const [request] = await signedActions(page, "sendAsset");
   const { signatureChainId, hyperliquidChain, nonce, ...action } = request.action;
@@ -501,14 +433,11 @@ test("(b) Spot -> HyperEVM PURR signs the exact sendAsset, arrives, and adds the
   expect(nonce).toBe(request.nonce);
   expect((await debugCall(page, "exchangeSimulatorSnapshot")).calls).toHaveLength(1);
 
-  // Arriving until the mocked HyperEVM balance rises by 100, then arrived.
   const success = role(page, "funding-transfer-success");
   await expect(success).toBeVisible();
   await expect(success).toHaveAttribute("data-arrival", "arriving");
   await expect(role(page, "funding-transfer-success-heading")).toHaveText("Sent 100 PURR to HyperEVM");
   await expect(role(page, "funding-transfer-arrival")).toHaveText("Arriving on HyperEVM… usually a few seconds.");
-  // A rise short of 100 (an unrelated 50 PURR) is not the move arriving:
-  // still arriving after two more balance reads.
   rpc.update((fixture) => setHolding(fixture, OWNER, { PURR: "50" }));
   const balanceReads = () => rpc.entries().filter((entry) => entry.method === "eth_getBalance").length;
   const readsAt50 = balanceReads();
@@ -521,7 +450,6 @@ test("(b) Spot -> HyperEVM PURR signs the exact sendAsset, arrives, and adds the
   await expect(role(page, "funding-transfer-success-heading")).toHaveText("100 PURR is on HyperEVM");
   await expect(role(page, "funding-transfer-arrival")).toContainText(/^Arrived in \d+ seconds? at your wallet/);
 
-  // Add to wallet: switch to 0x3e7, then watch PURR at its 18 EVM decimals.
   const before = (await walletLog(page)).length;
   await role(page, "funding-transfer-add-to-wallet").click();
   await expect.poll(async () => (await walletLog(page)).slice(before).map((entry) => entry.method))
@@ -539,10 +467,6 @@ test("(b) Spot -> HyperEVM PURR signs the exact sendAsset, arrives, and adds the
   expect(log.filter((entry) => entry.method === "eth_sendTransaction")).toEqual([]);
 });
 
-// --- HyperEVM -> Core helpers ----------------------------------------------------------
-
-// Open HyperEVM -> Spot for `rowKey` ("hyperevm-150" is HYPE) from its
-// Balances row, with `amount` typed in.
 async function openEvmToSpot(page, rowKey, amount) {
   await openBalances(page);
   await role(page, `balances-move-${rowKey}-spot`).click();
@@ -551,8 +475,6 @@ async function openEvmToSpot(page, rowKey, amount) {
   await enterAmount(page, amount);
 }
 
-// Credit Spot with `amount` of `name` once the RPC answers `hash`'s
-// successful receipt, as HyperCore does when the bridge lands.
 function creditSpotOnReceipt(rpc, info, { name, amount, hash }) {
   rpc.update((fixture) => {
     let credited = false;
@@ -573,12 +495,8 @@ function receiptRequests(rpc, hash) {
   );
 }
 
-// --- (c) ------------------------------------------------------------------------------
-
 test("(c) HyperEVM -> Spot HYPE switches, re-reads the chain and sends one pinned transaction @regression", async ({ page }) => {
   const { rpc, info } = await setupAccount(page, { evm: { HYPE: "12.5" } });
-  // Two pending receipt reads keep the run on its progress view long enough
-  // to see the announcement.
   rpc.update((fixture) => {
     fixture.receipts[simulatedTxHash(1)] = ["pending", "pending"];
   });
@@ -619,16 +537,13 @@ test("(c) HyperEVM -> Spot HYPE switches, re-reads the chain and sends one pinne
     }
   ]);
 
-  // Arrival is read from HyperCore Spot, which the fixture credits on receipt.
   await expect(success).toHaveAttribute("data-arrival", "arrived", { timeout: 15_000 });
   await expect(role(page, "funding-transfer-success-heading")).toHaveText("10 HYPE is on Spot");
   expect(receiptRequests(rpc, simulatedTxHash(1)).length).toBe(3);
   expect(await storeValue(page, ["hyperevm", "in-flight", OWNER])).toBeNull();
 });
 
-// --- (d) ------------------------------------------------------------------------------
-
-const USDC_UNITS = 1000000000n; // 1,000 USDC at 6 decimals
+const USDC_UNITS = 1000000000n;
 
 function usdcApproveTx(hash) {
   return {
@@ -662,16 +577,12 @@ function methodIndex(entries, predicate) {
   return entries.findIndex(predicate);
 }
 
-// The wallet's `eth_sendTransaction` params for a recorded transaction.
 function sentParams({ hash, walletChainId, ...params }) {
   return params;
 }
 
 test("(d) HyperEVM -> Spot USDC approves then deposits through the CoreDepositWallet @regression", async ({ page }) => {
   const { rpc, info } = await setupAccount(page, { evm: { HYPE: "12.5", USDC: "1000" } });
-  // The approve stays pending for two reads; its allowance exists only once
-  // its receipt is answered (the mock's deposit estimate reverts like native
-  // USDC's transferFrom until then). HyperCore credits the deposit.
   rpc.update((fixture) => {
     fixture.receipts[simulatedTxHash(1)] = ["pending", "pending"];
     approveOnReceipt(fixture, { hash: simulatedTxHash(1), owner: OWNER, units: USDC_UNITS });
@@ -686,7 +597,6 @@ test("(d) HyperEVM -> Spot USDC approves then deposits through the CoreDepositWa
   const { transactions } = await debugCall(page, "walletSimulatorSnapshot");
   expect(transactions).toEqual([usdcApproveTx(simulatedTxHash(1)), usdcDepositTx(simulatedTxHash(2))]);
 
-  // The whole wallet log: one switch, then a chain read right before each send.
   const log = (await walletLog(page)).slice(before);
   expect(log).toEqual([
     { method: "eth_chainId" },
@@ -697,8 +607,6 @@ test("(d) HyperEVM -> Spot USDC approves then deposits through the CoreDepositWa
     { method: "eth_sendTransaction", params: [sentParams(usdcDepositTx(simulatedTxHash(2)))] }
   ]);
 
-  // The deposit is estimated only after the read that returned the approve's
-  // receipt (the third; the first two were pending).
   const entries = rpc.entries();
   const approveReads = entries
     .map((entry, index) => ({ entry, index }))
@@ -713,7 +621,6 @@ test("(d) HyperEVM -> Spot USDC approves then deposits through the CoreDepositWa
 });
 
 test("(p) a wallet that leaves HyperEVM after the approve sends no deposit and fails with the switch-network message @regression", async ({ page }) => {
-  // Acceptance 7: the wallet moves to Arbitrum right after its first send.
   const { rpc } = await setupAccount(page, {
     evm: { HYPE: "12.5", USDC: "1000" },
     wallet: { chainAfterSends: { 1: ARBITRUM } }
@@ -729,7 +636,6 @@ test("(p) a wallet that leaves HyperEVM after the approve sends no deposit and f
   await expect(role(page, "funding-transfer-step-deposit")).toHaveAttribute("data-step-status", "failed");
   const { transactions } = await debugCall(page, "walletSimulatorSnapshot");
   expect(transactions).toEqual([usdcApproveTx(simulatedTxHash(1))]);
-  // The chain read before the deposit found Arbitrum, and nothing followed it.
   expect((await walletLog(page)).slice(before).map((entry) => entry.method)).toEqual([
     "eth_chainId",
     "wallet_switchEthereumChain",
@@ -755,8 +661,6 @@ test("(d) HyperEVM -> Spot USDC skips the approve when the allowance covers the 
     entry.method === "eth_estimateGas" && String(entry.params[0]?.data).startsWith("0x095ea7b3"))).toBe(false);
 });
 
-// --- (h) ------------------------------------------------------------------------------
-
 test("(h) a wallet that rejects the deposit fails the run and Back to edit keeps the draft @regression", async ({ page }) => {
   const { rpc } = await setupAccount(page, {
     evm: { HYPE: "12.5", USDC: "1000" },
@@ -781,8 +685,6 @@ test("(h) a wallet that rejects the deposit fails the run and Back to edit keeps
   await expect(page.locator("#funding-transfer-amount-input-field")).toHaveValue("1,000");
   await expect(page.locator("#funding-transfer-amount-input-field")).toBeFocused();
 });
-
-// --- (i) ------------------------------------------------------------------------------
 
 test("(i) a wallet without HyperEVM (4902) adds the chain with HYPE as native currency, then switches @regression", async ({ page }) => {
   await setupAccount(page, { evm: { HYPE: "12.5" }, wallet: { switchChainErrorCode: 4902 } });
@@ -810,8 +712,6 @@ test("(i) a wallet without HyperEVM (4902) adds the chain with HYPE as native cu
   expect(log[5].params[0]).toMatchObject({ chainId: HYPEREVM, to: HYPE_SYSTEM_ADDRESS });
 });
 
-// --- (j) ------------------------------------------------------------------------------
-
 test("(j) a wallet that can't switch (4200) explains it and offers Try again @regression", async ({ page }) => {
   await setupAccount(page, { evm: { HYPE: "12.5" }, wallet: { switchChainErrorCode: 4200 } });
   await openEvmToSpot(page, "hyperevm-150", "10");
@@ -822,11 +722,9 @@ test("(j) a wallet that can't switch (4200) explains it and offers Try again @re
   await expect(role(page, "funding-transfer-step-switch-network")).toHaveAttribute("data-step-status", "failed");
   const tryAgain = role(page, "funding-transfer-try-again");
   await expect(tryAgain).toBeVisible();
-  // It re-enables the form rather than resubmitting, so it says so.
   await expect(tryAgain).toHaveText("Try switching again");
   expect((await walletLog(page)).filter((entry) => entry.method === "eth_sendTransaction")).toEqual([]);
 
-  // It forgets the cached refusal and returns to the kept draft.
   await tryAgain.click();
   await expect(role(page, "funding-transfer-form")).toBeVisible();
   await expect(page.locator("#funding-transfer-amount-input-field")).toHaveValue("10");
@@ -834,10 +732,6 @@ test("(j) a wallet that can't switch (4200) explains it and offers Try again @re
   await expect(role(page, "funding-transfer-submit")).toBeEnabled();
 });
 
-// --- (k) ------------------------------------------------------------------------------
-
-// While a sent move's receipt is outstanding the user is never handed back an
-// editable form: the progress view shows, and its submit stays disabled.
 async function expectNoEditableForm(page) {
   await expect(role(page, "funding-transfer-progress")).toBeVisible();
   await expect(role(page, "funding-transfer-form")).toHaveCount(0);
@@ -854,7 +748,6 @@ test("(k) a rate-limited receipt read is retried, never reopens the form, and th
   await openEvmToSpot(page, "hyperevm-150", "10");
   await role(page, "funding-transfer-submit").click();
 
-  // After the rate-limited read and through both pending reads.
   await expect.poll(() => receiptRequests(rpc, hash).length).toBeGreaterThanOrEqual(1);
   await expectNoEditableForm(page);
   await expect.poll(() => receiptRequests(rpc, hash).length).toBeGreaterThanOrEqual(2);
@@ -870,8 +763,6 @@ test("(k) a rate-limited receipt read is retried, never reopens the form, and th
 });
 
 test("(k) a receipt that never arrives ends pending with the explorer link and blocks another HyperEVM move @regression", async ({ page }) => {
-  // The foreground wait gives up after 3 minutes
-  // (rpc/default-receipt-timeout-ms); the page clock jumps past it.
   await page.clock.install();
   const { rpc } = await setupAccount(page, { evm: { HYPE: "12.5" } });
   const hash = simulatedTxHash(1);
@@ -882,7 +773,6 @@ test("(k) a receipt that never arrives ends pending with the explorer link and b
   await role(page, "funding-transfer-submit").click();
   await expect.poll(() => receiptRequests(rpc, hash).length).toBeGreaterThanOrEqual(2);
   await expectNoEditableForm(page);
-  // The disabled submit lost focus; the progress heading has it, not Close.
   await expect(role(page, "funding-transfer-progress-heading")).toBeFocused();
 
   await page.clock.fastForward("03:05");
@@ -896,8 +786,6 @@ test("(k) a receipt that never arrives ends pending with the explorer link and b
   await expect(role(page, "funding-transfer-submit")).toHaveCount(0);
   expect(await storeValue(page, ["hyperevm", "in-flight", OWNER, "hashes"])).toEqual([hash]);
 
-  // Closing and starting another HyperEVM -> Spot move: it is blocked until
-  // the first one resolves, and nothing more reaches the wallet.
   await role(page, "funding-transfer-done").click();
   await expect(modal(page)).toHaveCount(0);
   await openEvmToSpot(page, "hyperevm-150", "1");
@@ -907,11 +795,7 @@ test("(k) a receipt that never arrives ends pending with the explorer link and b
   expect((await walletLog(page)).filter((entry) => entry.method === "eth_sendTransaction")).toHaveLength(1);
 });
 
-// --- (e) ------------------------------------------------------------------------------
-
 test("(e) the gas fix sends one top-up per click, keeps the draft, and an exchange error re-enables it @regression", async ({ page }) => {
-  // The refusal is held for 1.5 s, so the double click's second click (and a
-  // dispatched submit) are sure to arrive while the first is submitting.
   const exchangeError = { status: "err", response: "Insufficient balance for token transfer.", delayMs: 1500 };
   const { rpc } = await setupAccount(page, {
     evm: { HYPE: "0", PURR: "40" },
@@ -921,7 +805,6 @@ test("(e) the gas fix sends one top-up per click, keeps the draft, and an exchan
   await role(page, "balances-move-hyperevm-1-spot").click();
   await expectPlaces(page, "hyperevm", "spot");
 
-  // Blocked before any amount is typed, with the fix.
   const blocked = role(page, "funding-transfer-blocked");
   await expect(blocked).toHaveAttribute("data-blocked-code", "no-evm-gas");
   await expect(role(page, "funding-transfer-blocked-status")).toContainText("You need HYPE on HyperEVM to pay gas");
@@ -930,8 +813,6 @@ test("(e) the gas fix sends one top-up per click, keeps the draft, and an exchan
   await expect(fix).toBeEnabled();
   await enterAmount(page, "25");
 
-  // A double click sends exactly one top-up, and so does a submit dispatched
-  // straight to the action while it is submitting; the exchange refuses it.
   await fix.dblclick();
   await expect(fix).toHaveAttribute("data-fix-status", "submitting");
   await dispatch(page, [":actions/submit-funding-transfer-gas-topup"]);
@@ -952,34 +833,25 @@ test("(e) the gas fix sends one top-up per click, keeps the draft, and an exchan
   await expect(role(page, "funding-transfer-fix-status")).toContainText("Insufficient balance for token transfer.");
   await expect(fix).toBeEnabled();
 
-  // The draft is untouched.
   await expect(page.locator("#funding-transfer-amount-input-field")).toHaveValue("25");
   await expect(role(page, "funding-transfer-asset-option-1").locator("input")).toBeChecked();
   await expectPlaces(page, "hyperevm", "spot");
 
-  // Retrying sends the second (and last) top-up.
   await fix.click();
   await expect(fix).toHaveAttribute("data-fix-status", "sent");
   await expect(role(page, "funding-transfer-fix-status")).toHaveText("Sent 0.05 HYPE. Waiting for it to arrive…");
-  // Busy, but still focusable (aria-disabled, no native disabled), so a
-  // keyboard user who pressed it keeps focus on it.
   await expect(fix).toHaveAttribute("aria-disabled", "true");
   expect(await fix.evaluate((el) => el.disabled)).toBe(false);
   expect(await signedActions(page, "sendAsset")).toHaveLength(2);
-  // Refused at the action too while sent, not only by the disabled button.
   await dispatch(page, [":actions/submit-funding-transfer-gas-topup"]);
   await expect(fix).toHaveAttribute("data-fix-status", "sent");
   expect(await signedActions(page, "sendAsset")).toHaveLength(2);
 
-  // Once the 0.05 HYPE lands on HyperEVM, the block clears and the kept
-  // draft can be submitted.
   rpc.update((fixture) => setHolding(fixture, OWNER, { HYPE: "0.05" }));
   await expect(role(page, "funding-transfer-blocked")).toHaveCount(0, { timeout: 15_000 });
   await expect(role(page, "funding-transfer-submit")).toHaveText("Switch network & move 25 PURR to Spot");
   await expect(role(page, "funding-transfer-submit")).toBeEnabled();
 });
-
-// --- (f) ------------------------------------------------------------------------------
 
 test("(f) a selected subaccount sees why HyperEVM moves are master-only @regression", async ({ page }) => {
   const { info } = await setupAccount(page, {
@@ -999,8 +871,6 @@ test("(f) a selected subaccount sees why HyperEVM moves are master-only @regress
   await expect.poll(() => storeValue(page, ["account-context", "subaccounts", "selected-address"])).toBe(SUBACCOUNT);
   await waitForAccountReads(page, SUBACCOUNT);
 
-  // The Balances note and the PURR Spot row's disabled move both say why.
-  // (The Perps row has no HyperEVM move: Perps -> HyperEVM goes through Spot.)
   await openBalances(page);
   await expect(role(page, "balances-hyperevm-moves-blocked")).toHaveText(MASTER_ONLY);
   await expect(role(page, "balances-move-perps-usdc-hyperevm")).toHaveCount(0);
@@ -1012,10 +882,6 @@ test("(f) a selected subaccount sees why HyperEVM moves are master-only @regress
   await purrMove.focus();
   await expect(purrReason).toHaveCSS("opacity", "1");
   await expect(purrReason).toHaveText(MASTER_ONLY);
-  // The pointer can move from the action onto its reason (across the gap)
-  // without closing it. The target is the reason's text just past the gap,
-  // straight below or above the action: on a short table the rows viewport
-  // clips the far part of the tooltip (a recorded remaining risk).
   await purrMove.blur();
   await purrMove.hover();
   const moveBox = await purrMove.boundingBox();
@@ -1029,13 +895,10 @@ test("(f) a selected subaccount sees why HyperEVM moves are master-only @regress
     return Boolean(hit && hit.closest("[data-role='balances-move-spot-1-hyperevm-reason']"));
   }, [moveBox.x + moveBox.width / 2, targetY])).toBe(true);
 
-  // The strip's Spot <-> HyperEVM connector is disabled with the reason.
   const connector = role(page, "portfolio-funds-connector-spot-evm");
   await expect(connector).toHaveAttribute("aria-disabled", "true");
   await expect(role(page, "portfolio-funds-reasons")).toContainText(MASTER_ONLY);
 
-  // The Transfer modal keeps HyperEVM visible but disabled, with the reason
-  // as visible text it points at.
   await role(page, "portfolio-action-perps-spot").click();
   await expect(modal(page)).toBeVisible();
   const toEvm = role(page, "funding-transfer-to-hyperevm");
@@ -1045,8 +908,6 @@ test("(f) a selected subaccount sees why HyperEVM moves are master-only @regress
   await expect(page.locator(`#${reasonId}`)).toBeVisible();
   await expect(role(page, "funding-transfer-place-reasons")).toContainText(MASTER_ONLY);
 });
-
-// --- (g) ------------------------------------------------------------------------------
 
 test("(g) spectate shows HyperEVM rows read-only with the reason in the note @regression", async ({ page }) => {
   const rpc = await routeHyperEvmRpc(page, hyperEvmFixture({ owner: SPECTATED, holdings: { HYPE: "7.25", PURR: "12" } }));
@@ -1073,15 +934,12 @@ test("(g) spectate shows HyperEVM rows read-only with the reason in the note @re
   expect(rpc.entries().some((entry) => entry.method === "eth_getBalance" && entry.params[0] === SPECTATED)).toBe(true);
 });
 
-// --- (l) ------------------------------------------------------------------------------
-
 test("(l) the Portfolio strip totals HyperEVM with Total Equity and its connectors preset Transfer @regression", async ({ page }) => {
   await setupAccount(page, { evm: { HYPE: "12.5", USDC: "1000" } });
   const strip = role(page, "portfolio-funds-strip");
   await expect(strip).toBeVisible();
   await expect(role(page, "portfolio-funds-card-evm-value")).toHaveText(/^\$[0-9,]+\.[0-9]{2}$/);
 
-  // Total value = Total Equity + HyperEVM, read in one frame (live prices tick).
   const figures = await page.evaluate(() => {
     const text = (name) => document.querySelector(`[data-role='${name}']`)?.textContent || "";
     return {
@@ -1091,7 +949,6 @@ test("(l) the Portfolio strip totals HyperEVM with Total Equity and its connecto
     };
   });
   expect(figures.equity).toMatch(/^Total Equity \$/);
-  // Each figure is rounded to the cent on its own, so they may differ by one.
   expect(Math.abs(usd(figures.total) - (usd(figures.equity) + usd(figures.evm)))).toBeLessThanOrEqual(0.0101);
   expect(usd(figures.evm)).toBeGreaterThanOrEqual(1000);
 
@@ -1113,8 +970,6 @@ test("(l) the Portfolio strip totals HyperEVM with Total Equity and its connecto
   await expect(spotEvm).toBeFocused();
 });
 
-// --- (m) ------------------------------------------------------------------------------
-
 test("(m) the /trade HyperEVM line's Move opens HyperEVM -> Spot @regression", async ({ page }) => {
   await setupAccount(page, { route: "/trade", evm: { HYPE: "12.5", USDC: "1000" } });
   const line = role(page, "account-equity-hyperevm-line");
@@ -1129,8 +984,6 @@ test("(m) the /trade HyperEVM line's Move opens HyperEVM -> Spot @regression", a
   await expect(move).toBeFocused();
 });
 
-// --- (n) ------------------------------------------------------------------------------
-
 for (const { route, viewport } of [
   { route: "/portfolio", viewport: { width: 1280, height: 800 } },
   { route: "/portfolio", viewport: { width: 1440, height: 900 } },
@@ -1138,7 +991,6 @@ for (const { route, viewport } of [
 ]) {
   test(`(n) opened from the lowest Balances row at the bottom of ${route} ${viewport.width}x${viewport.height}, the fix and submit are in view and hit-testable @regression`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    // No HYPE on HyperEVM, so a HyperEVM -> Spot draft shows the gas fix.
     await setupAccount(page, { route, evm: { HYPE: "0", PURR: "1" } });
     await openBalances(page);
 
@@ -1152,7 +1004,6 @@ for (const { route, viewport } of [
     expect(lowest).toBe("balances-move-hyperevm-1-spot");
     const opener = role(page, lowest);
 
-    // The worst case: the opener as low on screen as a pointer can reach it.
     const placed = await placeNearViewportBottom(opener);
     expect(placed.bottom, `opener ${JSON.stringify(placed)}`).toBeGreaterThanOrEqual(0.75 * viewport.height);
     expect(placed.bottom).toBeLessThanOrEqual(viewport.height);
@@ -1177,8 +1028,6 @@ for (const { route, viewport } of [
   });
 }
 
-// --- (o) ------------------------------------------------------------------------------
-
 test("(o) the 375 px mobile sheet opens from a card and keeps its submit in view @regression", async ({ page }) => {
   const viewport = { width: 375, height: 812 };
   await page.setViewportSize(viewport);
@@ -1198,7 +1047,6 @@ test("(o) the 375 px mobile sheet opens from a card and keeps its submit in view
   expect(sheetBox.width).toBeGreaterThanOrEqual(viewport.width - 2);
   expect(sheetBox.y + sheetBox.height).toBeGreaterThanOrEqual(viewport.height - 1);
 
-  // From and To stack on a phone.
   const fromBox = await role(page, "funding-transfer-from-group").boundingBox();
   const toBox = await role(page, "funding-transfer-to-group").boundingBox();
   expect(toBox.y).toBeGreaterThan(fromBox.y + fromBox.height - 1);
@@ -1208,13 +1056,10 @@ test("(o) the 375 px mobile sheet opens from a card and keeps its submit in view
   await expect(submit).toHaveText("Switch network & move 10 HYPE to Spot");
   await expect(submit).toBeEnabled();
   expect(inViewport(await submit.boundingBox(), viewport)).toBe(true);
-  // The app's fixed mobile footer paints over nothing in the sheet.
   expect(await hitTestable(submit), "nothing paints over the sheet's submit").toBe(true);
   await submit.click({ trial: true });
   expect(await noHorizontalOverflow(page)).toBe(true);
 });
-
-// --- acceptance 8, 9 and 11 -----------------------------------------------------------
 
 test("(e) with less than 0.05 HYPE on Spot the gas fix is disabled with its reason @regression", async ({ page }) => {
   await setupAccount(page, {
@@ -1228,8 +1073,6 @@ test("(e) with less than 0.05 HYPE on Spot the gas fix is disabled with its reas
   await expect(fix).toHaveAttribute("aria-disabled", "true");
   await expect(role(page, "funding-transfer-fix-reason")).toHaveText("You need at least 0.05 HYPE on Spot.");
   await expect(fix).toHaveAttribute("aria-describedby", "funding-transfer-fix-reason");
-  // Not natively disabled (so it keeps focus), but a click sends nothing.
-  // (Playwright treats aria-disabled as not enabled, hence `force`.)
   expect(await fix.evaluate((el) => el.disabled)).toBe(false);
   await fix.click({ force: true });
   expect(await signedActions(page, "sendAsset")).toHaveLength(0);
@@ -1250,14 +1093,10 @@ test("(e) the gas fix keeps keyboard focus while busy, and focus moves to the su
   await expect(fix).toHaveAttribute("data-fix-status", "sent");
   await expect(fix).toBeFocused();
   await expect(close).not.toBeFocused();
-  // A repeated Enter lands on the busy fix, which ignores it; the modal and
-  // its draft stay.
   await page.keyboard.press("Enter");
   await expect(modal(page)).toBeVisible();
   expect(await signedActions(page, "sendAsset")).toHaveLength(1);
 
-  // The gas lands: the fix goes away and focus moves to the submit on
-  // purpose, never to Close.
   rpc.update((fixture) => setHolding(fixture, OWNER, { HYPE: "0.05" }));
   await expect(role(page, "funding-transfer-gas-fix")).toHaveCount(0, { timeout: 15_000 });
   const submit = role(page, "funding-transfer-submit");
@@ -1268,7 +1107,6 @@ test("(e) the gas fix keeps keyboard focus while busy, and focus moves to the su
 });
 
 test("unknown HyperEVM balances read as unavailable: no gas fix, and the strip total is a dash @regression", async ({ page }) => {
-  // Every HyperEVM read is rate-limited, so no read ever lands.
   const { rpc } = await setupAccount(page, {
     evm: {},
     rpcOverrides: { rateLimitNext: 1000 },
@@ -1308,9 +1146,6 @@ test("an unactivated HyperCore account can't move PURR in, and USDC shows the ac
   await expect(role(page, "funding-transfer-submit")).toBeEnabled();
 });
 
-// --- acceptance 16 --------------------------------------------------------------------
-
-// Press Tab until the focused element matches `selector`.
 async function tabUntil(page, selector, limit = 90) {
   for (let i = 0; i < limit; i += 1) {
     if (await page.evaluate((css) => Boolean(document.activeElement?.matches(css)), selector)) return;
@@ -1326,14 +1161,12 @@ test("a Spot -> HyperEVM move is completable by keyboard alone, places and asset
   await setupAccount(page, { evm: { HYPE: "12.5" }, exchange: [OK] });
   await openBalances(page);
 
-  // Tab from the Balances tab to the PURR row's "To HyperEVM".
   await tabUntil(page, byRole("balances-move-spot-1-hyperevm"));
   const opener = role(page, "balances-move-spot-1-hyperevm");
   await page.keyboard.press("Enter");
   await expect(modal(page)).toBeVisible();
   await expectPlaces(page, "spot", "hyperevm");
 
-  // Change the destination with Space, then come back.
   await tabUntil(page, byRole("funding-transfer-to-perps"));
   await page.keyboard.press("Space");
   await expectPlaces(page, "spot", "perps");
@@ -1341,7 +1174,6 @@ test("a Spot -> HyperEVM move is completable by keyboard alone, places and asset
   await page.keyboard.press("Space");
   await expectPlaces(page, "spot", "hyperevm");
 
-  // Pick the asset with the arrow keys (a native radio group).
   await tabUntil(page, `${byRole("funding-transfer-asset-list")} input[type='radio']`);
   const purr = role(page, "funding-transfer-asset-option-1").locator("input");
   const start = await checkedAsset(page).getAttribute("value");
@@ -1363,7 +1195,6 @@ test("a Spot -> HyperEVM move is completable by keyboard alone, places and asset
   await page.keyboard.press("Enter");
 
   await expect(role(page, "funding-transfer-success")).toBeVisible();
-  // The new view's heading takes focus, never the dialog's Close button.
   await expect(role(page, "funding-transfer-success-heading")).toBeFocused();
   expect(await signedActions(page, "sendAsset")).toHaveLength(1);
   await tabUntil(page, `${byRole("funding-transfer-success")} ${byRole("funding-transfer-done")}`);
@@ -1392,7 +1223,6 @@ test("a HyperEVM -> Spot move recovers from a wallet rejection and finishes by k
   await tabUntil(page, byRole("funding-transfer-submit"));
   await page.keyboard.press("Enter");
 
-  // The wallet rejects the send: Back to edit, by key, keeps the draft.
   await expect(role(page, "funding-transfer-failed")).toBeVisible({ timeout: 10_000 });
   await expect(role(page, "funding-transfer-failed-heading")).toBeFocused();
   await expect(role(page, "funding-transfer-error")).toHaveText("Transfer rejected in wallet.");

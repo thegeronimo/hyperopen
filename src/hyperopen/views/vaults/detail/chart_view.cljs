@@ -37,7 +37,6 @@
   (let [context @axis-label-measure-context]
     (if context
       (do
-        ;; Match chart tick labels rendered at 12px for reliable gutter width.
         (set! (.-font context) (fonts/canvas-font 12))
         (-> context
             (.measureText text)
@@ -128,8 +127,6 @@
         role-prefix (or data-role-prefix "vault-detail-timeframe")
         toggle-action* (or toggle-action :actions/toggle-vault-detail-chart-timeframe-dropdown)
         close-action* (or close-action :actions/close-vault-detail-chart-timeframe-dropdown)]
-    ;; flex row: the trigger is a block-level flex button, so a sibling clear
-    ;; control would otherwise wrap onto its own line under the chip.
     [:div {:class ["relative" "flex" "items-center"]
            :data-role (str role-prefix "-menu")}
      (when open?
@@ -154,9 +151,6 @@
                        "px-2.5"
                        "text-xs"
                        "text-trading-text"
-                       ;; A custom span is far longer than "30D"; without this it
-                       ;; wraps the chip onto three lines in the tearsheet header,
-                       ;; whose column is narrower than the chart card's.
                        "whitespace-nowrap"
                        "transition-colors"
                        "hover:bg-[#0d252f]"
@@ -444,9 +438,6 @@
 
 (defn- vault-d3-spec
   [chart]
-  ;; `:tooltip-timeframe` is the window on screen; `:selected-timeframe` is the
-  ;; preset the menu labels itself with. The tooltip's timestamp format has to
-  ;; follow the former.
   (let [tooltip-timeframe (or (:tooltip-timeframe chart) (:selected-timeframe chart))
         base-spec {:surface :vaults
                    :axis-kind (:axis-kind chart)
@@ -454,7 +445,7 @@
                    :points (:points chart)
                    :series (:series chart)
                    :y-ticks (:y-ticks chart)
-                   :tooltip-key (:selected-series chart) ; see `spec-update-key`
+                   :tooltip-key (:selected-series chart)
                    :theme vault-chart-d3-theme}]
     (assoc base-spec
            :update-key (chart-d3-runtime/spec-update-key base-spec)
@@ -535,9 +526,6 @@
       (chart-legend series)
       (when (= selected-series :returns)
         (returns-benchmark-chip-rail returns-benchmark*))
-      ;; Always rendered (it hides itself): the sibling above is nil-able, and a
-      ;; nil hole between keyed siblings is the shape that throws inside
-      ;; Replicant's renderer and latches it as permanently rendering.
       (range-strip/range-strip
        {:model (:range-strip chart)
         :label "Vault"

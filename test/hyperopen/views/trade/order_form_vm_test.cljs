@@ -122,7 +122,6 @@
                                      :market-type :spot})
         view-model (vm/order-form-vm state)]
     (is (true? (:spot? view-model)))
-    ;; Spot markets are writable now; read-only? is decoupled from spot?.
     (is (false? (:read-only? view-model)))
     (is (= "ETH" (:base-symbol view-model)))
     (is (= :quote (:size-input-mode view-model)))
@@ -317,10 +316,6 @@
                                              :count 20
                                              :skew "2"}} {}))
       (is (= 1 @calls)))))
-
-;; ---------------------------------------------------------------------------
-;; Vol Range (HO-SPEC-014 Release A0): :scale-mode / :vol-range / :show-vol-range?
-;; ---------------------------------------------------------------------------
 
 (deftest ordinary-scale-vm-is-unchanged-in-price-range-mode-test
   (let [state (base-state {:type :scale} {:entry-mode :pro})

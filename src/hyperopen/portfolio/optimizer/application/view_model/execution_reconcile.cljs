@@ -28,8 +28,6 @@
 
 (def ^:private fills-path [:orders :fills])
 
-;; oid helpers live in application.execution-carryover (shared with the stale-order
-;; cancellation flow, which links ledger rows to the same live feeds).
 (def ^:private norm-oid carryover/norm-oid)
 
 (defn- parse-num
@@ -78,17 +76,13 @@
             agg (when (seq fills) (aggregate-fill fills))
             realized (when agg (execution/realized-from-avg row (:avg-px agg) (:filled-qty agg)))]
         (cond
-          ;; Still on the book: keep resting; stamp a realized partial if some size already filled.
           on-book?
           (cond-> row realized (assoc :realized realized :reconciled :partial))
 
-          ;; Off the book (or book unknown) WITH fills => the passive order executed. Promote to
-          ;; filled and stamp the realized price/size from the fills.
           (seq fills)
           (cond-> (assoc row :status :submitted :reconciled :filled)
             realized (assoc :realized realized))
 
-          ;; No fill evidence => leave the row exactly as recorded (safe degradation).
           :else row)))))
 
 (defn reconcile-rows

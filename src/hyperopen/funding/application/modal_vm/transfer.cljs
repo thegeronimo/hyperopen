@@ -171,8 +171,6 @@
                         (transfer-balances/location-available-text state location token owner))))
         from-before (when (:from route) (available (:from route)))
         to-before (when (:to route) (available (:to route)))
-        ;; "Available" means what MAX and the validation allow: native HYPE
-        ;; leaving HyperEVM keeps its gas reserve, as the Balances table says.
         from-available (if (and (not legacy?) token (:from route))
                          (evm-amounts/source-available state route token)
                          from-before)
@@ -235,7 +233,6 @@
             confirming? (and (= :active (:status active))
                              (= transfer-run/confirming-detail (:detail active)))]
         (str (if confirming? "Confirming on HyperEVM" "Waiting for wallet")
-             ;; A one-step move (HyperCore -> HyperEVM) has no steps to count.
              (when (> (:step-count evm) 1)
                (str " (step " (max 1 (:step-index evm)) " of " (:step-count evm) ")"))))
 

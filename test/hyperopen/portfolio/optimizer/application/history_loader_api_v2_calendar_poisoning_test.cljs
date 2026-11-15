@@ -80,29 +80,22 @@
         aligned (align universe
                        {"perp:AAA" (native-series "AAA" (api-points 0 40))
                         "perp:BBB" (native-series "BBB" (api-points 0 40))
-                        ;; Young listing: 5 days, starting after nothing else
-                        ;; trades - fully disjoint from the deep members.
                         "perp:GRAM" (native-series "GRAM" (api-points 45 5))})]
     (is (= ["perp:AAA" "perp:BBB"]
            (mapv :instrument-id (:eligible-instruments aligned))))
     (is (= ["perp:GRAM"]
            (mapv :instrument-id (:excluded-instruments aligned))))
-    ;; Days 1..39 carry returns for both survivors.
     (is (= 39 (count (:return-calendar aligned))))
     (is (= 39 (count (get-in aligned [:return-series-by-instrument "perp:AAA"]))))
     (is (= 40 (count (get-in aligned [:price-series-by-instrument "perp:AAA"]))))
-    ;; The poisoner is named: its warning carries ITS id and honest overlap.
     (is (= [{:code :insufficient-common-history
              :instrument-id "perp:GRAM"
              :observations 0
              :required 1}]
            (filterv #(= :insufficient-common-history (:code %))
                     (:warnings aligned))))
-    ;; Pre-alignment served depth is published for every member, peeled or not.
     (is (= {"perp:AAA" 40 "perp:BBB" 40 "perp:GRAM" 5}
            (:served-observations-by-instrument aligned)))
-    ;; The aligned raw series only covers survivors - the served counts are the
-    ;; honest source for excluded members.
     (is (= #{"perp:AAA" "perp:BBB"}
            (set (keys (:raw-price-series-by-instrument aligned)))))))
 
@@ -123,8 +116,6 @@
            (:served-observations-by-instrument aligned)))))
 
 (deftest totally-disjoint-pair-keeps-the-deeper-member-test
-  ;; Even a two-member universe with zero overlap must not collapse to nothing:
-  ;; the deeper member survives, the other is individually excluded.
   (let [universe [(perp-instrument "DEEP")
                   (perp-instrument "YOUNG")]
         aligned (align universe
@@ -142,8 +133,6 @@
                     (:warnings aligned))))))
 
 (deftest legacy-alignment-publishes-served-observations-test
-  ;; Dev/fixture sessions load candles through the legacy path; readiness reads
-  ;; the same served-counts key there.
   (let [aligned (history-loader/align-history-inputs
                  {:universe [{:instrument-id "perp:AAA"
                               :market-type :perp

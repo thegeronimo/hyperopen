@@ -105,9 +105,6 @@
                             (* 100 (/ done total)))
                        100)
             :detail (str done "/" total " problems")})))
-      ;; Iterative strategies (sequential equal-risk) report per-iteration
-      ;; progress from INSIDE solve-one; per-problem completion above still
-      ;; caps the step at 100%.
       on-progress))))
 
 (def frontier-sweep-percent-span

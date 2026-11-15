@@ -91,7 +91,6 @@ function summarizeRouteCoverage(results) {
         bucket.inspectedSpectateAddresses.push(spectateAddress);
       }
     } catch (_error) {
-      // Missing or invalid result URLs are accounted for as absent contract coverage.
     }
     if (result.state === "pass") {
       bucket.pass += 1;

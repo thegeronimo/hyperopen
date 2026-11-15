@@ -20,7 +20,6 @@
              hi (dec n)]
         (if (>= lo hi)
           lo
-          ;; upper-middle so `lo` always advances
           (let [mid (quot (+ lo hi 1) 2)]
             (if (<= (:time (nth candle-data mid)) time-sec)
               (recur mid hi)
@@ -55,7 +54,6 @@
        :size size
        :price price
        :fee (or (fields/parse-num (:fee fill)) 0)
-       ;; spot buys pay fees in the base token, everything else in USDC
        :fee-token (fields/non-blank-text (:feeToken fill))
        :closed-pnl (or (fields/parse-num (:closedPnl fill)) 0)
        :start-position (fields/parse-num (:startPosition fill))
@@ -121,8 +119,6 @@
     {:id (str (:time candle) "-" (name side-kind))
      :time (:time candle)
      :side-kind side-kind
-     ;; buys draw below the candle, sells above; a liquidation follows the
-     ;; direction of its forced trade
      :sign (:sign latest)
      :count (count rows)
      :size size
@@ -204,8 +200,6 @@
                            (assoc :direction direction
                                   :size (js/Math.abs position))
                            (dissoc :position)))))
-             ;; several fills inside one candle yield zero-width segments; the
-             ;; last one in that candle carries the position forward
              (remove #(and (= (:from-time %) (:to-time %))
                            (not (:open-ended? %))))
              (reduce (fn [acc segment]

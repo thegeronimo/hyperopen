@@ -10,7 +10,6 @@
                 {:upserts [{:instrument-id "perp:BTC"
                             :return 0.2
                             :confidence-level :high}
-                           ;; an upsert without a finite return can never enter
                            {:instrument-id "perp:SOL" :return nil}]
                  :removes ["perp:ETH" "  "]}
                 4242)]

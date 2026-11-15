@@ -23,7 +23,6 @@
   (second (first effects)))
 
 (deftest type-filter-action-normalizes-and-resets-the-cursor-test
-  ;; The chips dispatch (name key), so the value always arrives as a string.
   (is (= [[:effects/save-many
            [[type-filter-path :perp]
             [active-index-path 0]]]]
@@ -52,7 +51,6 @@
               [duplicate-prompt-path nil]]]]
            (actions/set-portfolio-optimizer-universe-search-query {} "pump"))))
   (testing "an emptied field is a full reset, so no facet can sit invisibly"
-    ;; The draft add-asset popover shares these paths and renders no chips.
     (is (= [[:effects/save-many
              [[query-path ""]
               [active-index-path 0]
@@ -106,10 +104,6 @@
       (is (some #(= [quote-filter-path :all] %) values)))))
 
 (deftest add-matches-is-capped-and-emits-a-single-heavy-effect-test
-  ;; A two-character query matches hundreds of instruments and every one of them
-  ;; joins the history request. The batch is capped, and it coalesces into ONE
-  ;; prefetch effect so it satisfies the same :allow-duplicate-heavy-effects?
-  ;; false policy as the single add.
   (let [keys* (mapv #(str "perp:PUMP" %) (range 40))
         effects (actions/add-portfolio-optimizer-universe-matches
                  (state-with-catalog)

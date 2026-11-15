@@ -16,9 +16,6 @@
               :response {:data {:statuses [{:resting {:oid oid}}]}}}})
 
 (deftest carryover-entry-captures-oid-and-asset-index-test
-  ;; The entry must carry everything a LATER run needs to cancel the order: the exchange
-  ;; oid from the settled response and the wire asset index from the frozen request, so
-  ;; cancellation never depends on market metadata being resolvable again.
   (let [entry (carryover/carryover-entry "exec_1" (resting-ledger-row 777 42))]
     (is (= 777 (:oid entry)))
     (is (= 42 (:asset-id entry)))
@@ -28,9 +25,6 @@
       "a filled row leaves nothing on the book — no carryover entry"))
 
 (deftest record-resting-carryover-adds-resting-and-prunes-cancelled-test
-  ;; Applying a ledger folds its resting rows INTO the carryover and removes the oids a
-  ;; successful pre-run cancellation took off the book — so the carryover always mirrors
-  ;; what this feature believes is still open.
   (let [existing [{:oid 111 :asset-id 7} {:oid 222 :asset-id 8}]
         ledger {:attempt-id "exec_2"
                 :cancellations {:status :ok :oids [111 222]}
@@ -69,9 +63,6 @@
         "an entry without an asset index cannot be cancelled and must halt the run")))
 
 (deftest open-order-rows-merges-all-sources-and-shapes-test
-  ;; Production shapes verified live 2026-07-04: the ws `openOrders` channel stores the
-  ;; WHOLE payload map (not a row vector); per-dex snapshots carry bare coins; webData2
-  ;; is a third partial view. All must merge, deduped by oid.
   (let [state {:orders {:open-orders {:dex "" :user "0xabc"
                                       :orders [{:oid 1 :coin "BTC"}]}
                         :open-orders-snapshot [{:oid 1 :coin "BTC"}
@@ -86,10 +77,6 @@
         "per-dex bare coin namespaced with its dex")))
 
 (deftest live-resting-carryover-handles-ws-payload-map-shape-test
-  ;; REGRESSION (found live 2026-07-04): [:orders :open-orders] holds the ws payload
-  ;; map. Treating it as a row seq yielded ZERO oids with hydrated? true, so the live
-  ;; filter dropped every carryover entry and the pre-run cancellation silently
-  ;; vanished — the exact over-allocation bug the carryover exists to prevent.
   (let [carryover-entries [{:oid 777 :asset-id 42 :coin "xyz:ORCL"}]
         state {:orders {:open-orders-hydrated? true
                         :open-orders {:dex "" :user "0xabc"

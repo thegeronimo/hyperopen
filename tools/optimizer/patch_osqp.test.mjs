@@ -27,10 +27,6 @@ test("every patch anchor still matches the installed osqp exactly once", () => {
 });
 
 test("the committed vendored copy is exactly what the transform produces", () => {
-  // The whole point of vendoring is that the build never sees the leaky
-  // package. If someone bumps `osqp` without regenerating, this catches it
-  // rather than letting a stale copy silently keep working against a changed
-  // dependency.
   assert.equal(
     vendored(),
     patchOsqpSource(readUpstream()),
@@ -50,8 +46,6 @@ test("the vendored copy frees the arrays the published package leaks", () => {
     /for\(let \$k=0;\$k<\$p\.length;\$k\+\+\)D\._free\(\$p\[\$k\]\)/,
     "cleanup() no longer frees the collected pointers",
   );
-  // The frees must come after the workspace teardown, which still holds
-  // references to those arrays.
   assert.ok(
     source.indexOf("D._osqp_cleanup(A)") < source.indexOf("csc_array_pointers;if($p)"),
     "the arrays are freed before _osqp_cleanup has released them",
@@ -59,8 +53,6 @@ test("the vendored copy frees the arrays the published package leaks", () => {
 });
 
 test("the published package is still the leaky one, so the patch is still needed", () => {
-  // If a future `osqp` release fixes this upstream, the vendoring should be
-  // deleted rather than carried forever. This test is the reminder.
   const upstream = readUpstream();
   assert.doesNotMatch(
     upstream,
@@ -70,10 +62,6 @@ test("the published package is still the leaky one, so the patch is still needed
   );
 });
 
-/**
- * Splits the `:builds` map of shadow-cljs.edn into `[name, body]` pairs by
- * scanning balanced braces, skipping over strings and line comments.
- */
 function shadowCljsBuilds() {
   const source = fs.readFileSync(path.join(repoRoot, "shadow-cljs.edn"), "utf8");
   const buildsKey = source.indexOf(":builds");
@@ -104,7 +92,6 @@ function shadowCljsBuilds() {
     if (ch === "{") {
       depth++;
       if (depth === 2) {
-        // start of one build's map -- the keyword just before it is its name
         const before = source.slice(0, i);
         pendingName = before.match(/:([A-Za-z0-9*+!_'?<>=-]+)\s*$/)?.[1] ?? null;
         bodyStart = i;
@@ -125,17 +112,6 @@ function shadowCljsBuilds() {
 }
 
 test("every shadow-cljs build resolves osqp to the vendored copy", () => {
-  // Not "every build that compiles the optimizer today" -- every build, full
-  // stop. The failure mode this guards is a new build added later that pulls in
-  // the optimizer and quietly gets the leaky package back, and no one can be
-  // expected to remember. A blanket invariant is checkable; a conditional one
-  // needs a dependency graph nobody will maintain.
-  //
-  // The mechanism matters as much as the presence. A relative require of the
-  // vendored file from osqp.cljs also works in dev and is impossible to forget,
-  // but it routes the file through Closure instead of shadow-js, and :advanced
-  // then renames the Emscripten glue -- including the `asm.j` WASM export
-  // accessor -- so the release build throws where dev is fine. Keep the resolve.
   const builds = shadowCljsBuilds();
   assert.ok(builds.length >= 8, `expected to find the builds, found ${builds.length}`);
 
@@ -153,11 +129,6 @@ test("every shadow-cljs build resolves osqp to the vendored copy", () => {
 });
 
 test("the vendored copy passes eps_prim_inf to the solver", () => {
-  // The published package passes `eps_dual_inf` into both the sixth and
-  // seventh slots of `_create_settings`, so `eps_prim_inf` is silently
-  // dropped. Harmless while both sit at their shared 1e-4 default, which is
-  // why it went unnoticed, but it makes the setting a no-op for anyone who
-  // later reaches for it.
   assert.match(
     vendored(),
     /c\.eps_abs,c\.eps_rel,c\.eps_prim_inf,c\.eps_dual_inf,c\.alpha/,

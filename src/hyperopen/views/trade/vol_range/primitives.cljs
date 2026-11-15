@@ -56,7 +56,6 @@
                        :inputmode "decimal"
                        :autocomplete "off"
                        :class (cond-> input-classes
-                                ;; Room for a unit like USDC or HYPE so it never touches the digits.
                                 suffix (conj (if (>= (count (str suffix)) 3) "pr-14" "pr-10"))
                                 error-dom-id (conj "border-ho-warn"))
                        :value (or value "")

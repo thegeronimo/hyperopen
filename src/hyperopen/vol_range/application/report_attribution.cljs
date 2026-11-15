@@ -34,10 +34,6 @@
 (defn- lower [x] (some-> x str str/trim str/lower-case not-empty))
 (defn- id-text [x] (some-> x str str/trim not-empty))
 
-;; ---------------------------------------------------------------------------
-;; Attribution index (derived from journal grids; not a copy of order state)
-;; ---------------------------------------------------------------------------
-
 (defn attribution-index
   "{:by-cloid {cloid entry} :by-oid {oid entry}} for every leg of `grids`.
   An entry is {:grid-id :operation-id :logical-id :side :rung-index
@@ -75,10 +71,6 @@
   (or (some->> (lower (:cloid fill)) (get (:by-cloid index)))
       (some->> (id-text (:oid fill)) (get (:by-oid index)))))
 
-;; ---------------------------------------------------------------------------
-;; Spot markets
-;; ---------------------------------------------------------------------------
-
 (defn spot-markets
   "Lookups from `[:spot :meta]` ({:universe [{:name :index :tokens [b q]}]
   :tokens [{:name :index}]}): {:by-name {coin market} :token-names {id name}
@@ -104,8 +96,6 @@
 
 (defn- resolve-market [markets coin]
   (or (get-in markets [:by-name coin])
-      ;; A canonical \"BASE/QUOTE\" name missing from the universe resolves by
-      ;; token names when both are known.
       (when (and (string? coin) (str/includes? coin "/"))
         (let [[bn qn] (str/split coin #"/" 2)
               b (get-in markets [:token-ids bn])
@@ -164,14 +154,9 @@
       tokens
       (let [c (classify-fill markets nil {:coin coin})]
         (case (:status c)
-          ;; An unresolved spot market cannot be a perp position.
           :unknown-market (into #{} (remove contracts/perp-base-id?) tokens)
           (:spot :perp) (into #{} (filter (:token-ids c)) tokens)
           #{})))))
-
-;; ---------------------------------------------------------------------------
-;; Non-funding ledger updates
-;; ---------------------------------------------------------------------------
 
 (def ignored-ledger-types
   "USDC-only delta types: never a base-token change."
@@ -250,8 +235,6 @@
       :else
       (let [fee-ids (keep id-of (fee-token-labels delta))
             moved (if (contains? base-transfer-ledger-types type)
-                    ;; The moved token and the fee tokens; a transfer that does
-                    ;; not name its token is classified by the tokens it names.
                     (concat (map vector (keep id-of [(:token delta)]) (repeat :base-transfer))
                             (when-not (some? (:token delta))
                               (map vector (keep id-of (strings-in delta)) (repeat :unrecognized-ledger-entry))))
@@ -262,10 +245,6 @@
                        (if (contains? seen id) [seen out] [(conj seen id) (conj out (record id c))]))
                      [#{} []])
              second)))))
-
-;; ---------------------------------------------------------------------------
-;; Funding
-;; ---------------------------------------------------------------------------
 
 (defn unparsed-funding-row?
   "True when a `userFunding` row cannot be read as a funding payment."
@@ -297,10 +276,6 @@
         :szi (some-> (:szi delta) str)
         :funding-rate (some-> (:fundingRate delta) str)
         :saved-at-ms now-ms}])))
-
-;; ---------------------------------------------------------------------------
-;; Unreadable stored rows
-;; ---------------------------------------------------------------------------
 
 (defn- int-or-nil [x]
   (when (and (string? x) (re-matches #"-?\d+" x)) (js/parseInt x 10)))
@@ -338,10 +313,6 @@
   [u token-id]
   (let [ids (:token-ids u)]
     (or (= :any ids) (contains? ids token-id))))
-
-;; ---------------------------------------------------------------------------
-;; Per-campaign findings
-;; ---------------------------------------------------------------------------
 
 (def ^:private update-reasons
   {:base-transfer :break/base-transfer
@@ -400,9 +371,6 @@
                                                             :operation-id (:operation-id att)
                                                             :logical-id (:logical-id att)})))]
                     (cond
-                      ;; The fill stays in the activity unless it is before T0
-                      ;; of a campaign that superseded another one, whose
-                      ;; interval (it ends at this T0) already shows it.
                       (and tracked? early?)
                       (cond-> {:break (brk t :break/ambiguous-boundary :fill (:fill-key fill))}
                         (and e (or (>= t t0) (nil? (:supersedes-campaign-id campaign)))) (assoc :event e))
@@ -435,8 +403,6 @@
               :coverage (when (unreadable-touches? u base-id) found)
               :balance-check (when (= (:campaign-id u) (:campaign-id campaign)) found)
               found)))
-        ;; Funding from T0 on is the campaign's cash; earlier payments belong
-        ;; to the time before the baseline.
         funding-finding
         (fn [f]
           (let [t (:time f)]

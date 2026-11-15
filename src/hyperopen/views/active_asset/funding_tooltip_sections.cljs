@@ -80,9 +80,6 @@
       [:span " · next in "
        [:span {:class ["font-semibold" "text-ho-text"]} text]])]])
 
-;; ---------------------------------------------------------------------------
-;; Verdict, so-far, projections
-
 (defn verdict-section
   [{:keys [verdict direction margin-per-day-pct leverage]}]
   (when verdict
@@ -240,9 +237,6 @@
         (breakeven-text breakeven* position-base-symbol
                         (and expected? (some? expected-breakeven)))])]))
 
-;; ---------------------------------------------------------------------------
-;; Why this rate
-
 (defn- premium-copy
   [premium-apy]
   (cond
@@ -279,9 +273,6 @@
          "Premium (perp vs spot)"]
         [:span {:class ["num" "text-right" "text-ho-text"]} (signed-pct-text premium-apy 2)]]
        [:p {:class ["text-xs" "text-ho-text-muted"]} (premium-copy premium-apy)]])))
-
-;; ---------------------------------------------------------------------------
-;; 30-day history, 1-year outlook, lag strip
 
 (defn- stat-card
   [label value]

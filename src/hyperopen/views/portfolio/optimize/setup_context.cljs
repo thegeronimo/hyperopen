@@ -21,10 +21,6 @@
 
 (defn- contract-row
   [label value]
-  ;; Row labels are plain sentence-case text — mono/uppercase is reserved for
-  ;; VALUES and section eyebrows; a rail full of uppercase-mono labels is what
-  ;; made the contract read like telemetry. 110px label track keeps
-  ;; "Exposure policy" on one line.
   [:div {:class ["grid" "grid-cols-[110px_minmax(0,1fr)]" "items-baseline" "gap-2"]}
    [:span {:class ["text-[0.6875rem]" "font-medium" "text-trading-muted"]}
     label]
@@ -33,7 +29,6 @@
     value]])
 
 (def ^:private lucide-icon
-  ;; Shared helper (setup-controls) — icons themselves stay per-ns requires.
   controls/lucide-icon)
 
 (defn- verdict-value
@@ -107,9 +102,6 @@
                      (str asset-count " assets")))
       (summary-row lucide-target "Goal" objective-label)
       (summary-row lucide-scaling "Exposure" (exposure-target-value exposure-target))
-      ;; One compact provenance line ("70 native · 8 modeled") instead of
-      ;; restating each assumption — the assumptions panel below carries the
-      ;; per-asset detail.
       (when history-data-label
         (summary-row lucide-history "History data"
                      [:span {:data-role "portfolio-optimizer-run-summary-history-data"}
@@ -140,10 +132,6 @@
               :data-role (str "portfolio-optimizer-history-assumptions-rail-summary-"
                               instrument-id)}
        (or summary "Not configured yet")]
-      ;; While this asset's proxy history is still fetching, both "Configured"
-      ;; and "Needs input" are provisional verdicts - say loading until the
-      ;; fetch settles. Configured is a glyph (the row already says everything
-      ;; else); actionable states keep words.
       [:span (cond-> {:class ["ml-auto" "shrink-0" "font-mono" "text-[0.625rem]"
                               "uppercase" "tracking-[0.08em]"
                               (when history-loading? "animate-pulse")
@@ -188,10 +176,6 @@
        (if any-loading?
          "Loading history…"
          (str configured-count " of " (count rows) " configured"))]]
-     ;; Rail-level shortcut for the center section's apply-all banner: the rail
-     ;; is where the user reads "0 of 7 configured", so the one-click fix must
-     ;; be reachable here too, not only after scrolling to the cards. Same
-     ;; action id as the banner — one funnel, one set of guards.
      (when (pos? (or recommended-count 0))
        [:button {:type "button"
                  :class ["mt-2" "w-full" "border" "border-success/50" "bg-success/10"
@@ -200,12 +184,6 @@
                  :data-role "portfolio-optimizer-history-assumptions-rail-apply-all-recommended"
                  :on {:click [[(:apply-all recommended-actions)]]}}
         (str "Apply all recommended (" recommended-count ")")])
-     ;; Height-capped and internally scrollable, same idiom as the Return
-     ;; views editor's optimizer-objective-view-rows: a universe with many
-     ;; thin-history assets otherwise grows this list without bound, which
-     ;; stretches the whole 3-column setup grid row (default CSS Grid
-     ;; align-items: stretch) and leaves the shorter columns trailing acres
-     ;; of empty panel background below their actual content.
      (into [:div {:class ["optimizer-history-assumptions-rows" "min-h-0" "mt-2" "space-y-1"
                           "overflow-x-hidden" "overflow-y-auto"]
                   :data-role "portfolio-optimizer-history-assumptions-rail-rows"}]
@@ -236,25 +214,14 @@
                             read-only-message)
         views-active? (= :black-litterman (get-in draft [:return-model :kind]))
         objective-kind (get-in draft [:objective :kind])
-        ;; Covariance-only goals: views never influence the weights, so the
-        ;; rail note names the goal and the CTA switches goals.
         return-free? (contains? setup-summary/return-free-objective-kinds
                                 objective-kind)
-        ;; The editor needs BOTH: a views-aware return model AND an objective
-        ;; that consumes returns. Equal Risk sets only the objective, so coming
-        ;; from Maximum Sharpe it leaves Black-Litterman active — without the
-        ;; return-free check the rail would keep soliciting per-asset return
-        ;; inputs that cannot move Equal Risk weights.
         views-editor-active? (and views-active? (not return-free?))
         return-free-label (case objective-kind
                             :equal-risk "Not used by Equal Risk"
                             :inverse-volatility "Not used by Risk-weighted sizing"
                             "Not used by Minimum risk")
         readiness-model (optimizer-view-model/readiness-panel-model readiness history-load-state)
-        ;; Computed once for the whole rail: the assumptions panel rows, the
-        ;; Run-summary History-data line, and the unified verdict (the same
-        ;; run-verdict the footer pill consumes, so rail and run bar can never
-        ;; disagree about "ready").
         rail-model (optimizer-view-model/history-assumption-rail-model
                     state draft readiness history-load-state
                     {:labelize controls/labelize
@@ -275,8 +242,6 @@
                         "Current portfolio snapshot is available in read-only mode."
                         :else
                         "Current portfolio snapshot is available.")
-        ;; Two generic healthy lines ("snapshot available" + "history loaded")
-        ;; collapse into one status sentence; anything unhealthy keeps its own.
         combined-status-line (when (and (:snapshot-loaded? snapshot)
                                         (:capital-ready? preview-snapshot)
                                         (:execution-ready? preview-snapshot)
@@ -286,10 +251,6 @@
              :data-role "portfolio-optimizer-right-rail"}
      (summary-card draft readiness {:history-data-label history-data-label
                                     :verdict verdict})
-     ;; The full Return views editor renders only while views actually shape
-     ;; the result (views-aware model AND a returns-consuming objective); when
-     ;; views are inert the section is demoted to the one-line note below, so
-     ;; inactive functionality never competes with live warnings.
      (when views-editor-active?
        [:section {:class ["optimizer-setup-panel" "border" "border-base-300" "bg-base-100/90" "p-3"]
                   :data-role "portfolio-optimizer-assumptions-rail"
@@ -301,23 +262,11 @@
           state
           (:result last-successful-run)
           readiness
-          ;; OPEN by default: under Maximum Sharpe the per-asset return
-          ;; forecasts are the core input driving the result — hiding them
-          ;; behind a closed disclosure made the optimizer look more objective
-          ;; than it is (owner + expert review, 2026-07-04). Still collapsible
-          ;; so the user can tuck it away; the rows list is height-capped in
-          ;; CSS so Data health stays reachable on large universes.
           {:container-role "portfolio-optimizer-setup-use-my-views-editor"
            :title "Used by Maximum Sharpe"
            :collapsible? true
            :open? true
            :description "Edit any return to save it as your view. Saved views override implied returns; the rest use the implied baseline."})]])
-     ;; Demoted inactive note: a TRUE one-liner — eyebrow, status, and the
-     ;; one-click way to make views matter, on a single row. An inactive
-     ;; feature must not spend a titled section + explainer announcing that it
-     ;; is not in use (comprehension pass 2026-07-10). The whole Return-views
-     ;; slot (editor or note) sits ABOVE Data health so the rail order is
-     ;; stable across goals (owner review 2026-07-04).
      (when-not views-editor-active?
        [:section {:class ["optimizer-setup-panel" "border" "border-base-300" "bg-base-100/90" "p-3"]
                   :data-role "portfolio-optimizer-assumptions-rail"
@@ -343,8 +292,6 @@
                   :data-role "portfolio-optimizer-trust-freshness-panel"
                   :replicant/key "data-health"}
         [:p {:class eyebrow-class} "Data health"]
-        ;; The verdict is the section's headline — the first thing scanned —
-        ;; not a small chip competing with the warning cards below it.
         (let [{:keys [level label issue-count]} (:status readiness-model)]
           [:p {:class ["mt-1" "text-[0.8125rem]" "font-semibold"
                        (case level
@@ -353,8 +300,6 @@
                          :ready "text-success"
                          "text-trading-muted")]
                :data-role "portfolio-optimizer-data-health-status"}
-           ;; The count keeps the verdict meaningful even when the warning
-           ;; cards sit below other panels ("Ready with cautions · 3 issues").
            (if (and (pos? (or issue-count 0))
                     (contains? #{:caution :blocked} level))
              (str label " · " issue-count

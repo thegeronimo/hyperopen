@@ -36,17 +36,6 @@
       (normalized-address (get-in msg [:data :walletAddress]))
       (normalized-address (get-in msg [:data :wallet]))))
 
-(defn message-for-active-address?
-  ([store msg]
-   (message-for-active-address? store msg account-context/effective-account-address))
-  ([store msg resolve-current-address]
-   (let [msg-address (message-address msg)
-         active-address (active-effective-address store resolve-current-address)]
-     (if msg-address
-       (and active-address
-            (= msg-address active-address))
-       true))))
-
 (defn message-for-live-user-address?
   ([store msg]
    (message-for-live-user-address? store

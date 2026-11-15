@@ -61,8 +61,6 @@
        :on-policy? (and gross-ok? net-ok?)})))
 
 (defn- gross-highlighted?
-  ;; `some` calls the set as a predicate, so an absent :highlighted-controls
-  ;; would invoke nil rather than read as "nothing highlighted".
   [highlighted-controls]
   (boolean (some (or highlighted-controls #{}) [:gross-min :gross-max])))
 
@@ -109,8 +107,6 @@
         gross-max (:gross-max constraints*)
         net-min (:net-min constraints*)
         net-max (:net-max constraints*)
-        ;; Fixed scale: the smallest zoom level framing the policy band and the current
-        ;; portfolio dot, widened (never narrowed) by the trader's stored zoom.
         {:keys [axis] :as zoom} (policy/render-axis
                                  (assoc policy*
                                         :current-gross (:gross current-exposure)
@@ -130,7 +126,6 @@
      :band-rect (policy/band-rect policy* axis)
      :band-wedge (policy/band-wedge policy* axis)
      :band-wedge-stripe (policy/band-wedge-stripe policy* axis)
-     ;; Allowed net range at the TARGET gross — the pad's horizontal range bar.
      :band-edges (let [{:keys [left right]} (policy/net-band-edges
                                              (:net-target policy*)
                                              (:net-band-pct policy*)
@@ -143,8 +138,6 @@
      :current-exposure current-exposure
      :gross-band (:gross-band stored-policy)
      :net-band-pct (:net-band-pct stored-policy)
-     ;; Approximate ABSOLUTE net half-width at the configured max gross — a UI
-     ;; preview only; the solver scales the band with realized gross.
      :net-band-abs-preview (let [gmax (+ (max 0.0 (or (:gross-target stored-policy) 0.0))
                                          (max 0.0 (or (:gross-band stored-policy) 0.0)))]
                              (* (:net-band-pct stored-policy) gmax))
@@ -167,10 +160,6 @@
                                                 constraints*)})
      :active-preset active
      :profile {:has-default? (boolean has-saved-default?)}
-     ;; No :presets chip vector since 2026-07-10: the preset BUTTONS left the UI
-     ;; (owner request). :active-preset stays — the panel header labels the
-     ;; recognized policy ("Conservative" / "Custom · from holdings"), and the
-     ;; preset action + domain presets remain for programmatic use.
      :highlighted {:gross (gross-highlighted? highlighted-controls)
                    :net (and (not covariance-only?)
                              (net-highlighted? highlighted-controls))}}))

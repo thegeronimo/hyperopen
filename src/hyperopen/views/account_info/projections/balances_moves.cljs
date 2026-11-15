@@ -82,8 +82,6 @@
   [state ctx token to health]
   (cond
     (:blocked ctx) (:blocked ctx)
-    ;; Health rides the balance read, so while the first read is failing
-    ;; nothing is being checked: say the balances are unavailable.
     (= :unknown health) (if (= :unavailable (:hyperevm-status ctx))
                           (:balances-unavailable evm-transfer-preview/messages)
                           transfer-route/checking-token-reason)
@@ -123,9 +121,6 @@
                         (tokens/token-by-index spot-meta (:token row))
                         :hyperevm :spot)]
 
-           ;; Perps -> HyperEVM is not a supported route
-           ;; (`transfer-route/supported-pair?`): USDC goes Perps -> Spot ->
-           ;; HyperEVM.
            :perps
            [(legacy-target row)]
 

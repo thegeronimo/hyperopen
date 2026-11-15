@@ -61,10 +61,6 @@
     (is (true? (:capital-ready? snapshot)))
     (is (true? (:execution-ready? snapshot)))
     (is (= 4 (count (:exposures snapshot))))
-    ;; Unified account: NAV is the shared spot-wallet collateral (cash 300000 +
-    ;; non-cash spot 5 = 300005), NOT the single main-dex perp accountValue
-    ;; (100000). Exposure spans the main dex AND dex-a, so the denominator must be
-    ;; the whole-account collateral.
     (is (= 300005 (get-in snapshot [:capital :nav-usdc])))
     (is (= 300000 (get-in snapshot [:capital :cash-usdc])))
     (is (= 5 (get-in snapshot [:capital :spot-noncash-usdc])))
@@ -85,11 +81,6 @@
     (is (= [] (:warnings snapshot)))))
 
 (deftest current-portfolio-snapshot-classic-keeps-perp-equity-as-nav-test
-  ;; Regression guard for the unified NAV fix: a CLASSIC account must keep using
-  ;; the perp clearinghouse equity (+ non-cash spot) as NAV and must NOT treat the
-  ;; spot USDC cash balance as optimizer collateral. Here perp equity (100000)
-  ;; differs from spot cash (300000); the unified spot-collateral branch must not
-  ;; fire.
   (let [state {:wallet {:address owner-address}
                :router {:path "/portfolio"}
                :account {:mode :classic}
@@ -157,13 +148,9 @@
 (def ^:private dust-spot-meta
   {:tokens [{:index 0 :name "USDC"}
             {:index 1 :name "PURR"}]
-   ;; @113 is the universe entry *name*; its numeric :index is unrelated to 113.
    :universe [{:name "@113" :index 7 :tokens [1 0]}]})
 
 (deftest current-portfolio-snapshot-resolves-dust-spot-symbol-from-spot-meta-via-token-test
-  ;; A priced spot pair whose catalog market never resolved a token name leaves
-  ;; the base as the bare "@113" reference. spotMeta names it from the balance's
-  ;; own :token index so the label no longer degrades to "@113".
   (let [snapshot (current-portfolio/current-portfolio-snapshot
                   {:wallet {:address owner-address}
                    :router {:path "/portfolio"}
@@ -185,8 +172,6 @@
     (is (= "@113" (:coin purr)))))
 
 (deftest current-portfolio-snapshot-resolves-dust-spot-symbol-from-spot-meta-via-coin-test
-  ;; When the balance carries no usable :token, the @<n> coin still maps through
-  ;; its universe entry's base token.
   (let [snapshot (current-portfolio/current-portfolio-snapshot
                   {:wallet {:address owner-address}
                    :router {:path "/portfolio"}
@@ -204,7 +189,6 @@
     (is (= "PURR/USDC" (:symbol purr)))))
 
 (deftest current-portfolio-snapshot-keeps-resolved-market-base-over-spot-meta-test
-  ;; A healthy market base must win; spotMeta is only a fallback for @<n> bases.
   (let [snapshot (current-portfolio/current-portfolio-snapshot
                   {:wallet {:address owner-address}
                    :router {:path "/portfolio"}
@@ -250,12 +234,8 @@
                      snapshot
                      existing)]
     (is (= false (:long-only? constraints)))
-    ;; gross floor seeded from current gross ratio (16000/10000 = 1.6) so the
-    ;; recommendation preserves leverage instead of delevering.
     (is (= 1.6 (:gross-min constraints)))
     (is (= 1.6 (:gross-max constraints)))
-    ;; Net target = the book's current net; the tolerance is :net-band-pct, a
-    ;; fraction of realized gross preserving the old ±0.05x width (0.05 / 1.6).
     (is (= 1.0 (:net-min constraints)))
     (is (= 1.0 (:net-max constraints)))
     (is (= 0.03125 (:net-band-pct constraints)))
@@ -307,10 +287,6 @@
              {:gross-max 2.0}))))
 
 (deftest spot-balance-never-adopts-the-perp-instrument-identity-test
-  ;; A token that trades as BOTH a perp and a spot pair (e.g. HYPE): the spot
-  ;; BALANCE must resolve to the spot market's identity. It used to adopt the
-  ;; perp id/symbol/mark (the coin-based resolver hits the perp candidate key
-  ;; first), which overwrote the real perp exposure in :by-instrument.
   (let [state {:wallet {:address owner-address}
                :router {:path "/portfolio"}
                :webdata2 {:clearinghouseState
@@ -341,11 +317,8 @@
         perp (exposure-by-id snapshot "perp:HYPE")
         spot (exposure-by-id snapshot "spot:HYPE/USDC")]
     (is (= 2 (count (:exposures snapshot))))
-    ;; The perp exposure survives in :by-instrument (it used to be overwritten
-    ;; by the mislabeled spot row).
     (is (= :perp (:market-type perp)))
     (is (= -4000 (:signed-notional-usdc perp)))
-    ;; The spot balance carries the SPOT identity and the SPOT mark.
     (is (some? spot))
     (is (= :spot (:market-type spot)))
     (is (= "HYPE/USDC" (:symbol spot)))
@@ -353,9 +326,6 @@
     (is (near? 39.8 (:mark-price spot)))))
 
 (deftest spot-balance-without-a-spot-market-keeps-a-spot-id-test
-  ;; A token with a perp but NO listed spot pair: the balance keeps a synthesized
-  ;; spot:<coin> id (never the perp id); pricing may still borrow the perp mark
-  ;; so NAV keeps covering the balance.
   (let [state {:wallet {:address owner-address}
                :router {:path "/portfolio"}
                :webdata2 {:clearinghouseState
@@ -379,14 +349,6 @@
     (is (near? 20 (:signed-notional-usdc spot)))))
 
 (deftest dex-namespaced-position-coin-is-not-double-prefixed-test
-  ;; The per-dex (HIP-3) clearinghouse feed reports position coins ALREADY
-  ;; dex-namespaced ("xyz:ORCL" on dex "xyz"; verified live 2026-07-05).
-  ;; Re-prefixing built "perp:xyz:xyz:ORCL" — an id matching neither the market
-  ;; catalog key nor the universe id — so the rebalance treated the held
-  ;; position and its target as two unrelated assets and staged a full close
-  ;; PLUS a fresh open for the same market instead of one net order. The
-  ;; holding must take the canonical "perp:xyz:ORCL". A bare per-dex coin
-  ;; (older feed shape) still gets the dex prefix exactly once.
   (let [state {:wallet {:address owner-address}
                :router {:path "/portfolio"}
                :webdata2 {:clearinghouseState

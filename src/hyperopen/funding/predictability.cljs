@@ -106,7 +106,6 @@
           (let [{:keys [sum count]} (get day-index current-day-ms)
                 mean-rate (when (pos? (or count 0))
                             (/ sum count))
-                ;; Effective rate for a 24-hour hold
                 daily-rate (when mean-rate
                              (* mean-rate 24))]
             (recur (+ current-day-ms day-ms)

@@ -111,7 +111,6 @@ test("portfolio optimizer adding an asset prefetches API v2 history before run @
           seenLegacyHistory.push({ type: payload.type, coin: payload.coin });
         }
       } catch {
-        // Let non-JSON requests continue.
       }
     }
     await route.continue();

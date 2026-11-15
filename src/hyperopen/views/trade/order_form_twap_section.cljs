@@ -21,9 +21,6 @@
    "flex" "flex-col" "gap-2"])
 
 (def ^:private micro-type
-  ;; The named scale bottoms out at 12px (text-xs and text-sm are both 12px in
-  ;; tailwind.config.js), which is too loud for a tag sitting beside its own field. The
-  ;; sanctioned way down is an inline font-size, as order_form_footer.cljs already does.
   {:font-size "10px" :letter-spacing "0.06em"})
 
 (def ^:private tag-classes
@@ -69,8 +66,6 @@
                 on-set-twap-days on-set-twap-hours on-set-twap-minutes]}]
   (let [{:keys [presets preset-key custom? runtime-window]} twap-schedule]
     [:div {:class ["flex" "flex-col" "gap-2"]}
-     ;; The hint states the venue's allowed window, not the resolved schedule -- the
-     ;; sentence directly below already says how many pieces and how far apart.
      (section-heading "Runtime" runtime-window)
      [:div {:class ["flex" "gap-1"]}
       (for [{:keys [key] :as preset} presets]

@@ -24,8 +24,6 @@
                  "missing=" (pr-str (set/difference registered-ids contracted-ids))
                  " extra=" (pr-str (set/difference contracted-ids registered-ids)))))))
 
-(def validation-enabled? common/validation-enabled?)
-
 (def assert-action-args! assertions/assert-action-args!)
 (def assert-effect-args! assertions/assert-effect-args!)
 (def assert-effect-call! assertions/assert-effect-call!)
@@ -51,10 +49,6 @@
                  action-id)))
        set))
 
-;; Install the assertion functions into the runtime validation indirection.
-;; Release builds never load this namespace (no production require edge), so
-;; the whole spec tree is dead-code-eliminated; dev preloads and test
-;; namespaces load it, which activates runtime validation.
 (validation/install-contracts-impl!
  {:validation-enabled? common/validation-enabled?
   :assert-action-args! assertions/assert-action-args!

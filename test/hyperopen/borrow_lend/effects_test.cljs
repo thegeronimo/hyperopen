@@ -35,7 +35,6 @@
     (let [store (store-for owner)]
       (-> (effects/api-fetch-borrow-lend-user-state!
            (user-state-deps store (fn [_ _]
-                                    ;; The wallet switches while the request is in flight.
                                     (swap! store assoc-in [:wallet :address] other)
                                     (js/Promise.resolve {:positions [{:token 0 :supplied 9}]}))))
           (.then (fn [_]
@@ -68,8 +67,6 @@
           ledger-2 {:time 15 :hash "0x2" :delta {:type "send" :token "USDC"}}]
       (-> (effects/api-fetch-borrow-lend-interest!
            (interest-deps store calls
-                          ;; The second page starts at the first page's last
-                          ;; timestamp, so the USDH row sharing it is kept.
                           {0 [a b] 20 [b b2 c] 30 [c]}
                           {10 [ledger-1 ledger-2] 15 [ledger-2]}))
           (.then (fn [_]

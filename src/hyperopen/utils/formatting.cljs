@@ -278,7 +278,6 @@
            ":"
            (pad2 (.getMinutes d))))))
 
-;; Formatting functions
 (defn format-number [n decimals]
   (when (and n (number? n))
     (.toFixed n decimals)))

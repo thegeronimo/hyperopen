@@ -203,9 +203,6 @@
   (select-keys (normalize-config config)
                [:min-age-days :min-tvl :window :include-deposited?]))
 
-;; ---------------------------------------------------------------------------
-;; Universe
-
 (defn- in-base-universe?
   [row]
   (and (not= :child (:relationship-type row))
@@ -232,9 +229,6 @@
          (filter #(universe-row? config* %))
          (sort-by (fn [row] [(- (or (:tvl row) 0)) (:vault-address row)]))
          vec)))
-
-;; ---------------------------------------------------------------------------
-;; Cache freshness and estimates
 
 (defn fresh-cache-entry?
   [saved-at-ms now-ms]
@@ -264,9 +258,6 @@
               (if (zero? r)
                 (str m " min")
                 (str m " min " r " s"))))))
-
-;; ---------------------------------------------------------------------------
-;; Evaluation
 
 (defn display-value
   "Engine value → the unit the user types thresholds in."

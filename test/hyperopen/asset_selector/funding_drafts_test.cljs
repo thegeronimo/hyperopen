@@ -69,8 +69,6 @@
                                                 pin-id
                                                 true
                                                 raw-anchor)))
-    ;; Legacy callers retain the original three-argument result and do not
-    ;; fabricate an anchor.
     (is (= [[:effects/save [:funding-ui :tooltip :pinned-id] pin-id]]
            (actions/set-funding-tooltip-pinned {:active-asset "BTC"}
                                                pin-id
@@ -80,8 +78,6 @@
                                                pin-id
                                                true
                                                {:left 104 :right 176 :top 58})))
-    ;; Scrolling/dismissing closes the pinned state first but keeps the anchor
-    ;; for the still-visible tooltip; the final close clears it atomically.
     (is (= [[:effects/save [:funding-ui :tooltip :pinned-id] nil]]
            (actions/set-funding-tooltip-pinned both-open-state pin-id false)))
     (is (= [[:effects/save-many [[[:funding-ui :tooltip :visible-id] nil]
@@ -180,7 +176,6 @@
           5372.43
           "0.0300")))
 
-  ;; Unsigned typing keeps the current (short) side; the side toggle flips it.
   (is (= [[:effects/save [:funding-ui :hypothetical-position-by-coin]
            {"BTC" {:size-input "-0.0300"
                    :value-input "-1500"}}]]

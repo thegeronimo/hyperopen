@@ -107,8 +107,6 @@
                            (keep :label)
                            (str/join " ")
                            str/lower-case)
-        ;; The issuer parsed from a HIP-3 description: "space exploration"
-        ;; finds xyz:SPCX.
         descriptor (str/lower-case (or (:descriptor asset) ""))
         company (company-names asset)]
     (if strict?
@@ -259,7 +257,6 @@
           (zero? total)
           #{}
 
-          ;; The Outcome tab renders events in sections, not the virtual list.
           (contains? settings/outcome-tab-set (:active-tab selector-state))
           (let [opts (outcome-listing/listing-opts state)]
             (outcome-listing/visible-coins (outcome-listing/sections processed-assets (.now js/Date) opts)
@@ -272,9 +269,6 @@
             (->> (subvec processed-assets start-index end-index)
                  (keep :coin)
                  set)))))))
-
-;; ---------------------------------------------------------------------------
-;; Outcome top-of-book (`bbo`) subscriptions
 
 (def outcome-top-of-book-limit
   "Most `bbo` subscriptions held at once: the open event's answers first,

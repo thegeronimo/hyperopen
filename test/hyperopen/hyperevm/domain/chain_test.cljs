@@ -33,8 +33,6 @@
       "fixtures can swap networks without missing keys"))
 
 (deftest chain-ids-are-normalized-lowercase-hex-test
-  ;; ensure-wallet-chain! compares the wallet's normalized (lowercase, no
-  ;; leading zeros) chain id against :chain-id verbatim.
   (doseq [network [chain/mainnet chain/testnet]]
     (testing (:chain-name network)
       (is (re-matches #"^0x[1-9a-f][0-9a-f]*$" (:chain-id network)))
@@ -48,8 +46,6 @@
       (is (re-matches #"^0x[0-9a-f]{40}$" (get network k))))))
 
 (deftest usdc-erc20-is-not-the-core-deposit-wallet-test
-  ;; spotMeta's USDC evmContract is the CoreDepositWallet. Reading balanceOf
-  ;; on it reverts, and sending USDC to it loses the funds.
   (doseq [network [chain/mainnet chain/testnet]]
     (is (not= (:usdc-token-address network)
               (:usdc-core-deposit-wallet network)))))

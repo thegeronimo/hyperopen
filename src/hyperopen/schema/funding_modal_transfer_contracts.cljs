@@ -1,13 +1,6 @@
 (ns hyperopen.schema.funding-modal-transfer-contracts
   (:require [cljs.spec.alpha :as s]))
 
-;; Transfer-mode submap of the funding modal VM contract. The spec keywords are
-;; the same :funding-modal-vm.* names the parent contract composes.
-;; hyperopen.schema.funding-modal-contracts requires this namespace and
-;; registers the :funding-modal-vm.transfer/actions alias itself, because
-;; cljs.spec resolves keyword aliases eagerly and :funding-modal-vm/actions is
-;; defined there. Nothing below aliases a parent spec.
-
 (def ^:private required-transfer-amount-keys
   #{:value :max-display :max-input :symbol :notice})
 
@@ -141,8 +134,6 @@
 (s/def :funding-modal-vm.transfer-balance-side/before ::nilable-string)
 (s/def :funding-modal-vm.transfer-balance-side/after ::nilable-string)
 (s/def :funding-modal-vm.transfer-balance-side/delta ::nilable-string)
-;; What may move from this side: `:before` less the gas MAX keeps for native
-;; HYPE leaving HyperEVM, else `:before`.
 (s/def :funding-modal-vm.transfer-balance-side/available ::nilable-string)
 (s/def :funding-modal-vm/transfer-balance-side
   (exact-map (s/keys :req-un [:funding-modal-vm.transfer-balance-side/label

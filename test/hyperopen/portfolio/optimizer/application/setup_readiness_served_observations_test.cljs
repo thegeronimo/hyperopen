@@ -68,18 +68,14 @@
 
 (deftest readiness-flags-the-young-asset-not-the-deep-one-test
   (let [readiness (setup-readiness/build-readiness (poisoned-state))]
-    ;; The deep asset aligns; the young one is excluded individually.
     (is (= ["perp:BTC"]
            (mapv :instrument-id (get-in readiness [:request :universe]))))
-    ;; The run is blocked ON THE YOUNG ASSET needing an assumption - actionable,
-    ;; and named. Pre-fix this was an anonymous universe-wide collapse.
     (is (= :missing-history-assumptions (:reason readiness)))
     (is (= [{:code :history-assumption-required
              :instrument-id "perp:GRAM"
              :observations 6}]
            (mapv #(select-keys % [:code :instrument-id :observations])
                  (:blocking-warnings readiness))))
-    ;; Served counts reach the request for BOTH assets.
     (is (= {"perp:BTC" 400 "perp:GRAM" 6}
            (get-in readiness [:request :history
                               :served-observations-by-instrument])))))
@@ -88,14 +84,10 @@
   (let [state (poisoned-state)
         readiness (setup-readiness/build-readiness state)
         status-by-id (setup-readiness/history-status-by-instrument readiness)]
-    ;; Observation sourcing: aligned raw series for the survivor, served count
-    ;; for the excluded young asset.
     (is (= 400 (universe/native-history-observations state readiness btc)))
     (is (= 6 (universe/native-history-observations state readiness gram)))
-    ;; Only the young asset needs an assumption.
     (is (= #{"perp:GRAM"}
            (universe/assumption-required-ids state readiness [btc gram])))
-    ;; Badge adequacy: the deep asset can never read "thin"; the young one does.
     (is (= :ok (universe/history-adequacy (get status-by-id "perp:BTC")
                                           state readiness btc)))
     (is (= :short (universe/history-adequacy (get status-by-id "perp:GRAM")

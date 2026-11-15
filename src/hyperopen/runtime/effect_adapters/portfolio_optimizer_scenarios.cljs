@@ -43,10 +43,6 @@
    (get-in state (conj contracts/active-scenario-path :address))))
 
 (defn- current-scenario-id
-  ;; The workspace route is no longer forced to mint a fresh id: with
-  ;; /portfolio/optimize as the working page, "Save" on an open scenario must
-  ;; update that scenario in place. Fresh identity is an explicit choice now —
-  ;; the "New scenario" action clears the active scenario and draft id.
   [env state opts now-ms]
   (or (saved-scenario-id (:scenario-id opts))
       (saved-scenario-id
@@ -88,10 +84,6 @@
   (scenario-operations/complete operation state completed-at-ms))
 
 (defn- dispatch-saved-scenario-route!
-  ;; Saving from the workspace stays on the workspace (feedback lives in the
-  ;; header scenario strip); only a save issued from a scenario surface — the
-  ;; /portfolio/optimize/draft alias after a run — re-canonicalizes its URL to
-  ;; the saved scenario's own route.
   [env store scenario-record]
   (when-let [scenario-id (saved-scenario-id (:id scenario-record))]
     (let [path (portfolio-routes/portfolio-optimize-scenario-path scenario-id)

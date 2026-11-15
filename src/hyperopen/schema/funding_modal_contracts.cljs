@@ -611,8 +611,6 @@
                     :funding-modal-vm.send/actions])
    #(exact-keys? % required-send-keys)))
 
-;; The rest of the transfer submap lives in funding-modal-transfer-contracts; this
-;; alias must register after :funding-modal-vm/actions (cljs.spec resolves it eagerly).
 (s/def :funding-modal-vm.transfer/actions :funding-modal-vm/actions)
 
 (s/def :funding-modal-vm.last-operation/tx-id (s/nilable string?))

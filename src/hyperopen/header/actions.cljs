@@ -142,7 +142,6 @@
    state
    {:open-order-safety-mode
     (trading-settings/normalize-open-order-safety-mode mode)
-    ;; an explicit choice survives the Strict-to-Off migration on restore
     :open-order-safety-chosen? true}))
 
 (defn set-ui-theme

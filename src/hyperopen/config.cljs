@@ -2,19 +2,10 @@
 
 (goog-define APP_VERSION "0.1.0")
 
-;; Vol Range preview capability (HO-SPEC-014 1.2, 15.1, 15.2): the Volatility
-;; range ticket, chart overlays and review. On by default, release builds
-;; included.
 (goog-define VOL_RANGE_PREVIEW true)
 
-;; Vol Range order placement (HO-SPEC-014 15.2, Release A). On by default,
-;; release builds included; the test builds set it false in shadow-cljs.edn. A
-;; browser can opt out (see hyperopen.vol-range.infrastructure.execution-gate).
 (goog-define VOL_RANGE_EXECUTION true)
 
-;; Vol Range reporting (HO-SPEC-014 15.2, Release B): the Portfolio Vol Range
-;; tab, ledger backfill and Start tracking. On by default, release builds
-;; included. Reporting never implies placement permission.
 (goog-define VOL_RANGE_REPORTING true)
 
 (def config
@@ -45,10 +36,6 @@
                            :include-aligned-returns? true
                            :fallback-to-legacy? true
                            :legacy-fallback-request-spacing-ms 200
-                           ;; Bounds a hung request so the optimizer's Loading
-                           ;; status always has a terminal state. Far above the
-                           ;; largest measured bundle (6.2s at 51 assets), so it
-                           ;; never fires on a merely slow response.
                            :request-timeout-ms 60000}
    :diagnostics {:timeline-limit 50}
    :vol-range {:preview-enabled? VOL_RANGE_PREVIEW

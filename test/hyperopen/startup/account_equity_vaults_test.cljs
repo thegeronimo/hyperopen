@@ -33,8 +33,6 @@
     (is (= [[store account-a {:priority :high}]] @calls))))
 
 (deftest unified-account-surfaces-start-and-fetch-vault-equity-test
-  ;; Vault deposits do not depend on account mode; the Portfolio total counts
-  ;; them for unified accounts as well.
   (let [fetch-calls (atom [])
         poller-calls (atom [])
         store (atom {:wallet {:address account-a}
@@ -110,8 +108,6 @@
               (.catch (fn [err]
                         (is false (str "Unexpected late vault equity request error: " err))
                         (done))))
-          ;; Simulate the newer effective account's already-confirmed snapshot
-          ;; before the old request finishes. A's callback may not replace it.
           (swap! store assoc
                  :wallet {:address account-b}
                  :vaults {:user-equities account-b-rows
@@ -139,9 +135,6 @@
                               (swap! request-calls conj {:address address
                                                          :opts opts
                                                          :resolve resolve})))
-                           ;; Existing buggy behavior reaches the API for the
-                           ;; stale A call. Resolve it so the test does not
-                           ;; hang before demonstrating that it stole B's token.
                            (do
                              (swap! request-calls conj {:address address
                                                         :opts opts})

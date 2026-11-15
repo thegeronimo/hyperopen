@@ -58,7 +58,6 @@
                            :data-role (str "portfolio-optimizer-history-assumption-proxy-chip-"
                                            id "-" instrument-id)}
                     label
-                    ;; This proxy's history fetch is still in flight.
                     (when loading?
                       [:span {:class ["animate-pulse" "text-[0.5625rem]" "uppercase"
                                       "tracking-[0.06em]" "text-trading-muted"]}
@@ -104,7 +103,6 @@
                               :role "option"
                               :data-role (str "portfolio-optimizer-history-assumption-proxy-option-"
                                               id "-" instrument-id)
-                              ;; Add the proxy, then clear the search buffer.
                               :on {:click [[(get-in card [:actions :toggle-proxy-asset])
                                             id instrument-id true]
                                            [(get-in card [:actions :set-proxy-search]) id ""]]}}

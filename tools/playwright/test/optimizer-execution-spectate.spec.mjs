@@ -2,15 +2,8 @@ import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import { readOptimizerState } from "../support/optimizer_state.mjs";
 
-// A read-only (Spectate) viewer must still be able to model execution: the strategy tiles and
-// per-order editors only re-project estimated costs, so they stay interactive while Arm/Confirm
-// (which would send live orders) stay blocked. This pins that end-to-end in the real app.
-
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
 
-// Seeds a current (non-stale) solved run whose rebalance preview has one ready BTC buy, plus an
-// ACTIVE spectate session — seeded directly into state so no identity-swap side effect can wipe
-// the seeded run. Mirrors the proven seedRetainedDraftScenario shape from the optimizer smoke spec.
 async function seedSpectatedSolvedRunWithReadyOrder(page) {
   await page.evaluate((spectateAddress) => {
     const c = globalThis.cljs.core;
@@ -42,8 +35,6 @@ async function seedSpectatedSolvedRunWithReadyOrder(page) {
       ]),
       kw("metadata"), map([kw("dirty?"), false])
     ]);
-    // One READY perp buy (positive qty, non-zero delta, tradeable type) with a cost block so the
-    // KPI strip / strategy tiles have real numbers to re-project.
     const readyRow = map([
       kw("instrument-id"), "perp:BTC",
       kw("instrument-type"), kw("perp"),
@@ -161,7 +152,6 @@ async function seedSpectatedSolvedRunWithReadyOrder(page) {
       path("portfolio-ui", "optimizer", "results-tab"),
       kw("recommendation")
     );
-    // Active spectate session (seeded, not via the action) => the staged plan is read-only.
     state = c.assoc_in(
       state,
       path("account-context", "spectate-mode"),
@@ -189,7 +179,6 @@ test("spectate viewers can model execution strategy while sending stays blocked 
   ]);
   await waitForIdle(page, { quietMs: 250, timeoutMs: 8_000, pollMs: 50 });
 
-  // Enter Execution — this stages the plan under the active spectate session.
   await page.locator("[data-role='portfolio-optimizer-scenario-tab-execution']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-execution-tab-shell']")).toBeVisible();
 
@@ -198,26 +187,21 @@ test("spectate viewers can model execution strategy while sending stays blocked 
   const marketTile = page.locator("[data-role='portfolio-optimizer-execution-mode-market']");
   const arm = page.locator("[data-role='portfolio-optimizer-execution-arm']");
 
-  // The notice explains the split: read-only, but you can still model here.
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("Spectate Mode is read-only");
   await expect(notice).toContainText("still model execution strategies");
 
-  // The strategy tiles are interactive (not disabled) even though this is a read-only view.
   await expect(band).toBeVisible();
   await expect(marketTile).toBeEnabled();
 
-  // Sending stays blocked: Arm is disabled.
   await expect(arm).toBeDisabled();
 
-  // Clicking a strategy tile changes the modeled default order type (a pure projection change).
   await marketTile.click();
   await expect.poll(async () =>
     readOptimizerState(page, ["portfolio", "optimizer", "execution-modal", "default-order-type"])
   ).toBe("market");
   await expect(marketTile).toHaveAttribute("data-active", "true");
 
-  // Still read-only after modeling — the plan never became sendable.
   await expect(arm).toBeDisabled();
   expect(
     await readOptimizerState(page, ["portfolio", "optimizer", "execution-modal", "plan", "execution-disabled?"])

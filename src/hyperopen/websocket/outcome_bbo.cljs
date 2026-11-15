@@ -59,20 +59,15 @@
   (atom default-runtime))
 
 (defonce ^:private hooks
-  ;; {:store :request-snapshot! :resync!} registered by `init!`.
   (atom {}))
 
 (defonce ^:private resync-timer
   (atom nil))
 
 (defonce ^:private pending-tops
-  ;; coin -> {:bid :ask} received but not yet written to the store.
   (atom {}))
 
 (defonce ^:private known-tops
-  ;; coin -> the last top received for a subscribed coin. A catalog reload
-  ;; rebuilds the outcome markets without quotes, and the venue pushes `bbo`
-  ;; only on change, so these are re-applied after it (no network).
   (atom {}))
 
 (defonce ^:private flush-timer
@@ -80,9 +75,6 @@
 
 (defonce ^:private last-flush-ms
   (atom nil))
-
-;; ---------------------------------------------------------------------------
-;; Pure
 
 (defn- level-price
   [level]
@@ -178,9 +170,6 @@
         (update :generation (fn [g] (reduce #(update %1 %2 (fnil inc 0)) g subscribe)))
         (update :seed-queue (fn [queue]
                               (into (vec (remove dropped queue)) seeds))))))
-
-;; ---------------------------------------------------------------------------
-;; Effects
 
 (defn enqueue-top
   "Pure: `pending` (coin -> top not yet written) after a message for `coin`.

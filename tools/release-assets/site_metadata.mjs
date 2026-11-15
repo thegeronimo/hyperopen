@@ -563,13 +563,6 @@ export const ROUTE_PRELOAD_MODULE_IDS = {
   api: ["api_wallets_route"],
 };
 
-// Account tab bodies load lazily on first click. Warming the two hottest chunks
-// removes that fetch from the click path. These are `prefetch`, not `preload`:
-// prefetch is dispatched at the browser's lowest priority and costs no
-// main-thread time, so it cannot compete with first paint the way a preload
-// would. `as` is deliberately omitted -- the module loader later requests these
-// as scripts through its own path, and reuse here is mediated by the HTTP cache
-// (these assets are served immutable), not by the preload cache.
 export const ROUTE_PREFETCH_MODULE_IDS = {
   trade: ["account_orders", "account_positions_outcomes"],
   portfolio: ["account_orders", "account_positions_outcomes"],

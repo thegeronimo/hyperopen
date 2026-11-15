@@ -36,7 +36,6 @@
     (is (apply >= (map #(or (:volume %) 0) rows)))
     (testing "volume counts each contract once, in shares"
       (let [game (row-by-key sections "outcome:27037")]
-        ;; dayBaseVlm 226,989 on both sides of #27037: counted once.
         (is (= 226989 (:volume game)))
         (is (= "227K shares" (:volume-text game)))))))
 
@@ -89,7 +88,6 @@
     (is (zero? (:more row)))))
 
 (deftest list-header-and-ticket-agree-on-one-contract-test
-  ;; Same inputs on every surface: the market and the book of its selected side.
   (doseq [[bid ask expected] [[0.81886 0.81902 "82%"]
                               [0.30 0.40 "30–40%"]
                               [0.012 0.988 "No market"]]]
@@ -98,7 +96,6 @@
           list-row (row-by-key (listing/sections [market] now-ms (assoc utc :books {"#270370" orderbook}))
                                "outcome:27037")
           header (header-vm/header-model market orderbook now-ms)
-          ;; The ticket reads `header-vm/side-quotes` with the same book.
           ticket-quotes (header-vm/side-quotes market orderbook)]
       (is (= expected (:text (first (:answers list-row)))))
       (is (= expected (:text (first (:chances header)))))
@@ -106,7 +103,6 @@
       (is (= (:state (:quote header)) (:state (first ticket-quotes)))))))
 
 (deftest placeholder-quotes-read-not-traded-everywhere-test
-  ;; Never traded: mid 0.50, prevDayPx 0, no volume, book 1.3¢ / 98.7¢.
   (let [placeholder {:prevDayPx "0.0" :dayNtlVlm "0.0" :dayBaseVlm "0.0" :markPx "0.5" :midPx "0.5"
                      :circulatingSupply "0.0"}
         ctxs (mapv (fn [ctx] (if (#{"#305200" "#305201"} (:coin ctx)) (merge ctx placeholder) ctx))
@@ -127,7 +123,6 @@
 (deftest header-change-uses-the-selected-side-test
   (let [game (markets/market-with-selected-outcome-coin (market-by-key "outcome:27037") "#270371")
         model (header-vm/header-model game nil now-ms)]
-    ;; WAS: mark 0.18092 against prevDayPx 0.1827.
     (is (= "−0.2 pts" (:change-text model)))
     (is (= :down (:change-direction model))))
   (let [untraded (-> (market-by-key "outcome:27037")

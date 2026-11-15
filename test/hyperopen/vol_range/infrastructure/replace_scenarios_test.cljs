@@ -34,7 +34,6 @@
       (assoc-in [:buy :quantity] buy)
       (assoc-in [:sell :quantity] sell)
       (assoc-in [:inventory :tilt-enabled?] (boolean tilt?))
-      ;; Tilt moves the buys up; leave room under the cap.
       (cond-> tilt? (assoc-in [:buy :max-usdc-debit] "2990"))))
 
 (defn- plan-from-pre-fill-account
@@ -76,7 +75,6 @@
         (.then (fn [r] (assoc @ctx :old (:grid r) :confirm r))))))
 
 (deftest replacement-from-the-unfilled-remainder-test
-  ;; Spec 13.4: 3 of a 10-unit sell fill while the cancel is pending.
   (async done
     (let [s (fresh)
           ctx (atom nil)]
@@ -118,7 +116,6 @@
                  (is (= (:grid-id (:old @ctx))
                         (get-in (ex/stored-grid records (:grid-id grid)) [:predecessor :grid-id])))
                  (is (nil? (:predecessor (ex/stored-grid records (:grid-id (:old @ctx))))))))
-             ;; A second replacement of the same ladder (a stale tab, a double click).
              (place-replacement! s (plan-from-pre-fill-account s)
                                  (predecessor (:grid-id (:old @ctx)) (:frozen @ctx) (get-in @ctx [:confirm :basis])))))
           (.then
@@ -130,7 +127,6 @@
           (.catch (fail done))))))
 
 (deftest a-replacement-reviewed-from-pre-fill-inventory-is-refused-test
-  ;; Spec 13.4: no replacement order may use the old pre-fill inventory.
   (async done
     (let [s (fresh)]
       (-> (canceled-update! s)
@@ -151,7 +147,6 @@
           (.catch (fail done))))))
 
 (deftest an-unknown-cancel-outcome-blocks-the-replacement-test
-  ;; VR-15.
   (async done
     (let [s (fresh)
           ctx (atom nil)]
@@ -180,7 +175,6 @@
           (.catch (fail done))))))
 
 (deftest a-predecessor-from-another-scope-is-refused-test
-  ;; VR-18: lineage never crosses markets or accounts.
   (async done
     (let [s (fresh)]
       (-> (canceled-update! s)
@@ -213,7 +207,6 @@
           (.catch (fail done))))))
 
 (deftest leaving-after-the-cancel-places-nothing-test
-  ;; Spec 10.2: the old ladder stays canceled and no new orders are placed.
   (async done
     (let [s (fresh)]
       (-> (canceled-update! s)
@@ -226,8 +219,6 @@
           (.catch (fail done))))))
 
 (deftest fills-before-the-freeze-and-legs-canceled-before-it-test
-  ;; 2 of the 86 sell fill and the 76.4 buy is canceled from Open Orders
-  ;; before the update starts; 3 more of the sell fill during the cancel.
   (async done
     (let [s (fresh)]
       (-> (canceled-update!
@@ -251,8 +242,6 @@
           (.catch (fail done))))))
 
 (deftest stale-monitoring-refuses-the-replacement-but-not-the-cancel-test
-  ;; Live-fills gate: placement is refused until monitoring is live; the
-  ;; cancel and its confirmation still run.
   (async done
     (let [s (fresh)]
       (-> (canceled-update! s {:before-freeze (fn [grid]

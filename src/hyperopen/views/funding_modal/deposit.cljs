@@ -74,8 +74,6 @@
                     "text-[#7b919b]"]}
       "No assets match your search."])])
 
-(def render-select-content deposit-select-content)
-
 (defn deposit-address-content
   [{:keys [selected-asset flow summary lifecycle actions]}]
   [:div {:class ["space-y-3"] :data-role "funding-deposit-address-step"}
@@ -131,8 +129,6 @@
                         :submit-action :actions/submit-funding-deposit
                         :submit-label (get-in actions [:submit-label])
                         :submit-disabled? (get-in actions [:submit-disabled?])})]])
-
-(def render-address-content deposit-address-content)
 
 (defn deposit-amount-content
   [{:keys [selected-asset amount summary actions]}]
@@ -238,8 +234,6 @@
                          :submit-label (get-in actions [:submit-label])
                          :submit-disabled? (get-in actions [:submit-disabled?])})]))
 
-(def render-amount-content deposit-amount-content)
-
 (defn deposit-unavailable-content
   [{:keys [flow actions]}]
   [:div {:class ["space-y-3"]}
@@ -260,8 +254,6 @@
                        :submit-label (get-in actions [:submit-label])
                        :submit-disabled? true})])
 
-(def render-unavailable-content deposit-unavailable-content)
-
 (defn deposit-missing-asset-content
   [{:keys [actions]}]
   [:div {:class ["space-y-3"]}
@@ -278,5 +270,3 @@
                        :submit-action :actions/submit-funding-deposit
                        :submit-label (get-in actions [:submit-label])
                        :submit-disabled? true})])
-
-(def render-missing-asset-content deposit-missing-asset-content)

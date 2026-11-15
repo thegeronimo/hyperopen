@@ -15,24 +15,11 @@
 
 (def ^:private normalized-text coercion/non-blank-text)
 
-;; Render order for the grouped list. Perps lead because a perp is what the
-;; trader is usually reaching for and it used to sort below eight spot pairs and
-;; fall under the six-row cut.
 (def group-order
   [{:key :perp :label "Perps"}
    {:key :spot :label "Spot"}
    {:key :vault :label "Vaults"}])
 
-;; What the Universe panel asks candidate-markets for.
-;;
-;; The defect being fixed is SILENT truncation, not truncation itself: a realistic
-;; query ("pump" -> 13 markets) must show every match, and anything beyond the cut
-;; must be visibly counted and reachable through the facets. This is deliberately
-;; not unbounded — the rows are rendered, not virtualized, and a one- or two-
-;; character query matches most of a ~9,500-row vault index, which re-renders on
-;; every keystroke inside an already busy route. 25 covers realistic queries
-;; whole (the motivating "pump" case is 13), and the footer states the remainder
-;; rather than hiding it.
 (def panel-candidate-limit
   25)
 
@@ -53,10 +40,6 @@
   token — so anything non-blank is accepted and simply matches nothing if it
   has gone stale."
   [value]
-  ;; Keywords must be unwrapped with `name` BEFORE any text coercion: the shared
-  ;; non-blank-text helper stringifies :all to \":all\", which would sail through
-  ;; as a quote token of \":ALL\" and silently match nothing — an empty result
-  ;; list on a query with hundreds of hits. The stored default IS the keyword.
   (let [text (if (keyword? value)
                (name value)
                (normalized-text value))]
@@ -157,8 +140,6 @@
                   :label token
                   :count n
                   :active? (= token quote-filter)}))
-          ;; Most-populated first, then alphabetical, so the chip row is stable
-          ;; across keystrokes instead of reshuffling on every render.
           (sort-by (fn [[token n]] [(- n) token]) tokens))))
 
 (defn filter-markets
@@ -205,10 +186,6 @@
     {:symbol-segments (highlight lead query)
      :name-segments (highlight name query)
      :quote-label quote-label
-     ;; The name line is context, and it earns its row only when it ADDS
-     ;; something. Vault candidates set :name and :symbol to the same string, and
-     ;; a market with no catalog name falls back to echoing its own base, so
-     ;; "PUMP" would print under "PUMP/USDC". Suppress both.
      :duplicate-name? (let [name* (str/lower-case (str name))
                             base (str/lower-case
                                   (str/replace (str lead) #"[-/]$" ""))]
@@ -229,10 +206,6 @@
   [n]
   (str n (if (= 1 n) " market" " markets")))
 
-;; The design's footer offers "add all N matches". N is unbounded — a
-;; two-character query matches hundreds of instruments and every one of them
-;; joins the history request — so the batch is capped and the label always states
-;; the number that will actually be added.
 (def add-all-limit
   20)
 

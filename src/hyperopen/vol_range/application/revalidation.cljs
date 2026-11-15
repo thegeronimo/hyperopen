@@ -66,9 +66,6 @@
                           (age-error now-ms (:observed-at-ms account) (:account-ms policy)
                                      :guard/account-stale)])
         account-errors (when (not= :ready (:status account)) [:guard/account-unavailable])
-        ;; A perp review shows the leverage and margin mode it planned with
-        ;; (the ticket's setting while flat). The venue's own may differ; a
-        ;; ladder is never sent at a leverage the user did not review.
         reviewed-margin (get-in input [:account :margin])
         leverage-errors (when (and (:margin account)
                                    (not= (select-keys (:margin account) [:leverage :type])

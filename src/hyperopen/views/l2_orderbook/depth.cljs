@@ -43,7 +43,6 @@
                   animate? (into depth-bar-transition-classes))
          :style {:transform (str "scaleX(" (row-bar-scale row size-unit) ")")}}])
 
-;; Own resting order marker. Sits in the row's left padding, clear of the price text.
 (defn- own-order-pip [position-classes]
   [:span {:class (into ["pointer-events-none" "absolute" "top-1/2" "-translate-y-1/2" "z-10"
                         "h-[5px]" "w-[5px]" "rounded-full" "bg-ho-warn"]
@@ -73,8 +72,6 @@
    :focus [[:actions/set-orderbook-hover-level (:side row) depth]]
    :blur [[:actions/clear-orderbook-hover-level]]})
 
-;; Marks a level the order form's market order would take: a rail down the left edge
-;; and a band for the share of the level it takes.
 (defn- sweep-marks [fill-fraction]
   (list
    [:span {:class ["pointer-events-none" "absolute" "inset-y-0" "left-0" "z-10" "w-[2px]" "bg-ho-accent"]
@@ -85,14 +82,6 @@
            :data-role "orderbook-impact-band"
            :aria-hidden "true"}]))
 
-;; Component for individual order row.
-;; `opts`:
-;;   :depth          the row's distance from the spread (0 = best level), for hover
-;;   :flash-version  update number this level changed in (nil = unchanged)
-;;   :own-size       "0.5 BTC" when the user rests orders here
-;;   :sweep-fill     0..1 share the order form's market order would take from this level
-;;   :in-readout?    inside the hovered level's sweep (best price through the hovered level)
-;;   :readout        the depth readout card, on the hovered level only
 (defn order-row
   ([row size-unit]
    (order-row row size-unit true))
@@ -112,10 +101,7 @@
                                    flash-class (conj flash-class))
                           :data-role "orderbook-level-row"})
                   (cond-> readout (assoc :aria-describedby readout-card-id)))
-      ;; Size bar background - always grows from the left
       (depth-bar row size-unit bar-color "origin-left" animate?)
-      ;; Readout tint and hovered-row outline are their own layers: the change flash
-      ;; animates the row's background and box-shadow, and would wipe them mid-flash.
       (when in-readout?
         [:span {:class ["pointer-events-none" "absolute" "inset-0" "bg-ho-text/5"]
                 :data-role "orderbook-readout-tint"
@@ -128,7 +114,6 @@
         (sweep-marks sweep-fill))
       (when own-size
         (own-order-pip ["left-[3px]"]))
-      ;; Content
       [:div {:class ["grid" orderbook-columns-class "w-full" "items-center" "pl-2" "pr-2" "relative" "z-10"]
              :data-role "orderbook-level-content-row"}
        [:div {:class ["text-left"]
@@ -145,7 +130,6 @@
          (row-total-label row size-unit)]]]
       readout])))
 
-;; Spread component
 (defn spread-row [spread]
   [:div {:class ["ob-spread-row" "flex" "items-center" "justify-center" "h-[23px]" "bg-base-100" "border-y" "border-base-300" "text-xs"]}
    [:div {:class ["flex" "items-center" "space-x-3" "text-white" "num" "orderbook-level-value"]}
@@ -155,7 +139,6 @@
     [:span (or (:percentage-label spread)
                (str (format-percent (:percentage spread) 3) "%"))]]])
 
-;; Column headers
 (defn column-headers
   ([size-symbol] (column-headers size-symbol nil))
   ([size-symbol price-label]
@@ -227,7 +210,6 @@
       [:div {:class ["relative" "z-10" "text-right" "num-right"]
              :data-role "orderbook-mobile-ask-total-cell"}
        [:span {:class [body-neutral-text-class "num"]} ask-total]]
-      ;; One tap target per half, over the cells, so either side sets the limit price.
       (when bid
         [:button (merge (level-attrs bid "Bid" bid-own-size)
                         {:class ["absolute" "inset-y-0" "left-0" "z-20" "w-1/2" "cursor-pointer"

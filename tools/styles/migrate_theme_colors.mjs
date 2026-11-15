@@ -1,9 +1,3 @@
-// Exact-value migration of arbitrary Tailwind color utilities to semantic
-// ho-* token utilities (docs/THEMING.md). Only hexes that exactly equal a
-// default-theme token value are rewritten, so the default theme renders
-// pixel-identical. Re-run as the token vocabulary grows (Phase 8).
-//
-// Usage: node tools/styles/migrate_theme_colors.mjs [--dry-run]
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -21,15 +15,12 @@ const palette = require(
 
 const dryRun = process.argv.includes("--dry-run");
 
-// hex (lowercase, no #) -> ho token suffix, derived from the default theme.
 const tokenByHex = new Map(
   Object.entries(palette.themes[palette.defaultTheme].colors).map(
     ([token, hex]) => [hex.replace("#", "").toLowerCase(), `ho-${token}`],
   ),
 );
 
-// Utility prefixes that take a color argument. shadow-* is excluded: its
-// arbitrary values embed colors in composite syntax.
 const colorPrefixes =
   "bg|text|border(?:-[trblxy])?|divide|outline|ring(?:-offset)?|fill|stroke|from|via|to|placeholder|caret|accent|decoration";
 

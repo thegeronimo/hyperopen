@@ -33,10 +33,6 @@
 (defn- d [x] (or (some-> x str str/trim precision/parse-decimal) zero))
 (defn- ds [x] (precision/decimal->string x))
 
-;; ---------------------------------------------------------------------------
-;; Checkpoints
-;; ---------------------------------------------------------------------------
-
 (defn- daily-boundaries [a b]
   (let [first-midnight (+ (* day-ms (js/Math.floor (/ a day-ms))) day-ms)
         days (vec (take-while #(<= % b) (iterate #(+ % day-ms) first-midnight)))]
@@ -90,10 +86,6 @@
               (when (and (number? until) (<= k until) (= :ok (:status m)))
                 (equations/window-figures {:q-a q-a :c-a c-a :p-a (:price a-mark) :q-b q :c-b c :p-b (:price m)}))))
           ks (states-at campaign events ks))))
-
-;; ---------------------------------------------------------------------------
-;; Series
-;; ---------------------------------------------------------------------------
 
 (defn- num [x] (js/Number x))
 

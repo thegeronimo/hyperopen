@@ -78,12 +78,6 @@
            (get-in aligned [:history-window :limiting-source-return-observations])))))
 
 (deftest align-api-v2-poisoned-response-calendar-recomputed-client-side-test
-  ;; The history fetch includes assumption assets the alignment excludes, so the
-  ;; BACKEND's calendars are intersected over a SUPERSET of the alignment
-  ;; universe. When the response covers extra instruments and the members' own
-  ;; series support a longer shared window, the response calendars are poisoned
-  ;; and must be recomputed client-side (owner-reported: a 248-day thin asset
-  ;; truncated the whole universe's covariance window to 248 days).
   (let [d0 (day-start-ms "2026-01-01")
         day (fn [n] (+ d0 (* n day-ms)))
         universe [{:instrument-id "perp:BTC"
@@ -100,8 +94,6 @@
                                :close (+ base n)
                                :return (when (pos? n) 0.001)})
                             (range 10)))
-        ;; The thin excluded asset only covers days 8-9, so the backend's shared
-        ;; return calendar collapses to one observation.
         thin-points (mapv (fn [n]
                             {:time_ms (day n)
                              :close (+ 10 n)

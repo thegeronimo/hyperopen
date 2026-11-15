@@ -24,10 +24,6 @@
 (defn- exact-keys? [m ks] (and (map? m) (= (set (keys m)) ks)))
 (defn- str-or-nil? [x] (or (nil? x) (string? x)))
 
-;; ---------------------------------------------------------------------------
-;; Records
-;; ---------------------------------------------------------------------------
-
 (def campaign-record-keys
   #{:schema-version :record-id :kind :campaign-id :campaign-key :campaign-schema-version
     :accounting-model-version :model-versions :scope :started-by :first-operation-id :first-grid-id
@@ -54,8 +50,6 @@
   (and (exact-keys? r campaign-record-keys)
        (= :campaign (:kind r))
        (contains? #{:first-placement :user-restart} (:started-by r))
-       ;; `:market-type` and `:dex` are recorded since perps are supported;
-       ;; older (spot) campaigns have neither.
        (exact-keys? (dissoc (:scope r) :market-type :dex) campaign-scope-keys)
        (exact-keys? (:baseline r) baseline-keys)
        (exact-keys? (get-in r [:baseline :boundary]) boundary-keys)
@@ -79,10 +73,6 @@
     :coverage (exact-keys? r coverage-record-keys)
     :balance-check (map? r)
     false))
-
-;; ---------------------------------------------------------------------------
-;; View model
-;; ---------------------------------------------------------------------------
 
 (def view-model-keys
   #{:enabled? :read-only? :loading? :account-address :window :markets :coverage :headline :chart :matched

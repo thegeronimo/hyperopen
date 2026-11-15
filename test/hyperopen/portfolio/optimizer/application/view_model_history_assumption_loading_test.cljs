@@ -119,8 +119,6 @@
     (is (false? (:all-configured? loading))
         "Mid-flight completeness (nil usable set) must not read Ready to run.")
     (is (nil? (:ready-message loading)))
-    ;; No textual Status pair anymore (2026-07-10): the row's status chip
-    ;; renders the loading state from :history-loading? asserted above.
     (is (not-any? #(= "Status" (first %)) (:summary-pairs row))
         "The Status pair is gone — the chip carries the loading verdict.")
     (is (some #(= ["History used" "Loading history…"] %) (:summary-pairs row)))

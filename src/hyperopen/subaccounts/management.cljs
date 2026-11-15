@@ -12,18 +12,6 @@
 (def invalid-subaccount-name-message
   "Subaccount name must be 1-16 characters.")
 
-(def invalid-transfer-amount-message
-  transfer-amount/invalid-transfer-amount-message)
-
-(def invalid-spot-transfer-amount-message
-  transfer-amount/invalid-spot-transfer-amount-message)
-
-(def missing-spot-transfer-precision-message
-  transfer-amount/missing-spot-transfer-precision-message)
-
-(def invalid-spot-transfer-token-message
-  "Select a spot asset to transfer.")
-
 (defn- subaccount-row-address
   [row]
   (account-context/normalize-address
@@ -178,10 +166,6 @@
         length (count name*)]
     (and (pos? length)
          (<= length 16))))
-
-(defn parse-usdc-amount->micros
-  [value]
-  (transfer-amount/parse-usdc-amount->micros value))
 
 (defn- invalid-owner-effect
   []

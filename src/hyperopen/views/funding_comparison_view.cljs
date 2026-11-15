@@ -203,11 +203,6 @@
                        :else (str (count rows) " coin"
                                   (when (not= 1 (count rows)) "s")
                                   " shown"))]
-    ;; No h-full: this root is a flex item of the fixed-height app <main>, and an
-    ;; explicit height pinned its box to the viewport while the comparison table
-    ;; overflowed it — leaving the pb-16 footer clearance dead mid-content (the
-    ;; fixed footer then covered the last rows). Content-sized, the padding lands
-    ;; at the true end of the page.
     [:div {:class ["flex"
                    "w-full"
                    "flex-col"

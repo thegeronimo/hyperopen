@@ -309,10 +309,7 @@
     (is (contains? labels "Runtime"))
     (doseq [preset ["15m" "30m" "4h" "1d" "Custom"]]
       (is (contains? labels preset)))
-    ;; The heading states the venue's allowed window; the sentence below carries the
-    ;; resolved schedule, so it is not repeated here.
     (is (contains? labels "5m - 7d"))
-    ;; The D/H/M fields stay out of the way until Custom is chosen.
     (is (nil? (input-node-by-aria-label node "Days")))))
 
 (deftest twap-section-custom-runtime-reveals-day-hour-minute-fields-test
@@ -339,7 +336,6 @@
     (is (contains? labels "30 minutes"))
     (is (contains? labels "Per slice"))
     (is (contains? labels "0.0491 BTC · $10.02"))
-    ;; The four-row estimate block is gone.
     (is (not (contains? labels "Every")))
     (is (not (contains? labels "Slices")))
     (is (not (contains? labels "Per Slice")))))
@@ -348,7 +344,6 @@
   (let [labels (set (collect-strings
                      (twap-section-node {} {:twap-schedule empty-schedule})))]
     (is (contains? labels ". Enter a size to see the pieces."))
-    ;; No invented count, and no "up to N" bound to interpret.
     (is (not (contains? labels "61")))))
 
 (deftest twap-section-randomize-states-its-magnitude-test
@@ -367,7 +362,6 @@
     (is (contains? (set (collect-strings closed)) "Price guards"))
     (is (contains? (set (collect-strings closed)) "none set"))
     (is (nil? (:open (details-attrs closed))))
-    ;; A guard that is set opens the panel and says so on the summary line.
     (let [open (twap-section-node {:trigger-px "65000"}
                                   {:twap-guards (assoc no-guards
                                                        :summary "starts 65,000"
@@ -386,7 +380,6 @@
     (is (contains? buy-labels "Max Price"))
     (is (some? (input-node-by-aria-label buy "Max Price")))
     (is (some? (input-node-by-aria-label buy "Trigger Price")))
-    ;; The tag and the warning never change; only the field label does.
     (is (contains? (set (collect-strings sell)) "Min Price"))
     (is (contains? (set (collect-strings sell)) "KILL SWITCH"))
     (is (some? (input-node-by-aria-label sell "Min Price")))
@@ -405,7 +398,6 @@
     (is (contains? labels "MARK 68,412"))
     (is (contains? labels "STOPS 72,000"))
     (is (contains? labels "order works inside this band"))
-    ;; Without a band there is no empty axis left behind.
     (is (not (contains? (set (collect-strings (twap-section-node)))
                         "order works inside this band")))))
 

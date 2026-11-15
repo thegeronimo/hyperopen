@@ -95,8 +95,6 @@
   "vr-act-178def3b035941-858")
 
 (deftest capture-never-changes-the-action-legs-or-reservations-test
-  ;; Same venue, one journal empty and one with an open campaign in this
-  ;; market: the intent (digest, legs, reservations) and the send are the same.
   (async done
     (let [a (fresh)
           b (sim/new-sim)
@@ -174,7 +172,6 @@
                    (cancel/cancel! (sim/deps s) {:grid grid})))
           (.then (fn [{:keys [status grid]}]
                    (is (= :closed status))
-                   ;; Releases the closed ladder's reservations.
                    (ex/reconcile! (sim/deps s) grid)))
           (.then (fn [_] (place! (logged-deps s log) s)))
           (.then (fn [{:keys [status] :as r}]
@@ -191,7 +188,6 @@
       (assoc-in [:sell :quantity] "27")))
 
 (deftest a-replacement-reuses-the-open-campaign-test
-  ;; Spec 12.1: a campaign spans replacements.
   (async done
     (let [s (fresh)
           ctx (atom {})]

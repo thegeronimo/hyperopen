@@ -220,7 +220,6 @@
            (is (some #(= :user-fees (first %)) @stage-a-calls))
            (is (some #(= :order-history (first %)) @stage-a-calls))
            (is (= [[address ["dex-1" "dex-2"]]] @stage-b-calls))
-           ;; Same address should not trigger stage A/B again.
            (app-startup/bootstrap-account-data! system address)
            (js/setTimeout
             (fn []

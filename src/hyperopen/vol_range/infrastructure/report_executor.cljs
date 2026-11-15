@@ -77,10 +77,6 @@
                     :unreadable (vec (:unreadable l))
                     :error (or (:error j) (:error l))}))))))
 
-;; ---------------------------------------------------------------------------
-;; Backfill
-;; ---------------------------------------------------------------------------
-
 (defn- base-token [c] (some-> (get-in c [:scope :base-token-id]) str))
 
 (defn tracked-base-tokens
@@ -104,8 +100,6 @@
 
 (defn- start-for [deps loaded markets tokens stream]
   (let [overlap (policy :fills-overlap-ms)
-        ;; Only the campaigns of `tokens` need this stream (funding is read
-        ;; for perp positions only).
         start (coverage/read-start {:campaigns (into {} (filter #(contains? tokens (base-token (val %))))
                                                      (:campaigns loaded))
                                     :closures (:closures loaded)
@@ -196,8 +190,6 @@
                       evaluated (coverage/evaluate-balance-check
                                  check
                                  {:campaign c :events (:events found)
-                                  ;; A stored row that no longer decodes may hold a change
-                                  ;; of the base: it decides nothing.
                                   :breaks (-> (vec (:breaks found))
                                               (into (coverage/balance-check-breaks c checks))
                                               (into (:unreadable found)))
@@ -274,7 +266,6 @@
                                                       :start-ms start :end-ms (now deps) :now-ms! (:now-ms! deps)}))))
         (.then (fn [ledger-read]
                  (swap! state assoc :ledger-read ledger-read)
-                 ;; Funding exists only for perp positions.
                  (when (seq perps)
                    (let [start (start-for deps loaded markets perps :funding)]
                      (swap! state assoc :funding-start start)
@@ -332,7 +323,6 @@
                                                   {:complete? (boolean (:complete? f))
                                                    :rows (count (:rows f)) :reason (:reason f)})}}))))))
         (.catch (fn [e]
-                  ;; Reads never reject, so a rejection here is a storage failure.
                   {:status (if (contains? @state :snapshot) :storage/unavailable :error)
                    :error (error-text e) :account-address account})))))
 
@@ -352,8 +342,6 @@
                                                 :account-address (:account-address loaded)}
                    (empty? (tracked-base-tokens (:campaigns loaded))) {:status :skipped :reason :no-campaigns
                                                                        :account-address (:account-address loaded)}
-                   ;; Without metadata every spot fill would look like an unknown
-                   ;; market: classify nothing and claim no coverage.
                    (not (:ready? markets)) {:status :error :error "Spot metadata unavailable"
                                             :account-address (:account-address loaded)}
                    :else (run-backfill! deps loaded markets)))))

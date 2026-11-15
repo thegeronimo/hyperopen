@@ -101,7 +101,6 @@
       (let [delta-pts (* 100 (- target-vol current-vol))
             diversification-tab? (some? (structure-model/correlation-model
                                          result))
-            ;; One decimal to match the Diversification tab this chip opens.
             fmt #(opt-format/format-pct % {:minimum-fraction-digits 1
                                            :maximum-fraction-digits 1})]
         {:data-role "portfolio-optimizer-equal-risk-impact-volatility"

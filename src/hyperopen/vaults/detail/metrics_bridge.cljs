@@ -2,9 +2,6 @@
   (:require [hyperopen.system :as system]
             [hyperopen.portfolio.application.metrics-bridge :as portfolio-metrics-bridge]))
 
-(def normalize-worker-metric-values
-  portfolio-metrics-bridge/normalize-worker-metric-values)
-
 (def normalize-worker-metrics-result
   portfolio-metrics-bridge/normalize-worker-metrics-result)
 
@@ -49,7 +46,6 @@
   [request-data request-signature]
   (when (not= request-signature (:signature @last-metrics-request))
     (reset! last-metrics-request {:signature request-signature})
-    ;; Preserve the last rendered metrics while a new request is in flight.
     (when (nil? (get-in @system/store [:vaults-ui :detail-performance-metrics-result]))
       (swap! system/store assoc-in [:vaults-ui :detail-performance-metrics-loading?] true))
     (when-let [worker (current-worker metrics-worker)]

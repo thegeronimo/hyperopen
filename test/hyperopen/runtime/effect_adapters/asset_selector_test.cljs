@@ -11,21 +11,11 @@
             [hyperopen.websocket.outcome-bbo :as outcome-bbo]))
 
 (deftest asset-selector-markets-effect-deps-carry-spot-meta-projection-test
-  ;; Regression: this dependency map and the one in
-  ;; `hyperopen.startup.collaborators` are hand-written and drifted. This one
-  ;; omitted `:apply-spot-meta-success`, and the write in
-  ;; `fetch-asset-selector-markets!` is guarded on the key being present, so
-  ;; every demand-path catalog load fetched spotMeta and dropped it. `[:spot
-  ;; :meta]` stayed nil for whole sessions, which is what made every non-USDC
-  ;; token in the Send Tokens dropdown read "unavailable".
   (is (identical? market-projections/apply-spot-meta-success
                   (:apply-spot-meta-success
                    (effect-adapters/asset-selector-markets-effect-deps (atom {}) nil)))))
 
 (deftest asset-selector-markets-effect-deps-write-spot-meta-to-app-state-test
-  ;; Drives the REAL adapter dependency map end to end with only the network
-  ;; call stubbed, so a missing projection key fails here instead of passing a
-  ;; test that injects its own.
   (async done
     (let [store (atom {})
           spot-meta {:tokens [{:name "HYPE" :index 150 :tokenId "0xbaadf00d"}]}

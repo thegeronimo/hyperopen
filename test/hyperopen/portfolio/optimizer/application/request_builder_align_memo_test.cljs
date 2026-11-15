@@ -10,9 +10,6 @@
             [hyperopen.portfolio.optimizer.application.request-builder :as request-builder]))
 
 (defn- build-inputs
-  ;; A unique coin per test run keeps the memo key fresh across the shared
-  ;; (defonce) memo, so invocation counts start from a cold cache. No current
-  ;; portfolio holdings -> exactly one alignment per cold build.
   [coin as-of-ms]
   {:draft {:id "draft-align-memo"
            :universe [{:instrument-id (str "perp:" coin)
@@ -40,13 +37,9 @@
                         (original-align inputs))]
           [(request-builder/build-engine-request (build-inputs "MEMOA" 2500))
            (request-builder/build-engine-request (build-inputs "MEMOA" 7500))])]
-    ;; The second build differs ONLY in as-of; alignment must not re-run.
     (is (= 1 @align-calls))
-    ;; Freshness is still stamped per call from the caller's as-of.
     (is (= 2500 (get-in first-request [:history :freshness :as-of-ms])))
     (is (= 7500 (get-in second-request [:history :freshness :as-of-ms])))
-    ;; Apart from freshness and the request's own as-of echo, the two requests
-    ;; are identical - the as-of has no other influence on request building.
     (is (= (-> first-request
                (dissoc :as-of-ms)
                (update :history dissoc :freshness))

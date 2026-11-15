@@ -47,8 +47,6 @@
 (declare constraints-summary-line)
 
 (defn- active-preset
-  ;; Two presets: a views-aware (Black-Litterman) return model belongs to
-  ;; Maximum Sharpe — views are an input policy, not a strategy.
   [draft]
   (let [objective-kind (get-in draft [:objective :kind])
         return-kind (get-in draft [:return-model :kind])]
@@ -320,16 +318,10 @@
       :objective-label (get objective-display-names objective-kind
                             (labelize* objective-kind))
       :returns-label returns-label
-      ;; Covariance-only objectives (Minimum risk, Equal Risk) never consume
-      ;; expected returns: saying "Historical mean" under Returns would imply
-      ;; the forecast drives the result.
       :return-forecast-label (if return-free? "Not used" returns-label)
       :views-active? (= :black-litterman (get-in draft [:return-model :kind]))
       :min-variance? (= :minimum-variance objective-kind)
       :return-free? return-free?
-      ;; The policy's TARGET point (band centers), formatted for the Run
-      ;; summary's single Exposure line — the designer's card reads the target,
-      ;; not the four band rows (2026-07-10 mock parity).
       :exposure-target
       (if equal-risk?
         (equal-risk-exposure-target constraints)

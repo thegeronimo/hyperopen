@@ -1,9 +1,3 @@
-// Proxy-workflow loading visibility: while the history-bundle request is in
-// flight, the assumption card chip, the section banner, and the right-rail row
-// must all say "Loading history…" instead of passing provisional verdicts
-// ("Needs input" / premature "Configured") off as final — and settle to the
-// honest labels once the response lands. The bundle response is held open by
-// the test and released explicitly, so the in-flight window is deterministic.
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
@@ -78,8 +72,6 @@ test("portfolio optimizer proxy workflow surfaces in-flight history loading @reg
     });
   });
 
-  // Hold every history-bundle response until the test releases the gate — this
-  // IS the in-flight window the loading UI must cover.
   let releaseBundle;
   const bundleGate = new Promise((resolve) => {
     releaseBundle = resolve;
@@ -120,8 +112,6 @@ test("portfolio optimizer proxy workflow surfaces in-flight history loading @reg
     { key: "perp:WLFI", "market-type": "perp", coin: "WLFI", symbol: "WLFI-USDC", name: "World Liberty" }
   ]);
 
-  // A hydrated proxy entry (the assumption-library case the maintainer hit):
-  // complete except that its proxy's usable history hasn't loaded yet.
   await seedOptimizerState(page, [
     seedPatch(
       optimizerPath("draft", "history-assumptions"),
@@ -140,7 +130,6 @@ test("portfolio optimizer proxy workflow surfaces in-flight history loading @reg
   ]);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
-  // Adding the assets kicks off the (held) history load.
   await page.locator("[data-role='portfolio-optimizer-universe-search-input']").fill("wlfi");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:WLFI']").click();
@@ -148,7 +137,6 @@ test("portfolio optimizer proxy workflow surfaces in-flight history loading @reg
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:BTC']").click();
 
-  // --- In flight: every surface says loading, none passes a verdict.
   const chip = page.locator("[data-role='portfolio-optimizer-history-assumption-status-perp:WLFI']");
   await expect(chip).toHaveAttribute("data-loading", "true", { timeout: 15_000 });
   await expect(chip).toContainText("Loading history");
@@ -159,23 +147,17 @@ test("portfolio optimizer proxy workflow surfaces in-flight history loading @reg
   await expect(railStatus).toContainText("Loading history");
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-apply-perp:WLFI']"))
     .toBeDisabled();
-  // The rail header count must not pass a configured-verdict mid-flight (the
-  // old all-configured ready banner is gone; the count carries the gate now).
   const railCount = page.locator("[data-role='portfolio-optimizer-history-assumptions-rail-count']");
   await expect(railCount).toHaveAttribute("data-loading", "true");
   await expect(railCount).toContainText("Loading history");
   expect(bundleRequests).toBeGreaterThan(0);
 
-  // --- Release the response: the provisional loading labels settle to the
-  // honest verdicts (BTC's 400-day history makes the WLFI entry complete).
   releaseBundle();
 
   await expect(chip).toHaveAttribute("data-status", "configured", { timeout: 20_000 });
   await expect(chip).not.toHaveAttribute("data-loading", "true");
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumptions-loading-banner']"))
     .toHaveCount(0);
-  // Configured settles to the glyph chip (aria-label "Configured") and the
-  // header count states the aggregate once.
   await expect(railStatus).toContainText("✓");
   await expect(railStatus).not.toHaveAttribute("data-loading", "true");
   await expect(railCount).toContainText("1 of 1 configured");

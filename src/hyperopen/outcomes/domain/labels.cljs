@@ -5,8 +5,6 @@
   (:require [clojure.string :as str]))
 
 (def ^:private asset-aliases
-  ;; Display names for the underlyings the live feed prices outcomes against.
-  ;; Anything missing here shows its base symbol (xyz:NVDA -> NVDA).
   {"BTC" "Bitcoin"
    "ETH" "Ethereum"
    "SOL" "Solana"
@@ -17,7 +15,6 @@
    "xyz:CL" "Crude oil"})
 
 (def ^:private index-underlyings
-  ;; Index levels are points, not dollars.
   #{"xyz:SP500" "xyz:XYZ100"})
 
 (def ^:private institution-aliases
@@ -47,11 +44,6 @@
     (when (and text (not= "season" (str/lower-case text))) text)))
 
 (def ^:private venue-names
-  ;; Outcome deployers publish a short code. Only names that are certain are
-  ;; mapped; the display names of `out`, `skew` and `fox` are not documented,
-  ;; so those codes are shown as published rather than guessed. Add a name
-  ;; here once confirmed and every surface picks it up.
-  ;; `txyz` is trade.xyz, the deployer of the `xyz:` HIP-3 perps.
   {"txyz" "trade.xyz"})
 
 (defn venue-label

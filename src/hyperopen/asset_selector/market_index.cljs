@@ -75,10 +75,6 @@
            (vals (or market-by-key {})))))
 
 (defonce ^:private outcome-token-index-cache
-  ;; catalog value -> token index. The views resolve outcome sides against
-  ;; both the live catalog and the quote-stable one handed to the account
-  ;; panels and chart; a single slot thrashed between them and rebuilt the
-  ;; index over the whole catalog on every switch.
   (js/WeakMap.))
 
 (defn outcome-token-index

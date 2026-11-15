@@ -21,10 +21,6 @@
 
 (defn- paths [patch] (mapv first patch))
 
-;; ---------------------------------------------------------------------------
-;; Ticket patches
-;; ---------------------------------------------------------------------------
-
 (deftest settings-draft-patch-test
   (let [patch (ladder-settings/settings->draft-patch settings-13-2)]
     (is (= (count patch) (count (distinct (paths patch)))) "each path once")
@@ -34,7 +30,6 @@
     (is (= [] (ladder-settings/settings->draft-patch (assoc settings-13-2 :draft nil))))))
 
 (deftest preview-patch-from-13-2-settings-test
-  ;; Spec 13.4: 33 live buy units after the 76.4 buy was rejected, 30 sell.
   (let [patch (replace-flow/preview-patch settings-13-2 {:buy "33" :sell "30"})
         draft (apply-patch patch)]
     (is (= (count patch) (count (distinct (paths patch)))))
@@ -100,10 +95,6 @@
   (is (= :canceled (replace-flow/phase-after-confirm {:ready? true})))
   (is (= :blocked (replace-flow/phase-after-confirm {:ready? false :blocking [:replace/legs-still-open]})))
   (is (= :blocked (replace-flow/phase-after-confirm nil))))
-
-;; ---------------------------------------------------------------------------
-;; Freeze and predecessor admission
-;; ---------------------------------------------------------------------------
 
 (def c1 "0x484f5652000000000000000000000001")
 (def c2 "0x484f5652000000000000000000000002")

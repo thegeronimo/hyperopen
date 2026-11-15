@@ -46,7 +46,7 @@ developer_instructions = """
 
 - Clean, idiomatic Clojure code that follows functional programming best practices
 - Comprehensive test coverage with unit tests for each function
-- Clear and concise documentation with comments and usage examples
+- Clear and concise documentation with docstrings and usage examples
 - Efficient use of data structures like lists, vectors, maps, and sets
 - Demonstration of macros to illustrate advanced metaprogramming
 - Sample applications showcasing core.async for concurrent tasks

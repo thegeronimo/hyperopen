@@ -40,10 +40,6 @@
       [[:effects/save-many path-values]]
       [])))
 
-;; ---------------------------------------------------------------------------
-;; Daily candles
-;; ---------------------------------------------------------------------------
-
 (defn- active-spot-coin [state]
   (let [market (:active-market state)]
     (when (and (contracts/supported-market? market) (seq (:coin market)))
@@ -75,10 +71,6 @@
    :interval :1d
    :bars (:daily-fetch-bars contracts/product-policy)])
 
-;; ---------------------------------------------------------------------------
-;; Handlers
-;; ---------------------------------------------------------------------------
-
 (defn select-scale-mode
   "Select Price range or Volatility range. Selecting Volatility range rebinds the
   scoped draft and, when the daily candles are missing, stale or from a previous
@@ -107,7 +99,6 @@
         (when-let [x (some-> (if (= side :buy) (:max-debit t) (:gross t)) precision/parse-decimal)]
           [[[side :quote-amount] (precision/decimal->string (precision/quantize x 2 :ceil))]])
         (cond-> [[[side :quantity] (:quantity t)]]
-          ;; The amount was the buy cap; keep it as the cap if none is set.
           (and (= side :buy) (some? (:quote-amount t)) (str/blank? (str (:max-usdc-debit draft))))
           (conj [[:buy :max-usdc-debit] (:quote-amount t)]))))))
 
@@ -148,8 +139,6 @@
            [[:inventory k]
             (if-let [v (filled (quote-key k))]
               (if (and (= :target k) (not (:tilt-enabled? inv)))
-                ;; With tilt off the plan ignores target, so its outcome is
-                ;; the default; convert the entered value directly.
                 (or (when (and anchor (number? sz) (precision/pos-dec? anchor))
                       (precision/decimal->string
                        (precision/quantize (precision/divide v anchor 20 :half-up) sz :half-up)))
@@ -177,8 +166,6 @@
      (if-let [transition (if (seq carry)
                            (transitions/apply-patch state (into [[path* unit]] carry))
                            (transitions/update-draft state path value))]
-       ;; Editing a limit keeps the limits open, so the section never folds
-       ;; under the cursor once an edit clears the issue that opened it.
        (save-many-effects state transition
                           (when (and (= :inventory (first path*)) (contains? limit-edit-keys (second path*)))
                             [[[:vol-range :ui :limits-open?] true]]))
@@ -216,7 +203,6 @@
    (let [id* (cond (keyword? id) id (string? id) (keyword id) :else nil)
          plan (plan-state/plan-for-state state now-ms)
          offer (some #(when (= id* (:id %)) %) (:remediations plan))]
-     ;; Re-check against the live book: a memoized offer may predate a tick.
      (if (and offer (plan-state/offer-still-ready? state now-ms offer))
        (save-many-effects state (transitions/apply-patch state (:patch offer)) nil)
        []))))

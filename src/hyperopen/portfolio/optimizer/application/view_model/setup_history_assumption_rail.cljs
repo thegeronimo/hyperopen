@@ -22,9 +22,6 @@
     (exposure/observations-label observations)))
 
 (defn- rail-summary-pairs
-  ;; No "Status" pair: the row's own status chip already carries it, and a
-  ;; second textual restatement per asset was pure duplication (2026-07-10
-  ;; comprehension pass).
   [card]
   (let [proxy? (= :proxy (:mode card))
         final-rows (get-in card [:final-basket :rows])]
@@ -33,8 +30,6 @@
             ["Proxy assets" (if (seq (:selected-proxies card))
                               (str/join ", " (map :label (:selected-proxies card)))
                               "None selected")])
-          ;; The confidence-shrunk split that actually drives covariance
-          ;; synthesis - never the raw prior.
           (when (and proxy? (seq final-rows))
             ["Final modeled basket" (exposure/basket-summary-text final-rows " · ")])
           (when proxy?
@@ -43,10 +38,6 @@
           ["Max allocation cap" (or (get-in card [:max-weight :percent-label]) "--")]
           (when proxy?
             ["Regression confidence" (diagnostics-cell-value card :regression-confidence)])
-          ;; Proxy cards report the window the risk model estimates over (the
-          ;; proxy-extended shared window), never the asset's own short overlap
-          ;; — that one reads as "the model only uses N days" and is demoted to
-          ;; its own calibration line.
           (if (and proxy? (:covariance-observations card))
             ["History used" (str (rail-observations-label card (:covariance-observations card))
                                  " · via proxies")]
@@ -72,9 +63,6 @@
                                                     history-load-state
                                                     opts)
          any-loading? (boolean (some :history-loading? cards))
-         ;; "Ready to run" judged while proxy history is still fetching is the
-         ;; same mid-flight falsehood as a green Configured chip - completeness
-         ;; against a not-yet-loaded usable set flips on its own moments later.
          all-configured? (and (seq cards)
                               (not any-loading?)
                               (every? :engine-applied? cards))]
@@ -93,8 +81,5 @@
       :all-configured? all-configured?
       :any-loading? any-loading?
       :configured-count (count (filter :engine-applied? cards))
-      ;; Same aggregates the center section's apply-all banner keys off, passed
-      ;; through untouched so the rail's shortcut can never disagree with the
-      ;; banner about how many recommendations are applicable.
       :recommended-count (or recommended-count 0)
       :recommended-actions recommended-actions})))

@@ -17,7 +17,6 @@
                           :universe [btc]
                           :objective {:kind :minimum-variance}}
                 :blocking-warnings blocking-warnings}
-    ;; history has loaded (it requested perp:NEW), so the no-history card shows.
     :history-load-state {:status :succeeded
                          :request-signature {:universe [btc new-perp]}}}))
 
@@ -53,9 +52,6 @@
         "Field-level errors are surfaced on the active question.")))
 
 (deftest history-assumptions-section-manual-controls-are-opt-in-test
-  ;; Recommendation first: the hand-editing surface sits behind one disclosure
-  ;; that is never :open from state, so a computed open can never re-assert
-  ;; itself against the user's own toggle.
   (let [node (section {:behavior :conservative :max-weight 0.03} [])
         adjust (ts/node-by-role node "portfolio-optimizer-history-assumption-adjust-perp:NEW")]
     (is (some? adjust))
@@ -64,8 +60,6 @@
     (is (some #{"Adjust by hand"} (ts/collect-strings adjust)))))
 
 (deftest history-assumptions-section-unconfigured-asset-offers-both-modes-test
-  ;; A thin-history asset with no entry yet offers both behaviors as mode tabs;
-  ;; it stays excluded until the user picks one.
   (let [node (setup-history-assumptions/history-assumptions-section
               {:state {}
                :draft {:universe [btc new-perp]
@@ -171,10 +165,6 @@
         "The raw engine-backing status rides on untouched for the pinned contract.")))
 
 (deftest history-assumptions-section-folds-every-diagnostic-behind-one-toggle-test
-  ;; The exposure story (prior -> regression -> final basket -> confidence ->
-  ;; specific risk -> window) used to be five always-open panels. It is now one
-  ;; disclosure whose HEAD still carries the answer, so opening is a choice to
-  ;; see the workings, never the only way to read the model.
   (let [node (proxy-section :minimum-variance)
         detail (ts/node-by-role node "portfolio-optimizer-history-assumption-model-detail")
         line (ts/node-by-role node "portfolio-optimizer-history-assumption-model-line")
@@ -198,8 +188,6 @@
               strings))))
 
 (deftest history-assumptions-section-proxy-search-results-click-adds-and-clears-test
-  ;; Full-catalog typeahead: a matching catalog asset (SOL, not in the universe)
-  ;; shows as a result; clicking it adds the proxy and clears the search buffer.
   (let [sol {:key "perp:SOL" :market-type :perp :coin "SOL" :symbol "SOL-USDC" :volume24h 999}
         node (setup-history-assumptions/history-assumptions-section
               {:state {:asset-selector {:markets [sol]}
@@ -232,10 +220,6 @@
       "Return-seeking objectives do."))
 
 (deftest history-assumptions-section-offers-manual-entry-when-no-cards-test
-  ;; Even when every selected asset has adequate history the workflow stays
-  ;; reachable: the user may judge an asset statistically unsound on their own
-  ;; (user feedback 2026-07-05 - "how would I factor load SOPH?") and start it
-  ;; by hand. Choosing an asset from the dropdown seeds proxy mode.
   (let [node (setup-history-assumptions/history-assumptions-section
               {:draft {:universe [btc eth]
                        :objective {:kind :minimum-variance}
@@ -270,9 +254,6 @@
         "perp:NEW is already in the queue, so only the remaining assets are addable.")))
 
 (deftest history-assumptions-section-add-dropdown-shows-day-counts-ascending-test
-  ;; The dropdown ranks assets by native return-day count ASCENDING with the
-  ;; count in the label, so the user can proxy out the most limiting assets
-  ;; (the ones capping the shared covariance window) first instead of blind.
   (let [node (setup-history-assumptions/history-assumptions-section
               {:state {}
                :draft {:universe [btc eth]
@@ -317,8 +298,6 @@
                          :request-signature {:universe [btc eth new-perp]}}}))
 
 (deftest history-assumptions-section-settled-asset-reads-as-done-test
-  ;; Complete AND acknowledged: the queue owes this asset nothing, so the
-  ;; question flips to "change it?" and the CTA stops asking for a decision.
   (let [node (acknowledged-section {})
         card (ts/node-by-role node "portfolio-optimizer-history-assumption-card-perp:NEW")
         count-label (ts/node-by-role node "portfolio-optimizer-history-assumptions-count")
@@ -335,8 +314,6 @@
         "Nothing needs the user, so the section rests closed.")))
 
 (deftest history-assumptions-section-rail-selects-without-settling-test
-  ;; The rail is the queue's orientation device: every asset always visible, one
-  ;; click to move, and moving settles nothing.
   (let [other {:instrument-id "perp:OTHER" :market-type :perp :coin "OTHER"}
         node (setup-history-assumptions/history-assumptions-section
               {:state {:portfolio-ui {:optimizer {:history-assumption-active "perp:OTHER"}}}
@@ -368,8 +345,6 @@
         "Skip advances without accepting anything.")))
 
 (deftest history-assumptions-section-advance-accepts-then-moves-on-test
-  ;; "Accept & next" carries the model panel's OWN accept action so the two can
-  ;; never disagree about what accepting means, then hops to the next asset.
   (let [other {:instrument-id "perp:OTHER" :market-type :perp :coin "OTHER"}
         node (setup-history-assumptions/history-assumptions-section
               {:state {}

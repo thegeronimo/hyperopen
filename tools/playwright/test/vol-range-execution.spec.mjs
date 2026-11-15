@@ -21,12 +21,6 @@ import {
   trackExchange
 } from "../support/vol_range_world.mjs";
 
-// Vol Range placement, cancel and recovery (HO-SPEC-014 v2.1 sections 8-10, 15.2).
-//
-// The shared world (tools/playwright/support/vol_range_world.mjs) stubs /info, answers
-// signed actions with the debug exchange simulator and aborts anything bound for a real
-// /exchange endpoint.
-
 test("opted out hides placement and never reaches the exchange @regression", async ({ page }) => {
   const exchange = trackExchange(page);
   const world = newWorld();
@@ -50,7 +44,6 @@ test("placement (on by default, no cap) sends one post-only ladder and the dock 
   await openReview(page);
   const submit = page.locator('[data-role="vol-range-submit"]');
   await expect(submit).toBeEnabled();
-  // Double click: the second click must not produce a second order action.
   await submit.dblclick().catch(() => {});
   await expect(page.locator('[data-role="vol-range-review"]')).toBeHidden({ timeout: 15_000 });
   await waitForIdle(page, { quietMs: 500, timeoutMs: 5_000, pollMs: 50 });
@@ -68,7 +61,7 @@ test("placement (on by default, no cap) sends one post-only ladder and the dock 
   await expect(row(page)).toHaveCount(1);
   await expect(statusLabel(page)).toContainText("Live");
   await expect(row(page).locator('[data-role="vol-ladder-counts"]')).toContainText("7 live");
-  expect(exchange).toEqual([]); // simulator answered; nothing hit the real host
+  expect(exchange).toEqual([]);
 });
 
 test("partial deployment reports the rejected leg @regression", async ({ page }) => {
@@ -90,7 +83,6 @@ test("partial deployment reports the rejected leg @regression", async ({ page })
   await expect(row(page).locator('[data-role="vol-ladder-partial"]')).toHaveText(
     "1 order was not placed. 6 other orders remain active."
   );
-  // Placement selects the new ladder, so its detail may already be open.
   await showLadderOrders(page);
   const legs = row(page).locator('[data-role="vol-ladder-leg"]');
   await expect(legs).toHaveCount(7);
@@ -123,7 +115,6 @@ test("cancel sends one cancel for all seven orders and the ladder closes @regres
   }
   expect(actionsOfType(calls, "order")).toHaveLength(1);
 
-  // Venue now shows nothing open and every order canceled.
   world.openOrders = [];
   const canceledRows = new Map(openOrderRows(orderAction).flatMap((r) => [[String(r.oid), r], [String(r.cloid).toLowerCase(), r]]));
   world.orderStatus = (id) => {
@@ -163,7 +154,6 @@ test("reload restores the ladder from the journal without resending @regression"
   await openVolLaddersTab(page);
   await expect(row(page)).toHaveCount(1, { timeout: 15_000 });
   await expect(row(page).locator('[data-role="vol-ladder-market"]')).toContainText("VRT");
-  // The simulator was re-installed after the reload: no order action in its fresh log.
   expect(actionsOfType(await exchangeCalls(page), "order")).toEqual([]);
 });
 
@@ -183,7 +173,7 @@ test("unknown outcome shows checking status and never resends @regression", asyn
   await installExchange(page, {
     order: { responses: [{ rejectMessage: "Failed to fetch (simulated network drop after send)" }] }
   });
-  world.openOrders = []; // the request never reached the venue
+  world.openOrders = [];
   await openReview(page);
   await page.locator('[data-role="vol-range-submit"]').click();
   await expect(page.locator('[data-role="vol-range-review"]')).toBeHidden({ timeout: 15_000 });
@@ -193,7 +183,6 @@ test("unknown outcome shows checking status and never resends @regression", asyn
   await expect(statusLabel(page)).toContainText("Checking status");
   await expect(statusLabel(page)).not.toContainText("Live");
   expect(actionsOfType(await exchangeCalls(page), "order")).toHaveLength(1);
-  // Even after a status refresh, nothing is resent.
   const refresh = row(page).locator('[data-role="vol-ladder-refresh"]');
   if (await refresh.isEnabled()) await refresh.click();
   await waitForIdle(page, { quietMs: 500, timeoutMs: 5_000, pollMs: 50 });

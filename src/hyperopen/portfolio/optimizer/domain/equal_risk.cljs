@@ -79,8 +79,6 @@
            (<= rms-error tolerance)) :exact
       :else :approximate)))
 
-;; --- Targets and books -------------------------------------------------------
-
 (defn exposure-targets
   "Gross TARGET for Equal Risk. Stored net policy is deliberately omitted:
   :equal-risk treats net as a solver output, not an input constraint."
@@ -119,8 +117,6 @@
   (case book
     :long [(max 0 lower) upper]
     :short [(max 0 (- upper)) (- lower)]))
-
-;; --- Deterministic seeds -----------------------------------------------------
 
 (defn project-book-magnitudes
   "Deterministic bisection projection of raw magnitudes v onto one bounded
@@ -221,8 +217,6 @@
                     (assoc acc idx signed)))
                 weights
                 (map vector (:indexes projected) (:magnitudes projected)))))))
-
-;; --- Damped BFGS -------------------------------------------------------------
 
 (defn identity-hessian
   [n]

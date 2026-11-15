@@ -97,9 +97,6 @@
 
 (defn load-account-tab-module-effect
   [_ store tab]
-  ;; The failure is already recorded in app-db and surfaced by the panel as a
-  ;; retryable error, so swallow the rejection here rather than letting it
-  ;; surface as an unhandled promise rejection in the console.
   (-> (account-tab-modules/load-account-tab-module! store tab)
       (.catch (fn [_err] nil))))
 
@@ -252,13 +249,8 @@
 (def sync-active-asset-funding-predictability funding-adapters/sync-active-asset-funding-predictability)
 (def sync-perp-annotations perp-annotation-adapters/sync-perp-annotations)
 
-(def make-portfolio-optimizer-controller-resolver portfolio-optimizer-adapters/make-portfolio-optimizer-controller-resolver)
-(def make-run-portfolio-optimizer portfolio-optimizer-adapters/make-run-portfolio-optimizer)
-(def make-run-portfolio-optimizer-pipeline portfolio-optimizer-adapters/make-run-portfolio-optimizer-pipeline)
 (def run-portfolio-optimizer-effect portfolio-optimizer-adapters/run-portfolio-optimizer-effect)
 (def load-portfolio-optimizer-history-effect portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect)
-(def load-portfolio-optimizer-history-discovery-effect
-  portfolio-optimizer-adapters/load-portfolio-optimizer-history-discovery-effect)
 (def run-portfolio-optimizer-pipeline-effect portfolio-optimizer-adapters/run-portfolio-optimizer-pipeline-effect)
 (def load-portfolio-optimizer-scenario-index-effect portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-index-effect)
 (def load-portfolio-optimizer-scenario-effect portfolio-optimizer-adapters/load-portfolio-optimizer-scenario-effect)
@@ -272,8 +264,6 @@
   portfolio-optimizer-adapters/refresh-portfolio-optimizer-rebalance-slippage-snapshots-effect)
 (def enable-portfolio-optimizer-manual-tracking-effect
   portfolio-optimizer-adapters/enable-portfolio-optimizer-manual-tracking-effect)
-(def reset-portfolio-optimizer-draft-effect
-  portfolio-optimizer-adapters/reset-portfolio-optimizer-draft-effect)
 
 (def restore-dialog-focus-effect
   funding-adapters/restore-dialog-focus-effect)
@@ -363,9 +353,6 @@
 
 (def api-fetch-vault-details-effect
   vault-adapters/api-fetch-vault-details-effect)
-
-(def api-fetch-vault-benchmark-details-effect
-  vault-adapters/api-fetch-vault-benchmark-details-effect)
 
 (def api-fetch-vault-webdata2-effect
   vault-adapters/api-fetch-vault-webdata2-effect)

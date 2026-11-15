@@ -25,21 +25,6 @@ import {
   venueOid
 } from "../support/vol_range_world.mjs";
 
-// Vol Range repair of definitively rejected orders (HO-SPEC-014 v2.1 sections 8.6, 11.2,
-// 11.4, 13.4; VR-16). The seven-order fixture is placed with the 76.4 buy rejected
-// post-only; the stubbed book then moves to 76.00/76.35, where 76.4 would cross and the
-// repair review steps it away from the book to 76.16 (0.80 sigma from the deployed anchor).
-//
-// Vol Range ladder update (replace; spec sections 10.2, 11.2, 11.4, 13.4; VR-15, VR-16):
-// Preview update, cancel the old ladder with 3 of its 10-unit sell filled while the cancel
-// is pending, review and place the unfilled remainder (buys 40, sells 27) with lineage;
-// leaving after the cancel places nothing.
-//
-// Every signed action is answered by the debug exchange simulator and every read by the
-// stubbed /info world; anything bound for a real /exchange endpoint is aborted.
-//
-// See docs/exec-plans/completed/2026-10-28-vol-range-repair-replace.md (Stages R5 and P4).
-
 const REJECT_REASON = "Post only order would have immediately matched, bbo was 76.00@76.35. asset=19001";
 const CROSSING_BOOK = { bid: "76.00", ask: "76.35" };
 const BLOCKED_TEXT = "Some old orders have an unknown status.";
@@ -54,12 +39,6 @@ async function orderActions(page) {
   return actionsOfType(await exchangeCalls(page), "order");
 }
 
-/**
- * Place the fixture with its first order (the 76.4 buy) rejected post-only and the other
- * six resting; `repairResponses` answer later signed order actions (the repair) and
- * `extra` adds simulator answers for other signed actions (a cancel).
- * Returns the first signed order action.
- */
 async function placePartial(page, world, repairResponses = [], extra = {}) {
   world.accepted = (i, call) => !(call === 0 && i === 0);
   const statuses = [{ error: REJECT_REASON }, ...Array.from({ length: 6 }, (_, i) => resting(i + 2))];
@@ -76,9 +55,6 @@ async function placePartial(page, world, repairResponses = [], extra = {}) {
 
   await openVolLaddersTab(page);
   await expect(statusLabel(page)).toHaveText("Partially deployed");
-  // Reconcile once, as the dock does in the background: the balance read it requests
-  // includes the venue hold of the six resting orders, which releases the placement's own
-  // pending reservation (spec 3.3) so admission does not count those funds twice.
   const refresh = row(page).locator('[data-role="vol-ladder-refresh"]');
   await refresh.click();
   await expect(refresh).toBeEnabled({ timeout: 15_000 });
@@ -87,7 +63,6 @@ async function placePartial(page, world, repairResponses = [], extra = {}) {
   return orders[0];
 }
 
-/** Move the stubbed book, then open the rejected-order review from the dock. */
 async function openRepair(page, world, book = CROSSING_BOOK) {
   world.book = book;
   await expect(repairButton(page)).toHaveText("Repair 1 rejected order");
@@ -119,7 +94,6 @@ test("repairing the rejected buy sends one new order and the ladder becomes live
   await expect(dialog(page).locator('[data-role="vol-ladder-repair-leg-select"]')).toBeChecked();
   await expect(submitRepair(page)).toHaveText("Place 1 repair order");
   await expect(submitRepair(page)).toBeEnabled();
-  // Opening the review sends nothing.
   expect(await orderActions(page)).toHaveLength(1);
 
   await submitRepair(page).click();
@@ -139,7 +113,6 @@ test("repairing the rejected buy sends one new order and the ladder becomes live
   const repairCloid = String(sent.c).toLowerCase();
   expect(repairCloid).not.toBe(rejectedCloid);
   expect(repairCloid.startsWith("0x484f5652")).toBe(true);
-  // The six survivors are never resent.
   const survivorCloids = first.orders.slice(1).map((o) => String(o.c).toLowerCase());
   expect(survivorCloids).not.toContain(repairCloid);
 
@@ -181,7 +154,6 @@ test("Refresh prices re-proposes from the moved book and sends nothing @regressi
   await openRepair(page, world);
   await expect(repairPrice(page)).toHaveText("76.16");
 
-  // The ask moves above the rejected price: 76.4 no longer crosses and is kept.
   world.book = { bid: "75.00", ask: "76.50" };
   await dialog(page).locator('[data-role="vol-ladder-repair-refresh"]').click();
   await expect(repairPrice(page)).toHaveText("76.4", { timeout: 15_000 });
@@ -202,7 +174,6 @@ test("Escape closes the review and focus returns to the repair button @regressio
   await placePartial(page, world);
   await openRepair(page, world);
   await expect(repairPrice(page)).toHaveText("76.16");
-  // Opening the review moves focus into the dialog.
   await expect
     .poll(() => page.evaluate(() => !!document.activeElement?.closest('[data-role="vol-ladder-repair-dialog"]')))
     .toBe(true);
@@ -220,7 +191,6 @@ test("a repair refused because the book moved past the frozen price sends nothin
   await openRepair(page, world);
   await expect(repairPrice(page)).toHaveText("76.16");
 
-  // The ask drops below the frozen 76.16: admission re-reads the book and refuses.
   world.book = { bid: "75.90", ask: "76.10" };
   await submitRepair(page).click();
   await expect(dialog(page).locator('[data-role="vol-ladder-repair-error"]')).toContainText(
@@ -234,10 +204,6 @@ test("a repair refused because the book moved past the frozen price sends nothin
   await expect(statusLabel(page)).toHaveText("Partially deployed");
   expect(world.blockedExchange).toEqual([]);
 });
-
-// ---------------------------------------------------------------------------
-// Update (replace) a ladder
-// ---------------------------------------------------------------------------
 
 const INTERMEDIATE = "Old ladder canceled. Review the updated quantities before placing the replacement.";
 
@@ -253,7 +219,6 @@ function cancelActions(calls) {
 
 const sumSizes = (orders) => orders.reduce((n, o) => n + Number(o.s), 0);
 
-/** The venue's open-order rows for the orders of the first signed order action, minus `skip`. */
 function firstActionRows(orderAction, skip = []) {
   return orderAction.orders
     .map((o, i) => [i, openOrderRows({ orders: [o] }, { oidBase: venueOid(0, i) - 1 })[0]])
@@ -261,7 +226,6 @@ function firstActionRows(orderAction, skip = []) {
     .map(([, r]) => r);
 }
 
-/** A venue fill row for `sz` of `order` (oid `oid`), as the REST fill reads return it. */
 function fillRow(order, oid, { sz, tid }) {
   const buy = !!order.b;
   return {
@@ -282,11 +246,6 @@ function fillRow(order, oid, { sz, tid }) {
   };
 }
 
-/**
- * Venue state once the cancel lands: nothing from the old ladder rests (later order
- * actions do), every old order reports canceled with `remaining` unfilled, and `fills`
- * landed while the cancel was pending.
- */
 function cancelLands(world, rows, { remaining = (r) => r.sz, fills = [], totals = null } = {}) {
   world.onCancel = (w) => {
     w.openOrders = null;
@@ -305,12 +264,10 @@ async function openUpdate(page) {
   await expect(updateDialog(page).getByRole("heading", { name: "Update ladder" })).toBeVisible();
 }
 
-/** Click "Cancel current ladder to update" and wait until the cancellation is confirmed. */
 async function cancelForUpdate(page) {
   await inUpdate(page, "vol-range-replace-cancel-old").click();
   const message = inUpdate(page, "vol-range-replace-message");
   const check = inUpdate(page, "vol-range-replace-check");
-  // "Check again" when a fill or cancel status had not been read yet.
   await expect
     .poll(
       async () => {
@@ -344,7 +301,6 @@ test("updating a live ladder places the unfilled remainder after a fill during t
   await openVolLaddersTab(page);
   await expect(statusLabel(page)).toContainText("Live");
 
-  // Step 1: preview, old versus proposed. Nothing is sent.
   await openUpdate(page);
   await expect(inUpdate(page, "vol-range-replace-explainer")).toContainText("Updating takes two separate steps.");
   await expect(inUpdate(page, "vol-range-replace-compare")).toBeVisible();
@@ -355,7 +311,6 @@ test("updating a live ladder places the unfilled remainder after a fill during t
   );
   expect(await orderActionCount(page)).toBe(1);
 
-  // Steps 2-4: 3 of the 10-unit sell fill while the cancel is pending; the rest is canceled.
   cancelLands(world, firstActionRows(first), {
     remaining: (r) => (r.oid === sellOid ? "7" : r.sz),
     fills: [fillRow(sell, sellOid, { sz: "3", tid: 990001 })],
@@ -375,7 +330,6 @@ test("updating a live ladder places the unfilled remainder after a fill during t
   await expect(inUpdate(page, "vol-range-replace-filled")).toHaveText("Filled while canceling: sells 3 VRT.");
   await expect(inUpdate(page, "vol-range-replace-rejected")).toHaveCount(0);
 
-  // Step 5: the remainder goes into the ticket.
   await inUpdate(page, "vol-range-replace-use-quantities").click();
   await expect(updateDialog(page)).toBeHidden();
   await expect(ticket(page).locator("#vol-range-buy-quantity")).toHaveValue("40");
@@ -385,7 +339,6 @@ test("updating a live ladder places the unfilled remainder after a fill during t
     "Replacing the ladder created"
   );
 
-  // Step 6: the ordinary review shows the lineage and places the replacement.
   await openReview(page);
   const lineage = page.locator('[data-role="vol-range-review-lineage"]');
   await expect(lineage).toContainText("Replaces the ladder created");
@@ -419,7 +372,6 @@ test("updating a live ladder places the unfilled remainder after a fill during t
   expect(world.blockedExchange).toEqual([]);
 });
 
-/** A live ladder, its update previewed and the old ladder canceled (no fills). */
 async function canceledForUpdate(page, world) {
   const first = await placeLive(page, world, cancelResponses(7));
   await openVolLaddersTab(page);
@@ -471,7 +423,6 @@ test("a reload after the cancel abandons the update and places nothing @regressi
   await expect(banner(page)).toHaveCount(0);
   await expect(updateDialog(page)).toHaveCount(0);
   await page.waitForTimeout(1_000);
-  // The simulator was re-installed after the reload: its fresh log has no order action.
   expect(before + (await orderActionCount(page))).toBe(1);
   expect(world.blockedExchange).toEqual([]);
 });
@@ -534,7 +485,6 @@ test("an unknown cancel outcome blocks the replacement review @regression", asyn
     cancel: { responses: [lost] },
     cancelByCloid: { responses: [lost] }
   });
-  // The cancel never reached the venue: every old order still rests there.
   world.orderStatus = orderStatusFor(firstActionRows(first), { status: () => "open" });
   await openVolLaddersTab(page);
   await expect(statusLabel(page)).toContainText("Live");
@@ -548,7 +498,6 @@ test("an unknown cancel outcome blocks the replacement review @regression", asyn
   await expect(inUpdate(page, "vol-range-replace-use-quantities")).toHaveCount(0);
   await expect(inUpdate(page, "vol-range-replace-message")).toHaveCount(0);
 
-  // Checking again while the outcome is still unknown stays blocked.
   await expect(inUpdate(page, "vol-range-replace-check")).toBeEnabled({ timeout: 15_000 });
   await inUpdate(page, "vol-range-replace-check").click();
   await expect(inUpdate(page, "vol-range-replace-check")).toBeEnabled({ timeout: 15_000 });
@@ -556,7 +505,6 @@ test("an unknown cancel outcome blocks the replacement review @regression", asyn
   await expect(inUpdate(page, "vol-range-replace-use-quantities")).toHaveCount(0);
   expect(await orderActionCount(page)).toBe(1);
 
-  // Stopping now must not call the old ladder canceled: its orders still rest.
   await inUpdate(page, "vol-range-replace-abandon").click();
   await expect(updateDialog(page)).toBeHidden();
   await expect(banner(page)).toHaveCount(0);
@@ -585,7 +533,6 @@ test("Escape returns focus to Preview update and the cancel result is announced 
   await page.keyboard.press("Escape");
   await expect(updateDialog(page)).toBeHidden();
   await expect(previewButton(page)).toBeFocused();
-  // The ticket banner reopens the update; nothing has been canceled.
   await expect(banner(page)).toContainText("step 1 of 3");
   await banner(page).locator('[data-role="vol-range-replace-open"]').click();
   await expect(updateDialog(page)).toBeVisible();
@@ -600,7 +547,6 @@ test("Escape returns focus to Preview update and the cancel result is announced 
   expect(await orderActionCount(page)).toBe(1);
 });
 
-/** The dialog fits the viewport and nothing scrolls horizontally. */
 async function expectDialogFits(page, width) {
   await expect(updateDialog(page)).toBeVisible();
   const box = await updateDialog(page).boundingBox();
@@ -629,7 +575,6 @@ test("the update dialog fits at 1280 and 375 CSS pixels @regression", async ({ p
   await expectDialogFits(page, 1280);
 
   await page.setViewportSize({ width: 375, height: 812 });
-  // At phone width the order form, and with it the dialog, lives on the Trade surface.
   await dispatch(page, [":actions/select-trade-mobile-surface", ":ticket"]);
   await expectDialogFits(page, 375);
   const box = await updateDialog(page).boundingBox();

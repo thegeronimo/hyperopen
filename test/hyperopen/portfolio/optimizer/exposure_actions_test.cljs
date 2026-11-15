@@ -9,7 +9,6 @@
 (def ^:private zoom-level-path [:portfolio-ui :optimizer :exposure-zoom-level])
 
 (def ^:private clear-zoom-effect
-  ;; Discontinuous policy changes clear the stored zoom so the pad re-fits to the new policy.
   [:effects/save zoom-level-path nil])
 
 (def ^:private base-constraints
@@ -32,7 +31,6 @@
 
 (deftest exposure-point-writes-the-policy-derived-constraints-test
   (let [bounds {:left 0.0 :top 0.0 :width 100.0 :height 100.0}
-        ;; centre drag ⇒ gross-target 1.5, net-target 0.0; bands stay 0
         expected (policy/apply-point base-constraints {:gross-target 1.5 :net-target 0.0})]
     (is (= (expect-write expected)
            (actions/set-portfolio-optimizer-exposure-point
@@ -69,9 +67,6 @@
     (is (= [dirty-path true] (-> out first second second)))))
 
 (deftest exposure-interactions-pin-the-render-level-test
-  ;; The view bakes the pad's current zoom level into drag/band dispatches; the handler pins it
-  ;; so the render scale can never SHRINK under the pointer when the edited policy re-fits
-  ;; smaller (the view model only ever widens past the stored level).
   (let [bounds {:left 0.0 :top 0.0 :width 100.0 :height 100.0}]
     (testing "a drag at a baked level stores that level"
       (let [out (actions/set-portfolio-optimizer-exposure-point

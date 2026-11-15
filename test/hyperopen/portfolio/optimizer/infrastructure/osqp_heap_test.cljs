@@ -13,16 +13,9 @@
             [hyperopen.portfolio.optimizer.infrastructure.osqp :as osqp]))
 
 (def ^:private universe-size
-  ;; Chosen to make the test expensive enough to be meaningful and no more. The
-  ;; leak scales with the number of nonzeros in the split quadratic (2N^2+3N),
-  ;; so the bigger the universe the fewer solves are needed to prove the point,
-  ;; but the more each one costs. Measured first-abort on the unpatched package:
-  ;; 36 solves at N=100, 19 at N=130, 11 at N=160, 5 at N=200. N=130 minimises
-  ;; total wall clock across that range at roughly two seconds.
   130)
 
 (def ^:private solve-count
-  ;; Comfortably past the unpatched budget of 19 at this size.
   24)
 
 (defn- covariance
@@ -85,9 +78,6 @@
                       " vendor/osqp/osqp_patched.mjs."))
              (is (every? #(= :solved (:status %)) results)
                  "every solve should have converged")
-             ;; A leak-free run is not worth much if it stopped solving
-             ;; correctly. The net equality is the cheapest end-to-end check
-             ;; that real answers are still coming back.
              (is (every? (fn [result]
                            (< (js/Math.abs (- 1.0 (reduce + 0 (:weights result)))) 1.0e-4))
                          results)

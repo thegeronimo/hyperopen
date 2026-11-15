@@ -126,8 +126,6 @@
                          (submit! store run-owner (run/transfer-action row)))))
               (.then (fn [resp] (record-response! store attempt-id row-id resp)))
               (.catch (fn [err]
-                        ;; The request may have reached the exchange before it
-                        ;; broke off, so its outcome is unknown, not failed.
                         (swap-run! store attempt-id run/mark-unknown row-id
                                    (str (common/runtime-error-message err)
                                         ". Check your vault balance before sending again."))))))))))
@@ -148,9 +146,6 @@
       (when-let [[kind message] (outcome-toast current (run/summary current))]
         (toast! store kind message))
       (when owner
-        ;; Always, even when nothing landed for sure: an :unknown transfer may
-        ;; have, and the next plan must start from real holdings. Vault
-        ;; equities sit behind a 5 s response cache, so force past it.
         (refresh-vault-equities! store owner)
         (dispatch! store nil [[:actions/load-user-data owner]])))))
 
@@ -212,4 +207,3 @@
                 addresses)
         (.then (fn [_]
                  (swap! store update-in limits-path #(if (current? %) (assoc % :status :ready) %)))))))
-

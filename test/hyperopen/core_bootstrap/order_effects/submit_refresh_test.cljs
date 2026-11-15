@@ -183,8 +183,6 @@
      100)))
 
 (deftest api-submit-order-effect-refreshes-spot-clearinghouse-for-spot-orders-test
-  ;; Regression: only outcome orders used to refresh spot balances on submit,
-  ;; so a filled spot order left the balance stale until a page reload.
   (async done
     (submit-order-and-capture-spot-refreshes!
      11035

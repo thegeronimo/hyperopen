@@ -29,8 +29,6 @@
           closes)))
 
 (deftest bounds-clear-every-real-observation-and-reject-the-corruption-test
-  ;; Calibrated on 2026-08-23 against 60 Hyperliquid perpetuals / 51,900 daily
-  ;; observations: max real |r| was 1.261 (BOME), and NOTHING exceeded 2.0.
   (is (plausibility/usable-return? 0.0266) "the measured median day")
   (is (plausibility/usable-return? 0.4244) "the measured p99.9")
   (is (plausibility/usable-return? 1.261) "the largest real bar in the sample")
@@ -38,27 +36,18 @@
   (is (not (plausibility/usable-return? 30.0)) "+3000% is not a market move")
   (is (not (plausibility/usable-return? 300.0)) "the observed corruption")
   (is (plausibility/implausible-return? -30.0) "the bound is two-sided")
-  ;; A non-finite value is NOT 'implausible' here: existing finiteness guards
-  ;; own that case, and answering true would silently widen their behaviour.
   (is (not (plausibility/implausible-return? nil)))
   (is (not (plausibility/implausible-return? js/NaN)))
   (is (not (plausibility/usable-return? js/NaN)))
-  ;; The advisory tier keeps the observation but discloses it.
   (is (plausibility/extreme-return? 1.261))
   (is (not (plausibility/extreme-return? 0.5)))
   (is (not (plausibility/extreme-return? 30.0)) "past rejection is not merely extreme"))
 
 (deftest volatility-bound-clears-the-most-volatile-real-asset-test
-  ;; Measured per-asset annualized volatility across the same sample: min 47%,
-  ;; median 110%, p95 188%, max 390%.
   (is (not (plausibility/implausible-volatility? 3.9)) "the most volatile real perp")
   (is (plausibility/implausible-volatility? 71.99) "what HYPE reported on screen"))
 
 (deftest return-series-and-intervals-drop-exactly-the-same-pairs-test
-  ;; The desync trap: domain.returns/interval-observations guards with
-  ;; (= (count intervals) (count series)) and, on a mismatch, silently falls
-  ;; through to a DIFFERENT expected-return estimator with no warning. So the
-  ;; plausibility drop must be applied identically to both.
   (let [clean (price-rows "2026-01-01" [100 102 101 103 102 104])
         poisoned (price-rows "2026-01-01" [100 102 101 40000 102 104])]
     (is (= (count (history-series/simple-return-series clean))
@@ -94,9 +83,6 @@
         "A nil return is an ordinary gap, not an extreme move.")))
 
 (deftest a-corrupt-bar-no-longer-poisons-the-whole-book-test
-  ;; End to end through the real estimator: this is the regression that matters.
-  ;; Before the guard, ONE +3000% print in one asset drove Ledoit-Wolf shrinkage
-  ;; to 1 and gave all three assets the same ~9,000% volatility.
   (let [rows {"A" (price-rows "2026-01-01" [100 102 99 104 101 106 103 108 105 110 107 112])
               "B" (price-rows "2026-01-01" [50 51 50.5 52 51 53 52 54 53 55 54 56])
               "C" (price-rows "2026-01-01" [10 10.1 9.9 10.2 10 10.3 10.1 10.4 10.2 10.5 10.3 10.6])}
@@ -128,8 +114,6 @@
                                                       (:instrument-ids guarded)))))))
 
 (deftest aligned-returns-carrying-an-implausible-value-are-not-used-verbatim-test
-  ;; When the backend's pre-aligned vector is poisoned, the loader must demote
-  ;; to the point-level path rather than copying it through.
   (let [t0 (day-start-ms "2026-01-01")
         times (mapv #(+ t0 (* % day-ms)) (range 6))
         points (fn [returns]
@@ -168,16 +152,6 @@
         "A poisoned one demotes to the point-level path, which drops the bar.")))
 
 (deftest dropping-a-bar-keeps-every-series-the-same-length-test
-  ;; A per-instrument drop would desync series lengths and trip the Ledoit-Wolf
-  ;; ragged path, silently discarding that asset's correlations. The shared
-  ;; calendar prevents it: `point-level-return-calendar` keeps only timestamps
-  ;; EVERY member can supply, so one member's bad bar leaves the calendar for
-  ;; all of them and the vectors stay rectangular.
-  ;;
-  ;; Verified on real Hyperliquid data (7 perps, 430 daily bars, 2026-08-23):
-  ;; injecting a +40,000% close into HYPE took the book from a scaled-identity
-  ;; collapse to 242% with per-asset vols [67 106 95 97 97 70 94]% and NO
-  ;; warnings, against 257% / [67 107 95 98 97 70 95]% for the untouched series.
   (let [t (fn [i] (* i 86400000))
         points (fn [returns]
                  (mapv (fn [idx return] {:time-ms (t idx) :return return})

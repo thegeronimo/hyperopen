@@ -100,9 +100,6 @@
           base-fees (fee-of :base)
           unsupported? (some #(and (= :unsupported (:fee-kind %)) (not (precision/zero-dec? (d (:fee %))))) fills)
           fee-impact (precision/neg (precision/add usdc-fees (precision/mul base-fees pe)))
-          ;; Perp funding in the window is cash of the campaign too (signed;
-          ;; zero on a spot market), so the total still equals the ladder
-          ;; contribution.
           funding (sum (->> (ledger/in-window (ledger/events events) [a-ms b-ms])
                             (filter #(and (= :funding (:kind %)) (:tracked? %)
                                           (or (nil? (:campaign-id campaign)) (nil? (:campaign-id %))

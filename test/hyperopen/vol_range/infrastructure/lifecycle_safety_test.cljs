@@ -20,10 +20,6 @@
   (locks/reset-in-tab-state!)
   (sim/new-sim))
 
-;; ---------------------------------------------------------------------------
-;; Second review regressions
-;; ---------------------------------------------------------------------------
-
 (deftest one-repair-never-places-a-member-twice-test
   (async done
     (let [s (fresh)]
@@ -43,8 +39,6 @@
           (.catch (fail done))))))
 
 (deftest a-late-attempt-commit-never-blocks-the-market-test
-  ;; The delivery timed out before HTTP; the attempt record lands afterwards as
-  ;; :sending. The delivery's not-sent outcome is proof, so placement resumes.
   (async done
     (let [s (fresh)
           plan (sim/frozen-plan s)]
@@ -78,7 +72,6 @@
           (.catch (fail done))))))
 
 (deftest cancel-settles-a-crashed-send-without-a-reload-test
-  ;; The sending tab died mid-HTTP; the venue accepted the batch.
   (async done
     (let [s (fresh)]
       (sim/script! s {:kind :crash})
@@ -94,10 +87,6 @@
                    (done)))
           (.catch (fail done))))))
 
-;; ---------------------------------------------------------------------------
-;; Local real-money safety
-;; ---------------------------------------------------------------------------
-
 (deftest the-local-ladder-cap-refuses-before-anything-happens-test
   (async done
     (let [s (fresh)]
@@ -112,8 +101,6 @@
           (.catch (fail done))))))
 
 (deftest a-quiet-market-still-places-with-a-fresh-book-read-test
-  ;; The store's book is minutes old (it only changes when the book does); the
-  ;; awaited book read supplies the fresh best bid and ask.
   (async done
     (let [s (fresh)
           plan (sim/frozen-plan s)]

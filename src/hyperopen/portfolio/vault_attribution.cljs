@@ -74,7 +74,6 @@
            withdrawn realized flows-complete?] :as vault}
    now-ms end-ms]
   (let [pnl (when flows-complete? (model/finite (- (+ equity withdrawn) deposited)))
-        ;; A closed position has nothing left unrealized.
         realized (when flows-complete? (model/finite (if open? realized pnl)))
         held (held-ms periods)
         first-deposit (some #(when (= :deposit (:kind %)) (:time-ms %)) raw-transfers)]
@@ -93,9 +92,6 @@
      :money-weighted-return (when flows-complete?
                               (model/money-weighted-return
                                (dated-flows raw-transfers equity now-ms) held))
-     ;; This vault's own one-vault sleeve, not its raw index: the coarse index
-     ;; buckets are distorted by the vault's aggregate flows, while the sleeve
-     ;; pins each holding period's P&L to the ledger dollars.
      :vault-return-while-held-pct (when flows-complete?
                                     (series/time-weighted-return-pct
                                      [(series/prepare-vault vault)] end-ms))
@@ -130,8 +126,6 @@
   (let [complete (filter :flows-complete? vault-models)
         complete-rows (filter :flows-complete? rows)
         any? (boolean (seq complete-rows))
-        ;; Calendar time with any complete vault held: concurrent holds count
-        ;; once, so three 12-day holds are 12 days, not 36.
         held (union-ms (mapcat :periods complete))
         deposited (sum-by :deposited complete-rows)
         withdrawn (sum-by :withdrawn complete-rows)
@@ -202,9 +196,6 @@
                                   address)))
                         equity-by-vault)
         transfer-times (model/vault-transfer-times ledger-rows)
-        ;; A ledger row stamped at or after `now-ms` (clock skew) still needs
-        ;; its after-point, and the end point must stay a separate sample
-        ;; after it so end-of-series P&L never lands in the flow interval.
         end-ms (if (seq transfer-times)
                  (max now-ms (+ 2 (apply max transfer-times)))
                  now-ms)

@@ -243,8 +243,6 @@
     (is (= true (get values dirty-path)))))
 
 (deftest run-portfolio-optimizer-from-draft-runs-with-zero-black-litterman-views-test
-  ;; Zero authored views is a valid Maximum Sharpe run: the posterior equals the
-  ;; baseline expected returns, so nothing blocks and no error is staged.
   (is (= [[:effects/run-portfolio-optimizer-pipeline]]
          (actions/run-portfolio-optimizer-from-draft
           (black-litterman-draft-state)))))
@@ -300,9 +298,6 @@
           {:portfolio {:optimizer {:draft {:universe []}}}}))))
 
 (deftest save-portfolio-optimizer-scenario-from-current-always-opens-the-save-modal-test
-  ;; Saving no longer requires a solved run: the modal opens at any point, and
-  ;; the workflow decides whether the results snapshot is honest to attach
-  ;; (stale or missing runs persist setup-only records).
   (let [state (ready-optimizer-state {:kind :historical-mean})]
     (is (= [[:effects/save
               scenario-save-modal-path
@@ -367,8 +362,6 @@
            (actions/confirm-portfolio-optimizer-scenario-save state*)))))
 
 (deftest confirm-portfolio-optimizer-scenario-save-works-without-solved-run-test
-  ;; A named setup with no optimization run yet still saves (as a setup-only
-  ;; scenario); the modal no longer demands a rerun.
   (is (= [[:effects/save
            (conj scenario-save-modal-path :error)
            nil]
@@ -391,7 +384,6 @@
           {:asset-selector {:phase :full}
            :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize")))
-  ;; A scenario route also fetches HLP for the hypothetical-performance card.
   (is (= [[:effects/load-portfolio-optimizer-scenario "scn_01"]
           [:effects/load-portfolio-optimizer-history-discovery]
           [:effects/load-portfolio-optimizer-constraint-profiles]
@@ -402,8 +394,6 @@
           {:asset-selector {:phase :full}
            :vaults {:merged-index-rows [{:vault-address "0xloaded"}]}}
           "/portfolio/optimize/scn_01")))
-  ;; The legacy /new alias parses to the same workspace kind, so it loads the
-  ;; scenario index for the Scenarios menu exactly like the bare path.
   (is (= [[:effects/load-portfolio-optimizer-scenario-index]
           [:effects/load-portfolio-optimizer-history-discovery]
           [:effects/load-portfolio-optimizer-constraint-profiles]

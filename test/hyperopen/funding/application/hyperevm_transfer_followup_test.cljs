@@ -155,8 +155,6 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
-;; --- add to wallet ------------------------------------------------------------------
-
 (defn- watch!
   [wallet-config request]
   (let [log (atom [])

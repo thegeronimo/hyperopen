@@ -11,15 +11,6 @@
    [:div.text-lg.font-medium message]
    [:div {:class ["mt-2" "text-sm" "text-trading-text-secondary"]} "No data available"]])
 
-(def positions-direction-filter-options
-  positions-shared/positions-direction-filter-options)
-
-(def positions-direction-filter-labels
-  positions-shared/positions-direction-filter-labels)
-
-(defn calculate-mark-price [position-data]
-  (positions-vm/calculate-mark-price position-data))
-
 (def positions-direction-filter-key
   positions-shared/positions-direction-filter-key)
 
@@ -100,8 +91,6 @@
                                                             read-only?
                                                             positions-state))
                   sorted-row-vms))
-       ;; Anchored popover (see the panel ns) — this wrapper only gates it to
-       ;; desktop, where the row chip that opens it lives.
        (when margin-rec-panel-row-vm
          [:div {:class ["hidden" "lg:block"]}
           (margin-rec-panel/margin-recommendation-panel

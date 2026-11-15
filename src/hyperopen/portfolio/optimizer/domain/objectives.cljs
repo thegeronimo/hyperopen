@@ -233,8 +233,6 @@
      :encoded-constraints encoded-constraints
      :closed-form-eligibility eligibility
      :return-tilt 0
-     ;; The QP-equivalent constraint encoding lets existing solver-result
-     ;; validation in target selection check closed-form weights unchanged.
      :equalities (rows/equality-constraints encoded-constraints n)
      :inequalities (vec (concat (rows/net-inequalities encoded-constraints n)
                                 (rows/net-band-inequalities encoded-constraints)
@@ -383,26 +381,6 @@
 
     nil))
 
-;; Follow-up design note: selected-portfolio solving should stay separate
-;; from display-frontier building as solver strategies grow.
-;; - Unrestricted/equality-only selected portfolios: closed-form solve
-;;   (implemented below via domain.closed-form).
-;; - Constrained minimum variance / target return: existing single QP.
-;; - Constrained Max Sharpe: future direct Schaible-transformed QP when the
-;;   encoded constraints stay compatible with the transform.
-;; - Constrained Target Volatility: future bisection over target-return QPs,
-;;   or QCQP/SOCP solver support.
-;; - Display frontier: future adaptive target-return refinement under the
-;;   existing hard point cap, instead of the static return-tilt grid.
-;; - True adaptive refinement needs a sequential strategy runner; the current
-;;   solve engine maps over a pre-built vector of problems.
-;;
-;; Closed-form firing: the fast path solves the equality-core candidate and
-;; accepts it only when post-validation confirms it already satisfies every
-;; encoded constraint (bounds, long-only, gross/L1, turnover, locks). Because
-;; the candidate is optimal over a superset of the constrained region, a
-;; feasible candidate is optimal for the constrained problem too; an infeasible
-;; one falls back to the QP/frontier plan below. See domain.closed-form.
 (defn build-solver-plan
   [{:keys [objective encoded-constraints] :as opts}]
   (let [target-return-failure (target-return-infeasible opts)
@@ -414,20 +392,12 @@
        :reason :constraint-presolve
        :details {:violations (:violations encoded-constraints)}}
 
-      ;; Same :reason as the hard branch on purpose: to every consumer this IS a
-      ;; constraint presolve rejection. Only WHICH objectives it applies to
-      ;; differs, and that is decided here rather than in encode-constraints.
       conditional-failure
       conditional-failure
 
       target-return-failure
       target-return-failure
 
-      ;; BEFORE closed-form-plan on purpose: a zero net pin still satisfies
-      ;; core-eligibility (net-target 0 is not nil), and the GMV formula then
-      ;; returns (0/a)·u = the all-cash vector, which passes post-validation
-      ;; against constraints that are all ceilings. The fast path would answer
-      ;; the degenerate problem just as wrongly as the QP.
       cash-collapse-failure
       cash-collapse-failure
 
@@ -451,13 +421,9 @@
         :target-volatility
         (frontier-plan opts)
 
-        ;; Covariance-only: never consumes expected returns, never sweeps a
-        ;; frontier. One :sequential-equal-risk problem (or presolve failure).
         :equal-risk
         (equal-risk-plan/build-plan opts)
 
-        ;; Covariance-diagonal-only: the 1/σ seed made feasible by one
-        ;; σ-weighted projection QP (or presolve failure).
         :inverse-volatility
         (inverse-volatility-plan/build-plan opts)
 

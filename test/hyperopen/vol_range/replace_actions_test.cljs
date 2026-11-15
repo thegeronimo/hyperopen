@@ -65,10 +65,6 @@
 (def canceled-update
   {:phase :canceled :frozen-cloids [(cloid 2) (cloid 3)] :filled-at-freeze {} :basis ready-basis})
 
-;; ---------------------------------------------------------------------------
-;; Preview update
-;; ---------------------------------------------------------------------------
-
 (deftest preview-loads-the-live-remainder-into-the-ticket-test
   (let [s (assoc-in (state-with (placed-grid #{"buy-0"})) [:vol-range :ui :review-open?] true)
         effects (a/preview-vol-ladder-update s "g1" now)
@@ -89,8 +85,6 @@
       (is (nil? (get-in after [:vol-range :frozen-review]))))))
 
 (deftest preview-shows-the-ticket-in-the-same-write-test
-  ;; One dispatch expands every action against the same state, so the
-  ;; preview switches the ticket to Scale / Volatility range itself.
   (let [s (-> (state-with (placed-grid))
               (assoc-in [:order-form :type] :limit)
               (assoc-in [:order-form :scale :mode] :price-range))
@@ -129,8 +123,6 @@
                            ["update canceled" (state-with (placed-grid) canceled-update)]
                            ["update op in flight" (-> (state-with (placed-grid) {:phase :preview})
                                                       (assoc-in [:vol-range :execution :busy [:replace-confirm "g1"]] true))]
-                           ;; Stop updating while the cancel runs: the store's
-                           ;; copy has no :cancel-requested-at-ms until it ends.
                            ["a stopped update's cancel still runs"
                             (assoc-in s [:vol-range :execution :busy [:replace-cancel "g1"]] true)]
                            ["a stopped update's check still runs"
@@ -138,10 +130,6 @@
       (is (= [] (a/preview-vol-ladder-update state "g1" now)) label))
     (testing "an update still in preview may be previewed again"
       (is (seq (a/preview-vol-ladder-update (state-with (placed-grid) {:phase :preview}) "g1" now))))))
-
-;; ---------------------------------------------------------------------------
-;; Dialog
-;; ---------------------------------------------------------------------------
 
 (deftest dialog-open-close-and-keyboard-test
   (let [s (state-with (placed-grid) {:phase :preview :dialog-open? false})]
@@ -153,10 +141,6 @@
         "a stale update does not reopen")
     (is (= [] (a/open-vol-ladder-update (state-with (placed-grid)))))
     (is (= [] (a/close-vol-ladder-update (state-with (placed-grid)))))))
-
-;; ---------------------------------------------------------------------------
-;; Cancel and check
-;; ---------------------------------------------------------------------------
 
 (deftest cancel-for-update-test
   (let [s (state-with (placed-grid) {:phase :preview})
@@ -195,10 +179,6 @@
                                              (assoc-in [:vol-range :execution :busy [:replace-confirm "g1"]] true)))))
     (is (= [] (a/check-vol-ladder-update (state-with (assoc (placed-grid) :scope-key "elsewhere") canceled-update))))))
 
-;; ---------------------------------------------------------------------------
-;; Replacement
-;; ---------------------------------------------------------------------------
-
 (deftest toggle-rejected-members-test
   (let [s (state-with (placed-grid) canceled-update)]
     (is (= [[:effects/save-many [[[:vol-range :replace :include-rejected] #{"buy-0"}]]]]
@@ -224,10 +204,6 @@
       (is (= [] (a/review-vol-ladder-replacement (assoc-in s [:vol-range :replace :basis :ready?] false))))
       (is (= [] (a/review-vol-ladder-replacement (state-with (placed-grid) (assoc canceled-update :phase :blocked)))))
       (is (= [] (a/review-vol-ladder-replacement (state-with (assoc (placed-grid) :scope-key "elsewhere") canceled-update)))))))
-
-;; ---------------------------------------------------------------------------
-;; Stop updating
-;; ---------------------------------------------------------------------------
 
 (defn- order-operation? [effects]
   (some #(= :effects/vol-range-execute (first %)) effects))

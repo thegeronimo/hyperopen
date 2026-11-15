@@ -34,10 +34,6 @@
 
 (defn- blank->nil [x] (some-> x str str/trim not-empty))
 
-;; ---------------------------------------------------------------------------
-;; Envelopes (spec 9.1)
-;; ---------------------------------------------------------------------------
-
 (defn- message-address
   "The same fields `websocket.user-runtime.common/message-address` checks."
   [msg]
@@ -99,10 +95,6 @@
                :snapshot? true
                :dex (when (map? data) (blank->nil (:dex data)))
                :rows rows})))
-
-;; ---------------------------------------------------------------------------
-;; Routing
-;; ---------------------------------------------------------------------------
 
 (defn- candidate? [envelope grid]
   (and (= (get-in envelope [:scope :network]) (get-in grid [:scope :network]))
@@ -200,10 +192,6 @@
                {})
      :checking (into #{} (filter #(= :checking (lifecycle/status (get grids %)))) (keys by-grid))
      :order-coins (if default-dex? (into #{} (keep :coin) (:rows envelope)) #{})}))
-
-;; ---------------------------------------------------------------------------
-;; Application
-;; ---------------------------------------------------------------------------
 
 (defn apply-envelope
   "Apply `rows` of `envelope` to `grid` through `lifecycle-evidence`. Rows are

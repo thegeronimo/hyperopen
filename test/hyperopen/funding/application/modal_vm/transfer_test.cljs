@@ -323,8 +323,6 @@
       (is (contracts/funding-modal-vm-valid? (vm state))))))
 
 (deftest other-modes-skip-the-transfer-work-test
-  ;; The view-model runs on every render; Deposit, Withdraw and Send must not
-  ;; price, list or balance anything for a Transfer form they never show.
   (doseq [mode [:deposit :withdraw :send]]
     (let [calls (atom 0)
           count-call (fn [f] (fn [& args] (swap! calls inc) (apply f args)))

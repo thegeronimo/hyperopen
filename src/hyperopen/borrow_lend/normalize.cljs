@@ -120,8 +120,6 @@
                     :token token
                     :borrow (or (num (field row "borrow")) 0)
                     :supply (or (num (field row "supply")) 0)
-                    ;; Accrual hours in the row and whether it is a daily
-                    ;; aggregate (stamped at the start of its day).
                     :hours (let [n (num (field row "nSamples"))]
                              (if (and n (pos? n)) n 1))
                     :daily? (some? (field row "nSamples"))}))))

@@ -28,10 +28,6 @@
   []
   (webauthn/passkey-lock-supported?))
 
-(defn passkey-unlock-supported!
-  []
-  (webauthn/passkey-capable?))
-
 (defn load-unlocked-session
   [wallet-address]
   (get @unlocked-agent-sessions (normalized-cache-key wallet-address)))
@@ -52,12 +48,6 @@
   []
   (reset! unlocked-agent-sessions {})
   true)
-
-(def clear-signer!
-  clear-unlocked-session!)
-
-(def install-signer!
-  cache-unlocked-session!)
 
 (defn- rejection
   [message]
@@ -352,6 +342,3 @@
       (indexed-db/delete-key!
        indexed-db/agent-locked-session-store
        wallet-address*))))
-
-(def clear-lockbox!
-  delete-locked-session!)

@@ -16,7 +16,6 @@
   (is (= 252 (:periods-per-year (intuition/resolve-basis 252))))
   (is (= 5 (:weekly-periods (intuition/resolve-basis 252))))
   (is (= 21 (:monthly-periods (intuition/resolve-basis 252))))
-  ;; Never invent a convention for an unknown or missing periods-per-year.
   (is (nil? (intuition/resolve-basis 300)))
   (is (nil? (intuition/resolve-basis nil))))
 
@@ -35,13 +34,11 @@
     (is (near? 0.1154701 monthly 1e-6))))
 
 (deftest extreme-vol-on-365-calendar-days-test
-  ;; 411.82% annualized — the levered-book scale the feature exists for.
   (let [{:keys [daily weekly monthly]}
         (intuition/horizon-vols 4.1182 intuition/calendar-day-basis)]
     (is (near? 0.2155565 daily 1e-5))
     (is (near? 0.5703081 weekly 1e-5))
     (is (near? 1.1806513 monthly 1e-5))
-    ;; Monthly is above 100% and must NOT be capped.
     (is (> monthly 1.0))))
 
 (deftest extreme-vol-on-252-trading-days-test
@@ -92,11 +89,9 @@
     (is (= 365 (:periods-per-year basis)))
     (is (near? 0.2155565 (:daily target) 1e-5))
     (is (= :extreme (:severity target)))
-    ;; Monthly 1σ above 100% must carry the −100%-boundary explanation flag.
     (is (true? (:monthly-boundary? target)))
     (is (near? (/ 3.1390 19.104973) (:daily current) 1e-5))
     (is (= :extreme (:severity current)))
-    ;; Target above current: every change value is positive.
     (is (every? pos? (vals change)))))
 
 (deftest intuition-model-reduction-has-negative-change-test

@@ -70,7 +70,6 @@
     (is (nil? (balances/token-amount-text base-state owner (token "PURR"))))))
 
 (deftest token-amount-text-floors-to-core-precision-test
-  ;; HYPE: 18 EVM decimals, 8 on Core.
   (let [state (loaded {:native-wei "123456789012345678" :token-units {} :gas-price-wei "1"})]
     (is (= "0.12345678" (balances/native-hype-text state owner)))))
 
@@ -88,7 +87,6 @@
                       (loaded {:native-wei wei :token-units {} :gas-price-wei "100000000"}))]
     (is (nil? (balances/evm-gas-status base-state owner)) "unknown before any read")
     (is (= :none (balances/evm-gas-status (with-native "0") owner)))
-    ;; one native transfer: 30000 gas x 2 x 0.2 gwei floor = 0.000012 HYPE
     (is (= :low (balances/evm-gas-status (with-native "11999999999999") owner)))
     (is (= :ok (balances/evm-gas-status (with-native "12000000000000") owner)))
     (is (= :low (balances/evm-gas-status (with-native "12000000000000") owner
@@ -113,8 +111,6 @@
         (is (nil? (balances/native-hype-text first-error owner)))))))
 
 (deftest a-failed-balance-call-is-unknown-not-zero-test
-  ;; The owner's own balanceOf failed inside a chunk that was otherwise read
-  ;; (a transient revert, or gas starvation from another token's call).
   (let [state (loaded {:native-wei "1" :token-units {1 "7000000000000000000"} :gas-price-wei "1"})
         state* (-> state
                    (balances/apply-loading {:addresses [owner] :requested-at-ms 300})

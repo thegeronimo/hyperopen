@@ -70,11 +70,6 @@
     :last-successful-run (get-in state contracts/last-successful-run-path)}))
 
 (defn- retained-result-path
-  ;; Workspace CTAs (View results / Review trades) always target the draft
-  ;; alias: it renders the CURRENT workspace run in place. Navigating to the
-  ;; saved scenario's own /scn_X route instead would re-trigger the route load,
-  ;; which replaces the fresh in-memory run with the record's saved-run snapshot
-  ;; (nil for a setup-only save) — wiping the result the CTA points at.
   [_state]
   (portfolio-routes/portfolio-optimize-scenario-path "draft"))
 

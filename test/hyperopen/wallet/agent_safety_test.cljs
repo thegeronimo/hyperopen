@@ -4,7 +4,6 @@
             [hyperopen.wallet.agent-safety :as agent-safety]))
 
 (defn- ready-store []
-  ;; Strict is opt-in (the default is Off); these tests exercise an armed switch
   (atom {:wallet {:connected? true
                   :address "0xowner"
                   :agent {:status :ready
@@ -212,7 +211,6 @@
        0))))
 
 (deftest install-agent-safety-arms-nothing-by-default-test
-  ;; no saved choice: Off, so the switch only clears any scheduled cancel left over
   (async done
     (let [store (atom (dissoc @(ready-store) :trading-settings))
           runtime (atom {:timeouts {:agent-schedule-cancel-refresh nil}})

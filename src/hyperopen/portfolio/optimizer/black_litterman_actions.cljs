@@ -2,15 +2,6 @@
   (:require [hyperopen.portfolio.optimizer.black-litterman-actions.editor :as editor]
             [hyperopen.portfolio.optimizer.black-litterman-actions.views :as views]))
 
-(def view-primary-instrument-id
-  views/view-primary-instrument-id)
-
-(def view-comparator-instrument-id
-  views/view-comparator-instrument-id)
-
-(def view-instrument-ids
-  views/view-instrument-ids)
-
 (def add-portfolio-optimizer-black-litterman-view
   views/add-portfolio-optimizer-black-litterman-view)
 

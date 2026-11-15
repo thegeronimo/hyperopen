@@ -96,12 +96,6 @@
       (let [from (:time-ms (first rows*))
             to (:time-ms (peek rows*))]
         (when (and from to)
-          ;; The widening test has to run on DAY-SNAPPED bounds, because that is
-          ;; what every consumer sees. A history spanning 02:00-20:00 of one day
-          ;; passes a raw `to > from` test but collapses to a zero-width domain
-          ;; once snapped: every fraction becomes 0, the sparkline pins itself to
-          ;; the left edge, both handles land on top of each other and dragging
-          ;; does nothing at all.
           (let [from-day (custom-range/utc-day-start from)
                 to-day (custom-range/utc-day-start to)]
             {:from from
@@ -136,8 +130,6 @@
      :range range*
      :viewbox (str "0 0 " viewbox-width " " viewbox-height)
      :sparkline-points (polyline rows* domain values pad)
-     ;; Drawn over the base sparkline in the accent colour so the chosen window
-     ;; reads as "this part of the history", not as a separate series.
      :selected-points (polyline selected-rows domain values pad)
      :selection {:left (pct (:x geometry))
                  :width (pct (:width geometry))}

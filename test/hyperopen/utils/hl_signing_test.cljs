@@ -341,10 +341,6 @@
                     (done)))))))
 
 (deftest compute-connection-id-includes-optimizer-cloid-field-test
-  ;; Proves a client-order-id (:c) on the wire order flows through the signature: the
-  ;; action-as-is is msgpacked, so adding :c both (a) still produces a valid hash and
-  ;; (b) changes the hash vs the same order without :c — i.e. it is genuinely signed,
-  ;; not silently dropped.
   (let [base-order {:a 0 :b true :p "100" :s "1" :r false :t {:limit {:tif "Alo"}}}
         nonce 1234567890
         with-cloid {:type "order"

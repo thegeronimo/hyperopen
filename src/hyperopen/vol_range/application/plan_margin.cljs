@@ -19,8 +19,6 @@
   "Says where the margin is missing: a standard account holds collateral per perp dex."
   [side required-notional {:keys [leverage available]} {:keys [dex quote-symbol base-symbol flip]}]
   (let [quote (or quote-symbol "USDC")
-        ;; Sells larger than the long: say so, or the refusal reads as a
-        ;; margin demand on a plain reduction.
         flip-note (when (and (= :sell side) flip)
                     (str "These sells are larger than your " (:closing flip)
                          (when base-symbol (str " " base-symbol)) " long: they would close it and open a "
@@ -45,7 +43,6 @@
   (->> errors
        (map (fn [e]
               (if-let [side (funds-code->side (:code e))]
-                ;; The sell capacity check is in base units; the others in quote.
                 (let [notional (when (or (= :buy side) (= :quote (get-in e [:data :unit])))
                                  (some-> (get-in e [:data :required]) d))]
                   (contracts/error :plan/insufficient-margin
@@ -89,7 +86,6 @@
     (let [long-q (precision/dec-max zero q)
           short-room (when (and margin (seq sell-prices))
                        (let [top (reduce precision/dec-max sell-prices)
-                             ;; A maker rebate reserves nothing, so it never widens the room.
                              fee (precision/dec-max zero (or fee-f zero))
                              per-unit (precision/mul top (precision/add (d "1") fee))]
                          (when (precision/pos-dec? per-unit)

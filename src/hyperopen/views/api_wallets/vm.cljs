@@ -28,9 +28,6 @@
         extra-agents-error (get-in state [:api-wallets :errors :extra-agents])
         default-agent-error (get-in state [:api-wallets :errors :default-agent])
         extra-agents-loaded? (some? (get-in state [:api-wallets :loaded-at-ms :extra-agents]))
-        ;; The default-agent snapshot rides the deprecated webData2 /info
-        ;; endpoint; if only that fetch fails while named agents loaded,
-        ;; degrade to an inline notice instead of a page-level error.
         error (or extra-agents-error
                   (when-not extra-agents-loaded?
                     default-agent-error))

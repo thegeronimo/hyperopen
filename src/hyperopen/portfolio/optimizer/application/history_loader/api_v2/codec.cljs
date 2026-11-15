@@ -28,12 +28,6 @@
       (str/replace #"_" "-")
       str/lower-case))
 
-;; API bundles kebab-case EVERY key of EVERY candle point (~50 assets × ~1100
-;; points × ~6 keys per load) over a tiny fixed field vocabulary. Uncached,
-;; the regex pipeline above dominated multi-second main-thread tasks in
-;; profiling (2026-07-08 trace: ~50% of two 2s normalize tasks), so the
-;; string→keyword conversion is memoized. The vocabulary is bounded by the
-;; API contract's field names, so the cache cannot grow with payload size.
 (def ^:private kebab-keyword-cache (js/Map.))
 
 (defn- string->kebab-keyword
@@ -80,10 +74,6 @@
     (string? key) key
     :else (str key)))
 
-;; Same memoization rationale as the key cache: keyword-like runs per candle
-;; point (:component) and per series/warning enum field, always over the API
-;; contract's bounded enum vocabulary. Only strings are cached - other input
-;; shapes stay on the uncached coercion path.
 (def ^:private keyword-like-cache (js/Map.))
 
 (defn keyword-like

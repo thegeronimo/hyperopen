@@ -346,8 +346,6 @@
               violations))))
 
 (deftest encode-constraints-emits-signed-gross-floor-for-single-signed-universe-test
-  ;; Seed-from-current fixes each asset's side, so every bound is single-signed
-  ;; and a gross floor is a convex signed-linear inequality: long => +1, short => -1.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "perp:A" :market-type :perp
                               :position-side :long}
@@ -361,8 +359,6 @@
     (is (= {:min 1.0 :signs [1 -1]} (:gross-floor encoded)))))
 
 (deftest encode-constraints-drops-gross-floor-for-two-sided-universe-test
-  ;; Without a fixed side a perp bound straddles zero ([-cap, cap]); gross is then
-  ;; not linear in the weights, so the floor must be dropped (nil), not enforced.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "perp:A" :market-type :perp}]
                   :constraints {:long-only? false
@@ -414,8 +410,6 @@
         "0% must reproduce the exact-net-target behavior")))
 
 (deftest net-band-pct-with-mixed-sign-bounds-drops-band-with-warning-test
-  ;; Free-sign bounds make gross non-linear, so the coupled band rows would be
-  ;; unsound; the encoder holds the exact net bounds (conservative) and says so.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A" :market-type :perp}
                              {:instrument-id "B" :market-type :perp}]
@@ -428,8 +422,6 @@
     (is (= [:net-band-requires-fixed-sides] (mapv :code (:warnings encoded))))))
 
 (deftest net-band-pct-widens-presolve-feasibility-test
-  ;; Side-assigned book: A long (bounds [0, 0.5]), B short (bounds [-10, 0]).
-  ;; sum-upper = 0.5 < net target 1.0 ⇒ infeasible with an exact target...
   (let [base {:universe [{:instrument-id "A" :market-type :perp :position-side :long
                           :shortable? true}
                          {:instrument-id "B" :market-type :perp :position-side :short
@@ -443,18 +435,7 @@
         banded (constraints/encode-constraints
                 (assoc-in base [:constraints :net-band-pct] 0.1))]
     (is (= :infeasible (:status exact)))
-    ;; ... but a 10% band widens the reachable net by pct·capacity, so the
-    ;; presolve no longer rejects it outright.
     (is (= :ok (:status banded)))))
-
-;; `gross-floor-spec` returns nil the moment one member's bounds straddle zero,
-;; dropping the requested floor for the WHOLE book. No request the app can BUILD
-;; reaches that arm - contracts.migrations stamps :position-side on every
-;; universe instrument and request_builder migrates before it encodes - which is
-;; why the encoded result no longer publishes a "floor set but silently dropped"
-;; distinction for the banners to disagree about. This test pins the guarantee
-;; that makes the arm unreachable, so a migration that stopped stamping sides
-;; fails here rather than silently re-opening it.
 
 (deftest migrated-universes-always-encode-a-signed-box-test
   (let [draft {:schema-version 1
@@ -477,5 +458,4 @@
         "so no encoded box straddles zero, and no floor is ever dropped")
     (is (= {:min 0.5 :signs [1 -1 1]} (:gross-floor encoded))
         "the requested floor survives encoding for a migrated universe")
-    ;; sum of max(|lower|, |upper|): the largest gross the boxes can reach.
     (is (= 3.0 (:gross-capacity encoded)))))

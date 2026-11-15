@@ -110,7 +110,6 @@
         (and market (universe-duplicates/needs-confirm? state universe market))
         [[:effects/save contracts/ui-universe-duplicate-prompt-path market-key*]]
 
-        ;; A different row added while a confirm is open retires that confirm.
         (universe-duplicates/prompt-market-key state)
         (with-path-values (add state market-key*) [close-prompt])
 

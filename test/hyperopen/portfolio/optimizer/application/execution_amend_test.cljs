@@ -51,11 +51,7 @@
 
 (def ^:private market-by-key {"perp:ZETA" zeta-market})
 
-;; ── amend-selections ────────────────────────────────────────────────────
-
 (deftest amend-selections-defaults-to-current-type-at-mark-test
-  ;; No override, no params: keep the order's current (amendable) type and default the
-  ;; offset to 0 bp — an amend usually means "move onto the price".
   (is (= {:order-type :passive :limit-bps 0}
          (amend/amend-selections {} (resting-row)))))
 
@@ -68,8 +64,6 @@
                                  (resting-row)))))
 
 (deftest amend-selections-rejects-non-amendable-types-test
-  ;; A stale :twap override (or an unknown current type) must never leak into an amend —
-  ;; fall back to the row's current type, then :limit.
   (is (= :passive
          (:order-type (amend/amend-selections {:overrides {"perp:ZETA" :twap}}
                                               (resting-row)))))
@@ -77,15 +71,11 @@
          (:order-type (amend/amend-selections {} (assoc (resting-row)
                                                         :order-type :twap))))))
 
-;; ── live mark ───────────────────────────────────────────────────────────
-
 (deftest live-native-mark-prefers-mark-raw-test
   (is (= 0.0465 (amend/live-native-mark zeta-market)))
   (is (= 0.05 (amend/live-native-mark {:mark "0.05"})))
   (is (nil? (amend/live-native-mark {:mark "not-a-number"})))
   (is (nil? (amend/live-native-mark nil))))
-
-;; ── amend-target ────────────────────────────────────────────────────────
 
 (deftest amend-target-resolves-live-context-test
   (let [target (amend/amend-target (live-state) market-by-key (resting-row))]
@@ -106,8 +96,6 @@
   (testing "book not hydrated — we cannot see the live remaining size, so refuse"
     (is (nil? (amend/amend-target {:orders {:open-orders-hydrated? false}}
                                   market-by-key (resting-row))))))
-
-;; ── build-amend-plan ────────────────────────────────────────────────────
 
 (def ^:private base-plan
   {:scenario-id "scenario-1"
@@ -152,8 +140,6 @@
         "sibling rows pass through byte-identical — they are still live/settled")))
 
 (deftest build-amend-plan-cancels-exactly-the-target-test
-  ;; Regression: the session carryover holds the run's OTHER live orders; an amend plan
-  ;; must cancel ONLY the order being replaced.
   (let [{:keys [plan]} (happy-plan)]
     (is (= 1 (count (:cancel-orders plan))))
     (is (= {:oid "777" :coin "ZETA" :instrument-id "perp:ZETA"

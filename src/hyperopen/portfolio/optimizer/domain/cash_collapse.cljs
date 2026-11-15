@@ -38,7 +38,6 @@
   (or (positive-beyond-epsilon? value)
       (negative-beyond-epsilon? value)))
 
-
 (defn- zero-weights-forbidden?
   "True when the ENCODED rows already rule out the all-cash vector w = 0.
   Every row family is evaluated AT w = 0, where net(w), realized gross(w) and
@@ -114,8 +113,6 @@
            geometry
            (encoded-net-window encoded-constraints))
           0)
-      ;; Unusable bounds: the joint presolve needs the same box and is silent
-      ;; too, so only the declared cap and capacity can bound a floor here.
       (when-let [declared (seq (filterv finite-number? [gross-max capacity]))]
         (apply min declared)))))
 
@@ -189,11 +186,6 @@
           payload {:code :minimum-risk-without-exposure-floor
                    :objective-kind :minimum-variance
                    :current-gross gross
-                   ;; Both floors the panel may write or quote, already clamped
-                   ;; to what the net rows leave reachable. Nothing else is
-                   ;; published: the gate only fires when no positive floor is
-                   ;; encoded, so the encoded floor and the net bounds it was
-                   ;; measured against say nothing a consumer reads.
                    :max-feasible-gross-floor ceiling
                    :suggested-gross-floor suggested}]
       {:status :infeasible

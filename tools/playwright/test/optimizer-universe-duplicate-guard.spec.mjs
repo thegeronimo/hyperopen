@@ -10,10 +10,6 @@ import {
   seedPatch
 } from "../support/optimizer_state.mjs";
 
-// The same-stock guard: NVDA-USDC is already in the universe, and the search
-// offers NVDA on two other venues. The panel must say so, ask inline before a
-// second listing is added, and keep twins linked if the trader keeps both.
-
 function hip3Perp(dex, base, quote, volume) {
   return {
     key: `perp:${dex}:${base}`,

@@ -14,10 +14,6 @@
   missing or out-of-range value yields nil/unavailable."
   (:refer-clojure :exclude [divide]))
 
-;; ---------------------------------------------------------------------------
-;; BigInt primitives (js* keeps operators BigInt-safe through the compiler)
-;; ---------------------------------------------------------------------------
-
 (defn- big [x] (js/BigInt x))
 (defn- b+ [a b] (js* "(~{} + ~{})" a b))
 (defn- b- [a b] (js* "(~{} - ~{})" a b))
@@ -43,10 +39,6 @@
   (big (str "1" (apply str (repeat n "0")))))
 
 (defn- mk [units scale] {:units units :scale scale})
-
-;; ---------------------------------------------------------------------------
-;; Parsing and rendering
-;; ---------------------------------------------------------------------------
 
 (def ^:private decimal-pattern #"[+-]?(\d+(\.\d*)?|\.\d+)")
 
@@ -103,10 +95,6 @@
   (let [{:keys [units scale]} (strip-zeros d)]
     (render units scale)))
 
-;; ---------------------------------------------------------------------------
-;; Arithmetic
-;; ---------------------------------------------------------------------------
-
 (defn int->decimal [n]
   (when (and (number? n) (js/Number.isInteger n))
     (mk (big n) 0)))
@@ -128,10 +116,6 @@
 (defn neg-dec? [a] (bneg? (:units a)))
 (defn dec-min [a b] (if (<= (cmp a b) 0) a b))
 (defn dec-max [a b] (if (>= (cmp a b) 0) a b))
-
-;; ---------------------------------------------------------------------------
-;; Rounding
-;; ---------------------------------------------------------------------------
 
 (defn- round-quot
   "Integer num/den (den > 0) rounded by mode. JS BigInt division truncates
@@ -172,10 +156,6 @@
   (let [{:keys [units scale]} (quantize d places :half-up)]
     (render units scale)))
 
-;; ---------------------------------------------------------------------------
-;; Lots
-;; ---------------------------------------------------------------------------
-
 (defn- valid-sz? [sz]
   (and (number? sz) (js/Number.isInteger sz) (<= 0 sz 8)))
 
@@ -194,10 +174,6 @@
 
 (defn lots->decimal [lots sz-decimals]
   (mk (big lots) sz-decimals))
-
-;; ---------------------------------------------------------------------------
-;; Legal prices
-;; ---------------------------------------------------------------------------
 
 (defn max-price-decimals
   "Maximum decimal places for a price: (spot 8 / otherwise 6) - szDecimals,

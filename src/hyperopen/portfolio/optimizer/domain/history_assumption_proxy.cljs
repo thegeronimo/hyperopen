@@ -45,8 +45,6 @@
   (and (finite-number? value)
        (pos? value)))
 
-;; --- Prior weights -------------------------------------------------------------
-
 (defn- equal-weights
   [proxy-ids]
   (let [n (count proxy-ids)]
@@ -93,8 +91,6 @@
         {:weights (equal-weights proxy-ids)
          :source :equal
          :warnings []}))))
-
-;; --- Regression ---------------------------------------------------------------
 
 (defn- demean
   [values]
@@ -274,8 +270,6 @@
                                    (when estimated? (:beta regression))
                                    q)})))
 
-;; --- Covariance synthesis -------------------------------------------------------
-
 (defn specific-variance
   "Conservative idiosyncratic top-up so the basket is never a perfect clone:
   max(user variance - systematic variance,
@@ -330,7 +324,6 @@
             proxy-indexes (mapv id-index present-proxies)
             beta-vec (mapv #(get beta % 0) present-proxies)
             cov-with (fn [row-idx]
-                       ;; Cov(A, X) = sum_j beta_j * Cov(A, P_j)
                        (reduce + 0
                                (map (fn [b p-idx]
                                       (* b (or (get-in covariance [row-idx p-idx]) 0)))
@@ -403,9 +396,6 @@
                        :specific-variance specific
                        :residual-variance residual-variance
                        :input-volatility volatility
-                       ;; Total modeled vol can exceed the stated input when the
-                       ;; basket's systematic variance or the specific-risk floor
-                       ;; lifts total risk - disclose what the optimizer will see.
                        :effective-modeled-volatility (js/Math.sqrt total-variance)
                        :max-weight (:max-weight entry)
                        :relationship-strength (:relationship-strength entry)}

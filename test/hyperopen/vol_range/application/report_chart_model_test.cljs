@@ -82,7 +82,6 @@
     (is (= (mapv #(ledger/state-before c events %) ks) (chart/states-at c events ks)))))
 
 (deftest a-missing-close-is-a-gap-and-the-end-is-the-headline-test
-  ;; closes 80, 70 and 100 for the hours opening 14:00, 15:00 and 16:00 UTC; none for 13:00
   (let [it (item {:rows [fx/buy-7-row] :now-ms at-3h
                   :coin-marks (entry {(+ h0 hour) "80" (+ h0 (* 2 hour)) "70"})})
         c (valid (chart/chart-view {:items [it]}))]

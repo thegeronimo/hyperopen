@@ -17,10 +17,6 @@
             [hyperopen.views.active-asset.outcome-header-vm :as header-vm]
             [hyperopen.views.trade.outcome-ticket-summary :as summaries]))
 
-(def stale-sum-threshold
-  "Listed answers of one event adding up past this read as stale prices."
-  trading/outcome-stale-sum-threshold)
-
 (defn- parse
   [value]
   (let [number (cond
@@ -94,7 +90,6 @@
      :detail-text (when (contains? #{:not-traded :no-market} (:state quote))
                     (quotes/standing-quotes-text quote))
      :change-text (quotes/points-text (quotes/change-24h (first sides)))
-     ;; What a market buy pays: the midpoint when tight, the ask across a range.
      :yes-text (cond live? (quotes/cents-text (:price quote))
                      (and range? (number? (:ask quote))) (quotes/cents-text (:ask quote))
                      :else "—")
@@ -157,8 +152,6 @@
           kinks (when ladder? (rung-kinks market spot))
           rows (cond
                  ladder? (mapv (partial ladder-row kind spot kinks) base-rows)
-                 ;; Exclusive answers read best likeliest first; only midpoint
-                 ;; chances rank.
                  :else (vec (sort-by (fn [row] (- (or (:chance row) -1))) base-rows)))
           exclusive? (contains? #{:pick-one :field} (:outcome-shape market))
           listed-sum (:sum (quotes/exclusive-sum (map :quote rows)))
@@ -172,7 +165,6 @@
        :exclusive? exclusive?
        :listed-sum listed-sum
        :listed-sum-text (str (js/Math.round (* 100 listed-sum)) "%")
-       ;; The same rule gates submit, so the box and the gate always agree.
        :stale? (trading/outcome-stale-listed-prices? market)
        :other (when fallback
                 (let [quote (option-quote (:sides fallback))]
@@ -255,21 +247,17 @@
   (parse (or (:outcome-option-id market) (:outcome-id market))))
 
 (defn ticket-model
-  ;; The clock is read here, at the vm boundary (state may carry one for tests
-  ;; and replays), never in the view.
   ([state vm] (ticket-model state vm (or (:now-ms state) (.now js/Date))))
   ([state vm now-ms]
    (let [market (:active-market state)
          orderbook (get-in state [:orderbooks (:active-asset state)])
          sides (vec (:outcome-sides market))
          index (book/selected-side-index market)
-         ;; The one helper the header and the submit policy also read.
          side-quotes (book/market-side-quotes market orderbook)
          active-quote (get side-quotes index)
          best-bid (book/best-bid orderbook)
          best-ask (book/best-ask orderbook)
          two-sided? (and (number? best-bid) (number? best-ask))
-         ;; No book yet means it is still loading, not that the market is empty.
          book-loading? (nil? orderbook)
          labels (side-labels market)
          option (selected-option market vm)
@@ -287,8 +275,6 @@
          merge? (and both-held?
                      (some? merge-spec)
                      (= (set (:coins merge-spec)) (set (map :coin sides))))
-         ;; Cash out needs shares of this side; with none held the ticket is a
-         ;; Buy ticket whatever side the form last carried.
          mode (cond merge? :merge
                     (and (= :sell (:side vm)) (>= held 1)) :cash-out
                     :else :buy)
@@ -302,7 +288,6 @@
          rates (fees/rates-from-state state)
          market-off? (and market-order? (book/market-orders-off? market orderbook))
          cap-price (when market-order?
-                     ;; The IOC price cap the order will be sent with.
                      (some-> (trading/apply-market-price state (assoc (trading/order-form-draft state)
                                                                       :type :market
                                                                       :side (if (= :cash-out trade-mode) :sell :buy)))
@@ -389,8 +374,6 @@
       :summary-notes (:notes summary)
       :submit-label (summaries/submit-label (merge ctx summary))
       :stale-confirmed? stale-confirmed?
-      ;; Market orders off and cash-out above held are refused by the submit
-      ;; policy (`submit-policy/outcome-order-message`), read through `vm`.
       :submit-blocked? (boolean
                         (or (and (not market-order?) (not (and (number? limit-price) (< limit-price 1))))
                             (and (:stale? options) (not stale-confirmed?))))

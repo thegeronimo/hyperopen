@@ -38,8 +38,6 @@
     (is (empty? violations))))
 
 (deftest fragment-tags-are-reported-with-their-line
-  ;; The construct that motivated this check: a conditional branch returning two
-  ;; siblings. It renders fine as hiccup data and throws in the browser.
   (let [text (str "(defn render [links]\n"
                   "  [:div\n"
                   "   (when (seq links)\n"
@@ -51,7 +49,6 @@
            violations))))
 
 (deftest fragment-check-ignores-comments-and-strings
-  ;; Parsed rather than grepped, so prose about the rule does not trip it.
   (let [text (str ";; never write [:<> [:span \"a\"]]\n"
                   "(defn render []\n"
                   "  [:div {:title \"[:<>]\"}\n"
@@ -69,8 +66,6 @@
     (is (= [2 4] (mapv :line violations)))))
 
 (deftest the-repo-source-tree-has-no-fragment-tags
-  ;; Guards the real tree, not just the parser: this is the assertion that fails
-  ;; if a [:<>] is reintroduced anywhere under src.
   (is (zero? (lint/check-hiccup-fragments!))))
 
 (deftest misspelled-attrs-are-reported-in-literal-maps-and-assoc-calls

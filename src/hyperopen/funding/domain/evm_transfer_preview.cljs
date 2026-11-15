@@ -71,8 +71,6 @@
   [blocked]
   {:ok? false :display-message (:message blocked) :blocked blocked})
 
-;; --- context ------------------------------------------------------------------
-
 (defn- entry-read?
   [entry]
   (string? (:native-wei entry)))
@@ -140,8 +138,6 @@
     (cond
       (= :hyperevm source)
       (or (entry-block (hyperevm-balances/entry state owner))
-          ;; A token never answered is unknown, so the list's empty or
-          ;; short state would claim the user holds nothing of it.
           (when (hyperevm-balances/partial-read? state owner)
             (block :hyperevm-unavailable (:balances-partial messages))))
 
@@ -272,8 +268,6 @@
                 capacity-checking
                 (when (and evm->core? (nil? status))
                   (block :hyperevm-unavailable (:checking-account messages)))))))))
-
-;; --- requests -----------------------------------------------------------------
 
 (def ^:private evm->core-kind-wire
   {:native "native"

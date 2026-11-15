@@ -10,17 +10,8 @@
             [hyperopen.views.account-info.tabs.open-orders :as open-orders-tab]
             [hyperopen.utils.formatting :as fmt]))
 
-(def order-history-status-options
-  tab-filters/order-history-status-options)
-
 (def order-history-status-labels
   tab-filters/order-history-status-labels)
-
-(def order-history-page-size-options
-  history-pagination/order-history-page-size-options)
-
-(def default-order-history-page-size
-  history-pagination/default-order-history-page-size)
 
 (def default-order-history-sort
   {:column "Time" :direction :desc})
@@ -37,15 +28,6 @@
 (defn order-history-sort-state [order-history-state]
   (merge default-order-history-sort
          (or (:sort order-history-state) {})))
-
-(defn normalize-order-history-page-size [value]
-  (history-pagination/normalize-order-history-page-size value))
-
-(defn normalize-order-history-page
-  ([value]
-   (history-pagination/normalize-order-history-page value nil))
-  ([value max-page]
-   (history-pagination/normalize-order-history-page value max-page)))
 
 (defn normalize-order-history-row [row]
   (when-let [normalized (projections/normalize-order-history-row row)]

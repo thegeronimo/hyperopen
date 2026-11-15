@@ -8,10 +8,6 @@
 (def ^:private fallback-locale
   "en-US")
 
-(defn locale-storage-key
-  []
-  ui-locale-storage-key)
-
 (defn- supported-locale?
   [candidate]
   (try

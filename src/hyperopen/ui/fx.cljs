@@ -64,7 +64,6 @@
   ([] (rekt-overlay! {}))
   ([{:keys [quip]}]
    (when-some [document (doc)]
-     ;; never stack two overlays
      (some-> (.getElementById document "degen-rekt-overlay") (.remove))
      (let [overlay (.createElement document "div")
            quip* (or quip

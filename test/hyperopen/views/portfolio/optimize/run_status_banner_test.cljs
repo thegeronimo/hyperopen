@@ -23,7 +23,6 @@
   (merge {:status :running
           :run-id "run-1"
           :started-at-ms 1000
-          ;; started 1000, now 20400 -> 19.4s elapsed via the ticker clock.
           :now-ms 20400
           :active-step :risk-model
           :overall-percent 40
@@ -49,23 +48,17 @@
     (is (some? (node-by-role node "portfolio-optimizer-run-banner")))
     (is (= "running" (node-attr node :data-run-tone)))
     (is (contains? strings "Optimizing portfolio"))
-    ;; Layer 1 headline is human-readable — NOT the solver-internal wording.
     (is (= "Building risk model" headline-text))
     (is (not (str/includes? headline-text "Ledoit-Wolf estimator")))
-    ;; Layer 2 details drawer keeps the technical label for diagnostics readers.
     (is (str/includes? details-text "Ledoit-Wolf estimator"))
-    ;; Honest step position leads; elapsed + asset count ride along.
     (is (str/includes? meta-text "Step 2 of 6"))
     (is (str/includes? meta-text "19.4s elapsed"))
     (is (str/includes? meta-text "2 assets"))
-    ;; Stepper (the honest progress indicator), snapshot, and details drawer are present.
     (is (some? (node-by-role node "portfolio-optimizer-run-banner-stepper")))
     (is (some? (node-by-role node "portfolio-optimizer-run-banner-snapshot")))
     (is (some? (node-by-role node "portfolio-optimizer-run-banner-details")))))
 
 (deftest banner-running-trickles-display-percent-as-secondary-motion-test
-  ;; The eased display-percent (33) is shown ahead of the sparse true percent (25)
-  ;; so the number keeps moving between the worker's bursty updates.
   (let [node (banner/run-status-banner {:optimization-progress (running-progress {:overall-percent 25
                                                                                   :display-percent 33})
                                         :run-state {:status :running}
@@ -75,8 +68,6 @@
     (is (not (contains? strings "25%")))))
 
 (deftest banner-running-names-return-views-under-black-litterman-test
-  ;; The return-model step is where the user's views enter the forecast, so a
-  ;; views-aware run names that instead of the generic "Building return model".
   (let [node (banner/run-status-banner
               {:optimization-progress (running-progress {:active-step :return-model})
                :run-state {:status :running}
@@ -106,13 +97,9 @@
     (is (contains? strings "Optimization could not complete"))
     (is (contains? strings "solver diverged"))
     (is (some? retry))
-    ;; Retry re-runs the same draft; the CTA is the identical run action.
     (is (= [[:actions/run-portfolio-optimizer-from-draft]] (click-actions retry)))))
 
 (deftest banner-defers-infeasible-and-unsupported-to-dedicated-ui-test
-  ;; Infeasible sets run-state :infeasible and progress :failed; the banner must
-  ;; stay silent so it never competes with the dedicated infeasible banner +
-  ;; readiness guidance. Same for :unsupported.
   (is (nil? (banner/run-status-banner
              {:optimization-progress {:status :failed :steps []}
               :run-state {:status :infeasible :result {:reason :sum-upper-below-target}}
@@ -123,21 +110,14 @@
               :draft (draft {})}))))
 
 (deftest banner-hidden-when-no-live-run-test
-  ;; Idle draft: nothing to report.
   (is (nil? (banner/run-status-banner {:optimization-progress {:status :idle}
                                        :run-state {:status :idle}
                                        :draft (draft {})})))
-  ;; A retained solved draft (run-state succeeded but progress idle) is not a live
-  ;; run — the "Opening results…" beat keys off progress, not the stale run-state.
   (is (nil? (banner/run-status-banner {:optimization-progress {:status :idle}
                                        :run-state {:status :succeeded}
                                        :draft (draft {})}))))
 
 (deftest banner-renders-above-setup-surface-and-outside-the-right-rail-test
-  ;; The core fix: the live run state must sit in the main column above the setup
-  ;; surface, never trapped in the right-rail scroll area where Maximum Sharpe can
-  ;; push it below the fold. (It used to sit above the retired "Start with" preset
-  ;; row; that row is gone, so the grid surface is now the anchor.)
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer

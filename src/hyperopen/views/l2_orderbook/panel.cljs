@@ -30,10 +30,6 @@
    (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout true))
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook?]
    (l2-orderbook-panel coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? nil))
-  ;; `extras`:
-  ;;   :open-orders  the user's normalized open orders on this coin, for the pips
-  ;;   :impact       the order form's market order sweep (domain.trading.book-sweep), for
-  ;;                 marking the levels it would take
   ([coin market orderbook-data orderbook-ui websocket-health show-freshness-cue? layout animate-orderbook? extras]
    (let [{:keys [open-orders impact]} extras
          size-unit (normalize-size-unit (:size-unit orderbook-ui))
@@ -56,7 +52,6 @@
                                                         :sz-decimals sz-decimals
                                                         :reference-price reference-price})
          dollar-selected-option (price-agg/option-for-mode dollar-price-options selected-mode)
-         ;; Outcome books read in cents; nil for every other market.
          cents (outcome-cents/context coin market dollar-selected-option)
          price-options (outcome-cents/relabel-options cents dollar-price-options)
          selected-option (cond-> dollar-selected-option
@@ -73,7 +68,6 @@
          depth-dimmed? (boolean (and freshness-cue (:delayed? freshness-cue)))
          changed-levels (:changed-levels orderbook-data)
          flash-version (:flash-version orderbook-data)
-         ;; The update number a level changed in, or nil when it did not change.
          level-flash-version (fn [side level]
                                (when (and level
                                           (contains? (get changed-levels side) (:px level)))
@@ -83,13 +77,9 @@
                                                  (or desktop-bids (keep :bid mobile-pairs))
                                                  (or desktop-asks (keep :ask mobile-pairs))
                                                  (not= :full selected-mode)))
-         ;; "0.5 BTC" for a level holding the user's resting orders, else nil.
          level-own-size (fn [side level]
                           (when-let [size (and level (get-in own-sizes [side (:px level)]))]
                             (str (orderbook-policy/format-total size :decimals 8) " " base-symbol)))
-         ;; Depth readout for the hovered row (desktop only: touch has no hover). The
-         ;; hover is a side and a depth from the spread, so the row under the cursor keeps
-         ;; the card while the prices on it change.
          hover-level (when desktop-layout? (:hover-level orderbook-ui))
          best-first {:ask (some-> desktop-asks rseq vec) :bid desktop-bids}
          hovered-row (when-let [depth (:depth hover-level)]
@@ -120,7 +110,6 @@
                                                         (when cents
                                                           {:format-avg-price #(outcome-cents/avg-price-text cents %)})))}))]
      [:div {:class ["bg-base-100" "border" "border-base-300" "rounded-none" "overflow-hidden" "h-full" "flex" "flex-col" "num" "orderbook-panel-aligned"]}
-      ;; Header
       (orderbook-header selected-option
                         price-options
                         price-dropdown-visible?
@@ -169,7 +158,6 @@
                                     (level-own-size :bids (:bid split-row))
                                     (level-own-size :asks (:ask split-row))))]])])))
 
-;; Empty state
 (defn empty-orderbook []
   [:div {:class ["flex" "flex-col" "items-center" "justify-center" "p-8" "text-center" "bg-base-100" "rounded-none" "border" "border-base-300" "h-full"]}
    [:div.text-gray-400.mb-4
@@ -178,7 +166,6 @@
    [:h3.text-lg.font-medium.text-gray-300 "No Order Book Data"]
    [:p.text-sm.text-gray-500 "Subscribe to an asset to see its order book"]])
 
-;; Loading state
 (defn loading-orderbook []
   [:div {:class ["flex" "items-center" "justify-center" "p-8" "bg-base-100" "rounded-none" "border" "border-base-300" "h-full"]}
    [:div.animate-spin.rounded-full.h-8.w-8.border-b-2.border-blue-500]])

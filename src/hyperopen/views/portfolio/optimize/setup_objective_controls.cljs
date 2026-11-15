@@ -18,9 +18,6 @@
     "Minimum risk — lowest volatility, no return forecast needed"))
 
 (defn- max-sharpe-kicker
-  ;; Live provenance counts ("2 your views · 12 implied") once the views-aware
-  ;; model is active, so the card shows the user their views are involved without
-  ;; pretending views are a separate strategy.
   [draft]
   (if (= :black-litterman (get-in draft [:return-model :kind]))
     (return-views/returns-contract-label
@@ -34,42 +31,19 @@
    (objective-section draft highlighted-controls nil))
   ([draft highlighted-controls sigma-bounds]
    (let [objective-kind (get-in draft [:objective :kind])]
-     ;; The single authoritative place the user picks what the optimizer solves
-     ;; for. A disclosure (open by default) rather than a fixed section: after the
-     ;; choice is made the header line summarizes it, and the user can collapse
-     ;; the cards to keep the center column a scannable policy contract.
-     ;;
-     ;; The three canonical paths — Minimum risk, Equal Risk, Maximum Sharpe —
-     ;; lead as rich cards, ordered as a spectrum from defensive to
-     ;; return-seeking. Minimum risk and Maximum Sharpe carry the return-model
-     ;; pairing the old top-of-page presets did (Maximum Sharpe activates the
-     ;; wallet's return views); Equal Risk is parameterless and covariance-only,
-     ;; so it sets just the objective. The advanced targets sit below under
-     ;; "More goals" so they never visually compete with them.
      (controls/disclosure-panel-open
       "portfolio-optimizer-objective-panel"
       (controls/disclosure-heading "Optimization goal" (goal-summary objective-kind))
       [:p {:class ["mt-2" "text-[0.8125rem]" "text-trading-muted"]}
        "Choose what the optimizer should prioritize."]
-      ;; The wrapper is a size container (static CSS, not a breakpoint) so the
-      ;; three cards sit side-by-side when the center column has room and stack
-      ;; cleanly when it doesn't — media queries misreport inside workbench
-      ;; iframes, and a 2+1 wrap would break the spectrum reading.
       [:div {:class ["mt-3" "optimizer-goal-grid-container"]}
        [:div {:class ["grid" "gap-1.5" "optimizer-goal-grid-primary"]}
-       ;; One line per card: the recommendation for Minimum risk is carried by
-       ;; card order + default selection, not a kicker line, and the holdings-
-       ;; seeded-constraints note lives in Portfolio exposure (the section that
-       ;; owns the constraints), not here.
        (primary-goal-card
         "Minimum risk" "Lowest volatility · no return forecast needed"
         nil
         (= :minimum-variance objective-kind)
         "portfolio-optimizer-objective-minimum-variance"
         [:actions/apply-portfolio-optimizer-setup-preset :conservative])
-       ;; Parameterless like Minimum risk: covariance decides the sizing, the
-       ;; user's sides and exposure targets stay authoritative, and the return
-       ;; model is left untouched (forecasts never move Equal Risk weights).
        (primary-goal-card
         "Equal Risk" "Balance each position's share of portfolio risk · no return forecast needed"
         nil
@@ -82,10 +56,6 @@
         (= :max-sharpe objective-kind)
         "portfolio-optimizer-objective-max-sharpe"
         [:actions/apply-portfolio-optimizer-setup-preset :max-sharpe])]]
-      ;; The advanced goals are needed by exception: collapsed by default so
-      ;; the goal section stays one card row tall. Selecting one keeps the
-      ;; drawer open on re-render (the attribute only sets initial state
-      ;; otherwise).
       (let [parameterized? (contains? #{:target-volatility :target-return} objective-kind)]
         [:details (cond-> {:class ["mt-3"]
                            :data-role "portfolio-optimizer-more-goals"}
@@ -103,10 +73,6 @@
                                (= :target-return objective-kind)
                                "portfolio-optimizer-objective-target-return"
                                [:actions/set-portfolio-optimizer-objective-kind :target-return])
-          ;; Parameterless like Equal Risk, and covariance-only: the specialist
-          ;; tool for a fully side-locked book — every selected asset keeps a
-          ;; position sized by its own volatility. Discovered chiefly through
-          ;; the floored-state cross-link on Equal Risk results.
           (secondary-goal-card "Risk-weighted sizing"
                                "Size by each asset's own volatility · keeps every asset · ignores correlations"
                                (= :inverse-volatility objective-kind)
@@ -118,9 +84,6 @@
               :target-volatility
               (target-sigma/objective-parameter-block draft sigma-bounds)
               :target-return
-              ;; Percent-entry to match Target σ and Black-Litterman: the user types 15 to mean
-              ;; 15% (the percent handler divides by 100), instead of the old fraction-entry where
-              ;; 0.15 meant 15% and a typed "15" silently requested a 1500% return.
               (controls/percent-input "Target Return"
                                       (controls/decimal->percent-text
                                        (or (get-in draft [:objective :target-return]) 0.15))
@@ -157,9 +120,6 @@
        [:p {:class ["mt-1.5" "font-mono" "text-[0.625rem]" "uppercase" "tracking-[0.16em]"
                     "text-trading-muted/70"]}
         kicker])]]])
-    ;; No "active" corner chip: the filled radio glyph, warning border/tint, and
-    ;; aria-pressed already say selected — a fourth signal was noise
-    ;; (comprehension pass 2026-07-10).
 
 (defn- secondary-goal-card
   "Compact goal card for the parameterized targets (Target volatility / Target

@@ -30,8 +30,6 @@
 
 (def ^:private row-class "optimizer-risk-asset-row")
 
-;; --- Change-asset picker --------------------------------------------------------
-
 (defn- change-asset-picker
   "Native select over every held asset (the decomposition maps are never
   capped, so a wide book can inspect assets the all-assets chart hides).
@@ -59,8 +57,6 @@
                               :selected (= instrument-id selected-id)}
                      label]))
              options)])))
-
-;; --- Component rows -------------------------------------------------------------
 
 (defn- sign-token
   [value]
@@ -107,9 +103,6 @@
                        :width (str (max 0.4 (js/Math.abs (- xv x0))) "%")}}]))
     (when (and (number? bar-value) (js/isFinite bar-value))
       (let [{:keys [left dir]} (end-label-placement x bar-value)]
-        ;; data-dir is PLACEMENT (which way the text extends from the
-        ;; anchor); data-sign is the value's sign for color — a flipped
-        ;; negative label must keep its negative color.
         [:span {:class ["optimizer-risk-asset-bar-label" "font-mono"
                         "tabular-nums"]
                 :data-kind kind
@@ -148,8 +141,6 @@
     :sum? true
     :role "portfolio-optimizer-risk-selected-net"}])
 
-;; --- Equation strip -------------------------------------------------------------
-
 (defn- equation-strip
   [{:keys [standalone diversification net]}]
   [:div {:class ["optimizer-risk-asset-equation"]
@@ -170,8 +161,6 @@
     [:span {:data-kind "diversification"
             :data-sign (sign-token diversification)}
      (str "(" (breakdown-panel/format-signed-pct diversification) ")")]]])
-
-;; --- Summary tiles --------------------------------------------------------------
 
 (def ^:private tile-icons
   {:shield lucide-shield
@@ -200,8 +189,6 @@
                  :data-role "portfolio-optimizer-risk-asset-tiles"}]
           (map tile)
           tiles)))
-
-;; --- Per-asset block ------------------------------------------------------------
 
 (defn- asset-block
   [result {:keys [instrument-id label side] :as selected}]
@@ -252,8 +239,6 @@
                                  :tail-cells 0
                                  :max-labels 6})
      (equation-strip selected)]))
-
-;; --- Sub-view toggle + tab body -------------------------------------------------
 
 (defn- view-tab
   [radio-name view text]

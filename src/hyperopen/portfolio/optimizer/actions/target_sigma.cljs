@@ -5,9 +5,6 @@
             [hyperopen.portfolio.optimizer.contracts :as contracts]))
 
 (def min-sigma 0.04)
-;; Typed targets above the default 40% dial deliberately commit — they widen
-;; the dial scale so levered portfolios can aim at e.g. 600% or 1000% sigma.
-;; The ceiling is only a sanity cap against pathological input.
 (def max-sigma 100)
 
 (defn- percent->decimal
@@ -26,8 +23,6 @@
   (let [parameter-key* (common/normalize-keyword-like parameter-key)
         value* (when (contains? draft-options/numeric-objective-parameter-keys
                                 parameter-key*)
-                 ;; Target sigma is dial-bounded per the designer spec; other
-                 ;; percent parameters (target return) are unconstrained.
                  (if (= :target-volatility parameter-key*)
                    (clamped-sigma value)
                    (percent->decimal value)))]

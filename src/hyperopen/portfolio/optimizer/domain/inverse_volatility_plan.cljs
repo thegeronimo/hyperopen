@@ -84,11 +84,8 @@
     (-> (equal-risk-plan/subproblem-template encoded-constraints books targets)
         (assoc :objective-kind :inverse-volatility
                :quadratic quadratic
-               ;; 0.5 w'Dw - (D seed)'w  ==  0.5 (w - seed)'D(w - seed) + const
                :linear (mapv (fn [d s] (- (* d s))) diagonal seed)
                :seed-weights (vec seed)
-               ;; The payload section reads these instead of recomputing
-               ;; per-asset volatilities from the covariance diagonal.
                :sigmas (vec sigmas)))))
 
 (defn build-plan

@@ -61,17 +61,10 @@
          false
          :all)))
 
-;; --- Export ---------------------------------------------------------------------
-
 (def ^:private workflow-adequacies
-  ;; Same enrollment signal as the assumption cards: an asset joins the
-  ;; workflow-scoped export when it already carries a draft entry or its
-  ;; history adequacy warrants a card (:pending and :ok never do).
   #{:none :short})
 
 (defn- blocklisted?
-  ;; Excluded universe rows are "not being considered by the user" — they stay
-  ;; out of the universe-scoped export and out of the candidate menu.
   [blocklist instrument]
   (boolean (some #(common/instrument-matches-id? instrument %) blocklist)))
 
@@ -129,17 +122,9 @@
                                              (contains? workflow-adequacies adequacy))
                                      (row-for instrument entry))))))))
                    universe)]
-    ;; No proxy-candidates menu in EITHER scope (maintainer decision
-    ;; 2026-07-07): "Export proxy assets" carries ONLY the workflow assets —
-    ;; the agent proposes proxies from its own market knowledge and import
-    ;; validation drops (and reports) anything unknown or short-history. The
-    ;; universe export's `assets` list carries a per-asset `history-status`
-    ;; for the same job.
     {:rows rows
      :objective-kind objective-kind
      :scope scope
-     ;; Cover every id a stored basket may reference: universe/reference
-     ;; instruments first, then rows (same values, richer labels).
      :symbol-by-instrument-id (into {}
                                     (concat
                                      (map (juxt :instrument-id
@@ -171,12 +156,7 @@
   [_state]
   [[:effects/pick-portfolio-optimizer-history-assumptions-file]])
 
-;; --- Import apply -----------------------------------------------------------------
-
 (defn- resolve-catalog-instrument
-  ;; Same resolution the per-chip proxy add performs: shared catalog resolver +
-  ;; backend history-identity decoration, else alignment rejects the stored
-  ;; instrument as identity-ambiguous.
   [state proxy-id]
   (when-let [market (universe-candidates/resolve-market state proxy-id)]
     (common/market->universe-instrument

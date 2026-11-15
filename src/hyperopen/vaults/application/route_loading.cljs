@@ -96,10 +96,6 @@
 (defn load-vault-detail
   [state vault-address]
   (if-let [vault-address* (identity/normalize-vault-address vault-address)]
-    ;; Effective, not preset: a shared link carrying ?from/&to restores the custom
-    ;; window BEFORE this loader runs, and the chart section will read candles at
-    ;; that window's interval. Fetching at the preset's interval here leaves the
-    ;; benchmark permanently absent and its "still syncing" banner permanently on.
     (let [snapshot-range (detail-commands/effective-vault-detail-range state)
           viewer-address (account-context/effective-account-address state)
           benchmark-fetch-effects (detail-commands/vault-detail-returns-benchmark-fetch-effects

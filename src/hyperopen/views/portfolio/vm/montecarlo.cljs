@@ -94,9 +94,6 @@
         sample-size (count intervals)
         years (total-years intervals)
         ppy-eff (if (pos? years) (/ sample-size years) 0)
-        ;; :shuffle uses the whole realized history. :bootstrap's horizon is a
-        ;; calendar span (months) clamped to the realized span, converted to a
-        ;; resample step count via the realized points-per-year cadence.
         target-years (min (/ horizon 12) years)
         engine-horizon (if (= method :shuffle)
                          sample-size

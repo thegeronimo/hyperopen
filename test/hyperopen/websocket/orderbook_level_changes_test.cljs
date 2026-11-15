@@ -62,8 +62,6 @@
            (policy/level-changes previous next-book)))))
 
 (deftest level-changes-ignores-a-ladder-shift-when-levels-are-unchanged-test
-  ;; The market ticks down: 101 is lifted, every other level keeps its size. Rows
-  ;; shift position but only the price that actually changed is reported.
   (let [previous (book [{:px "100" :sz "2"} {:px "99" :sz "1"}]
                        [{:px "101" :sz "3"} {:px "102" :sz "4"}])
         next-book (book [{:px "100" :sz "2"} {:px "99" :sz "1"}]

@@ -8,7 +8,6 @@
 (def parse-num parse/parse-num)
 (def parse-optional-num parse/parse-optional-num)
 (def parse-optional-int parse/parse-optional-int)
-(def non-blank-text parse/non-blank-text)
 
 (def ^:private balance-contract-id-pattern
   #"^(?:0[xX][0-9a-fA-F]{8,}|[0-9A-Za-z]{10,})$")
@@ -274,7 +273,6 @@
 (defn- build-token-usdc-price-map [spot-meta spot-asset-ctxs market-by-key]
   (let [market-state-prices (build-token-usdc-price-map-from-market-state spot-meta market-by-key)
         ctx-prices (build-token-usdc-price-map-from-spot-ctxs spot-meta spot-asset-ctxs)]
-    ;; Prefer direct spotAssetCtxs when available; fall back to market projection prices.
     (merge market-state-prices ctx-prices)))
 
 (defn- spot-token-usdc-price [price-by-token token-idx coin]
@@ -425,7 +423,7 @@
                                      [index (or weiDecimals szDecimals 2)]))
                               spot-tokens)
          coin-decimals (build-coin-decimals-map-from-market-state market-by-key)
-         spot-base-index (delay (markets/spot-market-base-index market-by-key)) ; one pass, not one per row
+         spot-base-index (delay (markets/spot-market-base-index market-by-key))
          perps-row (when clearinghouse-state
                      (let [account-value (parse-num (get-in clearinghouse-state [:marginSummary :accountValue]))
                            total-margin-used (parse-num (get-in clearinghouse-state [:marginSummary :totalMarginUsed]))
@@ -465,9 +463,6 @@
                                        contract-id (when-not (= coin "USDC")
                                                      (or (extract-balance-contract-id balance)
                                                          (extract-balance-contract-id token-meta)))
-                                       ;; The bare token ("HYPE") is also the perp coin, so
-                                       ;; selecting it opens the perp. Carry the spot market's
-                                       ;; own coin ("@107") for market selection.
                                        market-coin (when-not (= coin "USDC")
                                                      (:coin (markets/resolve-spot-market-by-coin
                                                              market-by-key coin @spot-base-index)))]

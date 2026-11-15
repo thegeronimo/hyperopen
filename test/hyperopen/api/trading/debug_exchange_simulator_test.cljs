@@ -267,8 +267,6 @@
                     (done))))))
 
 (deftest schedule-cancel-default-also-answers-a-keyword-path-test
-  ;; `post-signed-action!` looks per-type queues up by keyword (the config
-  ;; arrives keywordized), so the scheduleCancel default must match one.
   (async done
     (let [paths [[:signedActions :scheduleCancel]
                  [:signedActions :default]]]
@@ -286,9 +284,6 @@
                       (done)))))))
 
 (deftest a-delayed-response-is-held-and-answers-without-its-delay-key-test
-  ;; `delayMs` holds a response, so a browser test can act while the request
-  ;; is still in flight; the call is recorded at once and the payload the app
-  ;; reads carries no `delayMs`.
   (async done
     (let [started-at (js/Date.now)
           settled? (atom false)]

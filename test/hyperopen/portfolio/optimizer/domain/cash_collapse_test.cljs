@@ -9,14 +9,6 @@
             [hyperopen.portfolio.optimizer.domain.constraints :as constraints]
             [hyperopen.portfolio.optimizer.domain.objectives :as objectives]))
 
-;; --- degenerate Minimum risk: the all-cash optimum -------------------------
-;;
-;; Minimum risk minimises w'Ew with NO budget row (the exposure policy replaced
-;; the textbook sum(w) = 1). When every remaining control is a CEILING, w = 0 is
-;; feasible and globally optimal at exactly zero variance, so the engine used to
-;; return an all-cash book and call it solved. build-solver-plan now rejects
-;; that shape up front.
-
 (def ^:private cash-collapse-ids ["perp:A" "perp:B"])
 
 (def ^:private cash-collapse-covariance
@@ -53,7 +45,6 @@
   (get-in plan [:details :violations 0]))
 
 (deftest minimum-risk-with-only-ceilings-is-rejected-as-a-cash-collapse-test
-  ;; Per-asset caps + a gross max and nothing else: cash satisfies every row.
   (let [encoded (cash-collapse-encoded {})
         plan (cash-collapse-plan {})
         violation (cash-collapse-violation plan)]
@@ -68,8 +59,6 @@
     (is (nil? (:net-min violation)))
     (is (nil? (:net-max violation)))
     (is (nil? (:net-band-pct violation)))
-    ;; Product vocabulary: the objective is "Minimum risk" in the UI, and the
-    ;; remediation names the control the user actually edits.
     (is (str/includes? (:message violation) "Minimum risk"))
     (is (str/includes? (:message violation) "Gross Exposure Min"))
     (is (str/includes? (:message violation) "Net Exposure Min"))
@@ -95,8 +84,6 @@
               (get-in plan [:problems 0 :inequalities])))))
 
 (deftest minimum-risk-with-a-held-position-lock-still-plans-a-solve-test
-  ;; A lock encodes as lower = upper = held weight, so it forbids cash on its
-  ;; own even though nothing else bounds activity from below.
   (let [plan (cash-collapse-plan {:held-position-locks #{"perp:A"}
                                   :current-weights {"perp:A" 0.4}})]
     (is (= :ok (:status plan)))
@@ -104,11 +91,6 @@
     (is (= 0.4 (get-in plan [:problems 0 :upper-bounds 0])))))
 
 (deftest minimum-risk-with-a-zero-net-pin-is-still-a-cash-collapse-test
-  ;; The subtle one: a net pin of 0 is SATISFIED by cash, so it forbids
-  ;; nothing. It also keeps the closed form eligible (a net target of 0 is not
-  ;; nil), and the GMV formula then returns (0/a)*u — the all-cash vector —
-  ;; which passes post-validation against constraints that are all ceilings.
-  ;; That is why the gate runs BEFORE closed-form-plan, not after it.
   (let [overrides {:net-exposure {:min 0 :max 0}}
         opts (cash-collapse-opts overrides)
         plan (cash-collapse-plan overrides)
@@ -119,8 +101,6 @@
     (is (= :infeasible (:status plan)))
     (is (= :objective-collapses-to-cash (:reason plan)))
     (is (= :minimum-risk-without-exposure-floor (:code violation)))
-    ;; net = L - S, so a zero pin caps gross at twice the smaller side: the
-    ;; suggested floor is measured against THAT, not against the 2.0x cap.
     (is (= 2.0 (:max-feasible-gross-floor violation)))))
 
 (deftest cash-collapse-suggests-a-gross-floor-from-the-current-book-test
@@ -131,15 +111,11 @@
     (is (= 1.3 (:current-gross held)))
     (is (= 1.3 (:suggested-gross-floor held)))
     (is (str/includes? (:message held) "1.30x gross"))
-    ;; An empty current book has no honest floor to suggest.
     (is (= 0 (:current-gross empty-book)))
     (is (nil? (:suggested-gross-floor empty-book)))
     (is (not (str/includes? (:message empty-book) "current book")))))
 
 (deftest cash-collapse-gate-leaves-other-objectives-alone-test
-  ;; Max Sharpe sweeps return tilts, so a zero-variance point is never the
-  ;; selected answer. Equal Risk pins gross to a positive exposure TARGET, and
-  ;; equal-risk-presolve owns that check.
   (let [max-sharpe (cash-collapse-plan {} {:kind :max-sharpe})
         equal-risk (objectives/build-solver-plan
                     {:objective {:kind :equal-risk}
@@ -170,15 +146,7 @@
     (is (= :ok (:status equal-risk)))
     (is (= :sequential-equal-risk (:strategy equal-risk)))))
 
-;; --- the cash-collapse gate must name the REAL blocker ----------------------
-
 (deftest cash-collapse-floor-is-clamped-to-the-reachable-net-window-test
-  ;; THE defect: the suggested floor was clamped to the gross cap and the box
-  ;; capacity only, ignoring the net window entirely. net = gross - 2*short, so
-  ;; a book whose short side is capped at 0.1x cannot hold a net pin of 0 above
-  ;; 0.2x of gross - and the flagship one-click fix wrote 1.30x, which the joint
-  ;; reachability presolve rejected on the very next run. The two banners' fixes
-  ;; then cycled between each other with no way out.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "perp:A" :market-type :perp
                               :position-side :long}
@@ -208,10 +176,6 @@
     (is (str/includes? (:message violation) "up to 0.20x"))))
 
 (deftest cash-collapse-floor-suggestion-is-clamped-to-the-gross-ceiling-test
-  ;; Unclamped, a 1.30x book under a 1.0x ceiling suggested :gross-min 1.3, and
-  ;; the next run failed :gross-floor-above-gross-max - a code with no
-  ;; remediation model, so the flagship one-click fix landed the trader on a
-  ;; strictly worse banner than the one it was offered from.
   (let [violation (cash-collapse-violation
                    (cash-collapse-plan {:gross-leverage 1.0
                                         :current-weights {"perp:A" 0.8
@@ -224,8 +188,6 @@
         "the parenthetical stops claiming the button writes the current book")))
 
 (deftest cash-collapse-floor-suggestion-is-clamped-to-box-capacity-test
-  ;; Caps of 0.25 over two assets can reach at most 0.5x gross no matter what
-  ;; the ceiling says, so a 1.30x book cannot become a 1.30x floor.
   (let [violation (cash-collapse-violation
                    (cash-collapse-plan {:max-asset-weight 0.25
                                         :current-weights {"perp:A" 0.8

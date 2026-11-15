@@ -109,8 +109,6 @@
                :total 1
                :percent 100})
     (is (= 95 (progress-percent)))
-    ;; The current-portfolio universe fetch restarts the backend phase; the
-    ;; bar must not move backwards.
     (callback {:source :backend-api
                :status :started
                :requested-count 1

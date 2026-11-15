@@ -12,10 +12,6 @@
              :refer [collect-strings node-by-role solved-result]]))
 
 (def ^:private equal-risk-result
-  ;; solved-result carries :volatility 0.42, :current-volatility 0.24, a
-  ;; $100k rebalance-preview capital, and a 0.9x gross (below the leverage
-  ;; gate). The contribution sections make it an Equal Risk result whose
-  ;; current book is badly unbalanced (RMS 40 pts) against a 12-pt target fit.
   (-> solved-result
       (assoc :solver {:strategy :sequential-equal-risk
                       :objective-kind :equal-risk})

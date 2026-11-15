@@ -37,12 +37,6 @@
        note]
       state-node)))
 
-(defn build-balance-rows [webdata2 spot-data]
-  (projections/build-balance-rows webdata2 spot-data nil))
-
-(defn build-balance-rows-for-account [webdata2 spot-data account]
-  (projections/build-balance-rows webdata2 spot-data account))
-
 (defn sort-balances-by-column [rows column direction]
 (balances-shared/sort-balances-by-column rows column direction))
 
@@ -68,14 +62,8 @@
          rows* (or balance-rows [])
          has-hyperevm-rows? (boolean (some balances-hyperevm/hyperevm-row? rows*))
          core-chips? (and (= :all location-filter*) has-hyperevm-rows?)
-         ;; Under All, a first HyperEVM read still pending or failed is
-         ;; said in the note, so an empty HyperEVM side never reads as
-         ;; "nothing on HyperEVM". (The HyperEVM filter's empty state says
-         ;; it there instead.)
          status-line (when (= :all location-filter*)
                        (location-filter/status-message hyperevm-status))
-         ;; An account-level block (a subaccount, no wallet) shows wherever
-         ;; a rendered move is disabled by it, HyperEVM rows or not.
          moves-blocked? (and (not read-only?)
                              (some? hyperevm-moves-blocked-message)
                              (some move-targets/hyperevm-target? rows*))
@@ -90,8 +78,6 @@
          location-rows (balances-hyperevm/filter-rows-by-location rows* location-filter*)
          visible-rows (if hide-small?
                         (filter (fn [row]
-                                  ;; An unpriced HyperEVM token's value is
-                                  ;; unknown, not small, so it stays.
                                   (or (balances-hyperevm/unpriced-row? row)
                                       (>= (shared/parse-num (:usdc-value row)) 1)))
                                 location-rows)
@@ -106,8 +92,6 @@
          decorate (fn [idx row]
                     (assoc row
                            :available-balance-tooltip-position (if (zero? idx) :bottom :top)
-                           ;; A disabled move's reason is two lines tall, so
-                           ;; it opens downward on the first two rows.
                            :move-reason-position (if (< idx 2) :bottom :top)
                            :location-chip (location-filter/chip-location row core-chips?)))]
      (if (seq search-filtered-rows)

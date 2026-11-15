@@ -91,8 +91,6 @@
   [token]
   (= :erc20 (:kind token)))
 
-;; --- reads ---------------------------------------------------------------
-
 (defn health-calls
   "Multicall3 reads for the bridge-health check, as `read-balances!`
    `:extra-calls`: `balanceOf(systemAddress)` for every `:erc20` token, and
@@ -199,8 +197,6 @@
            (update-in [:hyperevm :bridge :evm-system-read-at-ms]
                       #(merge % (zipmap read-indexes (repeat requested-at-ms)))))
        state))))
-
-;; --- health and capacity ---------------------------------------------------
 
 (defn token-health-status
   "`:ok`, `:bad` or `:unknown` for moving `token` across the bridge.
@@ -339,8 +335,6 @@
    `now-ms`, keeping the last amount. A successful read replaces the entry."
   [state index now-ms]
   (assoc-in state [:hyperevm :bridge :core-system-balances index :requested-at-ms] now-ms))
-
-;; --- Core system balances ----------------------------------------------------
 
 (defn- core-available-text
   "total - hold of a spot balance row as a decimal string, never negative."

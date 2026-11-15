@@ -12,10 +12,6 @@
 (defn- cmp [a b] (precision/cmp a b))
 (defn- err [code path & [extra]] (contracts/error code (merge {:path path} extra)))
 
-;; ---------------------------------------------------------------------------
-;; Input validation (4.1-4.3)
-;; ---------------------------------------------------------------------------
-
 (defn- parse-field
   "{:blank? true} | {:invalid? true} | {:value dec}."
   [x]
@@ -59,8 +55,6 @@
     {:resolved {:enabled? false} :errors []}
     (let [p (fn [k] [side k])
           quote? (= :quote (:amount-unit sd))
-          ;; In USDC mode the amount sizes the side (and, for buys, is the
-          ;; maximum USDC debit); the base quantity is solved by the planner.
           amount (when quote?
                    (positive-field (:quote-amount sd) (p :quote-amount) :input/quote-amount-required))
           qty (when-not quote?
@@ -129,18 +123,13 @@
                    (if error
                      {:errors [(err error [:volatility :manual-daily-pct])]}
                      {:value daily-fraction})))
-        ;; In USDC mode the limits are USDC values; the planner converts them
-        ;; to base at the anchor price. Errors point at the USDC fields.
         limits-quote? (= :quote (:limit-unit inventory))
         limit-key (fn [k] (if limits-quote? (keyword (str (name k) "-quote")) k))
         limit-path (fn [k] [:inventory (limit-key k)])
         tilt? (boolean (:tilt-enabled? inventory))
         core (optional-nonneg (get inventory (limit-key :protected-core)) (limit-path :protected-core))
-        ;; Target only centers tilt; with tilt off it is hidden and ignored.
         target (when tilt? (optional-nonneg (get inventory (limit-key :target)) (limit-path :target)))
         maximum-parsed (parse-field (get inventory (limit-key :maximum)))
-        ;; Blank maximum means no holding limit; buys are bounded by their
-        ;; own size and the USDC cap.
         maximum (cond
                   (:invalid? maximum-parsed) {:errors [(err :input/invalid-number (limit-path :maximum))]}
                   (:blank? maximum-parsed) nil
@@ -174,10 +163,6 @@
                 :buy (:resolved buy-r)
                 :sell (:resolved sell-r)}
      :errors errors}))
-
-;; ---------------------------------------------------------------------------
-;; Price checks (6.3-6.4)
-;; ---------------------------------------------------------------------------
 
 (defn- ->dec [x] (cond (map? x) x (string? x) (d x) :else nil))
 
@@ -231,10 +216,6 @@
           (contracts/error :plan/distance-guard {:leg-id (:leg-id l) :side (:side l) :price (:price l)})))
       (for [l legs :when (neg? (cmp (d (:notional l)) floor-n))]
         (contracts/error :plan/min-notional {:leg-id (:leg-id l) :side (:side l) :notional (:notional l)}))))))
-
-;; ---------------------------------------------------------------------------
-;; Inventory and cash bounds (6.6)
-;; ---------------------------------------------------------------------------
 
 (defn corrective-mode
   "Starting breach: :above-maximum, :below-core, or nil."

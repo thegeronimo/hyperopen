@@ -21,8 +21,6 @@
    "--ho-chart-long" "#26a69a"
    "--ho-chart-short" "#ef5350"
    "--ho-chart-liquidation" "#f5a524"
-   ;; All answers chart lines, in plan order. The first three differ in
-   ;; lightness as well as hue (teal light, orange mid, slate-blue darker).
    "--ho-chart-answer-1" "#50d2c1"
    "--ho-chart-answer-2" "#e3a04f"
    "--ho-chart-answer-3" "#7f9bb0"
@@ -31,7 +29,6 @@
    "--ho-chart-answer-6" "#9b8cf2"
    "--ho-chart-answer-7" "#6fbf73"
    "--ho-chart-answer-8" "#c46a52"
-   ;; Semantic tokens are space-separated RGB triplets (see token-rgb).
    "--ho-buy" "0 212 170"
    "--ho-sell" "255 107 107"
    "--ho-warn" "255 210 63"})

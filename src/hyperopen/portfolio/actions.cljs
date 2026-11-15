@@ -570,13 +570,6 @@
            replace-shareable-route-query-effect]
           (vault-scope-load/load-effects state scope*))))
 
-;; --- custom chart range (design 1c: drag the context strip) --------------------------------
-;;
-;; The custom window is stored BESIDE the preset, never on top of it. Two things
-;; fall out of that: the preset keyword stays a keyword everywhere it is
-;; persisted or rendered, and clearing the custom range restores the previous
-;; preset with nothing to remember.
-
 (def summary-custom-range-path
   [:portfolio-ui :summary-custom-range])
 
@@ -714,12 +707,8 @@
   overwritten, so dropping the custom window restores it."
   [state time-range]
   (let [normalized (normalize-summary-time-range time-range)
-        ;; Presets only. A custom range would survive `normalize-summary-time-range`
-        ;; as a map and then throw in `(name ...)` below.
         time-range* (if (keyword? normalized) normalized default-summary-time-range)
         benchmark-coins (selected-returns-benchmark-coins state)
-        ;; Benchmarks draw on the Returns tab only; `select-portfolio-chart-tab`
-        ;; guards the identical call and re-emits it on the way back.
         fetch-effects (if (returns-chart-tab? state)
                         (concat (returns-benchmark-fetch-effects state time-range* benchmark-coins)
                                 (ensure-portfolio-trader-benchmark-effects state))
@@ -744,10 +733,6 @@
 (defn select-portfolio-chart-tab
   [state chart-tab]
   (let [chart-tab* (normalize-portfolio-chart-tab chart-tab)
-        ;; Effective, not preset: the view model reads candles at the interval
-        ;; derived from the window actually on screen, so fetching at the
-        ;; preset's interval while a custom window is applied stores bars nobody
-        ;; ever reads and the benchmark never appears.
         summary-time-range (effective-summary-time-range state)
         benchmark-coins (selected-returns-benchmark-coins state)
         fetch-effects (if (= chart-tab* :returns)
@@ -788,8 +773,6 @@
 (defn select-portfolio-returns-benchmark
   [state benchmark]
   (if-let [coin (normalize-portfolio-returns-benchmark-coin benchmark)]
-    ;; Effective, not preset — a benchmark added while a custom window is applied
-    ;; must be fetched at the interval the view model will read it at.
     (let [summary-time-range (effective-summary-time-range state)
           selected-coins (selected-returns-benchmark-coins state)
           already-selected? (contains? (set selected-coins) coin)

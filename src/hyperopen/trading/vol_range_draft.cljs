@@ -57,10 +57,6 @@
           :end-sigma "2.25"
           :skew "1.00"}})
 
-;; ---------------------------------------------------------------------------
-;; Field coercion
-;; ---------------------------------------------------------------------------
-
 (defn- enum-value
   "Keyword or string -> keyword when a member of `allowed`, else `default`."
   [value allowed default]
@@ -153,10 +149,6 @@
                  :tilt-strength (numeric-string (:tilt-strength inv) (:tilt-strength inv-defaults))}
      :buy (normalize-buy (:buy raw) (:buy defaults))
      :sell (normalize-sell (:sell raw) (:sell defaults))}))
-
-;; ---------------------------------------------------------------------------
-;; Scoped values and export projection
-;; ---------------------------------------------------------------------------
 
 (def scoped-draft-paths
   "Account- and market-specific quantities and limits. They never carry across

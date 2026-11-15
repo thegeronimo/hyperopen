@@ -145,10 +145,8 @@
                       "source_of_truth: true"]
                      "# Agents\n\n- [Specs](/hyperopen/docs/product-specs/index.md)\n"))
       (let [findings (docs/check-repo root (test-config))]
-        ;; Staleness is still surfaced...
         (is (contains? (set (map :code findings)) :stale-doc))
         (is (seq (docs/advisory-findings findings)))
-        ;; ...but it never fails the gate.
         (is (empty? (docs/blocking-errors findings)))))))
 
 (deftest broken-link-is-still-blocking

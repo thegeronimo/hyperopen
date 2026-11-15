@@ -38,10 +38,6 @@
       (str prefix "|perp|" coin "|")
       :else nil)))
 
-;; ---------------------------------------------------------------------------
-;; Baseline
-;; ---------------------------------------------------------------------------
-
 (defn- dec-string [x]
   (some-> x str precision/parse-decimal precision/decimal->string))
 
@@ -77,8 +73,6 @@
 (defn- campaign-scope [scope]
   {:network (or (:network scope) (contracts/current-network))
    :account-address (lower (:account-address scope))
-   ;; Campaigns recorded before perps were supported have no market type:
-   ;; they are spot.
    :market-type (or (:market-type scope) :spot)
    :dex (:dex scope)
    :coin (:coin scope)
@@ -139,10 +133,6 @@
    :reason (or reason :user-restart)
    :successor-campaign-id (:campaign-id successor)
    :saved-at-ms now-ms})
-
-;; ---------------------------------------------------------------------------
-;; Queries
-;; ---------------------------------------------------------------------------
 
 (defn- by-id [kind records]
   (into {} (comp (filter #(= kind (:kind %))) (map (juxt :campaign-id identity))) records))
@@ -208,10 +198,6 @@
       (when at-creation
         (or (when-not closed? (open-campaign-in campaigns closures k))
             at-creation)))))
-
-;; ---------------------------------------------------------------------------
-;; Placement
-;; ---------------------------------------------------------------------------
 
 (defn campaign-needed?
   "True when a placement in `scope` would start a campaign: the scope

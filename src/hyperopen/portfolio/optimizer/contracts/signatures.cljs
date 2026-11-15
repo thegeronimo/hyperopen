@@ -17,10 +17,6 @@
 
 (defn- stable-execution-assumptions
   [execution-assumptions]
-  ;; :cost-contexts-by-id (live book snapshots) and :prices-by-id (live native marks seeded for
-  ;; the rebalance preview) are preview-only inputs — the solver consumes neither — so they must
-  ;; not enter the input-signature, or a live book/mark tick would churn it and trigger false
-  ;; staleness and re-solve storms.
   (when (map? execution-assumptions)
     (dissoc execution-assumptions :cost-contexts-by-id :prices-by-id)))
 
@@ -31,9 +27,6 @@
 
 (defn- stable-objective
   [objective]
-  ;; :frontier-points is a sampling-density knob injected by refinement, not a
-  ;; problem-defining input. Stripping it keeps a draft result and a refined result of
-  ;; the same scenario sharing one input-signature (no false staleness / no dup-suppression).
   (when (map? objective)
     (dissoc objective :frontier-points)))
 

@@ -88,7 +88,4 @@
     (and (= :get request-method) (spa-route? uri headers))
     (push-state)
 
-    ;; Anything else reaching here is a missing asset. Returning nil would make
-    ;; shadow answer an empty 200, which reads as a corrupt file rather than a
-    ;; missing one.
     :else (not-found)))

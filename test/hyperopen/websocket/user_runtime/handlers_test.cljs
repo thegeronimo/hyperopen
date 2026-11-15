@@ -186,11 +186,9 @@
 (deftest clearinghouse-state-handler-drops-frames-without-dex-or-state-test
   (let [store (atom {:wallet {:address address}})
         handle! (handlers/clearinghouse-state-handler store)]
-    ;; No dex field at all: unroutable, dropped.
     (handle! {:channel "clearinghouseState"
               :data {:user address
                      :clearinghouseState {:marginSummary {}}}})
-    ;; Blank dex without a nested clearinghouseState map: malformed, dropped.
     (handle! {:channel "clearinghouseState"
               :data {:dex ""
                      :user address}})
@@ -205,10 +203,6 @@
                      :user "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                      :clearinghouseState {:marginSummary {:accountValue "1"}}}})
     (is (nil? (get-in @store [:webdata2 :clearinghouseState])))))
-
-;; ---------------------------------------------------------------------------
-;; Raw evidence taps
-;; ---------------------------------------------------------------------------
 
 (def ^:private other-address
   "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")

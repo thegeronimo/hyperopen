@@ -57,9 +57,6 @@
                         (apply dissoc
                                (get-in state margin-rec-state/recs-path)
                                prune-keys)]])
-        ;; One save of the whole map: :effects/save paths must be keyword-only
-        ;; segments (::common/state-path), so the coin strings live in the
-        ;; value, never in the path.
         candle-stamp-saves (when (seq candle-coins)
                              [[:effects/save
                                margin-rec-state/candle-requests-path
@@ -81,8 +78,6 @@
                                :coin coin
                                :interval margin-rec-state/candle-interval
                                :bars margin-rec-state/candle-fetch-bars
-                               ;; ~46 days of hourly bars per isolated position:
-                               ;; background work, behind the page's own requests
                                :priority :low])
                             candle-coins)
         fills-fetches (when fills-address
@@ -119,8 +114,6 @@
   (if (= key "Escape")
     (close-margin-rec-panel state)
     []))
-
-;; --- batch top-up panel ------------------------------------------------------
 
 (def ^:private closed-batch
   {:open? false :anchor nil :deselected #{}})
@@ -220,34 +213,24 @@
   (let [{:keys [submits]} (margin-rec-batch-plan state)
         agent-status (get-in state [:wallet :agent :status])]
     (cond
-      ;; Nothing fundable — just close the panel.
       (empty? submits)
       (close-margin-rec-batch-panel state)
 
-      ;; Trading ready: close the panel, then one updateIsolatedMargin per
-      ;; fundable position.
       (= :ready agent-status)
       (vec (concat (close-margin-rec-batch-panel state)
                    (map (fn [{:keys [request]}]
                           [:effects/api-submit-position-margin request])
                         submits)))
 
-      ;; Locked: surface the passkey unlock and replay this action on success.
       (= :locked agent-status)
       [[:effects/save-many [[[:wallet :agent :status] :unlocking]
                             [[:wallet :agent :error] nil]]]
        [:effects/unlock-agent-trading
         {:after-success-actions [[:actions/apply-margin-rec-batch]]}]]
 
-      ;; Unlock already in flight (awaiting passkey): hold without submitting,
-      ;; so a second click can't double-prompt.
       (= :unlocking agent-status)
       []
 
-      ;; Trading not enabled yet (default :not-ready, plus :approving/:error):
-      ;; open the enable-trading recovery modal — the same prompt manual order
-      ;; entry shows — instead of submitting requests that would each be
-      ;; rejected with "Enable trading first".
       :else
       [[:effects/save [:wallet :agent :recovery-modal-open?] true]])))
 
@@ -299,17 +282,12 @@
       {:intent (assoc intent :status :expired :resolved-at now-ms)}
 
       (nil? entry)
-      ;; Position not visible yet (fill still propagating) — keep waiting.
       {:intent intent}
 
       (not (margin-rec-state/intent-matches-position? intent entry))
-      ;; Size does not match the expected post-fill size (order cancelled,
-      ;; partial fill, or user already changed the position): keep waiting
-      ;; until expiry rather than topping up a position we did not create.
       {:intent intent}
 
       (nil? target)
-      ;; Recommendation still computing — wait for it (or expiry).
       {:intent intent}
 
       :else

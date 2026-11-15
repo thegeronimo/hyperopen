@@ -47,9 +47,6 @@
 
 (defn stop-portfolio-optimizer-refinement
   [state]
-  ;; Best-effort stop: clear the refinement intent and drop back to the retained result.
-  ;; The in-flight worker result is ignored by run-bridge stale-message gating once a new
-  ;; run-id is minted; this does not forcibly free the worker mid-solve.
   (if (get-in state contracts/refinement-active-path)
     [[:effects/save-many
       [[contracts/refinement-path (defaults/default-refinement-state)]

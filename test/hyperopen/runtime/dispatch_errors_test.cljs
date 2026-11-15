@@ -56,7 +56,6 @@
     (dispatch-errors/record-dispatch-errors!
      [{:phase :execute-effect :effect-k (keyword "effects" (str "e" i))}]))
   (let [entries (dispatch-errors/dispatch-error-log-snapshot)]
-    ;; Ring buffer caps at 200 and drops oldest first.
     (is (= 200 (count entries)))
     (is (= :effects/e5 (:effect-id (first entries))))
     (is (= :effects/e204 (:effect-id (last entries))))))
@@ -92,5 +91,4 @@
     (is (= :hyperopen.runtime.dispatch-errors/surface-dispatch-errors
            (:id (first @registered))))
     (is (fn? (:after-dispatch (first @registered))))
-    ;; Reset so we never leak install state to other suites.
     (dispatch-errors/reset-installed-for-test!)))

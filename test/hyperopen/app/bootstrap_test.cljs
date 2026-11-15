@@ -47,8 +47,6 @@
     (:watchers-deps @captured)))
 
 (deftest hyperevm-balance-poller-is-installed-only-with-a-document-test
-  ;; The Node unit-test runtime bootstraps the real app; without this guard
-  ;; it would run a real 4 s interval against the public HyperEVM RPC.
   (without-document
    (fn []
      (let [deps (bootstrap-watchers-deps)]

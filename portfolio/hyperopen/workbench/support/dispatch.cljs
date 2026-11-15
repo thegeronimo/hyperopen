@@ -59,13 +59,6 @@
             :viewport-width (some-> js/globalThis .-innerWidth)
             :viewport-height (some-> js/globalThis .-innerHeight)}))))})
 
-;; Placeholder resolution must mirror the REAL runtime (nexus.core/interpolate)
-;; exactly: only the VECTOR form [:event.target/value ...] interpolates. A bare
-;; placeholder keyword is plain data to nexus, so it must stay plain data here
-;; too — and because postwalk visits inner forms first, a bare-keyword branch
-;; would double-resolve the canonical vector form into a wrapped value
-;; ([:event.target/value] -> ["BTC"]), silently corrupting reducer args.
-
 (defn- scene-id-text
   [scene-id]
   (cond

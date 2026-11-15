@@ -133,8 +133,6 @@
   (when model
     [:div {:class ["fixed" "inset-0" "z-[300]" "flex" "items-stretch" "justify-center" "bg-black/60"
                    "sm:items-center" "sm:p-4"]
-           ;; The focus hook sits on the node that mounts and unmounts, so
-           ;; closing always returns focus to the control that opened it.
            :replicant/on-render dialog-focus-on-render
            :data-role "vol-range-replace-backdrop"}
      [:div {:role "dialog"
@@ -159,10 +157,6 @@
         "×"]]
       (body model)
       (footer actions)]]))
-
-;; ---------------------------------------------------------------------------
-;; Ticket banner
-;; ---------------------------------------------------------------------------
 
 (defn replace-banner
   "The ticket's update banner for a `replace-model/banner-model`; nil

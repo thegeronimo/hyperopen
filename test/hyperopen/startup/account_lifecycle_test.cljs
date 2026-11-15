@@ -119,8 +119,6 @@
     (is (:pass? result) (pr-str result))))
 
 (deftest clearing-an-account-drops-hyperevm-balances-but-keeps-in-flight-transactions-test
-  ;; A HyperEVM transaction hash must outlive an account switch: forgetting it
-  ;; would re-enable a submit that could send the same funds twice.
   (let [store (atom (stale-account-surface-state address-a))]
     (startup-runtime/clear-disconnected-account-state!
      {:store store

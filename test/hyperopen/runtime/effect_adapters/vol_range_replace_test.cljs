@@ -37,7 +37,6 @@
    :refreshed nil :confirmed-at-ms nil})
 
 (defn- store-for [grid]
-  ;; What `cancel-vol-ladder-for-update` leaves: the update is :canceling.
   (atom {:wallet {:address "0xabc"}
          :vol-range {:execution {:enabled? true :grids {(:grid-id grid) grid}}
                      :replace (update-for grid :canceling)}}))
@@ -98,7 +97,6 @@
            (fn [grid]
              (let [store (store-for grid)]
                (swap! ctx assoc :store store :grid grid)
-               ;; Placement off in this browser: cancellation must still run.
                (with-runtime s {:deps (fill-during-cancel s grid) :enabled? false}
                  #(execute! store :replace-cancel {:grid-id (:grid-id grid)})))))
           (.then
@@ -119,7 +117,6 @@
                (is (not (get-in @store [:vol-range :execution :busy [:replace-cancel (:grid-id grid)]])))
                (is (= 7 (count (mapcat :cancels (sim/cancel-sends s)))) "each old order canceled once")
                (is (= 1 (count (sim/order-sends s))) "nothing placed")
-               ;; Review replacement (the pure action) and the ordinary review.
                (swap! s assoc :draft (-> fixtures/draft-13-2
                                          (assoc-in [:buy :quantity] "40")
                                          (assoc-in [:sell :quantity] "27")))
@@ -152,7 +149,6 @@
           (.catch (fail done))))))
 
 (deftest an-unknown-cancel-outcome-leaves-the-update-blocked-test
-  ;; VR-15: no replacement review while an old order's outcome is unknown.
   (async done
     (let [s (sim/new-sim)
           ctx (atom {})]
@@ -179,8 +175,6 @@
           (.catch (fail done))))))
 
 (deftest cancel-remaining-orders-keeps-the-first-freeze-test
-  ;; A cancel refused before anything was sent leaves the old orders open;
-  ;; canceling again later must keep the membership frozen the first time.
   (async done
     (let [s (sim/new-sim)
           ctx (atom {})]
@@ -200,8 +194,6 @@
                      (is (= 0 (count (sim/cancel-sends s))))
                      (swap! ctx assoc :frozen (:frozen-cloids u))
                      (swap! s assoc :live {})
-                     ;; The executor would also re-freeze differently once a
-                     ;; leg is terminal; the update's freeze is kept.
                      (sim/fill! s (sell-86 grid) "10")
                      (swap! store assoc-in [:vol-range :replace :phase] :canceling)
                      (with-runtime s {} #(execute! store :replace-cancel {:grid-id (:grid-id grid)})))))
@@ -243,8 +235,6 @@
           (.catch (fail done))))))
 
 (deftest a-stopped-update-is-never-written-test
-  ;; Stop updating while the cancel runs: the cancel the user asked for
-  ;; completes, the update stays gone and nothing is placed.
   (async done
     (let [s (sim/new-sim)
           ctx (atom {})]
@@ -263,8 +253,6 @@
           (.catch (fail done))))))
 
 (deftest a-stopped-updates-failure-never-blocks-a-new-update-test
-  ;; Stop updating, then Preview update of the same ladder while the stopped
-  ;; update's check still runs; that check then times out.
   (async done
     (let [s (sim/new-sim)
           ctx (atom {})]
@@ -308,7 +296,6 @@
                    (let [{:keys [store grid]} @ctx]
                      (is (= :canceled (get-in @store [:vol-range :replace :phase])))
                      (swap! store update-in [:vol-range :replace] assoc :phase :ready
-                            ;; The ticket shows the ladder's scope.
                             :scope-key (draft-scope/current-scope-key @store))
                      (swap! s assoc :usdc "3500")
                      (with-runtime s {} #(execute! store :replace-confirm {:grid-id (:grid-id grid)})))))

@@ -99,10 +99,6 @@
   [state]
   (empty? (no-effective-account-surface-failures state)))
 
-(defn disconnected-account-surface-valid?
-  [state]
-  (no-effective-account-surfaces-cleared? state))
-
 (defn assert-account-lifecycle-invariants!
   ([state]
    (assert-account-lifecycle-invariants! state {}))

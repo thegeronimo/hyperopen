@@ -22,7 +22,6 @@
     (is (= 0 (model/supply-rate 0)))))
 
 (deftest rate-curve-matches-live-reserve-test
-  ;; Mainnet USDC reserve captured 2026-10-20.
   (let [u 0.800022346]
     (is (approx= 0.0501061434 (model/borrow-rate u) 1e-9))
     (is (approx= 0.0360774309 (model/supply-rate u) 1e-9))))
@@ -48,7 +47,6 @@
    197 {:token 197 :oracle-px 100000 :ltv 0.5}})
 
 (deftest brief-worked-example-test
-  ;; 100 HYPE at $40, LTV 65%, 2,000 USDC borrowed.
   (let [positions [{:token 150 :supplied 100 :borrowed 0}
                    {:token 0 :supplied 5000 :borrowed 2000}]
         collateral (model/collateral-rows positions reserves)
@@ -74,7 +72,6 @@
         collateral (model/collateral-rows positions reserves)
         prices (model/liquidation-prices collateral 2000)]
     (testing "other collateral lowers the HYPE liquidation price"
-      ;; BTC contributes 1,000 * 0.75 = 750 of liquidation capacity.
       (is (approx= (/ (- 2000 750) 82.5) (get-in prices [150 :liquidation-px]) 1e-6)))
     (testing "price floors at zero when other collateral covers the debt"
       (is (= 0 (get-in (model/liquidation-prices collateral 500) [150 :liquidation-px]))))))

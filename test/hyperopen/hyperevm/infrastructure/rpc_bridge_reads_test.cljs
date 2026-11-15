@@ -21,8 +21,6 @@
   (async done
     (let [calls (atom [])
           health-calls (bridge/health-calls catalog [1 6])
-          ;; health-calls order: system PURR, SIX, HOPE, UBTC, JOFF, FUNT,
-          ;; then decimals PURR, SIX.
           health-answer (stubs/encode-results
                          [[true (stubs/amount-data (get bridge-fixtures/live-system-units 1))]
                           [true (stubs/amount-data "0")]

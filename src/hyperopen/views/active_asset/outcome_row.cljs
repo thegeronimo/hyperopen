@@ -142,9 +142,6 @@
            (stats outcome-header))]))
 
 (defn- one-line-row
-  ;; Tight column gaps: the stat columns take their content width first and
-  ;; the event name gets the rest, so every pixel of gap is taken from the
-  ;; name ("Arizona Cardinals vs Los Angeles Rams" fits at 1440px).
   [{:keys [outcome-header] :as row-vm} {:keys [outcome-handlers]}]
   [:div {:class ["asset-strip-row" "relative" "hidden" "items-center" "gap-x-2" "px-0" "py-1.5" "lg:grid"]
          :style {:grid-template-columns "minmax(10rem, 1fr) repeat(6, minmax(0, max-content))"}
@@ -175,7 +172,6 @@
     [:div {:class ["lg:hidden" "space-y-2" "px-3" "py-2.5"]
            :data-role "trade-mobile-asset-summary"}
      (kicker-line outcome-header)
-     ;; The event name gets the full width; the chances sit on their own line.
      [:div {:class ["flex" "min-w-0" "flex-col" "gap-1.5"]}
       (icon-button/asset-button icon-market dropdown-visible? missing-icons loaded-icons)
       (option-strip-selector row-vm outcome-handlers)]

@@ -3,7 +3,6 @@
             [hyperopen.asset-selector.market-info :as market-info]
             [hyperopen.trade.layout-actions :as layout-actions]))
 
-;; Descriptions copied verbatim from Hyperliquid `perpAnnotation` on 2026-10-15.
 (def ^:private spcx
   "SPCX references 1 share of Space Exploration Technologies Corp. Class A common stock (Nasdaq: SPCX), quoted in USD. SpaceX develops launch vehicles, spacecraft, satellite communications, and AI technology.")
 

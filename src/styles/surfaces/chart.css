@@ -1,9 +1,4 @@
 @layer components {
-  /* Chart container */
-  .chart-container {
-    @apply bg-trading-surface border border-trading-border rounded-lg overflow-hidden;
-  }
-
   .trading-chart-host .tv-lightweight-charts {
     cursor: crosshair;
   }
@@ -83,12 +78,7 @@
     }
   }
 
-  /* --- Custom range context strip (design 1c: drag on the chart) ------------- */
-
   .ho-range-strip {
-    /* Above the tearsheet's loading veil (z-10). Recomputing metrics must never
-       make the control that triggered the recompute unusable — without this a
-       drag blocks itself the moment the first sample lands. */
     position: relative;
     z-index: 20;
     display: flex;
@@ -156,7 +146,6 @@
     background: rgb(var(--ho-bg-deep));
     overflow: hidden;
     cursor: crosshair;
-    /* Without this a touch drag scrolls the page instead of moving the range. */
     touch-action: none;
     user-select: none;
   }
@@ -200,14 +189,6 @@
     cursor: ew-resize;
   }
 
-  /* The visible handle is 10px, but the action grabs an edge anywhere within
-     14px of it. This invisible extension makes the ew-resize cursor appear over
-     exactly the region where grabbing actually works, instead of a narrower
-     strip that under-promises the target.
-
-     Letting the handle receive pointer events does NOT steal the press: the
-     listeners live on the track and pointer events bubble, so `currentTarget`
-     — and therefore the measured rect — is still the track. */
   .ho-range-strip__handle::before {
     content: "";
     position: absolute;
@@ -218,9 +199,6 @@
     cursor: ew-resize;
   }
 
-  /* Hold ew-resize for the whole gesture. Without this the cursor flickers back
-     to the track's crosshair the moment the pointer slips off the handle it is
-     dragging. */
   .ho-range-strip--dragging .ho-range-strip__track,
   .ho-range-strip--dragging .ho-range-strip__selection {
     cursor: ew-resize;

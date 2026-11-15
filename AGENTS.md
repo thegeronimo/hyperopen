@@ -24,6 +24,7 @@ Root operating contract for Codex in this repository. Keep the first screen prac
 - Parent thread orchestrates multi-agent work. `agents.max_depth = 1`; child agents do not build deeper trees.
 - Resolve shared command phrases with `/hyperopen/tools/phrase get "<phrase>" --suggest` before normal intent handling when the normalized user input is 2-5 words.
 - Preserve public APIs unless explicitly requested.
+- Do not write code comments. Carry intent in names, small functions, and tests; put rationale in the commit message, the ExecPlan, or the governed docs. The only exceptions are docstrings, tool directives (shebangs, lint and coverage pragmas, JSDoc type annotations), and the header of a generated file. Vendored and generated files are left as they are.
 - Keep websocket runtime decisions pure and deterministic.
 - Keep side effects in interpreters and infrastructure boundaries only.
 - Follow `/hyperopen/docs/BROWSER_STORAGE.md` for browser persistence changes.

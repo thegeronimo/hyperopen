@@ -88,8 +88,6 @@
                     (or (:ready-count summary) 0))
      :blocked-count (when summary
                       (or (:blocked-count summary) 0))
-     ;; "Already at target" is only true when NOTHING wants to trade — an
-     ;; all-blocked plan is not at target, its trades just can't be sent yet.
      :at-target? (when summary
                    (and (zero? (or (:ready-count summary) 0))
                         (zero? (or (:blocked-count summary) 0))))
@@ -159,9 +157,6 @@
                 return-delta vol-delta] :as deltas} (recommendation-deltas result*)
         preview (:rebalance-preview result*)
         diagnostics (:diagnostics result*)
-        ;; Covariance-only objectives: vol/return direction is not success or
-        ;; failure, so the deltas stay neutral and the objective's own tile
-        ;; carries the verdict.
         equal-risk? (equal-risk-results/equal-risk-result? result*)
         inverse-volatility? (inverse-volatility-results/inverse-volatility-result?
                              result*)

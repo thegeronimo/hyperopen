@@ -6,15 +6,6 @@
   [{:keys [post-info!]} address opts]
   (order-gateway/request-frontend-open-orders! {:post-info! post-info!} address opts))
 
-(defn fetch-frontend-open-orders!
-  [{:keys [log-fn request-frontend-open-orders!]} store address opts]
-  (api-compat/fetch-frontend-open-orders!
-   {:log-fn log-fn
-    :request-frontend-open-orders! request-frontend-open-orders!}
-   store
-   address
-   opts))
-
 (defn request-user-fills!
   [{:keys [post-info!]} address opts]
   (order-gateway/request-user-fills! {:post-info! post-info!} address opts))

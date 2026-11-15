@@ -22,8 +22,6 @@
   (cond-> (vec classes)
     (not visible?) (conj "hidden")))
 
-;; --- places ---------------------------------------------------------------------
-
 (defn- reason-id
   [reasons reason]
   (str "funding-transfer-place-reason-" (inc (.indexOf (to-array reasons) reason))))
@@ -128,8 +126,6 @@
                    label]))
            options)]))
 
-;; --- asset ----------------------------------------------------------------------
-
 (defn- asset-row
   "One asset as a native radio row. A disabled row dims its radio and symbol
    only: its reason is the user's only explanation, so it keeps full
@@ -178,8 +174,6 @@
                                "text-ho-text-secondary"])
         :data-role "funding-transfer-asset-empty"}
     (or empty-message "")]])
-
-;; --- amount ---------------------------------------------------------------------
 
 (defn- percent-chip
   [locked? {:keys [label action]}]
@@ -265,8 +259,6 @@
           :data-role "funding-transfer-amount-notice"}
       (or notice "")]]))
 
-;; --- blocked card ---------------------------------------------------------------
-
 (defn- fix-data-role
   [code]
   (if (= :no-chain-switch code)
@@ -301,8 +293,6 @@
           :class (hidden-unless (seq reason) ["text-center" "text-xs" "text-ho-warn"])
           :data-role "funding-transfer-fix-reason"}
       (or reason "")]
-     ;; Its own live region: the top-up's progress is read out, the fix
-     ;; button's label is not.
      [:p {:role "status"
           :aria-live "polite"
           :class (hidden-unless (seq status-message)
@@ -329,10 +319,6 @@
              blocked (assoc :data-role "funding-transfer-blocked"
                             :data-blocked-code (name code)
                             :data-checking (if checking? "true" "false")))
-      ;; A titled card (missing gas) announces its title only: its message
-      ;; carries the gas estimate, which changes with every gas-price poll
-      ;; and would be read out again each time. Untitled blocks announce
-      ;; their message, which is all they say.
       (let [titled? (boolean (and card? (seq title)))
             message-classes (if card?
                               ["text-xs" "leading-relaxed" "text-ho-text"]
@@ -357,8 +343,6 @@
       (if fix
         (fix-block code fix)
         [:span {:class ["hidden"]}])]]))
-
-;; --- notice ---------------------------------------------------------------------
 
 (defn- verification-notice
   "The unverified-contract notice. Its explorer link renders only with the
@@ -400,8 +384,6 @@
                (seq message) (assoc :aria-describedby message-id)
                (not submit-disabled?) (assoc :on {:click [[:actions/submit-funding-transfer]]}))
      (or submit-label "Transfer")]]))
-
-;; --- form -----------------------------------------------------------------------
 
 (defn render-content
   "The Transfer form for the `:transfer` view-model. The balances and

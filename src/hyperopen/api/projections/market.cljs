@@ -45,7 +45,6 @@
     (cond-> (-> state
                 (assoc-in [:perp-dexs] dex-names)
                 (assoc-in [:perp-dex-fee-config-by-name] fee-config-by-name))
-      ;; Cached re-applies can carry names only; keep full names already known.
       (seq full-name-by-name)
       (assoc-in [:perp-dex-full-name-by-name] full-name-by-name))))
 

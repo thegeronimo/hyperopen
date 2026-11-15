@@ -1,7 +1,5 @@
 (ns hyperopen.portfolio.optimizer.contracts.constants)
 
-(def result-payload-schema-version 1)
-
 (def maker-fee-bps
   "Canonical Hyperliquid maker fee in basis points — the lower fee a resting
   (limit/passive) execution order pays. It lives here, in the dependency-free

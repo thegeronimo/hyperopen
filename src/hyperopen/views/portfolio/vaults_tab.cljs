@@ -155,9 +155,6 @@
 
 (defn- table
   [state {:keys [rows total]}]
-  ;; A horizontal scroller also clips vertically, which would cut the heading
-  ;; tooltips off below a short table, so the scroller keeps a minimum height
-  ;; tall enough for them; the visible frame is the inner box.
   [:div {:class ["min-h-[13rem]" "overflow-x-auto"]
          :data-role "portfolio-vaults-table-wrap"}
    [:div {:class ["min-w-[56rem]" "rounded-xl" "border" "border-base-300"]}

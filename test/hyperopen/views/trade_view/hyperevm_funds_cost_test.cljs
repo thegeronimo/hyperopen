@@ -46,11 +46,8 @@
 
 (defn- exports
   [models line?]
-  (cond-> {;; A fresh function per run, so the view's last-call memo starts empty.
+  (cond-> {
            :account-equity-metrics (fn [state] (account-equity-view/account-equity-metrics state))
-           ;; The classic grouped total asks for this value summary through the
-           ;; lazy Account Surfaces seam. It must reuse the metrics' balance
-           ;; rows rather than introduce a second build.
            :account-equity-hyperevm-funds
            (fn [state]
              (select-keys (hyperevm-funds/hyperevm-funds state)
@@ -115,8 +112,6 @@
           without-line (mapv first (per-render-counts states (atom []) false))
           with-line (mapv first (per-render-counts states (atom []) true))]
       (is (= without-line with-line) label)
-      ;; Balance rows read only spot markets, so a perp mark tick (a new
-      ;; catalogue object, same spot entries) rebuilds nothing.
       (is (= [1 0 0 0 1 1] with-line)
           (str label ": the equity metrics' own builds (a spot catalogue or webdata2 change), shared")))))
 

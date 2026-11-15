@@ -8,10 +8,6 @@
             [hyperopen.trading-settings :as trading-settings]))
 
 (deftest toggle-panel-arg-spec-accepts-dispatch-payloads
-  ;; The runtime validates the RAW dispatch args before placeholders resolve,
-  ;; so the anchor slot carries the literal :event.currentTarget/bounds keyword
-  ;; (not a map). The chip's dispatch payload must satisfy the spec, else the
-  ;; action is rejected and the popover never opens.
   (is (s/valid? ::action-args/margin-rec-panel-args
                 ["xyz:TSM|xyz" :event.currentTarget/bounds]))
   (is (s/valid? ::action-args/margin-rec-panel-args ["xyz:TSM|xyz"]))
@@ -252,8 +248,6 @@
   (-> (base-state) with-high-risk-rec (with-agent-status :ready)))
 
 (deftest batch-toggle-arg-spec-accepts-dispatch-payloads
-  ;; Raw dispatch args are validated before placeholders resolve, so the
-  ;; toolbar trigger's payload carries the literal bounds keyword.
   (is (s/valid? ::action-args/margin-rec-batch-toggle-args
                 [:event.currentTarget/bounds]))
   (is (s/valid? ::action-args/margin-rec-batch-toggle-args []))
@@ -324,8 +318,6 @@
                         (with-agent-status (base-state) :ready)))))))
 
 (deftest apply-batch-locked-prompts-unlock-and-replays
-  ;; Locked trading must surface the passkey unlock and replay the batch on
-  ;; success — never dead-end each position on a "Unlock trading…" error toast.
   (let [state (-> (base-state) with-high-risk-rec (with-agent-status :locked))
         effects (actions/apply-margin-rec-batch state)]
     (is (= [:effects/save-many :effects/unlock-agent-trading]
@@ -346,13 +338,10 @@
                     [(second (second effects))])))))
 
 (deftest apply-batch-unlocking-holds-without-submitting
-  ;; A passkey prompt is already in flight; a second click must not re-prompt.
   (let [state (-> (base-state) with-high-risk-rec (with-agent-status :unlocking))]
     (is (= [] (actions/apply-margin-rec-batch state)))))
 
 (deftest apply-batch-not-enabled-opens-recovery
-  ;; Agent trading never enabled: open the enable-trading recovery modal (the
-  ;; same prompt manual order entry shows), not N rejected submits.
   (let [state (with-high-risk-rec (base-state))]
     (is (= [[:effects/save [:wallet :agent :recovery-modal-open?] true]]
            (actions/apply-margin-rec-batch state))))

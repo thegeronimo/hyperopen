@@ -77,8 +77,6 @@
     (is (str/includes? text "Conservative"))))
 
 (deftest inputs-tab-discloses-proxy-model-from-run-diagnostics-test
-  ;; The audit reports the exposure story the solved run actually used: prior +
-  ;; source, regression estimate, confidence q, and the final modeled basket.
   (let [draft {:id "scn_proxy"
                :universe [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}
                           {:instrument-id "perp:ETH" :market-type :perp :coin "ETH"}
@@ -127,7 +125,6 @@
     (is (str/includes? text "R² is never used as a direct weight"))))
 
 (deftest inputs-tab-omits-proxy-model-when-run-diagnostics-mismatch-test
-  ;; A post-run proxy edit must not present the stale run basket as current.
   (let [draft {:id "scn_proxy_stale"
                :universe [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}
                           {:instrument-id "perp:NEW" :market-type :perp :coin "NEW"}]
@@ -141,7 +138,6 @@
                             :expected-return 0.0
                             :volatility 0.8
                             :max-weight 0.05
-                            ;; The user swapped the basket to BTC-only after the run.
                             :proxy {:instrument-ids ["perp:BTC"]
                                     :relationship-strength :medium
                                     :prior-weights nil}}}}

@@ -62,13 +62,6 @@
     :heavy-effect-ids #{:effects/fetch-candle-snapshot
                         :effects/api-fetch-trader-portfolio-benchmark}}
 
-   ;; Pointer-up is the only point in a strip drag that pays for the gesture:
-   ;; the URL gains the shareable bounds and benchmarks refetch at a resolution
-   ;; that covers the new span. The per-sample drag actions are projection-only
-   ;; and deliberately have no policy.
-   ;; Opening the editor applies the day-snapped seed, which switches the
-   ;; benchmark candle request to the all-time interval — so it publishes and
-   ;; refetches just like a drag does.
    :actions/open-portfolio-summary-custom-range
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -217,8 +210,6 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-outcome-merge}}
 
-   ;; Background recommendation sync fans out one candle fetch per isolated
-   ;; coin, so duplicate heavy effects are expected.
    :actions/margin-rec-sync
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -227,14 +218,12 @@
                         :effects/margin-rec-fetch-fills
                         :effects/margin-rec-compute}}
 
-   ;; Several matured intents may submit in one pass (one per position).
    :actions/margin-rec-process-intents
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
     :allow-duplicate-heavy-effects? true
     :heavy-effect-ids #{:effects/api-submit-position-margin}}
 
-   ;; Batch top-up submits one updateIsolatedMargin per selected position.
    :actions/apply-margin-rec-batch
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -253,7 +242,6 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-funding-transfer}}
 
-   ;; The one-click HyperEVM gas fix submits its own 0.05 HYPE sendAsset.
    :actions/submit-funding-transfer-gas-topup
    {:required-phase-order [:projection :persistence :heavy-io]
     :require-projection-before-heavy? true
@@ -266,8 +254,6 @@
     :allow-duplicate-heavy-effects? false
     :heavy-effect-ids #{:effects/api-submit-funding-send}}
 
-   ;; Repay emits only the heavy borrowLend submit effect (no projection/persistence),
-   ;; so it uses a heavy-only policy like request-chart-candle-backfill.
    :actions/submit-funding-repay
    {:required-phase-order [:heavy-io]
     :require-projection-before-heavy? false

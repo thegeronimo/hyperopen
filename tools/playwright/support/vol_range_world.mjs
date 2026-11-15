@@ -2,23 +2,6 @@ import { expect } from "./guarded_test.mjs";
 import { debugCall, dispatch, expectOracle, visitRoute, waitForDebugBridge, waitForIdle } from "./hyperopen.mjs";
 import { installWsSimulator } from "./ws_simulator.mjs";
 
-// Shared browser world for the Vol Range execution specs (HO-SPEC-014 v2.1 sections 8-10, 15.2).
-//
-// Placement is on in the dev build unless `localStorage hyperopen.volRange.execution = off`
-// is set before the page loads. The fixture wallet address is connected through the wallet
-// simulator so owner/active account match the seeded state. Barrier reads (balances, open
-// orders, l2Book, userFees, orderStatus, userFillsByTime) go through the api service
-// `fetch` to /info and are answered by a stateful page.route stub (`world`). Signed actions
-// are answered by the debug exchange simulator, which records each request; a page route
-// aborts anything that would still reach a real `/exchange` endpoint.
-//
-// Every Vol Range execution spec calls `bootstrap(page, world)` before its first navigation,
-// so every page route is installed in one place, including the WebSocket simulator
-// (`ws_simulator.mjs`, handle in `world.ws`) that owns the page's Hyperliquid socket and
-// answers the account stream subscriptions. Placement and repair are refused until live
-// monitoring is `:live` (spec 9.3), so `startTrade` (bootstrap plus load, wallet and fixture
-// seed) and `reloadAndRebootstrap` end by waiting for it (`waitForLiveMonitoring`).
-
 export const ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 export const COIN = "@9001";
 const INFO_URL = "**/info";
@@ -26,42 +9,23 @@ const EXCHANGE_URL = "**/exchange";
 
 export const ticket = (page) => page.locator('[data-parity-id="order-form"]').first();
 
-/** Oid the stubbed venue gives order `index` of the `callIndex`-th signed order action. */
 export const venueOid = (callIndex, index) => 7000 + callIndex * 100 + index + 1;
 
 export function newWorld() {
   return {
-    // null: derive resting orders from the simulator's recorded order actions,
-    // keeping the orders the venue accepted.
     openOrders: null,
-    // (orderIndex, callIndex) -> did the venue accept that order of that order action?
     accepted: () => true,
-    // Top of the stubbed l2Book.
     book: { bid: "79.99", ask: "80.01" },
-    // Spot balance totals the venue reports (holds are derived from the resting orders).
     totals: { usdc: "3000", base: "150" },
-    // When set, `(world) => void` runs once, on the first /info read after the debug
-    // exchange simulator answered a signed cancel action: the venue state after the cancel
-    // (canceled orders, fills that landed while it was pending, new balances).
     onCancel: null,
-    // id (oid string or cloid) -> payload
     orderStatus: () => ({ status: "unknownOid" }),
-    // The account's fills as the venue's REST reads (`userFillsByTime`) return them.
     fills: [],
-    // When set to a promise, REST fill reads wait for it (holds a resync mid-read).
     fillsGate: null,
-    // Rows returned by each REST fill read, in order.
     fillsReads: [],
-    // The account's non-funding ledger updates (`userNonFundingLedgerUpdates`), read by the
-    // Vol Range report's backfill.
     ledgerUpdates: [],
-    // coin -> close (decimal string) of every 1h candle the report's hourly marks read
-    // (`candleSnapshot` interval 1h). A coin without an entry has no hourly candles.
     hourlyCloses: {},
     infoLog: [],
-    // Requests that tried to reach a real /exchange endpoint (aborted).
     blockedExchange: [],
-    // The WebSocket simulator handle, set by `bootstrap`.
     ws: null
   };
 }
@@ -101,17 +65,10 @@ async function restingFromSimulator(page, world) {
   return rows;
 }
 
-/**
- * The venue's open orders: `world.openOrders` when a test set them, else the resting
- * orders of every accepted signed order action. Like the venue, once an order action was
- * accepted its resting orders are visible to every later read (background reconciliation
- * can run at any time).
- */
 async function openOrdersNow(page, world) {
   return world.openOrders ?? (await restingFromSimulator(page, world));
 }
 
-/** Runs `world.onCancel` once the simulator has answered a signed cancel action. */
 async function settleCancel(page, world) {
   if (!world.onCancel) return;
   const snap = await page.evaluate(() => window.HYPEROPEN_DEBUG?.exchangeSimulatorSnapshot?.()).catch(() => null);
@@ -124,7 +81,6 @@ async function settleCancel(page, world) {
   apply(world);
 }
 
-/** Balance holds for `rows` (open order rows), as decimal strings with 8 places. */
 function venueHolds(rows) {
   let usdc = 0;
   let base = 0;
@@ -137,7 +93,6 @@ function venueHolds(rows) {
 
 const HOUR_MS = 3_600_000;
 
-/** Hourly candles opening in [startTime, endTime] for the report's marks (1h `candleSnapshot`). */
 function hourlyCandles(world, req) {
   const close = world.hourlyCloses?.[req?.coin];
   if (close == null) return [];
@@ -169,7 +124,6 @@ export async function stubInfo(page, world) {
     let body;
     switch (payload.type) {
       case "spotClearinghouseState": {
-        // Like the venue: resting buys hold their USDC notional and resting sells their size.
         const holds = venueHolds(await openOrdersNow(page, world));
         body = {
           balances: [
@@ -230,7 +184,6 @@ export async function stubInfo(page, world) {
   });
 }
 
-/** Records every POST that targets an /exchange URL (the safety net aborts them). */
 export function trackExchange(page) {
   const urls = [];
   page.on("request", (request) => {
@@ -243,27 +196,19 @@ async function armInitScript(page, { armed = true, cap = null } = {}) {
   await page.addInitScript(
     ({ armed: a, cap: c }) => {
       try {
-        // Defaults: placement on, no cap.
         if (a) window.localStorage.removeItem("hyperopen.volRange.execution");
         else window.localStorage.setItem("hyperopen.volRange.execution", "off");
         if (c) window.localStorage.setItem("hyperopen.volRange.maxLadderUsdc", c);
         else window.localStorage.removeItem("hyperopen.volRange.maxLadderUsdc");
-      } catch (_e) { /* storage unavailable */ }
+      } catch (_e) {  }
     },
     { armed, cap }
   );
 }
 
-/**
- * Page setup every Vol Range execution spec runs before its first navigation: the
- * placement init script, the exchange safety net, the stateful /info stub and the
- * WebSocket simulator (`world.ws`).
- */
 export async function bootstrap(page, world, { armed = true, cap = null } = {}) {
   await armInitScript(page, { armed, cap });
   world.ws = await installWsSimulator(page, { address: ADDRESS });
-  // Safety net: a signed action the debug simulator does not answer would fall through to
-  // the real exchange. Never let it leave the browser.
   await page.route(EXCHANGE_URL, async (route) => {
     world.blockedExchange.push(route.request().url());
     await route.abort();
@@ -314,8 +259,6 @@ export async function seedTicket(page) {
     await debugCall(page, "seedVolRangeFixture");
     await waitForIdle(page);
     await page.waitForTimeout(500);
-    // The ticket also shows on the default perp market, so the fixture has stuck only once
-    // its own market is the one the ticket names.
     seeded =
       (await heading.isVisible()) &&
       ((await page.locator('[data-role="vol-range-identity"]').first().textContent()) || "").includes("VRT/USDC");
@@ -323,7 +266,6 @@ export async function seedTicket(page) {
   await expect(heading).toBeVisible({ timeout: 15_000 });
 }
 
-/** `[:vol-range :execution :monitoring :status]` as a string ("live", ...), or null. */
 export async function monitoringStatus(page) {
   await waitForDebugBridge(page);
   return page.evaluate(() => {
@@ -332,15 +274,10 @@ export async function monitoringStatus(page) {
   });
 }
 
-/**
- * Wait until live monitoring is `:live`: the simulator answered the account stream
- * subscriptions and the resync finished with complete reads (spec 9.3).
- */
 export async function waitForLiveMonitoring(page, { timeout = 30_000 } = {}) {
   await expect.poll(() => monitoringStatus(page), { timeout, intervals: [100, 250, 500] }).toBe("live");
 }
 
-/** Full start: bootstrap, load /trade, connect + enable agent, seed the fixture. */
 export async function startTrade(page, world, options = {}) {
   await bootstrap(page, world, options);
   await loadTrade(page);
@@ -349,7 +286,6 @@ export async function startTrade(page, world, options = {}) {
   await waitForLiveMonitoring(page);
 }
 
-/** After a reload: wallet + agent + fixture again (journal survives in IndexedDB). */
 export async function reloadAndRebootstrap(page) {
   await loadTrade(page);
   await connectAndEnable(page);
@@ -368,17 +304,11 @@ export const okCancelResponse = (n = 7) => ({
   response: { type: "cancel", data: { statuses: Array.from({ length: n }, () => "success") } }
 });
 
-/** Simulator answers for one cancel of `n` orders, whichever cancel action the app signs. */
 export const cancelResponses = (n = 7) => ({
   cancel: { responses: [okCancelResponse(n)] },
   cancelByCloid: { responses: [okCancelResponse(n)] }
 });
 
-/**
- * An `orderStatus` answer (`world.orderStatus`) for `rows` (open order rows, looked up by
- * oid or cloid): `status(row)` is the venue status ("canceled", "open", ...) and
- * `remaining(row)` the unfilled size the venue reports as `sz`.
- */
 export function orderStatusFor(rows, { status = () => "canceled", remaining = (r) => r.sz } = {}) {
   const byId = new Map(rows.flatMap((r) => [[String(r.oid), r], [String(r.cloid).toLowerCase(), r]]));
   return (id) => {
@@ -413,14 +343,12 @@ export async function openVolLaddersTab(page) {
 export const row = (page) => page.locator('[data-role="vol-ladder-row"]');
 export const statusLabel = (page) => row(page).locator('[data-role="vol-ladder-status"]');
 
-/** Opens the selected ladder's order detail if it is not already open. */
 export async function showLadderOrders(page) {
   const viewOrders = row(page).locator('[data-role="vol-ladder-view-orders"]');
   if ((await viewOrders.getAttribute("aria-expanded")) !== "true") await viewOrders.click();
   await expect(row(page).locator('[data-role="vol-ladder-detail"]')).toBeVisible();
 }
 
-/** Place a live ladder; returns the signed order action. */
 export async function placeLive(page, world, extra = {}) {
   await installExchange(page, { order: { responses: [restingAll()] }, ...extra });
   await openReview(page);

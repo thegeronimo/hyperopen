@@ -45,8 +45,6 @@
           (when (= :perp (:market-type resolved))
             resolved))))))
 
-;; The token price resolver itself is pure and lives outside views so the
-;; funding modal can use it too.
 (def balance-rows-by-token token-pricing/balance-rows-by-token)
 
 (def token-price-usd token-pricing/token-price-usd)

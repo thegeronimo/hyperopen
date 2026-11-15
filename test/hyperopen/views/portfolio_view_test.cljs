@@ -219,7 +219,6 @@
     (is (= "Performance Metrics" (first portfolio-tab-labels)))
     (is (str/starts-with? (or (second portfolio-tab-labels) "") "Vaults"))
     (is (str/starts-with? (or (nth portfolio-tab-labels 2 nil) "") "Monte Carlo"))
-    ;; Vol Range reporting is on in test builds (spec 11.3): after Monte Carlo.
     (is (= "Vol Range" (nth portfolio-tab-labels 3 nil)))
     (is (str/starts-with? (or (nth portfolio-tab-labels 4 nil) "") "Balances"))
     (is (contains? (set (class-values account-tables-panel)) "min-h-0"))

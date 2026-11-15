@@ -29,9 +29,6 @@
     (is (nil? (node-by-role view-node "portfolio-optimizer-universe-search-results")))))
 
 (deftest setup-universe-shows-holdings-loading-state-while-seed-pending-test
-  ;; While readiness reports :holdings-loading the panel must present the wait
-  ;; (active "My holdings" segment, loading copy, skeleton rows) instead of the
-  ;; empty-universe copy that asks the user to add assets manually.
   (let [view-node (setup-universe/universe-section
                    {:portfolio-ui {:optimizer {:universe-search-query ""}}}
                    {:universe []}
@@ -116,9 +113,6 @@
            (get-in search-input [1 :placeholder])))
     (is (some? vault-row))
     (is (contains? strings "Alpha Yield"))
-    ;; The per-row type tag was replaced by a sticky group header: with a full,
-    ;; grouped result list the type is stated once per section instead of
-    ;; repeated on every row of a narrow rail.
     (is (some? (node-by-role
                 view-node
                 "portfolio-optimizer-universe-candidate-group-header-vault")))
@@ -198,17 +192,12 @@
                                         :candle-history-by-coin "BTC"]
                                        (candle-rows [[1000 100]
                                                      [2000 101]])))]
-    ;; The row no longer paints per-status chips — those diagnostics moved to the
-    ;; grouped Readiness panel. The computed status still rides on the row's
-    ;; :data-history-status attribute (a QA/telemetry hook), so the status
-    ;; mapping stays asserted here.
     (is (= "pending" (row-status base-state)))
     (is (= "queued" (row-status queued-state)))
     (is (= "loading" (row-status loading-state)))
     (is (= "missing" (row-status missing-state)))
     (is (= "insufficient" (row-status insufficient-state)))
     (is (contains? #{"sufficient" "stale"} (row-status sufficient-state)))
-    ;; And none of the solver-readiness jargon is rendered on the row itself.
     (doseq [state [base-state queued-state loading-state missing-state
                    insufficient-state sufficient-state]]
       (let [strings (row-strings state)]
@@ -324,9 +313,6 @@
         row (node-by-role view-node
                           (str "portfolio-optimizer-universe-selected-row-" vault-a-id))
         row-text (node-text row)]
-    ;; The misaligned-history status is still computed and exposed on the row's
-    ;; :data-history-status attribute; it is no longer painted as a "shared gap"
-    ;; chip — that detail now lives in the grouped Readiness panel.
     (is (= "shared-gap" (get-in row [1 :data-history-status])))
     (is (not (str/includes? row-text "shared gap")))))
 

@@ -24,7 +24,6 @@
   (into
    {:deposits-withdrawals [[:actions/set-portfolio-account-info-tab :deposits-withdrawals]]
     :performance-metrics [[:actions/set-portfolio-account-info-tab :performance-metrics]]
-    ;; Selecting the tab is also what loads its data.
     :vaults [[:actions/set-portfolio-account-info-tab :vaults]
              [:actions/load-portfolio-vault-attribution]]
     :monte-carlo [[:actions/set-portfolio-account-info-tab :monte-carlo]]
@@ -93,8 +92,6 @@
                                          (montecarlo-vm/montecarlo-model
                                           state
                                           (:monte-carlo view-model))))})
-                       ;; Vol Range reporting (spec 11.3): never for another
-                       ;; trader's portfolio, and only in builds with reporting.
                        (cond-> (and (vol-range-contracts/reporting-enabled?) (not trader-portfolio-route?))
                          (conj {:id :vol-range
                                 :label "Vol Range"

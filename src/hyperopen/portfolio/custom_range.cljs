@@ -49,8 +49,6 @@
   (when-let [start (utc-day-start ms)]
     (+ start (dec day-ms))))
 
-;; --- the range value ----------------------------------------------------------------------
-
 (defn normalize
   "Coerce anything into a valid custom range, or nil. Accepts a map with
   `:from`/`:to` (or string keys, as parsed from a URL). Bounds are day-snapped and
@@ -119,8 +117,6 @@
                   (<= from domain-from)
                   (>= to domain-to)))))
 
-;; --- windowing ----------------------------------------------------------------------------
-
 (defn cutoff-ms
   "Start bound to hand to the existing preset cutoff machinery."
   [range]
@@ -171,8 +167,6 @@
                         (and (finite-number? t)
                              (>= t from)))))
       true vec)))
-
-;; --- formatting ---------------------------------------------------------------------------
 
 (defn- pad2
   [value]
@@ -253,8 +247,6 @@
   (when (finite-number? ms)
     (str (short-date ms) ", " (.getUTCFullYear (js/Date. ms)))))
 
-;; --- strip geometry (pure; plain numbers only, never the DOM) -----------------------------
-
 (defn time->fraction
   "Timestamp → 0..1 position across the domain, clamped."
   [ms domain]
@@ -288,8 +280,6 @@
   [client-x bounds domain]
   (some-> (pointer-fraction client-x bounds)
           (fraction->time domain)))
-
-;; --- drag ---------------------------------------------------------------------------------
 
 (defn- grab-fraction
   [bounds handle-px]
@@ -326,10 +316,6 @@
           (cond
             (< to-start to-end) {:mode :start :range current}
             (> to-start to-end) {:mode :end :range current}
-            ;; Exact tie means the selection is collapsed — both edges sit on the
-            ;; same fraction, so distance can never separate them. The side the
-            ;; pointer is on decides, which is what lets a collapsed range be
-            ;; reopened in either direction instead of only ever leftwards.
             (< fraction from-fraction) {:mode :start :range current}
             :else {:mode :end :range current}))
 

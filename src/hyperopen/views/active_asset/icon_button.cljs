@@ -104,8 +104,6 @@
     (when (contains? #{:replicant.life-cycle/mount
                        :replicant.life-cycle/update}
                      life-cycle)
-      ;; The node is reused when the Hyperliquid icon gives way to the fallback,
-      ;; so the last reported status is remembered per source, not per node.
       (let [status* (if (= icon-src (:icon-src memory))
                       (or (:status* memory) (atom nil))
                       (atom nil))]
@@ -124,7 +122,6 @@
 
 (defn- symbol-subtitle
   [symbol-meta]
-  ;; The slot renders even while loading so the header never jumps.
   [:span {:class ["block" "max-w-[18rem]" "truncate" "text-xs" "leading-4" "font-normal"
                   "text-trading-text-secondary"]
           :data-role "active-asset-symbol-subtitle"}
@@ -147,11 +144,8 @@
 
 (defn- symbol-description-tooltip
   [{:keys [coin description deployer subtitle display-name]}]
-  ;; Deployer-written text: rendered as a plain text node, never markup.
   [:div {:id (description-tooltip-id coin)
          :role "tooltip"
-         ;; Viewport-fixed: the market strip scrolls horizontally, which clips
-         ;; absolutely positioned children. Coordinates come from the trigger.
          :class ["pointer-events-none" "fixed" "left-0" "top-0" "z-[170]" "hidden"
                  "w-[22rem]" "max-w-[calc(100vw-2rem)]" "space-y-2" "rounded-lg" "border"
                  "border-base-300" "bg-base-100" "p-3" "text-left" "shadow-xl"

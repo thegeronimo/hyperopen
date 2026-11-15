@@ -4,11 +4,6 @@ import {
   waitForIdle
 } from "../support/hyperopen.mjs";
 
-// Portfolio vault attribution: the `Vaults` account-table tab and the `Vaults`
-// summary scope. Every /info read is answered by `stubInfo` below (ledger,
-// vaultDetails and userVaultEquities from the fixture; anything else gets an
-// empty answer and is recorded), so nothing reaches Hyperliquid.
-
 const ACCOUNT = "0x162cc7c861ebd0c06b3d72319201150482518185";
 const OPEN_VAULT = "0xaaaa00000000000000000000000000000000aaaa";
 const CLOSED_VAULT = "0xbbbb00000000000000000000000000000000bbbb";
@@ -16,12 +11,6 @@ const CLOSED_VAULT = "0xbbbb00000000000000000000000000000000bbbb";
 const DAY_MS = 86_400_000;
 const T = (month, day) => Date.UTC(2026, month - 1, day);
 
-// Open vault: deposits 1000 + 500 = 1500, a partial withdrawal that returned
-// 360 against 300 of basis, and 1500 still in the vault.
-//   PNL = 1500 + 360 - 1500 = +360
-// Closed vault: deposit 2000, fully withdrawn for 2100.
-//   PNL = 0 + 2100 - 2000 = +100
-// All vaults: value 1500 + withdrawn 2460 - deposited 3500 = +460.
 const EXPECTED_TOTAL_PNL = "+$460.00";
 const OPEN_VAULT_EQUITY = "1500.0";
 
@@ -70,7 +59,6 @@ const LEDGER_WITH_VAULTS = [
     }
   },
   {
-    // Not a vault row: must not add a vault to the list.
     time: T(6, 2),
     hash: "0xd10000000000000000000000000000000000000000000000000000000000d1",
     delta: { type: "deposit", usdc: "50.0" }
@@ -85,8 +73,6 @@ const LEDGER_WITHOUT_VAULTS = [
   }
 ];
 
-// `followerState` is what vaultDetails returns for the requesting `user`; vault
-// attribution takes the account's equity from it (same snapshot as the ledger).
 function vaultDetails(vaultAddress, name, points, followerState = null) {
   const history = (field) => points.map(([time, accountValue, pnl]) =>
     [time, field === "value" ? accountValue : pnl]);
@@ -158,12 +144,6 @@ const LIST_ANSWER_TYPES = new Set([
   "userRateLimit"
 ]);
 
-/**
- * Answers every `/info` POST. `world.ledger` is the ledger answer;
- * `world.ledgerFailures` is how many ledger reads still fail with a 500.
- * Requests are recorded on `world.requests`; unanswered types on
- * `world.fallbackTypes`.
- */
 async function stubInfo(page, world) {
   await page.route("**/info", async (route) => {
     const request = route.request();
@@ -223,8 +203,6 @@ function newWorld(overrides = {}) {
 }
 
 async function openPortfolio(page, route = `/portfolio?spectate=${ACCOUNT}`) {
-  // Opened without visitRoute; the shared guard's context-level mock answers
-  // the HyperEVM balance poller that spectating starts.
   await page.goto(route);
   await waitForDebugBridge(page);
   await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
@@ -255,7 +233,6 @@ test("portfolio vaults tab reports vault PNL, per-vault rows and the value chart
 
   await openVaultsTab(page);
 
-  // The ledger is read for the whole history, then one vaultDetails per vault.
   await expect.poll(() => ledgerRequests(world).length, { timeout: 10_000 }).toBeGreaterThan(0);
   expect(ledgerRequests(world)[0]).toMatchObject({
     type: "userNonFundingLedgerUpdates",
@@ -278,7 +255,6 @@ test("portfolio vaults tab reports vault PNL, per-vault rows and the value chart
   await expect.poll(() => searchParam(page, "tab")).toBe("vaults");
   await expect(page.locator("[data-role='account-info-tab-vaults']")).toContainText("Vaults (1)");
 
-  // Headline cards: exact dollar figures from the fixture.
   const cards = panel.locator("[data-role='portfolio-vaults-cards']");
   await expect(cards).toContainText("Vault PNL");
   await expect(cards).toContainText("Money-weighted return");
@@ -291,7 +267,6 @@ test("portfolio vaults tab reports vault PNL, per-vault rows and the value chart
   await expect(panel.locator("[data-role='portfolio-vaults-card-pnl']"))
     .toContainText("Realized");
 
-  // Per-vault table.
   const table = panel.locator("[data-role='portfolio-vaults-table']");
   for (const heading of [
     "Vault",
@@ -325,7 +300,6 @@ test("portfolio vaults tab reports vault PNL, per-vault rows and the value chart
   await expect(totalRow).toContainText("$2,460.00");
   await expect(totalRow).toContainText(EXPECTED_TOTAL_PNL);
 
-  // Chart: SVG polylines and deposit / withdrawal markers.
   const chart = panel.locator("[data-role='portfolio-vaults-chart']");
   await expect(chart).toBeVisible();
   await expect(chart.locator("svg")).toHaveCount(1);
@@ -380,11 +354,8 @@ test("portfolio vaults summary scope shows vault figures and restores the accoun
   await expect(card).not.toContainText("Total Equity");
   await expect(card).not.toContainText("Volume");
 
-  // The chart tab follows the scope. (The series legend only renders with a
-  // benchmark selected, so it is not asserted here.)
   await expect(chartTab("account-value")).toHaveText("Vault Value");
 
-  // Back to the combined scope.
   await trigger.click();
   await page.locator("[data-role='portfolio-summary-scope-selector-option-all']").click();
   await expect(card).toContainText("Total Equity");
@@ -394,8 +365,6 @@ test("portfolio vaults summary scope shows vault figures and restores the accoun
 });
 
 test("portfolio vaults tab shows an error with Retry and recovers @regression", async ({ page }) => {
-  // Fail every ledger read until the test lets one through, so the app's own
-  // request retries cannot turn the failure into a success.
   const world = newWorld({ ledgerFailures: Number.MAX_SAFE_INTEGER });
   await stubInfo(page, world);
   await openPortfolio(page);

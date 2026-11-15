@@ -576,12 +576,6 @@
                         {:wallet {:connected? true
                                   :address "0x1234567890abcdef"
                                   :chain-id "0x1"}})]
-    ;; The connected state renders TWO siblings, spliced into the row rather
-    ;; than wrapped: this repo's Replicant has no fragment tag and renders [:<>]
-    ;; as an element named "<>", which makes createElement throw at runtime.
-    ;; The assertion here used to REQUIRE that broken shape, which is part of
-    ;; why the defect survived — these tests read hiccup DATA and never run the
-    ;; renderer, so only a browser can catch it.
     (is (= :div.flex.items-center.gap-2 (first connected-view)))
     (is (= [:span.inline-block.px-2.py-1.rounded.bg-teal-700.text-teal-100.text-sm
             (str "Connected " (wallet/short-addr "0x1234567890abcdef"))]

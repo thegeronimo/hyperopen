@@ -27,7 +27,6 @@
         run (-> prev
                 (.then (fn [_] (f)))
                 (.finally (fn [] (swap! in-tab-outstanding update lock-name dec))))]
-    ;; The tail never rejects, so one failed holder does not poison the queue.
     (swap! in-tab-tails assoc lock-name (.catch run (fn [_] nil)))
     run))
 

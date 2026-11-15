@@ -65,9 +65,6 @@
 
 (deftest no-ledger-type-is-dropped-the-way-the-reference-drops-them-test
   (testing "sub-account transfers are recovered onto Internal Transfers"
-    ;; The reference gives subAccountTransfer a label but no displayedInTabs, so
-    ;; its ingest guard drops the row before the store -- it appears on no
-    ;; sub-tab, not even All. It was 945 of 5,146 rows in the sampled ledgers.
     (is (= #{:internal-transfers}
            (account-activity/sub-tabs-for-type "sub-account-transfer"))))
   (testing "Earn is wired rather than permanently empty"
@@ -121,9 +118,6 @@
     (is (= [:time :status :asset :from :to :account-change :usd-value :fee]
            (account-activity/visible-columns :spot-transfers))))
   (testing "every other sub-tab keeps all ten columns"
-    ;; The reference also hides Action on Account Transfers. We keep it, because
-    ;; that sub-tab carries three distinct types whose only distinguishing
-    ;; column is Action.
     (doseq [sub-tab [:all :account-transfers :deposits-withdrawals :internal-transfers
                      :earn :vaults :staking :auctions]]
       (is (= 10 (count (account-activity/visible-columns sub-tab)))

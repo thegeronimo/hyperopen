@@ -39,7 +39,6 @@
         a (funding-history/normalize-funding-history-filters filters now)
         b (funding-history/normalize-funding-history-filters filters now)]
     (is (= a b))
-    ;; Inverted input range is normalized.
     (is (= [1700100000000 1700700000000]
            [(:start-time-ms a) (:end-time-ms a)]))))
 

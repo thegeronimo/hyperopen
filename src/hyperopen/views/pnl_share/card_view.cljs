@@ -7,9 +7,6 @@
             [hyperopen.views.pnl-share.templates.neon-arrow :as neon-arrow]
             [hyperopen.views.pnl-share.templates.number-hero :as number-hero]))
 
-(def card-width 1080)
-(def card-height 608)
-
 (def ^:private renderer-by-template
   {:neon-arrow neon-arrow/render
    :number-hero number-hero/render})

@@ -55,9 +55,6 @@
       (max real (clamp-percent (:display-percent progress)))
       real)))
 
-;; Human-readable primary labels. The worker's step ids carry solver-internal
-;; wording ("fetch returns matrix", "QP solve"); those stay in the details
-;; drawer. The banner headline names what is happening in the user's terms.
 (def ^:private step-human-labels
   {:fetch-returns "Loading return history"
    :risk-model "Building risk model"
@@ -300,15 +297,10 @@
         run-status (:status run-state)
         running? (= :running progress-status)
         succeeded? (and (not running?) (= :succeeded progress-status))
-        ;; Only a genuine worker/solve error (run-state :failed) is a blocking
-        ;; state we own here; :infeasible / :unsupported route to their own UI.
         hard-failed? (and (not running?) (= :failed run-status))
         visible? (or running? succeeded? hard-failed?)]
     (when visible?
       (let [t (tone {:running? running? :succeeded? succeeded?})]
-        ;; aria-live sits on the headline (the step label / terminal message),
-        ;; NOT here: the progress ticker rewrites the percent + elapsed ~8×/s, and
-        ;; a live region spanning those would spam screen readers every tick.
         [:section {:class ["optimizer-run-banner"]
                    :data-role "portfolio-optimizer-run-banner"
                    :data-run-tone (name t)}

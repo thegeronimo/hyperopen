@@ -38,9 +38,6 @@
    :column-pointers (typed->vec (.-column_pointers csc))})
 
 (deftest cached-static-parts-are-identical-to-a-fresh-build-test
-  ;; The whole point of the cache is that it changes nothing. A frontier sweep
-  ;; reuses the same covariance and bound objects while varying only the return
-  ;; tilt, so every point must get byte-identical P, A, l and u.
   (let [baseline (osqp/build-static-parts-uncached (problem 12 0.0))]
     (doseq [tilt [0.0 0.25 0.5 1.0 2.0]]
       (let [cached (osqp/static-parts (problem 12 tilt))]
@@ -53,8 +50,6 @@
         (is (= (:var-count baseline) (:var-count cached)))))))
 
 (deftest a-different-structure-does-not-reuse-a-cached-entry-test
-  ;; A stale hit here would silently solve the wrong problem, so the key has to
-  ;; separate universes, bounds and constraint rows.
   (let [base (problem 8 0.5)
         wider (assoc base :upper-bounds (vec (repeat 8 0.4)))
         bigger (problem 9 0.5)
@@ -68,8 +63,6 @@
         "a bigger universe must produce a bigger P")))
 
 (deftest the-linear-term-is-rebuilt-per-solve-test
-  ;; q is the one thing a sweep varies; caching it would make every frontier
-  ;; point solve the same problem.
   (let [p0 (problem 6 0.0)
         p1 (problem 6 1.0)
         {var-count :var-count} (osqp/static-parts p0)

@@ -9,8 +9,6 @@
 (defn- mobile-balance-coin-node [{:keys [coin selection-coin] :as row}]
   (let [{:keys [base-label prefix-label]}
         (shared/resolve-coin-display (or selection-coin coin) {})]
-    ;; The coin column is narrow on a phone, so a place chip wraps under the
-    ;; name instead of squeezing it to an ellipsis.
     [:span {:class (cond-> ["flex" "min-w-0" "items-center" "gap-1"]
                      (:location-chip row) (into ["flex-wrap" "gap-y-0.5"]))}
      [:span {:class ["truncate" "font-medium" "leading-4" "text-trading-text"]} (or base-label coin "Asset")]
@@ -40,7 +38,6 @@
                                 "focus:ring-0"
                                 "focus:ring-offset-0"
                                 "focus-visible:text-ho-accent-bright"
-                                ;; Colour alone is too weak a focus cue.
                                 "focus-visible:underline"
                                 "underline-offset-2"]
                                ["cursor-default" "text-trading-text-secondary"]))}]
@@ -144,15 +141,9 @@
                        (when-not read-only?
                          [:div {:class ["border-t" "border-ho-border-accent-muted" "pt-2.5"]}
                           [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]}
-                           ;; HyperCore Send never moves a HyperEVM balance, so
-                           ;; a HyperEVM card keeps the slot, hidden.
                            (if (= :hyperevm (:location row))
                              [:span {:class ["hidden"]}]
                              (mobile-balance-footer-action "Send" send-enabled?* send-action))
-                           ;; Rows from the Balances-tab view-model carry their
-                           ;; move targets (keyed, so they get their own
-                           ;; wrapper); any other caller keeps the one Transfer
-                           ;; action.
                            (if (contains? row :move-targets)
                              (into [:div {:class ["flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-2"]
                                           :data-role (str "balances-moves-mobile-" row-id)}]

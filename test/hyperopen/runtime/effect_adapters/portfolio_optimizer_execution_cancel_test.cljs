@@ -6,8 +6,6 @@
             [hyperopen.runtime.effect-adapters.portfolio-optimizer :as portfolio-optimizer-adapters]))
 
 (def ^:private carryover-plan
-  ;; A staged plan carrying one stale resting order from a PREVIOUS run (attached by the
-  ;; confirm action as :cancel-orders) plus one fresh ready row.
   {:scenario-id "scn_carryover"
    :status :ready
    :execution-disabled? false
@@ -50,8 +48,6 @@
                                         :plan carryover-plan}}}}))
 
 (deftest execute-portfolio-optimizer-plan-effect-cancels-stale-resting-orders-first-test
-  ;; Success path: the batched cancel goes out first, the run proceeds, the successful
-  ;; cancellation is recorded on the ledger, and the carryover is pruned on ledger apply.
   (async done
     (let [submitted (atom [])
           ticks (atom [1000 1100])
@@ -88,9 +84,6 @@
                      (done))))))))
 
 (deftest execute-portfolio-optimizer-plan-effect-halts-run-when-cancel-fails-test
-  ;; If the stale orders CANNOT be cancelled, submitting the new orders anyway would
-  ;; recreate the over-allocation bug — so nothing is sent and every sendable row fails
-  ;; with the reason.
   (async done
     (let [submitted (atom [])
           ticks (atom [1000 1100])
@@ -130,9 +123,6 @@
                      (done))))))))
 
 (def ^:private feed-recognized-plan
-  ;; :cancel-orders entry recognized from the live snapshot carries :coin + :oid but NO
-  ;; frozen :asset-id (unlike same-session carryover) — the effect must resolve its asset
-  ;; index from state before it can build the wire cancel.
   {:scenario-id "scn_feed"
    :status :ready
    :execution-disabled? false
@@ -151,8 +141,6 @@
                     :quantity 0.25 :order-type :market :reduce-only? false}}]})
 
 (deftest execute-effect-resolves-asset-id-for-feed-recognized-cancel-test
-  ;; A cross-session (cloid-recognized) cancel entry lacks a frozen asset index; the effect
-  ;; resolves it from market metadata in state and still cancels BEFORE any new order.
   (async done
     (let [submitted (atom [])
           ticks (atom [1000 1100])

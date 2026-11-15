@@ -34,8 +34,6 @@
     (-> (effects/api-submit-funding-transfer! (:deps harness))
         (.then (fn [_] (assoc harness :store store))))))
 
-;; --- Spot re-reads never land on another account's Spot ---------------------------
-
 (deftest spot-re-reads-stop-once-another-account-is-shown-test
   (async done
     (let [requests (atom [])
@@ -43,7 +41,6 @@
                        (js/Promise. (fn [resolve _]
                                       (swap! requests conj {:address address :opts opts
                                                             :resolve resolve}))))
-          ;; The real refresh, over a scripted HyperCore info read.
           refresh (fn [store owner opts]
                     (hyperevm-runtime/refresh-spot-clearinghouse! store owner opts request-fn))]
       (-> (evm->core-success! {:refresh-spot-clearinghouse! refresh})
@@ -52,11 +49,9 @@
                    (let [shown (h/spectating @store)
                          spectated-spot {:balances [{:coin "HYPE" :token support/hype-index
                                                      :total "999" :hold "0"}]}]
-                     ;; The user starts spectating; Spot now holds that account.
                      (reset! store (assoc-in shown [:spot :clearinghouse-state] spectated-spot))
                      (doseq [ms run-state/spot-refresh-delays-ms] (h/fire! timers ms))
                      (is (= 1 (count @requests)) "no re-read while another account is shown")
-                     ;; The read issued before the switch answers now.
                      ((:resolve (first @requests)) {:balances [{:coin "HYPE" :token support/hype-index
                                                                 :total "422.08" :hold "0"}]})
                      (-> (js/Promise.resolve nil)
@@ -78,8 +73,6 @@
                  (is (= 1 (count @spot)) "the owner's Spot is not read into the subaccount's")
                  (done)))
         (.catch (async-support/unexpected-error done)))))
-
-;; --- the arrival watch ends with its run -------------------------------------------
 
 (defn- tracked
   "An open modal showing a succeeded HYPE HyperEVM -> Spot run of flow-1,
@@ -126,12 +119,9 @@
 
 (deftest spot-arrival-counts-the-whole-balance-test
   (let [{:keys [store]} (tracked)]
-    ;; An order placed meanwhile holds 100 HYPE; the 10 HYPE still arrived.
     (swap! store update-in [:spot :clearinghouse-state :balances hype-row]
            assoc :total "422.08" :hold "100")
     (is (= :arrived (:arrival (h/run-of store))))))
-
-;; --- nothing after a sent move can fail it -----------------------------------------
 
 (deftest core-to-evm-follow-up-errors-never-fail-a-sent-move-test
   (async done

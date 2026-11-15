@@ -17,10 +17,6 @@
 
 (def tab-id :vol-ladders)
 
-;; ---------------------------------------------------------------------------
-;; Panel
-;; ---------------------------------------------------------------------------
-
 (defn- section-heading [id label n]
   [:h2 {:id id :class ["mb-2" "text-xs" "font-semibold" "uppercase" "tracking-wider" "text-ho-text-muted"]}
    (str label " · " n)])
@@ -70,10 +66,6 @@
      [:p {:class ["p-3" "text-sm" "text-ho-text-secondary"] :data-role "vol-ladder-empty"}
       "No Vol Range ladders yet."])
    (repair-dialog/repair-dialog dialog)])
-
-;; ---------------------------------------------------------------------------
-;; Injection into the account-info panel (trade route)
-;; ---------------------------------------------------------------------------
 
 (defn view-state
   "The slice the trade account panel needs to build the tab: the execution

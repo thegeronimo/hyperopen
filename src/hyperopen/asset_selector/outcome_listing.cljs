@@ -74,9 +74,6 @@
   [market]
   (:open-interest (display/event-totals market)))
 
-;; ---------------------------------------------------------------------------
-;; Answers
-
 (defn option-quote
   "Side-0 quote of one answer (option or rung) under the one chance rule."
   ([option] (option-quote option nil))
@@ -106,7 +103,6 @@
 (def ^:private shown-answer-limit 3)
 
 (def ^:private state-tier
-  ;; Traded, tightly quoted answers lead; placeholders (never traded) trail.
   {:live 0 :range 1 :no-market 2 :no-quotes 3 :not-traded 4})
 
 (defn- answer-rank
@@ -224,9 +220,6 @@
         :more 0
         :flags []}))))
 
-;; ---------------------------------------------------------------------------
-;; Sections and order
-
 (defn- day-key
   "Local calendar day as YYYY-MM-DD (en-CA formats ISO dates)."
   [ms {:keys [time-zone]}]
@@ -267,13 +260,11 @@
             day (day-key at-ms opts)
             label (day-label at-ms now-ms opts)]
         (cond
-          ;; A game in progress leads, even when it started before midnight.
           (= :live phase)
           {:id (str "games|live|" competition)
            :title (str "Live · " competition)
            :rank [0 -1 "" competition]}
 
-          ;; Games past their live window wait for a result at the end.
           (= :awaiting phase)
           {:id (str "games|awaiting|" competition)
            :title (str "Awaiting result · " competition)
@@ -387,9 +378,6 @@
                   (when category [tab (get by-category category 0)])))
           category-chips)))
 
-;; ---------------------------------------------------------------------------
-;; Live price subscriptions
-
 (def ^:private subscribed-event-limit
   "Fallback until the view reports which rows are on screen."
   30)
@@ -407,13 +395,9 @@
                  (take subscribed-event-limit rows))]
      (->> rows*
           (mapcat :answers)
-          ;; Side 1 mirrors side 0, so side-0 contexts are enough.
           (filter #(zero? (:side-index %)))
           (keep :coin)
           set))))
-
-;; ---------------------------------------------------------------------------
-;; Load state
 
 (def stale-after-ms
   "A list older than this should reload when the panel opens."
@@ -448,9 +432,6 @@
      :stale? (boolean (and ready? (number? age-ms) (> age-ms stale-after-ms)))
      :updated-text (when (and ready? (number? age-ms)) (age-text age-ms))
      :refresh-action [:actions/refresh-asset-markets]}))
-
-;; ---------------------------------------------------------------------------
-;; Actions (pure: state -> effects)
 
 (def ^:private sync-subscriptions-effect
   [:effects/sync-asset-selector-active-ctx-subscriptions])

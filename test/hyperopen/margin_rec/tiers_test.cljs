@@ -42,12 +42,10 @@
 (deftest liquidation-price-closed-form
   (testing "long, flat 40x maintenance (rate 0.0125 -> here use 20x=0.025)"
     (let [schedule (tiers/flat-schedule 20)
-          ;; e + (P - 100) = 0.025 P  =>  P = 90 / 0.975
           p (tiers/liquidation-price schedule 1 100 10)]
       (is (< (js/Math.abs (- p (/ 90 0.975))) 1e-9))))
   (testing "short"
     (let [schedule (tiers/flat-schedule 10)
-          ;; 20 - (P - 100) = 0.05 P  =>  P = 120 / 1.05
           p (tiers/liquidation-price schedule -1 100 20)]
       (is (< (js/Math.abs (- p (/ 120 1.05))) 1e-9))))
   (testing "fully collateralized long has no liquidation price"

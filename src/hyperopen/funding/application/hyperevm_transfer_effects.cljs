@@ -28,9 +28,6 @@
             [hyperopen.hyperevm.domain.transfer-state :as transfer-state]
             [hyperopen.hyperevm.domain.txs :as txs]))
 
-(def in-flight-message
-  transfer-state/in-flight-message)
-
 (defn- toast!
   [{:keys [store show-toast!]} kind message]
   (when (and (fn? show-toast!) (seq message))
@@ -71,8 +68,6 @@
 (defn- refuse!
   [{:keys [store show-toast! set-funding-submit-error!]} message]
   (set-funding-submit-error! store show-toast! message))
-
-;; --- HyperCore -> HyperEVM --------------------------------------------------------
 
 (defn- fail-run!
   "Fail the run of `flow-id`. `opts` carries `:maybe-sent?` for a failure
@@ -158,8 +153,6 @@
               (catch :default err
                 (js/Promise.reject err)))
             (.then (fn [resp]
-                     ;; Again once HyperCore answered: the settle time
-                     ;; counts from the debit, not from the click.
                      (run-state/follow-up! deps "bridge stamp" #(mark-sent! deps request))
                      (if (= "ok" (:status resp))
                        (core-to-evm-sent! deps request flow-id owner arrival)
@@ -173,11 +166,7 @@
                      (core-to-evm-errored! deps flow-id owner err)
                      nil))
             (.catch (fn [err]
-                      ;; Only a store watcher throwing inside a run write
-                      ;; gets here; the run's phase is already written.
                       (run-state/log-error! deps "settling the run" err))))))))
-
-;; --- HyperEVM -> HyperCore --------------------------------------------------------
 
 (defn- on-step!
   [{:keys [store]} flow-id step event]
@@ -219,8 +208,6 @@
 
     "pending"
     (do
-      ;; The entry stays, so no second move can start; balance polling
-      ;; resumes and the poller resolves the hash in the background.
       (swap! store transfer-state/merge-in-flight owner flow-id
              {:status :pending :waiting-receipt? false})
       (run-state/update-run! store flow-id
@@ -230,9 +217,6 @@
       (run-state/refresh-hyperevm-after-transfer! deps))
 
     (let [unconfirmed? (= :no-hash (:kind result))]
-      ;; A send the wallet answered without a usable hash may still have
-      ;; been broadcast: its entry stays (`:unconfirmed`, nothing to poll),
-      ;; so no second move can start until a reload.
       (if unconfirmed?
         (swap! store transfer-state/merge-in-flight owner flow-id
                {:status :unconfirmed :waiting-receipt? false})
@@ -287,8 +271,6 @@
             (.then (fn [result]
                      (finish-evm-to-core! deps request flow-id owner arrival result))))))))
 
-;; --- background resolution ------------------------------------------------------
-
 (defn- reverted-message
   [approve?]
   (if approve?
@@ -324,8 +306,6 @@
                    approve? (= :approve step)
                    flow-id (:flow-id entry)
                    text (amount-symbol-text (:amount entry) (:asset entry))
-                   ;; Toasts only when the modal no longer shows this run;
-                   ;; its view says the same thing otherwise.
                    shown? (run-state/run-current? @store flow-id)
                    toast* (fn [kind message] (when-not shown? (toast! deps kind message)))]
                (swap! store transfer-state/clear-in-flight owner flow-id)
@@ -350,8 +330,6 @@
                                      #(run-state/refresh-hyperevm-after-transfer! deps))
                {:resolved? true :ok? ok?})))))
       (.catch (fn [_] nil))))
-
-;; --- add to wallet --------------------------------------------------------------
 
 (defn- wallet-error-message
   [err symbol]

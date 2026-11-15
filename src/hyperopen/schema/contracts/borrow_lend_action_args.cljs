@@ -2,9 +2,6 @@
   (:require [cljs.spec.alpha :as s]
             [hyperopen.schema.contracts.common :as common]))
 
-;; Earn (HyperCore borrow/lend) action payload contracts, merged into
-;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
-
 (s/def ::modal-args
   (s/tuple (s/or :keyword keyword? :string string?)
            ::common/intish))

@@ -45,9 +45,6 @@
     (is (nil? (paths/prepare-bars [])))))
 
 (deftest degenerate-required-equity-is-exact
-  ;; Every bar is identical, so all paths coincide and the required equity is
-  ;; hand-derivable: with q=1, p0=100, flat rate m, after t bars the close is
-  ;; 100*step^t and the wick of bar t+1 is 100*step^t*low-mult.
   (let [step 0.99
         low-mult 0.985
         m 0.02
@@ -56,9 +53,6 @@
         horizon 3
         expected (reduce
                   (fn [req t]
-                    ;; bar t: close = 100*step^(t+1); its wick sits at
-                    ;; close*low-mult because the generator draws lows
-                    ;; relative to the bar's own close.
                     (let [close (* 100 (js/Math.pow step (inc t)))
                           ext (* close low-mult)]
                       (-> req
@@ -88,8 +82,6 @@
     (is (= (vec whole) (vec sliced)))))
 
 (deftest long-short-symmetry
-  ;; Symmetric bars (zero drift, mirrored wicks) must produce identical
-  ;; required-equity distributions for +q and -q under a flat schedule.
   (let [n 120
         rows (map (fn [i]
                     {:t (* i 3600000) :o 100 :c 100 :l 99 :h (/ 100 0.99)})
@@ -100,9 +92,6 @@
               :block-len 24 :stress-prob 0}
         long-sorted (paths/simulate-required-sync bars (assoc base :q 1) 256)
         short-sorted (paths/simulate-required-sync bars (assoc base :q -1) 256)]
-    ;; Wicks are multiplicative mirrors, so the short's adverse move is the
-    ;; exact reciprocal of the long's; required equity differs only through
-    ;; maintenance on a larger short notional — it must be >= the long's.
     (dotimes [i 256]
       (is (>= (+ (aget short-sorted i) 1e-12) (aget long-sorted i))))))
 

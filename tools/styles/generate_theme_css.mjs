@@ -1,6 +1,3 @@
-// Generates src/styles/themes/<id>.css from src/styles/themes/palette.js.
-// Run after editing the palette: node tools/styles/generate_theme_css.mjs
-// tools/styles/theme_css_sync.test.mjs fails when committed CSS drifts.
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";

@@ -131,10 +131,6 @@
   [state]
   (controls-at state state-path))
 
-;; ---------------------------------------------------------------------------
-;; Nexus action handlers (return effect descriptors only)
-;; ---------------------------------------------------------------------------
-
 (defn set-control-at
   "Effect that sets one Monte Carlo `control` to `value` under `state-path*`.
   Returns nil for unknown controls. Shared by every Monte Carlo surface."

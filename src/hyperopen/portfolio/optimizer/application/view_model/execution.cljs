@@ -11,16 +11,9 @@
             [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.trading-settings :as trading-settings]))
 
-;; Keep in sync with hyperopen.portfolio.optimizer.actions.execution/stale-recommendation-message
-;; (the action emits the same sentence as the modal error when a stale arm/confirm is refused).
 (def ^:private stale-recommendation-message
   "Inputs changed since this recommendation was computed — re-run the optimizer before executing.")
 
-;; Appended to the read-only (spectate / trader-portfolio / unavailable-subaccount) commit-block
-;; banner. Changing a strategy or an order's type only re-projects estimated costs (the same pure
-;; recompute the KPI strip uses) — nothing is sent — so a spectator can model execution here even
-;; though arming/sending stays disabled. Not appended to the stale-recommendation block, whose only
-;; honest resolution is a re-run.
 (def ^:private simulation-allowed-note
   "You can still model execution strategies and per-order types here to compare costs — arming and sending stay disabled.")
 
@@ -157,11 +150,7 @@
   (cond
     submitting? :running
     (= :executed status) :done
-    ;; Orders accepted and live (open) on the book, none rejected — terminal, but not a fill.
     (= :resting status) :resting
-    ;; A rejection stopped the release loop, but earlier passive orders are still live
-    ;; (open) on the book and keep filling — the run is partial, not halted. It falls back
-    ;; to :halted once the resting rows resolve (fill or leave the book).
     (and (terminal-run-statuses status) live-resting?) :partial
     (terminal-run-statuses status) :halted
     (= :armed ui-phase) :armed
@@ -178,10 +167,6 @@
         summary (:summary plan)
         labels (labels-by-instrument state)
         resolve-label (label-resolver state)
-        ;; Reconcile the frozen ledger rows against the live order/fill feeds so a resting passive
-        ;; order that has since filled reads as filled (the persisted ledger stays untouched — it
-        ;; is the audit record). A no-op for any non-resting row. The latest-attempt's own :status
-        ;; chip is re-derived from the reconciled rows so it flips :resting -> :executed too.
         latest-attempt (when-let [attempt (enrich-execution-attempt
                                            resolve-label
                                            (latest-record
@@ -198,9 +183,6 @@
         terminal? (boolean (terminal-run-statuses status))
         ui-phase (or (:phase modal) :staged)
         plan-rows (enrich-instrument-rows resolve-label (:rows plan))
-        ;; During a run, show the live in-flight rows (queued -> working ->
-        ;; submitted/failed); after a run, the latest ledger attempt; otherwise the
-        ;; static staged plan.
         reconciled-rows (reconcile/reconcile-rows
                          state
                          (cond
@@ -211,11 +193,6 @@
                            (:rows latest-attempt)
 
                            :else plan-rows))
-        ;; Exit affordances (pre-run only): a skipped excluded-holding row is
-        ;; :exitable? (the table offers "Sell instead"); a row the trader already
-        ;; marked is :exit? (chip + revert-to-hold in its editor). State-only staging
-        ;; edits, so they stay available in read-only views (same policy as the
-        ;; order-type toggles); the arm/confirm gates are untouched.
         exit-ids (or (:exit-instrument-ids modal) #{})
         pre-run? (and (not submitting?) (not terminal?))
         stamp-exit (fn [row]
@@ -233,35 +210,21 @@
                            (not submitting?))
                       (mapv stamp-exit
                             (order-numbered-and-sorted reconciled-rows)))
-        ;; When the run settled as :resting, re-derive its status from the reconciled rows so the
-        ;; phase advances :resting -> :done as the open orders fill on the book.
         reconciled-status (if (= :resting status)
                             (execution/final-ledger-status reconciled-rows)
                             status)
-        ;; Rows still :resting AFTER reconciliation are live (open) on the book right now,
-        ;; so a rejected-alongside-resting run reads :partial (still working), not :halted.
         live-resting? (and terminal?
                            (boolean (some #(= :resting (:status %)) reconciled-rows)))
         phase (derive-phase {:submitting? submitting? :ui-phase ui-phase
                              :status reconciled-status :live-resting? live-resting?})
         ready? (pos? (or (:ready-count summary) 0))
         execution-disabled? (boolean (:execution-disabled? plan))
-        ;; Inputs edited since the solve => the staged plan no longer reflects intent. The entry
-        ;; already stages a stale plan as :execution-disabled? (its read-only banner carries the
-        ;; re-run message), and the action gates refuse a stale arm/confirm. This recomputes
-        ;; staleness live so post-staging drift (a plan that was current when staged) still
-        ;; disables Arm reactively instead of only erroring on click.
         scenario-stale? (boolean (workspace/scenario-stale?
                                   state (setup-readiness/build-readiness state)))
-        ;; Show the standalone notice only when the disabled banner isn't already carrying the
-        ;; stale message — avoids a duplicate banner for a stale-at-entry plan.
         stale-notice? (and scenario-stale? (not execution-disabled?))
         disabled-message (when execution-disabled?
                            (or (:disabled-message plan)
                                "Execution is disabled for this scenario."))
-        ;; Why sending is blocked: :read-only (spectate / trader-portfolio / unavailable
-        ;; subaccount) or :stale-recommendation. Only the former is a *simulate-anyway* context;
-        ;; the banner tells a spectator they can model execution even though sending is disabled.
         commit-blocked-reason (when execution-disabled? (:disabled-reason plan))
         commit-blocked-message (when execution-disabled?
                                  (if (= :read-only commit-blocked-reason)
@@ -271,19 +234,12 @@
                               execution-disabled?
                               scenario-stale?
                               (not ready?))
-        ;; Side-split notional of the rows that will actually send (status :ready), so the
-        ;; armed/confirm band can restate "how much money moves" — buys vs sells — alongside
-        ;; the order count. Derived from the staged plan rows (pre-run).
         ready-rows (filter #(= :ready (:status %)) plan-rows)
         side-notional (fn [side]
                         (->> ready-rows
                              (filter #(= side (:side %)))
                              (map #(js/Math.abs (or (:delta-notional-usd %) 0)))
                              (reduce + 0)))
-        ;; Open orders overlapping this rebalance, classified against the live cloid-bearing
-        ;; frontendOpenOrders snapshot: our OWN tagged orders auto-cancel (counted alongside
-        ;; the in-memory carryover); UNTAGGED overlaps (manual / pre-tag) surface for an
-        ;; explicit per-order decision.
         {owned-open :optimizer-owned untagged-open :untagged-overlap}
         (cloid/classify-overlap (cloid/live-open-orders state) ready-rows)
         session-carryover (carryover/live-resting-carryover
@@ -300,16 +256,10 @@
                              untagged-open)]
     {:plan (assoc plan :rows plan-rows)
      :summary summary
-     ;; Orders (ours) that confirm will cancel automatically before sending new orders —
-     ;; in-session carryover PLUS reload-surviving cloid-recognized orders, deduped by oid.
      :carryover-count (count auto-cancel-oids)
-     ;; Untagged open orders overlapping the rebalance the user must resolve (each carries
-     ;; its live :cancel? choice); drives the decision surface.
      :overlap-orders overlap-orders
      :rows display-rows
      :phase phase
-     ;; The live-run pause/abort flag the submit loop checks; surfaced so the running band can
-     ;; acknowledge the request instead of leaving the button looking inert.
      :abort-requested? (boolean (get-in state (conj contracts/execution-path :abort-requested?)))
      :ready-buys-usd (side-notional :buy)
      :ready-sells-usd (side-notional :sell)
@@ -322,24 +272,15 @@
      :params (or (:params modal) {})
      :open-row (:open-row modal)
      :order-filter (or (:order-filter modal) :all)
-     ;; Persisted browser-local preference: auto-stage closing orders for held perp
-     ;; positions removed from the allocation. Drives the order-table's setting
-     ;; toggle; the entry action does the actual seeding.
      :auto-exit-excluded? (boolean (trading-settings/optimizer-auto-exit-excluded? state))
      :submitting? submitting?
      :error (:error modal)
      :ready? ready?
-     ;; Commit gate — cannot Arm / Confirm / send (spectate, trader-portfolio, unavailable
-     ;; subaccount, or stale). Distinct from simulation editability: the strategy tiles and
-     ;; per-order type/param editors stay live so a read-only viewer can compare execution costs.
      :commit-blocked? execution-disabled?
      :commit-blocked-reason commit-blocked-reason
      :commit-blocked-message commit-blocked-message
      :stale? stale-notice?
      :stale-message (when stale-notice? stale-recommendation-message)
-     ;; Arming is blocked by either a read-only/disabled plan (spectate or stale-at-entry) or
-     ;; live post-staging staleness; the header reads the combined flag + reason so the button
-     ;; explains itself on hover.
      :arm-disabled? (or execution-disabled? scenario-stale?)
      :arm-disabled-message (cond
                              execution-disabled? disabled-message

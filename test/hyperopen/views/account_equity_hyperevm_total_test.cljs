@@ -95,8 +95,6 @@
                                              :address account-a
                                              :usd 56538.39
                                              :unpriced-count 0}))]
-    ;; $224,892.08 Spot + $0.01 Perps + $23,028.52 Vaults + $56,538.39
-    ;; HyperEVM = the screenshot's user-visible $304,459.00 total.
     (is (= "$224,892.09" (account-equity-view/display-currency
                            (:account-value-display metrics))))
     (is (= 0 (:hyperevm-equity confirmed-zero)))
@@ -109,8 +107,6 @@
               (:vault-equity metrics)
               (:hyperevm-equity metrics))
            (:total-account-value-display metrics)))
-    ;; HyperEVM is worth part of the owner's account, but cannot margin a
-    ;; position. Existing trading equity and cross-risk figures stay exact.
     (is (= (select-keys confirmed-zero [:account-value-display
                                         :base-balance
                                         :maintenance-margin
@@ -197,8 +193,6 @@
               (:vault-equity known-metrics)
               (:hyperevm-equity known-metrics))
            (:total-account-value-display known-metrics)))
-    ;; Existing HyperEVM reads are stale-while-revalidate. A later transient
-    ;; failure keeps the same complete, account-owned last good value.
     (is (= (:hyperevm-equity known-metrics)
            (:hyperevm-equity refreshing-metrics)
            (:hyperevm-equity failed-refresh-metrics)))

@@ -112,8 +112,6 @@
                        fraction*)]
       (str (group-thousands whole) "." fraction**))))
 
-;; --- per-location balances -------------------------------------------------
-
 (defn- spot-balance-rows
   [state]
   (let [rows (get-in state [:spot :clearinghouse-state :balances])]

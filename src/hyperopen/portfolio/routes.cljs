@@ -65,10 +65,6 @@
       {:kind :page
        :path path*}
 
-      ;; The workspace IS the landing page: /portfolio/optimize opens the setup
-      ;; surface directly (the scenario-board index page was removed 2026-07-06).
-      ;; /portfolio/optimize/new remains a legacy alias for old links; in-app
-      ;; links emit the canonical bare path.
       (= path* optimize-route-prefix)
       {:kind :optimize-new
        :path path*}

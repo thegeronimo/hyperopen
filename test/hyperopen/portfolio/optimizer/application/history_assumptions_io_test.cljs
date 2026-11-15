@@ -35,12 +35,10 @@
            :verified? false :entry configured-entry}]
    :objective-kind :minimum-variance
    :now-ms now-ms
-   ;; covers every id a stored basket references (configured-entry proxies BTC+SOL)
    :symbol-by-instrument-id {"perp:BTC" "BTC" "perp:ETH" "ETH" "perp:SOL" "SOL"}})
 
 (deftest export-payload-envelope-test
   (let [{:keys [filename count document]} (io/export-payload export-inputs)]
-    ;; scope defaults to the proxy workflow.
     (is (= (str "history-assumptions-workflow-" now-ms ".json") filename))
     (is (= "proxy-workflow" (:export-scope document)))
     (is (= 2 count))
@@ -57,8 +55,6 @@
     (is (false? (:objective-uses-returns document)))))
 
 (deftest export-payload-carries-no-candidate-menu-in-either-scope-test
-  ;; The file contains ONLY the target assets: the agent proposes proxies from
-  ;; its own knowledge and import validation drops anything unusable.
   (is (not (contains? (get (io/export-payload export-inputs) :document)
                       :proxy-candidates)))
   (let [{:keys [filename document]} (io/export-payload
@@ -66,11 +62,8 @@
     (is (= (str "history-assumptions-universe-" now-ms ".json") filename))
     (is (= "universe" (:export-scope document)))
     (is (not (contains? document :proxy-candidates)))
-    ;; each asset carries its own history-status so the agent can prefer
-    ;; verified in-universe proxies.
     (is (= ["unverified" "unverified"]
            (mapv :history-status (:assets document)))))
-  ;; unknown scopes normalize to the workflow default.
   (is (= "proxy-workflow"
          (get-in (io/export-payload (assoc export-inputs :scope :everything))
                  [:document :export-scope]))))
@@ -78,7 +71,6 @@
 (deftest export-payload-asset-rows-test
   (let [assets (get-in (io/export-payload export-inputs) [:document :assets])
         [unconfigured configured] assets]
-    ;; honesty invariant: an unconfigured asset exports a null approach.
     (is (= {:instrument-id "perp:WLFI" :approach nil :proxies []
             :relationship-strength nil :expected-return-percent nil :rationale nil}
            (select-keys unconfigured [:instrument-id :approach :proxies
@@ -147,7 +139,6 @@
            (get-in entry [:proxy :prior-weights])))
     (is (= :high (get-in entry [:proxy :relationship-strength])))
     (is (= 0.125 (:expected-return entry)))
-    ;; behavior defaults ride along so the entry is engine-complete.
     (is (= 0.8 (:volatility entry)))
     (is (= 0.05 (:max-weight entry)))
     (is (= {:source :agent-import :acknowledged? true :rationale "Anchor + ecosystem"}
@@ -161,10 +152,6 @@
     (is (nil? (get-in result [:assumptions "perp:WLFI" :proxy :prior-weights])))))
 
 (deftest import-resolves-agent-written-id-forms-test
-  ;; A real agent-completed file put instrument-ids in the `symbol` field
-  ;; ({"symbol": "perp:AAVE"}) and every proxy dropped. Resolution must accept
-  ;; either form in either field, case-insensitively, plus a namespaced value
-  ;; whose tail is a known symbol.
   (let [result (plan {"assets" [{"instrument-id" "perp:WLFI"
                                  "approach" "proxy"
                                  "proxies" [{"symbol" "perp:DOGE" "weight" 0.5}
@@ -229,8 +216,6 @@
     (is (= ["perp:DOGE"] (get-in entry [:proxy :instrument-ids])))))
 
 (deftest import-unedited-export-round-trip-is-a-no-op-test
-  ;; The exported document, pushed through real JSON serialization the way a
-  ;; file round-trip would, must apply nothing.
   (let [document (get-in (io/export-payload export-inputs) [:document])
         data (js->clj (js/JSON.parse (js/JSON.stringify (clj->js document))))
         result (io/import-plan {:assumptions {"perp:PUMP" configured-entry}

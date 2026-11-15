@@ -86,8 +86,6 @@
      :install-working-order-refresh! optimizer-working-order-refresh/install-working-order-refresh!
      :working-order-refresh-deps
      {:store store
-      ;; Same surface refresh the optimizer staging effect uses (base + every named
-      ;; dex's frontendOpenOrders — the streams never cover named-dex open orders).
       :refresh-open-orders!
       (fn [store*]
         (when-let [address (or (account-context/effective-account-address @store*)
@@ -100,9 +98,6 @@
      :margin-rec-watcher-deps
      {:store store
       :dispatch! nxr/dispatch}
-     ;; One Vol Range slot: candle freshness, plus ladder sync, background
-     ;; reconciliation and live stream evidence in builds that include placement,
-     ;; plus the report's loads, backfill tick and ledger ingest with reporting on.
      :install-vol-range-freshness-watcher! (fn [deps]
                                              (vol-range-freshness-watcher/install-vol-range-freshness-watcher! deps)
                                              (vol-range-execution-watcher/install-vol-range-execution-watcher! deps)
@@ -111,14 +106,11 @@
      :vol-range-freshness-watcher-deps
      {:store store
       :dispatch! nxr/dispatch}
-     ;; Browser only: a Node test runtime that bootstraps the app must never
-     ;; reach the public HyperEVM RPC from a background timer.
      :install-hyperevm-balance-poller! (when (exists? js/document)
                                          hyperevm-balance-poller/install-hyperevm-balance-poller!)
      :hyperevm-balance-poller-deps
      {:store store
       :dispatch! nxr/dispatch
-      ;; Keeps an open HyperEVM -> Core Transfer draft's HyperCore reads current.
       :capacity-refresh-index-fn funding-actions/transfer-capacity-refresh-index}}
     :validation-deps
     {:store store
@@ -135,7 +127,6 @@
 
 (defn reload!
   [{:keys [runtime store]}]
-  ;; Re-register registry-held handlers and reload-safe listeners on every dev reload.
   (runtime-state/mark-runtime-bootstrapped! runtime)
   (bootstrap-runtime! {:runtime runtime
                        :store store})

@@ -106,12 +106,6 @@
        distinct
        vec))
 
-(defn related-coin-candidates
-  "Return a deterministic set of coin identifiers that may refer to the same active
-   instrument in UI state, including base-symbol and namespaced market forms."
-  [active-asset market]
-  (coin-aliases active-asset market))
-
 (defn- numeric-coin-string? [coin]
   (and (string? coin)
        (re-matches #"\d+" coin)))
@@ -405,12 +399,6 @@
                idx*))))
 
 (def ^:private spot-asset-id-offset
-  ;; Hyperliquid encodes a spot order's wire asset as 10000 + the spotMeta pair
-  ;; index (perp orders use the raw perp universe index). Verified against
-  ;; testnet: PURR/USDC idx 0 -> 10000, @1 idx 1 -> 10001, HYPE/USDC @1035 ->
-  ;; 11035. The raw pair index collides 1:1 with low-index perps (raw idx 0 is
-  ;; the SOL perp), so the offset MUST be applied before the index is used as a
-  ;; wire asset id.
   10000)
 
 (defn- spot-asset-id
@@ -540,8 +528,6 @@
         prev-raw (:prevDayPx ctx)
         mark (safe-num mark-raw)
         prev (safe-num prev-raw)
-        ;; A previous-day price of 0 is the never-traded placeholder, not a
-        ;; reference: there is no 24h change against it.
         reference? (pos? prev)]
     (cond-> {:mark mark
              :markRaw mark-raw
@@ -552,8 +538,6 @@
              :volume24h (safe-num (:dayNtlVlm ctx))
              :baseVolume24h (safe-num (:dayBaseVlm ctx))
              :circulatingSupply (safe-num (:circulatingSupply ctx))}
-      ;; Only a published midPx (null when the book lost a side) says
-      ;; anything about the book; a missing field says nothing.
       (contains? ctx :midPx) (assoc :midRaw mid-raw))))
 
 (defn- build-outcome-side
@@ -587,7 +571,6 @@
   [entry]
   (or (:quoteToken entry)
       (:quote-token entry)
-      ;; Outcome contracts are quoted and paid in USDC.
       "USDC"))
 
 (defn- outcome-category
@@ -969,7 +952,6 @@
           (and question-selection? (:side-label selected-side))
           (assoc :outcome-side-label (:side-label selected-side))
 
-          ;; The order book, chart legend and page title name the side, not its coin id.
           (or (:side-label selected-side) (:side-name selected-side))
           (assoc :display-name (str (when-let [option (:outcome-option-label selected-side)] (str option " "))
                                     (or (:side-label selected-side) (:side-name selected-side)))))))))
@@ -1223,8 +1205,6 @@
           :market-type :spot
           :dex nil
           :stable-pair? (stable-pair? base quote)
-          ;; :idx stays the raw spotMeta pair index (token-list / asset-context
-          ;; lookup key); :asset-id carries the offset wire id used for orders.
           :idx idx
           :asset-id (spot-asset-id idx)
           :mark mark

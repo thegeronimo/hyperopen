@@ -240,8 +240,6 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
-;; --- HyperEVM generalization (the deposit defaults above are unchanged) -------
-
 (def ^:private hyperevm-config
   {:chain-id "0x3e7"
    :chain-name "HyperEVM"
@@ -409,9 +407,6 @@
        code message))
 
 (deftest ensure-wallet-chain-reads-codes-from-class-instance-rejections-test
-  ;; HEAD read the code from any rejection value; the deposit flows (no
-  ;; verified switch) must keep the 4902 add-chain fallback for wallets that
-  ;; reject with a class instance, and the unsupported-switch classification.
   (async done
     (let [calls (atom [])
           switch-attempts (atom 0)

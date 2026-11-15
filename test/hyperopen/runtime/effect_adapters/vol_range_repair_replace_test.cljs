@@ -109,7 +109,6 @@
                    (let [store (store-for grid)]
                      (with-runtime s {}
                        #(let [p (preview! store grid)]
-                          ;; The user closes the review while the reads run.
                           (swap! store assoc-in [:vol-range :repair] nil)
                           (.then p (fn [_] (is (nil? (get-in @store [:vol-range :repair]))))))))))
           (.then (fn [_] (done)))
@@ -211,9 +210,6 @@
           (.catch (fail done))))))
 
 (deftest a-signed-repair-is-never-raced-by-the-operation-timeout-test
-  ;; The 60 s bound fires at once here. The repair's delivery is held until
-  ;; the test releases it: the busy key must stay set and no failure may be
-  ;; reported meanwhile; the preview, by contrast, is still bounded.
   (async done
     (let [s (sim/new-sim)
           release (atom nil)
@@ -260,9 +256,6 @@
           (.catch (fail done))))))
 
 (deftest the-review-judges-funds-like-admission-test
-  ;; Right after a partial placement the placement's own reservation is still
-  ;; pending (spec 3.3) until a reconciliation reads the venue holds. The
-  ;; review must not offer a send that admission refuses for funds.
   (async done
     (let [s (sim/new-sim)
           state (atom nil)]

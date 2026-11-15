@@ -3,9 +3,6 @@
             [hyperopen.platform :as platform]
             [hyperopen.websocket.orderbook-l2 :as l2]))
 
-;; A real frame captured from wss://api-ui.hyperliquid.xyz/ws on 2026-08-21. Keeping a
-;; genuine payload here is what proves the wire format is understood -- a hand-written
-;; fixture would only prove the parser agrees with itself.
 (def ^:private captured-delta-blob
   (str "VZM7bgMxDETvwlog+JH4cZlcIZ2xVdoUQZLO8N0jN5JYLt7OaMiRHvAJN3j7eIcGf3BjD1cZZGnd"
        "GnzB7X5/wPf8xd2FkKDB7/xixxzpHZ5tYc6FCdNMC/QDsoRVqR00o3vV9kUVeVBycZZFGbuHRaF8"
@@ -17,7 +14,6 @@
   (mapv #(js/parseFloat (:px %)) side))
 
 (deftest build-subscription-uses-the-short-coin-key-test
-  ;; The server rejects {:type "l2" :coin "BTC"} with a JSON parse error; the key is `:c`.
   (is (= {:type "l2" :c "BTC"} (l2/build-subscription "BTC"))))
 
 (deftest eligible-only-for-unaggregated-books-test
@@ -99,15 +95,6 @@
     (is (= [102] (prices asks)))))
 
 (deftest apply-delta-removes-before-upserting-test
-  ;; The load-bearing ordering rule. `:r` indexes the PRE-upsert side, so an upsert that
-  ;; changes the ordering shifts every later index if it is applied first.
-  ;;
-  ;; bids [100 99 98], remove index 1, upsert a new best bid of 101:
-  ;;   remove-first : [100 98] -> insert 101 -> [101 100 98]   <- correct
-  ;;   upsert-first : [101 100 99 98] -> drop index 1 -> [101 99 98]
-  ;;
-  ;; Verified against live `l2Book` snapshots at identical `time` values: remove-first
-  ;; matched 19/19 across BTC and ETH, upsert-first matched 2/19.
   (let [sides [[{:px "100" :sz "1"} {:px "99" :sz "2"} {:px "98" :sz "3"}] []]
         [bids _] (l2/apply-delta sides {:upserts [[{:px "101" :sz "5"}] []]
                                         :removals [[1] []]})]
@@ -115,17 +102,12 @@
     (is (not= [101 99 98] (prices bids)))))
 
 (deftest apply-delta-handles-multiple-removals-on-one-side-test
-  ;; Removal indices are all resolved against the same original ordering, so they must
-  ;; not shift as earlier entries are dropped.
   (let [sides [[] [{:px "101" :sz "1"} {:px "102" :sz "2"} {:px "103" :sz "3"} {:px "104" :sz "4"}]]
         [_ asks] (l2/apply-delta sides {:upserts [[] []]
                                         :removals [[] [0 2]]})]
     (is (= [102 104] (prices asks)))))
 
 (deftest test-runtime-can-inflate-raw-deflate-test
-  ;; The suite runs on Node, which has supported DecompressionStream('deflate-raw') since
-  ;; v18. Asserting it here means a runner change cannot silently skip the decode test
-  ;; below into its no-op branch.
   (is (true? (platform/inflate-raw-base64-supported?))))
 
 (deftest captured-delta-decodes-and-parses-test

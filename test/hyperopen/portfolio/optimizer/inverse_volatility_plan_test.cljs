@@ -20,7 +20,6 @@
   ["perp:A" "perp:B" "perp:C" "perp:D" "perp:E"])
 
 (def ^:private sigmas
-  ;; sqrt of the covariance diagonal below: A..E, all distinct.
   [0.2 0.3 0.4 0.5 0.1])
 
 (def ^:private covariance
@@ -33,8 +32,6 @@
 (def ^:private gross-target 1.5)
 
 (def ^:private encoded-three-long-two-short
-  ;; Three long books (A B C), two short books (D E), generous caps so the
-  ;; ideal 1/sigma seed is not clipped, one signed-gross target of 1.5.
   {:status :ok
    :long-only? false
    :instrument-ids instrument-ids
@@ -63,19 +60,11 @@
     :encoded-constraints encoded}))
 
 (def ^:private expected-magnitudes
-  ;; |w_i| proportional to 1/sigma_i, scaled so the magnitudes sum to the
-  ;; gross target — the frozen sizing law for this objective.
   (let [inverses (mapv #(/ 1 %) sigmas)
         total (reduce + 0 inverses)]
     (mapv #(* gross-target (/ % total)) inverses)))
 
 (deftest inverse-volatility-plans-one-projection-qp-with-negated-seed-linear-test
-  ;; Projection metric (contract deviation, ExecPlan Decision Log 2026-07-16):
-  ;; the QP is the SIGMA-WEIGHTED projection 0.5*(w-seed)'diag(d)(w-seed) with
-  ;; d proportional to sigma, not the identity projection — the weighted form
-  ;; is what makes capped assets re-equalize |w|*sigma among the free assets
-  ;; (acceptance item 3). The seed rides the problem as :seed-weights; the
-  ;; linear term is -(d_i * seed_i).
   (let [plan (build-plan encoded-three-long-two-short covariance)
         problem (get-in plan [:problems 0])
         seed (vec (:seed-weights problem))
@@ -130,9 +119,6 @@
           (is (near? (first risk-weights) risk-weight)))))))
 
 (deftest inverse-volatility-zero-volatility-asset-is-a-named-infeasibility-test
-  ;; Item 4: a non-positive variance breaks the 1/sigma seed; the plan must
-  ;; name the offending instrument with a dedicated violation code instead of
-  ;; failing as an unknown objective (or dividing by zero).
   (let [zero-vol-covariance (assoc-in covariance [4 4] 0)
         plan (build-plan encoded-three-long-two-short zero-vol-covariance)
         violations (get-in plan [:details :violations])]
@@ -146,10 +132,7 @@
         "the violation names the zero-volatility instrument")))
 
 (deftest inverse-volatility-presolve-messages-name-risk-weighted-sizing-test
-  ;; Item 5: the fixed-side screening is reused from Equal Risk (same codes),
-  ;; but the user-facing message must name this objective's label.
   (let [encoded (-> encoded-three-long-two-short
-                    ;; perp:A's bounds straddle zero -> :two-sided book.
                     (assoc-in [:lower-bounds 0] -2))
         plan (build-plan encoded covariance)
         violations (get-in plan [:details :violations])]

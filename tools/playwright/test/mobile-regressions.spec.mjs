@@ -507,8 +507,6 @@ test("trade market statistics stay readable across governed viewport widths @reg
             };
           });
 
-          // The strip may only overflow by what its content actually needs;
-          // fr columns must not inflate it past that (no phantom scrollbar).
           expect(geometry.scrollWidth).toBeLessThanOrEqual(
             Math.ceil(Math.max(geometry.clientWidth, geometry.contentWidth)) + 1
           );

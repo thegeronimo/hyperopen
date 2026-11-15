@@ -6,25 +6,11 @@
             [hyperopen.portfolio.optimizer.coercion :as coercion]
             [hyperopen.portfolio.optimizer.ids :as ids]))
 
-;; The default cap is deliberately small and deliberately SHARED: it is the only
-;; bound on the proxy typeahead and on the results-page "Add to universe"
-;; popover, and that popover queries with a BLANK string (universe-panel-model
-;; passes :include-blank-candidates? true), which matches the entire catalog —
-;; ~838 markets plus ~9,500 non-child vault rows. Callers that can render a long
-;; list safely pass their own :limit through opts; nobody deletes this.
 (def ^:private default-candidate-limit
   6)
 
-;; Market types the optimizer can actually take into a universe. Anything else
-;; is dropped here rather than shown and rejected later: outcome (prediction)
-;; markets are concatenated into [:asset-selector :markets] upstream and
-;; market->universe-instrument refuses them, so an "+ add" on one is a silent
-;; no-op. The 6-cap used to hide them; a full result list would not.
 (def ^:private candidate-market-types
   #{:perp :spot :vault})
-
-(def vault-instrument-prefix
-  ids/vault-instrument-prefix)
 
 (def ^:private normalized-text coercion/non-blank-text)
 
@@ -329,16 +315,6 @@
          candidates (into (vec markets) vaults)
          limit (get opts :limit default-candidate-limit)
          ranked (rank-candidates candidates query* ranking)]
-     ;; Truncate BEFORE the history-discovery enrichment, not after. The
-     ;; enrichment is a per-item mapv that used to run across every match on
-     ;; every keystroke; with a wide limit that is the whole catalog on a route
-     ;; already known to sit heavily main-thread-blocked. Order-independent, so
-     ;; moving it behind the cap changes cost, not results.
-     ;; The PRE-limit match count rides along as metadata. The panel promises an
-     ;; honest "N of M matches shown"; without this the view can only ever count
-     ;; what survived the cap and would report "50 of 50" for a 197-match query,
-     ;; which is the silent truncation this work exists to remove. Metadata keeps
-     ;; the return shape a plain vector for every existing caller.
      (with-meta
        (vec
         (with-history-discovery state

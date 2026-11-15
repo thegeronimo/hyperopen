@@ -79,8 +79,6 @@
 (deftest sync-view-library-effect-updates-state-but-skips-persist-when-read-only-test
   (async done
     (let [saved (atom nil)
-          ;; Spectating another wallet: the session still tracks edits in
-          ;; memory, but nothing is written to that wallet's stored record.
           store (atom {:account-context {:spectate-mode {:active? true
                                                          :address address}}
                        :portfolio {:optimizer {:view-library {}}}})]

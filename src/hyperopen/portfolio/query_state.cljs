@@ -4,9 +4,6 @@
             [hyperopen.portfolio.custom-range :as custom-range]))
 
 (def owned-query-keys
-  ;; "from"/"to" carry the custom chart range. They are ALWAYS written (empty
-  ;; when no custom range is applied, exactly like "bench"), so that navigating
-  ;; back to a URL without a custom window actually clears one.
   #{"range" "scope" "chart" "bench" "tab" "from" "to"})
 
 (def ^:private range-token-by-key
@@ -102,10 +99,6 @@
   [query]
   (let [params (search-params query)
         bench-values (param-values params "bench")]
-    ;; The custom range is ALWAYS reported, nil included. `from`/`to` are only
-    ;; written to the URL while a custom window is live, so their absence has to
-    ;; mean "clear it" — otherwise navigating back to a preset URL would leave a
-    ;; stale custom window applied.
     (cond-> {:summary-custom-range (parse-custom-range params)}
       (some? (param-value params "range"))
       (assoc :summary-time-range (parse-range-value (param-value params "range")))
@@ -138,7 +131,6 @@
       (assoc-in portfolio-actions/summary-custom-range-path
                 (:summary-custom-range query-state*))
 
-      ;; A shared link that pins a window should not also open the editor.
       (contains? query-state* :summary-custom-range)
       (assoc-in portfolio-actions/summary-range-strip-path nil)
 

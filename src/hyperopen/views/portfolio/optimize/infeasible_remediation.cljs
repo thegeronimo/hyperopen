@@ -60,8 +60,6 @@
   (opt-format/format-pct value {:minimum-fraction-digits 0
                                 :maximum-fraction-digits 0}))
 
-;; Nudge before rounding so a value a float hair past a cent boundary
-;; (0.6 * 100 = 60.000000000000007) does not jump a whole cent.
 (def ^:private cent-epsilon 1.0e-9)
 
 (defn- snap-down
@@ -119,9 +117,6 @@
                     (fmt-signed-x lo) " to " (fmt-signed-x hi)
                     ". Pinning the net target inside that range clears this check.")
          :label (str "Set net to " (fmt-signed-x value))
-         ;; Two actions in one dispatch is safe only because
-         ;; set-portfolio-optimizer-constraint ignores state: nexus expands every
-         ;; action in a click list against ONE pre-dispatch snapshot.
          :actions [[:actions/set-portfolio-optimizer-constraint :net-min value]
                    [:actions/set-portfolio-optimizer-constraint :net-max value]]}))))
 
@@ -134,10 +129,6 @@
   (when (and (positive-number? gross-floor)
              (finite-number? max-feasible-gross-floor)
              (< max-feasible-gross-floor gross-floor))
-    ;; Snapping DOWN is monotonically safe: a lower floor is strictly more
-    ;; permissive, so the rounded label and the value written always agree. A
-    ;; ceiling under a cent leaves no positive floor to write, and a 0.00x floor
-    ;; keeps nothing invested - clear-gross-floor owns that case.
     (let [value (snap-down max-feasible-gross-floor)]
       (when (positive-number? value)
         {:id :lower-gross-floor
@@ -159,8 +150,6 @@
      :copy (str "Or drop the " (fmt-x-down gross-floor)
                 " floor entirely, so the optimizer is free to hold less total exposure.")
      :label "Clear gross floor"
-     ;; :gross-min is one of the clearable numeric constraint keys, so a literal
-     ;; nil is accepted by the action and by ::portfolio-optimizer-constraint-args.
      :actions [[:actions/set-portfolio-optimizer-constraint :gross-min nil]]}))
 
 (defn- zero-capacity-clause
@@ -181,16 +170,8 @@
   (let [required (if above? required-short-notional required-long-notional)
         available (if above? available-short-notional available-long-notional)
         net-bound (if above? (:max net-bounds) (:min net-bounds))
-        ;; BOTH directions' required notionals are derived from the gross FLOOR
-        ;; (exposure-reachability computes (glo - widened-max)/2 above the band
-        ;; and (glo + widened-min)/2 below it), so the floor is the figure this
-        ;; sentence has to quote. Naming the ceiling below the band blamed a
-        ;; control the number had nothing to do with, and contradicted the
-        ;; violation message sitting directly above it in the same banner.
         gross-bound (:min gross-window)
         clause (binding-capacity-clause binding-capacity)]
-    ;; Naming no asset AND reporting no capacity leaves "this universe offers
-    ;; 0.00x" with nothing behind it; say nothing rather than that.
     (when (and (positive-number? required)
                (finite-number? available)
                (or (positive-number? available) (some? clause)))
@@ -234,18 +215,10 @@
    above?]
   (let [shown (if above? (:min reachable-net-display) (:max reachable-net-display))
         current (if (finite-number? net-band-pct) net-band-pct 0)]
-    ;; The band needs a sign vector and is dropped outright under Long Only
-    ;; (exposure-reachability/net-band-encodable?), so widening it is then inert.
     (when (and (usable? net-band-encodable?)
                (finite-number? min-feasible-net-band-pct)
                (finite-number? shown)
                (> min-feasible-net-band-pct current)
-               ;; Values above the ceiling are silently clamped on read, which
-               ;; would leave the input and the solver disagreeing. The SLIDER
-               ;; stops at half this, deliberately; a suggestion above that still
-               ;; writes and still holds (setup_exposure_map renders it pinned
-               ;; and says so), and capping here would drop every fix in the
-               ;; upper half of the legal range.
                (<= min-feasible-net-band-pct exposure-policy/max-net-band-pct))
       {:id :widen-net-band
        :copy (str "The net band decides how far net may drift from the target, as a "
@@ -302,8 +275,6 @@
                     "Anywhere up to the " (fmt-x (snap-down max-feasible-gross-floor))
                     " this setup can hold works.")
 
-               ;; A published-but-non-positive ceiling is a PROOF that no floor
-               ;; fits; only an absent one leaves the question open.
                (some? max-feasible-gross-floor)
                (str "A gross floor cannot help here: no positive floor fits inside this "
                     "setup's net exposure window.")

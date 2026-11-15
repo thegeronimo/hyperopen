@@ -1,8 +1,4 @@
 @layer components {
-  /* Footer clearance for the scenario surface comes from the optimizer route
-     frame's padding-bottom (portfolio_view.cljs) — effective now that the frame
-     is shrink-0 and its box grows with content instead of clamping to the
-     viewport and letting content overflow past its padding. */
   .portfolio-optimizer .optimizer-scenario-surface {
     background-color: var(--optimizer-bg);
   }
@@ -92,8 +88,6 @@
     }
   }
 
-  /* Inside the popover the row list yields to the footer: a large universe
-     scrolls within the list instead of growing the menu past the fold. */
   .portfolio-optimizer .optimizer-objective-menu .optimizer-objective-view-rows {
     max-height: min(320px, 34vh);
   }
@@ -162,10 +156,6 @@
     color: inherit;
   }
 
-  .portfolio-optimizer .optimizer-objective-view-return-shell {
-    justify-content: flex-end;
-  }
-
   .portfolio-optimizer .optimizer-objective-view-return-input-shell {
     width: 82px;
   }
@@ -194,7 +184,7 @@
   }
 
   .portfolio-optimizer
-    .optimizer-objective-view-return-shell:is(:hover, :focus-within)
+    .optimizer-objective-view-return-input-shell:is(:hover, :focus-within)
     .optimizer-objective-view-stepper {
     opacity: 1;
   }
@@ -268,8 +258,6 @@
     color: #191407;
   }
 
-  /* Return views provenance: source chips, ages, filters, implied styling. */
-
   .portfolio-optimizer .optimizer-return-view-row {
     display: block;
   }
@@ -296,8 +284,6 @@
     border-style: dashed;
   }
 
-  /* An implied value is the machine's number, not the user's: render it in the
-     muted tier until the row is authored. */
   .portfolio-optimizer .optimizer-objective-view-return-input--implied {
     color: var(--optimizer-text-3);
   }
@@ -349,10 +335,6 @@
   }
 
   .portfolio-optimizer .optimizer-kpi-card p:nth-child(2) {
-    /* Inherit --optimizer-text by default (from .portfolio-optimizer) rather
-       than pinning it here, so a value can opt into a signal colour via a
-       utility class (e.g. text-trading-green on Buys / text-trading-red on
-       Sells) without this higher-specificity rule overriding it. */
     font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -605,9 +587,6 @@
     background-color: var(--optimizer-surface);
   }
 
-  /* The lone inline action in the confidence rail ("From here" next-step row). Amber
-     underlined link — accent color reads as "clickable" here, deliberately quieter than
-     the rounded "Review rebalance" header CTA so it does not compete as a banner. */
   .portfolio-optimizer .optimizer-result-confidence-rebalance {
     appearance: none;
     margin: 0;
@@ -637,8 +616,6 @@
     background-color: var(--optimizer-surface);
   }
 
-  /* Dense pane-head: status pip + uppercase mono label on the left, tier/points meta
-     on the right. Pip is amber for a draft/partial result, green once refined. */
   .portfolio-optimizer .optimizer-refinement-head-pip {
     flex: 0 0 auto;
     width: 6px;
@@ -676,8 +653,6 @@
     color: var(--optimizer-text-3);
   }
 
-  /* Square, 1px-bordered mono tag chips. Tint (and reveal the leading pip) only when
-     the value carries signal — amber caution, green confirmation; neutral otherwise. */
   .portfolio-optimizer .optimizer-refinement-tag {
     border: 1px solid var(--optimizer-border);
     background-color: var(--optimizer-surface);
@@ -740,7 +715,6 @@
     background-color: var(--optimizer-long);
   }
 
-  /* Refinement options: divider above, uppercase mono eyebrow + lowercase hint. */
   .portfolio-optimizer .optimizer-refinement-options {
     border-top: 1px solid var(--optimizer-border);
     padding-top: 12px;
@@ -768,7 +742,6 @@
     color: var(--optimizer-text-3);
   }
 
-  /* Tiled mode selector: one hairline frame, tiles share borders (no gutters). */
   .portfolio-optimizer .optimizer-refinement-depth-grid {
     border: 1px solid var(--optimizer-border);
     background-color: var(--optimizer-surface);
@@ -795,7 +768,6 @@
     border-color: var(--optimizer-border);
   }
 
-  /* Selected tile: amber inset frame + soft tint (kept on hover). */
   .portfolio-optimizer .optimizer-refinement-depth-tile[data-selected="true"] {
     background-color: var(--optimizer-accent-soft);
     box-shadow: inset 0 0 0 1px var(--optimizer-accent-border);
@@ -863,7 +835,6 @@
     color: var(--optimizer-accent);
   }
 
-  /* Primary amber CTA: solid fill via .optimizer-primary-action; muted when disabled. */
   .portfolio-optimizer .optimizer-refinement-refine {
     letter-spacing: 0.01em;
   }
@@ -875,7 +846,6 @@
     cursor: not-allowed;
   }
 
-  /* In-flight: determinate amber fill with a shimmer sweep (no spinner, per motion rules). */
   .portfolio-optimizer .optimizer-refinement-progress-track {
     border: 1px solid var(--optimizer-border);
     background-color: var(--optimizer-surface-3);
@@ -911,10 +881,6 @@
     }
   }
 
-  /* ── Dense trade table (rebalance preview) ─────────────────────
-     A real tiled data table in the dense designer idiom: 1px row separators, a
-     sticky uppercase header, hover-lit rows, and striped group/leg
-     rows — replacing the rounded card-per-row grid. */
   .portfolio-optimizer .optimizer-table {
     width: 100%;
     border-collapse: collapse;
@@ -952,24 +918,6 @@
     background-color: var(--optimizer-surface-2);
   }
 
-  .portfolio-optimizer .optimizer-table tr.optimizer-table-group > td {
-    background-color: var(--optimizer-surface-2);
-    font-weight: 600;
-  }
-
-  .portfolio-optimizer .optimizer-table tr.optimizer-table-leg > td {
-    background-color: var(--optimizer-surface);
-    color: var(--optimizer-text-2);
-  }
-
-  .portfolio-optimizer .optimizer-table tr.optimizer-table-blocked > td {
-    color: var(--optimizer-text-3);
-  }
-
-  /* ── Outcome diagnostics list (what this rebalance achieves) ────
-     before → after metric rows for the rebalance side rail, mirroring
-     the dense designer .diag block: small uppercase label, large mono value, 1px
-     separators, no card boxing. */
   .portfolio-optimizer .optimizer-diag {
     padding: 10px 14px;
     border-bottom: 1px solid var(--optimizer-border);
@@ -997,24 +945,10 @@
   }
 
   .portfolio-optimizer .optimizer-diag-sub {
-    /* Colour comes from a utility class in markup (text-trading-muted/70 by
-       default, or a signal colour for improvement/regression deltas) so this
-       rule does not specificity-lock it; see kpi-card value note above. */
     margin-top: 2px;
     font-size: 10px;
   }
 
-  /* ── Verdict bar CTA ──────────────────────────────────────────
-     The page's primary action, paired with the plain-language verdict at the top
-     of the Recommendation tab. Wide enough to read as a button block on desktop;
-     full-width when it wraps under the verdict text on narrow screens.
-
-     The actionable state (`--live`) is the ONLY control on the page that moves the
-     flow forward, so it carries a sweeping "snake" border: a masked conic-gradient
-     ring on ::before whose bright arc rotates continuously (registered @property
-     angle so the gradient itself interpolates). Static accent border under
-     prefers-reduced-motion. The explanatory sentence sits in a hover/focus tooltip
-     with a hover-intent delay instead of standing subtext. */
   .portfolio-optimizer .optimizer-verdict-cta {
     flex: 0 1 auto;
     min-width: min(260px, 100%);
@@ -1062,14 +996,10 @@
   @media (prefers-reduced-motion: reduce) {
     .portfolio-optimizer .optimizer-verdict-cta--live::before {
       animation: none;
-      /* Static full accent ring so the emphasis survives without motion. */
       background: rgb(var(--ho-warn) / 0.7);
     }
   }
 
-  /* Delayed tooltip: hidden in place (not display:none, so screen readers still
-     read it as the button's description), fades in above the button after a
-     hover-intent delay; instant show on keyboard focus, instant hide on leave. */
   .portfolio-optimizer .optimizer-verdict-cta-tip {
     position: absolute;
     right: 0;
@@ -1103,11 +1033,6 @@
     transition-delay: 0s;
   }
 
-  /* ── Refinement disclosure ────────────────────────────────────
-     Refinement is by-exception: the depth picker sits behind a native <details>
-     under the compact status header. The separator that used to live on
-     .optimizer-refinement-options moves up here so the closed state still reads
-     as a footer row of the card. */
   .portfolio-optimizer .optimizer-refinement-disclosure {
     border-top: 1px solid var(--optimizer-border);
     padding-top: 10px;
@@ -1128,10 +1053,6 @@
     margin-top: 4px;
   }
 
-  /* ── Return-views disclosure (results rail) ───────────────────
-     Collapsed by default: the summary row (title + live counts) is the whole
-     panel until opened. The title <p> renders inline so it shares the marker
-     line with the counts. */
   .portfolio-optimizer .optimizer-return-views-disclosure-summary p {
     display: inline;
     margin-right: 8px;
@@ -1141,9 +1062,6 @@
     color: var(--optimizer-accent);
   }
 
-  /* ── "Why this target" context card ───────────────────────────
-     Engine-derived facts under the frontier: book shape, largest position,
-     binding constraints. Same dense-surface treatment as the refinement card. */
   .portfolio-optimizer .optimizer-target-context {
     border-radius: 0;
     background-color: var(--optimizer-surface);
@@ -1177,12 +1095,6 @@
     border-radius: 0;
   }
 
-  /* ── Risk contribution balance card (designer spec 2026-07-11) ──
-     Dense charcoal card: header + DOM-state tab switcher, five-cell KPI
-     strip, framed plot with backdrop gridlines and the continuous dashed
-     purple equal-target line, HTML lanes, purple Target / signed Deviation
-     columns, READING THIS footnote. Tab state is a pair of visually-hidden
-     radios toggled purely by :has() — no app state. */
   .portfolio-optimizer .optimizer-risk-balance {
     border-radius: 0;
     background-color: var(--optimizer-surface);
@@ -1211,9 +1123,6 @@
     color: var(--optimizer-text-2);
   }
 
-  /* Tab switcher: one hairline frame, mono uppercase segments, active segment
-     lifted with the amber underline. The first tab is active by default until
-     any radio is checked. */
   .portfolio-optimizer .optimizer-risk-balance-tabs {
     display: flex;
     flex: 0 0 auto;
@@ -1314,12 +1223,6 @@
     margin-top: 12px;
   }
 
-  /* The Risk-weighted sizing card shares the risk-balance tab grammar. Its
-     default (no radio checked) panel is the sizing-fidelity view — scoped by
-     the card's own modifier class so the sibling card's default-contribution
-     rule above stays untouched — and its CONTRIBUTIONS diagnostic panel keys
-     on the "contributions" view value, so neither card's default state can
-     leak a second visible panel into the other. */
   .portfolio-optimizer
     .optimizer-risk-balance--sizing:not(:has(input[data-risk-view]:checked))
     .optimizer-risk-balance-panel--sizing,
@@ -1332,14 +1235,9 @@
     display: block;
   }
 
-  /* KPI strip: one bordered band, hairline-divided cells (1px grid-gap trick
-     so the hairlines survive responsive column wraps). */
   .portfolio-optimizer .optimizer-risk-balance-kpis {
     margin-top: 12px;
     display: grid;
-    /* auto-fit tracks the CONTAINER (the center panel), not the viewport:
-       all five cells share one row above ~760px of card width and wrap into
-       even rows below it — the hairline 1px-gap trick survives the wrap. */
     grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
     gap: 1px;
     border: 1px solid var(--optimizer-border);
@@ -1391,9 +1289,6 @@
     color: var(--optimizer-text);
   }
 
-  /* Plot frame + the shared four-column row grid (static tracks — Tailwind's
-     JIT intermittently drops arbitrary grid-cols-[…] values in watch mode;
-     see the universe panel precedent). */
   .portfolio-optimizer .optimizer-risk-balance-plot-frame {
     margin-top: 12px;
     border: 1px solid var(--optimizer-border);
@@ -1522,8 +1417,6 @@
     background-color: var(--optimizer-target);
   }
 
-  /* Marker glyphs double as legend swatches: sizing/shape here, absolute
-     lane positioning only via .optimizer-risk-balance-marker. */
   .portfolio-optimizer .optimizer-risk-balance-current {
     display: inline-block;
     flex: 0 0 auto;
@@ -1552,9 +1445,6 @@
     transform: translate(-50%, -50%);
   }
 
-  /* Current share beyond the fitted domain: a gray chevron pinned to the
-     plot edge (true value in the tooltip) instead of a circle pretending
-     the point sits at the edge. */
   .portfolio-optimizer .optimizer-risk-balance-current-offscale {
     position: absolute;
     top: 50%;
@@ -1590,9 +1480,6 @@
     color: var(--optimizer-text-2);
   }
 
-  /* Exact-fit (:shift) mode columns: Current is quiet context, Shift is the
-     row's story — brighter but never sign-colored (a risk shift carries no
-     good/bad judgment, unlike a deviation from target). */
   .portfolio-optimizer .optimizer-risk-balance-current-cell {
     font-size: 12px;
     text-align: right;
@@ -1656,9 +1543,6 @@
     color: var(--optimizer-text-3);
   }
 
-  /* Portfolio-level diversification comparison. Current and recommended
-     markers share one rail per benchmark; green/red belongs only to the
-     economic direction of the Change column. */
   .portfolio-optimizer .optimizer-risk-diversification-summary,
   .portfolio-optimizer .optimizer-risk-diversification-unavailable {
     margin-top: 12px;
@@ -1986,8 +1870,6 @@
     color: var(--optimizer-text-2);
   }
 
-  /* The verdict as the tab's LEAD (above the bridge + matrix) instead of a
-     matrix footer: brighter, bigger, no table framing. */
   .portfolio-optimizer .optimizer-risk-diversification-decision--lead {
     margin: 10px 0 0;
     padding: 0;
@@ -1996,8 +1878,6 @@
     color: var(--optimizer-text);
   }
 
-  /* Volatility bridge: modeled (solid) vs all-move-together (soft) with the
-     zero-correlation baseline tick, on the matrix lanes' shared scale. */
   .portfolio-optimizer .optimizer-risk-divbridge {
     margin: 10px 0 12px;
   }
@@ -2124,10 +2004,6 @@
     }
   }
 
-  /* ── RISK / RETURN tab (designer spec 2026-07-11) ──────────────────
-     Header line + context boxes above the chart, legend below it. The
-     chart itself is SVG sharing the frontier chart's chrome; only its
-     HTML frame is styled here. */
   .portfolio-optimizer .optimizer-risk-return-header {
     display: flex;
     flex-wrap: wrap;
@@ -2236,9 +2112,6 @@
     color: var(--optimizer-text-2);
   }
 
-  /* Legend: asset icons (capped with an honest overflow count) plus the
-     two portfolio-marker swatches — a ring with a core dot, matching the
-     SVG markers. */
   .portfolio-optimizer .optimizer-risk-return-legend {
     margin-top: 4px;
     display: flex;
@@ -2293,7 +2166,6 @@
                                 transparent 2.5px);
   }
 
-  /* ── "Why this risk allocation" icon cards ──────────────────── */
   .portfolio-optimizer .optimizer-equal-risk-fact {
     display: flex;
     align-items: flex-start;
@@ -2364,17 +2236,10 @@
   }
 
   .portfolio-optimizer .optimizer-equal-risk-fact-sub {
-    /* Color comes from a utility class in markup (text-trading-muted by
-       default, or a signal color for above/below-target deltas) so this rule
-       does not specificity-lock it; see the kpi-card value note above. */
     margin-top: 2px;
     font-size: 11px;
   }
 
-  /* The Correlation-view card is a <label> for the correlation tab's radio:
-     clicking it switches the tab (zero app state), and while that tab is
-     active the card lights up — the :has() scope is the center panel, the
-     nearest ancestor containing both the card and the radios. */
   .portfolio-optimizer .optimizer-equal-risk-fact--link {
     cursor: pointer;
     transition: border-color 120ms ease, background-color 120ms ease;
@@ -2391,11 +2256,6 @@
     background-color: var(--optimizer-accent-soft);
   }
 
-  /* ── Correlation tab (designer spec 2026-07-11, correlation view) ──
-     Two sub-panels: the heatmap with its POSITION P&L / UNDERLYING RETURNS
-     DOM-state toggle, and the selected-asset contribution breakdown. Track
-     sizing is container-driven (auto-fit), never viewport media queries —
-     the card also renders inside workbench iframes. */
   .portfolio-optimizer .optimizer-risk-corr-layout {
     margin-top: 12px;
     display: grid;
@@ -2427,8 +2287,6 @@
     color: var(--optimizer-text-2);
   }
 
-  /* Mode toggle: same DOM-state radio pattern as the card tabs, one size
-     down. First segment is active until any radio is checked. */
   .portfolio-optimizer .optimizer-risk-corr-mode-tabs {
     display: flex;
     flex: 0 0 auto;
@@ -2475,8 +2333,6 @@
     outline-offset: 2px;
   }
 
-  /* Both matrices (and their titles/captions) are pre-rendered; the checked
-     radio picks which mode's elements show. Position P&L is the default. */
   .portfolio-optimizer .optimizer-risk-corr-block [data-corr-only] {
     display: none;
   }
@@ -2493,9 +2349,6 @@
     display: block;
   }
 
-  /* Heatmap grid: column tracks are inline (dynamic asset count). Cell
-     color mixes the sign color into the surface by |correlation| via the
-     per-cell --corr-strength custom property. */
   .portfolio-optimizer .optimizer-risk-corr-grid {
     margin-top: 10px;
     display: grid;
@@ -2537,9 +2390,6 @@
     background-color: var(--optimizer-surface-2);
   }
 
-  /* Dense mode (heatmaps past ~12 columns, flagged by the view): one type
-     step down and shorter cells so a 24-column matrix keeps its numbers
-     legible at full card width. */
   .portfolio-optimizer
     .optimizer-risk-corr-grid[data-dense="true"] .optimizer-risk-corr-cell {
     height: 24px;
@@ -2630,9 +2480,6 @@
     cursor: help;
   }
 
-  /* ── Decomposition primitives (Breakdown tab, both sub-views): standalone =
-     own-variance (purple), diversification = cross-covariance (green removes
-     / red adds), net = their exact sum. */
   .portfolio-optimizer .optimizer-risk-decomp-label {
     font-size: 11.5px;
     color: var(--optimizer-text);
@@ -2662,10 +2509,6 @@
     color: var(--optimizer-short);
   }
 
-  /* Additive bridge segments in the Diversification tab lanes: own variance
-     rides the upper half from zero, while cross covariance rides the lower
-     half from the own endpoint to net. The --full modifier (selected-asset
-     view, one row per component) restores a single full-height bar. */
   .portfolio-optimizer .optimizer-risk-decomp-bar {
     position: absolute;
   }
@@ -2724,8 +2567,6 @@
     background-color: color-mix(in srgb, var(--optimizer-target) 78%, transparent);
   }
 
-  /* Cross-covariance swatches track economic direction: negative offsets
-     risk in green; positive amplifies risk in red. */
   .portfolio-optimizer
     .optimizer-risk-decomp-swatch[data-kind="diversification"],
   .portfolio-optimizer
@@ -2775,10 +2616,6 @@
     color: var(--optimizer-short);
   }
 
-  /* ── Per-asset breakdown (designer spec 2026-07-11, per-asset view): the
-     BREAKDOWN tab's default sub-view. The Selected asset / All assets toggle
-     is the card's usual DOM-state radio pattern, scoped to the tab body; the
-     per-asset block reuses the corr-block chrome and the decomp bar colors. */
   .portfolio-optimizer .optimizer-risk-breakdown-toolbar {
     margin-top: 12px;
     display: flex;
@@ -2832,9 +2669,6 @@
     outline-offset: 2px;
   }
 
-  /* Both sub-views are pre-rendered; the checked radio picks one. The
-     per-asset view is the default (first tab active until any radio is
-     checked). */
   .portfolio-optimizer
     .optimizer-risk-breakdown-body [data-breakdown-only] {
     display: none;
@@ -2906,9 +2740,6 @@
     min-width: 7.5rem;
   }
 
-  /* Per-asset component rows: wider label column than the all-assets lanes
-     (the labels carry sub-lines), tall lanes, hairline row separators with a
-     stronger rule above the Net sum row. */
   .portfolio-optimizer .optimizer-risk-asset-row {
     display: grid;
     grid-template-columns: minmax(0, 11.5rem) 4.5rem minmax(0, 1fr);
@@ -2940,8 +2771,6 @@
     color: var(--optimizer-target);
   }
 
-  /* Value label riding the free end of each bar: positive bars label to the
-     right of the bar end, negative bars to the left. */
   .portfolio-optimizer .optimizer-risk-asset-bar-label {
     position: absolute;
     top: 50%;
@@ -2961,9 +2790,6 @@
     color: var(--optimizer-target);
   }
 
-  /* Color follows the value's SIGN, not the label's placement side — a
-     cramped negative label flips to the zero side (data-dir) but must keep
-     its negative color. */
   .portfolio-optimizer
     .optimizer-risk-asset-bar-label[data-kind="diversification"][data-sign="negative"] {
     color: var(--optimizer-long);
@@ -2974,8 +2800,6 @@
     color: var(--optimizer-short);
   }
 
-  /* Framed identity equation with the actual numbers: terms on the first
-     line, values on the second, colored by component. */
   .portfolio-optimizer .optimizer-risk-asset-equation {
     margin-top: 14px;
     border: 1px solid var(--optimizer-border);
@@ -3030,9 +2854,6 @@
     color: var(--optimizer-short);
   }
 
-  /* Summary tiles: the why-card's fact-card language in a container-driven
-     auto-fit grid (the card renders inside workbench iframes — never
-     viewport media queries). */
   .portfolio-optimizer .optimizer-risk-asset-tiles {
     margin-top: 12px;
     display: grid;
@@ -3040,7 +2861,6 @@
     gap: 8px;
   }
 
-  /* ── Allocation table: Equal Risk row selection + P&L-corr line ── */
   .portfolio-optimizer .optimizer-exposure-row[data-selectable="true"],
   .portfolio-optimizer .optimizer-target-exposure-asset[data-selectable="true"] {
     cursor: pointer;
@@ -3076,11 +2896,6 @@
     color: var(--optimizer-long);
   }
 
-  /* ── Volatility intuition rail card (designer spec 2026-07-12) ──
-     Annualized σ translated into daily/weekly/monthly 1σ move scales with
-     aria-hidden magnitude bars. The Target/Current switch is a pair of
-     visually hidden radios toggled purely by :has() — no app state; with no
-     radio checked the Target panel shows (the recommendation default). */
   .portfolio-optimizer .optimizer-vol-intuition-tabs {
     display: flex;
     flex: 0 0 auto;
@@ -3191,12 +3006,6 @@
     color: var(--optimizer-warn);
   }
 
-  /* ── One-year modeled leverage impact panel (designer mockup, user-trimmed
-     2026-07-12) ── Full-width center-column card under the efficient
-     frontier: median-ending-wealth bars sharing one scale with a hairline
-     tick at the starting equity, the shortfall headline, stat tiles, and the
-     modeled ending-wealth distribution. Surfaces only for levered/extreme
-     targets (gate in the view-model). */
   .portfolio-optimizer .optimizer-leverage-impact-chip {
     border: 1px solid rgb(212 154 58 / 0.4);
     padding: 2px 6px;

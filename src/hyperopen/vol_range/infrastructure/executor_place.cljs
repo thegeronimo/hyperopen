@@ -123,7 +123,6 @@
                                                               :pending pending :now-ms (ex/now deps)})]
                              (if-not ok?
                                (refuse errors)
-                               ;; Nothing awaits between here and HTTP.
                                (if-let [r (refusal ((:live! deps)) scope)] (refuse [r]) true)))))))))))))
 
 (defn- on-send-attempt
@@ -162,8 +161,6 @@
          (fn [{:keys [delivery body error phase nonce http-status]}]
            (let [at (ex/now deps)
                  normalized (when (= :response delivery) (order-result/normalize-order-response legs body))
-                 ;; A late attempt commit (pre-send timeout) may still land; the
-                 ;; outcome is written under the same record id either way.
                  base-attempt (or @attempt-ref
                                   (jr/attempt-record {:operation-id operation-id :attempt-id (:attempt-id ids)
                                                       :scope-key (:scope-key grid) :nonce nonce
@@ -191,7 +188,6 @@
                                    :counts (lifecycle/counts grid)
                                    :persisted? ok?
                                    :persist-error persist-error}
-                            ;; The final guard's codes, for the copy that explains the refusal.
                             (and (= :not-sent delivery) (= :final-guard phase) (seq @codes-ref))
                             (assoc :errors @codes-ref)))))))))))
 
@@ -215,17 +211,11 @@
       (.then (fn [{:keys [ok? grid]}]
                (if ok? (assoc admitted :grid grid) {:status :journal-unavailable})))))
 
-;; ---------------------------------------------------------------------------
-;; Placement
-;; ---------------------------------------------------------------------------
-
 (defn- admit-placement!
   [deps {:keys [frozen-plan scope scope-key live operation-id check settings predecessor]}]
   (-> (ex/load! deps)
       (.then
        (fn [{:keys [ok? records] :as journal}]
-         ;; A replacement also needs its predecessor settled and not yet
-         ;; replaced, judged on the journal inside this admission section.
          (let [blockers (when ok? (into (if predecessor
                                           (replace-flow/predecessor-blockers records predecessor scope-key)
                                           [])
@@ -269,9 +259,6 @@
                                    :reservations {:usdc (or (get-in totals [:buy :max-debit]) "0")
                                                   :base (or (get-in totals [:sell :base-committed]) "0")}
                                    :now-ms at})
-                          ;; Spec 12.1: the first admitted placement in this market
-                          ;; starts a tracking campaign, committed with the intent.
-                          ;; It never changes the legs, action or reservations.
                           campaign-records (campaign/baseline-records-for-placement
                                             {:records records :scope scope :read read
                                              :bbo (get-in input [:market :bbo])
@@ -308,10 +295,6 @@
               #(admit-placement! deps {:frozen-plan frozen-plan :scope scope :scope-key (contracts/scope-key scope)
                                        :live live :operation-id operation-id :check check
                                        :settings settings :predecessor predecessor}))))))
-
-;; ---------------------------------------------------------------------------
-;; Repair (spec 8.6, 13.4)
-;; ---------------------------------------------------------------------------
 
 (defn- admit-repair!
   [deps {:keys [grid legs scope live operation-id check-ref]}]
@@ -386,8 +369,6 @@
     (if r
       (js/Promise.resolve {:status :refused :errors [r]})
       (let [operation-id ((:random-id! deps) "op")
-            ;; The check is built inside admission from the journal's newest
-            ;; grid; the final guard reuses that same check.
             check-ref (atom nil)
             check (fn [ctx] (@check-ref ctx))]
         (admit-and-send! deps scope operation-id check

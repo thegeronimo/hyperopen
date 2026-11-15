@@ -243,11 +243,6 @@
                    :points (:points chart)
                    :series (:series chart)
                    :y-ticks (:y-ticks chart)
-                   ;; The values `:build-tooltip` below closes over that no other
-                   ;; key already covers. `:time-range` covers the timestamp
-                   ;; format; the selected tab decides which metric the tooltip
-                   ;; names, and :pnl and :account-value share an `:axis-kind`,
-                   ;; so it would otherwise be invisible to the update key.
                    :tooltip-key [(:selected-tab chart) (:summary-scope chart)]
                    :theme (portfolio-chart-d3-theme)}]
     (assoc base-spec
@@ -267,8 +262,6 @@
         plot-left (+ y-axis-width 10)
         d3-spec (portfolio-d3-spec
                  {:chart chart
-                  ;; The window on screen, not the preset underneath it — the
-                  ;; tooltip formatter keys its timestamp format off this.
                   :summary-time-range (or (get-in selectors [:summary-time-range :tooltip-range])
                                           (get-in selectors [:summary-time-range :value]))})]
     (summary-cards/section-card
@@ -335,9 +328,6 @@
       (estimate-note (:estimate-note chart))
       (when (= selected-tab :returns)
         (returns-benchmark-chip-rail returns-benchmark*))
-      ;; Always rendered (it hides itself) rather than wrapped in a `when`: the
-      ;; two siblings above are already nil-able, and a nil hole between keyed
-      ;; siblings is the shape that throws inside Replicant's renderer.
       (range-strip/range-strip
        {:model range-strip
         :label "Portfolio"

@@ -44,7 +44,6 @@
     (let [plain (action {})]
       (is (= [:type :twap] (vec (keys plain))))
       (is (not (contains? plain :details)))
-      ;; Blank strings are 'not set', not 'set to nothing'.
       (is (= plain (action {:trigger-px "" :stop-px ""})))
       (is (= plain (action {:trigger-px "   " :stop-px nil}))))))
 
@@ -91,7 +90,6 @@
 
 (deftest twap-details-prices-are-canonicalized-for-the-wire-test
   (testing "prices go through the same canonical-price-text path as every other wire price"
-    ;; 5 significant figures for a perp with szDecimals 4.
     (is (= "120.12" (:p (:t (:details (action {:trigger-px "120.12000"}))))))
     (is (= "140.55" (:s (:details (action {:stop-px "140.55"})))))))
 
@@ -105,7 +103,6 @@
     (is (nil? (commands/build-order-request command-context (twap-form {:stop-px "0"})))))
 
   (testing "a trigger with no mark to infer its direction from kills the order"
-    ;; Silently sending :a false here would arm the order in the wrong direction.
     (is (nil? (commands/build-order-request markless-command-context
                                             (twap-form {:trigger-px "120"}))))))
 

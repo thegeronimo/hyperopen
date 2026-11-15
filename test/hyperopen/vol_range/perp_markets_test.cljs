@@ -24,10 +24,6 @@
 
 (def coin "xyz:NVDA")
 
-;; ---------------------------------------------------------------------------
-;; Eligibility and snapshots
-;; ---------------------------------------------------------------------------
-
 (defn- perp-state [position]
   (-> (sf/base-state)
       (assoc :active-asset coin
@@ -106,10 +102,6 @@
     (testing "a read that did not cover the coin is unavailable"
       (is (= :unavailable (:status (snapshots/account-snapshot-from-read scope (assoc read :perps {}) live)))))))
 
-;; ---------------------------------------------------------------------------
-;; Planner
-;; ---------------------------------------------------------------------------
-
 (def perp-fees
   (vr-fees/fee-capability {:quote {:effective {:maker 0.04}} :loaded-at-ms 1000
                            :settlement (vr-fees/perp-settlement) :settlement-verified? true
@@ -153,7 +145,6 @@
       (is (= [:buy] (mapv #(get-in % [:data :side])
                           (filter #(= :plan/insufficient-margin (:code %)) (:errors r)))))))
   (testing "sells above the mid are judged on their own notional, not the mid"
-    ;; 30 units fit 2,400 of capacity at the 80 mid, but rest at 86-90.8 (2,652).
     (let [r (perp-plan {:facts {:withdrawable "500"}})]
       (is (some #(and (= :plan/insufficient-margin (:code %)) (= :sell (get-in % [:data :side]))) (:errors r))))))
 
@@ -172,8 +163,6 @@
 
 (deftest perp-sell-shortcuts-never-refuse-their-own-quantity-test
   (testing "with a long, the shortcuts size from the long, not from the margin behind it"
-    ;; 8 long with 2,400 of capacity: the mid-priced base capacity is 38, and
-    ;; selling it would flip the position 30 short at rung prices above the mid.
     (let [facts {:position "8" :withdrawable "480"}
           excess (get-in (sell-plan facts "38") [:totals :sellable-excess])]
       (is (= "8" excess))
@@ -219,7 +208,6 @@
     (is (some #{:plan/protected-core-breach} (codes (perp-plan {:inventory {:protected-core "-20"}}))))
     (is (= :ready (:status (perp-plan {:inventory {:protected-core "-30"}})))))
   (testing "a short account may cap its position below zero"
-    ;; -50 with 40 buys can reach -10.
     (is (= :ready (:status (perp-plan {:facts {:position "-50"} :inventory {:maximum "-5"}}))))
     (is (some #{:plan/max-inventory-breach}
               (codes (perp-plan {:facts {:position "-50"} :inventory {:maximum "-20"}})))))
@@ -227,10 +215,6 @@
     (let [r (planner/prepare-plan
              (fx/plan-input {:draft (assoc-in fx/draft-13-2 [:inventory :protected-core] "-1")}))]
       (is (some #{:input/invalid-number} (codes r))))))
-
-;; ---------------------------------------------------------------------------
-;; Barrier read
-;; ---------------------------------------------------------------------------
 
 (defn- venue [calls overrides]
   (fn [body _opts]
@@ -295,10 +279,6 @@
                    (is (= {} (:perps r)))
                    (is (nil? (campaign/base-total r perp-scope)) "an uncovered position is unknown, never zero")
                    (done)))))))
-
-;; ---------------------------------------------------------------------------
-;; Reporting
-;; ---------------------------------------------------------------------------
 
 (def markets (attribution/spot-markets rfx/spot-meta))
 
@@ -394,7 +374,6 @@
                                            :q-b (:q sb) :c-b (:c sb) :p-b "90"})
         m (matching/match-window {:campaign c :events events :a-ms a :b-ms b :p-end "90"})]
     (is (= {:q "-4" :c "0"} sa))
-    ;; Hold: -4 x (90 - 80). Contribution: -534.8 - 0.75 + 7 x 90.
     (is (= {:net-pnl "54.45" :hold-pnl "-40" :contribution "94.45"} figures))
     (is (equations/identity-holds? figures))
     (is (= "-0.75" (:funding m)))
@@ -418,8 +397,6 @@
         "spot is unchanged")))
 
 (deftest a-perp-scope-never-takes-a-spot-token-id-test
-  ;; Spot pair 107 exists in the fixture metadata; a perp with the same index
-  ;; is a different market.
   (let [state (assoc-in (perp-state nil) [:active-market :idx] 107)
         scope (snapshots/current-scope state)]
     (is (nil? (:quote-token-id scope)))

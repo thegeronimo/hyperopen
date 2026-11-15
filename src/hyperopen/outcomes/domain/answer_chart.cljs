@@ -126,9 +126,6 @@
      {:key (plan-key market timeframe)
       :coins (mapv :coin (take max-lines ranked))})))
 
-;; ---------------------------------------------------------------------------
-;; Candle slots
-
 (defn candle-rows
   "Rows of a `[:candles coin interval]` slot: a bare vector or a map holding
    `:rows`/`:data`."
@@ -183,9 +180,6 @@
           (or requested-at {})
           requests))
 
-;; ---------------------------------------------------------------------------
-;; Labels on the 0–100% scale
-
 (defn- finite
   [value]
   (let [n (cond (number? value) value
@@ -212,9 +206,6 @@
   [rows]
   (when-let [row (peek rows)]
     (finite (or (:c row) (:close row) (get row "c")))))
-
-;; ---------------------------------------------------------------------------
-;; Legend
 
 (defn- not-drawn-note
   [labels reason]

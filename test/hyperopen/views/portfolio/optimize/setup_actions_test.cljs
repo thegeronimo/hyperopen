@@ -51,9 +51,6 @@
     (is (= "Add assets to run" (:label status)))))
 
 (deftest run-status-reports-holdings-loading-over-empty-universe-test
-  ;; While the holdings auto-seed is pending the universe is necessarily empty;
-  ;; the pill must report the machine's wait ("Loading holdings"), never
-  ;; instruct the user to add the assets the seed is about to add.
   (let [status (setup-actions/run-status {:run-triggerable? false
                                           :running? false
                                           :readiness {:runnable? false
@@ -64,9 +61,6 @@
     (is (= "Loading holdings" (:label status)))))
 
 (deftest setup-bottom-actions-run-button-reads-loading-holdings-while-seed-pending-test
-  ;; The CTA is the eye's landing point: while the auto-seed is pending it says
-  ;; what the app is doing and stays disabled (an empty universe is never
-  ;; triggerable), instead of a dead "Run optimization".
   (let [node (setup-actions/setup-bottom-actions
               {:draft {}
                :readiness {:runnable? false :reason :holdings-loading}
@@ -90,9 +84,6 @@
     (is (= :busy (:tone status)))))
 
 (deftest setup-bottom-actions-keeps-run-enabled-but-flags-blocked-status-when-not-runnable-test
-  ;; The Run button stays clickable (the intentional "run retries anything still
-  ;; missing" affordance), but the status pill must NOT read green "Ready to run";
-  ;; it names the blocking reason instead, removing the QA P1 contradiction.
   (let [node (setup-actions/setup-bottom-actions
               {:draft sample-draft
                :readiness {:runnable? false :reason :no-eligible-history}
@@ -122,10 +113,6 @@
     (is (some #{"Ready to run"} (ts/collect-strings status-meta)))))
 
 (deftest setup-bottom-actions-run-button-uses-goal-language-test
-  ;; The CTA names the user's goal ("Run optimization"), not the app's internal
-  ;; posture ("safe defaults" turned misleading the moment anything was
-  ;; customized). The status-detail line beside it still names the exact
-  ;; objective/model being solved.
   (let [node (setup-actions/setup-bottom-actions
               {:draft sample-draft
                :readiness {:runnable? true}
@@ -137,9 +124,6 @@
     (is (some #{"Run optimization"} (ts/collect-strings run-button)))))
 
 (deftest setup-bottom-actions-links-to-results-and-rebalance-after-solved-run-test
-  ;; A solved run must expose a direct path from the draft action bar to both the
-  ;; recommendation results and the rebalance trades. The standalone Rebalance preview
-  ;; tab was retired, so the rebalance link now stages straight into Execution.
   (let [node (setup-actions/setup-bottom-actions
               {:draft sample-draft
                :readiness {:runnable? true}
@@ -173,10 +157,6 @@
     (is (nil? (ts/node-by-role node "portfolio-optimizer-view-rebalance")))))
 
 (deftest run-status-caution-verdict-turns-ready-pill-amber-test
-  ;; The unified verdict (2026-07-10): runnable-with-warnings must not read as
-  ;; a green "Ready to run" next to a visible warning (e.g. current exposure
-  ;; outside the configured policy) — the pill adopts the verdict's amber
-  ;; label while the Run CTA stays available.
   (let [status (setup-actions/run-status {:run-triggerable? true
                                           :running? false
                                           :readiness {:runnable? true}
@@ -187,7 +167,6 @@
     (is (true? (:ready? status)))
     (is (= :caution (:tone status)))
     (is (= "Ready with 1 warning" (:label status))))
-  ;; A ready verdict leaves the green pill exactly as before.
   (let [status (setup-actions/run-status {:run-triggerable? true
                                           :running? false
                                           :readiness {:runnable? true}

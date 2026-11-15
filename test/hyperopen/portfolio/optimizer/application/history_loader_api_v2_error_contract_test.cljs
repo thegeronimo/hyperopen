@@ -39,17 +39,12 @@
                :details {:served_end_ms 111 :serve_age_days 9}}]})
 
 (deftest error-status-is-decoded-and-series-still-served-test
-  ;; A status "error" bundle is NOT an empty response: the per-instrument series
-  ;; are still fully served, and the status decodes to the :error keyword.
   (let [body (api-v2/normalize-history-body error-bundle-body)]
     (is (= :error (:status body)))
     (is (contains? (:series-by-instrument body) "perp:X"))
     (is (= 2 (count (get-in body [:series-by-instrument "perp:X" :points]))))))
 
 (deftest excluded-from-alignment-warning-is-attributed-and-reason-keywordized-test
-  ;; The top-level excluded-from-alignment warning carries no instrument_id; it
-  ;; is attributed to its asset via the row key in details.client_instrument_id,
-  ;; and its reason is normalized to a keyword for matching.
   (let [warning (warning-by-code (api-v2/normalize-history-body error-bundle-body)
                                  :excluded-from-alignment)]
     (is (some? warning))
@@ -63,7 +58,5 @@
         stale (warning-by-code body :stale-history)]
     (is (= ["hl:perp:X"] (get-in common [:details :instrument-ids])))
     (is (= ["hl:perp:X"] (get-in common [:details :excluded-instrument-ids])))
-    ;; The STALE surfaces read serve_age_days / served_end_ms directly rather
-    ;; than recomputing age from the request date.
     (is (= 9 (get-in stale [:details :serve-age-days])))
     (is (= 111 (get-in stale [:details :served-end-ms])))))

@@ -95,9 +95,6 @@
            [:p {:class ["mt-1.5" "text-sm" "text-trading-muted"]}
             "These target weights, rebalanced daily, over each vault's own history."]]
           [:div {:class ["flex" "flex-wrap" "gap-2"]}
-           ;; A mixed run's verdict CTA stays "Review trades" for its perp legs,
-           ;; so its vault legs get their own way in here. An all-vault run's
-           ;; verdict CTA is already "Fund this allocation".
            (if (vault-funding-model/all-vault-result? result)
              [:span {:class ["hidden"]}]
              [:button {:type "button"
@@ -114,11 +111,8 @@
             "Open tear sheet"]]]
          [:svg {:viewBox "0 0 600 120" :preserveAspectRatio "none" :class ["mt-2" "block" "h-[120px]" "w-full"]
                 :role "img" :aria-label "Hypothetical cumulative return over the last year"}
-          ;; Always present (zero width when every asset is live): a nil hole
-          ;; next to the keyed lines freezes Replicant's renderer.
           [:rect {:x 0 :y 0 :height spark-h :fill "rgba(164,147,255,0.08)"
                   :width (if (and scale last-join) (.toFixed ((:x scale) last-join) 1) 0)}]
-          ;; Benchmarks first so the target draws on top.
           (for [{:keys [id stroke raw-points]} (reverse series)]
             ^{:key (str "spark-" (name id))}
             [:path {:d (or (when scale (spark-path scale raw-points)) "")

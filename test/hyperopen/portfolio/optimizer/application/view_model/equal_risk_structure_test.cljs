@@ -6,8 +6,6 @@
             [hyperopen.portfolio.optimizer.application.view-model.equal-risk-structure
              :as structure-model]))
 
-;; 3 held positions (long BTC, long ETH, short MSTR) + one persisted-zero
-;; instrument the correlation payload excluded. Dyadic values throughout.
 (def ^:private solved-result
   {:status :solved
    :as-of-ms 1752200000000

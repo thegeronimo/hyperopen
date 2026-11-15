@@ -70,8 +70,6 @@
                                 effects))))
 
 (deftest amend-never-attaches-the-session-carryover-test
-  ;; The carryover holds the run's OTHER live orders; attaching it (as confirm/resume
-  ;; do) would cancel them all. The amend plan must cancel ONLY its own target.
   (let [state (amendable-state
                {:open-orders [{:oid 777 :coin "ZETA" :sz "300.5" :limitPx "0.045"}
                               {:oid 888 :coin "WLD" :sz "10" :limitPx "0.44"}]

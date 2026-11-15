@@ -9,9 +9,7 @@
 (def tp-gain-mode position-tpsl-state/tp-gain-mode)
 (def sl-loss-mode position-tpsl-state/sl-loss-mode)
 
-(def preview-submit-label position-tpsl-policy/preview-submit-label)
 (def validate-modal position-tpsl-policy/validate-modal)
-(def active-size position-tpsl-policy/active-size)
 (def configured-size-percent position-tpsl-policy/configured-size-percent)
 (def estimated-gain-usd position-tpsl-policy/estimated-gain-usd)
 (def estimated-loss-usd position-tpsl-policy/estimated-loss-usd)
@@ -23,10 +21,8 @@
 (def estimated-loss-position-percent position-tpsl-policy/estimated-loss-position-percent)
 (def estimated-gain-percent-for-mode position-tpsl-policy/estimated-gain-percent-for-mode)
 (def estimated-loss-percent-for-mode position-tpsl-policy/estimated-loss-percent-for-mode)
-(def pnl-mode-unit-token position-tpsl-policy/pnl-mode-unit-token)
 (def pnl-mode-menu-label position-tpsl-policy/pnl-mode-menu-label)
 (def pnl-mode-option-label position-tpsl-policy/pnl-mode-option-label)
-(def valid-size? position-tpsl-policy/valid-size?)
 
 (def prepare-submit position-tpsl-application/prepare-submit)
 (def from-position-row position-tpsl-application/from-position-row)

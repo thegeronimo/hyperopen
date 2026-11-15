@@ -5,31 +5,10 @@
             [hyperopen.portfolio.optimizer.black-litterman-actions.common :as common]
             [hyperopen.portfolio.optimizer.contracts :as contracts]))
 
-(defn draft->view
-  [kind draft view-id]
-  (model/draft->view kind draft view-id))
-
-(defn validate-draft
-  [state kind draft editing?]
-  (model/validate-draft (common/black-litterman-return-model? state)
-                        (common/draft-universe state)
-                        (common/black-litterman-views state)
-                        kind
-                        draft
-                        editing?))
-
 (defn- automatic-return-inputs
   [state]
   (return-inputs/readiness-inputs-by-instrument
    (setup-readiness/build-readiness state)))
-
-(defn with-automatic-absolute-return-text
-  [state kind draft editing?]
-  (model/with-automatic-absolute-return-text
-   draft
-   kind
-   (automatic-return-inputs state)
-   editing?))
 
 (defn reset-draft-after-save
   [draft]

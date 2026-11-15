@@ -24,10 +24,6 @@
   (some? (:inverse-volatility result)))
 
 (defn- format-multiple
-  ;; Deliberately local: hyperopen.views.portfolio.optimize.format has the
-  ;; sibling helper, but the namespace-boundary lint forbids a non-view
-  ;; namespace importing hyperopen.views.* (and this fallback is "—", not its
-  ;; "N/A").
   [value]
   (if (finite-number? value)
     (str (.toFixed value 2) "x")

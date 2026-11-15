@@ -77,22 +77,11 @@
      "N/A")))
 
 (def ^:private friendly-keyword-labels
-  ;; Human copy for reason keywords that would otherwise leak a raw kebab token.
   {:below-min-notional "Below $10 minimum"
-   ;; The order quantity rounds down to zero at the asset's lot precision (szDecimals),
-   ;; so there is no placeable size — e.g. a 0.7-unit target on a whole-lot (szDecimals 0)
-   ;; market.
    :quantity-below-lot "Below one lot"
-   ;; A Resume skips orders already filled or already resting (open) on the book so it can
-   ;; never duplicate a live order.
    :already-filled "Already filled"
    :already-resting "Already resting"
-   ;; A held instrument the allocator expressed no target for (out-of-universe spot,
-   ;; dropped for missing history) — it is held as-is, never staged as a sell-to-zero.
    :excluded-from-optimization "Excluded from optimization — held"
-   ;; The run completed on the backup JavaScript solver because the primary
-   ;; WebAssembly one failed. Weights are still constraint-validated, so this
-   ;; reads as a slowdown to investigate, not a wrong answer.
    :solver-fallback-used "Backup solver used"})
 
 (defn keyword-label
@@ -105,9 +94,6 @@
      :else fallback)))
 
 (def ^:private display-labels
-  ;; "Minimum risk" is the single user-facing objective term (the method name
-  ;; "minimum variance" stays in technical copy only) — see the vocabulary
-  ;; unification in the 2026-07-04 right-rail decision-aid pass.
   {:minimum-variance "Minimum risk"
    :max-sharpe "Maximum Sharpe"
    :equal-risk "Equal Risk"
@@ -153,8 +139,6 @@
     (str (locale-number (/ ms 1000) {:maximumFractionDigits 1}) "s")
     "—"))
 
-;; --- Refinement labels (shared by the status card and the confidence rail) ---
-
 (defn refinement-quality-label
   [quality]
   (case quality
@@ -170,15 +154,6 @@
     :moderate "Moderate"
     :provisional "Provisional"
     "—"))
-
-(defn refinement-tier-label
-  [tier]
-  (case tier
-    :draft "Draft result"
-    :refined "Refined result"
-    :maximum "Maximum density"
-    :partial "Partial result"
-    "Result"))
 
 (defn refinement-tier-ready-label
   [tier]

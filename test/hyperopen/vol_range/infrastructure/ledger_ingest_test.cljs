@@ -58,7 +58,6 @@
                    (is (= 1 n) "one record for a repeated row")
                    (is (= 1 (count (get-in @s [:vol-range :report :ledger :fills])))
                        "shown in the loaded report")
-                   ;; The same frame again is not even queued.
                    (is (nil? (ingest/on-fills-envelope! s env {:put-records! put! :now-ms! (constantly 2)})))
                    (store/load-account! io account)))
           (.then (fn [{:keys [records]}]

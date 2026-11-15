@@ -48,10 +48,7 @@
                (fn [_ _ old-state new-state]
                  (let [was? (running? old-state)
                        now? (running? new-state)]
-                   ;; Tick swaps keep status :running, so gate on the transition
-                   ;; to avoid re-arming the interval on every frame.
                    (when (not= was? now?)
                      (if now? (start!) (stop!))))))
-    ;; Cover a run already in flight when the watcher (re)installs on dev reload.
     (if (running? @store) (start!) (stop!))
     store))

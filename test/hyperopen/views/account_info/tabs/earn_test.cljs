@@ -72,8 +72,6 @@
                   (assoc-in state [:account-info :selected-tab] :balances) owner)))))
 
 (deftest nine-tabs-keep-declaration-order-test
-  ;; A ninth base tab pushes the merged definitions past array-map size, so
-  ;; order must not come from map key order.
   (is (= [:balances :positions :outcomes :open-orders :twap :trade-history
           :funding-history :order-history :earn]
          (tab-registry/available-tabs-for [] [] {})))

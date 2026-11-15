@@ -79,9 +79,6 @@
   (let [{:keys [store refreshes armed? tick!]} (harness (base-state))]
     (tick!)
     (is (= 1 @refreshes) "the order still reconciles :resting -> refresh the book")
-    ;; The order fills: its oid leaves the live book and a fill lands on the feed.
-    ;; The FROZEN ledger still says :resting (it is the audit record), so only the
-    ;; reconciled view can tell the poller its job is done.
     (swap! store (fn [state]
                    (-> state
                        (assoc-in [:orders :open-orders] [])

@@ -29,9 +29,6 @@
 
 (defn- single-qp-opts
   []
-  ;; A tight max-asset-weight forces the closed-form candidate (GMV w1=0.69) to
-  ;; violate the box, so planning falls back to a real QP that the injected
-  ;; solver must handle.
   {:objective {:kind :minimum-variance}
    :instrument-ids ["A" "B"]
    :expected-returns [0.1 0.2]

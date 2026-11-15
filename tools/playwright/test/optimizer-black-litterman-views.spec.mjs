@@ -97,9 +97,6 @@ async function seedBlackLittermanEditorState(page) {
     notes: "Pair view"
   };
   await seedOptimizerState(page, [
-    // The Return views editor renders one row per UNIVERSE instrument; the
-    // /optimize/new preseed leaves the universe empty in tests, so seed it or
-    // no rows exist at all.
     seedPatch(optimizerPath("draft", "universe"), [
       instrument("perp:BTC", "perp", "BTC", "BTC-USDC"),
       instrument("perp:ETH", "perp", "ETH", "ETH-USDC"),
@@ -405,8 +402,6 @@ test("portfolio optimizer max sharpe return views setup editor uses compact row 
   const hypeReset = editor.locator("[data-role='portfolio-optimizer-objective-menu-view-perp:HYPE-reset']");
   const btcRow = editor.locator("[data-role='portfolio-optimizer-objective-menu-view-row-perp:BTC']");
 
-  // The authored HYPE view carries honest provenance: user source chip,
-  // selected confidence, and a reset-to-implied affordance.
   await expect(hypeRow).toHaveAttribute("data-source", "user");
   await expect(hypeRow.locator("[data-role='portfolio-optimizer-objective-menu-view-perp:HYPE-source']"))
     .toHaveAttribute("data-source", "user");
@@ -414,7 +409,6 @@ test("portfolio optimizer max sharpe return views setup editor uses compact row 
   await expect(hypeConfidenceHigh).toHaveAttribute("data-selected", "true");
   await expect(hypeReset).toBeVisible();
 
-  // An untouched row stays implied: no user chip, no selected confidence.
   await expect(btcRow).toHaveAttribute("data-source", "implied");
   await expect(btcRow.locator("[data-role*='-confidence-'][data-selected='true']"))
     .toHaveCount(0);
@@ -424,7 +418,6 @@ test("portfolio optimizer max sharpe return views setup editor uses compact row 
     return (views || []).find((view) => view["instrument-id"] === "perp:HYPE") || null;
   };
 
-  // Row edits materialize into the draft immediately — no Run/Apply staging.
   await hypeReturn.fill("12.5");
   await expect(hypeReturn).toHaveValue("12.5");
   await expect
@@ -475,9 +468,6 @@ test("portfolio optimizer inline BTC view edit materializes immediately and runs
   const btcReturn = editor.locator("[data-role='portfolio-optimizer-objective-menu-view-perp:BTC-return']");
   const btcHigh = editor.locator("[data-role='portfolio-optimizer-objective-menu-view-perp:BTC-confidence-high']");
 
-  // Author the view through the row controls: a parseable keystroke plus a
-  // confidence click write the draft view immediately — Run no longer
-  // materializes anything from UI buffers.
   await expect(btcReturn).toBeVisible();
   await btcReturn.fill("20");
   await btcHigh.click();
@@ -503,9 +493,6 @@ test("portfolio optimizer inline BTC view edit materializes immediately and runs
 
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
 
-  // A run started from /optimize/new always reveals the DRAFT results surface
-  // (success-commands navigates to the literal "draft" scenario path) — the
-  // seeded draft id identifies the run, not the reveal route.
   await expect(page).toHaveURL(/\/portfolio\/optimize\/draft/, {
     timeout: 15_000
   });
@@ -571,8 +558,6 @@ test("portfolio optimizer max sharpe views blend explainer renders vertical bars
     const actionBar = page.locator("[data-role='portfolio-optimizer-setup-bottom-actions']");
     const editor = page.locator("[data-role='portfolio-optimizer-setup-use-my-views-editor']");
 
-    // The old center workspace is gone; the trust explainer collapsed into a
-    // <details> disclosure on the policy pane whose summary reveals it.
     await expect(page.locator("[data-role='portfolio-optimizer-setup-use-my-views-workspace']"))
       .toHaveCount(0);
     await blendShell.scrollIntoViewIfNeeded();

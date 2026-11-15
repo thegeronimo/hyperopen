@@ -5,7 +5,6 @@
             [hyperopen.state.trading.test-support :as support]))
 
 (def ^:private book
-  ;; Deliberately unsorted: the sweep must order levels itself.
   {:bids [{:px "99" :sz "2"} {:px "100" :sz "1"} {:px "98" :sz "4"}]
    :asks [{:px "102" :sz "2"} {:px "101" :sz "1"} {:px "103" :sz "4"}]})
 
@@ -56,7 +55,6 @@
     (is (nil? (book-sweep/sweep-to-price book :buy "100")))))
 
 (deftest agrees-with-the-order-form-slippage-estimate-test
-  ;; The impact card and the footer's "Slippage Est" must never disagree.
   (let [state (assoc support/base-state :orderbooks {"BTC" book})
         form (assoc (trading/default-order-form) :type :market :side :buy :size "2.5")
         footer-pct (:slippage-est (trading/order-summary state form))]

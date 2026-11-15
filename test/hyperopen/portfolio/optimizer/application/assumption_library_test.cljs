@@ -123,11 +123,6 @@
         (is (= [sol-reference] (:reference-instruments result)))))))
 
 (deftest hydrate-assumptions-prunes-carried-references-that-joined-universe-test
-  ;; Live 2026-07-09: stored references that later became universe members
-  ;; (BTC/ETH via a holdings seed) survived every hydration and the request
-  ;; builder evicted them from the engine universe as "reference-only".
-  ;; Hydration applies the same universe check to carried-over references it
-  ;; already applies to new ones.
   (let [result (library/hydrate-assumptions
                 {:assumptions {}
                  :universe [{:instrument-id "perp:NEW"}

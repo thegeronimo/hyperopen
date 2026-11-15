@@ -44,12 +44,6 @@
 
 (defn- policy [k] (get contracts/report-policy k))
 
-;; ---------------------------------------------------------------------------
-;; Reads -> coverage deltas
-;; ---------------------------------------------------------------------------
-
-;; Reads that stopped early paged forward from their start, so they still
-;; prove everything before their newest row.
 (def ^:private read-reasons
   {:fills/no-progress :coverage/no-progress :fills/page-cap :coverage/page-cap
    :ledger/no-progress :coverage/no-progress :ledger/page-cap :coverage/page-cap
@@ -190,10 +184,6 @@
                  (ffirst gaps))]
     (max 0 (- (if (seq starts) (apply min starts) now-ms) overlap))))
 
-;; ---------------------------------------------------------------------------
-;; Intervals
-;; ---------------------------------------------------------------------------
-
 (defn- segments
   "Split [from to) at `points` into [[a b] ...]."
   [[from to] points]
@@ -215,7 +205,6 @@
   (if-not (< from to)
     []
     (let [complete (:complete record)
-          ;; Newest first, permanent losses before transient failures.
           failures (let [newest (reverse (:failures record))]
                      (concat (filter :permanent? newest) (remove :permanent? newest)))
           points (concat (mapcat identity complete) (mapcat (juxt :from-ms :to-ms) failures))]
@@ -276,7 +265,6 @@
                                      (max from))
             fills (stream-intervals (:fills coverage) [from to])
             ledger-ivs (stream-intervals (:ledger coverage) [from to])
-            ;; A perp's funding payments are cash of the campaign from T0 on.
             funding-ivs (when (perp-campaign? campaign)
                           (let [t0 (min (:t0-ms campaign) to)]
                             (into (if (< from t0) [{:from-ms from :to-ms t0 :state :complete :reason nil}] [])
@@ -302,10 +290,6 @@
          :intervals intervals
          :breaks all-breaks
          :headline-allowed? (boolean (and (= :complete state) (nil? first-break) (seq intervals)))}))))
-
-;; ---------------------------------------------------------------------------
-;; Balance checks
-;; ---------------------------------------------------------------------------
 
 (defn pending-balance-checks
   "A :pending check per open campaign from a complete barrier read
@@ -360,7 +344,6 @@
                 (iv/covers? (get-in coverage [:ledger :complete]) need)))
       check
       (some #(<= (or (:time %) (:at-ms %)) (+ r skew)) breaks) (decided :inconclusive)
-      ;; Funding moves cash only, never the position.
       (some #(<= (js/Math.abs (- (:time %) r)) skew) (ledger/fills events)) (decided :inconclusive)
       :else
       (let [expected (:q (ledger/state-before campaign events r))

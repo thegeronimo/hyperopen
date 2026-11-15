@@ -273,7 +273,6 @@
                                                             (assoc-in [:portfolio :ledger-error] nil)))))
                                              summary*))
                                     (.catch (fn [err]
-                                              ;; Portfolio summary should remain available even if ledger fetch fails.
                                               (when (requested-address-current? store requested-address)
                                                 (swap! store
                                                        (fn [state]
@@ -378,7 +377,6 @@
      :apply-asset-selector-success api-projections/apply-asset-selector-success
      :apply-asset-selector-error api-projections/apply-asset-selector-error
      :after-asset-selector-success! (fn [runtime-store _phase _market-state]
-                                      ;; the reloaded catalog carries no quotes
                                       (outcome-bbo/restore-known-tops! runtime-store)
                                       (ws-adapters/sync-active-outcome-market-side-streams!
                                        runtime-store)

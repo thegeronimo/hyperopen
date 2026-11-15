@@ -163,9 +163,8 @@
 (deftest a-chain-change-before-a-send-stops-every-further-send-test
   (async done
     (-> (js/Promise.all
-         #js [;; Between approve and deposit: the re-read before the deposit.
+         #js [
               (submit! support/usdc-index "1000" {:chain-reads ["0xa4b1" "0x3e7" "0xa4b1"]} {})
-              ;; Between the switch and the native send: the verified re-read.
               (submit! support/hype-index "10" {:chain-reads ["0xa4b1" "0x1"]} {})])
         (.then (fn [results]
                  (let [[usdc native] (vec results)]
@@ -256,8 +255,6 @@
                      (done))))
           (.catch (async-support/unexpected-error done))))))
 
-;; --- flow ids ---------------------------------------------------------------------
-
 (defn- flush!
   "Resolve after pending microtasks and a macrotask have run."
   []
@@ -291,14 +288,10 @@
                    (is (= "flow-old" (get-in @store [:funding-ui :modal :transfer-evm :flow-id])))
                    (is (= :running (get-in @store [:hyperevm :in-flight support/owner :status]))
                        "the move is in flight before any hash exists")
-                   ;; The user closes the modal while the wallet prompt is open,
-                   ;; then opens a new draft.
                    (swap! store update-in [:funding-ui :modal]
                           #(modal-state/closed-funding-modal-state
                             modal-state/default-funding-modal-state %))
                    (swap! store assoc-in [:funding-ui :modal] reopened)
-                   ;; A second move from the new draft is refused while the
-                   ;; first is unresolved.
                    (transfer-effects/submit-evm-to-core!
                     (assoc deps :request (request @store support/purr-index "3")
                            :next-flow-id! (constantly "flow-new")))

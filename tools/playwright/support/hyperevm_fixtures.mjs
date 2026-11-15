@@ -1,32 +1,3 @@
-// Deterministic HyperEVM (and the HyperCore reads a HyperEVM Transfer needs)
-// for Playwright.
-//
-// - `routeHyperEvmRpc(page, fixture)` answers every request to the public
-//   HyperEVM RPC (https://rpc.hyperliquid.xyz/evm) from a fixture: native
-//   balances, the gas price, Multicall3 aggregate3 reads (owner balanceOf,
-//   system-address balanceOf, decimals()), allowance, eth_estimateGas and
-//   receipts, JSON-RPC batches, and injected rate limits. `visitRoute` installs
-//   it with an empty-balance fixture on every page, and the shared guard
-//   (`hyperevm_rpc_guard.mjs`, run for every spec through
-//   `guarded_test.mjs`) answers every other page and context the same way
-//   and fails the test on any request the mock did not answer.
-// - `routeHyperCoreInfo(page, fixture, { strict })` answers the account reads
-//   a HyperEVM flow depends on (spotClearinghouseState, clearinghouseState,
-//   userAbstraction, userRole, subAccounts) and the market catalog every
-//   HyperEVM surface waits on (spotMeta, spotMetaAndAssetCtxs,
-//   metaAndAssetCtxs, perpDexs, outcomeMeta), and lets every other info
-//   request through; `strict` records each user-carrying read it let through.
-//   `routeHyperCoreAccountStreams(page)` keeps the live websocket but never
-//   subscribes a user's balance streams.
-//
-// Every value is production-shaped. The spotMeta token rows are verbatim
-// mainnet rows (the same ones `test/hyperopen/hyperevm/test_support/
-// fixtures.cljs` and `bridge_fixtures.cljs` pin), the universe rows are the
-// live pairs of those tokens, and the gas price, gas estimates, bridge
-// system balances and receipt shape come from live responses (provenance on
-// each constant). Nothing here imports Playwright, so node tests can drive the
-// JSON-RPC handler directly.
-
 import fs from "node:fs";
 
 export const HYPEREVM_RPC_URL = "https://rpc.hyperliquid.xyz/evm";
@@ -51,17 +22,8 @@ export const SELECTORS = Object.freeze({
   decimals: "0x313ce567"
 });
 
-// Provenance: `eth_gasPrice` in the Milestone 1 live probe batch to
-// https://rpc.hyperliquid.xyz/evm, 2026-09-30T14:11:05Z (0x666f5c3).
 export const PROBE_GAS_PRICE_WEI = "107410883";
 
-// Provenance: live `eth_estimateGas` answers on 2026-09-30 recorded in
-// `src/hyperopen/hyperevm/domain/fees.cljs` (`fallback-gas-limits`): ~22.8k
-// for native HYPE to 0x2222…, ~29.7k for a PURR transfer to its system
-// address, ~56.2k for a USDC approve and 58-68k for a USDC spot deposit.
-// The public RPC answers a JSON-RPC batch of more than 20 entries with this
-// single error object (HTTP 200). Provenance: a 21-entry `eth_chainId` batch
-// POSTed to https://rpc.hyperliquid.xyz/evm on 2026-10-01T00:28:43Z.
 export const MAX_BATCH_SIZE = 20;
 export const BATCH_TOO_LARGE_BODY = Object.freeze({
   jsonrpc: "2.0",
@@ -69,10 +31,6 @@ export const BATCH_TOO_LARGE_BODY = Object.freeze({
   error: { code: -32010, message: "The batch request was too large", data: "Exceeded max limit of 20" }
 });
 
-// `eth_estimateGas` of a USDC `deposit` without the CoreDepositWallet
-// allowance reverts in native USDC's `transferFrom`. Provenance:
-// `deposit(1000000000, 4294967295)` on 0x6b9e…0a24 from 0x1234…5678 (no
-// allowance), https://rpc.hyperliquid.xyz/evm, 2026-10-01T00:28:43Z.
 export const ALLOWANCE_REVERT = Object.freeze({
   code: 3,
   message: "execution reverted: ERC20: transfer amount exceeds allowance",
@@ -90,13 +48,6 @@ export const LIVE_GAS_ESTIMATES = Object.freeze({
   approve: 56200n,
   deposit: 63000n
 });
-
-// --- spotMeta ------------------------------------------------------------------
-//
-// Provenance: `curl -s -X POST https://api.hyperliquid.xyz/info
-// -d '{"type":"spotMeta"}'`. Token rows: 2026-09-30T14:06Z (fixtures.cljs)
-// and 15:08Z (bridge_fixtures.cljs), re-checked verbatim at 23:04Z. Universe
-// rows (each token's USDC pair): 2026-09-30T23:04Z; JOFF and FUNT have none.
 
 export const SPOT_TOKENS = Object.freeze({
   USDC: {
@@ -157,8 +108,6 @@ export const SPOT_UNIVERSE = Object.freeze([
   { tokens: [197, 0], name: "@142", index: 142, isCanonical: false }
 ]);
 
-// A mainnet spotMeta subset in live array order (FUNT sits after JOFF, as on
-// mainnet, where array position and index diverge).
 export const MAINNET_SPOT_META = Object.freeze({
   tokens: [
     SPOT_TOKENS.USDC, SPOT_TOKENS.PURR, SPOT_TOKENS.SIX, SPOT_TOKENS.HOPE,
@@ -166,22 +115,6 @@ export const MAINNET_SPOT_META = Object.freeze({
   ],
   universe: SPOT_UNIVERSE
 });
-
-// --- market catalog -------------------------------------------------------------
-//
-// The asset selector's full load (spotMeta, spotMetaAndAssetCtxs, perpDexs,
-// metaAndAssetCtxs, outcomeMeta) must finish before `[:spot :meta]` is
-// stored, and every HyperEVM surface waits on it. Live, a burst of test runs
-// gets 429s from the public info API and the load never finishes, so
-// `routeHyperCoreInfo` answers these too.
-//
-// Provenance: `curl -s -X POST https://api.hyperliquid.xyz/info` on
-// 2026-09-30T23:34Z. `metaAndAssetCtxs`: the first six perps (array order is
-// the asset id, so a prefix keeps every id right) with their margin tables
-// and contexts. `spotMetaAndAssetCtxs`: the contexts of SPOT_UNIVERSE's pairs,
-// at their pair indexes (the app reads `(nth ctxs index)`). `perpDexs`: the
-// default dex only (live leads with `null`). `outcomeMeta`: the live keys
-// with no outcome markets.
 
 export const PERP_META_AND_ASSET_CTXS = Object.freeze([
   {
@@ -224,30 +157,22 @@ export const SPOT_ASSET_CTXS = Object.freeze(
 
 export const OUTCOME_META = Object.freeze({ outcomes: [], questions: [], deployers: [], feeScale: "1.0" });
 
-// --- bridge state ---------------------------------------------------------------
-//
-// Provenance: the Milestone 2 live probe (2026-09-30T15:15Z), pinned in
-// `bridge_fixtures.cljs`: `balanceOf(systemAddress)` and `decimals()` of the
-// linked ERC-20s. HOPE's decimals() returns 0 where spotMeta implies 5, and
-// JOFF's balanceOf and decimals() both revert.
 export const LIVE_SYSTEM_UNITS = Object.freeze({
-  1: "508596915622676377079152451", // PURR
-  6: "0", // SIX
-  122: "167579739", // HOPE
-  197: "2099941788654544", // UBTC
-  478: "0" // FUNT
+  1: "508596915622676377079152451",
+  6: "0",
+  122: "167579739",
+  197: "2099941788654544",
+  478: "0"
 });
 
 export const LIVE_DECIMALS = Object.freeze({
-  1: 18, // PURR: 5 + 13
-  6: 18, // SIX: 8 + 10
-  122: 0, // HOPE: spotMeta implies 5
-  197: 8, // UBTC: 10 - 2
-  478: 8 // FUNT: 6 + 2
+  1: 18,
+  6: 18,
+  122: 0,
+  197: 8,
+  478: 8
 });
 
-// Provenance: `spotClearinghouseState` of the PURR and HYPE system addresses,
-// 2026-09-30T15:08Z (bridge_fixtures.cljs), other balance rows omitted.
 export const LIVE_SYSTEM_CORE_STATES = Object.freeze({
   "0x2000000000000000000000000000000000000001": {
     balances: [
@@ -261,8 +186,6 @@ export const LIVE_SYSTEM_CORE_STATES = Object.freeze({
     ]
   }
 });
-
-// --- units and ABI --------------------------------------------------------------
 
 export function tokenByName(name) {
   return SPOT_TOKENS[name] || null;
@@ -284,7 +207,6 @@ export function systemAddress(index) {
   return `0x20${index.toString(16).padStart(38, "0")}`;
 }
 
-// Base units of `amountText` at `decimals`, flooring extra digits.
 export function parseUnits(amountText, decimals) {
   const [whole, fraction = ""] = String(amountText).split(".");
   const padded = (fraction + "0".repeat(decimals)).slice(0, decimals);
@@ -327,8 +249,6 @@ function readUint(hex, byteOffset) {
   return BigInt(`0x${hex.slice(byteOffset * 2, byteOffset * 2 + 64) || "0"}`);
 }
 
-// Decode `aggregate3((address,bool,bytes)[])` calldata into
-// `[{ target, allowFailure, callData }]`.
 export function decodeAggregate3Calls(calldata) {
   const data = String(calldata).toLowerCase();
   if (!data.startsWith(SELECTORS.aggregate3)) {
@@ -356,7 +276,6 @@ function rightPad(hex) {
   return remainder === 0 ? hex : hex + "0".repeat(64 - remainder);
 }
 
-// ABI-encode `(bool success, bytes returnData)[]`, aggregate3's return type.
 export function encodeAggregate3Results(results) {
   const tails = results.map(({ success, returnData }) => {
     const body = String(returnData || "0x").replace(/^0x/, "");
@@ -371,18 +290,10 @@ export function encodeAggregate3Results(results) {
   return `0x${uintWord(32)}${uintWord(tails.length)}${offsets.join("")}${tails.join("")}`;
 }
 
-// --- transactions ---------------------------------------------------------------
-
-// The wallet simulator's `n`th transaction hash (1-based). It must equal
-// `hyperopen.telemetry.console-preload.wallet-evm/simulated-tx-hash`.
 export function simulatedTxHash(n) {
   return `0x${"e".repeat(56)}${n.toString(16).padStart(8, "0")}`;
 }
 
-// A successful receipt shaped like a live HyperEVM one (eth_getTransactionReceipt
-// of 0x65573e6c…ae5d2 on 2026-09-30T23:05Z: type, status, cumulativeGasUsed,
-// logs, logsBloom, transactionHash, transactionIndex, blockHash, blockNumber,
-// gasUsed, effectiveGasPrice, from, to, contractAddress).
 export function receiptFor(hash, { status = "0x1", from = null, to = null, gasUsed = "0x5910" } = {}) {
   return {
     type: "0x2",
@@ -402,9 +313,6 @@ export function receiptFor(hash, { status = "0x1", from = null, to = null, gasUs
   };
 }
 
-// --- fixture --------------------------------------------------------------------
-
-// Every address holds nothing; bridge health and gas are the live values.
 export function emptyHyperEvmFixture() {
   return {
     gasPriceWei: PROBE_GAS_PRICE_WEI,
@@ -418,15 +326,10 @@ export function emptyHyperEvmFixture() {
     estimateErrors: [],
     receipts: {},
     rateLimitNext: 0,
-    // `(hash, receipt)` callbacks run when a successful receipt is answered,
-    // e.g. to credit HyperCore or grant an approve's allowance, as the chain
-    // does once the transaction is mined.
     receiptHooks: []
   };
 }
 
-// Grant `owner`'s allowance for `spender` on `token` once `hash`'s receipt is
-// answered (the approve is mined), as `approve(spender, units)` does.
 export function approveOnReceipt(fixture, { hash, token = USDC_TOKEN_ADDRESS, owner, spender = USDC_CORE_DEPOSIT_WALLET, units }) {
   fixture.receiptHooks.push((receiptHash, receipt) => {
     if (receiptHash !== hash || receipt.status !== "0x1") return;
@@ -444,8 +347,6 @@ function allowanceUnits(fixture, token, owner, spender) {
   return BigInt(fixture.allowances[token]?.[String(owner).toLowerCase()]?.[spender] ?? "0");
 }
 
-// A fixture where `owner` holds `holdings` on HyperEVM, e.g.
-// `{ HYPE: "12.5", PURR: "0", USDC: "1000" }` (decimal token amounts).
 export function hyperEvmFixture({ owner, holdings = {}, overrides = {} } = {}) {
   const fixture = { ...emptyHyperEvmFixture(), ...overrides };
   if (owner) {
@@ -472,8 +373,6 @@ export function setHolding(fixture, owner, holdings) {
   }
   return fixture;
 }
-
-// --- JSON-RPC handler -----------------------------------------------------------
 
 const RATE_LIMITED_BODY = Object.freeze({
   jsonrpc: "2.0",
@@ -506,7 +405,6 @@ function balanceOfUnits(fixture, tokenAddress, holder) {
   return BigInt(fixture.erc20[tokenAddress]?.[holder] ?? "0");
 }
 
-// One aggregate3 inner call: `{ success, returnData }`.
 function answerInnerCall(fixture, { target, callData }) {
   const token = target.toLowerCase();
   const selector = selectorOf(callData);
@@ -547,8 +445,6 @@ function rpcError(id, code, message, data) {
   return { jsonrpc: "2.0", id, error: data === undefined ? { code, message } : { code, message, data } };
 }
 
-// A USDC deposit that `transferFrom` would refuse: the owner's allowance for
-// the CoreDepositWallet is below the amount.
 function depositLacksAllowance(fixture, tx) {
   if (selectorOf(tx?.data) !== SELECTORS.coreDeposit) return false;
   if (String(tx?.to || "").toLowerCase() !== USDC_CORE_DEPOSIT_WALLET) return false;
@@ -556,7 +452,6 @@ function depositLacksAllowance(fixture, tx) {
   return allowanceUnits(fixture, USDC_TOKEN_ADDRESS, tx.from, USDC_CORE_DEPOSIT_WALLET) < units;
 }
 
-// Answer one JSON-RPC request object. `state` records unknown methods.
 function answerEntry(state, entry) {
   const { fixture } = state;
   const { id, method, params = [] } = entry || {};
@@ -610,21 +505,12 @@ function answerEntry(state, entry) {
   }
 }
 
-// Whether `entry` reads a receipt whose queue is headed by "rate-limited".
 function rateLimitedReceipt(fixture, entry) {
   if (entry?.method !== "eth_getTransactionReceipt") return false;
   const queue = fixture.receipts[String(entry.params?.[0])];
   return Array.isArray(queue) && queue[0] === "rate-limited";
 }
 
-// Answer a JSON-RPC POST body (one request or a batch) as `{ status, body }`,
-// as the live endpoint does:
-// - a pending rate limit (`fixture.rateLimitNext`) or a receipt queued as
-//   "rate-limited" answers the whole HTTP request with the single -32005
-//   error object, batch or not, before any entry runs (so nothing else in
-//   the batch shifts a queue or fires a receipt hook);
-// - a batch of more than 20 entries gets the single -32010 error object and
-//   is recorded in `state.oversizedBatches` (the app chunks to 20).
 export function handleHyperEvmRpc(state, body) {
   const { fixture } = state;
   state.requests.push(body);
@@ -650,18 +536,12 @@ export function createHyperEvmRpcState(fixture = emptyHyperEvmFixture()) {
   return { fixture, requests: [], unknown: [], oversizedBatches: [] };
 }
 
-// Every JSON-RPC request entry the handler answered, flattened, in order.
 export function rpcEntries(state) {
   return state.requests.flatMap((body) => (Array.isArray(body) ? body : [body]));
 }
 
-// --- Playwright routing ---------------------------------------------------------
-
 const rpcControllers = new WeakMap();
 
-// Every request a mock handler answered, page- or context-level. The guard
-// (`hyperevm_rpc_guard.mjs`) observes requests at the context level, apart
-// from any route, and fails a test on one this set never received.
 const mockedRequests = new WeakSet();
 
 export function isHyperEvmRpcUrl(url) {
@@ -676,7 +556,6 @@ export function wasHyperEvmRequestMocked(request) {
   return mockedRequests.has(request);
 }
 
-// Answer a routed HyperEVM RPC request from `state`'s fixture.
 export async function fulfillHyperEvmRoute(route, state) {
   const request = route.request();
   let body = null;
@@ -700,11 +579,6 @@ export async function fulfillHyperEvmRoute(route, state) {
   });
 }
 
-// Route every request this page makes to the HyperEVM RPC host through the
-// fixture. Calling it again on the same page swaps the fixture in place. The
-// controller exposes `entries()` (every JSON-RPC entry answered, in order)
-// and `unknown()` (methods the mock could not answer); whether anything
-// escaped the mock is the guard's job, observed apart from this route.
 export async function routeHyperEvmRpc(page, fixture = emptyHyperEvmFixture()) {
   const existing = rpcControllers.get(page);
   if (existing) {
@@ -741,9 +615,6 @@ export function hyperEvmRpcController(page) {
   return rpcControllers.get(page) || null;
 }
 
-// --- HyperCore info -------------------------------------------------------------
-
-// A clearinghouseState shaped like the live one (2026-09-30T23:04Z).
 export function clearinghouseState(accountValue = "0.0", withdrawable = accountValue) {
   const summary = {
     accountValue,
@@ -761,16 +632,11 @@ export function clearinghouseState(accountValue = "0.0", withdrawable = accountV
   };
 }
 
-// A spotClearinghouseState row, shaped like the live one.
 export function spotBalance(name, total, hold = "0.0", entryNtl = "0.0") {
   const token = tokenByName(name);
   return { coin: name, token: token.index, total, hold, entryNtl };
 }
 
-// The live answers an address with no HyperCore account gets for the user
-// reads the HyperEVM surfaces trigger besides balances (portfolio, userFees,
-// delegatorSummary, the ledger, funding, fills and orders). Provenance in the
-// file: captured 2026-10-01T00:41:09Z for the spec's fixture owner.
 export const ACCOUNT_LESS_USER_READS = Object.freeze(
   Object.fromEntries(
     Object.entries(
@@ -796,16 +662,12 @@ export function hyperCoreInfoFixture() {
   };
 }
 
-// `answerHyperCoreInfo` returns this for a request it leaves to the network.
 export const NOT_HANDLED = Symbol("hyperCoreInfo.notHandled");
 
 function orNotHandled(value) {
   return value === undefined || value === null ? NOT_HANDLED : value;
 }
 
-// Answer one info POST body, or NOT_HANDLED to let it through. JSON `null` is
-// a real answer: live `subAccounts` of an address with none is `null`
-// (2026-10-01T00:28:43Z).
 export function answerHyperCoreInfo(fixture, payload) {
   const user = String(payload?.user || "").toLowerCase();
   switch (payload?.type) {
@@ -838,9 +700,6 @@ export function answerHyperCoreInfo(fixture, payload) {
   }
 }
 
-// `strict` records, in `fixture.unhandledUserRequests`, every info request
-// that carries a `user` and that the fixture let through to the live API, so
-// a spec can assert that no account read it depends on is live.
 export async function routeHyperCoreInfo(page, fixture = hyperCoreInfoFixture(), { strict = false } = {}) {
   fixture.unhandledUserRequests = fixture.unhandledUserRequests || [];
   await page.route(HYPERCORE_INFO_URL, async (route) => {
@@ -867,17 +726,12 @@ export async function routeHyperCoreInfo(page, fixture = hyperCoreInfoFixture(),
   return fixture;
 }
 
-// The user streams that carry balances. A fixture account has no live
-// HyperCore state, so the live stream would overwrite the fixture's REST
-// answers with zeros.
 export const ACCOUNT_BALANCE_STREAMS = Object.freeze([
   "clearinghouseState",
   "webData2",
   "spotState"
 ]);
 
-// Whether a page -> server websocket message subscribes (or unsubscribes) a
-// user's balance stream.
 export function isAccountBalanceSubscription(message) {
   let payload = null;
   try {
@@ -893,9 +747,6 @@ export function isAccountBalanceSubscription(message) {
   );
 }
 
-// Keep the live market websocket, but never subscribe a user's balance
-// streams, so `routeHyperCoreInfo`'s REST answers stay the account's only
-// balances. Returns the dropped messages.
 export async function routeHyperCoreAccountStreams(page) {
   const dropped = [];
   await page.routeWebSocket(HYPERCORE_WS_URL, (ws) => {

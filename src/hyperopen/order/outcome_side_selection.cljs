@@ -40,8 +40,6 @@
                             (selected-outcome-side-coin
                              (apply-transition state transition)
                              value))]
-    ;; Switching sides of the same contract keeps a Cash out going when the
-    ;; new side is held; otherwise the ticket lands as a Buy.
     (asset-actions/select-asset
      (apply-transition state transition)
      side-coin

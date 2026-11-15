@@ -206,8 +206,6 @@
              store)
             (.then
              (fn [discovery]
-               ;; The configured :request-timeout-ms reaches the discovery
-               ;; request, so its init now carries an AbortSignal.
                (is (= [["https://history.test/v1/optimizer/instruments"
                         {"method" "GET"
                          "headers" {"x-request-id" "rid-discovery"}}]]
@@ -447,12 +445,6 @@
               (.catch (async-support/unexpected-error done))))))))
 
 (deftest load-portfolio-optimizer-history-effect-skips-current-portfolio-subset-fetch-test
-  ;; When every holdings instrument is already in the selected fetch (the
-  ;; default holdings-seeded flow, where the draft universe = holdings plus
-  ;; reference proxies), the request builder reads the MAIN bundle — so the
-  ;; adapter must not pay a second full backend round trip for a
-  ;; current-portfolio bundle nothing will read (the ~6.8s double fetch in the
-  ;; 2026-07-08 trace).
   (async done
     (let [calls (atom [])
           selected-bundle {:api-v2-history
@@ -477,7 +469,6 @@
         (-> (portfolio-optimizer-adapters/load-portfolio-optimizer-history-effect
              nil
              store
-             ;; Holdings are a strict subset of the selected universe.
              {:current-portfolio-universe [{:instrument-id "perp:HYPE"
                                             :market-type :perp
                                             :coin "HYPE"}]})

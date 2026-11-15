@@ -14,7 +14,6 @@
              :replace-cancel :replace-confirm}
            map?))
 
-;; Vol Range reporting ops; R4 and R6 add no ids (:marks, :export listed here).
 (s/def ::vol-range-report-args
   (s/tuple #{:load :backfill :start-tracking :marks :export} map?))
 

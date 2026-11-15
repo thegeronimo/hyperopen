@@ -38,8 +38,6 @@
              "question:614" "question:430" "question:545" "question:627"
              "outcome:30011" "outcome:5112" "outcome:29614" "outcome:99999"
              touch-key
-             ;; fox and out settle the same strike time on different rules:
-             ;; two singles, not one ladder.
              "outcome:30516" "outcome:30520"
              "ladder:company-ipo-market-cap|Anthropic|txyz|20261231-2359"
              "ladder:company-ipo-market-cap|Anthropic|out|20270101-0000"
@@ -55,7 +53,6 @@
     (is (= :sports (:outcome-category game)))
     (is (= "NBA" (:outcome-competition game)))
     (is (= "out" (:outcome-venue game)))
-    ;; No book has arrived: the summary never prints the mark or the mid.
     (is (= "DET —  *  WAS —" (:outcome-summary game)))
     (is (= 0.81894 (:mid (first (:outcome-sides game)))))))
 

@@ -5,8 +5,6 @@
             [hyperopen.platform :as platform]
             [hyperopen.telemetry :as telemetry]))
 
-(def info-url api-instance/info-url)
-
 (def default-info-client-config
   api-instance/default-info-client-config)
 

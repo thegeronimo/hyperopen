@@ -173,8 +173,6 @@
        [:span {:class ["num" "text-trading-text"]
                :data-role (when show? "account-equity-hyperevm-value")}
         (if show? value-text "")]]]
-     ;; The disabled link's reason, as visible text it points at: the panel
-     ;; also renders on phones, where a hover tooltip never shows.
      [:p {:id move-reason-id
           :class (cond-> ["text-xs" "leading-4" "text-ho-text-muted"]
                    (not disabled?) (conj "hidden"))

@@ -3,12 +3,6 @@
             [hyperopen.api.projections :as api-projections]
             [hyperopen.asset-selector.annotations :as annotations]))
 
-;; HIP-3 deployers publish market annotations on-chain. The bulk concise
-;; payload (category, display name, keywords) is the same request the market
-;; catalog makes (`api/request-perp-annotations!`, cache key
-;; :perp-annotations), so the two share one network call per cache window.
-;; The description is per coin, so it loads lazily for the market viewed.
-
 (defn- log-warning
   [message error]
   (when (exists? js/console)
@@ -56,8 +50,6 @@
            request-perp-dexs!]}
    store
    coin]
-  ;; The bulk payload serves the selector for any active coin; the deployer
-  ;; names and the description only matter for a HIP-3 header.
   (js/Promise.all
    (into-array
     (cond-> [(ensure-concise-annotations! store request-perp-annotations!)]

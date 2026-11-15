@@ -76,9 +76,6 @@
                     (js/console.error err)
                     (is false "Unexpected stale vault equity response error")
                     (done))))
-      ;; The old route request may resolve after a newer account snapshot. It
-      ;; must still return its response to its caller but cannot write it into
-      ;; B's scoped projection.
       (swap! store assoc
              :wallet {:address account-b}
              :scoped-equities [account-b account-b-rows])
@@ -103,9 +100,6 @@
                                           (js/Promise.resolve nil))
             :dispatch! (fn [& _] nil)})
           (.then (fn [_]
-                   ;; A transfer can resolve after the route leaves its vault
-                   ;; detail page. The Account Equity value on /trade must not
-                   ;; wait for the minute poller to see the new deposit.
                    (is (= [[store wallet-address {:priority :high
                                                    :force-refresh? true}]]
                           @refresh-calls))
@@ -177,8 +171,6 @@
           first-request (effects/api-fetch-user-vault-equities! deps)
           second-request (effects/api-fetch-user-vault-equities! deps)
           latest-request (effects/api-fetch-user-vault-equities! deps)]
-      ;; Every forced refresh has to reach the request boundary instead of
-      ;; reusing a 5-second cached or single-flight response.
       (is (= 3 (count @requests)))
       (is (every? #(= {:priority :high :force-refresh? true} (:opts %))
                   @requests))

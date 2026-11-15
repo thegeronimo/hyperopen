@@ -308,7 +308,6 @@
                                                 :descriptor {:type "userFundings"
                                                              :user address}}}})))]
       (with-redefs [platform/set-timeout! (fn [callback _ms]
-                                            ;; Simulate stream hydration racing in before fallback REST fires.
                                             (swap! store assoc-in
                                                    [:websocket :health :streams
                                                     ["userFundings" nil address nil nil]

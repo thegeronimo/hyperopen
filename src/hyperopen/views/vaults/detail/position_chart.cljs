@@ -44,7 +44,6 @@
         lo (apply min values)
         hi (apply max values)
         pad (if (> hi lo) (* 0.12 (- hi lo)) (max 1 (* 0.01 (js/Math.abs hi))))]
-    ;; Balances are never negative: padding must not invent a $-49k tick.
     [(if (>= lo 0) (max 0 (- lo pad)) (- lo pad))
      (+ hi pad)]))
 
@@ -62,7 +61,6 @@
                                                    pairs)))
         value-xy (xy :value)
         basis-xy (xy :basis)
-        ;; One hover sample per timestamp: a transfer's "after" point wins.
         samples (vals (into (sorted-map) (map (juxt :time-ms identity) points)))
         sample-xs (mapv #(x (:time-ms %)) samples)]
     {:lo lo

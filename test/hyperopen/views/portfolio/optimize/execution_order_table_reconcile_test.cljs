@@ -50,7 +50,6 @@
    :delta-notional-usd -100})
 
 (def ^:private post-run-model
-  ;; :partial => not editable, so the auto-exit strip renders nothing.
   {:phase :partial
    :order-filter :working
    :labels-by-instrument {}})
@@ -81,10 +80,6 @@
       (is (= :div (tag-of []))))))
 
 (deftest keyed-child-landing-on-nil-hole-still-throws-test
-  ;; Characterization of the upstream Replicant hazard the slots above work around
-  ;; (no.cjohansen/replicant 2025.06.21, replicant.core/update-children -> remove-child).
-  ;; If this ever stops throwing, Replicant guarded the nil and the workaround can be
-  ;; revisited — it should not be removed while this still fails.
   (testing "a keyed sibling swapping places with a nil hole crashes reconciliation"
     (let [{:keys [ok? error]}
           (reconcile-frames [[:div nil [:p {:replicant/key "k"} "keyed"]]

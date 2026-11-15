@@ -304,8 +304,6 @@
                             (when fixed-layer?
                               (let [layout (anchored-popover/anchored-popover-layout-style
                                             {:anchor anchor :preferred-width-px 320 :estimated-height-px 760})]
-                                ;; The panel is taller than most viewports; scroll inside it
-                                ;; rather than spilling past the bottom edge.
                                 (assoc layout :max-height (str "calc(100vh - " (:top layout) " - 12px)")))))
               :replicant/on-render (when fixed-layer?
                                     (tooltip-runtime/close-on-resize pin-id))}

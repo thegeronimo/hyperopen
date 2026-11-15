@@ -30,7 +30,6 @@
        :status 304
        :headers (response-headers headers)})
 
-
 (deftest request-vault-index-response-normalizes-shape-and-preserves-validators-test
   (async done
     (let [calls (atom [])
@@ -182,7 +181,6 @@
                     (is (= 503 (aget err "status")))
                     (done)))))))
 
-
 (deftest request-vault-summaries-builds-body-and-normalizes-rows-test
   (async done
     (let [calls (atom [])
@@ -276,8 +274,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest user-vault-equity-normalization-preserves-invalid-raw-values-and-rejects-invalid-payload-shape-test
-  ;; An invalid response cannot become a successful empty vector: [] means a
-  ;; confirmed zero vault balance, while a malformed response means unknown.
   (is (nil? (vaults/normalize-user-vault-equities {:unexpected "object"})))
   (is (= [{:vault-address "0xa1"
            :equity nil
@@ -293,9 +289,6 @@
           [{:vaultAddress "0xA1" :equity "  "}]))))
 
 (deftest user-vault-equity-normalization-does-not-confirm-an-incomplete-member-as-zero-test
-  ;; A raw [] response is the only confirmed zero. Dropping malformed members
-  ;; would turn both a malformed response and an undercounted mixed response
-  ;; into a trusted vault total.
   (is (= [] (vaults/normalize-user-vault-equities [])))
   (doseq [payload [[nil]
                    [{}]

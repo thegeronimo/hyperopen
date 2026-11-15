@@ -7,14 +7,6 @@
     (> value max-value) max-value
     :else value))
 
-(defn positive-point-count
-  [value]
-  (when (and (number? value)
-             (js/isFinite value))
-    (let [count* (js/Math.floor value)]
-      (when (pos? count*)
-        count*))))
-
 (defn hover-index
   [client-x left width points]
   (let [points* (vec (or points []))
@@ -38,10 +30,6 @@
 
 (def tooltip-center-ratio
   0.5)
-
-(defn tooltip-center-top-pct
-  []
-  (* 100 tooltip-center-ratio))
 
 (defn tooltip-center-top-px
   [height]

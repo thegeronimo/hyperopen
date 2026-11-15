@@ -1,11 +1,6 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// The hypothetical tear sheet: a solved run that holds a vault gets a header
-// link and a "Hypothetical performance" card on the Recommendation tab; both
-// open /portfolio/optimize/draft/tear-sheet, which backtests the target weights
-// over each asset's own history. Runs without vaults are unchanged.
-
 const VAULT_ADDRESS = "0x1111111111111111111111111111111111111111";
 const VAULT_ID = `vault:${VAULT_ADDRESS}`;
 
@@ -21,7 +16,6 @@ async function seedSolvedRun(page, { withVault }) {
       const day = 24 * 60 * 60 * 1000;
       const now = Date.now();
 
-      // A vault sampled every 6 days for 300 days, plus a dense last month.
       const summary = (n, gapDays) => {
         const times = Array.from({ length: n }, (_, i) => now - gapDays * day * (n - 1 - i));
         const values = times.map((_, i) => 100000 * (1 + 0.002 * i + 0.01 * Math.sin(i)));
@@ -150,15 +144,12 @@ test.describe("hypothetical tear sheet", () => {
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-return']")).toHaveText(/^[+-]\d+\.\d{2}%$/);
     await expect(sheet.locator("[data-role='vault-detail-performance-metrics-card']")).toBeVisible();
 
-    // The vault joins inside 1Y (300 days of history), so the strip shows it joining.
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-live-strip']")).toContainText("Steady Vault joins");
 
-    // Range and method changes recompute the backtest.
     const oneYear = await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-return']").textContent();
     await sheet.locator("[data-role='portfolio-optimizer-tear-sheet-range-three-month']").click();
     await expect(sheet.locator("[data-role='portfolio-optimizer-tear-sheet-return']")).not.toHaveText(oneYear);
 
-    // Benchmarks are removable chips; Equal weight can be added back.
     const compare = sheet.locator("[data-role='portfolio-optimizer-tear-sheet-compare']");
     await expect(compare.locator("[data-role='portfolio-optimizer-tear-sheet-benchmark-chip-equal-weight']")).toBeVisible();
     await compare.getByRole("button", { name: "Remove Equal weight" }).click();

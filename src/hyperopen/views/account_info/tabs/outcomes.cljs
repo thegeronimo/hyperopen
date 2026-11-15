@@ -11,7 +11,6 @@
             [hyperopen.views.account-info.shared :as shared]))
 
 (def ^:private outcomes-grid-style
-  ;; Position · Shares · Avg price · Cost · Value now · If right · Action
   {:grid-template-columns (str "minmax(14rem,1.5fr) minmax(4.5rem,0.4fr) minmax(6rem,0.55fr) "
                                "minmax(5.5rem,0.5fr) minmax(6rem,0.55fr) minmax(6rem,0.55fr) "
                                "minmax(7.5rem,0.7fr)")})

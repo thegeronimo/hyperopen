@@ -12,7 +12,6 @@
   (set (collect-strings node)))
 
 (deftest card-translates-annualized-into-horizon-moves-test
-  ;; Base fixture target σ 28% on the 365-day basis.
   (let [node (card/volatility-intuition-card (fixtures/sample-solved-result))
         strings (strings-of node)
         target-panel (node-by-role node
@@ -23,7 +22,6 @@
     (is (contains? (strings-of target-panel) "±1.47%"))
     (is (contains? (strings-of target-panel) "±3.88%"))
     (is (contains? (strings-of target-panel) "±8.03%"))
-    ;; 1σ meaning + convention are always-visible fine print, never hover-only.
     (is (contains? strings
                    "A 1σ move is a volatility scale, not a forecast or maximum loss."))
     (is (contains? strings
@@ -41,7 +39,6 @@
         "Both tabs share one group, keyed by the result's :as-of-ms.")
     (is (= #{"target" "current"}
            (set (map #(node-attr % :data-vol-view) radios))))
-    ;; Panels both render; visibility is the scoped :has() CSS's job.
     (is (some? current-panel))
     (is (contains? (strings-of current-panel) "±1.26%"))))
 
@@ -73,9 +70,7 @@
     (is (contains? strings "411.8%"))
     (is (contains? strings "±21.56%"))
     (is (contains? strings "±57.03%"))
-    ;; Monthly is above 100% and renders uncapped...
     (is (contains? strings "±118.1%"))
-    ;; ...with the extreme-severity callout and the −100%-boundary note.
     (is (some? severity))
     (is (contains? (strings-of severity) "Extreme volatility: "))
     (is (some? boundary))
@@ -111,6 +106,4 @@
     (is (some? (track daily-row))
         "Bars are aria-hidden; the ± text carries the value.")
     (is (= "100%" (fill-width monthly-row)))
-    ;; daily/monthly = 1/sqrt(30) ≈ 18.26% of the monthly bar.
     (is (str/starts-with? (fill-width daily-row) "18.2"))))
-

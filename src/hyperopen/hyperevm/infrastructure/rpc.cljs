@@ -353,16 +353,6 @@
                      (.catch retry-or-timeout)))]
          (poll))))))
 
-;; --- balances ----------------------------------------------------------------
-;;
-;; Native HYPE and the gas price come from the node itself (`eth_getBalance`,
-;; `eth_gasPrice`). Only token balances go through Multicall3, because each of
-;; those `balanceOf` calls runs a contract that some HIP-1 deployer controls.
-;; `allowFailure` survives a revert, but a `balanceOf` that burns all its gas
-;; or returns a huge payload fails the whole aggregate3 call. Such a failure
-;; costs only that chunk's token balances, never native HYPE or the gas price,
-;; which gas gating depends on.
-
 (defn- balance-calls
   "aggregate3 `balanceOf(owner)` calls, one per token."
   [owner tokens]

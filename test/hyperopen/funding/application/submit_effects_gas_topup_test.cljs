@@ -104,8 +104,6 @@
     (is (= :failed (get-in @tampered [:funding-ui :modal :transfer-gas-topup :status])))))
 
 (deftest a-reopened-modal-only-records-its-own-top-up-test
-  ;; Click fix -> close -> reopen -> click fix: the first top-up's outcome
-  ;; must not land on the second one's fix.
   (async done
     (let [store* (store)
           first-send (atom nil)

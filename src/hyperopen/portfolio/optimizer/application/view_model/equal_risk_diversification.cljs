@@ -121,8 +121,6 @@
      :relative-change (relative-change current change)
      :direction direction
      :material? material?
-     ;; Sub-threshold moves keep their factual direction but tone as
-     ;; :neutral — red/green fire only on material change.
      :tone (comparison-tone (if (or material?
                                     (= direction :unchanged)
                                     (= direction :unavailable))

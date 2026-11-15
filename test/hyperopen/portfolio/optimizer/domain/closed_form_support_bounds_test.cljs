@@ -32,9 +32,6 @@
   (boolean (some #(= :bound-violated (:code %)) (:violations result))))
 
 (deftest a-short-lower-bounds-vector-does-not-disable-the-upper-bound-check-test
-  ;; Three weights, an upper bound for each, but only two lower bounds. The
-  ;; third weight is far outside its upper bound. Before the fix the map
-  ;; stopped after two elements and this validated clean.
   (let [result (validate [0.2 0.2 0.6]
                          {:lower-bounds [0 0]
                           :upper-bounds [0.5 0.5 0.25]})]
@@ -51,9 +48,6 @@
          though the upper-bounds vector is shorter than the weights")))
 
 (deftest bounds-shorter-than-the-weights-are-treated-as-unbounded-not-as-absent-test
-  ;; The positions a short vector does not reach are genuinely unconstrained,
-  ;; so they must pass. The fix must not turn "no bound supplied" into a
-  ;; violation.
   (let [result (validate [0.2 0.2 5.0]
                          {:lower-bounds [0 0]
                           :upper-bounds [1 1]})]

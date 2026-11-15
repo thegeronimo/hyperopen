@@ -50,8 +50,6 @@
            entry))))
 
 (deftest export-implied-row-has-null-return-test
-  ;; The honesty invariant: implied rows export a nil return-percent so a
-  ;; round-trip of an unedited file can never author views.
   (let [entry (second (get-in (payload) [:document :entries]))]
     (is (= {:instrument-id "perp:ETH"
             :symbol "ETH"
@@ -63,11 +61,9 @@
 
 (deftest import-unedited-export-is-a-no-op-test
   (let [{:keys [document]} (payload)
-        ;; simulate the JSON round trip: string keys everywhere
         data (js->clj (clj->js document))
         plan (io/import-plan {:views views :universe universe :data data})]
     (is (= :ok (:status plan)))
-    ;; the user row re-applies its own value; the implied rows stay untouched
     (is (= 1 (:applied plan)))
     (is (= 2 (:unchanged plan)))
     (is (= 0 (:unknown plan)))
@@ -97,7 +93,6 @@
     (is (= 1 (:applied plan)))
     (is (= "v1" (:id updated)))
     (is (= 0.2 (:return updated)))
-    ;; no confidence in the file → the existing view's level survives
     (is (= :high (:confidence-level updated)))))
 
 (deftest import-resolves-by-symbol-when-id-missing-test

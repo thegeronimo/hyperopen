@@ -75,38 +75,20 @@
     color: var(--optimizer-accent);
   }
 
-  /* Column tracks for the selected/candidate universe tables live in CSS
-     rather than Tailwind `grid-cols-[…]` arbitrary utilities. The arbitrary
-     values carry commas and parentheses (minmax(0, 1fr)); the JIT
-     occasionally drops them from the generated stylesheet on an incremental
-     watch rebuild, which leaves `display: grid` with no template and collapses
-     every cell into a single stacked column. Defining the tracks here keeps
-     header and rows in lockstep and immune to that extraction flakiness. */
   .portfolio-optimizer .optimizer-universe-selected-header,
   .portfolio-optimizer .optimizer-universe-row {
     grid-template-columns: 18px minmax(0, 1fr) 48px 56px 20px;
   }
 
-  /* By-exception TYPE column: a homogeneous universe (all-perp) renders no
-     type cell, so the 48px track disappears with it — header and rows switch
-     to this variant class together (see setup_universe.cljs selected-table). */
   .portfolio-optimizer .optimizer-universe-selected-header.optimizer-universe-cols-4,
   .portfolio-optimizer .optimizer-universe-row.optimizer-universe-cols-4 {
     grid-template-columns: 18px minmax(0, 1fr) 56px 20px;
   }
 
-  /* Candidate rows are now symbol-first with an elastic identity column. The
-     old 66px asset track plus `truncate` was the reason PUMP-USDC, PUMP/USDE and
-     PUMP/USDH all rendered as "PUMP-US…" and read as the same row. The identity
-     cell takes whatever is left, the liquidity meta and the add affordance are
-     the only fixed tracks. */
-  .portfolio-optimizer .optimizer-universe-candidate-header,
   .portfolio-optimizer .optimizer-universe-candidate-row {
     grid-template-columns: minmax(0, 1fr) 52px 44px;
   }
 
-  /* The symbol wraps instead of clipping. It is the one string the trader scans
-     for, so it is never the thing that gets cut. */
   .portfolio-optimizer .optimizer-universe-candidate-symbol {
     display: flex;
     flex-wrap: wrap;
@@ -115,9 +97,6 @@
     overflow-wrap: anywhere;
   }
 
-  /* Quote token as its own tinted pill, so the three PUMP pairs are
-     distinguishable at a glance. rounded-* is reset to 2px inside the optimizer
-     surface, so the radius is set here explicitly. */
   .portfolio-optimizer .optimizer-universe-quote-pill {
     padding: 2px 4px;
     border: 1px solid
@@ -129,15 +108,11 @@
     white-space: nowrap;
   }
 
-  /* The matched substring. A filled <mark> would fight the accent wash already
-     used for the active row and the active chip, so this is a weight/colour
-     shift on the accent instead. */
   .portfolio-optimizer .optimizer-universe-match {
     color: var(--optimizer-accent);
     font-weight: 700;
   }
 
-  /* Facet chips. */
   .portfolio-optimizer .optimizer-universe-facet-chip {
     display: inline-flex;
     align-items: center;
@@ -170,18 +145,11 @@
     color: var(--optimizer-text-3);
   }
 
-  /* The scroll container. Capped responsively rather than at a flat pixel
-     height: this list is nested inside the left control rail, which is itself a
-     sticky internally-scrolling container at >=1280px, so a fixed 334px cap
-     degrades badly on a short viewport. */
   .portfolio-optimizer .optimizer-universe-results-scroll {
     max-height: min(334px, 42vh);
     scrollbar-gutter: stable;
   }
 
-  /* Sticky group headers need an OPAQUE background or the rows scroll through
-     them. --optimizer-surface-2 is the same choice the sticky table head in
-     results.css makes for the same reason. */
   .portfolio-optimizer .optimizer-universe-candidate-group-header {
     position: sticky;
     top: 0;
@@ -239,9 +207,6 @@
     box-shadow: inset 2px 0 0 var(--optimizer-accent);
   }
 
-  /* Holdings auto-seed pending state: three placeholder rows with a slow
-     shimmer sweep (modeless — the panel keeps its chrome, no spinner). Colors
-     derive from the optimizer surface vars so themes keep working. */
   .portfolio-optimizer .optimizer-universe-skeleton-row {
     height: 30px;
     border: 1px solid var(--optimizer-border);

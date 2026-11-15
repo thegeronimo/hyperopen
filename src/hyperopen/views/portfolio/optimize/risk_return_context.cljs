@@ -43,8 +43,6 @@
   [value]
   (and (number? value) (js/isFinite value)))
 
-;; --- Scatter model --------------------------------------------------------------
-
 (defn- scatter-points
   [result objective-label]
   (let [standalone (->> (get-in result [:frontier-overlays :standalone])
@@ -84,8 +82,6 @@
      :y-domain (chart-axes/tick-domain y-ticks y-domain)
      :x-ticks x-ticks
      :y-ticks y-ticks}))
-
-;; --- Chart chrome ---------------------------------------------------------------
 
 (defn- grid-lines
   [{:keys [x-domain y-domain x-ticks y-ticks]}]
@@ -187,8 +183,6 @@
               :stroke-dasharray "4 4"
               :opacity 0.65
               :data-role "portfolio-optimizer-risk-return-crosshair"}])))
-
-;; --- Points ---------------------------------------------------------------------
 
 (defn- position
   [{:keys [x-domain y-domain]} point]
@@ -335,8 +329,6 @@
                                :color recommended-color
                                :label-side :leader})]))))
 
-;; --- Context boxes ---------------------------------------------------------------
-
 (defn- point-stats
   [point]
   [:div {:class ["optimizer-risk-return-box-stats"]}
@@ -371,8 +363,6 @@
           :data-role "portfolio-optimizer-risk-return-context-box"}
     [:p {:class ["optimizer-risk-return-box-title"]} "Context only"]
     [:p {:class ["optimizer-risk-return-box-body"]} analytics-only-note]]])
-
-;; --- Legend -----------------------------------------------------------------------
 
 (def ^:private legend-asset-cap 8)
 
@@ -409,8 +399,6 @@
                              "optimizer-risk-return-legend-swatch--recommended"]}]
              (str "Recommended (" objective-label ")")]]))))
 
-;; --- Footnote ---------------------------------------------------------------------
-
 (defn- sharpe-line
   [result]
   (let [current (get-in result [:current-performance :in-sample-sharpe])
@@ -420,8 +408,6 @@
            :data-role "portfolio-optimizer-risk-return-sharpe"}
        (str "Sharpe · current " (opt-format/format-decimal current)
             " → recommended " (opt-format/format-decimal target))])))
-
-;; --- Panel ------------------------------------------------------------------------
 
 (defn risk-return-panel
   "The RISK / RETURN tab panel body; nil when neither portfolio point exists

@@ -1,9 +1,6 @@
 (ns hyperopen.schema.contracts.hyperevm-action-args
   (:require [cljs.spec.alpha :as s]))
 
-;; HyperEVM action payload contracts. Merged into
-;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
-
 (s/def ::now-ms number?)
 (s/def ::force? boolean?)
 (s/def ::fast-poll-ms (s/and number? pos?))

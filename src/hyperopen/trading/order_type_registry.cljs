@@ -62,21 +62,3 @@
 
 (defn order-type-sections [order-type]
   (:sections (order-type-entry order-type)))
-
-(defn order-type-limit-like? [order-type]
-  (boolean (:limit-like? (order-type-entry order-type))))
-
-(defn order-type-supports-tpsl? [order-type]
-  (boolean (:supports-tpsl? (order-type-entry order-type))))
-
-(defn order-type-supports-post-only? [order-type]
-  (boolean (:supports-post-only? (order-type-entry order-type))))
-
-(defn order-type-show-scale-preview? [order-type]
-  (boolean (:show-scale-preview? (order-type-entry order-type))))
-
-(defn order-type-show-liquidation-row? [order-type]
-  (boolean (:show-liquidation-row? (order-type-entry order-type))))
-
-(defn order-type-show-slippage-row? [order-type]
-  (boolean (:show-slippage-row? (order-type-entry order-type))))

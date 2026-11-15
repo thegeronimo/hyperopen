@@ -117,9 +117,6 @@
        0))))
 
 (deftest refresh-after-user-fill-refreshes-spot-regardless-of-visible-surface-test
-  ;; Regression: spot balances have no websocket stream, so the post-fill REST
-  ;; refetch is their only update path. It used to run only on /trade with the
-  ;; Balances or Outcomes tab open, leaving balances stale until a page reload.
   (async done
     (let [refresh-spot-calls (atom [])
           surfaces [{:router {:path "/trade"}
@@ -264,8 +261,6 @@
                 @refresh-open-orders-calls)
              "an order the user just placed or cancelled must bypass the response cache")
          (is (= [] @refresh-default-clearinghouse-calls))
-         ;; A healthy subscription alone is not enough for the order path; until the
-         ;; local per-dex snapshot is seeded, keep the REST backstop.
          (is (= [[address dex {:priority :low}]]
                 @refresh-perp-dex-calls))
          (done))

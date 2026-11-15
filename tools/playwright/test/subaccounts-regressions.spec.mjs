@@ -306,12 +306,6 @@ async function seedSubaccountsState(page, options = {}) {
   await seedAccountSurface(page, { accountMode: options.accountMode ?? "classic" });
 }
 
-// Production `spotMeta` shape: Hyperliquid returns :name, :index, and :tokenId
-// separately, and spot balance rows carry only the numeric index. The app joins
-// the two to build the `NAME:0xhash` wire token id the exchange requires, so
-// these specs must serve a real token table rather than let the live endpoint
-// answer (an un-intercepted spotMeta races the seeded state and silently
-// un-resolves every fixture token).
 const spotMetaTokens = [
   { name: "USDC", index: 0, tokenId: "0x6d1e7cde53ba9467b783cb7c530ce054", szDecimals: 8, weiDecimals: 8 },
   { name: "USDH", index: 12, tokenId: "0xabc", szDecimals: 2, weiDecimals: 6 },
@@ -609,9 +603,6 @@ test("subaccounts transfer offers every spot token for unified accounts @regress
 
   await accountTrigger.click();
 
-  // A unified master pools spot and perps collateral, so it offers one funding
-  // source — and that source is the spot one, which is what lets it send any
-  // spot token rather than USDC alone.
   const accountMenu = page.locator(`[data-role="subaccounts-transfer-account-menu-${subaccountAddress}"]`);
   await expect(accountMenu).toBeVisible();
   await expect(accountMenu).toContainText("Spot Account");
@@ -626,8 +617,6 @@ test("subaccounts transfer offers every spot token for unified accounts @regress
   await expect(tokenMenu).toContainText("USDC");
   await expect(tokenMenu).toContainText("USDH");
 
-  // The option carries the `NAME:0xhash` wire token id Hyperliquid needs, built
-  // by joining the balance row's numeric token index against spotMeta.
   const usdhOption = page.locator(
     `[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`
   );
@@ -653,9 +642,6 @@ test("send tokens hides zero-balance tokens behind an opt-in checkbox @regressio
   const tokenMenu = page.locator(`[data-role="subaccounts-transfer-token-menu-${subaccountAddress}"]`);
   await expect(tokenMenu).toBeVisible();
 
-  // The seeded master holds USDC and USDH with real balances and STAR at zero.
-  // A zero balance can never be sent -- Send is disabled for it -- so it is
-  // noise until the user opts in.
   await expect(tokenMenu).toContainText("USDC");
   await expect(tokenMenu).toContainText("USDH");
   await expect(tokenMenu).not.toContainText("STAR");
@@ -667,9 +653,6 @@ test("send tokens hides zero-balance tokens behind an opt-in checkbox @regressio
     page.locator(`[data-role="subaccounts-transfer-show-zero-label-${subaccountAddress}"]`)
   ).toContainText("Show 1 zero-balance token");
 
-  // The toggle sits in the dialog body, so it is reachable whether the dropdown
-  // is open or not -- and toggling it must not close an open dropdown, which is
-  // why the field leaves both menu flags alone.
   await toggle.click();
   await expect(tokenMenu).toBeVisible();
   await expect(toggle).toBeChecked();
@@ -680,8 +663,6 @@ test("send tokens hides zero-balance tokens behind an opt-in checkbox @regressio
   await expect(tokenMenu).toBeVisible();
   await expect(tokenMenu).not.toContainText("STAR");
 
-  // The surviving rows are still fully selectable, so filtering has not
-  // disturbed the wire token id the transfer actually signs.
   const usdhOption = page.locator(
     `[data-role="subaccounts-transfer-token-option-${subaccountAddress}-USDH:0xabc"]`
   );
@@ -777,11 +758,6 @@ test("unified subaccounts transfer submits sendAsset instead of subAccountTransf
 test("unified subaccounts transfer submits a non-USDC spot token with its wire token id @regression", async ({
   page
 }) => {
-  // The reported bug: a unified (portfolio-margin) master had no way to send
-  // spot HYPE — or any non-USDC spot token — to its own sub-account, because
-  // the token list was hard-coded to USDC. This is the end-to-end proof that
-  // the selected token now reaches the exchange, carrying the `NAME:0xhash`
-  // wire token id built from the balance row's numeric index plus spotMeta.
   const signature = `0x${"a".repeat(64)}${"b".repeat(64)}1c`;
 
   await interceptSubaccountsApi(page);
@@ -905,11 +881,6 @@ async function seedMasterOwnerMode(page, { ownerMode, selectedAddress, masterAdd
   }, { ownerMode, selectedAddress, masterAddress });
 }
 
-// Reviewer regression: the master/owner is unified, but a classic sub-account
-// is the active trading account (so [:account :mode] is :classic). Withdrawing
-// back to the master must still route through sendAsset, driven by the MASTER's
-// mode — not the active account's mode, which previously fell through to the
-// legacy subAccountTransfer and failed for a unified master.
 test("unified master withdraw uses sendAsset even when a classic sub-account is active @regression", async ({
   page
 }) => {
@@ -950,7 +921,6 @@ test("unified master withdraw uses sendAsset even when a classic sub-account is 
       }
     }
   });
-  // The active trading account is a classic sub-account.
   await seedSubaccountsState(page, {
     accountMode: "classic",
     subaccountSpotUsdc: "300.61686499"
@@ -958,10 +928,8 @@ test("unified master withdraw uses sendAsset even when a classic sub-account is 
 
   await page.locator(`[data-role="subaccounts-transfer-${subaccountAddress}"]`).click();
   await seedAccountSurface(page, { accountMode: "classic" });
-  // The master/owner itself is unified, and the sub-account is the active account.
   await seedMasterOwnerMode(page, { ownerMode: "unified", selectedAddress: subaccountAddress });
 
-  // Withdraw: sub-account -> master.
   await page
     .locator(`[data-role="subaccounts-transfer-toggle-direction-${subaccountAddress}"]`)
     .click();

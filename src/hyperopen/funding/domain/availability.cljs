@@ -224,10 +224,6 @@
   (if (true? to-perp?)
     (or (spot-usdc-available state) 0)
     (if-let [dex (transfer-dex-name transfer-dex)]
-      ;; Pooled accounts submit a named-DEX perps -> spot move from the *default* perps
-      ;; DEX (`sourceDex ""`; the named bucket is rejected by the exchange), so validate
-      ;; and display the max against that same pooled default balance, not the (possibly
-      ;; empty) named bucket. Otherwise the named collateral really is siloed.
       (if (pooled-perps-collateral? state)
         (perps-withdrawable state)
         (named-dex-withdrawable state dex))

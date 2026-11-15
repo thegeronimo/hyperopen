@@ -123,8 +123,6 @@
                          :result payload
                          :computed-at-ms computed-at-ms})
               (assoc-in contracts/draft-dirty-path false)
-              ;; A finished refinement is no longer in flight; the baseline + depth are
-              ;; retained so the before/after card can render against the refined result.
               (assoc-in contracts/refinement-active-path false)
               (update-in contracts/active-scenario-path
                          (fn [active-scenario]
@@ -148,30 +146,11 @@
         (update-progress id progress/fail-progress computed-at-ms payload))))
 
 (defn- success-commands
-  ;; A successful solve IS the outcome the user asked for, so the app takes them to
-  ;; it instead of reporting "Succeeded" and waiting for another click:
-  ;;
-  ;; - Still on /optimize/new (the run they just started): reveal the results
-  ;;   surface (navigate + select the Recommendation tab).
-  ;; - Already on the scenario surface this run belongs to (a refine-in-place or a
-  ;;   rerun watched from the results page): stay put — the page live-updates.
-  ;; - Anywhere else (the user wandered off mid-run): never teleport them; announce
-  ;;   completion through the global toast region instead.
-  ;;
-  ;; Only :solved results reach this fn — infeasible/failed/error runs keep the
-  ;; user on the setup page with the banner + readiness rail focused on the fix.
   [_state state*]
   (let [route (portfolio-routes/parse-portfolio-route (get-in state* [:router :path]))
         run-scenario-id (:scenario-id (run-state state*))
         refresh {:command/type
                  :optimizer.workflow/refresh-portfolio-optimizer-rebalance-slippage-snapshots}
-        ;; Workspace runs — saved-scenario ids included — always reveal on the
-        ;; "draft" alias: it renders the CURRENT workspace run (apply-worker-result
-        ;; stamps loaded-id with the run's id, which matches the workspace draft).
-        ;; Revealing a saved run on its own /scn_X surface would re-trigger the
-        ;; route load, which replaces the fresh in-memory run with the record's
-        ;; saved-run snapshot — nil for a setup-only save, wiping the result the
-        ;; user just watched finish.
         reveal {:command/type :optimizer.workflow/reveal-results
                 :path (portfolio-routes/portfolio-optimize-scenario-path "draft")}]
     (case (:kind route)
@@ -181,8 +160,6 @@
       :optimize-scenario
       (if (contains? #{(or run-scenario-id "draft") "draft"}
                      (:scenario-id route))
-        ;; The run's own scenario surface AND the draft alias both live-update
-        ;; in place — the alias shows the workspace run whatever its id is.
         [refresh]
         [refresh {:command/type :optimizer.workflow/announce-run-complete}])
 

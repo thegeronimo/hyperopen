@@ -1,6 +1,5 @@
 (ns hyperopen.api.projections.vaults
   (:require [clojure.string :as str]
-            [hyperopen.account.context :as account-context]
             [hyperopen.api.errors :as api-errors]
             [hyperopen.api.projections.vaults.user-equities :as user-equities]))
 

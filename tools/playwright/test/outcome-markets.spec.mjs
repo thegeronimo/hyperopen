@@ -22,20 +22,12 @@ import {
   waitForCatalog
 } from "../support/outcome_markets_world.mjs";
 
-// The world these specs run in (see support/outcome_markets_world.mjs) is the
-// live feed's awkward shape on purpose: the mark is never the book midpoint, a
-// never-traded contract carries midPx 0.50 / prevDayPx "0.0" / no volume, and
-// the books run from tight through 5-20 cents to wider than 20 cents. Every
-// request is stubbed, orders go to the built-in exchange simulator only, and a
-// request that reaches /exchange for real fails the test.
-
 const GAME_TITLE = "Detroit Pistons vs Washington Wizards";
 const FED_TITLE = "Fed — December 2026 decision";
 const OK_ORDER = { status: "ok", response: { type: "order", data: { statuses: [{ resting: { oid: 777 } }] } } };
 
 const settle = (page, quietMs = 250) => waitForIdle(page, { quietMs, timeoutMs: 6_000, pollMs: 50 });
 
-/** Boot /trade on the stubbed world; optionally a ready wallet with balances. */
 async function boot(page, { overrides = {}, failCatalog = false, balances = null, feed = true, candles = false } = {}) {
   const world = await installOutcomeWorld(page, { candles });
   Object.assign(world.overrides, overrides);
@@ -43,12 +35,9 @@ async function boot(page, { overrides = {}, failCatalog = false, balances = null
   await visitRoute(page, "/trade");
   if (!failCatalog) {
     await waitForCatalog(page);
-    // The seam that writes list/header top-of-book (see world file).
     if (feed) await feedWorldBooks(page, world);
   }
   if (balances) {
-    // The simulator goes in first: a ready session arms its scheduleCancel
-    // heartbeat the moment it exists, and that must not reach the network.
     await debugCall(page, "installExchangeSimulator", {
       signedActions: { default: { responses: [OK_ORDER, OK_ORDER, OK_ORDER, OK_ORDER] } }
     });
@@ -66,7 +55,6 @@ const listRow = (page, title) =>
 
 const answer = (row, label) => row.locator('[data-role="outcome-answer"]').filter({ hasText: label });
 
-/** Open the Outcome tab and pick `label` on the event row titled `title`. */
 async function pickFromList(page, title, label) {
   await openOutcomeTab(page);
   await answer(listRow(page, title), label).first().click();
@@ -81,7 +69,6 @@ const sideButton = (page, label) =>
 const modeTab = (page, name) =>
   ticketOf(page).locator('[data-role="outcome-ticket-mode"]').getByRole("tab", { name, exact: true });
 const orderForm = (page) => oracle(page, "order-form");
-/** The header's Chance cell without its label. */
 const headerChance = (page) =>
   page
     .locator('[data-role="outcome-header-chance"]')
@@ -106,7 +93,6 @@ test("list: each book state reads honestly, most traded first, two ladders @regr
     await expect(game).toContainText(/DET\s*65%/);
     await expect(game).toContainText(/WAS\s*35%/);
     await expect(answer(game, "DET")).toHaveAttribute("data-quote-state", "live");
-    // The mark says 58%; it is not a trade and must not surface.
     await expect(game).not.toContainText("58%");
   });
 
@@ -152,7 +138,6 @@ test("list: each book state reads honestly, most traded first, two ladders @regr
     const venues = await ladders.evaluateAll((rows) => rows.map((row) => row.getAttribute("title") ?? ""));
     expect(venues.filter((title) => title.includes("trade.xyz"))).toHaveLength(1);
     expect(venues.filter((title) => !title.includes("trade.xyz") && title.includes("out"))).toHaveLength(1);
-    // Three rungs on `out`, two on trade.xyz: rungs are never merged across venues.
     const rungCounts = await ladders.evaluateAll((rows) =>
       rows.map((row) => row.querySelectorAll('[data-role="outcome-answer"]').length)
     );
@@ -161,25 +146,18 @@ test("list: each book state reads honestly, most traded first, two ladders @regr
   expect(world.exchangeRequests).toHaveLength(0);
 });
 
-// The product's own feed: visible list rows subscribe `bbo` (top of book) for
-// side 0 of each shown contract, and the projection writes it onto the
-// catalog. No test feed here: a tight book must still read as a chance.
 test("list rows get their own book from the product, no test feed @regression", async ({ page }) => {
   const world = await boot(page, { feed: false });
   await openOutcomeTab(page);
   const game = listRow(page, GAME_TITLE);
   await expect(game).toContainText(/DET\s*65%/, { timeout: 8_000 });
   expect(world.subscriptions.some((sub) => sub.type === "bbo" && sub.coin === coin(GAME, 0))).toBe(true);
-  // One book serves both sides: side 1 is never subscribed on its own.
   expect(world.subscriptions.some((sub) => sub.type === "bbo" && sub.coin === coin(GAME, 1))).toBe(false);
 
-  // A quiet book never pushes `bbo`; the one REST snapshot per subscription
-  // seeds it, so the row reads a chance instead of a dash.
   const quiet = listRow(page, "Boston Celtics");
   await expect(quiet).toContainText(/BOS\s*51%/, { timeout: 8_000 });
   expect(world.subscriptions.some((sub) => sub.type === "bbo" && sub.coin === coin(FILLER_GAMES[0], 0))).toBe(true);
   expect(world.l2BookRequests.filter((c) => c === coin(FILLER_GAMES[0], 0))).toHaveLength(1);
-  // An empty book is seeded as empty: Not traded, never a dash.
   await expect(listRow(page, "Acme Robotics IPO")).toContainText("Not traded");
 });
 
@@ -223,7 +201,6 @@ test.describe("ticket with a position @regression", () => {
       await expect(shares).toHaveValue("100");
       await expect(amount).toHaveCount(0);
       expect(await orderForm(page)).toMatchObject({ side: "sell", sizeDisplay: "100" });
-      // The form opens on Limit with no price: a sale that cannot be sent yet.
       await expect(submitOf(page)).toBeDisabled();
       await ticketOf(page).getByRole("tab", { name: "Market", exact: true }).click();
       await settle(page);
@@ -350,7 +327,6 @@ test.describe("ticket with a position @regression", () => {
 });
 
 test("stale prices need the confirmation: Enter or a click alone sends nothing @regression", async ({ page }) => {
-  // Cut at 51% beside Hold at 61% and Hike at 7%: only one answer can win.
   const world = await boot(page, {
     balances: [usdcBalance("1000")],
     overrides: { [FED.cut]: { mark: 0.5, prev: 0.3, volume: 60000, book: { bid: 0.5, ask: 0.52 } } }
@@ -506,14 +482,11 @@ test("a failed catalog load shows an error with Retry, not No events found @regr
   const world = await boot(page, { failCatalog: true });
   await openOutcomeTab(page);
 
-  // The app retries the catalog before it gives up; the error appears after that.
   const alert = page.locator('[data-role="outcome-event-list"], [data-role="outcome-sort-row"]').locator("xpath=..").getByRole("alert");
   await expect(alert.first()).toBeVisible({ timeout: 25_000 });
   const retry = alert.getByRole("button", { name: "Retry" });
   await expect(retry).toBeVisible();
   await expect(page.getByText("No events found")).toHaveCount(0);
-  // With nothing to show, the error should say the load failed rather than
-  // claim a "last list" (a stale-list banner over an empty list).
   expect.soft(await page.locator('[data-role="outcome-load-error"]').count(), "full error state for an empty catalog").toBe(1);
 
   world.catalogFails(false);
@@ -522,7 +495,6 @@ test("a failed catalog load shows an error with Retry, not No events found @regr
   await expect(alert).toHaveCount(0);
 });
 
-/** Click the `index`th match of `selector`; ms until `done()` holds (polled each task). */
 async function clickLatency(page, selector, doneSource, index = 0) {
   return page.evaluate(
     async ({ selector, doneSource, index }) => {
@@ -548,9 +520,6 @@ test("a busy top-of-book feed keeps side switch and selector open fast @regressi
   const world = await boot(page);
   await pickFromList(page, FED_TITLE, "Hold");
 
-  // Every bbo coin the app asked for gets a new top every 20 ms (50 a second
-  // per coin, far busier than the venue), the shape that froze the page when
-  // each message re-priced the whole catalog.
   let tick = 0;
   const bboCoins = () => [...new Set(world.subscriptions.filter((s) => s.type === "bbo").map((s) => s.coin))];
   const feed = setInterval(() => {
@@ -563,7 +532,6 @@ test("a busy top-of-book feed keeps side switch and selector open fast @regressi
   }, 20);
 
   try {
-    // the bbo subscriptions follow the pick asynchronously
     await expect.poll(() => bboCoins().length).toBeGreaterThanOrEqual(3);
     const writes = await page.evaluate(async () => {
       const c = globalThis.cljs.core;
@@ -575,8 +543,6 @@ test("a busy top-of-book feed keeps side switch and selector open fast @regressi
       c.remove_watch(store, key);
       return n;
     });
-    // Quotes are batched to at most 4 writes a second; per-message (or
-    // per-frame) writes would be 60+ a second here.
     expect(writes, "store writes in 2 s under a 50/s-per-coin bbo feed").toBeLessThanOrEqual(24);
 
     const sideButtons = '[data-role="outcome-ticket"] [data-role="outcome-ticket-side"]';
@@ -597,7 +563,6 @@ test("a busy top-of-book feed keeps side switch and selector open fast @regressi
       await page.waitForTimeout(300);
     }
 
-    // Generous bounds (CI machines vary); the regression took seconds.
     expect(Math.max(...sideLatencies), `side switch ms ${sideLatencies}`).toBeLessThan(500);
     expect(sideLatencies.every((ms) => ms >= 0), "side buttons found").toBe(true);
     expect(Math.max(...openLatencies), `selector open ms ${openLatencies}`).toBeLessThan(500);
@@ -614,7 +579,6 @@ test("chart axis reads % or ¢, remembers the choice, and the book prices in cen
   const axisGroup = page.locator('[data-role="chart-toolbar-axis-unit"]');
   const percent = axisGroup.getByRole("button", { name: "Percent", exact: true });
   const cents = axisGroup.getByRole("button", { name: "Cents", exact: true });
-  // The legend is DOM (axis labels are canvas): its O/H/L/C values carry the unit.
   const legend = page.locator('[data-role="trading-chart-canvas"]');
 
   await test.step("an outcome chart opens on percent", async () => {
@@ -641,7 +605,6 @@ test("chart axis reads % or ¢, remembers the choice, and the book prices in cen
     await expect(bid.locator('[data-role="orderbook-level-price-cell"]')).toHaveText("64.000");
     await bid.click();
     await settle(page);
-    // The form keeps dollars; the ticket's limit field shows cents.
     const formPrice = await page.evaluate(() => {
       const c = globalThis.cljs.core;
       const path = c.PersistentVector.fromArray([c.keyword("order-form"), c.keyword("price")], true);
@@ -661,7 +624,6 @@ test("chart axis reads % or ¢, remembers the choice, and the book prices in cen
     await expect(legend).toContainText(/O\s*\d+\.\d+¢H\s*\d+\.\d+¢L\s*\d+\.\d+¢C\s*\d+\.\d+¢/);
   });
 
-  // O/H/L/C values with nothing between the number and the next label: no unit.
   const plainOhlc = /O\s*[\d,.]+H\s*[\d,.]+L\s*[\d,.]+C\s*[\d,.]+/;
   const centsOhlc = /O\s*\d+\.\d+¢H\s*\d+\.\d+¢L\s*\d+\.\d+¢C\s*\d+\.\d+¢/;
 
@@ -681,7 +643,6 @@ test("chart axis reads % or ¢, remembers the choice, and the book prices in cen
     await settle(page, 400);
     await expect(cents).toHaveAttribute("aria-pressed", "true");
     await expect(legend).toContainText(centsOhlc);
-    // points or cents only: no relative percent beside the change
     await expect(legend).not.toContainText(/\(\S*%\)/);
     await dispatch(page, [":actions/select-asset", "BTC"]);
     await settle(page, 400);
@@ -704,7 +665,6 @@ const shot = async (page, name) => {
   await page.screenshot({ path: `${SHOTS_DIR}/${name}`, fullPage: false });
 };
 
-/** The chart's painted price-axis labels (canvas), read through the QA oracle. */
 const chartAxis = (page) => oracle(page, "chart-axis");
 
 test("all answers: one percent chart of every answer on a multi-answer event @regression", async ({ page }) => {
@@ -730,7 +690,6 @@ test("all answers: one percent chart of every answer on a multi-answer event @re
     await expect(chartShows.getByRole("button", { name: "Hold only" })).toHaveAttribute("aria-pressed", "true");
     await expect(chartShows.getByRole("button", { name: "All answers" })).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator('[data-role="trading-chart-canvas"]')).toBeVisible();
-    // Off: only the selected answer's own candles are fetched.
     const requested = world.candleRequests.map((r) => r.coin);
     expect(requested).not.toContain(coin(FED.cut, 0));
     expect(requested).not.toContain(coin(FED.hike, 0));
@@ -756,7 +715,6 @@ test("all answers: one percent chart of every answer on a multi-answer event @re
     expect(axis.kind).toBe("answers");
     expect(axis.lastLabels).toHaveLength(3);
     for (const label of axis.lastLabels) expect(label).toMatch(/^\d+(\.\d)?%$/);
-    // The fallback never traded: never fetched, never drawn.
     expect(world.candleRequests.map((r) => r.coin)).not.toContain(coin(FED.fallback, 0));
     for (const id of [FED.hold, FED.cut, FED.hike]) {
       expect(world.candleRequests.map((r) => r.coin)).toContain(coin(id, 0));
@@ -785,8 +743,6 @@ test("all answers: one percent chart of every answer on a multi-answer event @re
     await expect(legendEntries.filter({ hasText: "Hike" })).toHaveAttribute("data-selected", "true");
     await expect(legendEntries.filter({ hasText: "Hold" })).toHaveAttribute("data-selected", "false");
     await expect(legendEntries.filter({ hasText: "Hike" })).toContainText("(selected)");
-    // The legend has moved and the app is idle: any plan request would have
-    // been issued by now (the 60 s refresh timer cannot fire within the test).
     await settle(page, 400);
     expect(world.candleRequests.slice(before)).toEqual([]);
     await shot(page, "all-answers-other-selected.png");
@@ -904,8 +860,6 @@ test("leaving the Outcome tab returns the selector to its full-width dropdown @r
     });
   expect((await box()).width).toBeLessThanOrEqual(520);
 
-  // The node is reused across tabs: the Outcome panel's fitted box must not
-  // stay on the plain dropdown (it left the Perps table squeezed to 520 px).
   await panel.getByRole("button", { name: "Perps", exact: true }).click();
   await expect(panel).toHaveAttribute("data-layout", "dropdown");
   await expect.poll(async () => (await box()).inline).toEqual(["", "", "", ""]);
@@ -913,7 +867,6 @@ test("leaving the Outcome tab returns the selector to its full-width dropdown @r
   expect(perps.width).toBeGreaterThan(520);
   expect(Math.abs(perps.width - perps.strip)).toBeLessThanOrEqual(2);
 
-  // and back: the Outcome panel is fitted again
   await panel.getByRole("button", { name: "Outcome", exact: true }).click();
   await expect(panel).toHaveAttribute("data-layout", "outcome-panel");
   await expect.poll(async () => (await box()).width).toBeLessThanOrEqual(520);

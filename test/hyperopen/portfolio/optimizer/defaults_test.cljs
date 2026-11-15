@@ -34,9 +34,6 @@
 
 (deftest default-history-assumption-seeds-editable-conservative-anchors-test
   (let [conservative (defaults/default-history-assumption :conservative)]
-    ;; Conservative is the only behavior, and its volatility/return anchors are
-    ;; pre-seeded (editable) so the user can accept or revise them rather than
-    ;; starting from blank.
     (is (= {:behavior :conservative
             :expected-return 0.0
             :volatility 0.8

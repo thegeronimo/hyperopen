@@ -62,8 +62,6 @@
                   " L" (fmt-num first-x) " " (fmt-num zero-y) " Z")]
     [:g
      [:defs
-      ;; currentColor in a gradient stop resolves where the gradient is defined,
-      ;; so the gradient itself carries the buy color.
       [:linearGradient {:id area-gradient-id :x1 "0" :y1 "0" :x2 "0" :y2 "1" :class ["text-ho-buy"]}
        [:stop {:offset "0" :stop-color "currentColor" :stop-opacity "0.38"}]
        [:stop {:offset "1" :stop-color "currentColor" :stop-opacity "0.03"}]]

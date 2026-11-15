@@ -14,11 +14,6 @@
              :refer [collect-strings node-by-role solved-result]]))
 
 (def ^:private inverse-volatility-result
-  ;; Carries the Milestone 6 diagnostic analytics sections (contributions
-  ;; with :quality :diagnostic, current contributions, :risk-structure) so
-  ;; every gating pin below exercises the payload shape the engine now emits
-  ;; — an inverse-vol result WITH :risk-contributions must still never render
-  ;; equal-risk chrome.
   (-> solved-result
       (assoc :solver {:strategy :inverse-volatility
                       :objective-kind :inverse-volatility})
@@ -112,12 +107,6 @@
       (is (not (contains? strings "Approximate"))))))
 
 (deftest results-panel-inverse-volatility-leverage-distribution-when-gated-test
-  ;; The ending-wealth distribution (leverage-impact panel) is objective-
-  ;; agnostic and must surface for Risk-weighted sizing exactly as for every
-  ;; other objective once its own gate passes (gross >= 2x or annualized
-  ;; volatility >= 100%, with finite modeled mu/sigma). Pinned after a live
-  ;; report that the chart "disappeared" — it was the gate arithmetic, not
-  ;; the objective, and this test keeps it that way.
   (let [gated-result (-> inverse-volatility-result
                          (assoc :volatility 1.2
                                 :expected-return 0.25))
@@ -145,9 +134,6 @@
       (is (not (contains? strings "Approximate"))))))
 
 (deftest sizing-card-analytics-tabs-render-as-target-free-diagnostics-test
-  ;; Milestone 6: the sizing card gains the equal-risk card's objective-
-  ;; agnostic analytics as DOM-state tabs, with the sizing-fidelity view as
-  ;; the default and the contributions view stripped of every target framing.
   (let [view-node (render inverse-volatility-result)
         strings (set (collect-strings view-node))]
     (testing "every tab label rides the sizing card header"
@@ -184,12 +170,7 @@
       (is (some? (node-by-role view-node
                               "portfolio-optimizer-volatility-intuition"))))))
 
-;; --- Floored-state cross-link (item 10, UI half) --------------------------------
-
 (def ^:private floored-equal-risk-result
-  ;; An Equal Risk run that floored a side-locked asset at 0%: spot:PURR holds
-  ;; a zero target pinned by a zero bound. The balance card must offer the
-  ;; one-click escape hatch to Risk-weighted sizing.
   (-> solved-result
       (assoc :solver {:strategy :sequential-equal-risk
                       :objective-kind :equal-risk})

@@ -39,8 +39,6 @@
                            :market-state {:markets [{:coin "BTC"}]}}
                           result))
                    (is (= [] @ensure-perp-calls))
-                   ;; Bootstrap is perp-only: the spot/webdata2/outcome catalogs
-                   ;; are demand-path (:full) fetches, not boot work.
                    (is (= [] @ensure-spot-calls))
                    (is (= [] @ensure-outcome-calls))
                    (is (= [] @ensure-webdata-calls))

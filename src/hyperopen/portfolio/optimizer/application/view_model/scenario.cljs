@@ -31,13 +31,6 @@
          (= :loading (:status load-state)))))
 
 (defn- retained-workspace-run?
-  ;; The draft alias renders the CURRENT WORKSPACE run. Since saving keeps the
-  ;; user on the workspace (2026-07-06 scenario-library landing), the workspace
-  ;; draft may itself be a saved scenario being edited in place — so the run
-  ;; belongs here whenever it was produced for the draft in the workspace
-  ;; (loaded-id stamped by the run matches the draft's id), regardless of the
-  ;; draft's saved/unsaved status. Gating on an UNSAVED status masked the run a
-  ;; user just watched finish (idle N/A shell, no frontier).
   [state]
   (let [loaded-id (get-in state contracts/active-scenario-loaded-id-path)
         draft-id (get-in state contracts/draft-id-path)]
@@ -80,10 +73,6 @@
         (assoc-in contracts/last-successful-run-path nil)
         (assoc-in contracts/tracking-path (optimizer-defaults/default-tracking-state))
         (assoc-in contracts/active-scenario-path
-                  ;; The draft alias masks to an honest idle shell (the user's own
-                  ;; workspace is never read-only and nothing is loading); real
-                  ;; scenario ids mask to the defensive loading shell while the
-                  ;; routed scenario resolves.
                   (if (draft-alias? scenario-id)
                     {:loaded-id nil
                      :status :idle
@@ -122,9 +111,6 @@
         run-state (get-in state* contracts/run-state-path)
         running? (or (= :running (:status run-state))
                      progress-running?)
-        ;; Rerun dispatches against the REAL draft (actions never see the masked
-        ;; scoped state), so gate it on the real draft's universe: an enabled
-        ;; button whose dispatch silently refuses is a truthfulness violation.
         rerun-blocked-reason (when-not (seq (get-in state
                                              (conj contracts/draft-path :universe)))
                                "Add assets to the universe before rerunning.")]
@@ -240,8 +226,6 @@
 (defn- history-assumption-audit-rows
   [draft run-diagnostics]
   (let [universe (vec (or (:universe draft) []))
-        ;; Reference-only proxies live outside the universe but still need
-        ;; display labels in the audit.
         instruments (into universe (or (:proxy-reference-instruments draft) []))
         labels (instrument-labels/labels-by-instrument instruments
                                                        (keep :instrument-id instruments))]

@@ -149,9 +149,6 @@
                 show-slippage-row?]}
         controls
         twap-section? (some #{:twap} (order-form-vm/order-type-sections type))
-        ;; Section renderers only receive (form callbacks), so everything the TWAP section
-        ;; needs that it cannot derive from the form -- the resolved schedule, the guard
-        ;; band, the side-dependent Max/Min label -- rides in the callbacks map.
         twap-schedule (when twap-section?
                         (feedback/twap-schedule state form base-symbol))
         twap-guards (when twap-section?
@@ -175,8 +172,6 @@
         tp-sl-handlers (:tp-sl handlers)
         submit-handlers (:submit handlers)
         fee-copy (footer/fee-row-copy (:fees display))
-        ;; In Volatility range mode the submit reason is always
-        ;; :vol-range-preview-only, so the read-only cue comes from the ticket.
         spectate-mode-read-only? (or (= :spectate-mode-read-only (:reason submit))
                                      (and vol? (boolean (:read-only? vol-range))))
         tpsl-panel (when show-tpsl-panel?
@@ -196,7 +191,6 @@
            :data-parity-id "order-form"}
      [:div {:class (into ["flex" "flex-col" "gap-2" "sm:gap-2.5"]
                          (when read-only? ["opacity-60" "pointer-events-none"]))}
-      ;; Leverage/margin is perp-only — spot has no leverage.
       (when (and (not outcome?) (not spot?))
         (controls/leverage-row state
                                (:margin-mode form)
@@ -267,7 +261,6 @@
 
       (when (and (not vol?) (or (not outcome?) show-limit-like-controls?))
         [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-         ;; Reduce-only is perp-only (spot has no position to reduce).
          (when (and (not outcome?) (not spot?))
            (primitives/row-toggle "Reduce Only"
                                   (:reduce-only form)
@@ -277,8 +270,6 @@
                                         (assoc tif-handlers
                                                :dropdown-open? tif-dropdown-open?)))])
 
-      ;; TP/SL brackets are perp-only (they place reduce-only legs against a
-      ;; position); spot has no position, so the toggle/panel are hidden.
       (when (and (not outcome?) (not spot?) show-tpsl-toggle?)
         (primitives/row-toggle "Take Profit / Stop Loss"
                                show-tpsl-panel?
@@ -292,8 +283,6 @@
                                (:post-only form)
                                (:on-toggle-post-only toggle-handlers)))
 
-      ;; Isolated perp orders can auto top-up to the modeled margin
-      ;; recommendation after the fill (one-shot, background).
       (when (and (not outcome?)
                  (not vol?)
                  (not spot?)

@@ -49,12 +49,6 @@
   (when-let [d (parse fraction)]
     (str (fixed (precision/decimal->string (precision/mul d (precision/parse-decimal "100"))) 2) "%")))
 
-(defn percent-places
-  "Like `percent` with `places` decimals."
-  [fraction places]
-  (when-let [d (parse fraction)]
-    (str (fixed (precision/decimal->string (precision/mul d (precision/parse-decimal "100"))) places) "%")))
-
 (defn sigma
   "Signed sigma text such as \"−0.85σ\" or \"+0.50σ\"; trailing zeros trimmed."
   [x]

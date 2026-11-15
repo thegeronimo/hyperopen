@@ -27,8 +27,6 @@
     (str value)))
 
 (def ^:private mode-options
-  ;; Plain-language button copy (queue restructure, 2026-08-14): the control
-  ;; names the outcome the user is choosing, not the estimator's family name.
   [{:value :proxy
     :label "Model on similar assets"
     :description "Model this asset as a basket of assets it behaves like."}
@@ -61,22 +59,15 @@
    :clear :actions/clear-portfolio-optimizer-history-assumption})
 
 (def ^:private card-needing-adequacy
-  ;; universe/history-adequacy values that warrant a card: no usable history, or
-  ;; thin-but-present history below the user-facing short threshold. :pending (still
-  ;; loading) and :ok (enough history) are excluded.
   #{:none :short})
 
 (defn- percent-field
   [percent-label* value]
   {:value value
    :percent-label (when (some? value) (percent-label* value))
-   ;; editable percent text (decimal 0.25 -> "25"); the action parses it back.
    :input-text (when (some? value) (coercion/decimal->percent-text value))})
 
 (def ^:private guardrail-warning-fields
-  ;; :missing codes of :history-assumption-incomplete blocking warnings that
-  ;; point at a risk-guardrail field (hidden in a collapsed drawer on proxy
-  ;; cards, so the drawer needs a visible attention cue).
   #{:volatility :max-weight :max-weight-exceeds-global})
 
 (defn- risk-guardrails-model
@@ -207,16 +198,11 @@
 (defn- recommendation-member-row
   [resolve-proxy-label available? {:keys [instrument-id label role weight]}]
   {:instrument-id instrument-id
-   ;; Prefer the richer catalog/universe label; fall back to the discovery
-   ;; display symbol (external members never resolve from the catalog).
    :label (let [resolved (resolve-proxy-label instrument-id)]
             (if (= resolved instrument-id)
               (or label resolved)
               resolved))
    :role role
-   ;; The served economic prior, carried raw. Applying normalizes it over the
-   ;; USABLE members only, so any split shown to the user must normalize the
-   ;; same way rather than reading these numbers as percentages.
    :weight weight
    :available? available?})
 
@@ -270,8 +256,6 @@
         selected-proxies (when proxy?
                            (exposure/selected-proxy-rows selected-ids resolve-proxy-label
                                                 usable-ids proxy-in-flight?))
-        ;; Background history work is still running for this card's basket -
-        ;; every "no data" verdict below is provisional while this is true.
         history-loading? (boolean (some :loading? selected-proxies))
         relationship (when proxy? (history-assumptions/relationship-strength entry))
         preview (when proxy?
@@ -281,8 +265,6 @@
         final-rows (when preview
                      (exposure/basket-rows (:final-beta preview) selected-ids resolve-proxy-label))
         acknowledged? (boolean (get-in entry [:metadata :acknowledged?]))
-        ;; Complete AND accepted. `complete?` alone only says the engine can
-        ;; back it; the queue's "settled" needs the user's yes as well.
         configured? (boolean (and complete? acknowledged?))]
     (cond-> {:instrument-id id
              :label label
@@ -302,8 +284,6 @@
              :covariance-observations covariance-observations
              :errors (vec errors)
              :note note
-             ;; Agent-supplied reason from a file import (metadata rides the
-             ;; entry; any edit strips the acknowledgment but keeps the text).
              :rationale (coercion/non-blank-text (get-in entry [:metadata :rationale]))
              :engine-applied? (boolean complete?)
              :acknowledged? acknowledged?
@@ -374,9 +354,6 @@
          load-in-progress? (exposure/history-load-in-progress? state load-state)
          proxy-in-flight? (exposure/proxy-in-flight-fn state load-in-progress?)
          search-queries (get-in state contracts/ui-proxy-search-queries-path)
-         ;; The shared covariance window (proxy-extended: complete proxy assets
-         ;; are excluded from alignment, so this is the window the risk model
-         ;; estimates over). One number for the whole universe.
          covariance-observations (let [n (get-in readiness
                                                  [:request :history :history-window
                                                   :return-observations])]
@@ -385,10 +362,6 @@
                     (keep (fn [instrument]
                             (let [id (:instrument-id instrument)
                                   entry (get assumptions id)
-                                  ;; Same adequacy signal as the universe-row badge:
-                                  ;; :pending until history loads (so a historied asset
-                                  ;; never flashes a card), and :short for thin-but-
-                                  ;; present history below the user-facing threshold.
                                   status (universe/selected-history-status
                                           state readiness load-state
                                           history-status-by-id instrument)
@@ -430,18 +403,9 @@
                                     :proxy-in-flight? proxy-in-flight?
                                     :resolve-proxy-label resolve-proxy-label
                                     :search-query (get search-queries id)}))))))
-                    ;; Stack unconfigured cards above configured ones so the
-                    ;; asset you still have to act on never hides beneath a
-                    ;; finished one; stable, so within each group the universe
-                    ;; order is untouched.
                     (sort-by card-attention-order)
                     vec)
          carded-ids (into #{} (map :instrument-id) cards)
-         ;; Any selected asset can be brought into the workflow by hand - the user
-         ;; may judge an asset statistically unsound (a young listing, a stub
-         ;; return stream) even when the thresholds do not flag it. The engine
-         ;; backs proxy assumptions by completeness, not by thinness, so this is
-         ;; purely an entry-point list.
          addable (->> universe
                       (keep (fn [instrument]
                               (let [id (:instrument-id instrument)]
@@ -458,15 +422,8 @@
                       vec)]
      {:cards cards
       :addable-assets addable
-      ;; Cards whose backend recommendation can apply with one click - the
-      ;; section-level "Apply all recommended" banner keys off this.
       :recommended-count (count (filter #(get-in % [:recommendation :applicable?])
                                         cards))
       :recommended-actions recommended-action-ids
-      ;; Cards whose proxy history is still fetching - the section-level
-      ;; "background work in progress" banner keys off this.
       :history-loading-count (count (filter :history-loading? cards))
-      ;; :applicable? keeps meaning "cards exist" (the right-rail summary and
-      ;; the while-loading suppression key off it); the section itself also
-      ;; renders in a compact form when only the manual entry point applies.
       :applicable? (boolean (seq cards))})))

@@ -67,9 +67,6 @@
         "A stale pointer needs no cleanup - the queue falls back on its own.")))
 
 (deftest queue-settled-means-accepted-not-merely-engine-complete-test
-  ;; An entry the user edited since accepting is engine-complete but no longer
-  ;; acknowledged: it still owes an Accept, which is the whole point of the
-  ;; queue, so it must not count as settled.
   (let [acknowledged {"perp:NEW" (assoc proxy-entry
                                         :metadata {:source :user :acknowledged? true})}
         complete (queue {} {"perp:NEW" proxy-entry})
@@ -130,8 +127,6 @@
            (:advance model)))))
 
 (deftest queue-advance-is-held-while-the-model-cannot-be-accepted-test
-  ;; A mode-less asset has nothing the engine can back yet, so the footer holds
-  ;; on the SAME verdict the panel's own CTA uses rather than a looser one.
   (let [model (queue {} {})
         advance (:advance model)]
     (is (= "perp:NEW" (get-in model [:active :instrument-id])))

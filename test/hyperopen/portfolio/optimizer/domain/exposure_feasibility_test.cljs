@@ -6,21 +6,12 @@
              :as feasibility]
             [hyperopen.portfolio.optimizer.domain.objectives :as objectives]))
 
-;; The presolve in domain.exposure-reachability may answer "is this provably
-;; unreachable?" with a RELAXED bound - it widens the net band by pct*Ghi, the
-;; largest gross the window permits, which can only under-detect. A REMEDIATION
-;; has the opposite burden: the value written must leave a portfolio the solver
-;; can reach. This namespace is that exact answer, and these tests pin the
-;; arithmetic the panel's buttons are built from.
-
 (defn- near?
   ([actual expected] (near? actual expected 1e-9))
   ([actual expected tolerance]
    (and (number? actual)
         (<= (js/Math.abs (- actual expected)) tolerance))))
 
-;; The reported book: 18 long legs capped at 15.45 and two short legs whose
-;; history assumptions cap the ENTIRE short side at 0.08x, under a 4.005x cap.
 (def ^:private thin-short-geometry
   (feasibility/exposure-geometry
    {:lower-bounds (into (vec (repeat 18 0)) [-0.03 -0.05])
@@ -45,13 +36,8 @@
       "an inverted box belongs to the coarser single-constraint codes"))
 
 (deftest window-solves-the-coupled-band-row-at-the-realized-gross-test
-  ;; The upper band row is net - q*gross <= net-max. Substituting the smallest
-  ;; net the box can hold at gross g (g - 2*S_max) and solving for g gives
-  ;; g <= (net-max + 2*S_max) / (1 - q) = 1.41 / 0.972.
   (let [window (feasibility/feasible-gross-window thin-short-geometry pinned-net)]
     (is (near? (:max window) 1.4506172839506173))
-    ;; The lower end is the mirrored row net + q*gross >= net-min: with no forced
-    ;; shorts that is 1.25 / 1.028.
     (is (near? (:min window) 1.2159533073929961))
     (is (near? (feasibility/max-feasible-gross-floor thin-short-geometry pinned-net)
                1.4506172839506173))
@@ -70,9 +56,6 @@
        every gross value on their own"))
 
 (deftest an-empty-window-says-no-gross-floor-helps-test
-  ;; A zero net pin against a book with NO short capacity: net = L - S = 0 forces
-  ;; L = S = 0, so every positive gross is out and clearing the floor is no fix
-  ;; either. The window's ends coincide at 0 rather than vanishing...
   (let [no-shorts (feasibility/exposure-geometry {:lower-bounds [0 0]
                                                   :upper-bounds [1 1]
                                                   :gross-max 4.0})]
@@ -82,7 +65,6 @@
     (is (false? (feasibility/gross-floor-reachable? no-shorts
                                                    {:min 0 :max 0 :pct 0}
                                                    0.01))))
-  ;; ... and it vanishes outright when the two net rows cannot both hold.
   (let [forced-long (feasibility/exposure-geometry {:lower-bounds [0.5]
                                                     :upper-bounds [1]
                                                     :gross-max 1.0})]
@@ -91,8 +73,6 @@
         "a long-only box cannot reach a negative net at any gross")))
 
 (deftest a-full-band-never-divides-by-zero-test
-  ;; q = 1 is the hard ceiling (it adds nothing beyond |net| <= gross), and it is
-  ;; exactly where solving the upper row for gross divides by (1 - q).
   (let [full (feasibility/feasible-gross-window thin-short-geometry
                                                 (assoc pinned-net :pct 1.0))]
     (is (near? (:max full) 4.005) "the row stops bounding gross; only the cap does")
@@ -102,18 +82,12 @@
          (feasibility/feasible-gross-window thin-short-geometry
                                             (assoc pinned-net :pct 4.2)))
       "anything above 1 normalizes to 1 rather than flipping the inequality")
-  ;; At q = 1 the upper row reduces to 0 <= net-max + 2*S_max, which a negative
-  ;; right-hand side makes unsatisfiable at EVERY gross.
   (let [long-only (feasibility/exposure-geometry {:lower-bounds [0]
                                                   :upper-bounds [1]})]
     (is (nil? (feasibility/feasible-gross-window long-only
                                                  {:min nil :max -1.0 :pct 1.0})))))
 
 (deftest the-smallest-band-that-rescues-a-floor-is-found-on-the-written-grid-test
-  ;; 1.41 / (1 - q) >= 3.995 needs q >= 0.6471, and the control is entered in
-  ;; whole percent, so 65% is both the smallest workable value AND the value
-  ;; actually stored - verified at the number that will be written, not at the
-  ;; exact crossing point a rounding step then moves off.
   (is (near? (feasibility/min-feasible-net-band-pct thin-short-geometry
                                                     pinned-net
                                                     3.995
@@ -126,8 +100,6 @@
                                                   (assoc pinned-net :pct 0.64)
                                                   3.995))
       "and 64% is genuinely not enough")
-  ;; Capped below the answer, or beyond what any band can rescue, it says nothing
-  ;; rather than quoting a value that does not work.
   (is (nil? (feasibility/min-feasible-net-band-pct thin-short-geometry
                                                    pinned-net
                                                    3.995
@@ -143,13 +115,7 @@
                                                   1.0))
       "a floor already reachable needs no band at all"))
 
-;; --- the cash-collapse gate reads the same window ----------------------------
-
 (deftest cash-collapse-says-so-when-no-gross-floor-fits-at-all-test
-  ;; Minimum risk with only ceilings answers with cash, and the flagship fix is
-  ;; "Set Gross Exposure Min". On a book whose short side is capped at zero under
-  ;; a zero net pin, EVERY positive floor is rejected on read - so the gate must
-  ;; not name that control at all.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "perp:A" :market-type :perp
                               :position-side :long}

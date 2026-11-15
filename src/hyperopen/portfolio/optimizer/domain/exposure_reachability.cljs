@@ -46,12 +46,6 @@
 
 (def ^:private finite-number? coercion/finite-number?)
 
-;; ---------------------------------------------------------------------------
-;; Gross-floor / net-band encoding helpers, extracted from domain.constraints
-;; (whose size exception names this move) so the reachability math below can
-;; share them without a circular require.
-;; ---------------------------------------------------------------------------
-
 (defn straddles-zero?
   "True when an encoded bound pair leaves the asset free to sit on EITHER side of
    zero: the pairs `gross-floor-signs` refuses to sign."
@@ -154,8 +148,6 @@
                lower-bounds
                upper-bounds)))
 
-;; --- Joint net/gross reachability presolve ---------------------------------
-
 (def ^:private reachability-epsilon
   "Float slack. Encodings land EXACTLY on the band edge (0.55 + 0.25 + 0.2 versus
   a net target of 1); a cap mix summing to 0.9999999999999999 is not infeasible."
@@ -182,10 +174,6 @@
   [value]
   (str (.toFixed value 2) "x"))
 
-;; Every leverage the messages quote is rounded so the printed number cannot
-;; overstate the trader's room: capacity and ceilings DOWN, forced minimums UP,
-;; and a gross floor DOWN so the quoted floor is never higher than the one
-;; actually set (retyping it can then only loosen the request, never tighten it).
 (defn- fmt-x-down
   [value]
   (fmt-x (snap-down value)))
@@ -246,9 +234,6 @@
               (fmt-x-down ghi) " gross cap force")
 
          "The selected assets' minimum weights force")
-       ;; The reachable end is quoted from the INWARD-snapped interval, never
-       ;; from the exact one: rounded to nearest, a lower bound rounds outward
-       ;; and a trader typing the quoted number re-fires this very check.
        (if-let [lo (:min reachable-display)]
          (str " net to at least " (fmt-x lo) ", above the ")
          " net above the ")
@@ -293,12 +278,7 @@
            long-only? net-band-encodable? reachable-display]}]
   {:code :net-unreachable-given-sides
    :reachable-net {:min net-lo :max net-hi}
-   ;; Quote THIS one to the trader; :reachable-net is the exact math.
    :reachable-net-display reachable-display
-   ;; Which remediations can actually move anything: long-only? pins net at 1
-   ;; (constraints/target-net) so finite-net-limits ignores :net-exposure, and
-   ;; an unencodable band is silently dropped. Offering those controls
-   ;; regardless would ship guaranteed no-op buttons.
    :long-only? (boolean long-only?)
    :net-band-encodable? (boolean net-band-encodable?)
    :net-bounds (cond-> {}
@@ -352,9 +332,6 @@
            (remediation-thresholds ctx)
            {:constraint-code (if (gross-driven? driver) :gross-exposure :net-exposure)
             :direction :net-above-band
-            ;; Not consumed in src: kept as the one field that names WHICH of the
-            ;; three bounds produced the message, which is what an incident starts
-            ;; from when the copy reads wrong.
             :driver driver
             :required-short-notional (positive-or-nil (/ (- glo widened-max) 2))
             :available-short-notional s-max
@@ -414,13 +391,9 @@
             ghi (:gross-ceiling geometry)
             sum-lower (reduce + 0 lower-bounds)
             sum-upper (reduce + 0 upper-bounds)
-            ;; gross >= 0 is vacuous, so a dropped/absent floor relaxes to 0.
             glo (if (and (finite-number? gross-floor) (pos? gross-floor))
                   gross-floor
                   0)
-            ;; DETECTION rides the widest slack the gross window permits, which
-            ;; keeps the check a sound necessary condition. Remediation does not
-            ;; reuse it; see `remediation-thresholds`.
             q (feasibility/band-pct net-band-pct)
             slack (* q ghi)
             net-min (:min net-limits)

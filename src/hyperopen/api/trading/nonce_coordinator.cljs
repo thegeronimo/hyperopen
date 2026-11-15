@@ -72,7 +72,6 @@
       c (max (inc c))
       f (max (inc f)))))
 
-;; In-memory mirror: still monotonic within this JS realm when storage fails.
 (defonce ^:private memory-cursors (atom {}))
 
 (defn- read-stored-cursor
@@ -121,8 +120,6 @@
                  nonce (next-nonce now cursor (usable-cursor now floor))
                  _ (swap! memory-cursors update k #(if (and % (> % nonce)) % nonce))
                  write-ok? (write-stored-cursor! k nonce)
-                 ;; Hold the lock until the clock passes the nonce, so the next
-                 ;; holder in any tab gets a larger one from the clock alone.
                  clock-past? (and (<= (- nonce now) max-sync-lead-ms) (spin-until-clock-past! nonce))
                  coordination (if (and read-ok? write-ok? clock-past?) lock-kind :degraded)]
              {:nonce nonce :network network :signer signer* :coordination coordination})))))))

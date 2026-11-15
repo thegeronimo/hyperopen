@@ -18,7 +18,6 @@
   {:record-id (:record-id record)
    :schema-version (:schema-version record)
    :saved-at-ms (:saved-at-ms record)
-   ;; Never let REPL/dev print limits truncate a record into a lossy "...".
    :edn (binding [*print-length* nil *print-level* nil *print-meta* false]
           (pr-str record))})
 
@@ -28,8 +27,6 @@
   [row]
   (try
     (let [r (reader/read-string (:edn row))]
-      ;; Corrupt rows and rows from another schema version are unreadable,
-      ;; never quietly treated as known records.
       (when (records/record-valid? r) r))
     (catch :default _ nil)))
 

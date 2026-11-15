@@ -39,9 +39,6 @@
   (vec (or (get-in state contracts/draft-proxy-reference-instruments-path) [])))
 
 (defn- resolve-catalog-instrument
-  ;; Same resolution the per-chip proxy add and the file import perform:
-  ;; shared catalog resolver + backend history-identity decoration, else
-  ;; alignment rejects the stored instrument as identity-ambiguous.
   [state proxy-id]
   (when-let [market (universe-candidates/resolve-market state proxy-id)]
     (common/market->universe-instrument
@@ -56,9 +53,6 @@
         assumptions))
 
 (def ^:private workflow-adequacies
-  ;; Same enrollment signal as the assumption cards and the file export: a
-  ;; recommendation reaches only assets whose history adequacy warrants a
-  ;; card. It must never touch an asset with real usable history.
   #{:none :short})
 
 (defn vault-details

@@ -6,12 +6,6 @@
             [hyperopen.views.account-info.projections.balances-hyperevm :as balances-hyperevm]))
 
 (def ^:private filter-labels
-  ;; [long label, short label]. The long one shows from 640 px until the
-  ;; header goes one row at lg, and again from 2xl; the short one below
-  ;; 640 px and from lg to 2xl, where the control sits beside the tab strip
-  ;; and every pixel it takes is a tab hidden behind the strip's sideways
-  ;; scroll. The accessible name is always the long label (it contains the
-  ;; short one, so a voice user can say either).
   {:all ["All" "All"]
    :hypercore ["HyperCore" "Core"]
    :hyperevm ["HyperEVM" "EVM"]})
@@ -37,9 +31,6 @@
                       pressed? (= id selected)]]
             ^{:key (name id)}
             [:button {:type "button"
-                      ;; A string: Replicant drops a false attribute, which
-                      ;; would leave the unpressed options without their
-                      ;; toggle state.
                       :aria-pressed (if pressed? "true" "false")
                       :aria-label long-label
                       :data-role (str "balances-location-filter-" (name id))

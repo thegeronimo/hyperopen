@@ -74,9 +74,6 @@
         tick! (fn []
                 (if (working-rows? @store)
                   (refresh-open-orders! store)
-                  ;; Everything filled/cancelled: nothing left to watch. The
-                  ;; cheap gate stays true (the frozen ledger keeps :resting),
-                  ;; so the interval terminates itself here.
                   (stop!)))
         start! (fn []
                  (when-not @timer
@@ -88,6 +85,5 @@
                        now? (watch-candidate? new-state)]
                    (when (not= was? now?)
                      (if now? (start!) (stop!))))))
-    ;; Cover a run already resting when the watcher (re)installs on dev reload.
     (if (watch-candidate? @store) (start!) (stop!))
     store))

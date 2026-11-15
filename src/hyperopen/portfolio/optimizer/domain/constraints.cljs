@@ -400,10 +400,6 @@
   (let [target-net* (target-net constraints)
         net-limits (finite-net-limits constraints)
         capacity (reachability/gross-capacity lower-bounds upper-bounds)
-        ;; A percentage net band widens the reachable net range by pct·gross;
-        ;; feasibility checks use the widest case (pct·capacity) so a band that
-        ;; makes the target reachable is not flagged infeasible, and the minimum
-        ;; gross the target forces shrinks to |target|/(1+pct).
         band-pct (or (:pct band-spec) 0.0)
         band-slack (* band-pct capacity)
         net-min (when (finite-number? (:min net-limits))
@@ -474,12 +470,6 @@
                       :gross-floor (:min floor-spec)
                       :gross-capacity capacity}])
                   (locked-short-violations locked-weights)))]
-    ;; Every code above is a coarser SINGLE-constraint test, and each one
-    ;; provably co-fires with the joint net/gross reachability check below (a
-    ;; box sum outside the net band is already outside the reachable net
-    ;; interval; an empty gross window makes that interval meaningless). Emitting
-    ;; both would double-report one problem and break callers that assert the
-    ;; whole vector, so the joint check speaks only when nothing else does.
     {:hard base
      :conditional (if (seq base)
                     []
@@ -489,21 +479,9 @@
                       :upper-bounds upper-bounds
                       :net-limits net-limits
                       :net-band-pct band-pct
-                      ;; The ENCODED floor, never (:gross-floor constraints): a
-                      ;; requested floor is dropped outright for a universe with
-                      ;; a straddling asset and never reaches the solver, so
-                      ;; assuming it holds would manufacture false infeasibles
-                      ;; on two-sided books.
                       :gross-floor (:min floor-spec)
                       :gross-max gross-max
                       :gross-capacity capacity
-                      ;; Remediation steering only (see reachability/violations):
-                      ;; which controls a panel can offer without shipping a
-                      ;; button that provably cannot move this check. The band
-                      ;; flag is the CAPABILITY, not the stored pct: the default
-                      ;; draft ships :net-band-pct 0.0, so reading the encoded
-                      ;; spec hid "widen the net band" from every trader who had
-                      ;; not already set one.
                       :long-only? (boolean (:long-only? constraints))
                       :net-band-encodable? (reachability/net-band-encodable?
                                             constraints
@@ -563,30 +541,16 @@
      :upper-bounds upper-bounds
      :locked-weights (vec (keep :locked bounds))
      :gross-exposure {:max (:gross-leverage constraints)}
-     ;; A requested floor is dropped whole when a member's bounds straddle zero,
-     ;; which no request the app can BUILD does: migrate-draft stamps a side on
-     ;; every universe instrument before request_builder encodes it (see
-     ;; reachability/gross-floor-signs). The "floor set but silently dropped"
-     ;; distinction the cash-collapse gate used to publish four extra keys for is
-     ;; therefore unreachable, and carrying it only gave the banner a second,
-     ;; contradictory story to tell.
      :gross-floor floor-spec
-     ;; Largest gross the per-asset boxes can physically reach; a suggested
-     ;; floor above it is unreachable no matter what the ceilings say.
      :gross-capacity (reachability/gross-capacity lower-bounds upper-bounds)
      :net-exposure (:net-exposure constraints)
-     ;; Percentage-of-realized-gross net tolerance (see net-band-spec).
      :net-band-spec band-spec
      :net-band-warnings (reachability/net-band-warnings constraints signs)
-     ;; Canonical gross/net TARGETS (exposure-policy midpoints) for objectives
-     ;; that hit exposures exactly rather than treating band edges as limits.
-     ;; Derived HERE, not on the request, so draft signatures stay unchanged.
      :exposure-targets (exposure-policy/engine-constraints->policy constraints)
      :side-metadata (side-metadata constraints universe)
      :max-turnover (:max-turnover constraints)
      :rebalance-tolerance (:rebalance-tolerance constraints)
      :violations hard-violations
-     ;; NOT part of :status. See `violations` above.
      :conditional-violations conditional-violations}))
 
 (defn encode-constraints

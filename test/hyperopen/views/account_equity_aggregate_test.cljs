@@ -16,8 +16,6 @@
        (< (js/Math.abs (- expected actual)) 1e-9)))
 
 (def ^:private balance-rows
-  ;; `token-price-usd` reads a token's price straight off the wallet's own
-  ;; balance row: usdc-value over total-balance. HYPE is $40 here.
   {"USDC" {:total-balance 1000.0 :usdc-value 1000.0}
    "HYPE" {:total-balance 10.0 :usdc-value 400.0}})
 
@@ -44,8 +42,6 @@
           "50.0"))
 
 (def ^:private hype-record
-  ;; Every figure below is denominated in HYPE. Added raw to a USD total it
-  ;; would understate this dex's contribution by a factor of forty.
   (record "hna" "HYPE"
           (summary "50.0" "100.0" "-50.0" "10.0")
           (summary "40.0" "80.0" "-40.0" "8.0")
@@ -72,8 +68,6 @@
 
 (deftest aggregate-is-nil-throughout-without-records-test
   (let [aggregate (pricing/aggregate-clearinghouse-usd [] balance-rows {})]
-    ;; No snapshot at all is not an account worth zero. Every field must be nil
-    ;; so the panel renders "--" rather than a confident $0.00.
     (is (every? nil? (vals aggregate)))))
 
 (deftest aggregate-skips-a-dex-whose-collateral-has-no-price-test
@@ -84,10 +78,6 @@
         aggregate (pricing/aggregate-clearinghouse-usd [usdc-record unpriceable]
                                                        balance-rows
                                                        {})]
-    ;; WOW has no balance row, no market and is not a dollar stable, so its
-    ;; figures cannot be expressed in USD. Adding them raw would be a silent
-    ;; unit error; adding zero would understate the account. It contributes
-    ;; nothing, and the USDC dex still reports in full.
     (is (approx= 1000.0 (:account-value aggregate)))
     (is (approx= 50.0 (:maintenance-margin aggregate)))))
 
@@ -99,9 +89,6 @@
         aggregate (pricing/aggregate-clearinghouse-usd [usdc-record partial-record]
                                                        balance-rows
                                                        {})]
-    ;; A record with no `marginSummary` contributes to the cross fields and not
-    ;; to the whole-book ones, rather than dragging the whole sum to nil or
-    ;; inventing a zero for the field it is missing.
     (is (approx= 1000.0 (:account-value aggregate)))
     (is (approx= (+ 900.0 300.0) (:cross-account-value aggregate)))
     (is (approx= (+ 50.0 15.0) (:maintenance-margin aggregate)))))

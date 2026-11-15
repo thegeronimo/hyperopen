@@ -63,13 +63,6 @@
            (get-in normalized
                    [:payload :diagnostics :weight-sensitivity-by-instrument])))))
 
-;; Presolve and solver diagnostics are produced INSIDE the optimizer worker, so
-;; every keyword value in them is stringified by clj->worker-boundary on the way
-;; out and only comes back as a keyword if its key is in enum-value-keys. The
-;; infeasible banner branches on these values -- :direction picks the whole
-;; remediation list, :constraint-code picks the highlighted control -- so a
-;; missing key is a silent, test-invisible loss of the whole "What you can do"
-;; block in production.
 (def ^:private infeasible-payload
   {:status :infeasible
    :reason :constraint-presolve
@@ -106,7 +99,6 @@
     (is (= :gross-floor-vs-short-capacity (:driver reachability)))
     (is (= :solver-boundary-row-violation (:code boundary-row)))
     (is (= :turnover (:constraint-code boundary-row)))
-    ;; Booleans, numbers, nested intervals and instrument ids are untouched.
     (is (= false (:long-only? reachability)))
     (is (= {:min 3.84 :max 4.0} (:reachable-net-display reachability)))
     (is (= [{:instrument-id "spot:@142" :display-symbol "PURR" :capacity 0.05}]

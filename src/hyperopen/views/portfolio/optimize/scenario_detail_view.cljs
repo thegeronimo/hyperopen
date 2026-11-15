@@ -25,9 +25,6 @@
 (def ^:private tabs
   [{:key :recommendation :label "Recommendation" :data-role "portfolio-optimizer-scenario-tab-recommendation"}
    {:key :execution :label "Execution" :data-role "portfolio-optimizer-scenario-tab-execution"
-    ;; Entering Execution rebuilds the plan snapshot from the latest rebalance, so route
-    ;; the tab click through the open action rather than the bare set-tab. There is no
-    ;; separate Rebalance preview tab — the rebalance is staged straight into Execution.
     :on [[:actions/open-portfolio-optimizer-execution]]}
    {:key :tracking :label "Tracking" :data-role "portfolio-optimizer-scenario-tab-tracking"}
    {:key :inputs :label "Inputs" :data-role "portfolio-optimizer-scenario-tab-inputs"}])
@@ -56,9 +53,6 @@
                      (= :running (:status run-state)))
         save-state (:status scenario-save-state)
         saving? (= :saving save-state)
-        ;; Save is available whenever a save isn't already in flight — a stale
-        ;; or missing result saves a setup-only snapshot (the workflow attaches
-        ;; results only when they still match the draft).
         save-disabled? saving?
         can-refine? (boolean (:can-refine? refinement))]
     [:header {:class ["optimizer-scenario-header"
@@ -97,9 +91,6 @@
                 :data-role "portfolio-optimizer-scenario-status-tag"}
          (opt-format/keyword-label status)]]]
       [:div {:class ["flex" "flex-wrap" "items-center" "gap-2"]}
-       ;; Back to the workspace: the scenario load already hydrated the draft
-       ;; with this scenario's config, so the setup page opens editing it and
-       ;; Save updates the same record.
        (tear-sheet-card/header-link model)
        [:button {:type "button"
                  :class ["rounded-lg"
@@ -155,7 +146,6 @@
                  :on (when-not save-disabled?
                        {:click [[:actions/open-portfolio-optimizer-scenario-save-modal]]})}
         (if saving? "Saving" "Save scenario")]
-       ;; Rerun demoted to neutral so a single action reads as primary.
        [:button {:type "button"
                  :class ["rounded-lg"
                          "border"
@@ -171,8 +161,6 @@
                          "disabled:bg-base-200/40"
                          "disabled:text-trading-muted"]
                  :data-role "portfolio-optimizer-scenario-rerun"
-                 ;; An enabled button that silently does nothing is a truthfulness
-                 ;; violation — when the draft cannot run, disable and say why.
                  :disabled (boolean (or running? rerun-blocked-reason))
                  :title rerun-blocked-reason
                  :on (when-not (or running? rerun-blocked-reason)
@@ -180,9 +168,6 @@
         (cond
           running? "Running"
           :else "Rerun")]]]]))
-;; NOTE: the header deliberately does not duplicate the rebalance CTA — the
-;; verdict-bar "Review N trades" button (results-summary/verdict-cta) is the
-;; page's single forward action; a second amber button up here diluted it.
 
 (defn- auto-recompute-stale-scenario!
   [_node]
@@ -234,10 +219,6 @@
                      (objective-menu/objective-menu-open? state))
                     (objective-menu/objective-menu state draft result* readiness)]]
                   (field "Returns"
-                         ;; Covariance-only objectives never size positions
-                         ;; from returns: say so where the model is named or
-                         ;; users will assume the historical mean drove the
-                         ;; weights.
                          (let [label (opt-format/display-label
                                       (or (:return-model result*)
                                           (get-in draft [:return-model :kind])))
@@ -249,8 +230,6 @@
                   (field "Risk"
                          (opt-format/display-label (or (:risk-model result*)
                                                        (get-in draft [:risk-model :kind]))))
-                  ;; "Horizon: Annualized" was a hard-coded invariant carrying zero
-                  ;; information — dropped to reduce provenance-strip noise.
                   (field "Funding"
                          (if (seq (:return-decomposition-by-instrument result*))
                            "Included"
@@ -318,8 +297,6 @@
                      "py-3"
                      "text-sm"
                      "text-primary"]
-             ;; Keyed with its siblings so mounting/unmounting this banner cannot
-             ;; recreate the results grid (which holds open-<details> DOM state).
              :replicant/key "optimizer-recompute-banner"
              :data-role "portfolio-optimizer-recompute-banner"}
    [:p {:class ["font-semibold"]} "Recomputing recommendation"]
@@ -345,9 +322,6 @@
    (cond
      (solved-result? model)
      (let [deltas* (kpi-strip/recommendation-deltas result)
-           ;; The covariance-only objectives get objective-specific verdict
-           ;; copy (incl. Equal Risk's constraint-determined case) instead of
-           ;; vol/return framing that implies a frontier choice was made.
            deltas (cond-> (if-let [body (or (equal-risk-results/verdict-body result)
                                             (inverse-volatility-results/verdict-body result))]
                             (assoc deltas* :objective-body body)
@@ -357,14 +331,8 @@
            tear-sheet-card* (when (tear-sheet-model/vault-run? result)
                               (tear-sheet-card/card state model))]
        (cond-> []
-         ;; Lead with the plain-language verdict + the primary Review-trades CTA,
-         ;; before the analyst diagnostics — the page's job is review-and-act, so the
-         ;; action sits above the fold instead of after the results grid.
          true (conj (results-summary/verdict-headline deltas))
          running? (conj (recompute-banner optimization-progress))
-         ;; Runs that hold vaults get a hypothetical-performance card that
-         ;; opens the tear sheet; other runs are unchanged. Conj'd only when
-         ;; present: a nil hole among keyed siblings freezes the renderer.
          tear-sheet-card* (conj tear-sheet-card*)
          true (conj (results-panel/results-panel
                      last-successful-run

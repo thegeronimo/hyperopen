@@ -14,7 +14,6 @@
       (watcher/install-vol-range-freshness-watcher!
        {:store store :now-ms-fn #(deref clock)
         :dispatch! (fn [_ _ effects] (swap! calls conj effects))})
-      ;; fresh data: a store change does not dispatch
       (swap! store assoc :tick 1)
       (js/setTimeout
        (fn []

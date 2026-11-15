@@ -4,9 +4,6 @@
 (def ^:private hyperliquid-coin-icon-base-url
   "https://app.hyperliquid.xyz/coins/")
 
-;; Entropy (the `io` HIP-3 deployer) hosts logos keyed by URL-encoded coin,
-;; including markets Hyperliquid's CDN lacks (io:PRL, io:DRAM, ...). Public:
-;; CORS *, cross-origin resource policy, and a real 404 when absent.
 (def ^:private entropy-logo-base-url
   "https://assets.entropy.trade/logos/")
 

@@ -7,9 +7,6 @@
 (def field-values imath/field-values)
 (def mean imath/mean)
 (def normalize-values imath/normalize-values)
-(def finite-subtract imath/finite-subtract)
-(def finite-ratio imath/finite-ratio)
-(def safe-percent-ratio imath/safe-percent-ratio)
 (def roc-percent-values imath/roc-percent-values)
 (def true-range-at imath/true-range-at)
 

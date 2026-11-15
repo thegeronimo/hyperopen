@@ -1,8 +1,3 @@
-// Proxy-workflow agent IO: export the assumptions template, import a completed
-// (and markdown-fenced) file, and watch the draft author itself. History-quality
-// outcomes (Configured status, usable-proxy validation) are deliberately NOT
-// asserted here — they depend on loaded history and stay covered by unit tests;
-// this spec pins the deterministic file mechanics end to end.
 import { readFile } from "node:fs/promises";
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
@@ -48,14 +43,10 @@ async function seedWorkflow(page) {
       instrument("perp:WLFI", "perp", "WLFI", "WLFI-USDC"),
       instrument("perp:BTC", "perp", "BTC", "BTC-USDC")
     ]),
-    // BTC carries a full year+ of candles so it reads as a VERIFIED proxy
-    // candidate; WLFI has none, so it is the short-history asset needing help.
     seedPatch(
       optimizerPath("history-data", "candle-history-by-coin", stateKey("BTC")),
       Array.from({ length: 400 }, (_unused, i) => ({ time: i, close: String(100 + (i % 7)) }))
     ),
-    // A started entry enrolls WLFI in the workflow without loaded history
-    // (pending history correctly never flags a card on its own).
     seedPatch(
       optimizerPath("draft", "history-assumptions"),
       stringMap([["perp:WLFI", wlfiEntry]])
@@ -64,11 +55,6 @@ async function seedWorkflow(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-// The section is a collapsed-by-exception <details> (2026-07-10): it rests
-// closed when nothing needs attention, so toolbar interactions must open it
-// first. Re-checked before every interaction group because a state change can
-// legitimately re-collapse it (needs-attention transitioning true -> false
-// drops the forced :open).
 async function ensureAssumptionsOpen(page) {
   const section = page.locator("[data-role='portfolio-optimizer-history-assumptions-section']");
   if (!(await section.evaluate((el) => el.open))) {
@@ -76,9 +62,6 @@ async function ensureAssumptionsOpen(page) {
   }
 }
 
-// The queue leads with the model and keeps every hand-editing control behind
-// one opt-in disclosure, so any assertion about chips/inputs has to open it.
-// Both disclosures are DOM state, so this is a plain summary click.
 async function ensureAdjustOpen(page, instrumentId) {
   const drawer = page.locator(
     `[data-role='portfolio-optimizer-history-assumption-adjust-${instrumentId}']`
@@ -106,15 +89,10 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   await visitRoute(page, "/portfolio/optimize/new");
   await seedWorkflow(page);
 
-  // One asset is in the workflow: the section's trailing status role exists
-  // exactly while the workflow is non-empty (its text now carries configured/
-  // needs-setup state rather than a raw count, so assert presence).
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumptions-count']"))
     .toHaveCount(1);
   await ensureAssumptionsOpen(page);
 
-  // --- Export (workflow scope): the template carries the flagged asset, the
-  // user-selected candidate menu, and the embedded agent instructions.
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.click("[data-role='portfolio-optimizer-history-assumptions-export-workflow']")
@@ -132,12 +110,8 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   });
   expect(document.assets.map((asset) => asset["instrument-id"])).toEqual(["perp:WLFI"]);
   expect(document.assets[0].approach).toBe("proxy");
-  // The file carries ONLY the workflow assets — no candidate menu (neither the
-  // universe nor the ~1,500-market live catalog streaming into the page).
   expect(document["proxy-candidates"]).toBeUndefined();
 
-  // --- Export (universe scope): every included universe asset is a row, each
-  // with its own history-status, and NO redundant candidate menu.
   const [universeDownload] = await Promise.all([
     page.waitForEvent("download"),
     page.click("[data-role='portfolio-optimizer-history-assumptions-export-universe']")
@@ -152,15 +126,8 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumptions-io-note']"))
     .toHaveAttribute("data-kind", "success");
 
-  // --- Import: fill the template the way an agent would — and wrap it in a
-  // markdown fence, which the import path must tolerate.
   const completed = structuredClone(document);
   completed.assets[0].approach = "proxy";
-  // The agent proposes proxies from its own knowledge. The SOL ref uses the
-  // exact malformed shape a real agent produced (the instrument-id written
-  // into the `symbol` field) — resolution must accept it. perp:SOL is also
-  // out-of-universe: import resolution is catalog-tolerant (same reach as the
-  // in-app proxy typeahead) and stores it reference-only.
   completed.assets[0].proxies = [
     { "instrument-id": "perp:BTC", weight: 0.7 },
     { symbol: "perp:SOL", weight: 0.3 }
@@ -173,7 +140,6 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   await expect(note).toContainText("Configured 1 asset");
   await expect(note).toHaveAttribute("data-kind", "success");
 
-  // The draft entry is authored exactly as if hand-configured.
   const entry = await readOptimizerState(page, [
     "portfolio", "optimizer", "draft", "history-assumptions"
   ]);
@@ -185,25 +151,15 @@ test("portfolio optimizer history assumptions export/import round-trips an agent
   expect(imported.metadata.source).toBe("agent-import");
   expect(imported.metadata.rationale).toBe("Anchor plus Solana ecosystem beta.");
 
-  // The out-of-universe proxy is stored reference-only, and the card shows the
-  // agent's rationale plus both basket chips.
   const references = await readOptimizerState(page, [
     "portfolio", "optimizer", "draft", "proxy-reference-instruments"
   ]);
-  // Assert on :coin — clj->js drops keyword namespaces, so the decoration key
-  // :optimizer-history/instrument-id shadows :instrument-id in this JS view.
   expect((references ?? []).map((reference) => reference.coin)).toContain("SOL");
-  // The import may settle the asset and let the section re-collapse; the queue
-  // content is still there, one summary-click away.
   await ensureAssumptionsOpen(page);
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-rationale-perp:WLFI']"))
     .toContainText("Agent rationale: Anchor plus Solana ecosystem beta.");
-  // The imported basket reads off the queue's model line without opening
-  // anything — the panel leads with the model, not with the editor.
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-model-line']"))
     .toContainText("BTC");
-  // The chips themselves are editor state, so they live behind the opt-in
-  // "Adjust by hand" drawer (queue restructure 2026-08-14).
   await ensureAdjustOpen(page, "perp:WLFI");
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-proxy-chip-perp:WLFI-perp:BTC']"))
     .toBeVisible();
@@ -224,6 +180,5 @@ test("portfolio optimizer history assumptions import rejects an unusable file @r
   const entry = await readOptimizerState(page, [
     "portfolio", "optimizer", "draft", "history-assumptions"
   ]);
-  // the seeded entry is untouched.
   expect(entry["perp:WLFI"].proxy["instrument-ids"]).toEqual([]);
 });

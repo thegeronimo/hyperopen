@@ -69,7 +69,6 @@
 (def ^:private memoized-chart-trades
   (memoize-last
    (fn [show-chart-trades? active-asset active-fills market-by-key candle-data perp?]
-     ;; nil (not an empty layer) when the setting is off, so the chart clears it
      (when show-chart-trades?
        (chart-trades-model/build-chart-trades
         {:active-asset active-asset
@@ -125,8 +124,6 @@
        (let [opts {:unit unit :price-decimals price-decimals}]
          {:format-price #(price-unit/format-price % opts)
           :format-delta #(price-unit/format-delta % opts)
-          ;; Copy price yields the cents number the ticket's limit field
-          ;; takes, labelled in cents, whichever unit the axis shows.
           :copy-price {:format-price #(price-unit/cents-number-text % opts)
                        :price-decimals nil
                        :price-unit-suffix "¢"}})
@@ -143,7 +140,6 @@
   [price-unit {:keys [format-price format-delta]}]
   (cond-> {:format-price format-price
            :format-delta format-delta}
-    ;; "+0.2 pts" already is the change; a relative percent beside it misleads
     price-unit (assoc :show-pct? false)))
 
 (def ^:private memoized-chart-runtime-options
@@ -296,8 +292,6 @@
                            (fmt/price-decimals-from-raw (:markRaw active-market))
                            (fmt/price-decimals-from-raw (:prevDayRaw active-market)))
         formatters (price-formatters state price-decimals)
-        ;; positions (and so the ribbon) only exist on perps; spot and outcome
-        ;; markets get markers and the card only
         perp? (not (or (contains? #{:spot :outcome} (:market-type active-market))
                        (fill-fields/spot-like-coin? active-asset)))
         preview (pending-liquidation-preview state active-position-data)
@@ -336,8 +330,6 @@
         history-backfill-loading? (pos? (or (get-in state [:chart-options :history-backfill-pending-count])
                                             0))
         symbol (or active-asset "—")
-        ;; Legend text only. `:symbol` keys the chart container, so the coin
-        ;; stays there and a late-arriving display name never remounts it.
         display-symbol (legend-display-symbol active-asset active-market)
         timeframe-label (str/upper-case (name selected-timeframe))
         volume-visible? (boolean (get-in state [:chart-options :volume-visible?] true))

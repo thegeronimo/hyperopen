@@ -133,7 +133,6 @@
   (let [target (or (some-> event .-currentTarget)
                    (some-> event .-target))]
     (when (and target (fn? (.-select target)))
-      ;; Defer so browser caret placement does not cancel selection.
       (js/setTimeout #(.select target) 0))))
 
 (defn- parsed-percent

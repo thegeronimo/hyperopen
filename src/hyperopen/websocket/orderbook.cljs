@@ -15,11 +15,6 @@
   (ws-client/send-message! {:method "unsubscribe"
                             :subscription subscription}))
 
-;; Order book state.
-;; :subscriptions    coin -> the throttled `l2Book` subscription map
-;; :l2-subscriptions coin -> the fast incremental `l2` subscription map, when eligible
-;; :l2-sides         coin -> canonically sorted [bids asks] the `l2` deltas mutate
-;; :books            coin -> the built book handed to the store
 (defonce orderbook-state (atom {:subscriptions {}
                                 :l2-subscriptions {}
                                 :l2-sides {}
@@ -47,8 +42,6 @@
       (swap! orderbook-state
              (fn [state]
                (-> state
-                   ;; Sides are only valid relative to the snapshot that seeded them,
-                   ;; so a subscription change must discard them.
                    (update :l2-sides dissoc symbol)
                    (update :l2-subscriptions
                            (fn [subscriptions]
@@ -57,7 +50,6 @@
                                (dissoc subscriptions symbol)))))))
       (telemetry/log! "Fast l2 order book subscription for:" symbol desired-l2))))
 
-;; Subscribe to order book for a symbol with optional aggregation config
 (defn subscribe-orderbook!
   ([symbol] (subscribe-orderbook! symbol nil))
   ([symbol aggregation-config]
@@ -72,12 +64,8 @@
            (send-subscribe! desired-subscription)
            (swap! orderbook-state assoc-in [:subscriptions symbol] desired-subscription)
            (telemetry/log! "Subscribed to order book for:" symbol desired-subscription)))
-       ;; The slow `l2Book` stream stays subscribed alongside the fast one: it bootstraps
-       ;; the book, backstops a missing or removed `l2` channel, and keeps the websocket
-       ;; freshness surface (which is keyed on the "l2Book" topic) working unchanged.
        (sync-l2-subscription! symbol (desired-l2-subscription symbol aggregation-config))))))
 
-;; Unsubscribe from order book for a symbol
 (defn unsubscribe-orderbook! [symbol]
   (let [subscription (or (get-in @orderbook-state [:subscriptions symbol])
                          (policy/build-subscription symbol nil))
@@ -104,20 +92,13 @@
                    (assoc (policy/build-book bids asks)
                           :timestamp timestamp))
         render-changed? (not (policy/same-render-book? previous-book next-book))]
-    ;; Update local state
     (swap! orderbook-state assoc-in [:books coin] next-book)
-    ;; Keep duplicate visual snapshots out of the app store so the
-    ;; trade route does not rerender on timestamp-only book refreshes.
     (when (and store render-changed?)
       (market-projection-runtime/queue-market-projection!
        {:store store
         :coalesce-key [:orderbook coin]
         :apply-update-fn (fn [state]
                            (let [next-state (assoc-in state [:orderbooks coin] next-book)]
-                             ;; Re-project the active order form against the new book so
-                             ;; the committed size the user sees stays coherent with the
-                             ;; live best-ask that affordability validation uses (avoids
-                             ;; false "Not enough USDC" rejects when the ask moves up).
                              (if (= coin (:active-asset next-state))
                                (order-form-context-sync/reconcile-active-order-form next-state)
                                next-state)))}))))
@@ -133,7 +114,6 @@
          (number? incoming-time)
          (< incoming-time stored-time))))
 
-;; Create a handler function that has access to the store
 (defn create-orderbook-data-handler [store]
   (fn [data]
     (when (and (map? data) (= (:channel data) "l2Book"))
@@ -144,13 +124,6 @@
           (when-not (stale-snapshot? coin (:time book-data))
             (publish-book! store coin (first levels) (second levels) (:time book-data))))))))
 
-;; Incremental `l2` ingest ------------------------------------------------------
-;;
-;; Decoding is asynchronous (raw DEFLATE via the platform seam), and deltas are only
-;; meaningful in arrival order, so every frame is chained onto a single promise. One
-;; global chain rather than one per coin because the coin is not readable until after
-;; the payload is decompressed -- and a single chain preserves per-coin order anyway.
-
 (defonce ^:private l2-decode-chain (atom nil))
 
 (defn reset-l2-decode-chain! []
@@ -159,8 +132,6 @@
 (defn- apply-l2-delta! [store delta]
   (let [coin (:coin delta)
         sides (get-in @orderbook-state [:l2-sides coin])]
-    ;; No sides means no snapshot has seeded this coin yet (or the subscription changed
-    ;; underneath the in-flight decode), in which case the delta cannot be positioned.
     (when (and coin sides)
       (let [next-sides (l2/apply-delta sides delta)]
         (swap! orderbook-state assoc-in [:l2-sides coin] next-sides)
@@ -183,8 +154,6 @@
   (let [coin (:coin snapshot)
         levels (:levels snapshot)
         [bids asks] (l2/snapshot-sides snapshot)]
-    ;; Matches the `l2Book` guard: both sides must be present, but either may be empty --
-    ;; a thin one-sided market still seeds the sides so its deltas can be positioned.
     (when (and coin levels (>= (count levels) 2))
       (swap! orderbook-state assoc-in [:l2-sides coin] [bids asks])
       (when-not (stale-snapshot? coin (:time snapshot))
@@ -205,41 +174,10 @@
            (when-let [blob (l2/delta-blob payload)]
              (queue-l2-delta! store inflate-fn blob))))))))
 
-;; Get current subscriptions
 (defn get-subscriptions []
   (:subscriptions @orderbook-state))
 
-;; Get order book for a specific symbol
-(defn get-orderbook [symbol]
-  (get-in @orderbook-state [:books symbol]))
-
-;; Get all order books
-(defn get-all-orderbooks []
-  (:books @orderbook-state))
-
-;; Get best bid and ask for a symbol
-(defn get-best-bid-ask [symbol]
-  (when-let [book (get-orderbook symbol)]
-    {:best-bid (or (get-in book [:render :best-bid])
-                   (first (:bids book)))
-     :best-ask (or (get-in book [:render :best-ask])
-                   (first (:asks book)))}))
-
-;; Clear order book data for a specific symbol
-(defn clear-orderbook! [symbol]
-  (swap! orderbook-state
-         (fn [state]
-           (-> state
-               (update :books dissoc symbol)
-               (update :l2-sides dissoc symbol)))))
-
-;; Clear all order book data
-(defn clear-all-orderbooks! []
-  (swap! orderbook-state assoc :books {} :l2-sides {}))
-
-;; Initialize order book module
 (defn init! [store]
   (telemetry/log! "Order book subscription module initialized")
-  ;; Register handlers for both book channels with store access.
   (ws-client/register-handler! "l2Book" (create-orderbook-data-handler store))
   (ws-client/register-handler! l2/channel (create-l2-data-handler store)))

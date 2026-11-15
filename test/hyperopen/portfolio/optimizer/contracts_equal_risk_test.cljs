@@ -85,8 +85,6 @@
                 :updated-at-ms 1777046400000}
         migrated (contracts/migrate-scenario-record record)]
     (is (= {:kind :equal-risk} (get-in migrated [:config :objective])))
-    ;; The saved result (with the new sections) is neither migrated nor
-    ;; stripped — it round-trips verbatim.
     (is (= (get-in record [:saved-run :result])
            (get-in migrated [:saved-run :result])))
     (is (s/valid? :hyperopen.portfolio.optimizer.contracts/scenario-record migrated)
@@ -101,9 +99,6 @@
                        payload))))
 
 (deftest equal-risk-sections-survive-the-worker-wire-round-trip-test
-  ;; Worker -> main: clj->js flattens keywords to strings, js->clj keywordizes
-  ;; ALL map keys (including instrument ids), and normalize-worker-boundary
-  ;; must restore instrument-id string keys and enum keyword values.
   (let [payload {:status "solved"
                  :risk-contributions
                  {:method "signed-euler-volatility"

@@ -1,9 +1,3 @@
-// Backend-recommended history assumptions, beyond the center banner: the
-// right-rail panel carries its own "Apply all recommended (N)" shortcut, and a
-// "Run optimization" click on a draft still blocked by missing assumptions
-// applies every pending recommendation first (same bulk funnel) instead of
-// dead-ending in the pipeline's readiness failure. The discovery and
-// history-bundle endpoints are stubbed, so both flows are deterministic.
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
@@ -31,9 +25,6 @@ function btcSeries() {
   };
 }
 
-// BTC anchors with a full 400-day native history; WLFI has none, sits below
-// the assumption-required threshold (so readiness blocks the run), and carries
-// a conservative default-assumption the one-click flows can apply.
 async function stubHistoryApi(page) {
   await page.addInitScript(() => {
     globalThis.__HYPEROPEN_OPTIMIZER_HISTORY_API__ = {
@@ -117,8 +108,6 @@ async function seedRecommendedWorkflow(page) {
     { key: "perp:WLFI", "market-type": "perp", coin: "WLFI", symbol: "WLFI-USDC", name: "World Liberty" }
   ]);
 
-  // Real universe adds so the history load, load-state, and adequacy all flow
-  // through production paths — WLFI settles as the one pending workflow asset.
   await page.locator("[data-role='portfolio-optimizer-universe-search-input']").fill("wlfi");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await page.locator("[data-role='portfolio-optimizer-universe-add-perp:WLFI']").click();
@@ -156,10 +145,6 @@ test("portfolio optimizer run click auto-applies pending recommendations instead
 
   await page.locator("[data-role='portfolio-optimizer-run-draft']").click();
 
-  // The auto-apply projections land at dispatch, before the pipeline effect:
-  // the rail flips to configured and the draft carries the acknowledged
-  // backend-recommended entry, so the run proceeds instead of failing on
-  // missing assumptions.
   await expect(railCount).toContainText("1 of 1 configured", { timeout: 20_000 });
   await expect(page.locator(
     "[data-role='portfolio-optimizer-history-assumptions-rail-apply-all-recommended']"

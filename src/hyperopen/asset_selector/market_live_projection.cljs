@@ -21,7 +21,6 @@
       (some? mark-raw)
       (assoc :markRaw mark-raw)
 
-      ;; A null midPx means the book lost a side: the chance becomes "No market".
       mid-present?
       (assoc :midRaw mid-raw :mid (parse-number mid-raw))
 
@@ -37,7 +36,6 @@
       (number? base-volume24h)
       (assoc :baseVolume24h base-volume24h)
 
-      ;; A previous-day price of 0 is the never-traded placeholder: no change.
       (and (number? change24h)
            (number? change24h-pct))
       (assoc :change24h change24h
@@ -80,8 +78,6 @@
    side's tick must never overwrite the whole event's volume or interest."
   [market fallback-open-interest]
   (let [{:keys [shares24h open-interest]} (outcome-display/event-totals market)
-        ;; A market without side data (a cold-start cache entry) has nothing
-        ;; to sum; its own contract's supply is the best it has.
         open-interest* (or open-interest
                            (when (and (number? fallback-open-interest) (pos? fallback-open-interest))
                              fallback-open-interest))]
@@ -106,7 +102,6 @@
         open-interest-raw (parse-number (:openInterest ctx))
         circulating-supply (parse-number (:circulatingSupply ctx))
         change24h (when (and (number? mark) (number? prev-day)
-                             ;; Outcomes: a 0 previous-day price is a placeholder.
                              (or (not= :outcome (:market-type market)) (pos? prev-day)))
                     (- mark prev-day))
         change24h-pct (when (and (number? change24h)

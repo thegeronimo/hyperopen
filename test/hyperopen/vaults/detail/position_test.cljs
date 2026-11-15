@@ -26,9 +26,6 @@
            :basis basis
            :netWithdrawnUsd net}})
 
-;; Real follower 0x0183…3834 of vault 0x1e37…8d5e on 2026-10-04: two deposits,
-;; a FULL withdrawal, then one re-deposit. `vaultEntryTime` still points at the
-;; first deposit.
 (def ^:private live-ledger
   [(deposit-row 1774416974173 "11000.0")
    (deposit-row 1777965182591 "10087.99")
@@ -37,7 +34,6 @@
                                 :basis "21087.989999"
                                 :net "22301.734387"})
    (deposit-row 1788034752230 "22609.800001")
-   ;; Another vault's transfer and a non-vault ledger row are ignored.
    {:time 1788034752231 :delta {:type "vaultDeposit" :vault "0xother" :usdc "5"}}
    {:time 1788034752232 :delta {:type "deposit" :usdc "100"}}])
 
@@ -175,10 +171,8 @@
                 {:transfers [{:kind :deposit :time-ms t0 :amount 1000}
                              {:kind :deposit :time-ms (+ t0 (* 5 day-ms)) :amount 500}
                              {:kind :withdraw :time-ms (+ t0 (* 8 day-ms)) :amount 216 :requested 216 :basis 200}]
-                 ;; Coarser fallback is ignored when the finer set covers the start.
                  :returns-candidates [rows [[0 0] [t0 50]]]
                  :now-ms (+ t0 (* 10 day-ms))
-                 ;; Equal to the model's own value at now, so no calibration.
                  :value (* (+ 1000 (/ 500 1.05) (- (/ 216 1.08))) 1.10)
                  :cost-basis 1300})
         points (:points series)]
@@ -211,7 +205,6 @@
                  :value 1078
                  :cost-basis 1000})
         [start mid live] (:points series)]
-    ;; Model says 1100 at now; live is 1078 (ratio 0.98), ramped from 1 at start.
     (is (near? 1000 (:value start)))
     (is (near? (* 1050 0.99) (:value mid)))
     (is (= 1078 (:value live)))))

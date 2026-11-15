@@ -10,10 +10,6 @@
 (def ^:private websocket-runtime-view-watch-key
   ::ws-runtime-view)
 
-(defn install-agent-safety-watch!
-  [deps]
-  ((:install-agent-safety-watch-fn deps) deps))
-
 (defn- selector-cache-refresh?
   [old-state new-state]
   (let [old-loaded-at-ms (get-in old-state [:asset-selector :loaded-at-ms])
@@ -27,9 +23,6 @@
   [store {:keys [persist-active-market-display!
                  persist-asset-selector-markets-cache!
                  schedule-cache-write!]
-          ;; The selector-cache re-serialization (sort + normalize + stringify
-          ;; of every market) is not paint-coupled work; run it at idle so it
-          ;; stays out of the busy post-load frames.
           :or {schedule-cache-write! (fn [f]
                                        (platform/schedule-idle-or-timeout!
                                         f
@@ -42,7 +35,6 @@
           (when-let [{:keys [markets state]} @pending-selector-cache-write]
             (reset! pending-selector-cache-write nil)
             (persist-asset-selector-markets-cache! markets state)))]
-  ;; Keep startup display metadata fresh whenever active-market becomes available.
   (remove-watch store active-market-display-watch-key)
   (add-watch store active-market-display-watch-key
     (fn [_ _ old-state new-state]
@@ -51,7 +43,6 @@
         (when (not= old-market new-market)
           (persist-active-market-display! new-market)))))
 
-  ;; Persist non-empty selector market lists so symbols are available on next reload.
   (remove-watch store asset-selector-markets-watch-key)
   (add-watch store asset-selector-markets-watch-key
     (fn [_ _ old-state new-state]
@@ -89,7 +80,6 @@
            on-websocket-disconnected!]}]
   (when (= :connected (get-in @runtime-view [:connection :status]))
     (on-websocket-connected!))
-  ;; Watch websocket runtime view projection changes and keep store/health sync updated.
   (remove-watch runtime-view websocket-runtime-view-watch-key)
   (add-watch runtime-view websocket-runtime-view-watch-key
     (fn [_ _ old-view new-view]
@@ -103,7 +93,6 @@
             transition-event (status->diagnostics-event new-status)
             transition-at-ms (or (:now-ms new-connection) (platform/now-ms))]
         (when status-transition?
-          ;; Defer store update to next tick to avoid nested renders.
           (platform/queue-microtask!
            #(do
               (when (= :reconnecting new-status)
@@ -112,7 +101,6 @@
                 (append-diagnostics-event! store transition-event transition-at-ms)))))
         (when status-transition?
           (sync-websocket-health! store :force? true))
-        ;; Notify address watcher only on status transitions.
         (when status-transition?
           (if (= new-status :connected)
             (on-websocket-connected!)

@@ -5,7 +5,6 @@
   anchoring and dialog chrome. The split exists so both files stay under the
   500-line namespace-size gate."
   (:require [clojure.string :as str]
-            [hyperopen.staking.unstaking :as unstaking]
             [hyperopen.utils.formatting :as fmt]
             [hyperopen.views.staking.shared :as shared]))
 (defn- popover-amount-input
@@ -302,9 +301,6 @@
       (shared/key-value-row source-label source-value)
       (shared/key-value-row "Available to Stake"
                             (shared/format-balance-hype (:available-stake balances)))
-      ;; A compact line rather than the full block from the page behind this
-      ;; popover: what matters when starting another transfer is how much is
-      ;; already queued, and the taller block pushed the CTA off short viewports.
       (when (:in-flight? unstaking)
         (shared/key-value-row "Already in the 7-day queue"
                               (shared/format-balance-hype (:amount unstaking))

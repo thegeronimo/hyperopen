@@ -7,7 +7,6 @@
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]))
 
 (def default-scenario-index state/default-scenario-index)
-(def error-message state/error-message)
 (def begin-scenario-save-state state/begin-scenario-save-state)
 (def failed-scenario-save-state state/failed-scenario-save-state)
 (def begin-scenario-index-load-state state/begin-scenario-index-load-state)
@@ -27,10 +26,6 @@
 (def apply-scenario-duplicate-error state/apply-scenario-duplicate-error)
 (def apply-manual-tracking-success state/apply-manual-tracking-success)
 (def apply-manual-tracking-error state/apply-manual-tracking-error)
-
-(defn solved-run?
-  [last-successful-run]
-  (= :solved (get-in last-successful-run [:result :status])))
 
 (def ^:private manual-tracking-source-statuses
   #{:saved :computed})
@@ -158,9 +153,6 @@
    :commands []})
 
 (defn begin-save
-  ;; A save no longer requires a solved run: naming and keeping a configured
-  ;; setup is valid at any point, and the results snapshot attaches only when
-  ;; it is honest (see attachable-saved-run).
   [{:keys [state address scenario-id started-at-ms]}]
   (if (and address scenario-id)
     {:state (assoc-in state

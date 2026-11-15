@@ -49,8 +49,6 @@
          {:text (str "TVL ≥ " (tvl-labels (:min-tvl config))) :accent? false}
          {:text (str (window-labels (:window config)) " window") :accent? false}]
         (keep (fn [c] (when-let [t (criterion-chip c)] {:text t :accent? true})) (:criteria config))
-        ;; A hidden history rule silently drops old vaults (their windows are
-        ;; sparsely sampled), so it is always shown when set.
         (when (pos? (or (:min-history-points config) 0))
           [{:text (str "History ≥ " (:min-history-points config) " points") :accent? true}])
         [{:text (if (= membership :fixed) "Fixed members" "Members update on refresh") :accent? false}]

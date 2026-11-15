@@ -56,10 +56,6 @@
               :return-model {:kind :historical-mean}
               :risk-model {:kind :sample-covariance}
               :objective {:kind :equal-risk}
-              ;; Draft-side keys: renamed by the request builder. Zero band =>
-              ;; targets G=1, N=1 (single fully-invested long book). The
-              ;; fixture deep-merges constraints over a long-only base, so
-              ;; :long-only? is stated explicitly.
               :constraints {:long-only? false
                             :gross-max 1.0
                             :net-min 1.0
@@ -81,8 +77,6 @@
 (deftest equal-risk-request-carries-canonical-exposure-targets-test
   (let [request (equal-risk-request)]
     (is (= :equal-risk (get-in request [:objective :kind])))
-    ;; Engine-side keys after the rename; the targets derive from these inside
-    ;; the constraint encoder (never from the raw band edges in views).
     (is (= 1.0 (get-in request [:constraints :gross-leverage])))
     (is (= {:min 1.0 :max 1.0} (get-in request [:constraints :net-exposure])))))
 
@@ -215,10 +209,6 @@
                     (done)))))))
 
 (deftest equal-risk-proceeds-when-return-model-is-invalid-test
-  ;; A Black-Litterman view naming an instrument outside the universe makes
-  ;; the return model :invalid. Return-dependent objectives stay blocked
-  ;; (existing behavior, re-asserted here); Equal Risk must still solve, with
-  ;; return-based display metrics omitted rather than fabricated.
   (let [invalid-views {:kind :black-litterman
                        :views [{:id "sol-view"
                                 :kind :absolute
@@ -308,8 +298,6 @@
                            result))))))
 
 (deftest equal-risk-stored-net-extreme-does-not-warn-on-the-solved-result-test
-  ;; Stored net near gross used to starve the short book. Equal Risk now ignores
-  ;; that net setting, so no lopsided-books warning should ride the payload.
   (let [result (engine/run-optimization
                 (equal-risk-request
                  {:universe [{:instrument-id "perp:BTC"

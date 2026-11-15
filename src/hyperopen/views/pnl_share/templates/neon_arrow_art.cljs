@@ -65,7 +65,6 @@
                      :inner (:plate-wash-corner palette)
                      :outer (:plate-wash-far palette)})
 
-   ;; Mask stops are luminance, not colour: black hides, white reveals.
    [:linearGradient {:id "ho-pnl-contour-fade" :x1 "0" :y1 "0" :x2 "1" :y2 "0"}
     [:stop {:offset "22%" :stop-color "black"}]
     [:stop {:offset "62%" :stop-color "white"}]]

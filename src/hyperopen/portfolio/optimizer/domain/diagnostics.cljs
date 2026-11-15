@@ -46,11 +46,6 @@
                   target))))
 
 (def ^:private binding-tolerance
-  ;; Must be looser than the QP solver's convergence noise: live runs land
-  ;; ~3e-10 off a bound (sometimes slightly OUTSIDE it), so a 1e-10 epsilon
-  ;; made the capped/floored flags flicker run-to-run. 1e-6 of portfolio
-  ;; weight is far below both display precision (0.1%) and the dust
-  ;; threshold (5e-4), so it cannot mislabel a genuinely interior weight.
   1e-6)
 
 (defn- binding-constraints
@@ -123,10 +118,6 @@
                     :turnover (turnover current-weights target-weights)
                     :binding-constraints (binding-constraints opts)
                     :covariance-conditioning (risk/covariance-conditioning covariance)
-                    ;; Conditioning is an eigenvalue RATIO and so cannot see
-                    ;; magnitude: a scaled identity scores a perfect 1 however
-                    ;; large its entries are. The plausibility check is the only
-                    ;; one that can reject a 7,200% volatility.
                     :covariance-plausibility (risk/covariance-plausibility
                                               covariance
                                               (:instrument-ids opts))})

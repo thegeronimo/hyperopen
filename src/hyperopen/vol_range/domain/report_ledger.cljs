@@ -157,7 +157,6 @@
      :sell-vwap (vwap sold-quote sold-base)
      :maker (count (filter #(false? (:crossed %)) events))
      :taker (count (filter #(true? (:crossed %)) events))
-     ;; Signed perp funding (negative = paid); "0" for a spot market.
      :funding (ds funding)
      :funding-payments (count (filter #(= :funding (:kind %)) all-events))
      :fees-by-token (->> events

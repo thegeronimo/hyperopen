@@ -55,12 +55,10 @@
    :net (reduce + 0 weights)})
 
 (def ^:private diag-covariance
-  ;; 10% and 20% vol, uncorrelated.
   [[0.01 0.0]
    [0.0 0.04]])
 
 (deftest diagonal-long-only-case-solves-to-inverse-vol-weights-test
-  ;; Spec test 1: G=1, N=1 over diag(0.01, 0.04) => w ~ [2/3, 1/3], RRC 50/50.
   (let [problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :long)]
                                {:gross-leverage 1.0
                                 :net-exposure {:min 1.0 :max 1.0}}
@@ -77,7 +75,6 @@
                    (get-in result [:equal-risk :selected-initialization])))))
 
 (deftest all-short-symmetry-mirrors-the-long-case-test
-  ;; Spec test 2: same covariance, G=1, N=-1 => w ~ [-2/3, -1/3], same RRCs.
   (let [problem (build-problem [(perp "perp:A" :short) (perp "perp:B" :short)]
                                {:gross-leverage 1.0
                                 :net-exposure {:min -1.0 :max -1.0}}
@@ -91,8 +88,6 @@
       (is (near? 0.5 (nth rrc 1) 1e-3)))))
 
 (deftest exact-mixed-long-short-case-test
-  ;; Spec test 3: equal vols, rho > 0, fixed long/short, G=2, N=0 => w = [1, -1]
-  ;; with equal relative contributions by symmetry.
   (let [problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :short)]
                                {:gross-leverage 2.0
                                 :net-exposure {:min 0.0 :max 0.0}
@@ -171,8 +166,6 @@
         (is (near? -1.0 (:net (exposure-of (:weights short-result))) 1e-6))))))
 
 (deftest active-asset-cap-binds-while-books-stay-exact-test
-  ;; Spec test 7: unconstrained ERC would give B 2/3 (vols 10% vs 5%), the
-  ;; 0.55 cap binds, every hard constraint stays exact, error is reported.
   (let [problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :long)]
                                {:gross-leverage 1.0
                                 :net-exposure {:min 1.0 :max 1.0}
@@ -189,7 +182,6 @@
              (equal-risk/exactness-tolerance 2))))))
 
 (deftest locked-position-stays-fixed-and-book-adjusts-test
-  ;; Spec test 8.
   (let [problem (build-problem [(perp "perp:A" :long)
                                 (perp "perp:B" :long)
                                 (perp "perp:C" :long)]
@@ -205,12 +197,9 @@
     (is (= :solved (:status result)))
     (is (near? 0.25 (nth weights 0) 1e-9))
     (is (near? 0.75 (+ (nth weights 1) (nth weights 2)) 1e-6))
-    ;; The two free assets balance their contributions against each other.
     (is (> (nth weights 1) (nth weights 2)))))
 
 (deftest degenerate-covariance-fails-explicitly-test
-  ;; Spec test 10: an all-zero covariance reaches the solver (it is finite and
-  ;; symmetric) and must fail with the degenerate-variance reason, not NaN.
   (let [problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :long)]
                                {:gross-leverage 1.0
                                 :net-exposure {:min 1.0 :max 1.0}}
@@ -221,7 +210,6 @@
     (is (= :equal-risk-degenerate-variance (:reason result)))))
 
 (deftest permutation-invariance-test
-  ;; Spec test 11.
   (let [covariance [[0.04 0.01 0.0]
                     [0.01 0.09 0.02]
                     [0.0 0.02 0.02]]
@@ -249,7 +237,6 @@
           (str "weight for " (nth permuted-ids idx))))))
 
 (deftest covariance-scale-invariance-test
-  ;; Spec test 12.
   (let [universe [(perp "perp:A" :long) (perp "perp:B" :long) (perp "perp:C" :short)]
         constraints* {:gross-leverage 2.0
                       :net-exposure {:min 0.5 :max 0.5}
@@ -266,8 +253,6 @@
       (is (near? a b 1e-6)))))
 
 (deftest global-sign-flip-symmetry-test
-  ;; Spec test 13: flip every side and negate N => negated weights, unchanged
-  ;; relative contributions.
   (let [covariance [[0.04 0.015] [0.015 0.0225]]
         long-short (build-problem [(perp "perp:A" :long) (perp "perp:B" :short)]
                                   {:gross-leverage 2.0
@@ -290,7 +275,6 @@
       (is (near? a b 1e-6)))))
 
 (deftest determinism-repeated-runs-are-identical-test
-  ;; Spec test 14: identical weights, objective, and termination metadata.
   (let [build #(build-problem [(perp "perp:A" :long)
                                (perp "perp:B" :long)
                                (perp "perp:C" :short)]
@@ -307,8 +291,6 @@
     (is (= (:equal-risk first-run) (:equal-risk second-run)))))
 
 (deftest final-weights-satisfy-every-hard-constraint-test
-  ;; Spec test 15: published weights hold books/bounds/locks within tolerance
-  ;; on a case with a binding cap AND a lock.
   (let [problem (build-problem [(perp "perp:A" :long)
                                 (perp "perp:B" :long)
                                 (perp "perp:C" :short)]
@@ -331,8 +313,6 @@
     (is (<= (nth weights 2) 1e-9))))
 
 (deftest turnover-constraint-is-respected-not-silently-dropped-test
-  ;; Spec test 16: the ERC solution from far-away current weights must respect
-  ;; the L1 turnover budget (one-sided 0.2 => sum|delta| <= 0.4) and bind it.
   (let [current {"perp:A" 0.9 "perp:B" 0.1}
         problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :long)]
                                {:gross-leverage 1.0
@@ -347,7 +327,6 @@
                     (js/Math.abs (- (nth weights 1) 0.1)))]
     (is (= :solved (:status result)))
     (is (<= turnover (+ 0.4 1e-6)))
-    ;; Unconstrained ERC is [1/3, 2/3] (turnover 1.1333); the budget binds.
     (is (near? 0.4 turnover 1e-3))
     (is (near? 1.0 (reduce + 0 weights) 1e-6))))
 
@@ -364,8 +343,6 @@
       (is (= :max-iterations (get-in result [:equal-risk :termination-reason]))))))
 
 (deftest sync-and-async-solver-paths-agree-test
-  ;; The driver chains thenables: a synchronous solver keeps the whole solve
-  ;; synchronous; a promise-wrapped one yields a Promise with the same result.
   (async done
     (let [problem (build-problem [(perp "perp:A" :long) (perp "perp:B" :long)]
                                  {:gross-leverage 1.0

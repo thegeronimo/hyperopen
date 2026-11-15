@@ -3,9 +3,6 @@
             [hyperopen.schema.contracts.common :as common]
             [hyperopen.schema.contracts.state :as state]))
 
-;; Funding modal and funding-tooltip action payload contracts. Merged into
-;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
-
 (s/def ::funding-modal-args (s/tuple any?))
 (s/def ::funding-modal-field-args (s/tuple ::common/state-path any?))
 (s/def ::submit-funding-repay-args (s/tuple number?))

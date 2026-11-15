@@ -54,8 +54,6 @@
                                 :details details})))
 
 (deftest read-model-classic-deposit-max-uses-perps-withdrawable-not-spot-usdc-test
-  ;; Classic accounts fund vault deposits from perps; spot USDC is not
-  ;; spendable until moved to perps, so it must never inflate MAX.
   (let [model (deposit-model {:account {:mode :classic}
                               :webdata2 {:clearinghouseState {:withdrawable "1350.6912"}}
                               :spot {:clearinghouse-state {:balances [{:coin "USDC"

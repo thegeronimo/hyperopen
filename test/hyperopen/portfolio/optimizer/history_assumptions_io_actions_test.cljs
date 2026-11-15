@@ -11,8 +11,6 @@
 (def ^:private sol-market
   {:key "perp:SOL" :coin "SOL" :market-type :perp :volume 50})
 
-;; BTC carries a full year+ of candles so it reads as a VERIFIED proxy
-;; candidate; WLFI has none (it is the short-history asset needing a proxy).
 (def ^:private btc-candles
   (mapv (fn [i] {:time i :close "100"}) (range 400)))
 
@@ -33,9 +31,6 @@
                         :metadata {:dirty? false}}}}})
 
 (def ^:private wlfi-entry
-  ;; A started (incomplete) proxy entry: enrolls WLFI in the workflow without
-  ;; needing loaded history in the fixture (unloaded history reads :pending,
-  ;; which — correctly — never flags a card or an export row).
   {:behavior :proxy
    :expected-return 0.0
    :volatility 0.8
@@ -65,17 +60,12 @@
       (is (= :effects/download-portfolio-optimizer-history-assumptions-file download-id))
       (is (= (str "history-assumptions-workflow-" now-ms ".json") (:filename payload)))
       (is (= "proxy-workflow" (:export-scope document)))
-      ;; only the short-history asset exports: BTC has a full year of candles
-      ;; (:ok adequacy) so it is never carded (same rule as the cards).
       (is (= 1 (:count payload)))
       (is (= "perp:WLFI" (:instrument-id wlfi)))
       (is (= "proxy" (:approach wlfi)))
       (is (= "unverified" (:history-status wlfi)))
-      ;; the in-universe proxy labels from the universe symbol map.
       (is (= [{:instrument-id "perp:BTC" :symbol "BTC" :weight nil}]
              (:proxies wlfi)))
-      ;; the file carries ONLY the workflow assets — no candidate menu of any
-      ;; kind (the agent proposes proxies; import validation drops bad ones).
       (is (not (contains? document :proxy-candidates)))
       (is (vector? (:instructions document)))
       (is (= "minimum-variance" (:optimization-objective document)))
@@ -92,12 +82,8 @@
           document (:document payload)]
       (is (= (str "history-assumptions-universe-" now-ms ".json") (:filename payload)))
       (is (= "universe" (:export-scope document)))
-      ;; every universe asset exports; the entry-less one with a null approach,
-      ;; each labeled with its own history-status.
       (is (= [["perp:WLFI" "proxy" "unverified"] ["perp:BTC" nil "verified"]]
              (mapv (juxt :instrument-id :approach :history-status) (:assets document))))
-      ;; no separate candidate menu — the assets list already carries every
-      ;; asset with its history-status.
       (is (not (contains? document :proxy-candidates))))))
 
 (deftest export-universe-scope-drops-blocklisted-assets-test
@@ -111,14 +97,9 @@
                        effects
                        :effects/download-portfolio-optimizer-history-assumptions-file)
           document (:document payload)]
-      ;; the excluded asset leaves the rows.
       (is (= ["perp:WLFI"] (mapv :instrument-id (:assets document)))))))
 
 (deftest export-workflow-assets-match-the-visible-cards-test
-  ;; Guard against the export's target list drifting from the workflow section
-  ;; the user sees: both derive from the same build-readiness, so the exported
-  ;; `assets` must equal the cards (never the whole universe). Here BTC has a
-  ;; full year of history (not carded), so only WLFI is a workflow asset.
   (with-redefs [platform/now-ms (constantly now-ms)]
     (let [readiness (setup-readiness/build-readiness enrolled-state)
           draft (get-in enrolled-state contracts/draft-path)
@@ -167,11 +148,9 @@
     (is (= {:source :agent-import :acknowledged? true :rationale "Anchor plus ecosystem."}
            (:metadata entry)))
     (is (= true (get values contracts/draft-dirty-path)))
-    ;; the out-of-universe proxy is stored as a reference-only instrument.
     (is (= ["perp:SOL"]
            (mapv :instrument-id
                  (get values contracts/draft-proxy-reference-instruments-path))))
-    ;; one library upsert, carrying the entry and its reference instruments.
     (is (= ["perp:WLFI"] (mapv :instrument-id (:upserts sync))))
     (is (= entry (:assumption (first (:upserts sync)))))
     (is (= ["perp:SOL"]

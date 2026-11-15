@@ -33,10 +33,6 @@
   [market]
   (str "Open " market " to repair or update this ladder."))
 
-;; ---------------------------------------------------------------------------
-;; Error texts
-;; ---------------------------------------------------------------------------
-
 (def ^:private moved-text "The market moved since these prices were set. Refresh prices and review again.")
 (def ^:private stale-text "Prices or balances are out of date. Refresh prices and try again.")
 
@@ -98,10 +94,6 @@
       (contains? status-text status) [(get status-text status)]
       :else ["Something went wrong."])))
 
-;; ---------------------------------------------------------------------------
-;; Live region
-;; ---------------------------------------------------------------------------
-
 (defn- partial-text [{:keys [rejected live]}]
   (str (plural rejected "order") " " (if (= 1 rejected) "was" "were") " not placed. "
        live " other order" (when (not= 1 live) "s") " remain" (when (= 1 live) "s") " active."))
@@ -125,7 +117,6 @@
          (if (and (pos? (or rejected 0)) (pos? (or live 0)))
            (partial-text counts)
            (str "Repair sent. " (or live 0) " of " (plural (or members 0) "order") " active.")))
-       ;; An error after admission may follow a send: never claim nothing went out.
        (and (= :error status) (not= :not-sent delivery))
        (str "Something went wrong with the repair. Refresh status to check this ladder."
             (when (string? (:error last-result)) (str " " (:error last-result))))
@@ -137,10 +128,6 @@
   "{:market :base} of a ladder, for error texts."
   [grid]
   {:market (market-label (:scope grid)) :base (get-in grid [:scope :symbol])})
-
-;; ---------------------------------------------------------------------------
-;; Dock row control
-;; ---------------------------------------------------------------------------
 
 (defn row-control
   "The dock row's repair button: shown only with definitively rejected
@@ -160,9 +147,6 @@
                                (not= id (get-in state [:vol-range :replace :grid-id]))))
         in-scope? (= (:scope-key grid) (get-in state [:vol-range-dock :current-scope-key]))
         working? (or (busy? state [:repair-preview id]) (busy? state [:repair id]))]
-    ;; Not disabled while the review is read or sent: the button keeps focus,
-    ;; so focus can return to it when the dialog closes. The action ignores a
-    ;; click while either operation is busy.
     {:visible? visible?
      :enabled? (and visible? in-scope?)
      :busy? (and visible? working?)
@@ -170,10 +154,6 @@
      :label (str "Repair " (plural n "rejected order"))
      :aria-label (str "Repair " (plural n "rejected order") " in the " market " ladder")
      :hint (when (and visible? (not in-scope?)) (scope-hint market))}))
-
-;; ---------------------------------------------------------------------------
-;; Dialog
-;; ---------------------------------------------------------------------------
 
 (defn- with-base [x base] (when x (str x (when base (str " " base)))))
 
@@ -294,7 +274,6 @@
          :errors errors
          :as-of (when ready? (some->> (display/utc-clock (:proposed-at-ms proposal)) (str "Prices as of ")))
          :refresh {:enabled? (boolean (and (not loading?) (not sending?))) :busy? (boolean loading?)}
-         ;; `:note` only while live monitoring has not caught up (spec 9.3).
          :submit (cond-> {:label (if sending? "Placing…" (str "Place " (plural n "repair order")))
                           :enabled? (boolean (and ready? in-scope? (pos? n) (not sending?) (not waiting?)
                                                   (get-in state [:vol-range :execution :enabled?])

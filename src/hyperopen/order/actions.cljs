@@ -248,7 +248,6 @@
       (contains? entry :side)
       (conj #(transitions/update-order-form % [:side] side))
 
-      ;; A confirmation given for one side is not a confirmation for the other.
       side-change?
       (conj #(transitions/update-order-form % [:outcome-stale-confirmed?] false))
 
@@ -320,8 +319,6 @@
                        (true? (:open-ticket-sheet? entry*))
                        (conj [[:trade-ui :mobile-surface] :ticket])
 
-                       ;; The raw typed cents, so the field keeps "68." or "68.5"
-                       ;; while editing instead of re-rendering the parsed price.
                        (contains? entry* :limit-cents)
                        (conj [[:outcome-ticket :limit-cents-text] (str (or (:limit-cents entry*) ""))]))]
     (if (and (empty? steps) (empty? merge-writes))

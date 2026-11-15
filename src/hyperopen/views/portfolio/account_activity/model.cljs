@@ -30,8 +30,6 @@
         (str (subs text 0 6) "..." (subs text (- (count text) 4)))
         text))))
 
-;; --- USD valuation --------------------------------------------------------
-
 (defn- pricing-inputs
   [state]
   (let [market-by-key (get-in state [:asset-selector :market-by-key] {})]
@@ -66,8 +64,6 @@
           row))
       row)))
 
-;; --- sorting --------------------------------------------------------------
-
 (defn- text-key
   [value]
   (-> (or value "") str str/lower-case))
@@ -99,11 +95,7 @@
      :direction direction
      :accessor-by-column sort-accessor-by-column
      :fallback-accessor (fn [row] (number-key (:time-ms row)))
-     ;; Ties resolve on id so a live update cannot reshuffle equal rows under
-     ;; the reader, which the trading-UI policy requires of live tables.
      :tie-breaker (fn [row] (or (:id row) ""))})))
-
-;; --- assembly -------------------------------------------------------------
 
 (defn account-activity-state
   [state]

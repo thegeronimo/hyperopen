@@ -4,11 +4,6 @@
    info client (`js->clj :keywordize-keys true`) stores it, which keeps the
    snake_case `:evm_extra_wei_decimals` key.")
 
-;; Provenance: `curl -s -X POST https://api.hyperliquid.xyz/info
-;; -H 'content-type: application/json' -d '{"type":"spotMeta"}'` on
-;; 2026-09-30T14:06Z (mainnet: 503 tokens, 172 with an evmContract). Rows are
-;; verbatim; the `:universe` half of the payload is omitted.
-
 (def usdc-row
   {:name "USDC" :szDecimals 8 :weiDecimals 8 :index 0
    :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054" :isCanonical true
@@ -23,8 +18,6 @@
                  :evm_extra_wei_decimals 13}
    :fullName nil :deployerTradingFeeShare "0.0"})
 
-;; HOPE's on-chain decimals() returns 0 although weiDecimals + extra is 5
-;; (Multicall3 decimals() sweep, 2026-09-30), so it must stay unverified.
 (def hope-row
   {:name "HOPE" :szDecimals 0 :weiDecimals 5 :index 122
    :tokenId "0xe6ac9d5a7cf91cdd9fdf34fcbbdd58e9" :isCanonical false
@@ -33,7 +26,6 @@
    :fullName "Purr $HOPE for the $HYPE! No planned utility."
    :deployerTradingFeeShare "0.0"})
 
-;; Mainnet HYPE is linked (native on HyperEVM) but reports evmContract null.
 (def hype-row
   {:name "HYPE" :szDecimals 2 :weiDecimals 8 :index 150
    :tokenId "0x0d01dc56dcaaca66ad901c959b4011ec" :isCanonical false
@@ -47,8 +39,6 @@
                  :evm_extra_wei_decimals -2}
    :fullName "Unit Bitcoin" :deployerTradingFeeShare "1.0"})
 
-;; FUNT sits at ARRAY POSITION 458 of the live `:tokens` vector but has
-;; `:index 478`: the first place position and index diverge on mainnet.
 (def funt-row
   {:name "FUNT" :szDecimals 1 :weiDecimals 6 :index 478
    :tokenId "0x1aaa916f86510ab37b20fbffeb9c05bb" :isCanonical false
@@ -63,9 +53,6 @@
    5, not its index 478, which is the property the tests need."
   {:tokens [usdc-row purr-row hope-row hype-row ubtc-row funt-row]})
 
-;; Provenance: `curl -s -X POST https://api.hyperliquid-testnet.xyz/info
-;; -d '{"type":"spotMeta"}'` on 2026-09-30T14:16Z. Testnet reports HYPE's
-;; evmContract as the zero address with extra 10, unlike mainnet's null.
 (def testnet-hype-row
   {:name "HYPE" :szDecimals 2 :weiDecimals 8 :index 1105
    :tokenId "0x7317beb7cceed72ef0b346074cc8e7ab" :isCanonical false
@@ -82,17 +69,6 @@
 
 (def testnet-spot-meta
   {:tokens [testnet-usdc-row testnet-hype-row]})
-
-;; --- live HyperEVM RPC probe -------------------------------------------------
-;;
-;; Provenance: one JSON-RPC batch POSTed to https://rpc.hyperliquid.xyz/evm on
-;; 2026-09-30T14:11:05Z: [eth_call Multicall3.aggregate3(probe-calls),
-;; eth_gasPrice]. The calldata below is what foundry's `cast calldata` produced
-;; for the same three calls, and `cast abi-decode` of the response gave
-;; [(true, 948706777700642844709365332 wei), (true, 186077856409651989714),
-;; (false, 0x)]: native HYPE held by 0x2222… (the pre-minted supply), PURR
-;; somebody sent to 0x2222… (and lost), and USDC's CoreDepositWallet reverting
-;; because it has no balanceOf.
 
 (def probe-owner "0x2222222222222222222222222222222222222222")
 

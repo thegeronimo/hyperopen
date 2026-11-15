@@ -53,11 +53,6 @@
                     (<= micros js/Number.MAX_SAFE_INTEGER))
            micros))))))
 
-;; Hyperliquid funds a vaultTransfer deposit from the account's collateral:
-;; spot USDC for unified accounts, base-dex perps withdrawable for classic
-;; accounts. A classic account's spot USDC is NOT spendable until it is moved
-;; to perps, and the exchange rejects the deposit with "Insufficient funds
-;; available to deposit."
 (defn deposit-available-usdc
   "USDC the active account can deposit into a vault, or nil when the account
    mode or its balance has not loaded yet."
@@ -70,7 +65,6 @@
 
 (defn- usdc->micros
   [value]
-  ;; Round at nano precision first so 1350.69 does not floor to 1350.689999.
   (js/Math.floor (/ (js/Math.round (* value 1000000000)) 1000)))
 
 (defn- deposit-shortfall-message

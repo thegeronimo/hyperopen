@@ -46,7 +46,6 @@
   (if (and (outcome-market-context? context)
            (not (unified-account-mode? context))
            (seq (get-in context [:spot :clearinghouse-state :balances])))
-    ;; Outcome shares are bought with spot USDC, not perp withdrawable.
     (spot-usdc-available context)
     (let [clearinghouse (or (:clearinghouse context) {})
         unified-available (unified-spot-usdc-available context)
@@ -124,9 +123,6 @@
 (defn position-for-market
   [context]
   (position-lookup/position-for-market context))
-
-(defn position-for-active-asset [context]
-  (position-for-market context))
 
 (defn current-position-summary [context]
   (let [active-asset (:active-asset context)
@@ -333,8 +329,6 @@
       (/ (+ best-bid best-ask) 2))))
 
 (defn- simulate-average-fill-price [levels requested-size]
-  ;; Walk sorted levels deterministically and require a full simulated fill.
-  ;; Return nil when visible depth cannot satisfy requested-size.
   (when (and (number? requested-size) (pos? requested-size))
     (loop [remaining requested-size
            filled-notional 0
@@ -494,9 +488,6 @@
         ref-price (reference-price context normalized-form)
         quantized-size (when (number? computed-size)
                          (base-size-string context computed-size))
-        ;; Notional (USDC value) = size * price, which equals the perp
-        ;; available*leverage*pct/100 capacity for perps and the USDC commit for
-        ;; spot buys / sale proceeds for spot sells.
         display-notional (when (and (number? computed-size)
                                     (number? ref-price)
                                     (pos? (* computed-size ref-price)))
@@ -573,8 +564,6 @@
                        (when (and (number? size) (pos? size) (number? ref-price) (pos? ref-price))
                          (* size ref-price)))
          leverage (core/normalize-ui-leverage context (:ui-leverage form))
-         ;; Margin and liquidation are perp-only — spot has no leverage and no
-         ;; position to liquidate, so they are omitted (nil) for spot markets.
          margin-required (when (and (not spot?) (not portfolio-margin?) (number? order-value) (pos? leverage))
                            (/ order-value leverage))
          position (current-position-summary context)
@@ -619,8 +608,6 @@
         adj (if (= side :buy) (+ 1 (/ slippage 100)) (- 1 (/ slippage 100)))
         adjusted-price (when (finite-positive-number? px)
                          (cond-> (* px adj)
-                           ;; A share never costs $1 or more, nor nothing: keep
-                           ;; the IOC cap strictly inside 0..1 on the tick.
                            (outcome-market-context? context)
                            (-> (min outcome-max-price) (max outcome-min-price))))]
     (when-let [market-price (canonical-order-price-string context adjusted-price)]

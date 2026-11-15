@@ -356,35 +356,14 @@
                                            request
                                            api-bundle
                                            fallback-universe)
-        ;; A targeted gap-fill covers the few instruments the API could not serve.
-        ;; It must degrade ONLY those instruments. Before 2026-08-24 a rejection here
-        ;; propagated to the total-failure handler in request-api-v2-history-bundle!,
-        ;; which is meant for "the backend request itself failed" — so one transient
-        ;; /info error, for one instrument, discarded a fully successful backend
-        ;; bundle and refetched the WHOLE universe through the serial legacy loader
-        ;; (one candle request per coin, one funding request per perp, each funding
-        ;; request itself paginating ~18 times). Resolving with the API bundle plus a
-        ;; warning keeps that escalation impossible.
         (.catch (fn [err]
                   (if (api-serves-every-fallback? api-bundle fallback-universe)
-                    ;; Lossless: the API already serves every instrument the
-                    ;; gap-fill covered, so degrade with a warning.
                     (js/Promise.resolve
                      (update api-bundle
                              :warnings
                              #(conj (vec %)
                                     (targeted-fallback-failed-warning fallback-universe
                                                                       err))))
-                    ;; NOT lossless: the gap-fill was the only source of history
-                    ;; for at least one instrument. Resolving here would hand
-                    ;; apply-history-success a bundle with no
-                    ;; :candle-history-by-coin / :funding-history-by-coin /
-                    ;; :vault-details-by-address at all, and that assoc-in
-                    ;; REPLACES history-data wholesale — destroying candles a
-                    ;; previous load had fetched and persisting the degraded
-                    ;; bundle to the per-wallet IndexedDB cache. Fail the load
-                    ;; instead, without escalating to the whole-universe legacy
-                    ;; loader.
                     (js/Promise.reject (no-escalation-error err))))))
     (js/Promise.resolve api-bundle)))
 
@@ -515,10 +494,6 @@
           (.catch (fn [err]
                     (if (and (not= false (:allow-legacy-fallback? request))
                              (:fallback-to-legacy? optimizer-history-api)
-                             ;; A deadline breach, and a gap-fill failure that
-                             ;; would have cost real history, must terminate the
-                             ;; load rather than escalate it into the slowest
-                             ;; path in the system.
                              (escalate-to-legacy? err))
                       (do
                         (report-api-failed! on-progress api-request (:universe request))

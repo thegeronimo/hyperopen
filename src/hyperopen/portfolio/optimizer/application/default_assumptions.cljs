@@ -63,8 +63,6 @@
            :rationale (coercion/non-blank-text (:rationale rec))
            :review-status (coercion/normalize-keyword-like (:review-status rec))})))))
 
-;; --- Vault own-history recommendation -----------------------------------------
-
 (def ^:private day-ms
   (* 24 60 60 1000))
 
@@ -131,8 +129,6 @@
                            "factor, so it is modeled from its own history with no diversification credit "
                            "and a " (js/Math.round (* 100 own-history-max-weight)) "% cap.")})))))
 
-;; --- Members ------------------------------------------------------------------
-
 (defn- external-proxy-row?
   [row]
   (or (true? (:basket-member-only row))
@@ -164,9 +160,6 @@
                                           (get-in row [:history :status]))})))
 
 (def ^:private unservable-history-statuses
-  ;; Discovery history statuses the request-time serve cannot back today. A
-  ;; member in this state would fetch a tiny/empty series, fail the usable-
-  ;; proxy gate, and block the card — so it is held back instead of applied.
   #{:missing :rejected})
 
 (defn- servable-member-row?
@@ -207,8 +200,6 @@
    {:usable []
     :held []}
    members))
-
-;; --- Entries ------------------------------------------------------------------
 
 (defn- recommendation-metadata
   ([rationale]
@@ -254,8 +245,6 @@
       (assoc-in [:proxy :prior-weights] (prior-weights usable-members))
       (assoc :metadata (recommendation-metadata (:rationale rec)))))
 
-;; --- Plan ---------------------------------------------------------------------
-
 (defn- plan-proxy-target
   [acc {:keys [discovery universe-ids resolve-member]} instrument-id rec]
   (let [{:keys [usable held]} (member-availability discovery instrument-id
@@ -269,8 +258,6 @@
                          {}
                          usable)
         kept (filterv #(contains? resolved (:instrument-id %)) usable)
-        ;; A usable member the frontend cannot materialize (no catalog market,
-        ;; no external discovery row) is held like a data-less one.
         held* (into (vec held)
                     (remove #(contains? resolved (:instrument-id %)))
                     usable)]
@@ -338,8 +325,6 @@
                     (comp (filter :instrument-id)
                           (distinct))
                     instruments)))))
-
-;; --- Note messages --------------------------------------------------------------
 
 (defn- pluralize-assumptions
   [n]

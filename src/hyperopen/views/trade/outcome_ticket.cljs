@@ -4,10 +4,6 @@
   (:require [clojure.string :as str]
             [hyperopen.views.trade.order-form-footer :as footer]))
 
-;; Every control in the ticket dispatches exactly ONE action. Nexus expands all
-;; actions of one event against the same state snapshot, so a second form write
-;; in the same click would read the stale form and undo the first.
-
 (def ^:private event-value [:event.target/value])
 (def ^:private event-checked [:event.target/checked])
 
@@ -207,7 +203,6 @@
   [available]
   (cond-> [["$10" "10"] ["$50" "50"] ["$100" "100"]]
     (and (number? available) (pos? available))
-    ;; The epsilon keeps 0.29 * 100 (28.999…) from flooring to 0.28.
     (conj ["Max" (str (/ (js/Math.floor (+ (* available 100) 1e-6)) 100))])))
 
 (defn- amount-section
@@ -340,7 +335,6 @@
 (defn- trade-form
   [{:keys [mode market-order? sides options no-explainer market-blocked? wide-note no-market-note
            held summary-rows summary-notes] :as model} handlers entry]
-  ;; A wrapper div: Replicant has no fragment tag.
   [:div {:class ["flex" "flex-col" "gap-2.5"] :data-role "outcome-ticket-trade"}
    (segmented {:role "outcome-ticket-order-type"
                :label "Order type"

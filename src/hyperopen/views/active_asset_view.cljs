@@ -5,10 +5,6 @@
             [hyperopen.views.asset-selector-view :as asset-selector]
             [hyperopen.views.trade.order-form-handlers :as order-form-handlers]))
 
-;; Public trade-page entrypoint for the active asset strip.
-;; Rendering consumes the normalized panel VM from `hyperopen.views.active-asset.vm`;
-;; funding policy and icon probe side effects live in dedicated modules.
-
 (defonce ^:private frozen-asset-selector-props* (atom nil))
 
 (defn reset-asset-selector-scroll-snapshot! []

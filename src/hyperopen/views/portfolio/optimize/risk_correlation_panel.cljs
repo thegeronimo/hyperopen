@@ -17,8 +17,6 @@
   (:require [hyperopen.portfolio.optimizer.application.view-model.equal-risk-structure
              :as structure-model]))
 
-;; --- Heatmap -------------------------------------------------------------------
-
 (defn- mode-tab
   [radio-name mode text]
   [:label {:class ["optimizer-risk-corr-mode-tab"]
@@ -58,9 +56,6 @@
     [:div {:class ["optimizer-risk-corr-grid"]
            :data-role (str "portfolio-optimizer-risk-corr-grid-" (name mode))
            :data-corr-mode (name mode)
-           ;; Past ~12 columns the cells get narrow even at full card width;
-           ;; dense mode drops the cell/label type a step so the numbers
-           ;; keep fitting (CSS can't count grid columns).
            :data-dense (when (> (count entries) 12) "true")
            :style {:grid-template-columns template}}
      (into [:div {:class ["contents"]}]
@@ -128,8 +123,6 @@
       (str "+ " hidden-count " more held asset"
            (when (not= 1 hidden-count) "s")
            " not shown (the largest risk shares are kept).")])])
-
-;; --- Panel ----------------------------------------------------------------------
 
 (defn correlation-panel
   "Panel body for the CORRELATION tab; nil when the result predates

@@ -86,8 +86,6 @@
         :detail "OSQP"
         :status :pending
         :percent 0})
-     ;; Covariance-only objectives produce one selected portfolio - there is no
-     ;; return-tilt sweep, so the frontier step only covers target selection.
      (if covariance-only?
        {:id :frontier
         :label "target selection"
@@ -180,7 +178,6 @@
 
 (defn worker-progress
   [progress payload]
-  ;; :step is not an enum wire key, so it arrives from the worker as a string.
   (let [step-id (some-> (:step payload) keyword)]
     (if step-id
       (mark-step progress

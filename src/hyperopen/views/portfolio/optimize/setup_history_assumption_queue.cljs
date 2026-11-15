@@ -118,10 +118,6 @@
                  (or (:cta-disabled? model) (nil? (:cta-action model)))
                  (assoc :disabled true))
        (:cta model)]
-      ;; Reset is only meaningful once something is authored; an asset still on
-      ;; its recommendation has nothing of the user's to throw away. It re-seeds
-      ;; the approach's own defaults — NOT the backend recommendation — so the
-      ;; label must not promise the latter.
       (when (:mode active)
         [:button {:type "button"
                   :class ["border" "border-base-300" "px-3" "py-1.5" "text-[0.75rem]"
@@ -214,9 +210,6 @@
   chip reads a pulsing \"Loading history…\" until the fetch settles."
   [active]
   (let [id (:instrument-id active)
-        ;; Green is reserved for a DECISION the user made. Engine-backed but
-        ;; unaccepted still owes a turn, so it reads amber like everything else
-        ;; the queue is asking about.
         settled? (boolean (:settled? active))
         loading? (boolean (:history-loading? active))]
     [:span (cond-> {:class ["shrink-0" "border" "px-1.5" "py-0.5" "font-mono"
@@ -233,9 +226,6 @@
                                   :else "bg-warning/10")
                             (when loading? "animate-pulse")]
                     :data-role (str "portfolio-optimizer-history-assumption-status-" id)
-                    ;; The raw card status rides on untouched: it is the pinned
-                    ;; engine-backing contract, independent of the queue's
-                    ;; decision vocabulary above.
                     :data-status (some-> (:status active) name)}
              loading? (assoc :data-loading "true"))
      (if loading? "Loading history…" (:queue-status-label active))]))
@@ -253,8 +243,6 @@
      [:p {:class ["mt-1" "text-[0.75rem]" "leading-[1.45]" "text-trading-muted"]}
       (:native-line active)]]
     (status-chip active)]
-   ;; The agent's stated reason for an imported configuration — the trust
-   ;; artifact that lets the user audit a file-authored basket at a glance.
    (when (:rationale active)
      [:p {:class ["mt-2" "border" "border-base-300" "bg-base-200/20" "p-2"
                   "text-[0.75rem]" "leading-[1.45]" "text-trading-muted"]

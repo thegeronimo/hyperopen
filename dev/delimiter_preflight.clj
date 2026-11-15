@@ -22,11 +22,6 @@
   {:all true
    :read-cond :allow
    :features #{:cljs}
-   ;; This is a DELIMITER check, not a namespace resolver: auto-resolved
-   ;; keywords (::draft, ::alias/key) only need to READ, so ::k resolves to a
-   ;; placeholder namespace and ::alias/k to the literal alias. Without this,
-   ;; edamame throws on every file that uses ::keywords and the --changed gate
-   ;; could never pass for them.
    :auto-resolve (fn [alias]
                    (if (= :current alias)
                      'delimiter-preflight.current

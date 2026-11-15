@@ -40,10 +40,6 @@
 (def relative-directions
   #{:outperform :underperform})
 
-(def direction-options
-  [[:outperform "Outperform"]
-   [:underperform "Underperform"]])
-
 (def normalize-keyword-like coercion/normalize-keyword-like)
 
 (def non-blank-text coercion/non-blank-text)
@@ -72,22 +68,6 @@
                   :else "")]
        (str sign trimmed "%"))
      "--")))
-
-(defn display-keyword
-  [value fallback]
-  (cond
-    (keyword? value) value
-    (string? value) (keyword value)
-    :else fallback))
-
-(defn display-confidence
-  [value]
-  (name (display-keyword value :medium)))
-
-(defn display-horizon
-  [value]
-  (-> (name (display-keyword value :3m))
-      str/upper-case))
 
 (defn confidence-variance
   [confidence]
@@ -362,20 +342,6 @@
   (or (:direction view)
       (when (= :relative (:kind view))
         :outperform)))
-
-(defn view-summary
-  [label-fn view]
-  (let [kind (:kind view)
-        primary (label-for label-fn (view-primary-id view))
-        comparator (label-for label-fn (view-comparator-id view))
-        direction (normalize-direction (view-direction view))
-        return-label (pct-label (:return view) (= :absolute kind))]
-    (case kind
-      :relative
-      (str primary " "
-           (if (= :underperform direction) "<" ">")
-           " " comparator " by " (pct-label (:return view)) " annualized")
-      (str primary " expected return " return-label " annualized"))))
 
 (defn view-by-id
   [views view-id]

@@ -10,8 +10,6 @@
   #{"range" "q" "roles" "closed" "sort" "page" "pageSize"})
 
 (def detail-owned-query-keys
-  ;; "from"/"to" carry the custom chart range; see the portfolio twin for why
-  ;; they are always written rather than only when a custom window is applied.
   #{"range" "chart" "bench" "tab" "activity" "side" "from" "to"})
 
 (def ^:private role-filter-keys
@@ -164,7 +162,6 @@
   [query]
   (let [params (search-params query)
         bench-values (param-values params "bench")]
-    ;; Always reported, nil included — see the portfolio twin.
     (cond-> {:detail-custom-range (parse-custom-range params)}
       (param-present? params "range")
       (assoc :snapshot-range (vault-range-value (param-value params "range")))
@@ -232,7 +229,6 @@
       (assoc-in detail-commands/vault-detail-custom-range-path
                 (:detail-custom-range query-state*))
 
-      ;; A shared link that pins a window should not also open the editor.
       (contains? query-state* :detail-custom-range)
       (assoc-in detail-commands/vault-detail-range-strip-path nil)
 

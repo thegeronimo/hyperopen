@@ -16,9 +16,6 @@
   (let [exit-code (exit-code-for-results results)]
     (when (exists? js/process)
       (set! (.-exitCode js/process) exit-code)
-      ;; Some test namespaces leave background handles open after the final
-      ;; summary. Exit explicitly once cljs.test reports completion so Node
-      ;; does not hang after a clean run.
       (js/setTimeout
        (fn []
          (.exit js/process exit-code))

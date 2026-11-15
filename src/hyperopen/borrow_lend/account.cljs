@@ -95,17 +95,6 @@
            :collateral collateral
            :liquidation-prices (model/liquidation-prices collateral debt))))
 
-(defn total-supplied-usd
-  "Everything the account has supplied (stablecoins and collateral) at oracle
-  prices. This is the portfolio's Earn balance."
-  [state]
-  (let [by-token (reserves-by-token state)]
-    (reduce (fn [acc {:keys [token supplied]}]
-              (let [px (get-in by-token [token :oracle-px])]
-                (if (and (finite? supplied) (finite? px)) (+ acc (* supplied px)) acc)))
-            0
-            (positions state))))
-
 (defn net-earn-usd
   "The account's lending value for account totals: supplied plus collateral,
   minus borrowed, at oracle prices. Supplying moves funds out of the spot
@@ -141,8 +130,6 @@
       :withdraw (when (finite? supplied)
                   (let [ltv (:ltv reserve)
                         pool-cap (min supplied (or (:available reserve) supplied))]
-                    ;; Withdrawing collateral may not push the borrow above
-                    ;; the remaining limit.
                     (if (and (finite? ltv) (pos? ltv) (finite? px) (pos? px))
                       (let [{:keys [available-to-borrow-usd borrowed-usd]} (health state)]
                         (if (pos? borrowed-usd)

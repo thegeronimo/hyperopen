@@ -17,8 +17,6 @@
         risk-kind (get-in draft [:risk-model :kind])]
     (controls/disclosure-panel
      "portfolio-optimizer-return-risk-panel"
-     ;; The collapsed header carries BOTH live choices ("Historical mean ·
-     ;; Stabilized covariance"), so the model policy is scannable without opening.
      (controls/disclosure-heading
       "Return / Risk Model"
       (str (get optimizer-view-model/return-model-display-names

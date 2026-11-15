@@ -15,8 +15,6 @@
                                    :metadata {:dirty? false}}}}})
 
 (deftest switch-objective-and-run-saves-objective-and-emits-run-effects-test
-  ;; `exists?` keeps this a compile-clean assertion failure until the action
-  ;; is defined; the behavioral assertions run once it exists.
   (is (exists? actions/switch-portfolio-optimizer-objective-and-run)
       "actions/switch-portfolio-optimizer-objective-and-run is not defined yet")
   (when (exists? actions/switch-portfolio-optimizer-objective-and-run)

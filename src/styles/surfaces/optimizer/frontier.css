@@ -28,8 +28,6 @@
     background-color: var(--optimizer-surface);
   }
 
-  /* The frontier toolbar checkbox uses the shared .optimizer-checkbox (base.css). */
-
   .portfolio-optimizer .portfolio-frontier-marker {
     outline: none;
   }

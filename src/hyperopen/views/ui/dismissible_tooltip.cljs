@@ -62,7 +62,6 @@
     (stop-listening! node)
     (let [listener (fn [key-event]
                      (cond
-                       ;; The group left the page mid-hover (no mouseleave).
                        (not (.-isConnected node)) (stop-listening! node)
                        (escape? key-event) (dismiss! node)))]
       (aset node listener-property listener)
@@ -72,7 +71,6 @@
   [event]
   (let [node (.-currentTarget event)]
     (stop-listening! node)
-    ;; A tooltip dismissed while focused stays dismissed until focus moves.
     (when-not (focus-inside? node)
       (restore! node))))
 
@@ -95,4 +93,3 @@
         :mouseleave on-mouseleave!
         :focusin on-focusin!
         :focusout on-focusout!}})
-

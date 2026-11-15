@@ -10,8 +10,6 @@
             [hyperopen.views.ui.dialog-focus :as dialog-focus]))
 
 (def ^:private focus-on-render
-  ;; Focus moves into the sheet on open, Tab stays inside it, and focus goes
-  ;; back to the button that opened it on close.
   (dialog-focus/dialog-focus-on-render
    {:restore-selector "[data-role='portfolio-optimizer-vault-funding-cta'], [data-role='portfolio-optimizer-tear-sheet-card-fund']"}))
 
@@ -112,8 +110,6 @@
                         (when (= :skipped (:status row)) ["opacity-60"]))
            :data-role "portfolio-optimizer-vault-funding-row"
            :data-address address}
-     ;; The sheet mounts outside the optimizer page's scope, so the shared
-     ;; .optimizer-checkbox style needs its own scope here.
      [:span {:class ["portfolio-optimizer" "flex"]}
       [:input {:type "checkbox"
                :checked (not= :skipped (:status row))
@@ -122,9 +118,6 @@
                :data-role "portfolio-optimizer-vault-funding-include"
                :on {:change (field :skip address)}}]]
      [:span {:class ["truncate" "text-trading-text"]} label]
-     ;; Current → After shows the change this plan makes; the target is on
-     ;; the split cards, and After turns amber (with the target on hover)
-     ;; only when the plan cannot reach it.
      [:span {:class ["num" "text-right" "text-trading-muted"] :data-role "portfolio-optimizer-vault-funding-held"} (if (pos? (or held 0)) (usd held) "—")]
      [:span {:class ["num" "text-right" "text-trading-muted"] :data-role "portfolio-optimizer-vault-funding-current"}
       (if (and (pos? held-total) (pos? (or held 0))) (pct (/ held held-total)) "—")]
@@ -159,8 +152,6 @@
 (defn- checkbox
   [{:keys [checked? disabled? on title sub data-role]}]
   [:label {:class (into ["flex" "min-h-11" "cursor-pointer" "items-start" "gap-3"] (when disabled? ["opacity-50"]))}
-   ;; The sheet mounts outside the optimizer page's scope, so the shared
-   ;; .optimizer-checkbox style needs its own scope here.
    [:span {:class ["portfolio-optimizer" "flex" "flex-none" "pt-0.5"]}
     [:input {:type "checkbox"
              :checked (boolean checked?)
@@ -287,8 +278,6 @@
              [:div {:class ["grid" plan-grid "gap-3" "border-b"
                             "border-base-300" "px-5" "py-2.5" "text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.14em]"
                             "text-trading-muted"]}
-              ;; Every header cell takes a grid slot (an sr-only cell would
-              ;; drop out of the grid and shift the headers one column left).
               [:span [:span {:class ["sr-only"]} "Include"]] [:span "Vault"]
               [:span {:class ["whitespace-nowrap" "text-right"]} "You hold"]
               [:span {:class ["text-right"]} "Current"] [:span {:class ["text-right"]} "After"]
@@ -413,8 +402,6 @@
             funding (model/funding-model state result (.now js/Date))
             current (model/run-state state)
             screen (if (and current (= :progress (:screen opts))) :progress (:screen opts))]
-        ;; Above the app's fixed footer (z-170) like the funding modal, with
-        ;; bottom room so the footer never covers the sheet's buttons.
         [:div {:class ["fixed" "inset-0" "z-[262]" "flex" "items-start" "justify-center" "overflow-y-auto" "bg-black/60"
                        "px-4" "pt-8" "pb-[calc(5rem+env(safe-area-inset-bottom))]"]
                :data-role "portfolio-optimizer-vault-funding-sheet"}

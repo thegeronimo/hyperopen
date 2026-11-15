@@ -4,23 +4,6 @@
   [warning]
   (some-> (:code warning) name))
 
-(defn draft-state-badge
-  [draft]
-  [:p {:class ["mt-3"
-               "rounded-md"
-               "border"
-               "border-base-300"
-               "bg-base-200/40"
-               "px-3"
-               "py-2"
-               "text-xs"
-               "font-semibold"
-               "text-trading-muted"]
-       :data-role "portfolio-optimizer-draft-state"}
-   (if (get-in draft [:metadata :dirty?])
-     "Draft has unsaved changes"
-     "Draft clean")])
-
 (defn- run-status-label
   [status]
   (case status

@@ -134,9 +134,6 @@
 
 (defn- derived-portfolio-summary
   [all-time-summary snapshot-range]
-  ;; The custom end bound is applied by clipping the source rows, so
-  ;; `end-time-ms` below already reads the custom window end and the existing
-  ;; cutoff machinery handles the start exactly as it does for a preset.
   (let [account-rows (custom-range/clip-pairs-to-end
                       (normalized-history-rows (:accountValueHistory all-time-summary))
                       snapshot-range)
@@ -150,9 +147,6 @@
       (let [account-window (history-window-rows account-rows cutoff-ms)
             pnl-window (history-window-rows pnl-rows cutoff-ms)
             pnl-window* (rebase-history-rows pnl-window)]
-        ;; A CUSTOM window with no samples must still resolve to an entry: nil
-        ;; sends `portfolio-summary` down its fallback chain and the vault would
-        ;; plot its last 30 days under a custom label. Empty is honest.
         (when (or (custom-range/active? snapshot-range)
                   (seq account-window)
                   (seq pnl-window*))

@@ -23,7 +23,6 @@
   (opt-format/format-usdc value {:maximum-fraction-digits 0}))
 
 (deftest panel-hidden-below-the-leverage-gate-test
-  ;; Base fixture: 0.9x gross at 28% σ — no leverage story to tell.
   (is (nil? (panel/leverage-impact-panel (fixtures/sample-solved-result)))))
 
 (deftest levered-target-gets-modeled-dollar-outcomes-test
@@ -38,7 +37,6 @@
     (is (some? node))
     (is (contains? strings "One-year modeled leverage impact"))
     (is (contains? strings "Modeled"))
-    ;; Median rows carry the modeled dollars for both books (capital $100k).
     (is (contains? strings
                    (whole-usd (* 100000 (:median-ending-factor target-outcome)))))
     (is (contains? strings
@@ -47,24 +45,16 @@
                              "portfolio-optimizer-leverage-impact-median-current")))
     (is (some? (node-by-role node
                              "portfolio-optimizer-leverage-impact-median-target")))
-    ;; The mockup's tile row: mean, 5th percentile, and both loss odds.
     (is (contains? (strings-of (node-by-role node
                                              "portfolio-optimizer-leverage-impact-mean"))
                    (whole-usd (* 100000 (:mean-ending-factor target-outcome)))))
     (is (some? (node-by-role node "portfolio-optimizer-leverage-impact-p5")))
     (is (some? (node-by-role node "portfolio-optimizer-leverage-impact-terminal")))
-    ;; The honesty fine print is always on the panel.
     (is (some #(str/includes? % "Lognormal model") (collect-strings node)))
     (is (some #(str/includes? % "Modeled, not a guarantee") (collect-strings node)))
-    ;; The drawdown odds are framed as a floor on ruin risk; the only mention
-    ;; of "liquidation probability" is the honest disclaimer that we do NOT
-    ;; present one (checked precisely in the tips test below).
     (is (some #(str/includes? % "floor on ruin risk") (collect-strings node)))))
 
 (deftest tiles-carry-current-book-comparators-test
-  ;; Each stat tile frames the target number against the current book: the
-  ;; domain outcome-model already computes every current-book statistic, so
-  ;; the tiles show "Now X" — the delta the decision actually hinges on.
   (let [node (panel/leverage-impact-panel
               (fixtures/sample-solved-result
                {:diagnostics {:gross-exposure 2.5}}))
@@ -103,7 +93,6 @@
   (let [shortfall-node (panel/leverage-impact-panel
                         (fixtures/sample-solved-result
                          {:diagnostics {:gross-exposure 2.5}
-                          ;; High σ drags the target median below current.
                           :volatility 1.4}))
         gain-node (panel/leverage-impact-panel
                    (fixtures/sample-solved-result
@@ -136,7 +125,6 @@
     (is (some? (node-by-role dist "portfolio-optimizer-leverage-impact-dist-p5")))
     (is (some? (node-by-role dist "portfolio-optimizer-leverage-impact-dist-median")))
     (is (some? (node-by-role dist "portfolio-optimizer-leverage-impact-dist-mean")))
-    ;; Marker labels use the compact dollar form, computed from the model.
     (doseq [factor [(:p5-ending-factor target-outcome)
                     (:median-ending-factor target-outcome)
                     (:mean-ending-factor target-outcome)]]
@@ -146,12 +134,9 @@
     (is (contains? dist-strings "Mean"))
     (is (contains? dist-strings "Lower"))
     (is (contains? dist-strings "Higher"))
-    ;; The log-scaled axis is disclosed, not silent.
     (is (some #(str/includes? % "log-scaled") (collect-strings node)))))
 
 (deftest distribution-skipped-for-a-degenerate-zero-sigma-model-test
-  ;; A zero-volatility target can still pass the gross gate; the deterministic
-  ;; outcome has no distribution to draw.
   (let [node (panel/leverage-impact-panel
               (fixtures/sample-solved-result
                {:diagnostics {:gross-exposure 2.5}
@@ -177,7 +162,6 @@
                             "portfolio-optimizer-leverage-impact-median-shortfall")))
     (is (some #(str/includes? % "multiples of starting equity")
               (collect-strings node)))
-    ;; Distribution markers fall back to multiples too.
     (is (contains? (strings-of (node-by-role node
                                              "portfolio-optimizer-leverage-impact-distribution"))
                    (opt-format/format-multiple
@@ -191,7 +175,6 @@
                 :expected-return 18.6606}))
         touch (node-by-role node "portfolio-optimizer-leverage-impact-touch")
         terminal (node-by-role node "portfolio-optimizer-leverage-impact-terminal")]
-    ;; From the domain tests: ~87.8% terminal, ~98.2% touch at this μ/σ.
     (is (contains? (strings-of terminal) "87.8%"))
     (is (contains? (strings-of touch) "98.2%"))))
 
@@ -207,8 +190,6 @@
   (let [node (panel/leverage-impact-panel
               (fixtures/sample-solved-result
                {:diagnostics {:gross-exposure 2.5}}))]
-    ;; Each tip is a role=tooltip card wired to a focusable trigger by
-    ;; aria-describedby — hover AND keyboard reach it.
     (doseq [tip-id ["portfolio-optimizer-leverage-impact-title-tip"
                     "portfolio-optimizer-leverage-impact-modeled-tip"
                     "portfolio-optimizer-leverage-impact-median-tip"
@@ -224,8 +205,6 @@
         (is (some? tip) (str "missing tip " tip-id))
         (is (= "tooltip" (node-attr tip :role)))
         (is (= tip-id (node-attr tip :id)))
-        ;; A focusable trigger describes itself by this tip's id (hover AND
-        ;; keyboard reach it).
         (is (some? trigger) (str "no aria-describedby trigger for " tip-id))
         (is (some? (node-attr trigger :tabindex))
             (str "trigger for " tip-id " is not keyboard-focusable"))))))
@@ -235,10 +214,8 @@
              (panel/leverage-impact-panel
               (fixtures/sample-solved-result {:diagnostics {:gross-exposure 2.5}}))
              "portfolio-optimizer-leverage-impact-median-tip")]
-    ;; The user's #1 concern: median must not be read as the average.
     (is (str/includes? tip "half the modeled outcomes finish above"))
     (is (str/includes? tip "not the average"))
-    ;; Anchors the $ so $408 is never contextless.
     (is (str/includes? tip (whole-usd 100000)))))
 
 (deftest ending-vs-touching-tips-are-distinct-and-honest-test
@@ -246,17 +223,12 @@
               (fixtures/sample-solved-result {:diagnostics {:gross-exposure 2.5}}))
         terminal (tooltip-text node "portfolio-optimizer-leverage-impact-terminal-tip")
         touch (tooltip-text node "portfolio-optimizer-leverage-impact-touch-tip")]
-    ;; Ending-down is an end-of-year metric; touching is path-dependent — the
-    ;; guide's key distinction.
     (is (str/includes? terminal "finishes the year"))
     (is (str/includes? touch "at any point in the year"))
-    ;; Touching stays honest: a floor on ruin risk, never a liquidation prob.
     (is (str/includes? touch "floor on ruin risk"))
     (is (str/includes? touch "not a liquidation probability"))))
 
 (deftest tips-never-claim-a-simulation-or-unmodeled-costs-test
-  ;; Our model is closed-form lognormal with no funding/execution/liquidation.
-  ;; The tips must not borrow the mockup's simulation/cost language.
   (let [copy (str/lower-case
               (str/join " "
                         (collect-strings
@@ -266,8 +238,6 @@
     (is (str/includes? copy "not a simulation"))
     (is (not (str/includes? copy "10,000")))
     (is (not (str/includes? copy "simulated paths")))
-    ;; The panel names funding/execution/liquidation only to say they are NOT
-    ;; modeled — never as computed cash costs.
     (is (str/includes? copy "not modeled"))))
 
 (deftest distribution-tip-discloses-the-log-axis-test
@@ -279,10 +249,6 @@
     (is (str/includes? tip "equal multiples, not equal dollars"))))
 
 (deftest distribution-markers-stay-finite-when-outcome-factors-underflow-test
-  ;; At the volatility a poisoned covariance produces, the modeled ending
-  ;; factors underflow to 0. (js/Math.log 0) is -Infinity, which used to land
-  ;; verbatim in the SVG :x1/:cx attributes as the string "-Infinity" — the
-  ;; downstream cause of the "$0 -> $0" cells seen on 2026-08-23.
   (let [result (fixtures/sample-solved-result
                 {:diagnostics {:gross-exposure 12}
                  :volatility 40.0

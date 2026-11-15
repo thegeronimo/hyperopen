@@ -178,8 +178,6 @@
             skipped-rows (filter #(= :skipped (:status %)) rows*)]
         {:plan (assoc plan
                       :kind :amend
-                      ;; Exactly one row is re-armed, so the plan is :ready — unless
-                      ;; blocked siblings ride along, which is the mixed state.
                       :status (if (seq blocked-rows) :partially-blocked :ready)
                       :summary (assoc (:summary plan)
                                       :ready-count (count ready-rows)

@@ -22,18 +22,13 @@
 
 (deftest transfer-max-amount-reads-named-dex-withdrawable-for-perps-to-spot-test
   (let [state (named-dex-state)]
-    ;; Default perps -> spot still reads the (zero) default clearinghouse state.
     (is (= 0 (availability/transfer-max-amount state {:to-perp? false})))
-    ;; Named DEX perps -> spot reads the xyz withdrawable, not the default state.
     (is (= 1923.97 (availability/transfer-max-amount state {:to-perp? false
                                                             :transfer-dex "xyz"})))
-    ;; Spot -> perps reads spot USDC regardless of dex.
     (is (= 78.22 (availability/transfer-max-amount state {:to-perp? true
                                                           :transfer-dex "xyz"})))))
 
 (deftest transfer-max-amount-pooled-named-dex-reads-default-perps-not-named-bucket-test
-  ;; Pooled accounts submit a named-DEX perps -> spot from the default perps DEX, so the
-  ;; max must read the default pooled balance, not the (here empty) named bucket.
   (let [state (-> (named-dex-state)
                   (assoc :account {:mode :classic :abstraction-raw "dexAbstraction"})
                   (assoc :perp-dex-clearinghouse {})
@@ -107,7 +102,6 @@
                                    :transfer-dex "xyz"}))))
 
 (deftest pooled-perps-collateral-classifies-dex-abstraction-and-unified-test
-  ;; Standard / manual accounts keep the siloed per-DEX `sendAsset` path.
   (is (false? (boolean (availability/pooled-perps-collateral? (named-dex-state)))))
   (is (false? (boolean (availability/pooled-perps-collateral?
                         (assoc (named-dex-state)
@@ -115,22 +109,14 @@
   (is (false? (boolean (availability/pooled-perps-collateral?
                         (assoc (named-dex-state)
                                :account {:mode :classic :abstraction-raw "default"})))))
-  ;; Deprecated DEX Abstraction folds into :classic but pools USDC.
   (is (true? (boolean (availability/pooled-perps-collateral?
                        (assoc (named-dex-state)
                               :account {:mode :classic :abstraction-raw "dexAbstraction"})))))
-  ;; Unified / portfolio-margin accounts are pooled via :mode.
   (is (true? (boolean (availability/pooled-perps-collateral?
                        (assoc (named-dex-state)
                               :account {:mode :unified :abstraction-raw "unifiedAccount"}))))))
 
 (deftest transfer-preview-collapses-pooled-named-dex-to-default-perp-send-asset-test
-  ;; Unified account: the exchange rejects a per-DEX `sendAsset`, so a named-DEX
-  ;; perps -> spot move collapses to the default perps DEX ("") and stays a
-  ;; `sendAsset` (sourceDex:""/destinationDex:"spot"). Matches the reporting
-  ;; account's live 2026 ledger.
-  ;; Pooled USDC lives in the default perps balance, so seed it nonzero: the pooled
-  ;; perps -> spot max now reads the default bucket (matching the collapsed sourceDex "").
   (let [state (-> (named-dex-state)
                   (assoc :account {:mode :unified :abstraction-raw "unifiedAccount"})
                   (assoc-in [:webdata2 :clearinghouseState]
@@ -149,7 +135,6 @@
                                     {:amount-input "100"
                                      :to-perp? false
                                      :transfer-dex "xyz"})))
-    ;; Spot -> perps on the same pooled account: sourceDex:"spot"/destinationDex:"".
     (is (= {:ok? true
             :request {:action {:type "sendAsset"
                                :destination "0x1234567890abcdef1234567890abcdef12345678"
@@ -164,10 +149,6 @@
                                      :transfer-dex "xyz"})))))
 
 (deftest transfer-preview-routes-pooled-default-modal-through-default-perp-send-asset-test
-  ;; Even without a named dex selected, a pooled account's default perps<->spot
-  ;; modal must use the default-perp `sendAsset` (not `usdClassTransfer`), since the
-  ;; exchange has moved these accounts off the class-transfer path. (Spot -> perps
-  ;; here, since the fixture's default perps withdrawable is 0.)
   (let [state (assoc (named-dex-state)
                      :account {:mode :classic :abstraction-raw "dexAbstraction"})]
     (is (= {:ok? true
@@ -183,11 +164,6 @@
                                      :to-perp? true})))))
 
 (deftest transfer-preview-pooled-dex-abstraction-empty-named-bucket-uses-default-perps-test
-  ;; dexAbstraction folds to :classic, so named rows are NOT hidden by the unified-row
-  ;; gating; `pooled-perps-collateral?` is still true. Its USDC pools in the default perps
-  ;; balance, and the named `xyz` bucket can be empty/missing. A `Perps (xyz) -> Spot` must
-  ;; build `sourceDex ""` AND validate against the default pooled balance, not the empty
-  ;; named bucket (which would otherwise fail with "No perps balance available").
   (let [state (-> (named-dex-state)
                   (assoc :account {:mode :classic :abstraction-raw "dexAbstraction"})
                   (assoc :perp-dex-clearinghouse {})
@@ -211,9 +187,6 @@
 (def ^:private subaccount-address "0xbce774ef2382a4eb9376ea6f20408b318b10b63e")
 
 (deftest transfer-preview-uses-selected-subaccount-source-for-named-dex-perps-to-spot-test
-  ;; The visible xyz balance belongs to a selected classic subaccount under a unified
-  ;; master. The sendAsset must source from that subaccount (fromSubAccount) and land
-  ;; in its own spot. Mirrors the subaccount's live 2026-05-28 ledger (reverse direction).
   (is (= {:ok? true
           :request {:action {:type "sendAsset"
                              :destination subaccount-address
@@ -246,11 +219,6 @@
                                    :transfer-from-subaccount subaccount-address}))))
 
 (deftest transfer-preview-uses-subaccount-source-for-default-perp-not-usd-class-transfer-test
-  ;; Regression: a selected classic subaccount's DEFAULT-perp USDC (no named dex) must
-  ;; still source from the subaccount via sendAsset(fromSubAccount). usdClassTransfer has
-  ;; no subaccount field and no posted vaultAddress, so it would move the signing owner's
-  ;; USDC instead. Perps -> spot needs a nonzero default-perp withdrawable to pass the max
-  ;; guard, so seed one on the (effective subaccount's) default clearinghouse.
   (let [state (assoc-in (named-dex-state) [:webdata2 :clearinghouseState]
                         {:withdrawable "500.0"
                          :marginSummary {:accountValue "500.0"
@@ -269,7 +237,6 @@
                                      :transfer-dex ""
                                      :transfer-destination-address subaccount-address
                                      :transfer-from-subaccount subaccount-address}))))
-  ;; Spot -> default perp on the same subaccount also routes through sendAsset.
   (is (= {:ok? true
           :request {:action {:type "sendAsset"
                              :destination subaccount-address

@@ -41,8 +41,6 @@
                    (done)))))))
 
 (deftest ledger-short-pages-do-not-end-the-read-test
-  ;; The venue's page size is not known: a page shorter than the assumed
-  ;; 2,000 rows is not taken as the end of the window.
   (async done
     (let [calls (atom [])
           venue (fn [body opts]

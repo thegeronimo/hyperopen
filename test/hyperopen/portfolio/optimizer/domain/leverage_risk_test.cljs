@@ -13,7 +13,6 @@
   (is (near? 0.95 (leverage-risk/normal-cdf 1.6448536269514722) 3e-7))
   (is (near? 0.1586553 (leverage-risk/normal-cdf -1) 3e-7))
   (is (near? 0.9772499 (leverage-risk/normal-cdf 2) 3e-7))
-  ;; Symmetry Φ(−x) = 1 − Φ(x) within the approximation's error budget.
   (doseq [x [0.3 0.75 1.2 2.5 4]]
     (is (near? 1
                (+ (leverage-risk/normal-cdf x)
@@ -22,7 +21,6 @@
   (is (nil? (leverage-risk/normal-cdf js/NaN))))
 
 (deftest moderate-book-outcomes-test
-  ;; μ = 10%, σ = 40%: ν = ln(1.1) − 0.08 = 0.0153102.
   (let [{:keys [log-drift log-sigma median-ending-factor p5-ending-factor
                 p95-ending-factor mean-ending-factor
                 prob-terminal-loss-half prob-touch-half-drawdown]}
@@ -33,18 +31,12 @@
     (is (near? 1.0154280 median-ending-factor 1e-5))
     (is (near? 0.5259088 p5-ending-factor 1e-5))
     (is (near? 1.9606021 p95-ending-factor 1e-5))
-    ;; Mean is EXACTLY 1+μ by construction — the model can never contradict
-    ;; the expected-return KPI.
     (is (near? 1.10 mean-ending-factor 1e-12))
     (is (near? 0.038273 prob-terminal-loss-half 5e-4))
     (is (near? 0.077751 prob-touch-half-drawdown 1e-3))
-    ;; Touch probability dominates terminal probability, always.
     (is (> prob-touch-half-drawdown prob-terminal-loss-half))))
 
 (deftest extreme-levered-book-outcomes-test
-  ;; The mockup-scale book: μ = 1866.06%, σ = 411.82% annualized.
-  ;; ν = ln(19.6606) − 8.47978 ≈ −5.50116: the median path is near-total loss
-  ;; even though the arithmetic mean is +1866%.
   (let [{:keys [median-ending-factor mean-ending-factor
                 prob-touch-half-drawdown prob-terminal-loss-half]}
         (leverage-risk/outcome-model {:expected-return 18.6606
@@ -96,8 +88,6 @@
         (str "expected nil for " (pr-str inputs)))))
 
 (deftest extreme-drift-cannot-produce-nan-test
-  ;; Strongly negative drift with small σ pushes the naive reflection term
-  ;; b^(2ν/σ²) toward overflow (∞·0 → NaN without the log-space guard).
   (doseq [inputs [{:expected-return -0.9999 :volatility 0.05}
                   {:expected-return -0.99 :volatility 0.01}
                   {:expected-return 50 :volatility 0.01}

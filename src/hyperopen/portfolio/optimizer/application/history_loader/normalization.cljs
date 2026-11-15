@@ -11,8 +11,6 @@
 
 (declare cumulative-percent-row->price-row)
 
-(def finite-number? coercion/finite-number?)
-
 (def parse-number coercion/parse-float-number)
 
 (defn parse-ms
@@ -147,10 +145,6 @@
                                                        :one-year
                                                        derived-one-year-summary)
         lane-candidate (sparse-lane-candidate all-time-summary)
-        ;; The derived one-year window keeps priority whenever it is itself
-        ;; lane-ready (1-2 year old vaults: unchanged behaviour). Otherwise the
-        ;; lane-ready deeper window goes first, ahead of the short direct
-        ;; windows that would leave the vault needing a proxy.
         derived-first? (or (nil? lane-candidate)
                            (and derived-one-year
                                 (qualifies-for-sparse-lane? derived-one-year)))]

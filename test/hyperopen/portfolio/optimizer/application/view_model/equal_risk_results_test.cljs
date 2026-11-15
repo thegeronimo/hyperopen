@@ -47,8 +47,6 @@
       (is (= ["perp:A2" "perp:A0" "perp:A1"]
              (mapv :instrument-id (:rows model))))))
   (testing "the cap still keeps the WORST deviations, then re-orders by share"
-    ;; 25 assets, target 4%: A0 (90%) is the largest deviation and must both
-    ;; survive the cap and display first (largest share).
     (let [shares (into [0.9] (repeat 24 (/ 0.1 24)))
           model (equal-risk-results/balance-model (result-with-shares shares))]
       (is (= equal-risk-results/display-row-cap (count (:rows model))))
@@ -76,9 +74,6 @@
       (is (= 12.5 (:deviation-pts (get by-id "perp:A1")))
           "-0.375 against a -0.5 target is +12.5 pts")))
   (testing "largest contributor is picked over ALL rows, not just the visible cap"
-    ;; 25 assets, target 4%: A0 holds the largest share (5%, deviation 1 pt)
-    ;; while every other row deviates by 2 pts — the cap drops A0, yet it
-    ;; must still be reported as the largest contributor.
     (let [shares (into [0.05] (repeat 24 0.02))
           model (equal-risk-results/balance-model (result-with-shares shares))]
       (is (not-any? #(= "perp:A0" (:instrument-id %)) (:rows model))
@@ -115,10 +110,6 @@
 (deftest balance-model-shift-mode-caps-by-shift-and-reports-movers-test
   (testing "the cap keeps the largest |shift| rows and the remainder reports
             the largest hidden |shift|"
-    ;; 32 assets at the exact 1/32 = 3.125% target (binary-exact values so
-    ;; equality assertions carry no float noise). A31 moved the most
-    ;; (current 53.125%), the rest each shed 1.5625 pts — the big mover must
-    ;; survive the cap even though every deviation is zero.
     (let [n 32
           shares (vec (repeat n 0.03125))
           current (assoc (vec (repeat n 0.046875)) 31 0.53125)

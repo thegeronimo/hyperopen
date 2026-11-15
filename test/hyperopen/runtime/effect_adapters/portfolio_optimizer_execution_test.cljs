@@ -74,7 +74,6 @@
                      (is (= false
                             (get-in @store
                                     [:portfolio :optimizer :execution-modal :submitting?])))
-                     ;; A finished run announces its outcome via the global aria-live toast.
                      (is (= :success (get-in @store [:ui :toasts 0 :kind])))
                      (is (= "Execution complete" (get-in @store [:ui :toasts 0 :headline])))
                      (is (= [[store nil [[:actions/load-user-data address]
@@ -84,8 +83,6 @@
             (.catch (async-support/unexpected-error done)))))))
 
 (deftest execute-portfolio-optimizer-plan-effect-records-deciphered-rejection-error-test
-  ;; A hard exchange rejection (e.g. below the $10 minimum) must land on the row as the human
-  ;; error string for the Detail column — never the raw response map.
   (async done
     (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           ticks (atom [1000 1100])
@@ -114,10 +111,8 @@
             (.then (fn [ledger]
                      (let [row (get-in ledger [:rows 0])]
                        (is (= :failed (:status row)))
-                       ;; the Detail message is the deciphered exchange error, not a pr-str'd map
                        (is (= "Order must have minimum value of $10. asset=110023"
                               (get-in row [:error :message])))
-                       ;; the full response is still retained on the row for audit
                        (is (map? (:response row))))
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
@@ -128,9 +123,6 @@
        (< (js/Math.abs (- expected actual)) 0.0000001)))
 
 (deftest execute-portfolio-optimizer-plan-effect-records-realized-slippage-from-fill-test
-  ;; A filled order response carries an avgPx; the effect parses it and stamps realized
-  ;; slippage measured against the row's :price (the same reference the estimate used).
-  ;; buy @ ref 100, fill 101 -> 100 bp; notional 25 -> $0.25.
   (async done
     (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           ticks (atom [1000 1100])
@@ -196,9 +188,6 @@
                     :reduce-only? false}}]})
 
 (deftest execute-portfolio-optimizer-plan-effect-reprices-crossed-post-only-and-rests-test
-  ;; A passive (post-only) order can be rejected for crossing when the book moves between the plan
-  ;; snapshot and submission. The effect must reprice to the live touch carried in the rejection
-  ;; bbo and resubmit, so the order rests instead of hard-failing.
   (async done
     (let [submitted (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -225,11 +214,9 @@
                       (swap! submitted conj action)
                       (js/Promise.resolve
                        (if (= 1 (count @submitted))
-                         ;; first attempt crosses -> Hyperliquid rejects, reporting the live bbo
                          {:status "ok"
                           :response {:type "order"
                                      :data {:statuses [{:error "Post only order would have immediately matched, bbo was 0.004815@0.004818. asset=197"}]}}}
-                         ;; repriced resubmit rests on the book
                          {:status "ok"
                           :response {:data {:statuses [{:resting {:oid 42}}]}}})))
                     portfolio-optimizer-adapters/*dispatch!*
@@ -239,19 +226,14 @@
              store
              passive-ready-plan)
             (.then (fn [ledger]
-                     ;; retried exactly once; the resubmit was repriced to the rejection's bid
                      (is (= 2 (count @submitted)))
                      (is (= "0.004815" (get-in (second @submitted) [:orders 0 :p])))
-                     ;; the repriced order rests (open), not failed
                      (is (= :resting (get-in ledger [:rows 0 :status])))
                      (is (= :resting (:status ledger)))
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
 
 (deftest execute-portfolio-optimizer-plan-effect-marks-resting-order-not-filled-test
-  ;; A passive limit order that does not cross returns HL :resting (no :filled). The effect must
-  ;; record the row as :resting (open on the book) and the ledger as :resting — NOT :submitted /
-  ;; :executed — while still refreshing user data so the new open order surfaces.
   (async done
     (let [dispatches (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -291,7 +273,6 @@
                      (is (= :resting (:status ledger)))
                      (is (= :resting
                             (get-in @store [:portfolio :optimizer :execution :status])))
-                     ;; a resting placement still pulls user data so the open order shows up
                      (is (= [[store nil [[:actions/load-user-data address]
                                          [:actions/refresh-order-history]]]]
                             @dispatches))
@@ -354,9 +335,6 @@
             (.catch (async-support/unexpected-error done)))))))
 
 (deftest execute-portfolio-optimizer-plan-effect-executes-when-only-blocked-rows-remain-test
-  ;; A blocked row is a pre-execution EXCLUSION (below the $10 minimum / unsupported), not an
-  ;; exchange rejection. A run whose sendable order filled and whose only non-sent rows are
-  ;; blocked is :executed, NOT a halted :executed.
   (async done
     (let [address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           plan (assoc ready-plan
@@ -487,13 +465,7 @@
                        (done))))
             (.catch (async-support/unexpected-error done)))))))
 
-
 (deftest execute-portfolio-optimizer-plan-effect-refreshes-open-orders-when-resting-test
-  ;; A resting placement adds an open order the STREAMS never cover for named
-  ;; (HIP-3) dexes — only a forced per-dex frontendOpenOrders refresh makes the
-  ;; new order visible to the merged book (amendable + reconcilable). The effect
-  ;; must fire that refresh exactly when the ledger carries a :resting row, and
-  ;; must not fire it for a purely filled run (nothing new rests on the book).
   (async done
     (let [refreshes (atom 0)
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

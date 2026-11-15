@@ -139,9 +139,6 @@
 (defn- fetch-progress-callback
   [store run-id]
   (let [source-state (atom {})
-        ;; The fetch step spans sequential phases (selected universe, then
-        ;; current portfolio, then legacy fallback); keep the bar monotonic
-        ;; across their restarts.
         max-percent (atom 0)
         monotonic-percent! (fn [percent]
                              (swap! max-percent max (percent-value percent)))]
@@ -162,9 +159,6 @@
 
 (defn- wait-for-history-load-idle!
   [store {:keys [poll-ms timeout-ms]}]
-  ;; Callers thread these through from env and may pass present-but-nil
-  ;; values, which bypass :or destructuring defaults; in JS (> elapsed nil)
-  ;; is elapsed > 0, turning a nil timeout into an instant failure.
   (let [poll-ms (or poll-ms 50)
         timeout-ms (or timeout-ms 30000)
         started-at-ms (.now js/Date)]

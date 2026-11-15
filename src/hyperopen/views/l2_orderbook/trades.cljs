@@ -26,7 +26,6 @@
 
 (defn- trade-price-label [trade cents?]
   (if cents?
-    ;; Every digit the trade printed survives: 0.22500 -> 22.500, 0.000123 -> 0.0123.
     (price-unit/book-cents-text (:price trade)
                                 (price-unit/raw-cents-decimals (or (:price-raw trade) (:price trade))))
     (format-price (:price trade) (:price-raw trade))))

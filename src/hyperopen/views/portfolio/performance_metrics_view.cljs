@@ -217,8 +217,6 @@
           "Calculating performance metrics"]
          [:span {:class ["text-xs" "leading-5" "text-trading-text-secondary"]}
           "Returns stay visible while the remaining analytics finish in the background."]]])
-     ;; Controls sit in their own bar above the table, so the header row below
-     ;; holds nothing but column labels and every value lines up under one.
      (when (or (map? scope-selector) (map? time-range-selector))
        [:div {:class ["relative" "z-20" "flex" "flex-wrap" "items-center" "gap-x-5" "gap-y-1.5"
                       "border-b" "border-base-300" "bg-base-200" "px-4" "py-2"]
@@ -235,9 +233,6 @@
                                            :actions/toggle-portfolio-performance-metrics-time-range-dropdown
                                            :actions/select-portfolio-summary-time-range
                                            "portfolio-performance-metrics-time-range-selector")
-           ;; The numbers below stay on screen while the new window is computed.
-           ;; This chip says they still belong to the old one. Always rendered
-           ;; (it hides itself) so the bar never reflows when it toggles.
            [:span {:class (into ["ho-spinner" "ho-spinner-sm" "text-trading-text-secondary"]
                                 (when-not stale? ["invisible"]))
                    :aria-hidden true}]
@@ -281,10 +276,6 @@
           "Perps"
           (or portfolio-label "Portfolio"))]]
       [:div {:class ["space-y-2.5" "px-4" "py-3"]}
-       ;; The tearsheet edits the same window as the chart, so Custom... here
-       ;; reveals a strip HERE rather than one on a card the trader may have
-       ;; scrolled past. Always rendered (it hides itself) to keep it out of the
-       ;; nil-hole shape that freezes Replicant's renderer.
        (chart-range-strip/range-strip
         {:model range-strip
          :label "Portfolio metrics"

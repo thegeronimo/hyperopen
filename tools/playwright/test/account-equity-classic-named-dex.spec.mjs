@@ -2,17 +2,6 @@ import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import { hyperEvmFixture } from "../support/hyperevm_fixtures.mjs";
 
-// A classic account can carry its entire book on a HIP-3 dex, leaving the base
-// dex's clearinghouse state zeroed. Hyperliquid folds every dex into one
-// synthetic state before deriving anything, so its panel reports the whole
-// account. Reading `[:webdata2 :clearinghouseState]` alone -- the base dex --
-// put four confident zeros on screen over a six-figure book: $0.00 Balance,
-// $0.00 Maintenance Margin, 0.00% Cross Margin Ratio and 0.00x Cross Account
-// Leverage, which hides real liquidation risk rather than merely being wrong.
-//
-// The figures below are the shape of `0xb9aebb46919bccbf210537a1f2173690d9ee7af7`
-// as of 2026-08-21. It is seeded rather than spectated so this spec keeps
-// passing after that wallet closes its positions.
 const EQUITY_PANEL = "[data-parity-id='account-equity']";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
 const INFO_URL = "https://api.hyperliquid.xyz/info";
@@ -87,9 +76,6 @@ function namedDexClearinghouseState() {
   };
 }
 
-// The assertions below use a complete seed. Route every initial /info request
-// deterministically so an account bootstrap response cannot arrive after sync
-// is detached and replace a seeded value mid-viewport loop.
 async function stubSeededAccountInfoRequests(page, address) {
   await page.route(INFO_URL, async (route) => {
     const payload = JSON.parse(route.request().postData() || "{}");
@@ -126,9 +112,6 @@ async function stubSeededAccountInfoRequests(page, address) {
   });
 }
 
-// Spectate gives the state an effective account -- account-derived surfaces
-// throw from the lifecycle invariants without one -- and the live sync is then
-// detached so the seeded snapshot is not overwritten by the real account.
 async function freezeAccountSurfaceSync(page, address) {
   await page.evaluate((nextAddress) => {
     const store = globalThis.hyperopen?.system?.store;
@@ -220,9 +203,6 @@ async function seedClassicNamedDexAccountState(page, figures) {
       opts
     );
     const nextVaults = c.js__GT_clj(f.vaults, opts);
-    // The dex's collateral token is read from its perp markets, so the market
-    // catalogue has to know that `xyz` settles in USDC. Assoc'd into the live
-    // catalogue rather than replacing it, so every other surface keeps working.
     const xyzMarket = c.js__GT_clj(
       {
         key: "perp:xyz:AAPL",
@@ -268,9 +248,6 @@ async function seedClassicNamedDexAccountState(page, figures) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-// The compact desktop card includes its actual funding controls only for a
-// connected owner. Spectate intentionally suppresses those controls, which
-// gives a false amount of room below the Account Equity summary.
 async function seedConnectedClassicOwner(page, address) {
   await page.evaluate((ownerAddress) => {
     const c = globalThis.cljs?.core;
@@ -407,9 +384,6 @@ test.describe("classic account equity with the whole book on a named dex", () =>
       hyperEvmFixture: hyperEvmFixture({ owner: SPECTATE_ADDRESS, holdings: { USDC: HYPEREVM_USD } })
     });
     await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
-    // Let the real spectate fetches land before detaching sync, otherwise a
-    // late response silently overwrites the seed and the panel renders the
-    // real account instead.
     await waitForIdle(page, { quietMs: 800, timeoutMs: 12_000, pollMs: 50 });
     await freezeAccountSurfaceSync(page, SPECTATE_ADDRESS);
     await seedClassicNamedDexAccountState(page, {
@@ -437,24 +411,17 @@ test.describe("classic account equity with the whole book on a named dex", () =>
 
     const text = (await panel.innerText()).replace(/\s+/g, " ");
 
-    // Perps is the aggregate account value; Balance is that net of unrealized
-    // PNL, which is what our own tooltip already promises.
     expect(text).toContain("$155,901.46");
     expect(text).toContain("$149,157.81");
     expect(text).toContain("+$6,743.65");
-    // Account Value retains its existing Spot + Perps semantics. The grouped
-    // total also includes account-owned, fully priced HyperEVM assets:
-    // 100 + 155,901.46 + 12,500 + 56,538.39.
     expect(text).toContain("$225,039.85");
     expect(text).toContain("$12,500.00");
     expect(text).toContain("$56,538.39");
     expect(text).toContain("$100.00");
-    // 1,144.15 / 155,901.46 and 45,765.92 / 155,901.46.
     expect(text).toContain("$1,144.15");
     expect(text).toContain("0.73%");
     expect(text).toContain("0.29x");
 
-    // The regression itself: none of these rows may read as an empty account.
     expect(text).not.toContain("$0.00");
     expect(text).not.toContain("0.00%");
     expect(text).not.toContain("0.00x");
@@ -468,8 +435,6 @@ test.describe("classic account equity with the whole book on a named dex", () =>
       Vaults: "$12,500.00",
       HyperEVM: "$56,538.39"
     });
-    // The old two-part figure remains available to callers that use named-dex
-    // rows; the visible total reconciles all four owned components.
     expect(displayCents(rows["Total Account Value"])).toBe(
       displayCents(rows.Spot) +
         displayCents(rows.Perps) +
@@ -487,8 +452,6 @@ test.describe("classic account equity with the whole book on a named dex", () =>
       await expectHyperEvmMoveTarget(page, viewport);
     }
 
-    // The compact Account Equity line remains operable without a pointer and
-    // returns focus to its actual opener after its transfer modal closes.
     const hyperEvmMove = page.locator("[data-role='account-equity-hyperevm-move']").filter({ visible: true }).first();
     await hyperEvmMove.focus();
     await expect(hyperEvmMove).toBeFocused();
@@ -622,9 +585,6 @@ test.describe("classic account equity with the whole book on a named dex", () =>
     await page.setViewportSize({ width: 1600, height: 900 });
     await stubSeededAccountInfoRequests(page, SPECTATE_ADDRESS);
     await visitRoute(page, "/trade", {
-      // JOFF has a readable on-chain balance but no spot market in this
-      // fixture. It is a fully completed read with an explicitly unpriced
-      // holding, not a missing RPC response.
       hyperEvmFixture: hyperEvmFixture({
         owner: SPECTATE_ADDRESS,
         holdings: { JOFF: "1" },

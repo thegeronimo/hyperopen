@@ -257,8 +257,6 @@
                             (fn [owner flow-id changes]
                               (swap! log conj [:record changes])
                               (swap! records conj changes)
-                              ;; A store watcher that throws on the write
-                              ;; after a confirmed receipt.
                               (when (and throw-on-confirmed-record?
                                          (false? (:waiting-receipt? changes)))
                                 (throw (js/Error. "store watcher threw")))

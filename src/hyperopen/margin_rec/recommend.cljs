@@ -49,7 +49,6 @@
 (def ^:private block-len 24)
 (def ^:private stress-block-probability 0.15)
 (def ^:private ewma-lambda
-  ;; 3-day half-life on hourly bars.
   (js/Math.exp (/ (js/Math.log 0.5) 72)))
 (def ^:private rho-min 0.75)
 (def ^:private rho-max 2.5)
@@ -85,8 +84,6 @@
   (-> value (max lo) (min hi)))
 
 (defn- seed-for
-  ;; The simulated distribution does not depend on the risk mode (that only
-  ;; selects a quantile in finalize), so the seed must not either.
   [{:keys [coin]} q horizon-bars n-bars last-t]
   (hash [coin (pos? q) horizon-bars n-bars last-t]))
 
@@ -199,7 +196,6 @@
 (defn- adverse-funding-rate
   [q funding-rate-hourly]
   (let [rate (or funding-rate-hourly 0)]
-    ;; Longs pay when funding is positive; shorts pay when negative.
     (if (pos? q)
       (max rate 0)
       (max (- rate) 0))))
@@ -344,16 +340,12 @@
               :side (if (pos? q) :long :short)}
       :sigma {:hourly sigma-hourly
               :daily sigma-daily
-              ;; 365-day calendar convention, same basis as the optimizer's
-              ;; volatility card (sqrt(24 * 365) hours).
               :annualized (when (finite-pos? sigma-hourly)
                             (* sigma-hourly (js/Math.sqrt 8760)))
               :distance-frac distance-frac
               :buffer-sigmas buffer-sigmas}
       :p-now p-now
       :paths-count (alength sorted-required)
-      ;; The curve (p_liq vs collateral) is alpha-independent; only the
-      ;; Recommended marker (at e-rec) moves per mode.
       :curve (probability-curve sorted-required
                                 (get-in active [:recommended :equity]))
       :risk-level (risk-level p-now)

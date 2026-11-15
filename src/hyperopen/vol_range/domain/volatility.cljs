@@ -26,10 +26,6 @@
      :last-day-ms (- current day-ms)
      :current-day-ms current}))
 
-;; ---------------------------------------------------------------------------
-;; Candle normalization
-;; ---------------------------------------------------------------------------
-
 (defn- field [row k]
   (let [v (get row k)]
     (if (nil? v) (get row (name k)) v)))
@@ -104,10 +100,6 @@
         {:status :ok
          :days picked
          :window {:first-day-ms first-day-ms :last-day-ms last-day-ms}}))))
-
-;; ---------------------------------------------------------------------------
-;; Estimators
-;; ---------------------------------------------------------------------------
 
 (defn- dec->number [d] (js/Number (precision/decimal->string d)))
 

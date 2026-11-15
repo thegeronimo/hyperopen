@@ -81,9 +81,6 @@
   [state draft-leverage max-leverage]
   (when (voice/degen? state)
     (when-some [tier (leverage-tier draft-leverage)]
-      ;; Render-side threshold tick (prototype's riskUp): idempotent per
-      ;; tier level, so re-renders are silent and only crossing a tier
-      ;; while dragging speaks. The degen voice implies sound on.
       (sfx/leverage-tick-on-change! :leverage (:level tier) true)
       {:slider-color (tier-slider-color tier)
        :value-class (second (:classes tier))
@@ -122,8 +119,6 @@
       (when (pos? eff)
         (let [tier (leverage-tier eff)
               all-in? (>= (js/parseFloat size-percent) 100)]
-          ;; Degen voice implies sound on; the size slider only renders
-          ;; this feedback under degen.
           (sfx/leverage-tick-on-change! :order-size (:level tier) true)
           {:slider-color (tier-slider-color tier)
            :message [:div {:class (into ["rounded-md" "border" "border-dashed"

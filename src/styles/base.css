@@ -26,17 +26,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom CSS for trading interface */
 @layer base {
-  /*
-   * Typography tokens:
-   * - UI text defaults to Inter Variable (`data-ui-font="inter"` on <html>),
-   *   matching Hyperliquid's UI; the release preloads InterVariable.woff2.
-   *   The system stack is the fallback while it loads (font-display: swap)
-   *   and the `data-ui-font="system"` preference.
-   * - Optional fonts should only load when the active UI path actually uses them.
-   * - Monospace is reserved for dense numeric views only.
-   */
   :root,
   :root[data-ui-font="system"] {
     --font-ui-system: system-ui, -apple-system, "Segoe UI", Roboto,
@@ -45,17 +35,9 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
       "Liberation Mono", "Courier New", monospace;
     --font-toast-mono: "JetBrains Mono", var(--font-mono);
-    /* Handwritten marker type; consumed only by degen decor (chart doodles,
-       speech-bubble copy). */
     --font-marker: "Caveat", "Bradley Hand", "Segoe Print", "Comic Sans MS",
       "Chalkboard SE", cursive;
     --staking-action-popover-bg: rgb(var(--ho-bg, 15 26 31));
-    --o-bg: #051a1c;
-    --o-bg-grad-from: #072527;
-    --o-bg-grad-to: #031012;
-    --o-panel: rgba(10, 32, 34, 0.55);
-    --o-panel-solid: #0a2022;
-    --o-panel-hi: rgba(18, 48, 50, 0.75);
     --o-border: rgba(70, 150, 150, 0.15);
     --o-border-hi: rgba(90, 190, 190, 0.28);
     --o-text: #c4dcdc;
@@ -65,7 +47,6 @@
     --o-teal: #2dd4bf;
     --o-teal-soft: rgba(45, 212, 191, 0.14);
     --o-buy: #5fd88a;
-    --o-buy-soft: rgba(95, 216, 138, 0.12);
     --o-sell: #ef6a6a;
     --o-sell-soft: rgba(239, 106, 106, 0.12);
   }
@@ -83,7 +64,6 @@
     font-family: var(--font-ui);
   }
 
-  /* Ensure proper scrolling and layout */
   * {
     @apply box-border;
   }

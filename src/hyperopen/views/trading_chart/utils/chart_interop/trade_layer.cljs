@@ -8,7 +8,6 @@
             [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive :as primitive]))
 
 (defonce ^:private trade-layer-sidecar (js/WeakMap.))
-;; the chart handle last synced, for the QA oracle only
 (defonce ^:private last-chart-obj (atom nil))
 
 (def ^:private card-width-px 296)
@@ -37,9 +36,6 @@
     (raf callback)
     (callback 0)))
 
-;; ---------------------------------------------------------------------------
-;; Card
-
 (defn- ensure-card-root!
   [chart-obj ^js container ^js doc]
   (let [{:keys [root]} (layer-state chart-obj)]
@@ -53,12 +49,9 @@
         (.setAttribute node "aria-label" "Fill details")
         (.setAttribute node "data-role" "chart-trade-card")
         (set! (.. node -style -width) (str card-width-px "px"))
-        ;; above the chart's navigation controls (z 116), which otherwise
-        ;; cover a pinned card's history link near the bottom of the pane
         (set! (.. node -style -zIndex) "117")
         (set! (.. node -style -display) "none")
         (set! (.. node -style -overflowY) "auto")
-        ;; keep chart gestures from starting under the card
         (.addEventListener node "mousedown" (fn [^js e] (.stopPropagation e)))
         (.appendChild container node)
         (swap-layer-state! chart-obj assoc :root node)
@@ -113,10 +106,8 @@
                    (primitive/layout-of primitive))]
     (when (and root container)
       (if-not item
-        ;; the badge scrolled off screen: keep a pinned card hidden until it returns
         (set! (.. ^js root -style -visibility) "hidden")
         (let [ch (visible-height container)
-              ;; a short chart pane scrolls the card instead of clipping it
               _ (set! (.. ^js root -style -maxHeight) (str (max 120 (- ch (* 2 card-margin-px))) "px"))
               card-h (or (.-offsetHeight ^js root) 0)
               right-limit (- cw (price-scale-width chart) card-margin-px)
@@ -141,7 +132,6 @@
     (if-not (and root group)
       (hide-card! chart-obj)
       (let [pinned? (= id pinned-id)]
-        ;; opts carry the coin label, which resolves once market data loads
         (when-not (and (= id shown-id)
                        (= group shown-group)
                        (= pinned? shown-pinned?)
@@ -191,9 +181,6 @@
                                  (.-y point)
                                  true))))
 
-;; ---------------------------------------------------------------------------
-;; Subscriptions
-
 (defn- subscribe!
   [chart-obj ^js chart ^js doc]
   (let [^js time-scale (.timeScale chart)
@@ -211,7 +198,6 @@
                        (schedule-frame! (fn [_]
                                           (when (:shown-id (layer-state chart-obj))
                                             (position-card! chart-obj))
-                                          ;; scrolling back may reach the covered edge
                                           (request-older-fills! chart-obj))))
         keydown (fn [^js e]
                   (when (and (= "Escape" (.-key e))
@@ -242,9 +228,6 @@
     (catch :default _ nil))
   (when doc
     (.removeEventListener ^js doc "keydown" keydown)))
-
-;; ---------------------------------------------------------------------------
-;; Primitive
 
 (defn- ensure-primitive!
   "Attach the primitive to the current main series. A chart-type change
@@ -286,9 +269,6 @@
   (when-let [[from to] (visible-time-range-ms chart)]
     (<= (- from (- to from)) end-ms)))
 
-;; Page load fires a burst of /info requests that already approaches
-;; Hyperliquid's per-minute request weight; older fills cost weight per row,
-;; so they wait until the burst has passed.
 (def ^:private default-history-hold-ms 30000)
 
 (defn- history-hold-remaining-ms
@@ -336,8 +316,6 @@
       (when hold-timer
         ((or (:clear-timeout-fn paging) js/clearTimeout) hold-timer))
       (when (and primitive series)
-        ;; empty the primitive before detaching so the frame painted right
-        ;; after (by its own request or the detach) cannot show stale badges
         (primitive/set-selected-id! primitive nil)
         (primitive/set-trade-data! primitive {:groups [] :ribbon []})
         (try (.detachPrimitive ^js series primitive) (catch :default _ nil)))

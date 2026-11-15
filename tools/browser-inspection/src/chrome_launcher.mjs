@@ -28,7 +28,6 @@ export async function waitForDebugEndpoint(port, timeoutMs = 15000) {
         }
       }
     } catch (_err) {
-      // retry
     }
     await sleep(200);
   }
@@ -119,7 +118,6 @@ export async function killProcess(pid, options = {}) {
   try {
     process.kill(signalTarget, "SIGKILL");
   } catch (_err) {
-    // ignore
   }
   return !processIsAlive(pid);
 }

@@ -4,14 +4,6 @@
 
 (def enum-value-keys
   #{:behavior
-    ;; Presolve/solver violation payloads (domain.exposure-reachability,
-    ;; infrastructure.osqp). Each of these is a keyword the infeasible banner
-    ;; BRANCHES on -- :direction picks the whole remediation list, and
-    ;; :constraint-code picks the highlighted control. Without an entry here
-    ;; clj->worker-boundary stringifies the value on the way out of the worker
-    ;; and nothing re-keywordizes it on the way in, so every equality test
-    ;; against it is silently false and the "What you can do" block vanishes in
-    ;; production while unit tests on the raw map still pass.
     :binding-side
     :code
     :constraint-code
@@ -23,9 +15,6 @@
     :instrument-type
     :kind
     :market-type
-    ;; Equal-risk result sections (:risk-contributions / :equal-risk-solver):
-    ;; contribution method, exact/approximate quality, solver termination, and
-    ;; the initializer name all cross the worker boundary as keyword values.
     :method
     :model
     :objective-kind
@@ -58,9 +47,6 @@
     :funding-by-instrument
     :weights-by-instrument
     :history-assumptions
-    ;; Proxy history-assumption payloads: prior/regression exposures and the
-    ;; short-overlap return series are keyed by proxy instrument-id, both on the
-    ;; request (engine-shaped assumption) and in result diagnostics.
     :proxy-prior-weights
     :prior-weights
     :proxy-returns-by-id
@@ -76,25 +62,16 @@
     :expected-returns-by-instrument
     :current-weights-by-instrument
     :target-weights-by-instrument
-    ;; Result-only map (engine/payload.cljs). Without this entry its keys survive
-    ;; the worker boundary as keywords (js->clj :keywordize-keys true) and later
-    ;; stringify to leading-colon ids (":perp:BTC"), spawning phantom blocked
-    ;; "market-metadata-missing" rows in the rebalance preview.
     :current-portfolio-weights-by-instrument
     :weight-sensitivity-by-instrument
-    ;; Equal-risk :risk-contributions submaps (result-only).
     :relative-contributions-by-instrument
     :target-relative-contributions-by-instrument
-    ;; Equal-risk :risk-structure submaps (result-only): the correlation-view
-    ;; decomposition and P&L-to-portfolio correlations.
     :standalone-share-by-instrument
     :diversification-share-by-instrument
     :pnl-portfolio-correlation-by-instrument
     :pair-metadata
     :labels-by-instrument})
 
-;; Compatibility only. Normalization is key-driven and does not depend on this
-;; list when new request or result payloads add another nesting level.
 (def instrument-keyed-map-paths
   [[:current-portfolio :by-instrument]
    [:history :return-series-by-instrument]
@@ -130,8 +107,6 @@
     (keyword? value) value
     (string? value) (some-> value coercion/non-blank-text keyword)
     :else value))
-
-(def instrument-id-key ids/instrument-id-key)
 
 (defn stringify-instrument-keyed-map
   [value]

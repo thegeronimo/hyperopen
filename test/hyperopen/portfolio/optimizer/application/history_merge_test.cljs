@@ -7,10 +7,6 @@
             [hyperopen.portfolio.optimizer.application.history-merge :as history-merge]))
 
 (deftest merge-history-bundle-preserves-existing-api-v2-instrument-maps-test
-  ;; A DELTA response (its series do not cover the cached instruments) merges
-  ;; its series, but its calendars — and any aligned rows answering them — must
-  ;; not mix with the cached ones when the calendars differ: rows aligned to
-  ;; different calendars would silently misalign the joint return matrix.
   (let [merged (history-merge/merge-history-bundle
                 {:api-v2-history
                  {:status :partial
@@ -80,9 +76,6 @@
         "Identical calendars keep the aligned fast path for the merged set.")))
 
 (deftest merge-history-bundle-full-refresh-replaces-api-v2-wholesale-test
-  ;; A response whose series cover every cached instrument is a full refresh
-  ;; (the aligned-only-guard refetch path): its calendars and aligned rows are
-  ;; internally consistent and replace the cache wholesale.
   (let [merged (history-merge/merge-history-bundle
                 {:api-v2-history
                  {:status :partial

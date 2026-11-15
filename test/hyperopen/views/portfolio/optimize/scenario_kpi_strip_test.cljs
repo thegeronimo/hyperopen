@@ -43,8 +43,6 @@
     (is (nil? (node-by-role strip "portfolio-optimizer-scenario-kpi-risk-balance")))))
 
 (deftest recommendation-deltas-shape-is-stable-test
-  ;; The extraction from scenario-detail-view must not change the read model
-  ;; the verdict and header consume.
   (let [deltas (kpi-strip/recommendation-deltas solved-result)]
     (is (contains? deltas :at-target?))
     (is (contains? deltas :trade-count))

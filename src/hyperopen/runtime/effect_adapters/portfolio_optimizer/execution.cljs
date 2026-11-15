@@ -20,8 +20,6 @@
         blocked (get by :blocked 0)
         blocked-note (when (pos? blocked) (str " · " blocked " below minimum"))]
     (cond
-      ;; Rejection with orders still live on the book: the release loop stopped, but the
-      ;; resting orders keep working — announce "partial", never "halted".
       (and (pos? failed) (pos? resting))
       [:error {:headline "Execution partial"
                :subline (str filled " filled · " resting " resting · " failed
@@ -161,9 +159,6 @@
                                    (execution-workflow/error-message err))}))))))))
 
 (def ^:private post-only-reprice-attempts
-  ;; A post-only order can be rejected for crossing if the book moved between when its price was
-  ;; computed and when it landed. Each retry reprices to the live touch from the rejection's own
-  ;; bbo; a couple of retries absorb a fast-moving thin book without looping forever.
   2)
 
 (defn- submit-with-reprice!
@@ -190,8 +185,6 @@
   (if-not (= :ready (:status row))
     (js/Promise.resolve row)
     (do
-      ;; Mark this row in-flight so the running view animates it as "sending" before
-      ;; the order resolves.
       (swap! store execution-workflow/set-run-attempt-row-status
              (:row-id row) {:status :working})
       (let [request (:request row)
@@ -218,9 +211,6 @@
                                                             post-only-reprice-attempts)
                                       (fn [resp]
                                         (if (execution/response-ok? resp)
-                                          ;; Classify the accepted order: a crossing order
-                                          ;; fills (:submitted); a passive/post-only one that
-                                          ;; does not cross rests open on the book (:resting).
                                           (let [status (execution/settled-row-status resp)
                                                 realized (execution/realized-fill row resp)]
                                             (cond-> (assoc row
@@ -235,7 +225,6 @@
                 (.catch submit-promise
                         (fn [err]
                           (mark-row-failed row err)))))]
-        ;; Reflect the settled per-row result into the running view as it lands.
         (.then result-promise
                (fn [result-row]
                  (swap! store execution-workflow/set-run-attempt-row-status
@@ -251,8 +240,6 @@
             (fn [submitted-rows]
               (if (and (= :ready (:status row))
                        (get-in @store contracts/execution-abort-requested-path))
-                ;; Pause/abort requested mid-run: skip remaining ready rows without
-                ;; sending. In-flight orders already settle; nothing new is released.
                 (let [aborted (assoc row :status :skipped :reason :aborted)]
                   (swap! store execution-workflow/set-run-attempt-row-status
                          (:row-id aborted) {:status :skipped :reason :aborted})
@@ -265,18 +252,11 @@
 
 (defn- refresh-after-execution!
   [{:keys [dispatch! refresh-open-orders!]} store address ledger]
-  ;; A filled (:submitted) order changes positions; a resting one adds an open order. Either
-  ;; way, pull fresh user data so the new state surfaces in the account panels.
   (when (and address
              (or (some #(contains? #{:submitted :resting} (:status %)) (:rows ledger))
-                 ;; A successful pre-run cancellation also changes the open-orders book.
                  (= :ok (get-in ledger [:cancellations :status]))))
     (dispatch! store nil [[:actions/load-user-data address]
                           [:actions/refresh-order-history]])
-    ;; Resting rows sit on the live book, but none of the streams cover named-dex
-    ;; (HIP-3) orders and load-user-data never hydrates the per-dex frontendOpenOrders
-    ;; snapshots — without this refresh a resting HIP-3 order is invisible to the
-    ;; merged open-orders view (never amendable, no on-book reconcile signal).
     (when (and (fn? refresh-open-orders!)
                (some #(= :resting (:status %)) (:rows ledger)))
       (refresh-open-orders! store))))
@@ -434,9 +414,6 @@
                  {:plan plan
                   :market-by-key (get-in state [:asset-selector :market-by-key])
                   :orderbooks (:orderbooks state)
-                  ;; Reverts unwind existing fills with reduce-only orders; tagging them
-                  ;; would make a revert order recognizable as a fresh optimizer order to
-                  ;; cancel later. Only tag forward rebalance/refine orders.
                   :cloid-fn (when-not (= :revert (:kind plan))
                               random-optimizer-cloid)})]
     (if-not owner-address
@@ -461,9 +438,6 @@
                      (-> (if ok?
                            (submit-execution-rows! submit-order! store target
                                                    (:rows attempt))
-                           ;; Stale resting orders could not be cancelled: release
-                           ;; nothing (a stale fill on top of a new run over-allocates)
-                           ;; and settle every sendable row as failed with the reason.
                            (js/Promise.resolve (fail-ready-rows (:rows attempt) message)))
                          (.then (fn [rows] {:rows rows :cancellations cancellations})))))
             (.then (fn [{:keys [rows cancellations]}]
@@ -476,8 +450,6 @@
                                     (some? cancellations)
                                     (assoc :cancellations cancellations))]
                        (swap! store execution-workflow/apply-execution-ledger ledger)
-                       ;; Announce the outcome (success/resting/halted) via the global aria-live
-                       ;; toast region so it reaches screen readers and anyone who tab-switched.
                        (when-let [[kind message] (execution-outcome-toast ledger)]
                          (feedback-runtime/set-order-feedback-toast! store kind message))
                        (refresh-after-execution!

@@ -36,10 +36,6 @@
 (defn- str-or-nil? [x] (or (nil? x) (string? x)))
 (defn- all-str-or-nil? [m ks] (every? #(str-or-nil? (get m %)) ks))
 
-;; ---------------------------------------------------------------------------
-;; Key sets
-;; ---------------------------------------------------------------------------
-
 (def ticket-keys #{:visible? :eligible? :eligibility-reason :read-only? :status :identity :model
                    :inventory :buy :sell :outcomes :errors :warnings :footer :ui})
 (def identity-keys #{:market-label :market-type-label :account-label :execution-label})
@@ -84,10 +80,6 @@
 (def price-line-keys #{:price :label})
 (def band-keys #{:sigma :lower :upper})
 (def chart-leg-keys #{:leg-id :side :price :size :weight :label})
-
-;; ---------------------------------------------------------------------------
-;; Ticket specs
-;; ---------------------------------------------------------------------------
 
 (defn- each [pred xs] (and (sequential? xs) (every? pred xs)))
 (defn- nil-or [pred x] (or (nil? x) (pred x)))
@@ -201,10 +193,6 @@
                  (s/valid? ::footer (:footer %)))
             true)))
 
-;; ---------------------------------------------------------------------------
-;; Review specs
-;; ---------------------------------------------------------------------------
-
 (defn- tile? [t] (and (exact-keys? t tile-keys) (keyword? (:id t)) (string? (:label t))
                       (str-or-nil? (:value t)) (str-or-nil? (:caption t))))
 (defn- review-leg? [l] (and (exact-keys? l review-leg-keys) (string? (:leg-id l))
@@ -236,10 +224,6 @@
         (each detail-row? (:inventory %))
         (each detail-row? (:details %))
         (s/valid? ::review-footer (:footer %))))
-
-;; ---------------------------------------------------------------------------
-;; Chart specs
-;; ---------------------------------------------------------------------------
 
 (defn- price-line? [l] (and (exact-keys? l price-line-keys) (string? (:price l)) (string? (:label l))))
 (defn- band? [b] (and (exact-keys? b band-keys) (contains? #{1 2} (:sigma b))

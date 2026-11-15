@@ -42,7 +42,6 @@
      (let [abs-text (.toLocaleString (js/Math.abs value) "en-US"
                                      #js {:style "currency" :currency "USD"
                                           :minimumFractionDigits 2 :maximumFractionDigits max-digits})
-           ;; a value that rounds to zero carries no sign ("-$0.00" reads as a loss)
            zero? (not (re-find #"[1-9]" abs-text))]
        (cond
          zero? abs-text
@@ -95,7 +94,6 @@
   [doc label value]
   (el doc "div" ["flex" "flex-col" "gap-0.5" "min-w-0"]
       (el doc "span" ["text-xs" "text-ho-text-muted"] label)
-      ;; wrap rather than truncate: a fee in a token must keep the token name
       (el doc "span" ["font-semibold" "text-ho-text" "break-words"] value)))
 
 (defn- side-tone-classes
@@ -121,8 +119,6 @@
                        (el doc "span" ["text-sm" "font-semibold" "text-ho-text"]
                            (title-text group coin-label))
                        (el doc "span" ["text-ho-text-muted"] (format-candle-label time)))
-                   ;; a pinned card can cover its own marker on a phone, where
-                   ;; there is no Escape key: give it an explicit close
                    (when (and pinned? (fn? on-close))
                      (let [button (el doc "button" ["ml-auto" "flex" "items-center" "justify-center"
                                                     "w-6" "h-6" "rounded" "text-base" "text-ho-text-muted"

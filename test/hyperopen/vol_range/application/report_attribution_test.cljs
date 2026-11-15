@@ -135,10 +135,6 @@
            (:breaks f))))
   (is (= [] (ledger-records fx/usdc-deposit-row))))
 
-;; ---------------------------------------------------------------------------
-;; Review fixes (Reporting 1)
-;; ---------------------------------------------------------------------------
-
 (def hype-markets
   (attribution/spot-markets (update fx/spot-meta :tokens conj {:name "HYPE" :index 150 :szDecimals 2})))
 

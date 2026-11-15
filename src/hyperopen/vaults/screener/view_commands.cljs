@@ -55,9 +55,6 @@
     (not (true? (get-in state (conj commands/screener-state-path :cache-index-loaded?))))
     (conj [:effects/load-vault-screener-cache-index])))
 
-;; ---------------------------------------------------------------------------
-;; Save dialog
-
 (defn open-vault-save-view-dialog
   [state]
   (let [run (get-in state commands/run-path)]
@@ -127,9 +124,6 @@
                                [commands/view-path :list]]]
           persist-effect])))))
 
-;; ---------------------------------------------------------------------------
-;; Picking a view
-
 (defn select-vault-saved-view
   [state view-id]
   (let [id (when (and (string? view-id) (seq view-id)) view-id)
@@ -137,9 +131,6 @@
     [[:effects/save-many [[active-view-path id*]
                           [menu-path nil]
                           [user-page-path ui-state/default-vault-user-page]]]]))
-
-;; ---------------------------------------------------------------------------
-;; View menu
 
 (defn- refresh-effects
   [state view now-ms]

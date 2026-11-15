@@ -23,14 +23,11 @@
            (vec ((aget fmt "tickmarksFormatter") #js [1 0.75 0.5 0.25 0]))))))
 
 (deftest axis-debug-reproduces-the-price-scale-tick-span-test
-  ;; 0–100% pane with the provider's pixel margins: quarters at any usual height
   (doseq [height [220 300 600]]
     (let [span (axis-debug/tick-span {:high 1.0625 :low -0.0625 :height height :font-size 12 :min-move 0.25})]
       (is (= 0.25 span))
       (is (= [1 0.75 0.5 0.25 0] (axis-debug/tick-prices 1.0625 -0.0625 span)))))
-  ;; a short pane drops to halves rather than crowding labels
   (is (= 0.5 (axis-debug/tick-span {:high 1.04 :low -0.04 :height 80 :font-size 12 :min-move 0.25})))
-  ;; a decimal outcome book: 0.00001 dollar ticks, 300 px for 8 cents
   (let [span (axis-debug/tick-span {:high 0.56 :low 0.48 :height 300 :font-size 12 :min-move 0.00001})]
     (is (= 0.01 span))
     (is (<= 7 (count (axis-debug/tick-prices 0.56 0.48 span)) 9))))

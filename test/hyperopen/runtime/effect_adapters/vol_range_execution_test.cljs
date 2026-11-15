@@ -94,8 +94,6 @@
                    row (stream-fill leg)
                    store (store-with [grid])
                    injected? (atom false)
-                   ;; The fill lands in the store after the reconcile took its
-                   ;; copy (at its first read) and before it finishes.
                    deps (assoc (sim/deps s) :post-info!
                                (fn [body opts]
                                  (when (compare-and-set! injected? false true)
@@ -175,8 +173,6 @@
           (.catch (fail done))))))
 
 (deftest a-ladder-the-stream-closes-is-persisted-closed-by-the-next-reconcile-test
-  ;; Earlier fills were persisted by background reconciles; the last resting
-  ;; leg fills and only the userFills increment has reported it.
   (async done
     (let [s (sim/new-sim)]
       (ingress/reset-for-tests!)
@@ -218,10 +214,6 @@
           (.then (fn [_] (ingress/reset-for-tests!) (done)))
           (.catch (fail done))))))
 
-;; ---------------------------------------------------------------------------
-;; Background operations and `:last`
-;; ---------------------------------------------------------------------------
-
 (def ^:private repair-last {:op :repair :status :ok :grid-id "grid-1" :at-ms 1})
 
 (deftest background-operations-only-record-failures-in-last-test
@@ -249,10 +241,6 @@
                       (.finally (fn [] (set! ex/reconcile! orig-reconcile))))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))
-
-;; ---------------------------------------------------------------------------
-;; Resync (spec 9.3)
-;; ---------------------------------------------------------------------------
 
 (def ^:private t-now 1700000500000)
 
@@ -410,10 +398,6 @@
     (is (not (resync/complete? {:status :ok} [(assoc-in ok-r [:reads :orders-complete?] false)])))
     (is (not (resync/complete? {:status :ok} [{:persisted? false :reads nil}])))))
 
-;; ---------------------------------------------------------------------------
-;; Placement gate input (spec 9.3)
-;; ---------------------------------------------------------------------------
-
 (deftest live-inputs-report-the-monitoring-blocker-test
   (let [account "0x1234567890abcdef1234567890abcdef12345678"
         live-m {:account-address account :status :live :reasons [] :epoch 4
@@ -431,10 +415,6 @@
         "the tick gap is judged with the time the executor passes")
     (is (= :monitoring/stale (blocker (assoc live-m :account-address "0x9999999999999999999999999999999999999999")))
         "monitoring for another account never admits this one")))
-
-;; ---------------------------------------------------------------------------
-;; Spot balances after a ladder send (no spot balance stream exists)
-;; ---------------------------------------------------------------------------
 
 (deftest a-ladder-cancel-refreshes-spot-balances-test
   (async done
@@ -478,7 +458,6 @@
           calls (atom [])
           restore (atom nil)
           original api-state/post-info!]
-      ;; Two arities, like the real one: call sites are compiled to a fixed arity.
       (set! api-state/post-info! (fn
                                    ([body] (swap! calls conj body) (js/Promise.resolve nil))
                                    ([body _opts]
@@ -497,4 +476,3 @@
                    (@restore)
                    (done)))
           (.catch (fn [e] (@restore) ((fail done) e)))))))
-

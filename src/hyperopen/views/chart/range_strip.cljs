@@ -43,9 +43,6 @@
 
     end-action
     (assoc :pointerup [[end-action]]
-           ;; Without pointer capture, leaving the strip mid-drag simply stops
-           ;; the move events — so treat it as the end of the gesture rather
-           ;; than leaving a drag latched open.
            :pointerleave [[end-action]]
            :pointercancel [[end-action]])))
 
@@ -101,8 +98,6 @@
          [:polyline {:class ["ho-range-strip__spark-line"]
                      :points sparkline-points
                      :fill "none"
-                     ;; The SVG is stretched to the strip's box, so without this
-                     ;; the stroke would be squashed to a hairline horizontally.
                      :vector-effect "non-scaling-stroke"}])
        (when selected-points
          [:polyline {:class ["ho-range-strip__spark-line"
@@ -119,8 +114,3 @@
      [:div {:class ["ho-range-strip__scale"]}
       [:span (or domain-from-label "")]
       [:span (or domain-to-label "")]]]))
-
-(defn build-model
-  "Re-exported so a surface only has to require this namespace."
-  [options]
-  (model/build-model options))

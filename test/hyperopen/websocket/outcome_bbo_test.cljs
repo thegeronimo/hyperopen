@@ -58,8 +58,6 @@
     (is (= query/outcome-top-of-book-limit (count coins)))
     (is (= 60 query/outcome-top-of-book-limit))))
 
-;; ---- REST seeding (the venue's bbo only pushes on change) ---------------
-
 (deftest snapshot-top-reads-the-best-levels-and-keeps-empty-sides-test
   (is (= {:bid "0.64" :ask "0.66"}
          (outcome-bbo/snapshot->top {:coin "#10" :levels [[{:px "0.64" :sz "5"} {:px "0.62" :sz "5"}]

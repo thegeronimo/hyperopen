@@ -25,8 +25,6 @@
     (is (= "20.875%" ((aget (last @overlay-formats) "formatter") 0.20875)))
     (chart-interop/sync-overlay-indicator-formats! chart-obj)
     (is (= 1 (count @overlay-formats)) "an unchanged format is applied once")
-    ;; The market's price decimals change without a remount: the main series
-    ;; takes a new format, and the overlay follows it.
     (chart-interop/set-series-data! main candles :candlestick {:price-decimals 3 :price-unit :percent})
     (chart-interop/sync-overlay-indicator-formats! chart-obj)
     (is (= 2 (count @overlay-formats)))
@@ -60,7 +58,6 @@
     (chart-interop/sync-overlay-indicator-formats! chart-obj)
     (is (= 1 @main-applies))
     (is (= 1 (count @overlay-formats)))
-    ;; live ticks: the last candle moves, then a new one opens
     (doseq [next-candles [(assoc-in candles [1 :close] 0.21)
                           (conj candles {:time 3 :open 0.2 :high 0.22 :low 0.2 :close 0.215})]]
       (chart-interop/set-series-data! main next-candles :candlestick opts)

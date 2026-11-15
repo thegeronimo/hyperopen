@@ -21,8 +21,6 @@
   (hiccup/node-class-set node))
 
 (deftest route-header-cards-keep-full-opacity-test
-  ;; At 75% opacity the cards' secondary text measured 3.64:1 against the
-  ;; panel (WCAG AA needs 4.5:1 for 12 px text).
   (let [header (parts/route-header {:route {:from :hyperevm :to :spot}
                                     :balances {:from {:before "1,240.00 USDC"}
                                                :to {:before "2,105.40 USDC"}}})
@@ -55,8 +53,6 @@
                                     (contains? (classes %) "scrollbar-hide"))))
 
 (deftest balances-actions-sit-under-the-tab-strip-until-lg-test
-  ;; Beside the strip the Balances actions (about 530 px) left it about
-  ;; 200 px at 768 px, which hid the selected tab.
   (let [balances (account-info-view/tab-navigation :balances {:balances 3} false {})
         positions (account-info-view/tab-navigation :positions {:positions 1} false {})]
     (testing "Balances stacks below lg"

@@ -22,7 +22,6 @@
      (get-in state (conj contracts/draft-return-model-path :kind))))
 
 (defn- implied-return-inputs
-  ;; Baseline (prior) expected returns — the same map the panel rows show.
   [state]
   (return-inputs/readiness-inputs-by-instrument
    (setup-readiness/build-readiness state)))
@@ -58,8 +57,6 @@
   [[:effects/pick-portfolio-optimizer-return-views-file]])
 
 (defn- cleared-view-drafts
-  ;; Drop the per-row typing buffers for applied instruments so stale buffer
-  ;; text cannot mask the imported values.
   [state applied-instrument-ids]
   (apply dissoc
          (or (get-in state contracts/ui-objective-menu-view-drafts-path) {})

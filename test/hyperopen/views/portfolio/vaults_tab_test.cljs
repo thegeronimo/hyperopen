@@ -141,7 +141,6 @@
                         [1 :aria-busy])))))
 
 (deftest orphan-row-test
-  ;; vault-c is only in the account's live vault rows, not in the ledger.
   (let [node (render (tf/ready-slot))
         orphan (some #(when (re-find #"Orphan" (hiccup/node-text %)) %)
                      (hiccup/find-all-nodes node #(= "portfolio-vaults-row" (get-in % [1 :data-role]))))

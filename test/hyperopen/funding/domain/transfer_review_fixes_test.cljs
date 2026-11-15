@@ -33,8 +33,6 @@
   (with-redefs [platform/now-ms (constantly support/now-ms)]
     (funding-actions/funding-modal-view-model state)))
 
-;; --- the Core -> HyperEVM cap is current or unknown ----------------------------------
-
 (deftest a-stale-hyperevm-bridge-reading-blocks-as-checking-test
   (let [state (support/state (assoc spot->evm :transfer-asset support/purr-index :amount-input "100"))
         route {:from :spot :to :hyperevm}]
@@ -50,8 +48,6 @@
       (let [sent (bridge/mark-core->evm-sent state (purr state) support/now-ms)]
         (is (= "Checking the bridge balance…"
                (get-in (preview sent (+ support/now-ms 1000)) [:blocked :message])))))))
-
-;; --- Perps -> HyperEVM goes through Spot -----------------------------------------------
 
 (deftest perps-to-hyperevm-is-offered-through-spot-test
   (let [route (transfer-route/transfer-route {:transfer-from :perps :transfer-to :hyperevm})
@@ -71,8 +67,6 @@
     (is (nil? (transfer-invariants/check-request state request)))
     (is (= "Refusing to sign: a move to HyperEVM must leave from Spot."
            (transfer-invariants/check-request state (assoc-in request [:action :sourceDex] ""))))))
-
-;; --- known-empty bridges -----------------------------------------------------------------
 
 (deftest an-asset-whose-bridge-is-known-empty-is-disabled-and-not-picked-test
   (let [state (support/state)
@@ -95,8 +89,6 @@
       (is (not= support/hype-index (transfer-route/eligible-asset-index options support/hype-index))
           "a route change moves off it while another asset can move"))))
 
-;; --- a partial HyperEVM read is unknown, not empty --------------------------------------
-
 (deftest a-partial-hyperevm-read-is-never-read-as-empty-test
   (let [state (support/with-evm-entry
                 (support/state evm->spot)
@@ -107,8 +99,6 @@
         "with no asset chosen, the form says the read is incomplete")
     (is (nil? (get-in (vm state) [:transfer :asset :empty-message]))
         "never \"No linked tokens on HyperEVM yet.\"")))
-
-;; --- labels and copy ------------------------------------------------------------------
 
 (deftest available-on-hyperevm-keeps-the-gas-reserve-test
   (let [transfer (:transfer (vm (support/state (assoc evm->spot :transfer-asset support/hype-index))))]

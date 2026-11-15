@@ -190,8 +190,6 @@
                                    (< (count resp) fills-page-limit) (done rows true nil nil)
                                    (<= newest from) (done rows false "Fill pagination made no progress" :fills/no-progress)
                                    (>= (inc n) max-fill-pages) (done rows false "Fill page cap reached" :fills/page-cap)
-                                   ;; Overlap at `newest`: rows sharing that ms are re-read
-                                   ;; and de-duplicated by fill key.
                                    :else (page newest rows (inc n)))))))
                     (.catch (fn [e] (done rows false (if (instance? js/Error e) (.-message e) (str e))
                                           :fills/read-error)))))]

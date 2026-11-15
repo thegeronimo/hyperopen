@@ -77,7 +77,6 @@
     (is (= "ETH" (:base-symbol spot-identity)))
     (is (= "USDC" (:quote-symbol spot-identity)))
     (is (true? (:spot? spot-identity)))
-    ;; Spot is tradable now — the instrument is no longer read-only.
     (is (false? (:read-only? spot-identity)))
 
     (is (= "GOLD" (:base-symbol hip3-identity)))

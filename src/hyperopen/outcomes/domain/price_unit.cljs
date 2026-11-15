@@ -49,7 +49,6 @@
    such as 0.209 × 100 = 20.900000000000002."
   [price decimals]
   (let [text (.toFixed (* 100 price) decimals)]
-    ;; -0.0 -> 0.0
     (if (re-matches #"-0(\.0*)?" text) (subs text 1) text)))
 
 (defn- trim-zeros
@@ -129,9 +128,6 @@
           zero? (re-matches #"0\.0*" text)
           sign (cond zero? "" (pos? d) "+" :else minus)]
       (str sign text (if (= :cents (normalize-unit unit)) "¢" " pts")))))
-
-;; ---------------------------------------------------------------------------
-;; Order book: cents with the grouping's precision
 
 (defn step-decimals
   "Fraction digits of a grouping step: 0.00001 -> 5, 0.01 -> 2, 1 -> 0."

@@ -1,8 +1,6 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { mobileViewport, oracle, waitForDebugBridge, waitForIdle } from "../support/hyperopen.mjs";
 
-// No live fills exist for this address, so the websocket snapshot adds nothing
-// to the fixture rows served over REST.
 const SPECTATE_ADDRESS = "0x00000000000000000000000000000000c4a7f111";
 const DAY_MS = 86400000;
 
@@ -10,7 +8,6 @@ function dayStart(ms) {
   return Math.floor(ms / DAY_MS) * DAY_MS;
 }
 
-/** Daily BTC candles around 60k covering the requested span. */
 function candleSnapshot(req, maxDays = 400) {
   const end = Number(req.endTime) || Date.now();
   const start = Math.max(Number(req.startTime) || end - maxDays * DAY_MS, end - maxDays * DAY_MS);
@@ -33,10 +30,6 @@ function candleSnapshot(req, maxDays = 400) {
   return out;
 }
 
-/**
- * Two buys inside one daily candle five days ago (one group, count 2) and a
- * closing sell two days ago, newest first like `userFills`.
- */
 function userFills(now) {
   const buyDay = dayStart(now) - 5 * DAY_MS + 10 * 3600000;
   const sellDay = dayStart(now) - 2 * DAY_MS + 14 * 3600000;
@@ -59,11 +52,6 @@ function userFills(now) {
   ];
 }
 
-/**
- * HYPE/USDC spot (`@107`): two buys five days ago, fees in HYPE, then a sale
- * of the whole balance two days ago, fee in USDC. `startPosition` is the
- * token balance before each fill.
- */
 function spotFills(now) {
   const buyDay = dayStart(now) - 5 * DAY_MS + 10 * 3600000;
   const sellDay = dayStart(now) - 2 * DAY_MS + 14 * 3600000;
@@ -98,7 +86,6 @@ async function stubChartTradesInfo(page, makeFills = userFills) {
       await json(makeFills(now));
       return;
     }
-    // older chart windows: nothing before the fixture fills
     if (payload?.type === "userFillsByTime") {
       await json([]);
       return;
@@ -163,8 +150,6 @@ test.describe("trades on chart", () => {
     await page.keyboard.press("Escape");
     await expect(card).toBeHidden();
 
-    // lightweight-charts drops the second click of a double-click, so clicking
-    // the same badge again needs to fall outside its double-click window
     await page.waitForTimeout(600);
     await page.mouse.click(sell.x, sell.y);
     await expect(card).toBeVisible();
@@ -208,13 +193,10 @@ test.describe("trades on chart at phone width", () => {
     const card = page.locator("[data-role='chart-trade-card']");
     const sell = await badgeFor(page, "-sell");
 
-    // touch taps carry no hovered object id; the layer hit-tests them itself
     await page.touchscreen.tap(sell.x, sell.y);
     await expect(card).toBeVisible();
     await expect(card).toContainText("Sold 0.3 BTC");
 
-    // the phone layout clips the chart container: the card must fit what is
-    // on screen so its lower rows stay reachable
     const fit = await card.evaluate((node) => {
       let clipBottom = Infinity;
       for (let el = node.parentElement; el; el = el.parentElement) {
@@ -235,8 +217,6 @@ test.describe("older chart fills follow the visible range", () => {
   test("a daily chart pages back only near what is on screen, and further on scroll @regression", async ({ page }) => {
     test.setTimeout(120_000);
     const now = Date.now();
-    // 1200 fills over the last 12 days: a REST page too full to be complete,
-    // so older history may exist; four years of daily candles behind them
     const recentFills = Array.from({ length: 1200 }, (_, i) => ({
       coin: "BTC",
       time: now - i * 864000,
@@ -260,8 +240,6 @@ test.describe("older chart fills follow the visible range", () => {
         route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
       if (payload?.type === "candleSnapshot") {
         const req = payload.req || {};
-        // four years of candles whatever the request asks for, as after the
-        // trader scrolled far back once and returned to the present
         await json(candleSnapshot({ ...req, startTime: now - 1500 * DAY_MS, endTime: now }, 1500));
         return;
       }
@@ -274,8 +252,6 @@ test.describe("older chart fills follow the visible range", () => {
         await json([]);
         return;
       }
-      // everything else empty: older-fill pages are low priority, and live
-      // requests retrying a 429 would hold them in the app's request queue
       await json(payload?.type === "spotMeta" ? { tokens: [], universe: [] } : []);
       return;
     });
@@ -283,8 +259,6 @@ test.describe("older chart fills follow the visible range", () => {
     await page.goto(`/trade/BTC?spectate=${SPECTATE_ADDRESS}`, { waitUntil: "commit" });
     await waitForDebugBridge(page);
     await expect.poll(async () => (await chartTrades(page)).groupCount, { timeout: 20_000 }).toBeGreaterThan(0);
-    // let the page-by-page requests settle: the count stops changing. Each
-    // page waits its turn in the app's request queue for a few seconds.
     const settled = async () => {
       let last = -1;
       while (last !== olderRequests.length) {
@@ -292,7 +266,6 @@ test.describe("older chart fills follow the visible range", () => {
         await page.waitForTimeout(6_000);
       }
     };
-    // older fills wait ~30 s for the page-load burst to pass
     await expect.poll(async () => olderRequests.length, { timeout: 45_000 }).toBeGreaterThan(0);
     await settled();
 
@@ -307,12 +280,9 @@ test.describe("older chart fills follow the visible range", () => {
       });
     const firstCount = olderRequests.length;
     const firstCovered = await coveredFrom();
-    // the candles reach 1500 days back; paging stops about one screen past
-    // the visible range (eager paging went to the 2023 floor: 18 requests)
     expect(firstCount).toBeGreaterThan(0);
     expect(firstCovered).toBeGreaterThan(now - 1000 * DAY_MS);
 
-    // drag the chart to the right a few times to look further back
     const pane = page.locator("[data-role='trading-chart-canvas']").first();
     const box = await pane.boundingBox();
     for (let i = 0; i < 4; i += 1) {
@@ -333,8 +303,6 @@ test.describe("trades on chart for a spot pair", () => {
     await page.goto(`/trade/@107?spectate=${SPECTATE_ADDRESS}`, { waitUntil: "commit" });
     await waitForDebugBridge(page);
     await waitForIdle(page, { quietMs: 300, timeoutMs: 10_000, pollMs: 50 });
-    // the HYPE/USDC market as the asset selector resolves it, seeded so the
-    // test does not depend on live market metadata
     await page.evaluate(() => {
       const c = globalThis.cljs.core;
       const kw = (name) => c.keyword(name);

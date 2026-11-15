@@ -53,10 +53,6 @@
 (defn account-label [address]
   (or (display/short-address address) "No account"))
 
-;; ---------------------------------------------------------------------------
-;; Model section
-;; ---------------------------------------------------------------------------
-
 (defn- volatility-section [{:keys [draft market plan]}]
   (let [mode (get-in draft [:volatility :mode])
         vol (or (get-in plan [:model :volatility])
@@ -120,10 +116,6 @@
                              (when shift (str " · shift " (display/sigma shift))))
                 :else "Effective anchor is unavailable")}))
 
-;; ---------------------------------------------------------------------------
-;; Inventory section
-;; ---------------------------------------------------------------------------
-
 (def ^:private track-labels
   {:all-sells-first "All sells first" :core "Core" :now "Now" :target "Target"
    :max "Max" :all-buys-first "All buys first"})
@@ -137,8 +129,6 @@
 (defn- inventory-track [outcomes sz tilt?]
   (let [values (keep (fn [[id k]]
                        (when-let [v (d (get outcomes k))]
-                         ;; The default core of 0 would only stretch the track;
-                         ;; target matters only with tilt.
                          (when-not (or (and (= id :core) (precision/zero-dec? v))
                                        (and (= id :target) (not tilt?)))
                            [id v])))
@@ -226,7 +216,6 @@
     {:base-symbol (:base-symbol market)
      :current (display/amount (get-in account [:base :total]) sz)
      :available-to-sell (display/amount (get-in account [:base :available]) sz)
-     ;; A perp holds a signed position funded by margin, not a token balance.
      :perp? perp?
      :current-label (if perp? "Current position" "Current spot inventory")
      :available-label (if perp? "Max sell at this leverage" "Available to sell")
@@ -254,7 +243,6 @@
                                  (str " · at most " (display/amount (:maximum outcomes) sz))
                                  " · no limit")
                                " " (:base-symbol market)))))
-     ;; Blank fields use these defaults; the placeholder shows the value in use.
      :core-placeholder (if perp? "No limit" "0")
      :target-placeholder (or (if quote?
                                (quote-placeholder outcomes :target)
@@ -265,10 +253,6 @@
      :starting-breach (starting-breach-text outcomes sz (:base-symbol market))
      :set-maximum-offer (offer-view (or (find-offer plan :set-maximum-all-buys)
                                         (find-offer plan :fill-required-limits)))}))
-
-;; ---------------------------------------------------------------------------
-;; Side cards
-;; ---------------------------------------------------------------------------
 
 (defn- rows [plan side sz]
   (->> (:legs plan)
@@ -376,10 +360,6 @@
                   :percent (str (display/exact (:pct-of-buy-vwap gap)) "%")
                   :explanation vwap-gap-explanation
                   :collapsed? true})}))
-
-;; ---------------------------------------------------------------------------
-;; Errors, warnings, footer
-;; ---------------------------------------------------------------------------
 
 (def ^:private offer-error-codes
   {:anchor-to-market #{:plan/post-only-cross}

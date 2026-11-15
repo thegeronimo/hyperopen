@@ -15,10 +15,6 @@
             [hyperopen.portfolio.optimizer.universe-keyboard :as universe-keyboard]
             [hyperopen.portfolio.routes :as portfolio-routes]))
 
-;; Search state resets as a UNIT. The query, the keyboard cursor and both facets
-;; are reset together at every site that clears the search, because the draft
-;; add-asset popover shares these paths and renders no filter chips — a facet
-;; left set there would silently hide rows with nothing on screen to explain it.
 (defn- cleared-search-path-values
   []
   [[contracts/ui-universe-search-query-path ""]
@@ -31,12 +27,9 @@
   (let [query* (or (some-> query str) "")]
     [[:effects/save-many
       (if (seq query*)
-        ;; Typing keeps the facets: narrowing a query under an active chip is the
-        ;; point of the chip. Only an emptied field is a full reset.
         [[contracts/ui-universe-search-query-path query*]
          [contracts/ui-universe-search-active-index-path 0]
          [contracts/ui-universe-duplicate-prompt-path nil]]
-        ;; A same-stock confirm belongs to the result list it opened on.
         (conj (cleared-search-path-values)
               [contracts/ui-universe-duplicate-prompt-path nil]))]]))
 
@@ -45,8 +38,6 @@
   [[:effects/save-many
     [[contracts/ui-universe-search-type-filter-path
       (universe-search/normalize-type-filter value)]
-     ;; Any facet change re-orders the list, so the cursor must return to the top
-     ;; or it points at a row that is no longer there.
      [contracts/ui-universe-search-active-index-path 0]]]])
 
 (defn set-portfolio-optimizer-universe-search-quote-filter
@@ -239,8 +230,6 @@
                            [instrument])
             path-values (with-prefetch-path-value
                           (into [[contracts/draft-universe-path (conj universe instrument)]
-                                 ;; Hand-adding an asset makes the set a custom universe,
-                                 ;; not a mirror of holdings; the source line follows.
                                  [contracts/draft-universe-source-path {:kind :custom}]]
                                 (cleared-search-path-values))
                           prefetch-plan)]
@@ -524,11 +513,6 @@
 
 (defn set-portfolio-optimizer-universe-from-current
   [state]
-  ;; An untouched (nil or pristine-default) draft is first materialized as a full
-  ;; default draft — both for the computation (the holdings-derived constraints
-  ;; need a base) and as the first written path-value, so the in-store draft is
-  ;; always a complete ::draft that the per-wallet autosave can persist and the
-  ;; restore can validate. A touched draft is only updated in place.
   (let [draft (get-in state contracts/draft-path)
         untouched? (optimizer-defaults/untouched-draft? draft)
         state (cond-> state
@@ -600,7 +584,5 @@
         draft (get-in state contracts/draft-path)]
     (if (and (= :optimize-new (:kind route))
              (optimizer-defaults/untouched-draft? draft))
-      ;; The underlying seed materializes the full default draft itself before
-      ;; layering the holdings universe + derived constraints on top.
       (set-portfolio-optimizer-universe-from-current state)
       [])))

@@ -169,8 +169,6 @@
       (summary-row "PNL" (:value pnl-info) (:class pnl-info))
       (summary-row "Volume" (portfolio-format/format-currency (:volume summary)))
       (summary-row "Max Drawdown" (portfolio-format/format-drawdown (:max-drawdown-pct summary)))
-      ;; Both read "--" until the shown account's vault equity loads; a total
-      ;; without the vaults would understate the account.
       (summary-row "Total Equity" (known-currency (:total-equity summary)))
       (when (:show-perps-account-equity? summary)
         (summary-row "Perps Account Equity" (portfolio-format/format-currency (:perps-account-equity summary))))
@@ -180,15 +178,10 @@
       (when (:show-earn-balance? summary)
         (summary-row "Earn Balance" (portfolio-format/format-currency (:earn-balance summary))))
       (when (:show-staking-account? summary)
-        ;; An explicit unknown, never a fabricated zero: a vanished or wrong
-        ;; number is the exact failure this surface is meant to stop.
         (summary-row "Staking Account"
                      (if-let [hype (:staking-account-hype summary)]
                        (portfolio-format/format-hype hype)
                        "--")))
-      ;; "Staking Account" silently folds in HYPE that is mid-unstake and cannot
-      ;; be traded. Break that portion out so the headline number is not read as
-      ;; spendable.
       (when-let [unstaking-hype (:staking-unstaking-hype summary)]
         [:div {:data-role "portfolio-summary-staking-unstaking"}
          (summary-row "In 7-day unstaking queue"

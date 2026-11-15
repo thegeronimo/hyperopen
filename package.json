@@ -60,8 +60,6 @@
     "lint:test": "bb -m dev.hiccup-lint-test",
     "lint:hiccup": "bb -m dev.check-hiccup-attrs",
     "lint:input-parsing": "bb -m dev.check-input-numeric-parsing",
-    "lint:class-attrs": "bb -m dev.check-class-attrs",
-    "lint:style-keys": "bb -m dev.check-style-attr-keys",
     "lint:docs": "bb -m dev.check-docs",
     "lint:docs:test": "bb -m dev.check-docs-test",
     "lint:namespace-sizes": "bb -m dev.check-namespace-sizes",

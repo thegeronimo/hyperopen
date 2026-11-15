@@ -37,10 +37,6 @@
                        request))))
 
 (deftest input-signature-differs-between-equal-risk-and-inverse-volatility-test
-  ;; Item 7 (stale gate): the signature already includes :objective, so this
-  ;; pins the zero-extra-wiring guarantee rather than new behavior — a future
-  ;; canonicalization pass must never collapse the two covariance-only kinds
-  ;; into one signature.
   (let [base (contract-fixtures/valid-engine-request)
         equal-risk-request (assoc base :objective {:kind :equal-risk})
         inverse-volatility-request (assoc base

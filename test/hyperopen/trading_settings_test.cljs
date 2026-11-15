@@ -34,8 +34,6 @@
 
 (deftest optimizer-auto-exit-excluded-defaults-on-test
   (is (true? (:optimizer-auto-exit-excluded? trading-settings/default-state)))
-  ;; A stored pre-feature settings blob (key absent) restores as ON; only an
-  ;; explicitly persisted false keeps the opt-out.
   (is (true? (:optimizer-auto-exit-excluded? (trading-settings/normalize-state {}))))
   (is (false? (:optimizer-auto-exit-excluded?
                (trading-settings/normalize-state

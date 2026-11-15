@@ -177,7 +177,6 @@
         "emptied before detaching so the repaint it requests clears the canvas")
     (is (nil? (card container)))))
 
-
 (defn- paint!
   "Run the primitive's renderers so its hit-test layout exists."
   [prim]
@@ -191,7 +190,6 @@
       ((unchecked-get ((unchecked-get view "renderer")) "draw") target))))
 
 (deftest a-touch-tap-without-hovered-object-id-hit-tests-the-badge-test
-  ;; buy badge: x = (1700006400 - 1700000000) / 100 = 64, cy = 500 - 10*10 + 8 + 10 = 418
   (let [{:keys [container chart-obj opts prim subs*]} (setup)]
     (trade-layer/sync-chart-trades! chart-obj container chart-trades opts)
     (paint! prim)
@@ -203,7 +201,6 @@
       (is (= "none" (.. (card container) -style -display))))))
 
 (deftest a-pinned-card-hides-while-its-badge-is-off-screen-test
-  ;; the sell badge sits at x = 928, beyond the 800 px container
   (let [{:keys [container chart-obj opts prim] :as env} (setup)]
     (aset container "clientWidth" 800)
     (trade-layer/sync-chart-trades! chart-obj container chart-trades opts)
@@ -222,7 +219,6 @@
   (is (= "0.5 HYPE" (trade-card/format-fee 0.5 "HYPE"))))
 
 (deftest older-fills-are-requested-only-near-the-visible-range-test
-  ;; covered history starts at 1700000000000 ms; times below are seconds
   (let [{:keys [container chart chart-obj opts subs*]} (setup)
         visible* (atom #js {:from 1700500000 :to 1700600000})
         requested* (atom [])
@@ -251,7 +247,6 @@
       (is (= 2 (count @requested*))))))
 
 (deftest an-open-card-picks-up-a-coin-label-that-resolves-later-test
-  ;; spot market data can load after the card is open
   (let [{:keys [container chart-obj opts] :as env} (setup)]
     (trade-layer/sync-chart-trades! chart-obj container chart-trades (assoc opts :coin-label "@107"))
     (click! env (:id buy-group))
@@ -272,7 +267,6 @@
                      :clear-timeout-fn #(swap! cleared* conj %)
                      :older-fills-end-ms 1699999999999
                      :on-request-older-fills #(swap! requested* conj %))]
-    ;; the visible range reaches past the covered edge, so a page is needed
     (aset (.timeScale chart) "getVisibleRange" (fn [] #js {:from 1699900000 :to 1700000000}))
     (trade-layer/sync-chart-trades! chart-obj container chart-trades opts*)
     (is (= [] @requested*) "held while the page-load burst runs")

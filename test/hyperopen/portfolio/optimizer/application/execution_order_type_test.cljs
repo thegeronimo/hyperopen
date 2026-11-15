@@ -18,9 +18,7 @@
 
 (deftest recommend-exec-type-cost-aware-test
   (testing "a small clip whose estimated crossing cost is high posts passively"
-    ;; The motivating case: an $87 buy with a 45.4bp market cost must not route :market.
     (is (= :passive (order-type/recommend-exec-type (perp-buy 87 45.4))))
-    ;; Exactly at the threshold counts as high-cost (flat 25bp fallback rows included).
     (is (= :passive (order-type/recommend-exec-type (perp-buy 18 order-type/high-cost-crossing-bps))))
     (is (= :passive (order-type/recommend-exec-type (perp-buy 18 25)))))
   (testing "a small clip with a cheap crossing stays market"
@@ -66,8 +64,6 @@
                     row))))))
 
 (def ^:private splittable-row
-  ;; A large row with a real spread/impact split, as the rebalance preview stamps it:
-  ;; one-shot 102 bp (2 spread + 100 impact) on $100k.
   {:row-id "perp:BIG"
    :instrument-id "perp:BIG"
    :instrument-type :perp
@@ -79,17 +75,12 @@
           :notional-usd 100000}})
 
 (deftest twap-clip-schedule-follows-the-venue-slice-model-test
-  ;; 30s is the venue's spacing FLOOR, not a cadence: since 2026-08-01 it stretches the
-  ;; gap rather than let a clip fall under $10, so the schedule the editor renders has to
-  ;; come from the row's notional as well as its runtime.
   (testing "a large clip is spacing-bound: one every 30 seconds"
     (let [schedule (order-type/twap-clip-schedule (perp-buy 100000) 20)]
       (is (= 41 (:clips schedule)))
       (is (= 30 (:interval-seconds schedule)))
       (is (true? (:notional-known? schedule)))))
   (testing "a small clip is notional-bound: fewer clips, spaced wider than 30s"
-    ;; $87 over 10 minutes is 8 clips of ~$10.88, ~86s apart -- not the 21 the
-    ;; notional-blind bound claims.
     (let [schedule (order-type/twap-clip-schedule (perp-buy 87) 10)]
       (is (= 8 (:clips schedule)))
       (is (< 85 (:interval-seconds schedule) 86))
@@ -122,12 +113,9 @@
           c (order-type/effective-crossing-cost selections splittable-row)]
       (is (true? (:crossing? c)))
       (is (true? (:twap-adjusted? c)))
-      ;; $100k defaults to 20 minutes = 41 clips: impact 100/41 + 0.3*100*40/82
-      ;; = 17.0732; + spread 2 = 19.0732 bp, far below the 102 bp one-shot.
       (is (= 41 (:suborders c)))
       (is (< 19 (:slippage-bps c) 20))
       (is (< (:slippage-bps c) 102))
-      ;; a shorter per-row duration override re-prices the same row upward
       (let [shorter (order-type/effective-crossing-cost
                      (assoc selections :params {"perp:BIG" {:twap-min 5}})
                      splittable-row)]

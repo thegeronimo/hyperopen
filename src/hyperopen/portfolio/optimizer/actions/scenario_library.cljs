@@ -9,8 +9,6 @@
   [state]
   (if (true? (get-in state contracts/ui-scenario-menu-open-path))
     [[:effects/save contracts/ui-scenario-menu-open-path false]]
-    ;; Opening refreshes the wallet's saved-scenario index so the list is
-    ;; current after saves, wallet switches, or work in another tab.
     [[:effects/save contracts/ui-scenario-menu-open-path true]
      [:effects/load-portfolio-optimizer-scenario-index]]))
 

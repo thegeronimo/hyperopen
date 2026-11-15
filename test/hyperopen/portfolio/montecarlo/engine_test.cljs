@@ -40,10 +40,6 @@
     (is (= 8 (count (:counts h))))
     (is (= 0 (reduce + (:counts h))) "empty input is safe")))
 
-;; ---------------------------------------------------------------------------
-;; Elapsed-time (irregular cadence) annualization
-;; ---------------------------------------------------------------------------
-
 (defn- interval [simple dt-years]
   {:simple-return simple
    :log-return (js/Math.log (+ 1 simple))
@@ -52,13 +48,10 @@
 (defn- varied-intervals [n]
   (mapv (fn [i]
           (interval (* 0.05 (- (js/Math.sin i) 0.1))
-                    (/ (+ 5 (mod (* 7 i) 23)) 365.0))) ; irregular 5–27 day gaps
+                    (/ (+ 5 (mod (* 7 i) 23)) 365.0)))
         (range n)))
 
 (deftest engine-annualizes-cagr-by-elapsed-time-not-point-count-test
-  ;; 20 intervals each 0.1y => 2.0 years total; each +3.526% compounds to ~+100%
-  ;; over those 2 years. The annualized CAGR must be ~2^(1/2)-1 = +41.4%, NOT a
-  ;; count/365 inflation (which would treat 20 points as 20/365 years and explode).
   (let [per (- (js/Math.pow 2 (/ 1.0 20)) 1)
         ivals (mapv (fn [_] (interval per 0.1)) (range 20))
         res (engine/run {:intervals ivals :sims 200 :method :shuffle :seed 5 :start-equity 1})]
@@ -70,8 +63,6 @@
         "engine CAGR equals the tearsheet interval-cagr")))
 
 (deftest engine-sharpe-vol-cagr-match-tearsheet-irregular-test
-  ;; The Monte Carlo per-path annualized metrics must equal the tearsheet's
-  ;; irregular-interval math on the same intervals (the whole point of the fix).
   (let [ivals (varied-intervals 80)
         res (engine/run {:intervals ivals :sims 600 :method :shuffle :seed 13 :start-equity 1})
         exp-cagr (returns/interval-cagr ivals)
@@ -85,9 +76,6 @@
         "shuffle Sharpe median ≈ tearsheet sharpe-irregular (leave-one-out narrows to it)")))
 
 (deftest histogram-collapses-near-equal-values-test
-  ;; Values that differ only by floating-point noise (e.g. a shuffle-invariant
-  ;; CAGR, whose product is reordered but not bit-identical) must collapse to a
-  ;; single centered spike, not spread into a fake bell curve across bins.
   (let [v (mapv (fn [i] (+ 13.8 (* i 1e-14))) (range 100))
         h (engine/histogram v 34)]
     (is (:degenerate? h) "near-equal values are treated as a single value")
@@ -97,10 +85,6 @@
     (is (not (:degenerate? h)) "a genuinely spread metric is not degenerate")))
 
 (deftest histogram-clips-to-percentile-domain-test
-  ;; A heavy right tail — a spread body 0.00..0.99 plus one extreme outlier at
-  ;; 100. Clipping the binning domain to [P1, P99] keeps the outlier from
-  ;; collapsing the body into a single left bar; it is clamped into the last bin
-  ;; and flagged so the renderer can mark the edge.
   (let [body (mapv (fn [i] (/ i 100.0)) (range 100))
         v (conj body 100.0)
         sorted (vec (sort v))
@@ -133,10 +117,6 @@
     (is (not= (:band a) (:band b)) "a different seed reshuffles the paths")))
 
 (deftest constant-positive-returns-guarantee-goal-and-no-bust-test
-  ;; Every bootstrap draw is identical (all returns equal), so each path is the
-  ;; same monotonic climb and the terminal value is deterministic regardless of
-  ;; the RNG. 1.01^90 ≈ 2.45 → +145% return, well above a +50% goal, and the
-  ;; path never draws down, so it can never breach a -30% bust.
   (let [returns (constant-returns 0.01 252)
         res (engine/run {:returns returns :sims 300 :horizon 90
                          :goal 0.5 :bust -0.3 :start-equity 1})
@@ -177,14 +157,7 @@
     (is (= 0 (get-in res [:meta :sample-size])))
     (is (= [] (:draw-paths res)))))
 
-;; ---------------------------------------------------------------------------
-;; QuantStats shuffle method
-;; ---------------------------------------------------------------------------
-
 (deftest bootstrap-clamps-horizon-to-sample-size-test
-  ;; The forecast can never compound more days than were observed: a 365-day
-  ;; horizon over 100 days of history runs as 100 days. This removes the
-  ;; "worst case beats reality" artifact in Forecast mode.
   (let [res (engine/run {:returns (varied-returns 100) :sims 200 :horizon 365 :seed 3})]
     (is (= 100 (get-in res [:meta :horizon])) "horizon clamps down to the sample size")
     (is (= 100 (peek (:times res))))
@@ -193,10 +166,6 @@
     (is (= 90 (get-in res [:meta :horizon])) "a horizon within history is left alone")))
 
 (deftest shuffle-pins-terminal-and-varies-drawdown-test
-  ;; A permutation preserves the product of (1+r), so every shuffled path ends
-  ;; at the same realized terminal value (worst case == best case == reality),
-  ;; while the *order* changes the drawdown along the way. This is the whole
-  ;; point of the QuantStats method.
   (let [returns (varied-returns 120)
         res (engine/run {:returns returns :sims 400 :horizon 999
                          :method :shuffle :seed 7 :start-equity 1})

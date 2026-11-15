@@ -124,9 +124,6 @@
 (defn set-order-size-display-input []
   (command :order-form/set-order-size-display event-target-value))
 
-(defn set-order-size-display [value]
-  (command :order-form/set-order-size-display value))
-
 (defn set-order-size-input-mode [mode]
   (command :order-form/set-order-size-input-mode mode))
 

@@ -94,8 +94,6 @@
       (is (= transfer-route/unified-perps-reason (:reason (option legacy-options :to :perps)))))))
 
 (deftest dex-abstraction-accounts-pair-perps-with-hyperevm-only-through-spot-test
-  ;; DEX abstraction is folded into `:classic`, yet its Perps USDC is pooled
-  ;; with Spot like a unified account's, so Perps <-> HyperEVM goes via Spot.
   (let [state (assoc (support/state) :account {:mode :classic
                                                :abstraction-raw "dexAbstraction"})
         to-evm (transfer-route/location-options state {:from :spot :to :hyperevm})

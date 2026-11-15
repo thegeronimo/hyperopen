@@ -13,7 +13,6 @@
 (def ^:private views
   [{:id "v1" :kind :absolute :instrument-id "perp:BTC"
     :return 0.2 :confidence-level :high :confidence 0.75 :weights {"perp:BTC" 1}}
-   ;; relative views never claim a row's provenance
    {:id "v2" :kind :relative :instrument-id "perp:ETH"
     :comparator-instrument-id "perp:BTC" :return 0.05 :confidence 0.5}])
 
@@ -72,8 +71,6 @@
            (return-views/summary-line {:total 3 :yours 0 :implied 3 :stale 0})))
     (is (= "1 your view · 2 implied"
            (return-views/returns-contract-label summary)))
-    ;; Zero authored views still reports counts — "Implied baseline" hid how
-    ;; much of the forecast was model-generated.
     (is (= "0 your views · 3 implied"
            (return-views/returns-contract-label {:yours 0 :implied 3})))))
 

@@ -4,9 +4,6 @@
 (def default-mainnet-base-url
   "https://api.hyperunit.xyz")
 
-(def default-testnet-base-url
-  "https://api.hyperunit-testnet.xyz")
-
 (defn- non-blank-text
   [value]
   (let [text (some-> value str str/trim)]

@@ -54,7 +54,6 @@
     (is (= ["Most traded"] (mapv :title sections)))
     (is (= 3 (count (:rows (first sections)))))
     (testing "by start time keeps day and competition sections"
-      ;; Day words depend on the runner's time zone; the listing test pins UTC.
       (let [by-start (:sections (model :outcome-sports {:sort :start-time}))]
         (is (= 3 (count by-start)))
         (is (re-find #"· NBA$" (:title (first by-start))))

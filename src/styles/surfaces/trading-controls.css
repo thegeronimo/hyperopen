@@ -195,9 +195,6 @@
     --tw-ring-shadow: 0 0 #0000;
   }
 
-  /* Order book styles */
-  /* Legacy orderbook cell colors with no near --ho-* token; carried here so
-     the institutional theme layer can override them per theme. */
   .ob-body-text {
     color: rgb(210, 218, 215);
   }
@@ -214,9 +211,6 @@
     background-color: rgb(var(--ho-sell-hi) / 0.15);
   }
 
-  /* Change flash for a level whose size changed (or that just appeared). The a/b
-     pairs are identical; alternating between them restarts the animation when a
-     level changes in consecutive updates. See l2_orderbook/styles.cljs. */
   .ob-flash-bid-a,
   .ob-flash-bid-b {
     --ob-flash-rgb: var(--ho-buy);
@@ -244,10 +238,6 @@
     .ob-flash-ask-b {
       animation: none;
     }
-  }
-
-  .order-book-row {
-    @apply flex justify-between items-center py-1 px-2 hover:bg-trading-surface/50 transition-colors;
   }
 
   .bid-row {

@@ -88,32 +88,17 @@
 
 (defn- migrate-draft-history-assumptions
   [draft]
-  ;; Additive backfill: drafts persisted before history assumptions existed lack
-  ;; the key, which the strengthened ::draft spec now requires. Default to an
-  ;; empty map; no schema-version bump is needed for a purely additive key.
   (-> draft
       (update :history-assumptions #(or % {}))
-      ;; Reference-only proxy instruments (catalog proxies outside the universe)
-      ;; are likewise additive: drafts written before they existed default to [].
       (update :proxy-reference-instruments #(vec (or % [])))))
 
 (defn- legacy-proxy-entry?
-  ;; The ORIGINAL (removed) :proxy behavior mapped the asset to a single related
-  ;; asset (:proxy-instrument-id, :relationship, :implied-correlation) and was
-  ;; never engine-backed. The 2026-07 engine-backed proxy behavior stores a
-  ;; multi-proxy :proxy submap instead; only the legacy singular shape is
-  ;; rewritten to conservative.
   [entry]
   (and (= :proxy (:behavior entry))
        (not (map? (:proxy entry)))))
 
 (defn- migrate-history-assumption-entry
   [entry]
-  ;; Convert a LEGACY proxy entry to a conservative one - preserving the user's
-  ;; volatility/return, seeding the conservative correlation floor + cap, and
-  ;; dropping the legacy proxy-only fields - so the ::draft spec accepts it on
-  ;; load. Idempotent: conservative entries and new-shape (engine-backed) proxy
-  ;; entries pass through unchanged.
   (if (legacy-proxy-entry? entry)
     (-> entry
         (assoc :behavior :conservative
@@ -286,12 +271,3 @@
       (throw (ex-info "Unsupported optimizer tracking record schema version."
                       {:contract :optimizer/tracking-record
                        :schema-version version})))))
-
-(defn migrate-contract
-  [contract-id value]
-  (case contract-id
-    :optimizer/draft (migrate-draft value)
-    :optimizer/scenario-record (migrate-scenario-record value)
-    :optimizer/tracking-record (migrate-tracking-record value)
-    (throw (ex-info "Unsupported optimizer contract migration."
-                    {:contract contract-id}))))

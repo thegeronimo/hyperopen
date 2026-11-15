@@ -49,7 +49,6 @@
                   b)))
 
 (defonce ^:private cache
-  ;; {:source <last catalog seen> :stable <catalog handed out>}
   (atom nil))
 
 (defn stable-market-by-key
@@ -70,7 +69,6 @@
           market-by-key))))
 
 (defonce ^:private active-market-cache
-  ;; {:source <last active market seen> :stable <active market handed out>}
   (atom nil))
 
 (defn stable-active-market

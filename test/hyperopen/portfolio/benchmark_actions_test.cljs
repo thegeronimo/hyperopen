@@ -402,8 +402,6 @@
   (is (= {:interval :1d :bars 5000}
          (actions/returns-benchmark-candle-request :all-time))))
 
-;; --- candle reuse ------------------------------------------------------------
-
 (def ^:private fixed-now-ms
   1756080000000)
 
@@ -423,8 +421,6 @@
                   (= :effects/fetch-candle-snapshot (first effect))))))
 
 (deftest select-time-range-skips-the-fetch-when-the-store-already-covers-the-window-test
-  ;; 30D resolves to :1h x 800 bars. A slot holding 800 hourly bars ending now
-  ;; covers exactly that window, so switching back to 30D should cost nothing.
   (binding [candle-coverage/*now-ms* (constantly fixed-now-ms)]
     (let [base {:portfolio-ui {:chart-tab :returns
                                :returns-benchmark-coins ["BTC"]}}
@@ -445,9 +441,6 @@
           "a slot whose newest bar is hours old refetches"))))
 
 (deftest candle-slot-coverage-distinguishes-two-year-from-all-time-in-the-shared-1d-slot-test
-  ;; :two-year and :all-time both resolve to the :1d interval and therefore share
-  ;; one store slot while asking for 900 and 5000 bars. A presence-only guard
-  ;; would draw a two-year benchmark inside an all-time window.
   (binding [candle-coverage/*now-ms* (constantly fixed-now-ms)]
     (let [day (* 24 60 60 1000)
           two-year-rows (mapv (fn [idx]

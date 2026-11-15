@@ -11,8 +11,6 @@
   the grid and can move when refined."
   (:require [hyperopen.portfolio.optimizer.coercion :as coercion]))
 
-;; Refinement depth -> requested frontier point budget. All within the engine's
-;; bounded-frontier-point-count cap of 80 (domain.objectives/bounded-frontier-point-count).
 (def depth->points
   {:quick 56
    :thorough 72
@@ -23,7 +21,6 @@
 
 (def default-depth :thorough)
 
-;; Mirrors domain.objectives/bounded-frontier-point-count's hard ceiling.
 (def maximum-points 80)
 
 (def ^:private finite-number? coercion/finite-number?)
@@ -42,11 +39,6 @@
   [depth]
   (get depth->points (normalize-depth depth)))
 
-;; --- Result grading (pure reads of an already-solved result map) ---
-
-;; Quality is graded on the solved DISPLAY frontier point count. Draft density (large
-;; universe ~16, small universe up to the default 40) reads Medium; refined density
-;; (>= 50 points) reads High; a truncated sweep reads Low.
 (def ^:private quality-high-points 50)
 (def ^:private quality-medium-points 12)
 
@@ -89,7 +81,6 @@
     :frontier-sweep :frontier-sweep
     :closed-form :closed-form
     :single-qp :single-qp
-    ;; Unknown strategies default to the exact single-QP interpretation.
     :single-qp))
 
 (defn exact-selection?
@@ -104,7 +95,6 @@
   [result]
   (let [tier (result-tier result)]
     (cond
-      ;; A grid-sampled selection can still shift with more points until maxed out.
       (and (not (exact-selection? result))
            (not= :maximum tier))
       :provisional
@@ -125,7 +115,6 @@
   (case (result-tier result)
     :maximum :none
     :refined :refine-further
-    ;; :draft and :partial both invite a (re)refinement.
     :refine-optimization))
 
 (defn assess-result
@@ -141,8 +130,6 @@
      :stop-reason (stop-reason result)
      :next-step (next-step result)
      :point-count (display-point-count result)}))
-
-;; --- Before/after comparison of the selected portfolio ---
 
 (def material-weight-l1-threshold 0.02)
 (def material-sharpe-threshold 0.02)

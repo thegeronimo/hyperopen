@@ -8,12 +8,8 @@
 
 (def non-blank-text amounts/non-blank-text)
 (def parse-num amounts/parse-num)
-(def finite-number? amounts/finite-number?)
-(def amount->text amounts/amount->text)
 (def normalize-amount-input amounts/normalize-amount-input)
-(def parse-input-amount amounts/parse-input-amount)
 (def normalize-evm-address amounts/normalize-evm-address)
-(def normalize-withdraw-destination amounts/normalize-withdraw-destination)
 (def format-usdc-display amounts/format-usdc-display)
 (def format-usdc-input amounts/format-usdc-input)
 
@@ -24,9 +20,6 @@
 (def withdraw-assets availability/withdraw-assets)
 (def withdraw-assets-filtered availability/withdraw-assets-filtered)
 (def withdraw-asset availability/withdraw-asset)
-;; Route-aware: Perps <-> Spot delegates to the legacy functions unchanged,
-;; routes touching HyperEVM go to the EVM preview. Each takes an optional
-;; trailing `now-ms`.
 (def transfer-max-amount transfer-dispatch/transfer-max-amount*)
 (def withdraw-max-amount availability/withdraw-max-amount)
 

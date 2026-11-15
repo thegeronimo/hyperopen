@@ -18,8 +18,6 @@
    "leading-5" "tracking-normal" "text-gray-100"
    "shadow-[0_12px_32px_rgb(var(--ho-bg-deep)/0.5)]"
    "opacity-0" "transition-opacity" "duration-100"
-   ;; Hover-only: a focus-within reveal would fire on the panel's auto-focus of
-   ;; the (first) close button on open. Interactive triggers carry aria-labels.
    "group-hover/hint:opacity-100"])
 
 (defn- placement-classes
@@ -30,15 +28,11 @@
     :top ["bottom-[calc(100%+6px)]" "left-1/2" "-translate-x-1/2"]
     :bottom-end ["top-[calc(100%+6px)]" "right-0"]
     :bottom ["top-[calc(100%+6px)]" "left-1/2" "-translate-x-1/2"]
-    ;; default :bottom-start
     ["top-[calc(100%+6px)]" "left-0"]))
 
 (defn hint-span
   ([text placement] (hint-span text placement false))
   ([text placement delay?]
-   ;; The delay is applied only in the hovered state, so the tooltip waits
-   ;; ~2s to appear (long enough not to flash while moving to click a button)
-   ;; but still fades out immediately when the pointer leaves.
    [:span {:class (cond-> (into panel-classes (placement-classes placement))
                     delay? (conj "group-hover/hint:delay-[2000ms]"))
            :role "tooltip"}

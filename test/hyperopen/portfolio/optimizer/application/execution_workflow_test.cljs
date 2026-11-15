@@ -5,8 +5,6 @@
 (def address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
 (deftest order-error-message-extracts-the-exchange-error-not-the-raw-map-test
-  ;; The Execution-tab Detail column must show the deciphered exchange error, never a pr-str'd
-  ;; response map. Hyperliquid reports a rejection at [:response :data :statuses 0 :error].
   (is (= "Order must have minimum value of $10. asset=110023"
          (workflow/order-error-message
           {:status "ok"
@@ -15,14 +13,10 @@
       "the per-order statuses error wins over the surrounding map"))
 
 (deftest order-error-message-handles-other-shapes-test
-  ;; top-level :error / :message
   (is (= "Insufficient margin" (workflow/order-error-message {:error "Insufficient margin"})))
   (is (= "boom" (workflow/order-error-message {:message "boom"})))
-  ;; a thrown error (carries .-message)
   (is (= "network down" (workflow/order-error-message (js/Error. "network down"))))
-  ;; a bare string passes through
   (is (= "rejected" (workflow/order-error-message "rejected")))
-  ;; never leak a structured value: a map with nothing human-readable degrades to a generic line
   (is (= "The exchange rejected this order."
          (workflow/order-error-message {:foo {:bar 1}})))
   (is (= "The exchange rejected this order." (workflow/order-error-message nil))))
@@ -81,7 +75,6 @@
     (is (= [:submitted :ready]
            (mapv :status (get-in settled [:portfolio :optimizer :execution
                                           :run-attempt :rows]))))
-    ;; No live run-attempt -> safe no-op rather than throwing.
     (is (= {:portfolio {:optimizer {:execution {:run-attempt {:rows []}}}}}
            (workflow/set-run-attempt-row-status
             {:portfolio {:optimizer {:execution {}}}} "perp:BTC" {:status :working})))))
@@ -148,10 +141,6 @@
     (is (= [] (:commands result)))))
 
 (deftest apply-execution-ledger-maintains-resting-carryover-test
-  ;; Applying a ledger must (1) record the run's resting orders at the dedicated
-  ;; carryover path — OUTSIDE execution-path, which staging/discard reset — so the NEXT
-  ;; run can cancel them, and (2) prune the oids a successful pre-run cancellation
-  ;; removed from the book.
   (let [resting-row {:row-id "perp:ZETA"
                      :instrument-id "perp:ZETA"
                      :instrument-type :perp

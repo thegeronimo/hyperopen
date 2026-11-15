@@ -20,17 +20,12 @@
             [hyperopen.views.ui.focus-return :as focus-return]
             [hyperopen.views.ui.location-chip :as location-chip]))
 
-(def perps-spot-data-role
-  model/perps-spot-data-role)
-
 (def spot-evm-data-role
   model/spot-evm-data-role)
 
 (def funds-locations-model
   "See `model/funds-locations-model`."
   model/funds-locations-model)
-
-;; --- view --------------------------------------------------------------------
 
 (def ^:private card-classes
   ["flex" "min-w-0" "flex-col" "gap-1.5" "rounded-xl" "border" "px-4" "py-3"])
@@ -56,7 +51,6 @@
          :stroke-linecap "round"
          :stroke-linejoin "round"
          :aria-hidden "true"
-         ;; Vertical while the cards stack, horizontal beside them.
          :class ["h-3.5" "w-3.5" "rotate-90" "md:rotate-0"]}
    [:path {:d "M7 4 3 8l4 4"}]
    [:path {:d "M3 8h14"}]
@@ -75,16 +69,10 @@
     :else ["border-ho-border" "bg-ho-bg" "text-ho-accent" "hover:border-ho-accent/60" "hover:text-ho-accent-bright"]))
 
 (def ^:private tooltip-classes
-  ;; Anchored to the button (its `relative` group), not the grid slot,
-  ;; which stretches to the card row from `md` up. The top padding is part
-  ;; of the tooltip, so the pointer can cross from the button onto it
-  ;; without ending the hover; `invisible` (not just transparent) keeps a
-  ;; closed tooltip from catching the pointer over the content below.
   ["absolute" "left-1/2" "top-full" "z-[120]" "w-56" "-translate-x-1/2" "pt-1.5"
    "invisible" "opacity-0" "transition-opacity" "duration-150"
    "group-hover/connector:visible" "group-hover/connector:opacity-100"
    "group-focus-within/connector:visible" "group-focus-within/connector:opacity-100"
-   ;; Escape (`dismissible-tooltip`); spelled out for Tailwind.
    "group-data-[tooltip-dismissed=true]/connector:!invisible"])
 
 (def ^:private tooltip-bubble-classes
@@ -94,9 +82,6 @@
 (defn- connector-node
   [{:keys [id data-role aria-label action disabled? reason reason-id] :as connector*} focus-request]
   ^{:key (str "connector-" (name id))}
-  ;; Below `md` the cards stack and the slot has no height: the button sits
-  ;; on the seam between the two cards it joins (painted above them) instead
-  ;; of taking a row of its own.
   [:div {:class ["relative" "z-10" "flex" "h-0" "items-center" "justify-center" "md:h-auto"]
          :data-role (str data-role "-slot")}
    [:span (merge {:class ["group/connector" "relative" "inline-flex"]}
@@ -113,8 +98,6 @@
                                                                         (:data-role focus-request)
                                                                         (:token focus-request)))))
      (swap-icon)]
-    ;; The tooltip repeats the reason line under the strip (the description
-    ;; the button points at), so assistive tech skips it.
     [:span {:class (if disabled?
                      (into ["hidden" "lg:block"] tooltip-classes)
                      ["hidden"])
@@ -134,8 +117,6 @@
           :data-role "portfolio-funds-total-value"}
     value-text]
    [:div {:class card-detail-classes}
-    ;; "Total Equity $X" once known, else why the total is unknown; only a
-    ;; failure takes the warning tone.
     [:div {:class (cond-> [] (= :warn tone) (conj "text-ho-warn"))
            :data-role "portfolio-funds-total-status"
            :data-tone (some-> tone name)}
@@ -182,7 +163,6 @@
     [:div {:class ["flex" "min-w-0" "items-center" "gap-2"]}
      (location-chip/location-chip :hyperevm)
      [:span {:class card-label-classes} "HyperEVM wallet"]]
-    ;; Dropped where three cards share a tablet row and it would wrap.
     [:span {:class ["shrink-0" "text-xs" "text-ho-text-muted" "md:hidden" "lg:inline"]} "chain 999"]]
    [:div {:class card-value-classes
           :data-role "portfolio-funds-card-evm-value"}

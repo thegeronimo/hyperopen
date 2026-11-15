@@ -30,7 +30,6 @@
   (let [context @account-tab-measure-context
         label-width (if context
                       (do
-                        ;; Match the compact 12px tab label metrics used by the tab strip.
                         (set! (.-font context) (fonts/canvas-font 12))
                         (-> context
                             (.measureText (or label ""))
@@ -79,10 +78,6 @@
       (.setProperty strip-style "--account-info-tab-indicator-left" (str left "px"))
       (.setProperty strip-style "--account-info-tab-indicator-width" (str width "px"))
       (when (and indicator (not animate?))
-        ;; Force a synchronous reflow so the un-animated snap to the exact
-        ;; position lands, then hand the transition back to the stylesheet for
-        ;; subsequent tab switches. Gating removeProperty on the offsetWidth read
-        ;; keeps :advanced DCE from dropping the (otherwise unused) reflow.
         (when (<= 0 (.-offsetWidth indicator))
           (.removeProperty (.-style indicator) "transition"))))))
 
@@ -186,10 +181,6 @@
    "md:min-h-12"
    "md:border-b-0"])
 
-;; The Balances actions (search, location filter, Hide Small Balances) are
-;; about 530 px wide. Beside the tab strip they left it about 200 px at
-;; 768 px, too narrow to show the selected tab, so below lg they take their
-;; own row under the strip, as on phones.
 (def ^:private stacked-below-lg-classes
   {"md:flex-row" "lg:flex-row"
    "md:items-stretch" "lg:items-stretch"
@@ -323,8 +314,6 @@
   (tab-filters/open-orders-direction-filter-key open-orders-state))
 
 (defn- balances-header-actions
-  ;; Wraps below md (the location filter drops under the search on a phone);
-  ;; one row from md up, under the tab strip until lg (`header-classes`).
   [hide-small? coin-search location-filter*]
   [:div {:class ["ml-auto" "relative" "flex" "flex-wrap" "items-center" "justify-end" "gap-x-3" "gap-y-2" "px-4" "py-2" "md:flex-nowrap" "md:min-h-12" "md:py-0"]
          :data-role "account-info-tab-actions-shell"}

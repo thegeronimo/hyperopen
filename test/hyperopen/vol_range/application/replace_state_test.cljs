@@ -90,9 +90,6 @@
       :open-orders orders})))
 
 (deftest preview-releases-the-old-ladders-holds-test
-  ;; The 13.2 ladder live on a 3000 USDC / 150 VRT account: its resting buys
-  ;; hold about 2900 USDC. The update reuses those funds once they are
-  ;; canceled, so the preview must not count them twice.
   (let [plan (planner/prepare-plan (fx/plan-input))
         legs (vec (map-indexed (fn [i l] (assoc l :cloid (str "0xc" i) :oid (str (+ 100 i)))) (:legs plan)))
         key (draft-scope/current-scope-key (sf/base-state))
@@ -119,8 +116,6 @@
         (is (= {:total "3000" :hold "0" :available "3000"} (:quote (replace-state/account-for-plan s thin))))))))
 
 (deftest a-confirmed-read-gives-way-to-newer-store-balances-test
-  ;; After the cancel is confirmed the planner uses that read, but only
-  ;; until the store's own balances change (a transfer, another order).
   (let [live (fx/account-snapshot {:open-orders [{:oid "11" :side :buy :price "76.4" :remaining "7"}
                                                  {:oid "99" :side :buy :price "70" :remaining "1"}]})
         seen (replace-state/store-balances live)]

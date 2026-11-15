@@ -194,7 +194,6 @@ async function waitForDebugBridge(attached, timeoutMs = 15000, pollMs = 50) {
         return true;
       }
     } catch (_error) {
-      // keep polling until the bridge is available
     }
     await sleep(pollMs);
   }
@@ -379,7 +378,6 @@ export async function closeLaunchedBrowserGracefully(session, options = {}) {
       await client.close().catch(() => null);
     }
   } catch (_error) {
-    // Fallback to process termination below when CDP shutdown is unavailable.
   }
 
   if (await waitForExit(session?.chrome?.pid, options.browserCloseTimeoutMs || 5000)) {
@@ -724,7 +722,6 @@ export class SessionManager {
         try {
           await client.send("Target.detachFromTarget", { sessionId: cdpSessionId });
         } catch (_err) {
-          // ignore
         }
         await client.close();
       }

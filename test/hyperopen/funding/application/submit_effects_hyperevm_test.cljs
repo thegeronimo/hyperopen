@@ -17,8 +17,6 @@
             [hyperopen.platform :as platform]
             [hyperopen.test-support.async :as async-support]))
 
-;; --- HyperCore -> HyperEVM ----------------------------------------------------------
-
 (deftest core-to-evm-signs-the-exact-send-asset-and-keeps-the-modal-on-its-run-test
   (async done
     (let [store (store-for purr-to-evm)
@@ -55,7 +53,6 @@
       (-> (effects/api-submit-funding-transfer! deps)
           (.then (fn [_]
                    (is (= :arriving (:arrival (run-of store))))
-                   ;; 50 PURR before; the next read shows 149.99999: not yet.
                    (swap! store assoc-in [:hyperevm :balances :by-address support/owner :token-units
                                           support/purr-index]
                           "149999990000000000000")
@@ -116,8 +113,6 @@
                    (done)))
           (.catch (async-support/unexpected-error done))))))
 
-;; --- HyperEVM -> HyperCore ----------------------------------------------------------
-
 (deftest evm-to-core-success-clears-the-entry-and-follows-the-arrival-test
   (async done
     (let [store (store-for (assoc hype-to-spot :amount-input "10"))
@@ -149,7 +144,6 @@
                           (sort (keep (fn [[ms]] (when (< ms 60000) ms)) @timers)))
                        "...and again while the credit is arriving")
                    (is (= [] @toasts))
-                   ;; Spot shows the 10 HYPE (412.08 before).
                    (swap! store assoc-in [:spot :clearinghouse-state :balances 1 :total] "422.08")
                    (is (= :arrived (:arrival (run-of store))))
                    (done)))
@@ -260,8 +254,6 @@
     (is (= [] @seen))
     (is (re-find #"^Refusing to sign" (get-in @store [:funding-ui :modal :error])))))
 
-;; --- other routes -------------------------------------------------------------------
-
 (deftest a-send-asset-without-the-hyperevm-route-keeps-the-legacy-close-test
   (async done
     (let [store (atom (assoc (support/state) :funding-ui {:modal (effects-support/seed-modal :transfer)}))
@@ -289,8 +281,6 @@
                              @dispatches))
                    (done)))
           (.catch (async-support/unexpected-error done))))))
-
-;; --- the view-model renders every run the effect writes -------------------------
 
 (defn- view-model
   [store]

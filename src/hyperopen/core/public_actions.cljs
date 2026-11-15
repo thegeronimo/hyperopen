@@ -112,9 +112,6 @@
 (def restore-ui-font-preference!
   ui-preferences/restore-ui-font-preference!)
 
-(def restore-ui-theme-preference!
-  ui-preferences/restore-ui-theme-preference!)
-
 (def open-mobile-header-menu
   header-actions/open-mobile-header-menu)
 
@@ -201,9 +198,6 @@
 
 (def select-portfolio-chart-tab
   portfolio-actions/select-portfolio-chart-tab)
-
-(def set-portfolio-account-info-tab
-  portfolio-actions/set-portfolio-account-info-tab)
 
 (def set-portfolio-returns-benchmark-search
   portfolio-actions/set-portfolio-returns-benchmark-search)
@@ -295,23 +289,11 @@
 (def sort-positions
   account-history-actions/sort-positions)
 
-(def toggle-positions-direction-filter-open
-  account-history-actions/toggle-positions-direction-filter-open)
-
-(def set-positions-direction-filter
-  account-history-actions/set-positions-direction-filter)
-
 (def sort-balances
   account-history-actions/sort-balances)
 
 (def sort-open-orders
   account-history-actions/sort-open-orders)
-
-(def toggle-open-orders-direction-filter-open
-  account-history-actions/toggle-open-orders-direction-filter-open)
-
-(def set-open-orders-direction-filter
-  account-history-actions/set-open-orders-direction-filter)
 
 (def sort-funding-history
   account-history-actions/sort-funding-history)
@@ -361,12 +343,6 @@
 (def sort-trade-history
   account-history-actions/sort-trade-history)
 
-(def toggle-trade-history-direction-filter-open
-  account-history-actions/toggle-trade-history-direction-filter-open)
-
-(def set-trade-history-direction-filter
-  account-history-actions/set-trade-history-direction-filter)
-
 (def sort-order-history
   account-history-actions/sort-order-history)
 
@@ -378,9 +354,6 @@
 
 (def set-account-info-coin-search
   account-history-actions/set-account-info-coin-search)
-
-(def toggle-account-info-mobile-card
-  account-history-actions/toggle-account-info-mobile-card)
 
 (def set-order-history-page-size
   account-history-actions/set-order-history-page-size)
@@ -435,12 +408,6 @@
 
 (def set-order-size-input-mode
   order-actions/set-order-size-input-mode)
-
-(def set-outcome-ticket-entry
-  order-actions/set-outcome-ticket-entry)
-
-(def set-outcome-option-sort
-  outcome-option-sort/set-outcome-option-sort)
 
 (def focus-order-price-input
   order-actions/focus-order-price-input)

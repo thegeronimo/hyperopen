@@ -46,19 +46,9 @@
     :source-fetch-failed})
 
 (def stale-history-incident-min-age-days
-  ;; Serve-time staleness at or beyond this many days is a refresh-pipeline
-  ;; INCIDENT, not the routine 1-2 day tail: the backend escalates the
-  ;; stale-history warning to severity "error" here (API_CONTRACT.md), and the
-  ;; UI stops treating it as an all-clear/info note — it paints a visible amber
-  ;; chip and a readiness caution instead.
   7)
 
 (def misaligned-history-warning-codes
-  ;; The backend excluded the asset from common_calendar/return_calendar/
-  ;; aligned_returns_by_instrument because its served window cannot meaningfully
-  ;; overlap the majority window. Its OWN per-instrument series is still fully
-  ;; served, so this is "loaded but misaligned" (the shared-gap chip), never
-  ;; "missing".
   #{:excluded-from-alignment})
 
 (defn serve-age-days
@@ -91,9 +81,6 @@
 (defn warning-history-status
   [warning]
   (cond
-    ;; A forgiven warning (e.g. a failed OPTIONAL proxy lookback-extension on an
-    ;; asset that aligned on its own usable native series) is information, not a
-    ;; verdict about the asset's history - it must never drive a status.
     (:forgiven? warning)
     nil
 
@@ -103,9 +90,6 @@
     (contains? insufficient-history-warning-codes (:code warning))
     :insufficient
 
-    ;; Excluded from the shared calendars but served in full: loaded, not
-    ;; missing. Paints the by-exception shared-gap chip and invites an
-    ;; assumption, exactly like the client-side common-gap fallback.
     (contains? misaligned-history-warning-codes (:code warning))
     :loaded-but-misaligned
 
@@ -119,14 +103,6 @@
     nil))
 
 (def ^:private warning-status-severity
-  ;; :rejected must out-rank :stale (and the rest): one asset routinely carries
-  ;; several warnings (e.g. proxy-validation-failed AND stale-history), and a
-  ;; last-warning-wins map let a stale note mask the rejection that excluded
-  ;; the asset from alignment - hiding its remediation card in the proxy
-  ;; workflow while the run stayed blocked on it. :loaded-but-misaligned
-  ;; (excluded-from-alignment) ranks BELOW :insufficient so a stronger,
-  ;; more-specific client verdict for the same asset still wins ("labels derive
-  ;; from what alignment DID"); :stale-critical ranks just above routine :stale.
   {:rejected 5
    :missing 4
    :insufficient 3

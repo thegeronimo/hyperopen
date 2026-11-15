@@ -160,14 +160,6 @@
               :rms-error (:rms-error current-contributions)
               :max-absolute-error (:max-absolute-error current-contributions)}))))
 
-;; The mock's book: BTC/ETH/SP500 long, MSTR/SOL short, underlying
-;; correlations chosen so the POSITION P&L view reproduces the mock's signs
-;; (long × short pairs flip negative, short × short stays positive). The
-;; weights sit a nudge off the true equal-risk solution for this covariance
-;; (tuned numerically), so the real math yields the mock's near-balanced
-;; APPROXIMATE state — RMS 1.8 pts, max 2.7 pts — and the MSTR short tells
-;; the decomposition story exactly: standalone 32.6%, diversification
-;; −10.0%, net +22.7%.
 (def ^:private designer-parity-result
   (structured-result
    {:assets [["BTC" 0.157 0.60]
@@ -175,19 +167,12 @@
              ["SP500" 0.452 0.18]
              ["MSTR" -0.157 0.85]
              ["SOL" -0.11 0.90]]
-    ;; The current book is smaller but concentrated in the highly correlated
-    ;; BTC/ETH pair. The recommendation adds gross stress while its long/short
-    ;; offsets lower modeled volatility, preserving the intended tradeoff with
-    ;; summaries computed by the real domain math.
     :current-weights [0.25 0.25 0.0 0.0 0.0]
     :rho {[0 1] 0.68 [0 2] 0.42 [0 3] 0.28 [0 4] 0.21
           [1 2] 0.51 [1 3] 0.35 [1 4] 0.18
           [2 3] 0.22 [2 4] 0.05
           [3 4] 0.32}}))
 
-;; 28 held assets: the persisted matrix caps at 24 (largest |net share|) and
-;; the heatmap must say how many it dropped — also the full-width legibility
-;; stress (24 columns of cells in the card-wide grid).
 (def ^:private capped-twenty-eight-result
   (structured-result
    {:assets (vec
@@ -203,9 +188,6 @@
     :rho {}
     :rho-fallback 0.35}))
 
-;; A zero-variance asset (a depegged-flat stable proxy): its correlation
-;; column/row must render as em-dashes, never fabricated numbers, while the
-;; rest of the book stays fully populated.
 (def ^:private degenerate-column-result
   (structured-result
    {:assets [["BTC" 0.45 0.60]
@@ -213,14 +195,6 @@
              ["FLAT" 0.20 0.0]]
     :rho {[0 1] 0.72}}))
 
-;; An EXACT fit with a lopsided current book: uniform pairwise correlation
-;; (0.3) and equal per-position risk scale (every weight = 0.198 / vol, all
-;; long) make the true contributions exactly 1/6 by symmetry, so the :exact
-;; quality override is honest — the real math's deviations are float noise.
-;; Gross 2.31x clears the leverage gate, so the impact strip's outcome chip
-;; and the leverage panel's Now-comparators are exercised too. The current
-;; book concentrates risk in BTC, giving the :shift display mode a real
-;; story: Current/Shift columns, current-imbalance + biggest-shift KPIs.
 (def ^:private balance-exact-fit-result
   (structured-result
    {:assets [["BTC" 0.220 0.90]
@@ -233,8 +207,6 @@
     :rho {}
     :rho-fallback 0.3
     :quality :exact}))
-
-;; --- Interactive selection ------------------------------------------------------
 
 (def ^:private selection-reducers
   {:actions/set-portfolio-optimizer-selected-risk-instrument

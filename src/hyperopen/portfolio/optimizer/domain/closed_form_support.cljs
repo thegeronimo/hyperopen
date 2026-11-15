@@ -94,8 +94,6 @@
              :value (abs-sum weights)
              :limit gross-max})
 
-      ;; A closed-form GMV ignores inequalities, so reject any candidate below the
-      ;; gross floor and let the QP path (which encodes the floor) take over.
       (and (finite-number? gross-floor)
            (sequential? gross-floor-signs)
            (= (count gross-floor-signs) (count weights))
@@ -107,7 +105,6 @@
 
       (and (finite-number? max-turnover)
            (or (not= (count weights) (count current-weights))
-               ;; The QP turnover encoding allows 2*max-turnover of L1 change.
                (> (abs-sum (map - weights current-weights))
                   (+ (* 2 max-turnover) tol))))
       (conj {:code :turnover-violated
@@ -146,8 +143,6 @@
   (let [tol (:constraint-match tolerances)]
     (case (:kind objective)
       :target-return
-      ;; The floor is a target-selection-rechecked inequality, so use the
-      ;; absolute constraint-match tolerance to stay inside its 1e-5 window.
       (let [r-target (:target-return objective)]
         (when (< expected-return
                  (- r-target tol))

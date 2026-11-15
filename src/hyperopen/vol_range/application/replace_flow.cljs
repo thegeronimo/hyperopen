@@ -15,10 +15,6 @@
 (defn- d [x] (or (some-> x str precision/parse-decimal) zero))
 (defn- ds [x] (precision/decimal->string x))
 
-;; ---------------------------------------------------------------------------
-;; Freeze (spec 10.2 step 2)
-;; ---------------------------------------------------------------------------
-
 (defn freeze
   "The membership an update cancels, taken from the journal-refreshed `grid`
   at the moment the user starts the cancel: {:frozen-cloids [cloid ...]
@@ -34,10 +30,6 @@
   "`:canceled` once the basis is ready, else `:blocked` (VR-15)."
   [basis]
   (if (:ready? basis) :canceled :blocked))
-
-;; ---------------------------------------------------------------------------
-;; Ticket patches
-;; ---------------------------------------------------------------------------
 
 (defn- side-patch
   "Base-unit quantity for one side; a side with nothing to place is disabled."
@@ -97,10 +89,6 @@
   [basis include-rejected]
   (let [{:keys [buy sell]} (included-quantities basis include-rejected)]
     (into (side-patch :buy buy) (side-patch :sell sell))))
-
-;; ---------------------------------------------------------------------------
-;; Predecessor admission (spec 10.2 step 6)
-;; ---------------------------------------------------------------------------
 
 (defn- successor?
   "A grid that names `grid-id` as its predecessor and may have placed

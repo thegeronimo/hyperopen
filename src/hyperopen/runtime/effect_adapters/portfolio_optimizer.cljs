@@ -181,11 +181,6 @@
   {:now-ms *now-ms*
    :submit-order! *submit-order!*
    :dispatch! *dispatch!*
-   ;; Refreshes base + per-dex frontendOpenOrders after a run leaves orders resting:
-   ;; the streams never cover named-dex rows, so without this a resting HIP-3 order
-   ;; is invisible to the merged book (not amendable, no on-book reconcile signal).
-   ;; Captured by value (like :submit-order!) so test rebindings survive the async
-   ;; continuation that eventually invokes it.
    :refresh-open-orders! *refresh-account-open-orders!*
    :load-scenario! *load-scenario!*
    :load-scenario-index! *load-scenario-index!*
@@ -261,8 +256,6 @@
   ([_ store opts]
    (let [last-run (get-in @store contracts/last-successful-run-path)
          plan (rebalance-snapshot/build-snapshot-refresh-plan last-run opts)
-         ;; Resolved here, not at the call site: the dispatch happens in a .then, long
-         ;; after a with-redefs around the effect call would have been unwound.
          dispatch! (or (:dispatch! opts) *dispatch!*)]
      (if-not (seq (:requests plan))
        (js/Promise.resolve plan)
@@ -286,10 +279,6 @@
                             current-run
                             contexts-by-id)
                            current-run)))
-                ;; The Execution tab holds a plan SNAPSHOT, so re-costing the run is only
-                ;; half the job — without this the surface keeps showing the estimate it
-                ;; staged before the books arrived. The action itself refuses to touch an
-                ;; armed, submitting, or post-run plan.
                 (dispatch! store nil
                            [[:actions/restage-portfolio-optimizer-execution-plan]]))
               {:plan plan
@@ -568,11 +557,6 @@
       store))))
 
 (def ^:dynamic *refresh-account-open-orders!*
-  ;; Rebindable so unit tests of optimizer effects never fire live snapshot fetches.
-  ;; Uses the manual-order-entry mutation refresh, which force-refreshes the base book
-  ;; AND every named dex's frontendOpenOrders snapshot (the only cloid-bearing source —
-  ;; the generic openOrders stream never hydrates named-dex rows). No-op without a
-  ;; connected account.
   (fn [store]
     (when-let [address (or (account-context/effective-account-address @store)
                            (get-in @store [:wallet :address]))]
@@ -673,8 +657,6 @@
    (scenario-effects/reset-portfolio-optimizer-draft-effect
     {:delete-draft! *delete-draft!*
      :dispatch! *dispatch!*
-     ;; Forget the "already persisted" marker: the IndexedDB record is gone, so
-     ;; a future draft identical to the old one must still be written.
      :note-reset! #(draft-autosave/note-persisted! nil)}
     store
     nil)))

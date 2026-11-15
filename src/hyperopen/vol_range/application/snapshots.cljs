@@ -31,10 +31,6 @@
 
 (defn- ->dec-string [x] (some-> (->dec x) ds))
 
-;; ---------------------------------------------------------------------------
-;; Scope (spec 3.2)
-;; ---------------------------------------------------------------------------
-
 (defn- spot-universe-entry [state spot-pair-index]
   (when (some? spot-pair-index)
     (->> (get-in state [:spot :meta :universe])
@@ -52,7 +48,6 @@
   "Resolved identity of the active market and account (spec 3.2)."
   [state]
   (let [market (or (:active-market state) {})
-        ;; A perp's :idx is its own universe index, never a spot pair.
         entry (when-not (contracts/perp-market? market) (spot-universe-entry state (:idx market)))
         [base-token quote-token] (when (sequential? (:tokens entry)) (:tokens entry))]
     {:network (contracts/current-network)
@@ -64,8 +59,6 @@
      :spot-pair-index (:idx market)
      :asset-id (:asset-id market)
      :coin (:coin market)
-     ;; A perp has no token ids: its position is identified by the coin (which
-     ;; carries the HIP-3 dex prefix), as the synthetic base id "perp:<coin>".
      :base-token-id (if (contracts/perp-market? market)
                       (contracts/perp-base-id (:coin market))
                       (some-> base-token str))
@@ -74,10 +67,6 @@
      :quote-symbol (:quote market)
      :sz-decimals (size-decimals market)
      :metadata-version nil}))
-
-;; ---------------------------------------------------------------------------
-;; Market snapshot
-;; ---------------------------------------------------------------------------
 
 (defn- level-px [level] (->dec (if (map? level) (:px level) nil)))
 
@@ -196,10 +185,6 @@
                          :market-price (bbo-mid-anchor bbo)}
                :auto-volatility (auto-volatility-for-state state rows coin now-ms))))))
 
-;; ---------------------------------------------------------------------------
-;; Account snapshot
-;; ---------------------------------------------------------------------------
-
 (defn- selected-subaccount-spot-state
   "Mirror of the trading context rule: a selected owned subaccount's own spot
   state replaces the global spot state."
@@ -308,10 +293,6 @@
   (let [market (or (:active-market state) {})
         position (trading/position-for-market state (:coin scope) market)
         clearinghouse (:clearinghouse (trading/trading-context state))
-        ;; The venue's own leverage for the market: the position's, else the
-        ;; last `activeAssetData` read for this account and coin. Only
-        ;; without either does the ticket's leverage setting stand in; the
-        ;; placement guard then refuses a venue leverage that differs.
         venue (let [a (get-in state [:vol-range :perp-asset])]
                 (when (and (= (:coin scope) (:coin a))
                            (= (some-> (:account-address scope) str str/lower-case) (:account-address a)))
@@ -394,10 +375,6 @@
                          vec)
                     [])
      :observed-at-ms received-at-ms}))
-
-;; ---------------------------------------------------------------------------
-;; Fee snapshot
-;; ---------------------------------------------------------------------------
 
 (defn fee-snapshot
   "::fee-capability from the user's fee quote. The generic fallback quote is

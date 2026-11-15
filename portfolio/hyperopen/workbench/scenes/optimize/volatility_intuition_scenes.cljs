@@ -22,11 +22,6 @@
   {:title "Volatility intuition"
    :collection :optimize})
 
-;; The mock's levered book: gross 8.15x, extreme annualized σ. On the 365-day
-;; basis the card must show ±21.56% / ±57.03% / ±118.1% (uncapped) with the
-;; extreme callout and the −100% boundary note, and the leverage-impact panel
-;; must show a target median that collapses despite the huge arithmetic mean —
-;; with the distribution's median marker far left of its mean marker.
 (def ^:private extreme-levered-result
   {:status :solved
    :as-of-ms 1752300000100
@@ -40,9 +35,6 @@
                  :net-exposure 8.15}
    :rebalance-preview {:capital-usd 100000}})
 
-;; A defensive book: 40% target σ against a 30% current book. No severity
-;; note, no boundary note, and the leverage-impact panel must NOT render
-;; (0.9x gross, σ below the 100% gate) — the slot under the chart stays empty.
 (def ^:private moderate-result
   {:status :solved
    :as-of-ms 1752300000200
@@ -54,10 +46,6 @@
                  :net-exposure 0.9}
    :rebalance-preview {:capital-usd 100000}})
 
-;; Very high σ with no current baseline and no account equity: toggle absent,
-;; vol-only gate surfaces the leverage-impact panel, and its rows and
-;; distribution markers speak in multiples of starting equity instead of
-;; dollars.
 (def ^:private very-high-no-current-result
   {:status :solved
    :as-of-ms 1752300000300

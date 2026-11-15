@@ -225,17 +225,6 @@
        (filterv (fn [asset]
                   (contains? withdraw-supported-asset-keys (:key asset))))))
 
-(defn withdraw-asset
-  [state modal]
-  (let [selected-key (or (normalize-withdraw-asset-key (:withdraw-selected-asset-key modal))
-                         withdraw-default-asset-key)
-        assets (withdraw-assets state)]
-    (or (some (fn [asset]
-                (when (= selected-key (:key asset))
-                  asset))
-              assets)
-        (first assets))))
-
 (defn withdraw-minimum-amount
   [asset]
   (let [asset-key (:key asset)]

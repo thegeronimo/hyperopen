@@ -123,10 +123,6 @@
   [status]
   (:meter-label (status-meta status)))
 
-(defn status-tone
-  [status]
-  (:tone (status-meta status)))
-
 (defn neutral-status?
   [status]
   (true? (:neutral? (status-meta status))))

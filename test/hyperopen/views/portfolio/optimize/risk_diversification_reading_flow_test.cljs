@@ -66,9 +66,6 @@
               (assoc-in [:risk-structure :target-diversification] target))))
 
 (deftest sub-threshold-changes-tone-neutral-and-read-unchanged-test
-  ;; Below the 0.5-displayed-pt materiality line a change keeps its factual
-  ;; direction attribute and exact signed value, but the TONE goes neutral and
-  ;; the judgment word becomes "≈ unchanged" — red must never fire on noise.
   (let [current {:modeled-volatility 0.4
                  :all-move-together-volatility 0.6
                  :zero-correlation-volatility 0.3

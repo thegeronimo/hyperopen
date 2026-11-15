@@ -8,12 +8,6 @@
   position maps produced by `hyperopen.borrow-lend.normalize`; nothing here
   reads app state or performs I/O.")
 
-;; The documented stablecoin rate model. Below the kink utilization the borrow
-;; rate is flat; above it every extra point of utilization adds `kink-slope`
-;; points of borrow APY. Suppliers receive borrowers' interest pro rata on the
-;; borrowed share of the pool, minus the reserve kept for liquidations. These
-;; constants reproduce the live `allBorrowLendReserveStates` rates exactly
-;; (see the ExecPlan's Surprises section).
 (def base-borrow-rate 0.05)
 (def kink-utilization 0.8)
 (def kink-slope 4.75)
@@ -65,8 +59,6 @@
   (let [amount* (if (finite? amount) (max 0 amount) 0)
         supplied (or total-supplied 0)
         borrowed (or total-borrowed 0)
-        ;; A withdrawal can only take available liquidity, so the pool never
-        ;; shrinks below what is currently borrowed.
         supplied* (case operation
                     :withdraw (max borrowed (- supplied amount*))
                     (+ supplied amount*))]

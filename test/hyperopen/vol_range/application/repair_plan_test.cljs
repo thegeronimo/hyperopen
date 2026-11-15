@@ -74,7 +74,6 @@
     (is (= "0.06" (get-in g [:model :volatility :daily-fraction])))))
 
 (deftest a-crossing-rejected-buy-steps-away-from-the-book-test
-  ;; Actual distance 0.75 -> first step 0.80 -> 80 x (1 - 0.8 x 0.06) = 76.16.
   (let [proposal (propose (partial-grid) "76.00" "76.35")
         [leg] (:legs proposal)]
     (is (= 1 (count (:legs proposal))))
@@ -99,7 +98,6 @@
     (is (false? (:repriced? leg)))))
 
 (deftest a-step-on-a-surviving-price-is-skipped-test
-  ;; A survivor buy already rests at 76.16, so the next step (0.85) is used.
   (let [g (partial-grid)
         g (assoc-in g [:legs (:cloid (leg-of g "buy-1")) :price] "76.16")
         [leg] (:legs (propose g "76.00" "76.35"))]
@@ -273,8 +271,6 @@
 
 (deftest pending-reservations-are-judged-like-admission-test
   (let [g (partial-grid)
-        ;; Right after placement: the venue holds the resting buys, and the
-        ;; placement's own reservation is still pending.
         acct (account g {:quote {:total "3000" :hold "2366" :available "634"}})
         pending {:usdc "2900" :base "0"}]
     (testing "the summary is net of pending reservations and keeps the venue figures"

@@ -4,8 +4,6 @@
             [hyperopen.wallet.agent-session :as agent-session]
             [hyperopen.wallet.provider-registry :as provider-registry]))
 
-;; ---------- Provider helpers -------------------------------------------------
-
 (declare listeners-installed?
          apply-accounts-connection!
          provider-listener-state
@@ -135,8 +133,6 @@
     (agent-session/default-agent-state :storage-mode storage-mode
                                        :local-protection-mode local-protection-mode)))
 
-;; ---------- Core EIP-1102 actions -------------------------------------------
-
 (defn set-disconnected! [store]
   (swap! store update-in [:wallet]
          (fn [wallet-state]
@@ -151,7 +147,7 @@
                (agent-lockbox/clear-unlocked-session! wallet-address))
              {:connected? false
               :address nil
-              :chain-id (:chain-id wallet-state) ; keep last chain id
+              :chain-id (:chain-id wallet-state)
               :connecting? false
               :error nil
               :providers (:providers wallet-state)
@@ -291,7 +287,6 @@
       (restore-connection-from-provider-records! store records)
       (set-disconnected! store))))
 
-;; Only call this from a user gesture (button click)
 (defn request-connection!
   ([store]
    (request-connection! store nil))
@@ -300,16 +295,12 @@
      (if-not provider*
        (set-disconnected! store)
        (do
-         ;; Set connecting state
          (swap! store update-in [:wallet] merge {:connecting? true :error nil})
-         ;; Request accounts
          (-> (.request provider* (->js {:method "eth_requestAccounts"}))
              (.then (fn [accounts]
                       (apply-accounts-connection! store accounts true)
                       (refresh-chain-id! store provider*)))
              (.catch #(set-error! store %))))))))
-
-;; ---------- Event listeners (accounts/chain) --------------------------------
 
 (defonce listeners-installed? (atom false))
 
@@ -329,8 +320,6 @@
            (identical? provider* (:provider current-listeners))
            (not (or (fn? (some-> provider* .-removeListener))
                     (fn? (some-> provider* .-off)))))
-      ;; Some providers expose `on` without any listener-removal API. Keep the
-      ;; existing callbacks attached and only refresh the current store ref.
       (reset! listeners-installed? true)
 
       :else
@@ -346,7 +335,6 @@
                   (apply-accounts-connection! active-store accounts)))
               chain-changed
               (fn [chain-id]
-                ;; chainId comes as hex string per EIP-1193, e.g. "0x1"
                 (when-let [active-store (when (identical? listener-id
                                                           (:listener-id @provider-listener-state))
                                           @provider-listener-store)]
@@ -364,14 +352,9 @@
   (attach-listeners! store)
   (check-connection! store))
 
-;; ---------- Replicant view components ----------------------------------------
-
 (defn wallet-status [state]
   (let [{:keys [connected? address chain-id error connecting?]}
         (get-in state [:wallet])]
-    ;; Each branch yields a vector of CHILDREN spliced into the flex row. This
-    ;; repo's Replicant has no fragment tag: [:<>] reaches createElement as the
-    ;; literal tag "<>", which throws and kills the surrounding subtree.
     (into [:div.flex.items-center.gap-2]
           (cond
             error       [[:span.text-red-600 (str "Wallet error: " error)]]

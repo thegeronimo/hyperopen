@@ -59,12 +59,6 @@
                  (true? (get-in order-type-spec [order-type :limit-like?]))))
        set))
 
-(def ^:private trigger-order-types
-  (->> order-types
-       (filter (fn [order-type]
-                 (true? (get-in order-type-spec [order-type :requires-trigger?]))))
-       set))
-
 (def tif-options [:gtc :ioc :alo])
 
 (def default-max-slippage-pct 8.0)
@@ -85,25 +79,15 @@
 (def twap-min-runtime-minutes 5)
 
 (def twap-max-runtime-minutes
-  ;; Venue ceiling on TWAP runtime: 7 days. Raised from 1440 (24h) by the 2026-08-01
-  ;; Hyperliquid TWAP upgrade, which also added trigger/termination prices and dynamic
-  ;; suborder spacing.
   10080)
 
 (def twap-frequency-seconds
-  ;; FLOOR on venue suborder spacing, not the cadence. Before 2026-08-01 the venue always
-  ;; worked a twapOrder as one clip every 30s; it now stretches the interval so each clip
-  ;; clears twap-min-suborder-notional. See twap-venue-suborder-count.
   30)
 
 (def twap-min-suborder-notional
-  ;; Venue floor on a single TWAP clip's notional. The venue maintains this itself by
-  ;; spacing clips further apart -- it is NOT a reason to reject an order.
   10)
 
 (def twap-min-order-notional
-  ;; Venue floor on a TWAP's TOTAL notional. This is the constraint a user can actually
-  ;; violate, and the one validate-twap enforces.
   100)
 
 (defn parse-num [v]
@@ -156,8 +140,6 @@
                           (min 8))]
     (if (number? value)
       (let [fixed (.toFixed value safe-decimals)]
-        ;; Only fractional zeros are noise. With no decimal point (0 decimals,
-        ;; e.g. whole outcome shares) trailing zeros are the number: 50 stays "50".
         (if (str/includes? fixed ".")
           (-> fixed
               (str/replace #"0+$" "")
@@ -301,15 +283,6 @@
                 (pos? order-count))
        (/ size* order-count)))))
 
-(defn twap-suborder-notional [total-size minutes reference-price]
-  (let [suborder-size (twap-suborder-size total-size minutes reference-price)
-        reference-price* (parse-num reference-price)]
-    (when (and (number? suborder-size)
-               (pos? suborder-size)
-               (number? reference-price*)
-               (pos? reference-price*))
-      (* suborder-size reference-price*))))
-
 (defn normalize-scale-sz-decimals [sz-decimals]
   (let [parsed (parse-num sz-decimals)]
     (-> (or parsed 8)
@@ -332,9 +305,6 @@
 
 (defn limit-like-type? [order-type]
   (contains? limit-like-order-types (normalize-order-type order-type)))
-
-(defn trigger-type? [order-type]
-  (contains? trigger-order-types (normalize-order-type order-type)))
 
 (defn entry-mode-for-type [order-type]
   (get-in order-type-spec [(normalize-order-type order-type) :entry-mode] :pro))
@@ -372,9 +342,6 @@
 
 (defn normalize-ui-leverage [context leverage]
   (if (spot-market-context? context)
-    ;; Spot has no leverage. Forcing 1 here also stops percent-sizing from
-    ;; multiplying by the perp fallback (100) for spot markets, which would
-    ;; otherwise oversize spot orders ~100x (spot :maxLeverage is nil).
     1
     (let [raw (or (parse-num leverage) 20)
           max-lev (or (market-max-leverage context) 100)]

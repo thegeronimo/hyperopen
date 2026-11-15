@@ -172,9 +172,6 @@
            (click-actions results-link)))))
 
 (deftest portfolio-optimizer-workspace-exposes-rebalance-path-after-clean-run-test
-  ;; Regression: the draft page offered no path to the rebalance trades. Both the
-  ;; status rail and the action bar must now link directly to them. The standalone
-  ;; Rebalance preview tab was retired, so both stage straight into Execution.
   (let [state (ready-workspace-state {:kind :historical-mean})
         view-node (portfolio-view/portfolio-view
                    (assoc-in state
@@ -208,8 +205,6 @@
         results-link (node-by-role view-node "portfolio-optimizer-results-link")]
     (is (nil? (node-by-role view-node "portfolio-optimizer-view-weights"))
         "The setup action bar should not require a second click after optimization succeeds.")
-    ;; Workspace CTAs target the draft alias — it renders the current run in
-    ;; place, while a scenario route would re-load and clobber it.
     (is (= [[:actions/navigate "/portfolio/optimize/draft"]]
            (click-actions results-link)))))
 
@@ -337,10 +332,6 @@
     (is (= "50%" (:width running-fill)))
     (is (not (contains? (:classes pending-fill) "animate-pulse")))
     (is (= "0%" (:width pending-fill)))))
-
-;; The single-bar summary, trickled display percent, and failed-state behaviour
-;; of the progress panel are covered directly in
-;; hyperopen.views.portfolio.optimize.optimization-progress-panel-test.
 
 (deftest portfolio-optimizer-workspace-renders-infeasible-result-and-highlights-controls-test
   (let [view-node (portfolio-view/portfolio-view

@@ -28,7 +28,3 @@
         (if restored-preview
           (swap! store assoc-in [:vaults :startup-preview] restored-preview)
           (vault-preview-cache/clear-vault-startup-preview!))))))
-
-(defn persist-startup-preview-record!
-  [state]
-  (vault-preview-cache/persist-vault-startup-preview-record! state))

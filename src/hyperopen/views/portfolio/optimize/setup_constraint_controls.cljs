@@ -98,10 +98,6 @@
                        :value (str value)
                        :disabled (boolean disabled?)}
                 (not disabled?)
-                ;; Commit on blur/Enter, not per keystroke: the handler parses the value with
-                ;; js/Number and writes it back into this controlled :value, so on :input a typed
-                ;; "0." snaps to "0" and a decimal can never be entered. :change keeps the raw
-                ;; text in the DOM until blur, then reconciles to the interpreted value.
                 (assoc :on {:change [[:actions/set-portfolio-optimizer-constraint
                                       constraint-key
                                       [:event.target/value]]]})
@@ -142,7 +138,6 @@
                       :aria-describedby tooltip-id
                       :value (if enabled? (str (:max-turnover constraints)) "")
                       :disabled (not enabled?)}
-               ;; Commit on blur/Enter (see constraint-row) so a typed decimal isn't rewritten.
                enabled? (assoc :on {:change [[:actions/set-portfolio-optimizer-constraint
                                               :max-turnover
                                               [:event.target/value]]]}))]]]))
@@ -186,8 +181,6 @@
                       :on-change [[:actions/set-portfolio-optimizer-constraint
                                    :include-spot?
                                    (not enabled?)]]})]]))
-
-;; --- read-only-at-rest cards + fine-tune drawer (designer mock, 2026-07-10) ---
 
 (defn- card-value-row
   [label value role]
@@ -330,8 +323,6 @@
                           :zoom-level exposure-zoom-level})
          active-label (get exposure-policy/preset-labels
                            (:active-preset exposure-model) "Custom")
-         ;; A holdings import derives the envelope from the current book; the
-         ;; collapsed header says so instead of a bare "Custom".
          active-label (if (and (= "Custom" active-label)
                                (= :holdings
                                   (get-in draft [:metadata :universe-source :kind])))
@@ -339,10 +330,6 @@
                         active-label)]
      (controls/disclosure-panel-open
       "portfolio-optimizer-constraints-panel"
-      ;; The collapsed header carries the actual policy, not just a preset name:
-      ;; exposure limits are a main determinant of the result, so the live numbers
-      ;; ("Gross 1.90–1.91× · Net +1.30×–1.41× long · Max asset 50%") stay
-      ;; scannable while the panel is closed.
       (controls/disclosure-heading
        "Portfolio exposure"
        [:span {:class ["flex" "min-w-0" "flex-col" "items-end" "gap-0.5" "text-right"]}
@@ -360,11 +347,6 @@
          [:p {:class ["text-[0.8125rem]" "leading-[1.45]" "text-trading-muted"]
               :data-role "portfolio-optimizer-constraints-description"}
           "Set target leverage and net long/short bias."])
-       ;; A holdings import rewrites the constraint envelope from the current book
-       ;; (gross floor, caps, net range) — disclosed HERE, in the section that owns
-       ;; the constraints, not in the goal card (the objective didn't seed them).
-       ;; Chip + short hint instead of a full amber sentence: the seeded-state
-       ;; disclosure must not compete visually with the exposure controls.
        (when (= "Custom · from holdings" active-label)
          [:p {:class ["flex" "flex-wrap" "items-center" "gap-2"]
               :data-role "portfolio-optimizer-preset-holdings-constraints-note"}
@@ -374,12 +356,6 @@
            "Custom from holdings"]
           [:span {:class ["text-[0.6875rem]" "text-trading-muted"]}
            "Review before running"]])
-       ;; The resting view (designer mock, 2026-07-10): the pad with its large
-       ;; stacked readout beside it, and the right column — Fine-tune control on
-       ;; top (its summary lines up with the pad's axis header), then the two
-       ;; read-only constraint cards flexing to close the column at the pad's
-       ;; bottom edge. Every canonical control keeps its single data-role — the
-       ;; cards' Edit state renders the exact rows the flat groups used to.
        [:div {:class ["grid" "grid-cols-1" "gap-3"
                       "lg:grid-cols-[minmax(0,1.15fr)_minmax(15rem,1fr)]"]}
         [:div {:class ["flex" "min-w-0" "items-stretch" "gap-4"]}

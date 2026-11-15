@@ -1,13 +1,6 @@
 (ns hyperopen.runtime.validation
   (:require [goog.object :as gobj]))
 
-;; The cljs.spec contract tree (hyperopen.schema.contracts.*) registers hundreds
-;; of specs at namespace load and is only consulted when validation is enabled,
-;; which never happens in release (goog.DEBUG is false). To keep that tree out
-;; of the release bundle, this namespace holds no require edge into it: the
-;; contracts aggregator installs its assertion functions here when it loads
-;; (dev preload and test builds), and release builds dead-code-eliminate the
-;; whole tree because nothing references it.
 (defonce ^:private contracts-impl
   (atom nil))
 

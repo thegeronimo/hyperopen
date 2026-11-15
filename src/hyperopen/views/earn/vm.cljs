@@ -115,7 +115,6 @@
                             :interest (if (finite? (:borrow interest))
                                         (str (format-interest "\u2212" (:borrow interest)) " " symbol)
                                         dash)})))))
-       ;; Earning legs first, then collateral, then debt, as in the design.
        (sort-by (fn [{:keys [kind]}] (case kind :supplied 0 :collateral 1 2)))
        vec))
 

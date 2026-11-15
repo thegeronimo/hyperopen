@@ -80,9 +80,6 @@
   ([rows vaults-overrides]
    (-> (classic-named-dex-state)
        (assoc :wallet {:address account-a})
-       ;; Vault-focused cases establish a known HyperEVM zero explicitly.
-       ;; The four-part total is otherwise truthfully unavailable before that
-       ;; independently owned account read has completed.
        (assoc :account-equity/hyperevm-funds {:status :ready
                                                :address account-a
                                                :usd 0
@@ -114,9 +111,6 @@
                  (scoped-vault-state [{:vault-address "0xvault-a"
                                        :equity 12500.0
                                        :equity-raw "12500.0"}]))]
-    ;; The legacy two-part figure remains a public presentation metric. The
-    ;; grouped total adds current vault equity without quietly changing its
-    ;; Spot + Perps semantics or the risk figures below it.
     (is (= "$156,001.46" (view/display-currency (:account-value-display metrics))))
     (is (= (:account-value-display without-vault)
            (:account-value-display metrics)))
@@ -226,9 +220,6 @@
                                        :equity 500.0
                                        :equity-raw "500.0"}]
                                      {:loading {:user-equities? true}}))]
-    ;; A background refresh for the same marked account should not make a
-    ;; confirmed value flicker to --. An address switch must clear the marker
-    ;; instead, which the previous test covers.
     (is (= 500.0 (:vault-equity metrics)))
     (is (= (+ (:account-value-display metrics) 500.0)
            (:total-account-value-display metrics)))))
@@ -305,8 +296,6 @@
     (is (some? (find-first-node confirmed-zero #(contains? (direct-texts %) "Vaults"))))
     (is (some? (find-first-node confirmed-zero #(contains? (direct-texts %) "$0.00"))))
     (is (some? (find-first-node unknown #(contains? (direct-texts %) "Vaults"))))
-    ;; The existing known Spot and Perps values remain readable while only the
-    ;; untrusted Vaults row and its dependent total say --.
     (is (>= (count (filter #(= "--" %) (collect-strings unknown))) 2))))
 
 (deftest unified-account-summary-does-not-adopt-the-classic-vault-total-test

@@ -106,9 +106,6 @@
            :on {:input [action]}}])
 
 (defn- sigma-percent-input
-  ;; Commits on change (blur/Enter), not per keystroke: the actions clamp to
-  ;; the 4–40% dial range, and an eager clamp would rewrite a controlled input
-  ;; mid-typing (entering "22" would clamp the leading "2" up to 4).
   ([role value-text action]
    (sigma-percent-input role value-text action nil))
   ([role value-text action {:keys [size]}]

@@ -6,15 +6,12 @@
   [expected actual]
   (< (js/Math.abs (- expected actual)) 1e-9))
 
-;; Order book for #270370 (DET to beat WAS), 2026-11-09 16:25 UTC.
 (def ^:private det-asks
   [[0.81902 758] [0.81903 97] [0.8194 700] [0.81987 832]])
 
 (def ^:private det-bids
   [[0.81886 69] [0.81885 135] [0.81859 67]])
 
-;; A never-traded contract as the live feed shows it: a placeholder mid near
-;; 0.50, a previous-day price of 0 and no volume.
 (def ^:private placeholder-side
   {:mark 0.5 :markRaw "0.5" :mid 0.5 :midRaw "0.5" :prevDayRaw "0.0" :volume24h 0 :baseVolume24h 0})
 

@@ -31,21 +31,15 @@
         strings (set (collect-strings node))
         footer (node-by-role node "portfolio-optimizer-progress-footer")
         footer-text (str/join " " (collect-strings footer))]
-    ;; Single quiet headline + overall percent instead of a stack of bars.
     (is (contains? strings "Optimizing portfolio…"))
     (is (contains? strings "25%"))
-    ;; Per-step breakdown is preserved behind a 'details' disclosure.
     (is (some? (node-by-role node "portfolio-optimizer-progress-details")))
-    ;; Fine-print footer: elapsed and the current sub-step (no remaining estimate).
     (is (str/includes? footer-text "elapsed"))
     (is (not (str/includes? footer-text "remaining")))
     (is (str/includes? footer-text "fetch returns matrix"))
     (is (str/includes? footer-text "details"))))
 
 (deftest progress-panel-renders-the-trickled-display-percent-and-ticker-clock-test
-  ;; The ticker writes a smoothed :display-percent ahead of the sparse true
-  ;; :overall-percent and a fresh :now-ms; the headline + bar follow the smoothed
-  ;; value and the elapsed clock follows :now-ms (started 1000, now 9000 -> 8.0s).
   (let [node (panel/progress-panel (running-progress {:overall-percent 25
                                                       :display-percent 33
                                                       :now-ms 9000}))
@@ -77,5 +71,4 @@
     (is (some? (node-by-role node "portfolio-optimizer-progress-panel")))
     (is (contains? strings "Optimization failed"))
     (is (contains? strings "solver diverged"))
-    ;; A partial completion fraction is not shown next to a failure.
     (is (not (contains? strings "63%")))))

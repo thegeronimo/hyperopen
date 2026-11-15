@@ -32,7 +32,6 @@
   (async done
     (nc/reset-memory-cursors!)
     (locks/reset-in-tab-state!)
-    ;; A frozen clock is the worst case: every producer reserves in the same ms.
     (-> (with-frozen-clock
          1700000000000
          (fn []
@@ -90,9 +89,6 @@
           (.finally done)))))
 
 (deftest coordination-is-claimed-only-when-the-clock-passes-the-nonce-test
-  ;; Second review M1/M2: the holder waits out a lead of at most 2 ms
-  ;; synchronously; a larger lead (cursor or floor ahead of the clock, clock
-  ;; stepped back) releases at once and is :degraded.
   (async done
     (nc/reset-memory-cursors!)
     (locks/reset-in-tab-state!)
@@ -109,7 +105,6 @@
           (.finally (fn [] (set! platform/now-ms orig) (done)))))))
 
 (deftest storage-failures-degrade-instead-of-blocking-test
-  ;; Review B1: a throwing localStorage must never block signing (cancels included).
   (async done
     (nc/reset-memory-cursors!)
     (locks/reset-in-tab-state!)
@@ -129,7 +124,5 @@
                       (done)))))))
 
 (deftest far-future-cursors-are-ignored-test
-  ;; Review m2: a cursor beyond the venue window (T + 1 day) would make every
-  ;; action fail; it is ignored instead.
   (is (nil? (nc/usable-cursor 1000 (+ 1000 nc/max-cursor-lead-ms 1))))
   (is (= 5000 (nc/usable-cursor 1000 5000))))

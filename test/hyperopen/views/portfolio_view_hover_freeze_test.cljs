@@ -67,8 +67,6 @@
         loaded (account-tab-modules/mark-account-tab-module-loaded loading :open-orders)
         calls (atom 0)]
     (with-redefs [account-info-view/account-info-view
-                  ;; account-info-view is multi-arity and the call site dispatches
-                  ;; on arity 2, so the stub has to declare both arities.
                   (fn
                     ([_state]
                      (swap! calls inc)

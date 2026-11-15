@@ -25,8 +25,6 @@
    :optimizer-history/instrument-id "hl:perp:BTC"})
 
 (def ^:private wlfi-instrument
-  ;; Deliberately undecorated: the short-history asset was added before
-  ;; discovery landed, exactly like the persisted draft in the browser flow.
   {:instrument-id "perp:WLFI"
    :market-type :perp
    :coin "WLFI"
@@ -99,7 +97,6 @@
         record (history-cache/history-cache-record live-state
                                                    address
                                                    (* 401 day-ms))
-        ;; The exact persistence encoding round trip (persistence.cljs edn-v1).
         record* (reader/read-string (pr-str record))
         hydrated (history-cache/hydrate-history-cache
                   (state-with-history nil) record* address (* 401 day-ms))
@@ -117,10 +114,6 @@
         from cache.")))
 
 (deftest cached-bundle-hydration-matches-browser-restore-conditions-test
-  ;; The browser restore path additionally: (a) round-trips + migrates the
-  ;; DRAFT through its own edn record, and (b) has the background revalidate's
-  ;; :loading load-state stamped before readiness renders. Neither may break
-  ;; eligibility of the hydrated bundle.
   (let [normalized (api-v2/normalize-history-bundle
                     {:universe [wlfi-instrument btc-instrument]}
                     api-body)

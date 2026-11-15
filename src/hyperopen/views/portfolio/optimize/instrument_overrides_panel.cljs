@@ -204,8 +204,6 @@
 
 (defn- eligibility-constraints
   [constraints]
-  ;; The request builder drops an empty allowlist before the domain filter
-  ;; runs; mirror that here so the eligible count matches what a run uses.
   (cond-> constraints
     (empty? (selected-set (:allowlist constraints))) (dissoc :allowlist)))
 

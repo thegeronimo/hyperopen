@@ -7,7 +7,6 @@
             [hyperopen.api.promise-effects :as promise-effects]
             [hyperopen.borrow-lend.account :as bl-account]))
 
-;; Upper bound on pages per paged info request.
 (def ^:private max-pages 20)
 
 (defn- still-current?

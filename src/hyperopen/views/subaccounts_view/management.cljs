@@ -157,7 +157,6 @@
                             class)}]
         children))
 
-
 (defn- transfer-direction-summary
   [{:keys [address direction subaccount-name]}]
   (let [withdraw? (= :withdraw direction)
@@ -213,10 +212,6 @@
   [{:keys [address subaccount-name subaccounts deposit-max withdraw-max transfer-assets unified-account? class]}]
   (let [direction (or (:transfer-direction subaccounts) :deposit)
         withdrawing? (= :withdraw direction)
-        ;; Resolve the selection against the rows the dropdown actually offers,
-        ;; so the MAX label and the Send button can never describe a token the
-        ;; user cannot see. `token-dropdown` still receives the unfiltered list,
-        ;; because it needs the full set to count what it is hiding.
         show-zero? (true? (:show-zero-balances? subaccounts))
         visible-assets (transfer-dropdowns/visible-transfer-assets
                         transfer-assets
@@ -277,8 +272,6 @@
         :children [(transfer-dropdowns/token-dropdown {:address address
                                                        :subaccounts subaccounts
                                                        :transfer-assets transfer-assets})]})]
-     ;; Offered only when it would change something: rows are hidden right now,
-     ;; or they are shown and the user needs a way back.
      (when (or (pos? hidden-zero-count) show-zero?)
        (transfer-dropdowns/zero-balance-toggle {:address address
                                                 :show-zero? show-zero?
@@ -310,9 +303,6 @@
                    [:span {:data-role (str "subaccounts-transfer-max-" address)
                            :class ["shrink-0" "text-xs" "font-medium" "text-ho-accent"]}
                     (str "MAX: " max-label " " symbol)]]})
-      ;; An asset spot metadata cannot name has no wire token id, and signing a
-      ;; bare symbol is rejected by the exchange, so say so instead of failing
-      ;; at submit time.
       (when unresolved?
         [:p {:data-role (str "subaccounts-transfer-unresolved-" address)
              :class ["mt-2" "text-xs" "text-ho-warn"]}

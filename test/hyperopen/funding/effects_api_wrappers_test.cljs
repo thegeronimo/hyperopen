@@ -91,7 +91,6 @@
                       (:set-funding-submit-error! (:transfer @seen))))
       (is (identical? effects/close-funding-modal!
                       (:close-funding-modal! (:transfer @seen))))
-      ;; Routes that touch HyperEVM get the real HyperEVM collaborators by default.
       (is (identical? hyperevm-runtime/submit-hyperevm-to-core-tx!
                       (:submit-hyperevm-to-core! (:transfer @seen))))
       (is (identical? hyperevm-runtime/refresh-spot-clearinghouse!

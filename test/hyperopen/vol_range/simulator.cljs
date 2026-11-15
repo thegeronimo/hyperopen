@@ -34,10 +34,6 @@
 (defn advance! [sim ms] (swap! sim update :clock + ms))
 (defn script! [sim & behaviours] (swap! sim update :script into behaviours))
 
-;; ---------------------------------------------------------------------------
-;; Venue
-;; ---------------------------------------------------------------------------
-
 (defn- open-orders [sim]
   (->> (vals (:orders @sim)) (filter #(= "open" (:status %))) (sort-by :oid)))
 
@@ -92,7 +88,6 @@
          {:balances [{:coin "USDC" :total (:usdc @sim) :hold (ds usdc)}
                      {:coin "SYN" :total (:base @sim) :hold (ds base)}]})
        "frontendOpenOrders" (mapv order-row (open-orders sim))
-       ;; `:book` {:bid :ask} moves the touch (repair pricing); default 79.99/80.01.
        "l2Book" (when-not (:book-down? @sim)
                   (let [{:keys [bid ask]} (or (:book @sim) {:bid "79.99" :ask "80.01"})]
                     {:coin coin :time (now sim) :levels [[{:px bid :sz "100" :n 1}] [{:px ask :sz "100" :n 1}]]}))
@@ -102,7 +97,6 @@
          (if o
            {:status "order" :order {:order (order-row o) :status (:status o) :statusTimestamp (now sim)}}
            {:status "unknownOid"}))
-       ;; Like the venue: ascending by time, at most a page of rows.
        "userFillsByTime"
        (->> (:fills @sim)
             (filter #(<= (get body "startTime") (:time %) (get body "endTime")))
@@ -158,8 +152,6 @@
           nonce (:nonce (swap! sim update :nonce inc))]
       (case (:kind behaviour)
         :crash-before-attempt (js/Promise. (fn [_ _] nil))
-        ;; The delivery's pre-send timeout fired while the attempt commit was
-        ;; still pending; the commit lands afterwards and nothing is sent.
         :late-attempt (do (js/setTimeout #(on-send-attempt! {:nonce nonce :expires-after expires-after}) 5)
                           (js/Promise.resolve {:delivery :not-sent :phase :pre-send-timeout :nonce nonce
                                                :error "Timed out before sending." :attempt-recorded? false}))
@@ -175,11 +167,6 @@
                                      :attempt-recorded? true})))))
                    (fn [e] {:delivery :not-sent :phase :send-attempt-record :error (str e) :nonce nonce
                             :attempt-recorded? false})))))))
-
-;; ---------------------------------------------------------------------------
-;; WebSocket frames (built from the venue state, as the account streams would
-;; deliver them)
-;; ---------------------------------------------------------------------------
 
 (defn ws-fills-frame
   "A raw `userFills` message holding the venue's fills (only those with a tid
@@ -200,10 +187,6 @@
     :data {:user (or user (:account-address scope)) :dex (or dex "")
            :orders (mapv order-row (open-orders sim))}}))
 
-;; ---------------------------------------------------------------------------
-;; Journal
-;; ---------------------------------------------------------------------------
-
 (defn- encode [r] (binding [*print-length* nil *print-level* nil] (pr-str r)))
 
 (defn journal [sim]
@@ -219,10 +202,6 @@
                                        :unreadable []})))})
 
 (defn records [sim] (mapv reader/read-string (vals (:journal @sim))))
-
-;; ---------------------------------------------------------------------------
-;; Live inputs and deps
-;; ---------------------------------------------------------------------------
 
 (defn live-input
   "Planner input from live state; `:draft` in the sim replaces the 13.2 draft

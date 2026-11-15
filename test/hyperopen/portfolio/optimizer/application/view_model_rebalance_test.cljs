@@ -60,10 +60,6 @@
     (is (= true (:hidden? (first (:rows vault-group)))))))
 
 (deftest target-exposure-table-model-distinguishes-weight-cap-from-zero-floor-test
-  ;; Live incident: a side-locked long the solver wanted short landed on its
-  ;; lower bound of 0 and wore the same "capped" badge as an asset sitting on
-  ;; the 50% max-weight cap, so a 48.5%→0% min-variance move read as a solver
-  ;; bug. A binding bound of 0 is :floored; any non-zero bound is :capped.
   (let [result {:instrument-ids ["perp:MU" "perp:AAPL" "perp:SAND"]
                 :current-weights [0.485 0.115 -0.2]
                 :target-weights [0 0.5 -0.5]
@@ -99,8 +95,6 @@
         "leg rows carry the kind for row-level styling")))
 
 (deftest target-exposure-table-model-binding-entries-without-bounds-stay-capped-test
-  ;; Older persisted results carry binding entries without :bound; they must
-  ;; keep the historical "capped" reading rather than turning into floors.
   (let [model (rebalance/target-exposure-table-model sample-result)
         btc-group (first (:groups model))]
     (is (= :capped (:binding-kind btc-group)))))
@@ -181,8 +175,6 @@
                         [:key :coin :symbol :base :dex :market-type])))))
 
 (deftest target-exposure-table-model-shows-spot-token-symbol-not-pair-reference-test
-  ;; Once the spot exposure resolves a token name (label "PURR"), the rebalance
-  ;; grouping renders the symbol instead of the raw "@113" pair reference.
   (let [result {:instrument-ids ["spot:@113"]
                 :current-weights [0.25]
                 :target-weights [0]

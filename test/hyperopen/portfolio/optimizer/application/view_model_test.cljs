@@ -121,9 +121,6 @@
     (is (= :saving (get-in model [:scenario-save-state :status])))
     (is (= :idle (get-in model [:history-load-state :status])))
     (is (= {:selected-kind :absolute} (:editor-state model)))
-    ;; Workspace CTAs target the draft alias even when a saved scenario is
-    ;; open: the alias renders the current run in place, while /scn_current
-    ;; would re-load the record and clobber the fresh in-memory run.
     (is (= "/portfolio/optimize/draft" (:result-path model)))
     (is (false? (:running? model)))
     (is (true? (:run-triggerable? model)))
@@ -446,11 +443,8 @@
                                 {:row-id "spot:@999" :instrument-id "spot:@999"
                                  :status :blocked :reason :below-min-notional :delta-notional-usd 1}]}}}}}
         rows (:rows (view-model/execution-tab-model state))]
-    ;; HIP-3 perp id collapses to its trailing coin segment
     (is (= "SILVER" (:instrument-label (nth rows 0))))
-    ;; spot dust @N reference resolves through spotMeta to the human token
     (is (= "PURR" (:instrument-label (nth rows 1))))
-    ;; unresolved spot dust still degrades to the bare reference (never crashes)
     (is (= "@999" (:instrument-label (nth rows 2))))))
 
 (deftest execution-tab-model-shows-live-run-attempt-rows-while-submitting-test
@@ -473,13 +467,9 @@
                                  :status :ready :side :buy :delta-notional-usd 50}]}}}}}
         model (view-model/execution-tab-model state)]
     (is (= :running (:phase model)))
-    ;; display rows are the live in-flight run-attempt, not the static staged plan
     (is (= [:submitted :working] (mapv :status (:rows model))))))
 
 (deftest execution-tab-model-projects-resting-phase-for-orders-on-the-book-test
-  ;; A completed run of passive orders that only rest on the book is terminal but NOT a fill:
-  ;; the phase is :resting (not :done / not :staged) and the table shows the ledger attempt's
-  ;; :resting rows rather than the static staged plan.
   (let [state {:portfolio
                {:optimizer
                 {:execution

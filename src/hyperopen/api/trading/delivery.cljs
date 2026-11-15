@@ -87,7 +87,6 @@
         network (nonce-coordinator/network-for-options options)
         acceptable (cond-> acceptable-coordination allow-in-tab-coordination? (conj :in-tab-only))]
     (cond
-      ;; The exchange transport is mainnet-only (spec 3.2).
       (not= network :hyperliquid-mainnet)
       (js/Promise.resolve (not-sent :network-mismatch
                                     {:error "A testnet signature cannot be sent to the mainnet exchange."}))
@@ -104,8 +103,7 @@
             abandoned? (atom false)
             timer (atom nil)]
        (js/Promise.race
-        #js [;; Bound the pre-send phase: if it has not reached HTTP in time it is
-             ;; abandoned (it can no longer send) and the result is :not-sent.
+        #js [
              (js/Promise.
               (fn [resolve _]
                 (reset! timer
@@ -132,13 +130,11 @@
                                                "; refusing to send.")})
                         (-> (agent-actions/sign-action! crypto session action nonce options)
                             (.catch (fn [e] (throw (phase-error :signing e))))
-                            ;; Step 7: commit the send-attempt record.
                             (.then (fn [sig]
                                      (-> (js/Promise.resolve nil)
                                          (.then (fn [_] (when on-send-attempt! (on-send-attempt! ctx))))
                                          (.then (fn [_] (reset! recorded? (some? on-send-attempt!)) sig))
                                          (.catch (fn [e] (throw (phase-error :send-attempt-record e)))))))
-                            ;; Step 8: final admission guard, then the deadline.
                             (.then (fn [sig]
                                      (-> (js/Promise.resolve nil)
                                          (.then (fn [_] (if before-send! (before-send! ctx) true)))
@@ -157,7 +153,6 @@
                                      (reset! http-started? true)
                                      (try (agent-actions/record-nonce-cursor! store owner-address session nonce)
                                           (catch :default _ nil))
-                                     ;; From here on the request may have left the browser.
                                      (-> (with-timeout
                                            (-> (js/Promise.resolve nil)
                                                (.then (fn [_] (agent-actions/post-signed! action nonce sig options)))
@@ -174,8 +169,6 @@
                                                       (unknown (assoc base :phase :response :http-status (:status r)
                                                                       :error "Unreadable exchange response"))
 
-                                                      ;; A JSON body on a non-2xx status (proxy, gateway) is
-                                                      ;; not a venue answer: never treat it as a rejection.
                                                       (not (<= 200 (or (:status r) 200) 299))
                                                       (unknown (assoc base :phase :response :http-status (:status r)
                                                                       :error (str "HTTP " (:status r))))

@@ -6,8 +6,6 @@
             [hyperopen.platform :as platform]
             [hyperopen.views.ui.location-chip :as location-chip]))
 
-;; --- icons ------------------------------------------------------------------
-
 (defn- icon
   [classes & paths]
   (into [:svg {:viewBox "0 0 24 24"
@@ -51,8 +49,6 @@
 (defn check-icon
   [classes]
   (icon classes [:path {:d "m5 12 5 5 9-10"}]))
-
-;; --- text and buttons ---------------------------------------------------------
 
 (def label-classes
   ["text-xs" "uppercase" "tracking-[0.08em]" "text-ho-text-muted"])
@@ -112,8 +108,6 @@
                        :padding-bottom panel-bottom-padding}
                :data-role "funding-transfer-actions"}]
         children))
-
-;; --- focus --------------------------------------------------------------------
 
 (def amount-input-id
   "funding-transfer-amount-input-field")
@@ -191,8 +185,6 @@
     (when (and (fn? remember) (not= :replicant.life-cycle/unmount life-cycle))
       (remember view-id))))
 
-;; --- balances -------------------------------------------------------------------
-
 (defn- balance-card
   [{:keys [label before after delta]} tone side]
   (let [shown (or after before)]
@@ -219,8 +211,6 @@
    (balance-card from :out :from)
    (balance-card to :in :to)])
 
-;; --- summary --------------------------------------------------------------------
-
 (defn- summary-item
   [label value tone lock?]
   [:div {:class ["flex" "items-start" "justify-between" "gap-4"]}
@@ -243,11 +233,7 @@
                (summary-item label value tone false)))
         rows))
 
-;; --- route header (run views) ---------------------------------------------------
-
 (def ^:private place-names
-  ;; "HyperCore" alone names the whole ledger (the Balances filter's Perps
-  ;; and Spot); a card that means Spot only says so.
   {:perps "HyperCore Perps"
    :spot "HyperCore Spot"
    :hyperevm "HyperEVM"})

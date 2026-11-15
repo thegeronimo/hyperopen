@@ -30,11 +30,6 @@
     (is (contains? (:weight-sensitivity-by-instrument result) "A"))))
 
 (deftest binding-constraints-absorb-solver-convergence-noise-test
-  ;; Live regression: the QP solver lands ~3e-10 off a bound (sometimes
-  ;; slightly OUTSIDE it, e.g. -2.84e-10 against a lower bound of 0), so a
-  ;; 1e-10 epsilon made the capped/floored flags flicker run-to-run — one run
-  ;; badged MU "floored", the identical rerun didn't. Solver-noise-level
-  ;; deviations on either side of the bound must still count as binding.
   (let [result (diagnostics/portfolio-diagnostics
                 {:instrument-ids ["MU" "EWZ" "MID"]
                  :current-weights [0.485 0.22 0.3]

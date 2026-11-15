@@ -38,10 +38,6 @@
     (.setTransform ctx dpr 0 0 dpr 0 0)
     {:ctx ctx :w w :h css-h}))
 
-;; ---------------------------------------------------------------------------
-;; Spaghetti + confidence-band equity chart
-;; ---------------------------------------------------------------------------
-
 (defn- stroke-segment!
   [ctx from to]
   (.beginPath ctx)
@@ -199,19 +195,10 @@
     (draw-endpoint-dots! ctx model)
     (:hover-geo model)))
 
-;; ---------------------------------------------------------------------------
-;; Distribution histogram
-;; ---------------------------------------------------------------------------
-
 (defn draw-histogram!
   [canvas {:keys [dist fmt accent threshold sign-by-value? median height bins progress]}]
   (let [{:keys [ctx w h]} (setup! canvas (or height 92))
         bins (or bins 34)
-        ;; Clip the x-axis to a P1–P99 band so a few extreme outliers (e.g. one
-        ;; wildly compounded bootstrap path) can't stretch the linear bins and
-        ;; crush the body of a heavy-tailed distribution into a single bar. The
-        ;; out-of-band paths are clamped into the edge bins and flagged so the
-        ;; clipped edge can show a "there is more beyond" marker.
         sorted (:sorted dist)
         clip-lo (engine/percentile sorted 1)
         clip-hi (engine/percentile sorted 99)
@@ -245,7 +232,7 @@
         (.fillRect ctx (+ x 0.5) (- plot-h bh) (max 1 (- bw 1)) bh)))
     (when (number? median)
       (let [mx (if (:degenerate? hist)
-                 (/ w 2)                       ; centered spike for a single-valued metric
+                 (/ w 2)
                  (* (/ (- median mn) span) w))]
         (set! (.-strokeStyle ctx) "#ffffff")
         (set! (.-globalAlpha ctx) 0.8)
@@ -268,10 +255,6 @@
     (.moveTo ctx 0 (+ plot-h 0.5))
     (.lineTo ctx w (+ plot-h 0.5))
     (.stroke ctx)))
-
-;; ---------------------------------------------------------------------------
-;; Hover tooltip for the spaghetti chart
-;; ---------------------------------------------------------------------------
 
 (defn- nearest-grid-index
   "Index of the grid point whose day value is closest to `day`."
@@ -316,10 +299,6 @@
               (str (min (- (.-innerWidth js/window) 150) (+ (.-clientX e) 16)) "px"))
         (set! (.. tip -style -top) (str (- (.-clientY e) 10) "px"))
         (.add (.-classList tip) "show")))))
-
-;; ---------------------------------------------------------------------------
-;; Replicant lifecycle wiring
-;; ---------------------------------------------------------------------------
 
 (defn- start-animation!
   [canvas draw-fn holder]

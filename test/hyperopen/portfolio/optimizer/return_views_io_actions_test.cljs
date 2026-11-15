@@ -29,7 +29,6 @@
       (is (= 2 (:count payload)))
       (is (= ["perp:BTC" "perp:ETH"]
              (mapv :instrument-id (get-in payload [:document :entries]))))
-      ;; the authored view exports as a fillable return; the implied row is null
       (is (= [15 nil]
              (mapv :return-percent (get-in payload [:document :entries]))))
       (is (= :effects/save note-id))
@@ -63,7 +62,6 @@
     (is (= :effects/save-many (first save-many)))
     (is (= 2 (count (get path-values contracts/draft-return-model-views-path))))
     (is (= 0.125 (:return (last (get path-values contracts/draft-return-model-views-path)))))
-    ;; only the applied instrument's typing buffer is dropped
     (is (= {:perp:BTC {:return-text "9"}}
            (get path-values contracts/ui-objective-menu-view-drafts-path)))
     (is (= true (get path-values contracts/draft-dirty-path)))

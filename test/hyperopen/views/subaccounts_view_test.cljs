@@ -20,11 +20,6 @@
 (defn- base-state []
   {:wallet {:address owner-address}
    :webdata2 {:clearinghouseState {:marginSummary {:accountValue "999.99"}}}
-   ;; Production shape. A `spotClearinghouseState` balance row carries `:token`
-   ;; as a NUMERIC INDEX; the `NAME:0x<hash>` wire token id exists only in
-   ;; spotMeta, joined by index. Fixtures that put a prejoined wire id in the
-   ;; balance row let `resolve-with` short-circuit on its first clause and hid a
-   ;; production bug where `[:spot :meta]` was never populated at all.
    :spot {:meta {:tokens [{:name "USDC" :index 0 :tokenId "0x6d1e7cde53ba9467b783cb7c530ce054"}
                           {:name "USDH" :index 34 :tokenId "0xabc"}
                           {:name "MEOW" :index 77 :tokenId "0xdef"}]}
@@ -116,9 +111,6 @@
 (deftest selected-subaccount-active-state-does-not-render-as-master-balance-test
   (let [view-node (view/subaccounts-view
                    (-> (base-state)
-                       ;; In the user report the header is already trading as the
-                       ;; selected subaccount, so top-level account state belongs
-                       ;; to Tenor/Desk, not to the master wallet.
                        (assoc-in [:webdata2 :clearinghouseState]
                                  {:marginSummary {:accountValue "2002.20"
                                                   :totalMarginUsed "0"}
@@ -252,8 +244,6 @@
 (deftest unified-owner-mode-popover-offers-one-spot-option-even-when-active-account-classic-test
   (let [view-node (view/subaccounts-view
                    (-> (base-state)
-                       ;; Active trading account is classic, but the master/owner
-                       ;; is unified: the popover must follow the master.
                        (assoc :account {:mode :classic})
                        (assoc-in [:account-context :subaccounts :owner-mode]
                                  {:owner owner-address
@@ -437,12 +427,6 @@
     (is (nil? transfer-button))))
 
 (deftest transfer-token-option-is-disabled-only-when-spot-metadata-is-missing-test
-  ;; Regression: this is the reported symptom. Hyperliquid names a spot token on
-  ;; the wire as `NAME:0x<hash>`, and spotMeta is the only source that joins a
-  ;; balance row's numeric token index to that id. When `[:spot :meta]` is nil
-  ;; the join fails for every token except USDC (which alone has a hard-coded
-  ;; mainnet constant to fall back on), so the dropdown listed the user's real
-  ;; HYPE balance as "unavailable" and refused to select it.
   (let [open-token-menu (fn [state]
                           (-> state
                               (assoc-in [:account-context :subaccounts :transfer-direction] :withdraw)
@@ -472,14 +456,6 @@
         "Without spotMeta the token is listed but disabled, rather than hidden or signed with a rejected identifier.")))
 
 (deftest outcome-position-rows-are-not-offered-as-transferable-tokens-test
-  ;; Regression from live mainnet data (master 0x49208e12..., 2026-08-21):
-  ;; `spotClearinghouseState` returns outcome (prediction-market) positions in the
-  ;; same :balances array as real spot tokens. They carry NO :token field and have
-  ;; no spotMeta entry, so they can never resolve to a `NAME:0x<hash>` wire token
-  ;; id and can never travel the spot sendAsset path. Listing them disabled with a
-  ;; "refresh balances" hint promises a recovery that cannot happen; a real token
-  ;; that merely has not resolved yet must still be listed, because that IS
-  ;; transient.
   (let [state (-> (base-state)
                   (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
                             [{:coin "USDC" :token 0 :total "0.00426478" :hold "0.0"}
@@ -593,8 +569,6 @@
         "With nothing to hide the checkbox is clutter.")))
 
 (deftest all-zero-balances-still-render-rather-than-emptying-the-dropdown-test
-  ;; An empty dropdown would leave `selected-transfer-token` on its bare-symbol
-  ;; placeholder, and a bare symbol is not a sendable wire token id.
   (let [all-zero (-> (live-balance-state)
                      (assoc-in [:account-context :subaccounts :owner-snapshot :spot-state :balances]
                                [{:coin "USDC" :token 0 :total "0.0" :hold "0.0"}

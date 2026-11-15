@@ -11,8 +11,6 @@
 (def benchmark-vault-tvl selector/benchmark-vault-tvl)
 (def benchmark-vault-name selector/benchmark-vault-name)
 (def benchmark-vault-option-rank selector/benchmark-vault-option-rank)
-(def benchmark-vault-row-signature selector/benchmark-vault-row-signature)
-(def benchmark-vault-rows-signature selector/benchmark-vault-rows-signature)
 (def benchmark-vault-row? selector/benchmark-vault-row?)
 (def eligible-vault-benchmark-rows selector/eligible-vault-benchmark-rows)
 (def build-vault-benchmark-selector-options selector/build-vault-benchmark-selector-options)
@@ -25,7 +23,6 @@
 (def selected-returns-benchmark-coins selector/selected-returns-benchmark-coins)
 (def selected-benchmark-options selector/selected-benchmark-options)
 (def sampled-series-source-version-counter computation/sampled-series-source-version-counter)
-(def benchmark-source-version-by-coin computation/benchmark-source-version-by-coin)
 (def benchmark-cumulative-return-rows-by-coin computation/benchmark-cumulative-return-rows-by-coin)
 (def benchmark-computation-context computation/benchmark-computation-context)
 

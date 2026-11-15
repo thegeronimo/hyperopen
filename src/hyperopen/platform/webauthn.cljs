@@ -8,8 +8,6 @@
   60000)
 
 (def ^:private default-pub-key-cred-params
-  ;; Match Chromium's default ES256 + RS256 set so Windows platform
-  ;; authenticators remain eligible and Chrome stops warning.
   [{:type "public-key"
     :alg -7}
    {:type "public-key"
@@ -29,9 +27,6 @@
          (fn? (.-create credentials-container))
          (fn? (.-get credentials-container))
          (some? subtle))))
-
-(def webauthn-supported?
-  passkey-lock-supported?)
 
 (defn passkey-capability-hint?
   []
@@ -238,13 +233,3 @@
              (fn [credential]
                (assoc (credential-result credential)
                       :credential-id (some-> credential-id str str/trim)))))))))
-
-(defn prf-secret!
-  [{:keys [credential-id salt]}]
-  (-> (eval-prf! {:credential-id credential-id
-                  :prf-salt salt})
-      (.then (fn [{:keys [prf-first]}]
-               (if prf-first
-                 prf-first
-                 (js/Promise.reject
-                  (js/Error. "The selected passkey could not unlock trading.")))))))

@@ -322,16 +322,13 @@
                           (when (= "xyz:USDC" (:selection-coin row))
                             row))
                         rows)]
-    ;; The named DEX perps collateral becomes its own balance row.
     (is (some? named-row))
     (is (= 1923.97 (shared/parse-num (:total-balance named-row))))
     (is (= 1923.97 (shared/parse-num (:usdc-value named-row))))
     (is (= "xyz" (:transfer-dex named-row)))
     (is (false? (:transfer-to-perp? named-row)))
-    ;; The display parses to a `xyz` namespace chip while staying a USDC row.
     (is (= "xyz" (:prefix (shared/parse-coin-namespace (:selection-coin named-row)))))
     (is (= "USDC" (:base (shared/parse-coin-namespace (:selection-coin named-row)))))
-    ;; Default perps is zero, so no default perps row is added, but spot USDC stays.
     (is (nil? (get by-coin "USDC (Perps)")))
     (is (some? (get by-coin "USDC (Spot)")))))
 

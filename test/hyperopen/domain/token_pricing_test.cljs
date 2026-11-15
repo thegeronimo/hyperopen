@@ -29,8 +29,6 @@
   (is (identical? view-pricing/balance-rows-by-token token-pricing/balance-rows-by-token)))
 
 (deftest markets-are-resolved-only-when-needed-test
-  ;; `resolve-market-by-coin` can scan the whole catalogue, and the funding
-  ;; modal prices USDC on every render.
   (let [scans (atom 0)]
     (with-redefs [asset-selector-markets/resolve-market-by-coin
                   (fn [& _] (swap! scans inc) nil)]

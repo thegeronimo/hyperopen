@@ -72,12 +72,6 @@
 
 (defn render
   [{:keys [links build now-ms]}]
-  ;; The text links and their divider are spliced straight into this flex row
-  ;; rather than wrapped. A fragment tag ([:<>]) is NOT supported by this repo's
-  ;; Replicant — it reaches createElement as the literal tag "<>" and throws,
-  ;; taking the whole footer subtree with it — and a [:span] wrapper would make
-  ;; the pair a single flex child, collapsing the gap-4 rhythm between the links,
-  ;; the divider and the build badge.
   (into [:div {:class footer-utility-link-classes
                :data-role "footer-utility-links"}]
         (concat

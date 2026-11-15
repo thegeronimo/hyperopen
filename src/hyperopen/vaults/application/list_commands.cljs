@@ -59,9 +59,6 @@
                                              (parse-vault-route-fn (get-in state [:router :path])))
                                            :vault-address
                                            identity/normalize-vault-address)
-        ;; Picking a preset also drops any custom chart window and collapses the
-        ;; strip. The preset was never overwritten by the custom range, so this
-        ;; is exactly what the chip's clear affordance needs to do.
         projection-effect (detail-timeframe-selector-projection-effect
                            nil
                            [[[:vaults-ui :snapshot-range] snapshot-range*]

@@ -5,7 +5,6 @@
   shows a percentage return or a cost basis. Pure."
   (:require [clojure.string :as str]))
 
-(def tab-label "Vol Range")
 (def all-markets "All tracked markets")
 (def market-label "Market")
 (def refresh "Refresh")
@@ -18,7 +17,6 @@
 (def activity-title "Execution activity")
 (def activity-note "Orders, fills and fees of your Vol Range ladders. Execution detail, not P&L.")
 (def tracking-title "Tracking")
-(def coverage-title "Coverage")
 (def activity-columns ["Market" "Fills" "Bought" "Buy VWAP" "Sold" "Sell VWAP" "Maker/Taker" "Fees (by token)" "Funding"])
 
 (def empty-no-tracking
@@ -32,10 +30,6 @@
   "Before the first completed hourly close after tracking began."
   [hh-mm]
   (str "Figures appear after the first completed hourly close (" hh-mm " UTC)."))
-
-;; ---------------------------------------------------------------------------
-;; Windows and headline
-;; ---------------------------------------------------------------------------
 
 (def window-group-label "Report window")
 (def window-labels {:since-start "Since tracking began" :7d "7D" :30d "30D"})
@@ -96,16 +90,11 @@
 (defn subset-offer-label [names] (str "Show total for covered markets (" (names-text names) ")"))
 (defn covered-title [names] (str "Covered markets: " (names-text names)))
 
-;; ---------------------------------------------------------------------------
-;; P&L chart and Gross spread on matched fills
-;; ---------------------------------------------------------------------------
-
 (def export-json "Export report (JSON)")
 (def export-csv "Export fills (CSV)")
 (def export-group-label "Export")
 
 (def chart-title "Cumulative P&L (USDC)")
-(def chart-label "Cumulative Net tracked asset P&L and Hold P&L in USDC")
 (def chart-series-labels {:net "Net tracked asset P&L" :hold "Hold P&L"})
 
 (defn chart-caption
@@ -132,10 +121,6 @@
 
 (defn unmatched-buys-text [p-end] (str "Unmatched buys marked at " p-end))
 (defn fees-paid-text [fees] (str "Fees paid: " fees))
-
-;; ---------------------------------------------------------------------------
-;; Coverage
-;; ---------------------------------------------------------------------------
 
 (def state-labels
   {:complete "Complete" :partial "Checking" :gap "Gap" :attribution-break "Outside activity"
@@ -201,10 +186,6 @@
       (str "Fills checked through " checked-through ".")
       "Checking fills…")))
 
-;; ---------------------------------------------------------------------------
-;; Tracking
-;; ---------------------------------------------------------------------------
-
 (defn baseline-text
   [{:keys [began q0 symbol p0 quote-symbol]}]
   (if p0
@@ -213,10 +194,6 @@
 
 (defn ended-text [ended] (str "Ended " ended " when new tracking started."))
 (defn until-text [ended] (str ", until " ended))
-
-;; ---------------------------------------------------------------------------
-;; Status (polite live region)
-;; ---------------------------------------------------------------------------
 
 (def ^:private refusal-texts
   {:campaign/unresolved-attempt "An order placement in this market is still being checked. Try again once it settles."

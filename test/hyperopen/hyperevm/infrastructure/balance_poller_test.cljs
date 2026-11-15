@@ -65,8 +65,6 @@
       (is (= 1 (count @timeouts))))))
 
 (deftest an-account-reset-that-clears-entries-triggers-a-re-read-test
-  ;; A deferred account bootstrap clears the entries after the first read;
-  ;; the addresses are unchanged, but the entries' presence is fingerprinted.
   (let [{:keys [store now dispatched] :as h} (harness)]
     (swap! store balances/apply-loading {:addresses [owner] :requested-at-ms 1})
     (run-timeouts! h)
@@ -77,7 +75,6 @@
     (is (= [[:actions/refresh-hyperevm-balances {:now-ms 2000}]] @dispatched))))
 
 (deftest interval-refreshes-every-30-seconds-on-an-active-visible-surface-test
-  ;; Nothing is read here, so the stall watchdog is pushed out of the way.
   (let [{:keys [now dispatched interval visible?] :as h} (harness {:check-stall-ms 1e9})]
     (is (= 4000 (second @interval)) "one 4 s tick drives both cadences")
     (reset! now 1000)
@@ -143,9 +140,6 @@
   (is (true? (poller/enabled?))))
 
 (deftest ticks-refresh-an-open-transfer-drafts-bridge-balance-test
-  ;; The funding context names the token whose HyperCore reads are due; the
-  ;; poller dispatches them at most once per retry gap, only while visible
-  ;; and enabled, and whatever the balance cadence did on that tick.
   (let [due-index (atom 150)
         {:keys [store now dispatched visible? enabled?] :as h}
         (harness {:capacity-refresh-index-fn (fn [state now-ms]
@@ -187,9 +181,6 @@
     (is (every? (fn [[id]] (not= :actions/refresh-hyperevm-bridge-capacity id)) @dispatched))))
 
 (deftest ticks-settle-a-move-left-pending-in-the-background-test
-  ;; A HyperEVM -> Core move whose foreground receipt wait timed out stays
-  ;; in flight; ticks read its receipt at most once per check gap, only while
-  ;; visible, enabled and not backing off, until the entry is cleared.
   (let [{:keys [store now dispatched visible?] :as h} (harness {:in-flight-check-ms 8000})
         checks #(filterv (fn [[id]] (= :actions/check-hyperevm-in-flight id)) @dispatched)]
     (swap! store assoc-in [:router :path] "/vaults")
@@ -222,7 +213,6 @@
       (is (= 2 (count (checks)))))
     (testing "an old pending move is checked less often"
       (swap! store assoc-in [:hyperevm :backoff] {:strikes 0 :until-ms nil})
-      ;; Sent 6+ minutes ago; the last check was at 11000.
       (swap! store assoc-in [:hyperevm :in-flight owner :submitted-at-ms] -360000)
       (reset! now 40000)
       (tick! h)

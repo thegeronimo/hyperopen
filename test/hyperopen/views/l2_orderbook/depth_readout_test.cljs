@@ -83,8 +83,6 @@
       (is (seq (nodes (row-by-price node "102") (role= "orderbook-readout-outline")))))))
 
 (deftest the-card-stays-on-the-hovered-row-when-prices-move-test
-  ;; The cursor sits still on the second-best ask. The market moves: 101 is lifted and
-  ;; a new level appears at 104. The card must stay on that row and show its new figures.
   (let [moved {:bids (:bids book)
                :asks [{:px "102" :sz "1"} {:px "103" :sz "5"} {:px "104" :sz "2"}]}
         node (panel/l2-orderbook-panel "BTC" market moved {:size-unit :base :hover-level {:side :ask :depth 1}}

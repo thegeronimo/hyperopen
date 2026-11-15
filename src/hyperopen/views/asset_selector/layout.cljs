@@ -112,7 +112,6 @@
                       :background-color "var(--color-base-100)"}
               :replicant/mounting {:style {:opacity 0 :transform "translateY(-4px)"}}
               :replicant/unmounting {:style {:opacity 0 :transform "translateY(-4px)"}}
-              ;; every tab: fits the Outcome panel, clears that fit elsewhere
               :replicant/on-render outcome-list/sync-panel-box!})
      (when-not outcome?
        [:div {:class ["absolute" "inset-0" "pointer-events-none"]
@@ -157,7 +156,6 @@
                                                                 favorites false {:placement events-placement}))]
           [:div
            (when (= :top events-placement) events-block)
-           ;; Outcome matches alone are a result: no "No assets found" above them.
            (when-not (and events-block (empty? plain-assets))
              (runtime/asset-list plain-assets selected-market-key highlighted-market-key* favorites missing-icons loaded-icons render-limit scroll-top suppress-empty-state? scroll-reset-key))
            (when (= :bottom events-placement) events-block)]))

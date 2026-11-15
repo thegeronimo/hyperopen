@@ -35,13 +35,6 @@
        dedupe-rows-by-time
        vec))
 
-(defn dedupe-history-points-by-time
-  [points]
-  (->> (or points [])
-       (sort-by :time-ms)
-       dedupe-rows-by-time
-       vec))
-
 (defn canonical-history-rows
   [rows]
   (mapv (fn [{:keys [time-ms value]}]

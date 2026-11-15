@@ -60,7 +60,6 @@
           {:keys [deps toasts]} (h/harness store (h/core->evm @store support/purr-index "1000")
                                            {:submit-send-asset! submit-send-asset!})
           submitted (effects/api-submit-funding-transfer! deps)]
-      ;; The user closes the modal while the move is in flight.
       (swap! store assoc-in [:funding-ui :modal :open?] false)
       (release! {:status "ok"})
       (-> submitted

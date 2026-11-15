@@ -44,9 +44,6 @@
                    (account-equity-slice state)))]
     (derived-cache/reset-derived-cache!)
     (account-equity-view/reset-account-equity-metrics-cache!)
-    ;; The desktop panel receives a selected slice, rather than full app state.
-    ;; It must still rerender when its current vault response changes and must
-    ;; discard A's response immediately when B becomes effective.
     (is (= 10 (:vault-equity (metrics state-a))))
     (is (= 25 (:vault-equity (metrics state-a-refreshed))))
     (is (nil? (:vault-equity (metrics state-b-with-a-snapshot))))

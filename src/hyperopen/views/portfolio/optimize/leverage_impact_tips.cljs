@@ -50,10 +50,6 @@
               :data-role tooltip-id}
        copy]])))
 
-;; Static tip copy, written for THIS model (closed-form lognormal, no
-;; simulation / funding / execution / liquidation). The median and shortfall
-;; tips are dynamic (they weave in the starting equity and the signed gap) and
-;; built at their call sites in the panel.
 (def copy
   {:panel
    (str "Modeled one-year account-equity outcomes for the current and target "

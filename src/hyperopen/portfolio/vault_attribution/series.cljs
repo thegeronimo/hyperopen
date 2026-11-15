@@ -17,9 +17,6 @@
   (:require [hyperopen.portfolio.metrics.history :as history]
             [hyperopen.portfolio.vault-attribution.model :as model]))
 
-;; ---------------------------------------------------------------------------
-;; Per-vault preparation
-
 (defn period-pnls
   "Exact ledger P&L of each holding period, by period index."
   [{:keys [transfers periods equity]}]
@@ -58,9 +55,6 @@
            :p-ends p-ends
            :transfers (with-cost-basis-realized (:transfers vault) p-ends))))
 
-;; ---------------------------------------------------------------------------
-;; Sample slots
-
 (defn- transfer-groups
   "Transfer times bucketed so that times 1 ms apart share one point pair."
   [times]
@@ -94,9 +88,6 @@
                      (filter #(<= % end-ms))
                      (map (fn [t] {:label t :eval t :upto t})))]
     (vec (sort-by :label (concat pair-slots samples)))))
-
-;; ---------------------------------------------------------------------------
-;; Per-vault values at each slot
 
 (defn- apply-transfer
   [st {:keys [kind amount requested period closes? cost-realized]} index-now p-ends]
@@ -200,9 +191,6 @@
            :net-deposited (- dep netw)
            :pnl pnl}))
       rows))))
-
-;; ---------------------------------------------------------------------------
-;; Sleeve
 
 (defn sleeve-series
   "Sum of every vault's values at each slot, ascending by time. Points that

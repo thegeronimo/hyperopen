@@ -136,10 +136,8 @@
                                    (margin-toast "margin-tsm" 6220000
                                                  {:coin "xyz:TSM" :dex "xyz"
                                                   :side :long})
-                                   ;; Worst case for the truncated headline.
                                    (margin-toast "margin-melania" -1250000000000
                                                  {:coin "MELANIA" :side :short})
-                                   ;; Failure variant: error rides in :detail.
                                    (merge {:id "margin-sol-fail" :kind :error}
                                           (toast-payloads/position-margin-failure-toast-payload
                                            {:action {:type "updateIsolatedMargin"
@@ -331,13 +329,6 @@
 
 (portfolio/defscene footer-utility-links-populated
   []
-  ;; The footer's text links are configured data and the only producer ships an
-  ;; empty vector, so this branch never renders in the running app. It still had
-  ;; to be exercised for real: it used a fragment tag ([:<>]), which this repo's
-  ;; Replicant renders as an element literally named "<>", and
-  ;; document.createElement("<>") throws and kills the surrounding subtree.
-  ;; Hiccup-data tests never run the renderer and cannot see that, so this scene
-  ;; mounts the populated branch through Replicant itself.
   (let [now-ms (.now js/Date)]
     (layout/page-shell
      [:div {:class ["p-6"]

@@ -12,8 +12,6 @@
             [hyperopen.portfolio.metrics :as portfolio-metrics]))
 
 (def ^:private basis-epsilon
-  ;; Withdraw `basis` and deposit amounts are float strings; a fully withdrawn
-  ;; position can leave a sub-cent residue behind.
   0.01)
 
 (def ^:private ms-per-day
@@ -219,9 +217,6 @@
                                      [(point t true)])))
                          times)
             last-point (peek points)
-            ;; The index model drifts from the live balance (commission, stale
-            ;; history). Spread that gap linearly over the window instead of
-            ;; drawing a cliff at "now".
             model-now (* (:units (state-before now-ms true)) (index-at rows now-ms))
             ratio (if (and (number? value) (pos? value) (pos? model-now))
                     (/ value model-now)
@@ -385,7 +380,6 @@
                  :else :none)
         candidates (vec (remove empty? (or returns-candidates [returns-rows])))
         return-since (fn [time-ms]
-                       ;; A vault return over less than a day is noise.
                        (when (and (number? time-ms)
                                   (number? now-ms)
                                   (>= (- now-ms time-ms) ms-per-day))

@@ -40,8 +40,6 @@
 
 (def ^:private messages transfer-run/messages)
 
-;; --- errors -------------------------------------------------------------------
-
 (defn- failure
   "A flow failure: nothing unresolved is left on chain for `step`."
   ([step message]
@@ -82,8 +80,6 @@
     (= :chain-switch-unsupported (:kind (error-data err)))
     (failure :switch-network (:switch-unsupported messages) {:kind :chain-switch-unsupported})
 
-    ;; The wallet switched, but not to HyperEVM (or moved on right away):
-    ;; it can switch, so nothing is cached against it.
     (= :chain-changed (:kind (error-data err)))
     (failure :switch-network (:switch-elsewhere messages) {:kind :chain-changed})
 
@@ -128,8 +124,6 @@
          (or (= execution-revert-code (:code data))
              (str/includes? message "revert")
              (str/includes? message "insufficient funds")))))
-
-;; --- steps --------------------------------------------------------------------
 
 (defn- valid-hash?
   [value]
@@ -253,8 +247,6 @@
                                                  (.catch (fn [err] (throw (switch-failure err))))
                                                  (.then (fn [chain-id]
                                                           (report! ctx* :switch-network :done)
-                                                          ;; The verified switch is the read
-                                                          ;; right before the first send.
                                                           (send-pinned! ctx*
                                                                         (assoc first-item :tx tx)
                                                                         chain-id))))))
@@ -272,8 +264,6 @@
        :explorer-url (chain/explorer-tx-url final-hash)
        :hashes @hashes}
 
-      ;; A transaction is still unresolved: whatever went wrong, it is
-      ;; pending, never a failure the user could submit again.
       (some? outstanding)
       {:status "pending"
        :txHash outstanding

@@ -52,9 +52,7 @@
                                 :market-by-key {"perp:KAITO" {:coin "KAITO"
                                                                :openInterest "10"}}}}
         row (first (:rows (vm/funding-comparison-vm state)))]
-    ;; Binance KAITO defaults to 4h fallback: 0.0002 / 4 * 8 = 0.0004
     (is (= 4.0e-4 (get-in row [:binance :rate])))
-    ;; Bybit KAITO defaults to 1h fallback: 0.0002 / 1 * 8 = 0.0016
     (is (= 0.0016 (get-in row [:bybit :rate])))))
 
 (deftest funding-comparison-vm-column-order-takes-precedence-over-favorites-test
@@ -97,7 +95,6 @@
         rows (:rows (vm/funding-comparison-vm state))]
     (is (= 1 (count rows)))
     (is (= "ETH" (:coin (first rows))))
-    ;; Day multiplier is 24 for hourly-normalized rates.
     (is (= (* 24 0.0000125)
            (get-in (first rows) [:hyperliquid :rate])))))
 

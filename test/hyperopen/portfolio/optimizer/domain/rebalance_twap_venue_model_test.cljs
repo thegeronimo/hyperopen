@@ -28,26 +28,18 @@
            (rebalance/twap-venue-suborder-count 5760 10000)))))
 
 (deftest twap-venue-suborder-count-fails-open-to-the-spacing-bound-test
-  ;; A cost map with no usable notional must price exactly as it did before the
-  ;; notional-aware count landed: fall back to the spacing bound, never collapse to the
-  ;; 2-clip minimum on missing data.
   (doseq [notional [nil 0 -50 js/NaN "10000" :none]]
     (is (= (rebalance/twap-suborder-count 20)
            (rebalance/twap-venue-suborder-count 20 notional))
         (str "unusable notional " (pr-str notional) " keeps the spacing bound")))
-  ;; A notional far above the floor is spacing-bound too.
   (is (= (rebalance/twap-suborder-count 20)
          (rebalance/twap-venue-suborder-count 20 5000000))))
 
 (deftest twap-venue-suborder-count-never-drops-below-two-test
-  ;; A TWAP is at least two clips; a $15 order is not one clip of $10 and one of $5.
   (is (= 2 (rebalance/twap-venue-suborder-count 20 15)))
   (is (= 2 (rebalance/twap-venue-suborder-count 20 5))))
 
 (deftest twap-cost-slices-against-the-notional-aware-clip-count-test
-  ;; A $150 leg worked over 20 minutes cannot be 41 clips of $3.66 -- the venue spaces it
-  ;; as 15 clips of $10. Slicing the impact 41 ways was the bug: it under-priced the leg.
-  ;; 15 clips: impact 100/15 + 0.3*100*14/30 = 20.6667; + spread 2 = 22.6667 bp.
   (let [twap (rebalance/twap-cost {:spread-bps 2 :impact-bps 100 :slippage-bps 102
                                    :estimated-slippage-usd 1.53 :notional-usd 150}
                                   20)]
@@ -55,12 +47,9 @@
     (is (= 15 (:suborders twap)))
     (is (near? 20.666666666666664 (:impact-bps twap)))
     (is (near? 22.666666666666664 (:slippage-bps twap)))
-    ;; strictly dearer than the 41-clip fiction the old count priced (19.0732 bp)
     (is (> (:slippage-bps twap) 19.08))))
 
 (deftest twap-cost-reports-the-venue-clip-count-on-unsliceable-estimates-test
-  ;; A flat estimate still passes through unadjusted, but the clip count it reports (the
-  ;; one the editor renders) is the venue's real one, not the 30s-floor bound.
   (let [twap (rebalance/twap-cost {:slippage-bps 25 :estimated-slippage-usd 0.04
                                    :notional-usd 150}
                                   20)]
@@ -69,9 +58,6 @@
     (is (= 25 (:slippage-bps twap)))))
 
 (deftest routed-twap-legs-are-unchanged-by-the-notional-aware-count-test
-  ;; The optimizer only routes >= $70,000 as a TWAP, over 10 or 20 minutes, where the
-  ;; spacing floor is the binding bound ($70,000 over 10 min: spacing 21 vs notional
-  ;; 7,000). Every leg it actually routes must therefore price bit-identically to before.
   (doseq [minutes [5 10 20]
           notional [70000 100000 2500000]]
     (is (= (rebalance/twap-suborder-count minutes)

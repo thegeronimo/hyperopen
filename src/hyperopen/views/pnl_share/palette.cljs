@@ -110,9 +110,6 @@
   "Deterministic [from to] channel pair for a coin's monogram disc."
   [symbol-text]
   (let [text (or symbol-text "")
-        ;; A rolling hash rather than a character sum: plain addition collides
-        ;; on anagrams and on symbols of similar length, which put SOL and AMZN
-        ;; on the same disc.
         hashed (reduce (fn [acc ch]
                          (mod (+ (* acc 31) (.charCodeAt ch 0)) 100003))
                        7

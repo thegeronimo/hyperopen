@@ -10,14 +10,11 @@
             [hyperopen.portfolio.optimizer.bit-parity :as bit-parity]))
 
 (deftest bit-equality-differs-from-clojure-equality-exactly-where-it-should-test
-  ;; The two reasons this namespace exists.
   (is (false? (= js/NaN js/NaN)) "sanity: = calls two NaNs different")
   (is (true? (bit-parity/bit= js/NaN js/NaN)) "bit= must call two NaNs the same")
 
   (is (true? (= 0.0 -0.0)) "sanity: = calls the two zeros the same")
   (is (false? (bit-parity/bit= 0.0 -0.0)) "bit= must call the two zeros different")
-  ;; Why the zero case is worth catching at all: the sign survives into later
-  ;; arithmetic even though it prints identically.
   (is (not= (/ 1 0.0) (/ 1 -0.0))))
 
 (deftest bit-equality-agrees-with-clojure-equality-everywhere-else-test
@@ -50,7 +47,5 @@
   (is (re-find #"index 1,0" (bit-parity/first-difference [[1 2] [3 4]] [[1 2] [9 4]])))
   (is (re-find #"length 2 vs 3" (bit-parity/first-difference [1 2] [1 2 3])))
   (is (re-find #"keys" (bit-parity/first-difference {:a 1} {:b 1})))
-  ;; The case a plain "not equal" message is useless for: both sides print the
-  ;; same, so the message has to say so explicitly.
   (is (re-find #"differing bits"
                (bit-parity/first-difference [0.0] [-0.0]))))

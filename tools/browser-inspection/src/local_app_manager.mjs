@@ -35,7 +35,6 @@ async function waitForResolvedUrl(getUrl, timeoutMs = 120000, pollIntervalMs = 1
           };
         }
       } catch (_err) {
-        // keep polling
       }
     }
     await sleep(pollIntervalMs);
@@ -54,7 +53,6 @@ export async function waitForUrl(url, timeoutMs = 120000, pollIntervalMs = 1000)
         return true;
       }
     } catch (_err) {
-      // keep polling
     }
     await sleep(pollIntervalMs);
   }

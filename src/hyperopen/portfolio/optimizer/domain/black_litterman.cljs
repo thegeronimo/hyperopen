@@ -164,8 +164,6 @@
                 tau-sigma (math/scalar-matrix tau* covariance)
                 tau-sigma-inv (math/inverse tau-sigma)
                 omega-inv (math/inverse (omega tau-sigma views* p))
-                ;; P'omega^-1 appears in both the precision and the mean term.
-                ;; It was evaluated twice from identical inputs.
                 pt-omega-inv (math/mat-mul pt omega-inv)
                 left (math/matrix-add tau-sigma-inv
                                       (math/mat-mul pt-omega-inv p))

@@ -36,10 +36,6 @@
 
 (def ^:private minute-ms 60000)
 
-;; ---------------------------------------------------------------------------
-;; Formatting
-;; ---------------------------------------------------------------------------
-
 (defn- scale [x] (let [s (str x) dot (.indexOf s ".")] (if (neg? dot) 0 (- (count s) dot 1))))
 
 (defn price-text
@@ -62,16 +58,11 @@
   (let [{:keys [symbol quote-symbol coin]} (:scope c)]
     (str (or symbol coin) (when quote-symbol (str "/" quote-symbol)))))
 
-;; ---------------------------------------------------------------------------
-;; Coverage
-;; ---------------------------------------------------------------------------
-
 (defn checked-through
   "Where both streams' complete coverage ends (the earlier of the two last
   complete ends), or nil when either stream was never read completely."
   [{:keys [fills] ledger-cov :ledger :as records}]
   (let [end (fn [r] (some-> (:complete r) last second))
-        ;; A perp campaign's records also carry its funding stream.
         ends (cond-> [(end fills) (end ledger-cov)]
                (contains? records :funding) (conj (end (:funding records))))]
     (when (every? number? ends) (apply min ends))))
@@ -108,10 +99,6 @@
                          :text (str (span-text from-ms to-ms) ": " (copy/interval-text iv ctx))})
                       (:intervals result))}))
 
-;; ---------------------------------------------------------------------------
-;; Per campaign
-;; ---------------------------------------------------------------------------
-
 (defn- activity-view [c events ended]
   (let [a (ledger/activity events)
         sym (or (get-in c [:scope :symbol]) "")
@@ -125,7 +112,6 @@
      :sell-vwap (or (price-text (:sell-vwap a)) "—")
      :maker-taker (str (:maker a) " / " (:taker a))
      :fees (fees-text (:fees-by-token a))
-     ;; Signed perp funding (negative = paid); a spot market has none.
      :funding (if (coverage/perp-campaign? c)
                 (str (:display (headline/usdc-text (:funding a))) )
                 "—")}))
@@ -190,10 +176,6 @@
                :confirming? (boolean (and open? (= (:campaign-key c) (:confirm-restart-key ui))))
                :busy? (boolean busy-restart?)}}))
 
-;; ---------------------------------------------------------------------------
-;; Headline (open campaigns, selected window)
-;; ---------------------------------------------------------------------------
-
 (defn- window-item
   "One open campaign's figures for `window`: coverage to the window end,
   then `report-windows/campaign-window-figures`."
@@ -236,10 +218,6 @@
   {:selected window
    :options (mapv (fn [id] {:id id :label (get copy/window-labels id) :selected? (= id window)})
                   windows/window-ids)})
-
-;; ---------------------------------------------------------------------------
-;; View model
-;; ---------------------------------------------------------------------------
 
 (defn- busy? [report k] (true? (get-in report [:busy k])))
 

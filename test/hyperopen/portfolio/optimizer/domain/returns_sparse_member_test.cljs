@@ -22,7 +22,6 @@
 
 (deftest native-only-member-gets-a-real-expected-return-test
   (let [history {:return-series-by-instrument {"perp:BTC" [0.01 0.02 0.015]}
-                 ;; The lane member: native rows only.
                  :raw-price-series-by-instrument
                  {"vault:growi" [{:time-ms d0 :close 100}
                                  {:time-ms (+ d0 (* 13 day-ms)) :close 101}]}
@@ -42,9 +41,6 @@
       (is (js/isFinite mu))
       (is (not= 0 mu)))
     (testing "annualized over its OWN irregular intervals, not as 365 daily steps"
-      ;; 30 intervals of 13 days each at 1% per interval. Annualizing per-interval
-      ;; gives roughly 0.01 * (365/13) ~= 0.28. Treating them as daily steps would
-      ;; give ~3.65 - the ~13x overstatement this guards against.
       (is (< mu 1.0)))))
 
 (deftest member-in-neither-map-still-gets-no-entry-test

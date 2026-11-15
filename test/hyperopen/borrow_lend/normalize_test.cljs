@@ -2,7 +2,6 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.borrow-lend.normalize :as normalize]))
 
-;; Captured from mainnet `allBorrowLendReserveStates` on 2026-10-20.
 (def live-reserve-states
   (js->clj
    (js/JSON.parse

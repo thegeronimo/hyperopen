@@ -83,7 +83,6 @@
         gross (if market-order?
                 (:proceeds fill)
                 (when (number? limit-price) (* shares limit-price)))
-        ;; A limit that does not reach the best bid rests, and rests at maker.
         resting? (and (not market-order?)
                       (number? limit-price)
                       (not (and (number? best-bid) (<= limit-price best-bid))))
@@ -91,7 +90,6 @@
         sale (when (number? gross)
                (fees/sell {:shares shares :price price :venue venue :rates rates
                            :resting? resting? :cost cost-basis}))
-        ;; Walked levels: the proceeds, not shares x average, are exact.
         sale (if (and sale (:fee-known? sale))
                (let [fee (* gross (:rate sale))
                      net (- gross fee)]
@@ -143,11 +141,9 @@
         range? (= :range state)]
     (cond
       (zero? shares) (if (= :cash-out mode) (str "Cash out " subject) (str "Buy " subject))
-      ;; A limit order names its price on the button; with none there is no order.
       (and (not market-order?) (not (number? limit-price))) "Enter a limit price"
       (and (= :cash-out mode) market-order?)
       (str "Cash out " shares " " subject
-           ;; Across a range the price is spelled out on the button.
            (when (and range? (number? price)) (str " at " (quotes/cents-text price)))
            (when (number? net) (str " · " (quotes/usd-text net))))
       (= :cash-out mode) (str "Place limit sell · " shares " " subject " at " (quotes/cents-text limit-price {:precise? true}))

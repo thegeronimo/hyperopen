@@ -58,8 +58,6 @@
                                                                :unrealized-pnl 7})]
     (vm/portfolio-vm state)))
 
-;; --- vm/summary key selection ------------------------------------------------
-
 (deftest vaults-scope-key-selection-test
   (is (= :vault-day (vm-summary/selected-summary-key :vaults :day)))
   (is (= :vault-month (vm-summary/selected-summary-key :vaults :month)))
@@ -110,8 +108,6 @@
         (is (= :derived (:source context)))
         (is (seq (:accountValueHistory (:entry context))))
         (is (every? #(<= (:time-ms %) (+ to day)) (:accountValueHistory (:entry context))))))))
-
-;; --- portfolio view model ----------------------------------------------------
 
 (deftest vaults-scope-ready-view-model-test
   (let [view-model (portfolio-vm (state-with (ready-slot)))
@@ -200,8 +196,6 @@
                            :month :account-value {:point {:time-ms 1000000 :value 12} :index 0} []))))))
 
 (deftest vaults-scope-exited-vaults-have-no-window-fallback-test
-  ;; Deposited 100 days ago and fully withdrawn 60 days ago: nothing is held in
-  ;; the last 30 days, so a 30D window must be empty, never the whole history.
   (let [slot (ready-slot
               :ledger-rows [(fx/deposit (- t-end (* 100 day)) fx/vault-a "1000")
                             (fx/withdraw (- t-end (* 60 day)) fx/vault-a
@@ -262,9 +256,6 @@
       (is (number? mdd))
       (is (<= 0 mdd 1))))
   (testing "a small early peak then a large top-up never reads as > 100%"
-    ;; +10 on 100 (peak with 50 left in), a loss on the small remainder, then
-    ;; 10,000 more that loses 500. P&L over peak value calls this a >1000%
-    ;; drawdown; the return index cannot fall more than 100%.
     (let [slot (ready-slot
                 :ledger-rows [(fx/deposit (- t-end (* 90 day)) fx/vault-a "100")
                               (fx/withdraw (- t-end (* 60 day)) fx/vault-a

@@ -30,8 +30,6 @@
   [promise]
   (.then promise (constantly :resolved) ex-data))
 
-;; Mainnet order of the fixture's ERC-20 reads: USDC, PURR, HOPE, UBTC, FUNT
-;; (HYPE is native and read by eth_getBalance).
 (def ^:private fixture-erc20-addresses
   ["0xb88339cb7199b77e23db6e890353e22632ba630f"
    "0x9b498c3c8a0b8cd8ba1d9851d40d186f1872b44e"
@@ -40,9 +38,6 @@
    "0xd6f92d754818307d0e2853eada247178f1ae605b"])
 
 (deftest read-balances-replays-the-live-probe-values-test
-  ;; The live probe's owner, tokens and answers (2026-09-30). Native HYPE now
-  ;; comes from eth_getBalance, so the aggregate carries only the probe's two
-  ;; cast-verified balanceOf calls.
   (async done
     (let [calls (atom [])
           fetch-fn (stubs/batch-fetch
@@ -95,7 +90,6 @@
                       (case method
                         "eth_getBalance" (stubs/quantity "12500000000000000000")
                         "eth_gasPrice" "0x5f5e100"
-                        ;; call order: USDC, PURR, HOPE, UBTC, FUNT
                         "eth_call" (stubs/encode-results
                                     [[true (stubs/amount-data "1000000000")]
                                      [true (stubs/amount-data "0")]
@@ -118,8 +112,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest read-balances-reports-a-zero-native-balance-test
-  ;; Gas status must tell "no HYPE" (:none) from "not read yet", so a zero
-  ;; native balance is reported, unlike zero token balances.
   (async done
     (let [calls (atom [])
           fetch-fn (stubs/batch-fetch calls
@@ -199,9 +191,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest read-balances-survives-a-failing-aggregate-call-test
-  ;; A linked token whose balanceOf burns its gas fails the whole aggregate3
-  ;; call. Native HYPE and the gas price must still arrive, and the token
-  ;; balances must be reported unknown rather than zero.
   (async done
     (let [fetch-fn (stubs/batch-fetch
                     (atom [])
@@ -224,9 +213,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest read-balances-never-shifts-balances-on-a-malformed-aggregate-test
-  ;; An aggregate3 result with one entry too few or too many cannot be lined
-  ;; up with the tokens it was sent for. That chunk is unread; the other
-  ;; chunk's balances stay on their own tokens.
   (async done
     (let [token-count (inc rpc/max-tokens-per-aggregate)
           read-with (fn [first-chunk-size]

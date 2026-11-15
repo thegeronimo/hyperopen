@@ -19,8 +19,6 @@
 
 (def withdraw-min-usdc assets-domain/withdraw-min-usdc)
 (def deposit-min-usdc assets-domain/deposit-min-usdc)
-(def deposit-chain-id-mainnet assets-domain/deposit-chain-id-mainnet)
-(def deposit-chain-id-testnet assets-domain/deposit-chain-id-testnet)
 (def deposit-quick-amounts assets-domain/deposit-quick-amounts)
 (def withdraw-default-asset-key assets-domain/withdraw-default-asset-key)
 
@@ -58,7 +56,6 @@
 (def hyperunit-lifecycle-terminal? lifecycle-domain/hyperunit-lifecycle-terminal?)
 (def default-hyperunit-lifecycle-state lifecycle-domain/default-hyperunit-lifecycle-state)
 (def normalize-hyperunit-lifecycle lifecycle-domain/normalize-hyperunit-lifecycle)
-(def default-hyperunit-fee-estimate-state lifecycle-domain/default-hyperunit-fee-estimate-state)
 (def normalize-hyperunit-fee-estimate lifecycle-domain/normalize-hyperunit-fee-estimate)
 (def default-hyperunit-withdrawal-queue-state lifecycle-domain/default-hyperunit-withdrawal-queue-state)
 (def normalize-hyperunit-withdrawal-queue lifecycle-domain/normalize-hyperunit-withdrawal-queue)
@@ -67,7 +64,6 @@
 
 (def normalize-deposit-asset-key assets-domain/normalize-deposit-asset-key)
 (def normalize-withdraw-asset-key assets-domain/normalize-withdraw-asset-key)
-(def deposit-assets assets-domain/deposit-assets)
 (def deposit-asset assets-domain/deposit-asset)
 (def deposit-asset-implemented? assets-domain/deposit-asset-implemented?)
 (def deposit-assets-filtered assets-domain/deposit-assets-filtered)
@@ -77,8 +73,6 @@
 (def withdraw-minimum-amount assets-domain/withdraw-minimum-amount)
 (def hyperunit-source-chain assets-domain/hyperunit-source-chain)
 
-;; The Transfer previews and MAX age the HyperCore bridge capacity, so they
-;; are bound to the clock here, at the composition seam; the domain stays pure.
 (defn transfer-max-amount
   [state modal]
   (policy-domain/transfer-max-amount state modal (platform/now-ms)))
@@ -109,10 +103,6 @@
   (modal-state/normalize-modal-state
    {:stored-modal (get-in state funding-modal-path)
     :normalize-anchor-fn normalize-anchor}))
-
-(defn modal-open?
-  [state]
-  (true? (:open? (modal-state state))))
 
 (defn funding-modal-view-model
   [state]

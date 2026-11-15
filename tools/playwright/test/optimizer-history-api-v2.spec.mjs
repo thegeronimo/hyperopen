@@ -110,7 +110,6 @@ test("optimizer history API v2 loads rows without legacy history fanout @regress
           legacyHistoryRequests.push(payload);
         }
       } catch {
-        // Let non-JSON requests continue.
       }
     }
     await route.continue();
@@ -280,7 +279,6 @@ test("optimizer history API v2 uses aligned returns when point rows are sparse @
           legacyHistoryRequests.push(payload);
         }
       } catch {
-        // Let non-JSON requests continue.
       }
     }
     await route.continue();

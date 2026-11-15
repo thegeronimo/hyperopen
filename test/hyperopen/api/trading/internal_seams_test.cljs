@@ -167,8 +167,6 @@
             :hyperliquid-chain "Mainnet"}
            (@#'hyperopen.api.trading/resolve-user-signing-context
             (atom {:wallet {}}))))
-    ;; Rabby rejects typed data whose domain chainId differs from the wallet's
-    ;; active chain, so any wallet chain is used as-is.
     (is (= {:signature-chain-id "0x1"
             :hyperliquid-chain "Mainnet"}
            (@#'hyperopen.api.trading/resolve-user-signing-context
@@ -280,10 +278,6 @@
              (trading/clear-debug-exchange-simulator!)
              (restore-fetch!)))))))
 
-;; WS6 — simulator-only transport proof: the encoded spot wire asset id (and the
-;; spot reduce-only suppression) survive the real build -> post-signed-action!
-;; seam end to end, without any live exchange round-trip.
-
 (deftest spot-order-signed-payload-carries-encoded-asset-id-test
   (async done
     (let [command-context {:active-asset "PURR/USDC"
@@ -313,7 +307,6 @@
     (let [command-context {:active-asset "PURR/USDC"
                            :asset-idx 10000
                            :market {:market-type :spot :szDecimals 0}}
-          ;; reduce-only true on the form must be forced false for spot.
           form {:type :twap :side :buy :size "10" :reduce-only true :twap {:minutes "30"}}
           {:keys [action]} (commands/build-twap-action command-context form)
           signature {:r "0x1" :s "0x2" :v 27}]
@@ -414,9 +407,6 @@
                     (done)))))))
 
 (deftest user-signing-on-hyperevm-stays-mainnet-test
-  ;; A HyperEVM -> Core transfer leaves the wallet on chain 999. Later
-  ;; user-signed actions (sendAsset, usdClassTransfer) sign with that chain,
-  ;; which Hyperliquid accepts, and must still target Mainnet.
   (with-redefs [agent-session/default-signature-chain-id-for-environment
                 (fn [is-mainnet]
                   (if is-mainnet
@@ -430,10 +420,6 @@
           (str chain-id)))))
 
 (deftest keywordized-per-type-queues-answer-signed-actions-without-a-live-post-test
-  ;; `installExchangeSimulator` keywordizes its config, so a `sendAsset`
-  ;; queue arrives as `{:signedActions {:sendAsset ...}}`. The signed-action
-  ;; lookup must match it; before the fix it looked up the string type, never
-  ;; matched, and fell through to a live POST to the exchange.
   (async done
     (let [fetch-called? (atom false)
           restore-fetch! (support/install-fetch-stub!

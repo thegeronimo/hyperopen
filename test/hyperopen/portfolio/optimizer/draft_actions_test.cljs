@@ -69,8 +69,6 @@
         "re-applying target-volatility keeps the user-chosen sigma instead of the 12% preset")))
 
 (deftest objective-menu-apply-max-sharpe-keeps-authored-views-as-is-test
-  ;; Applying Maximum Sharpe attaches the views-aware return model with the
-  ;; draft's authored views untouched — no normalization pass, no re-authoring.
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}]
                                                :objective {:kind :minimum-variance}
                                                :return-model {:kind :black-litterman
@@ -100,8 +98,6 @@
             state)))))
 
 (deftest objective-menu-apply-max-sharpe-hydrates-views-from-wallet-library-test
-  ;; An old historical-mean draft picking Maximum Sharpe gets the wallet's
-  ;; remembered views for universe instruments, not an empty slate.
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}
                                                           {:instrument-id "perp:ETH"}]
                                                :objective {:kind :minimum-variance}
@@ -132,8 +128,6 @@
         "Only remembered views for CURRENT universe instruments hydrate — perp:SOL stays in the library.")))
 
 (deftest objective-menu-apply-non-sharpe-objective-keeps-views-model-test
-  ;; Views are an input policy, not an objective: picking Minimum volatility no
-  ;; longer downgrades the return model to historical-mean.
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}]
                                                :objective {:kind :max-sharpe}
                                                :return-model {:kind :black-litterman
@@ -156,8 +150,6 @@
             state)))))
 
 (deftest inline-view-edits-buffer-only-outside-views-model-test
-  ;; With a historical/EW estimator the panel is a note, not an editor: typing
-  ;; and stepping only move the display buffer, and confidence is a no-op.
   (let [state {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}
                                                            {:instrument-id "perp:ETH"}
                                                            {:instrument-id "perp:HYPE"}]
@@ -205,9 +197,6 @@
                       ["perp:BTC" "perp:ETH"]))))))
 
 (def ^:private views-model-state
-  ;; A views-aware draft with one authored view. Universe has no history data, so
-  ;; the implied baseline is unknown — exactly the worst case the actions must
-  ;; stay honest in.
   {:portfolio {:optimizer {:draft {:universe [{:instrument-id "perp:BTC"}
                                               {:instrument-id "perp:ETH"}]
                                    :objective {:kind :max-sharpe}
@@ -231,8 +220,6 @@
   [:portfolio :optimizer :draft :metadata :dirty?])
 
 (deftest inline-view-return-edit-authors-view-and-syncs-library-test
-  ;; Typing a parseable return on a fresh row authors the view immediately and
-  ;; upserts it into the wallet's view library.
   (let [effects (actions/set-portfolio-optimizer-objective-menu-view-return
                  views-model-state
                  "perp:ETH"
@@ -344,8 +331,6 @@
            effects))))
 
 (deftest inline-view-confidence-adopts-buffer-value-on-implied-row-test
-  ;; Confidence on an implied row adopts the shown value as the user's view —
-  ;; here the typing buffer holds the shown value.
   (let [state (assoc-in views-model-state
                         [:portfolio-ui :optimizer :objective-menu-view-drafts
                          :perp:ETH :return-text]
@@ -365,8 +350,6 @@
             :horizon :3m
             :weights {"perp:ETH" 1}}
            (last saved-views))))
-  ;; With no buffer, no authored view, and no computable baseline (this fixture
-  ;; has no history), there is nothing honest to adopt: no-op.
   (is (= []
          (actions/set-portfolio-optimizer-objective-menu-view-confidence
           views-model-state
@@ -405,7 +388,6 @@
               [[:portfolio-ui :optimizer :objective-menu-view-drafts] {}]
               [dirty-path* true]]]]
            effects)))
-  ;; Removing a row that has no authored view stays a UI-only cleanup.
   (is (= [[:effects/save-many
            [[[:portfolio-ui :optimizer :objective-menu-view-order] ["perp:BTC"]]
             [[:portfolio-ui :optimizer :objective-menu-view-drafts] {}]]]]
@@ -437,7 +419,6 @@
                                                                    "perp:BTC" -1}}]}
                                                :metadata {:dirty? false}}}}}
         effects (actions/remove-portfolio-optimizer-objective-menu-view state "perp:ETH")
-        ;; effects = [library-sync, save-many]; the saved views ride the save.
         saved-views (get-in (vec effects) [1 1 0 1])]
     (is (= [{:id "rel-eth-btc"
              :kind :relative
@@ -718,7 +699,6 @@
             universe))
 
 (deftest set-history-assumption-proxy-asset-toggles-membership-test
-  ;; perp:ETH is a universe member here, so no catalog resolution is needed.
   (let [with-proxy (ha-state-with-universe {"perp:NEW" proxy-entry-fixture}
                                            [{:instrument-id "perp:NEW"}
                                             {:instrument-id "perp:BTC"}
@@ -746,9 +726,6 @@
         "Proxy toggles only apply to proxy-mode entries.")))
 
 (deftest set-history-assumption-proxy-asset-catalog-reference-only-test
-  ;; A proxy outside the universe is resolved from the market catalog, stored as
-  ;; a reference-only instrument, and its history is prefetched - so the engine
-  ;; can synthesize covariance from it without it ever becoming a holding.
   (let [state (-> (ha-state {"perp:NEW" proxy-entry-fixture})
                   (assoc-in [:asset-selector :market-by-key "perp:SOL"]
                             {:key "perp:SOL" :market-type :perp :coin "SOL"
@@ -772,7 +749,6 @@
                 (= [:portfolio :optimizer :history-prefetch] (first effect)))
               path-values)
         "Its history is enqueued for prefetch so covariance can use it.")
-    ;; perp:BTC is a universe member, so adding it never creates a reference.
     (let [btc-effects (actions/set-portfolio-optimizer-history-assumption-proxy-asset
                        (assoc-in state [:portfolio :optimizer :draft :universe]
                                  [{:instrument-id "perp:NEW"} {:instrument-id "perp:SOL"}])
@@ -867,10 +843,6 @@
                conservative "perp:NEW" "")))))
 
 (deftest history-assumption-field-edit-prunes-stale-reference-instruments-test
-  ;; Live 2026-07-09: BTC lingered in :proxy-reference-instruments after it
-  ;; joined the universe, and the field-edit save path skipped reconciliation,
-  ;; so nothing ever cleaned it up (the request builder then evicted the real
-  ;; portfolio asset as "reference-only"). Every assumption save reconciles.
   (let [state (assoc-in (ha-state {"perp:NEW" proxy-entry-fixture})
                         history-reference-instruments-path
                         [{:instrument-id "perp:BTC"}])
@@ -922,9 +894,6 @@
       "A blank id clears the pointer, handing the queue back to its default."))
 
 (deftest apply-history-assumption-acknowledges-the-entry-test
-  ;; Apply IS the queue's Accept: it records the user's yes on the entry and
-  ;; nothing else. Run readiness never depends on it — it only decides whether
-  ;; the queue still owes this asset a turn.
   (let [state (ha-state {"perp:NEW" {:behavior :conservative
                                      :expected-return 0.0
                                      :volatility 0.8
@@ -969,9 +938,6 @@
         "An existing draft entry always wins - hydration never clobbers edits.")))
 
 (deftest hydrate-history-assumption-library-restores-reference-proxies-test
-  ;; A remembered proxy basket may reference proxies outside the universe;
-  ;; hydration must restore them as reference-only instruments and prefetch
-  ;; their history, or the hydrated card would block on missing proxy history.
   (let [sol {:instrument-id "perp:SOL" :market-type :perp :coin "SOL"}
         proxy-entry {:behavior :proxy
                      :expected-return 0.0

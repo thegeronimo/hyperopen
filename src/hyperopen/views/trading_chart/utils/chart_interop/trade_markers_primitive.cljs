@@ -16,15 +16,12 @@
 (def ^:private badge-gap-px 8)
 (def ^:private tick-width-px 14)
 (def ^:private dense-dot-diameter 7)
-;; badges are 16-24 px wide: below ~12 px per bar neighbouring candles' badges
-;; pile up, so draw dots on the execution ticks instead
 (def ^:private dense-bar-spacing-px 12)
 (def ^:private dense-visible-group-limit 60)
 (def ^:private min-hit-radius-px 16)
 (def ^:private min-touch-hit-radius-px 22)
 (def ^:private count-bubble-diameter 14)
 (def ^:private ribbon-height-px 6)
-;; badges just outside the pane still overlap its edge
 (def ^:private offscreen-margin-px 24)
 
 (defn- finite? [v]
@@ -127,7 +124,6 @@
         R (* r vpr)
         selected? (= selected-id (:id group))]
     (if dense?
-      ;; a light ring keeps dots legible on candles of the same color
       (do (set! (.-fillStyle ctx) bg)
           (circle! ctx X CY (+ R (* 2.5 vpr)))
           (set! (.-fillStyle ctx) (:ring colors))
@@ -136,7 +132,6 @@
           (circle! ctx X CY R))
       (let [stem-from (if below? tick-Y (+ CY R))
             stem-to (if below? (- CY R) tick-Y)]
-        ;; selected: dotted guide from the tick to the price scale
         (when selected?
           (.save ctx)
           (set! (.-strokeStyle ctx) color)
@@ -147,31 +142,26 @@
           (.lineTo ctx (* pane-width hpr) tick-Y)
           (.stroke ctx)
           (.restore ctx))
-        ;; stem
         (set! (.-globalAlpha ctx) 0.75)
         (set! (.-fillStyle ctx) color)
         (.fillRect ctx (- X (/ hpr 2)) (min stem-from stem-to) (max 1 hpr) (js/Math.abs (- stem-to stem-from)))
         (set! (.-globalAlpha ctx) 1)
-        ;; execution tick with a background outline
         (let [tw (* tick-width-px hpr)
               th (* 2 vpr)]
           (set! (.-fillStyle ctx) bg)
           (.fillRect ctx (- X (/ tw 2) hpr) (- tick-Y (/ th 2) vpr) (+ tw (* 2 hpr)) (+ th (* 2 vpr)))
           (set! (.-fillStyle ctx) color)
           (.fillRect ctx (- X (/ tw 2)) (- tick-Y (/ th 2)) tw th))
-        ;; selection ring
         (when selected?
           (set! (.-fillStyle ctx) color)
           (circle! ctx X CY (+ R (* 4 vpr)))
           (set! (.-fillStyle ctx) bg)
           (circle! ctx X CY (+ R (* 2 vpr))))
-        ;; badge
         (set! (.-fillStyle ctx) color)
         (if (= :liquidation (:side-kind group))
           (diamond! ctx X CY (* R 1.15))
           (circle! ctx X CY R))
         (text! ctx (badge-text group) X (+ CY (* 0.5 vpr)) font-px vpr font-family bg)
-        ;; count bubble
         (when (> (:count group) 1)
           (let [bx (+ X (* 0.75 R))
                 by (- CY (* 0.75 R))
@@ -243,10 +233,6 @@
                                             :pane-height (.-height media)
                                             :colors (current-colors)
                                             :font-family font-family*}))))))))
-         ;; "normal" paints on the main canvas with the candles (drawn after
-         ;; them). "top" would paint on the crosshair canvas, which repaints on
-         ;; every mouse move and keeps stale badges after a detach until the
-         ;; cursor moves.
          marker-view #js {:zOrder (fn [] "normal")
                           :renderer
                           (fn []

@@ -205,10 +205,6 @@
     (is (str/includes? t "No Vol Range ladders yet."))
     (is (some? (hiccup/find-by-data-role html "vol-ladder-dock")))))
 
-;; ---------------------------------------------------------------------------
-;; Repair (spec 8.6, 11.2)
-;; ---------------------------------------------------------------------------
-
 (defn- repair-state [grids & [extra]]
   (assoc (state-with grids extra) :vol-range-dock {:current-scope-key "k"}))
 
@@ -304,10 +300,6 @@
                (get-in (hiccup/node-attrs button) [:on :click])))
         (is (nil? (hiccup/find-by-data-role (panel (state-with [g])) "vol-ladder-view-report"))
             "an untracked ladder has no report link")))))
-
-;; ---------------------------------------------------------------------------
-;; Update (spec 10.2, 11.2)
-;; ---------------------------------------------------------------------------
 
 (deftest preview-update-button-test
   (let [html (panel (repair-state [(response (sent-grid) #{})]))

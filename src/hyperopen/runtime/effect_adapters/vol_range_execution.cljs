@@ -50,9 +50,6 @@
   for the trading account with a recent watcher tick (spec 9.3: reconcile
   before new placement)."
   [state now-ms]
-  ;; The planner context is memoized per minute on inputs WITHOUT provenance
-  ;; times, so a fee refresh with an unchanged payload keeps the cached input;
-  ;; take the fee load time from state (spec 7.3 freshness).
   {:input (cond-> (:input (plan-state/context-for-state state now-ms))
             (number? (get-in state [:portfolio :user-fees-loaded-at-ms]))
             (assoc-in [:fees :loaded-at-ms] (get-in state [:portfolio :user-fees-loaded-at-ms])))
@@ -76,10 +73,6 @@
    :random-id! entropy/random-id!
    :cloid-suffixes! entropy/random-cloid-suffixes!
    :network (contracts/current-network)})
-
-;; ---------------------------------------------------------------------------
-;; Store writes
-;; ---------------------------------------------------------------------------
 
 (defn- put-grid
   "Merge, never replace: a flow that finishes after another one changed the
@@ -115,12 +108,9 @@
                                  (select-keys [:status :errors :delivery :phase :error :counts :in-flight?
                                                :update-started-at-ms])
                                  (assoc :op op :grid-id (:grid-id grid) :at-ms (platform/now-ms))
-                                 ;; A refused placement leaves the review open; this
-                                 ;; lets the review show the refusal for its own plan.
                                  (cond-> (= :place op)
                                    (assoc :plan-id (get-in state [:vol-range :frozen-review :plan-id])
                                           :replacement? (true? (:replacement? result))))
-                                 ;; Lets the open repair review show why ITS send was refused.
                                  (cond-> (= :repair op)
                                    (assoc :proposal-id (:proposal-id result)))))))))
 
@@ -149,10 +139,6 @@
         (order-effects/refresh-account-surfaces-after-order-mutation! store address)
         (spot-refresh/refresh-spot-clearinghouse-snapshot! store address {:priority :high})))))
 
-;; ---------------------------------------------------------------------------
-;; Operations
-;; ---------------------------------------------------------------------------
-
 (defn- refresh-fees!
   "Fees must be at most 5 minutes old at the final guard (spec 7.3), and the
   app loads them once; refresh them before placing."
@@ -162,7 +148,6 @@
       (js/Promise.resolve nil)
       (-> (portfolio-endpoints/request-user-fees! api-state/post-info! address {:cache-ttl-ms 0})
           (.then (fn [payload]
-                   ;; Only for the account that is still active.
                    (when (and (map? payload)
                               (= (lower address) (lower (account-context/active-trading-account-address @store))))
                      (swap! store user-fees/apply-success address payload))))
@@ -207,19 +192,13 @@
 (defn- place! [store]
   (let [plan (get-in @store [:vol-range :frozen-review])
         context (get-in @store [:vol-range :frozen-context])
-        ;; Recorded on the grid only; never part of what is sent.
         settings (ladder-settings/settings-from-plan plan (:draft context))
-        ;; A replacement names the canceled ladder it replaces (spec 10.2
-        ;; step 6); admission refuses it unless that ladder is settled and
-        ;; not already replaced.
         predecessor (get-in context [:replace :predecessor])]
     (-> (refresh-fees! store)
         (.then (fn [_] (executor-place/place! (executor-deps store)
                                               (cond-> {:frozen-plan plan :frozen-scope (:scope plan) :settings settings}
                                                 predecessor (assoc :predecessor predecessor)))))
         (.then (fn [{:keys [delivery] :as result}]
-                 ;; Once anything may have been sent, the review is over: the
-                 ;; dock now owns the outcome, and the update it finished is done.
                  (when (or (contains? #{:response :unknown} delivery) (= :error (:status result)))
                    (swap! store #(cond-> (-> %
                                              (assoc-in [:vol-range :ui :review-open?] false)
@@ -230,8 +209,6 @@
                                    (and predecessor
                                         (= (:grid-id predecessor) (get-in % [:vol-range :replace :grid-id])))
                                    (assoc-in [:vol-range :replace] nil))))
-                 ;; The exchange's leverage differs from the one planned with:
-                 ;; read it, so the next review shows it.
                  (when (some #{:guard/leverage-changed} (:errors result))
                    (refresh-perp-asset! store))
                  (sync-after-send store result))))))
@@ -270,9 +247,6 @@
         (.then (fn [{:keys [ok? records error]}]
                  (if-not ok?
                    {:status :journal-unavailable :error error}
-                   ;; Every journal grid for the trading account, any market,
-                   ;; merged with the store copy so store-only evidence survives;
-                   ;; and the account's tracking campaigns (spec 12.1).
                    (let [{:keys [campaigns closures]} (campaign/campaigns-for-account records account)]
                      (swap! store #(-> (grid-store/merge-account-grids % account (jr/grids records nil))
                                        (assoc-in [:vol-range :campaigns] campaigns)
@@ -350,13 +324,7 @@
   [_ctx store op params]
   (let [grid-id (:grid-id params)
         busy-key (if grid-id [op grid-id] [op])
-        ;; An update operation's result names the update it answers (its
-        ;; start, read as the op starts), also on a timeout or failure, so
-        ;; neither its settlement nor its message reaches an update that
-        ;; was stopped or restarted meanwhile.
         started (get-in @store [:vol-range :replace :started-at-ms])
-        ;; A placement that carries an update's lineage, as it starts (a
-        ;; refused replacement points at Refresh balances).
         replacement? (some? (get-in @store [:vol-range :frozen-context :replace]))
         tag (case op
               (:replace-cancel :replace-confirm) #(assoc % :update-started-at-ms started)
@@ -387,8 +355,6 @@
                         :repair (if (gate/enabled?)
                                   (repair! store params)
                                   {:status :refused :errors [:capability/execution-disabled]})
-                        ;; Cancelling and confirming an update never need the
-                        ;; placement gate; neither ever places an order.
                         :replace-cancel (repair-replace/replace-cancel! store (executor-deps store) params
                                                                         (replace-opts store))
                         :replace-confirm (repair-replace/replace-confirm! store (executor-deps store) params

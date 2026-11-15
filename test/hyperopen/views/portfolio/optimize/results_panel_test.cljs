@@ -38,8 +38,6 @@
            (node-attr purr-icon :src)))
     (is (some? (node-by-role view-node "portfolio-optimizer-result-warnings")))
     (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
-    ;; The standalone Rebalance preview card was retired — the rebalance stages straight
-    ;; into Execution — so the results workspace no longer renders it.
     (is (nil? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
     (is (contains? strings "Allocation"))
     (is (contains? strings "How much to trust this"))
@@ -179,8 +177,6 @@
                       :--optimizer-delta-bar-size)))))
 
 (deftest results-panel-renders-return-views-editor-in-right-rail-test
-  ;; The editor renders whenever the draft's return model consumes views —
-  ;; views are an input policy, not an objective/menu selection.
   (let [draft {:universe [{:instrument-id "perp:BTC"
                            :market-type :perp
                            :coin "BTC"}
@@ -283,10 +279,6 @@
            (click-actions apply)))))
 
 (deftest results-panel-hides-return-views-editor-for-equal-risk-test
-  ;; Regression: Equal Risk selected after Maximum Sharpe leaves the draft's
-  ;; return model at Black-Litterman (objective actions never touch it), but
-  ;; Equal Risk never consumes return forecasts — the editor's "edits save and
-  ;; rerun automatically" promise would be false, so it must not render.
   (let [draft {:universe [{:instrument-id "perp:BTC"
                            :market-type :perp
                            :coin "BTC"}

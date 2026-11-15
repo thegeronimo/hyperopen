@@ -17,9 +17,6 @@
    :coin (str base "/" quote) :symbol (str base "/" quote)
    :base base :quote quote :volume24h volume})
 
-;; The scenario from the design brief: 13 "pump" markets, of which the old panel
-;; showed six, with the perp below the cut and the three spot quotes clipped to
-;; an identical "PUMP-US…".
 (def ^:private pump-markets
   [(perp "PUMP" 412600000)
    (perp "HPUMP" 18200000)
@@ -37,9 +34,6 @@
   ([{:keys [type-filter quote-filter]}]
    (portfolio-view/portfolio-view
     {:router {:path "/portfolio/optimize/new"}
-     ;; Seed the REAL defaults (both facets are stored as the keyword :all), not an
-     ;; absent key — a nil read took a different normalization path and hid a bug
-     ;; that emptied the list in the browser.
      :portfolio-ui {:optimizer {:universe-search-query "pump"
                                 :universe-search-type-filter (or type-filter :all)
                                 :universe-search-quote-filter (or quote-filter :all)}}
@@ -85,8 +79,6 @@
 (deftest quote-pairs-are-distinguishable-instead-of-clipping-to-the-same-row-test
   (let [node (view)
         text (node-text node)]
-    ;; The whole reason for the redesign: these three used to render as
-    ;; "PUMP-US…" and read as the same market.
     (is (str/includes? text "PUMP/USDC"))
     (is (str/includes? text "PUMP/USDE"))
     (is (str/includes? text "PUMP/USDH"))
@@ -105,8 +97,6 @@
                        "portfolio-optimizer-universe-candidate-group-header-perp"))
            "2 markets")))
     (testing "the group header role is disjoint from the row role prefix"
-      ;; Two browser specs select rows with
-      ;; [data-role^="portfolio-optimizer-universe-candidate-row-"].
       (is (not (str/starts-with?
                 "portfolio-optimizer-universe-candidate-group-header-perp"
                 "portfolio-optimizer-universe-candidate-row-"))))))
@@ -143,9 +133,6 @@
                   "portfolio-optimizer-universe-search-reset-filters"))))))
 
 (deftest keyboard-market-keys-follow-the-grouped-render-order-test
-  ;; The rendered row order, each row's DOM id index and the market-keys vector
-  ;; handed to the keydown action must agree, or ArrowDown+Enter adds a different
-  ;; asset than the one highlighted.
   (let [node (view {:type-filter :spot :quote-filter "USDE"})
         input (node-by-role node "portfolio-optimizer-universe-search-input")
         [[_action _key market-keys]] (get-in input [1 :on :keydown])]
@@ -157,8 +144,6 @@
   (let [node (view)
         add-all (node-by-role node "portfolio-optimizer-universe-search-add-all")
         [[action keys*]] (click-actions add-all)]
-    ;; Same-stock listings collapse to one per underlying (PUMP perp + three
-    ;; PUMP spot pairs add once), and the label says how many were skipped.
     (is (= "+ add all 5 · skips 6 duplicates" (node-text add-all)))
     (is (= :actions/add-portfolio-optimizer-universe-matches action))
     (is (= ["perp:PUMP" "perp:HPUMP" "spot:UPUMP/USDC" "spot:PUMPX/USDC" "vault:0xabc"]

@@ -88,10 +88,6 @@
   ([snapshot-range benchmark-coins]
    (vault-detail-returns-benchmark-fetch-effects snapshot-range benchmark-coins nil))
   ([snapshot-range benchmark-coins detail-route-vault-address]
-   ;; A custom range must NOT go through `normalize-vault-snapshot-range`: that
-   ;; normalizer only recognizes presets and silently collapses anything else to
-   ;; the default, which would fetch a 30-day candle window for a two-year custom
-   ;; span and leave the benchmark line stopping short of the chart.
    (let [range* (or (custom-range/normalize snapshot-range)
                     (ui-state/normalize-vault-snapshot-range snapshot-range))
          {:keys [interval bars]} (portfolio-actions/returns-benchmark-candle-request range*)
@@ -226,13 +222,6 @@
                         [vault-detail-activity-filter-open-path false]]]
    replace-shareable-route-query-effect])
 
-;; --- custom chart range (design 1c: drag the context strip) --------------------------------
-;;
-;; The custom window lives in its OWN key rather than in [:vaults-ui :snapshot-range].
-;; That preset key is shared with the vault LIST page and is persisted with
-;; `(name snapshot-range)`, so writing a map into it would both leak a chart-only
-;; window onto the list and throw on the next persist.
-
 (def vault-detail-custom-range-path
   [:vaults-ui :detail-custom-range])
 
@@ -360,9 +349,6 @@
 (defn set-vault-detail-chart-series
   [deps state series]
   (let [series* (ui-state/normalize-vault-detail-chart-series series)
-        ;; Effective, not preset: the chart section derives the candle interval
-        ;; from the window on screen, so fetching at the preset's interval while
-        ;; a custom window is applied stores bars nobody reads.
         snapshot-range (effective-vault-detail-range state)
         detail-route-vault-address (current-route-vault-address deps state)
         projection-effect [:effects/save-many
@@ -399,7 +385,6 @@
 (defn select-vault-detail-returns-benchmark
   [deps state benchmark]
   (if-let [coin (portfolio-actions/normalize-portfolio-returns-benchmark-coin benchmark)]
-    ;; Effective, not preset — see set-vault-detail-chart-series.
     (let [snapshot-range (effective-vault-detail-range state)
           detail-route-vault-address (current-route-vault-address deps state)
           selected-coins (selected-vault-detail-returns-benchmark-coins state)

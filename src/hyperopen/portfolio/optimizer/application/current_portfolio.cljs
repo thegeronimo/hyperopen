@@ -153,9 +153,6 @@
   (volatile! nil))
 
 (defn- resolve-market-cached
-  ;; resolve-market-by-coin falls back to linear catalog scans for base
-  ;; tokens, and the snapshot resolves every position and balance on each
-  ;; rebuild. Cache resolutions per market catalog identity.
   [market-by-key coin]
   (let [memo @market-resolution-memo
         memo (if (and memo (identical? (:market-by-key memo) market-by-key))
@@ -174,11 +171,6 @@
   (volatile! nil))
 
 (defn- resolve-spot-market-cached
-  ;; Spot balances must NEVER resolve to a perp market: a bare token ("HYPE")
-  ;; hits the perp candidate key first when the token also trades as a perp,
-  ;; which used to hand the spot exposure the perp instrument id / symbol and
-  ;; collide with the real perp exposure in :by-instrument. Separate memo — the
-  ;; same coin string legitimately resolves differently for perps and spot.
   [market-by-key coin]
   (let [memo @spot-market-resolution-memo
         memo (if (and memo (identical? (:market-by-key memo) market-by-key))
@@ -194,12 +186,6 @@
         market))))
 
 (defn- perps-instrument-id
-  ;; The per-dex clearinghouse feed reports coins ALREADY dex-namespaced
-  ;; ("xyz:ORCL" on dex "xyz"); re-prefixing built a doubled id
-  ;; ("perp:xyz:xyz:ORCL") that matches neither the market catalog key nor the
-  ;; universe id, so the rebalance saw the held position and its target as two
-  ;; unrelated assets and emitted a full close + a fresh open instead of one
-  ;; net order. Only prefix the dex when the coin does not already carry it.
   [dex coin]
   (let [coin* (normalize-coin coin)
         dex* (normalize-dex dex)]
@@ -355,11 +341,6 @@
                     available (when (number? total)
                                 (- total hold))
                     market (resolve-spot-market-cached market-by-key coin)
-                    ;; Price from the SPOT market when one exists; fall back to
-                    ;; the general resolution (which may borrow the perp mark for
-                    ;; a token with no listed spot pair) so NAV keeps covering
-                    ;; such balances — only the identity fields must never come
-                    ;; from the perp market.
                     price (or (market-mark-price market)
                               (spot-price market-by-key coin))
                     instrument-id (spot-instrument-id market coin)]
@@ -422,8 +403,6 @@
    :market-count (count (or (get-in state [:asset-selector :market-by-key]) {}))})
 
 (defn- snapshot-memo-inputs
-  ;; Every state slice the snapshot reads, by result identity. Keep this in
-  ;; sync with the reads below or the memo will serve stale snapshots.
   [state]
   [(clearinghouse-state state)
    (spot-balances state)
@@ -448,15 +427,6 @@
          spot-noncash-usdc :spot-noncash-usdc} (build-spot-exposures state)
         perp-account-value (perp-account-value-usdc state)
         total-margin-used (total-margin-used-usdc state)
-        ;; A unified (portfolio-margin) account backs perps across EVERY dex from a
-        ;; single shared spot-wallet collateral pool, so the main perp
-        ;; clearinghouse's marginSummary.accountValue is just one dex's
-        ;; sub-allocation, not the account's capital. gross/net-exposure below sum
-        ;; positions across all dexes (incl. HIP-3), so dividing by single-dex perp
-        ;; equity overstates leverage (e.g. 25x vs a real 5.9x). The correct
-        ;; denominator is the spot-wallet equity (cash + non-cash spot), which
-        ;; equals the trade page's "Unified Account Value" / portfolio-value.
-        ;; Classic accounts keep perp equity + non-cash spot unchanged.
         unified-account? (= :unified (get-in state [:account :mode]))
         unified-collateral-usdc (+ cash-usdc spot-noncash-usdc)
         nav-usdc (cond
@@ -506,9 +476,6 @@
      :signature (snapshot-signature state address)}))
 
 (defn current-portfolio-snapshot
-  ;; Rebuilding exposures walks every position and balance, and the setup
-  ;; route recomputes the snapshot on every streaming render. Memoize on the
-  ;; state slices the build actually reads.
   [state]
   (let [inputs (snapshot-memo-inputs state)
         cached @snapshot-memo]
@@ -531,10 +498,6 @@
                exposures)
       (let [gross-ratio (/ gross-usdc nav-usdc)
             net-ratio (/ net-usdc nav-usdc)
-            ;; Net target = the book's current net; the tolerance is a fraction
-            ;; of REALIZED gross (:net-band-pct). Preserve the old ±0.05x
-            ;; absolute width at the current gross (0.05 / gross), clamped to
-            ;; the valid [0, 1] range.
             net-min (floor-to-constraint-precision net-ratio)
             net-max net-min
             net-band-pct (if (> gross-ratio 1e-9)
@@ -554,10 +517,6 @@
                                   current-max-asset-weight)]
         (assoc constraints
                :long-only? false
-               ;; Preserve the book's leverage by default: a gross FLOOR at the
-               ;; current gross ratio (rounded down so it never lands above the
-               ;; ceiled gross-max) keeps minimum-variance from delevering to the
-               ;; net floor. Clearing :gross-min in the UI removes the floor.
                :gross-min (floor-to-constraint-precision gross-ratio)
                :gross-max gross-max
                :net-min net-min

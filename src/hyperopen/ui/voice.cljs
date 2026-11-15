@@ -17,7 +17,6 @@
    paren-free degen nouns so registry count suffixes like \" (23)\" compose."
   {:brand/wordmark {:default "HyperOpen" :degen "HyperDegen"}
    :brand/mark {:default "HO" :degen "HD"}
-   ;; :default mirrors resources/public/index.html <title>.
    :brand/title {:default "HyperOpen"
                  :degen "HyperDegen — Trade Like a Legend 🐸"}
 
@@ -36,8 +35,6 @@
    :orderbook/book {:default "Order Book" :degen "Order Book (looks important)"}
    :orderbook/trades {:default "Trades" :degen "Trades (other people's mistakes)"}
 
-   ;; Mobile surface tabs share a third of a small screen; degen variants
-   ;; stay short on purpose.
    :mobile-surface/chart {:default "Chart" :degen "Chart (hopium)"}
    :mobile-surface/orderbook {:default "Order Book" :degen "Book (lol)"}
    :mobile-surface/trades {:default "Trades" :degen "Trades (pain)"}

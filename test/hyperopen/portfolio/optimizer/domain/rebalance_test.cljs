@@ -30,8 +30,6 @@
                                                     :slippage-bps 4}}
                   :fee-bps-by-id {"perp:BTC" 4.5
                                   "spot:PURR" 7}})]
-    ;; Spot legs are now executable (routed on Hyperliquid like perps), so both rows
-    ;; are ready and the preview status is no longer partially-blocked.
     (is (= :ready (:status preview)))
     (is (= 2 (count (:rows preview))))
     (let [perp-row (first (:rows preview))
@@ -45,7 +43,6 @@
       (is (near? 0.6 (get-in perp-row [:cost :estimated-slippage-usd])))
       (is (= 4.5 (get-in perp-row [:cost :fee-bps])))
       (is (near? 0.675 (get-in perp-row [:cost :estimated-fee-usd])))
-      ;; spot:PURR: target 0.02 vs current 0.10 -> sell $800, qty 400 @ $2, fee 7 bp
       (is (= :ready (:status spot-row)))
       (is (= :sell (:side spot-row)))
       (is (near? -800 (:delta-notional-usd spot-row)))
@@ -87,8 +84,6 @@
     (is (= 0 (get-in preview [:summary :gross-trade-notional-usd])))))
 
 (deftest build-rebalance-preview-blocks-quantity-rounded-below-lot-test
-  ;; Notional is $12 (clears the $10 minimum) but the quantity rounds below the
-  ;; lot at szDecimals 4, so this exercises the lot gate specifically.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 12000
                   :rebalance-tolerance 0.0
@@ -105,8 +100,6 @@
     (is (= 0 (get-in preview [:summary :ready-count])))))
 
 (deftest build-rebalance-preview-keeps-summary-to-executable-rows-test
-  ;; perp:BTC and spot:PURR are both executable (spot routes on Hyperliquid too);
-  ;; perp:ETH is blocked on a missing price and must be excluded from the summary.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :rebalance-tolerance 0.0
@@ -125,7 +118,6 @@
     (is (= 2 (get-in preview [:summary :ready-count])))
     (is (= 1 (get-in preview [:summary :blocked-count])))
     (is (= :missing-price (get-in preview [:rows 2 :reason])))
-    ;; gross-trade-notional counts only the two ready rows ($1000 + $1000).
     (is (= 2000 (get-in preview [:summary :gross-trade-notional-usd])))))
 
 (deftest build-rebalance-preview-derives-live-orderbook-costs-and-margin-impact-test
@@ -151,10 +143,6 @@
     (is (near? 100 (get-in preview [:rows 0 :cost :slippage-bps])))
     (is (near? 20 (get-in preview [:rows 0 :cost :estimated-slippage-usd])))
     (is (near? 1 (get-in preview [:rows 0 :cost :estimated-fee-usd])))
-    ;; Explicit per-instrument leverage (5x) still drives the margin impact (2000/5 = 400);
-    ;; the new keys add the account-leverage projection + free-margin headroom. No
-    ;; :current-gross-exposure-usdc here, so before-gross falls back to the row's own
-    ;; current gross (0 — the position is opened from flat), after-gross is the Δ (0.2x).
     (is (= {:capital-usd 10000
             :current-used-usd 1000
             :estimated-impact-usd 400
@@ -164,20 +152,14 @@
             :after-utilization 0.14
             :before-gross-leverage 0
             :after-gross-leverage 0.2
-            :before-venue-leverage nil ;; no venue inputs -> bridge stays nil
+            :before-venue-leverage nil
             :after-venue-leverage nil
             :warning nil}
            (get-in preview [:summary :margin])))))
 
 (deftest build-rebalance-preview-projects-account-leverage-and-effective-margin-impact-test
-  ;; The commit-moment figure is account leverage (gross notional / equity), projected
-  ;; with the ready trade applied; and with no explicit per-instrument leverage cap, the
-  ;; margin impact must charge at the account's REAL effective leverage (gross/margin-used),
-  ;; not the misleading 1x (full-collateral) default.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
-                  ;; Account-wide current book: 2.0x gross leverage, running at 5x effective
-                  ;; (20000 gross / 4000 margin used).
                   :current-gross-exposure-usdc 20000
                   :current-margin-used-usdc 4000
                   :rebalance-tolerance 0.0
@@ -187,21 +169,16 @@
                   :target-weights [0.3]
                   :instruments-by-id {"perp:BTC" {:instrument-type :perp :coin "BTC"}}
                   :prices-by-id {"perp:BTC" 100}
-                  :fee-bps-by-id {"perp:BTC" 5}}) ;; NB: no :leverage-by-id -> effective fallback
+                  :fee-bps-by-id {"perp:BTC" 5}})
         margin (get-in preview [:summary :margin])]
     (is (= :ready (:status preview)))
-    ;; Impact = 3000 notional / 5x effective = 600 (the old 1x default would charge 3000).
     (is (= 600 (:estimated-impact-usd margin)))
     (is (= 4600 (:after-used-usd margin)))
     (is (= 5400 (:free-margin-usd margin)))
-    ;; Leverage projection: 2.0x before, +0.3x from the opened position -> 2.3x after.
     (is (near? 2.0 (:before-gross-leverage margin)))
     (is (near? 2.3 (:after-gross-leverage margin)))))
 
 (deftest build-rebalance-preview-projects-venue-leverage-test
-  ;; Venue-lens bridge (trade page's Unified Account Leverage, perp notional ÷
-  ;; collateral). Before: 6000/5000 = 1.2x. After: only the perp row's +0.3 weight
-  ;; (3000 notional) counts, not the spot row's +0.1 -> 9000/5000 = 1.8x.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :current-gross-exposure-usdc 20000
@@ -303,13 +280,6 @@
     (is (= :full-visible-depth (:depth-status cost)))))
 
 (deftest build-rebalance-preview-extrapolates-when-snapshot-depth-is-insufficient-test
-  ;; Order (qty 3) exceeds the single visible ask level (sz 1). Slippage is the real
-  ;; VWAP on the visible portion blended with a remainder charged from the book-EDGE
-  ;; marginal price scaled by the overrun, never below the flat fallback and never
-  ;; above the extrapolation cap. visible-vwap=101 -> visible-slip=100 bps;
-  ;; edge-slip=100 bps (worst level 101); overrun=3 -> remainder=min(100*3,1000)=300;
-  ;; blended=(1/3*100)+(2/3*300)=233.333 bps; slip-usd=300*233.333/10000=7.0.
-  ;; The estimate is an explicit FLOOR (part of the order is beyond the visible book).
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 300
                   :rebalance-tolerance 0.0
@@ -332,20 +302,13 @@
     (is (= :insufficient-visible-depth (:depth-status cost)))
     (is (= :snapshot-depth-limited (:fallback-reason cost)))
     (is (= 5000 (:age-ms cost)))
-    ;; floor semantics + coverage disclosure for the surfaces
     (is (true? (:estimate-floor? cost)))
     (is (near? 3 (:depth-overrun cost)))
     (is (near? (/ 1 3) (:depth-coverage cost)))
     (is (near? 101 (:visible-notional-usd cost)))
-    ;; never under-charges relative to the old flat fallback
     (is (>= (:slippage-bps cost) 25))))
 
 (deftest depth-extrapolation-is-capped-not-unbounded-test
-  ;; The motivating bug: a $16.8M sell against ~$41k of visible bids used to read
-  ;; 10,225 bp (a fill below zero -- impossible). An order 1000x the visible book must
-  ;; now blend toward the extrapolation cap (1,000 bp), not fallback*overrun=25,000 bp.
-  ;; Here: visible-slip=100, edge=100, overrun=1000 -> remainder=min(100*1000,1000)=1000;
-  ;; depth-ratio=0.001 -> blended=0.1+0.999*1000=999.1 bp.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 100000
                   :rebalance-tolerance 0.0
@@ -364,14 +327,11 @@
     (is (= :sell (get-in preview [:rows 0 :side])))
     (is (near? 999.1 (:slippage-bps cost)))
     (is (<= (:slippage-bps cost) (+ rebalance/max-extrapolated-slippage-bps 1)))
-    ;; a sell's average slippage can never reach 10,000 bp (a fill at/below zero)
     (is (< (:slippage-bps cost) 10000))
     (is (true? (:estimate-floor? cost)))
     (is (near? 1000 (:depth-overrun cost)))))
 
 (deftest twap-suborder-count-mirrors-venue-cadence-test
-  ;; One suborder each 30s plus the initial clip, runtime floored at the venue's
-  ;; 5-minute minimum — must agree with hyperopen.domain.trading.core.
   (is (= 21 (rebalance/twap-suborder-count 10)))
   (is (= 41 (rebalance/twap-suborder-count 20)))
   (is (= 11 (rebalance/twap-suborder-count 5)))
@@ -381,16 +341,11 @@
          (trading-core/twap-suborder-count 20))))
 
 (def ^:private one-shot-cost
-  ;; A splittable one-shot cost map as cost-estimate stamps it: spread 2 bp + impact
-  ;; 100 bp = 102 bp on $10,000 notional.
   {:spread-bps 2 :impact-bps 100
    :slippage-bps 102 :estimated-slippage-usd 102
    :notional-usd 10000})
 
 (deftest twap-cost-slices-impact-below-the-one-shot-walk-test
-  ;; 10 minutes = 21 suborders. Temporary impact 100/21 = 4.7619; permanent residue
-  ;; 0.3*100*20/42 = 14.2857; twap impact 19.0476 vs 100 one-shot. Spread is still
-  ;; paid in full (every clip crosses): total 21.0476 bp vs 102 one-shot.
   (let [twap (rebalance/twap-cost one-shot-cost 10)]
     (is (true? (:twap-adjusted? twap)))
     (is (= 21 (:suborders twap)))
@@ -403,8 +358,6 @@
     (is (< (:slippage-bps twap) (:slippage-bps one-shot-cost)))))
 
 (deftest twap-cost-monotone-in-duration-with-permanent-floor-test
-  ;; Longer working time -> smaller estimate, but never below the permanent-impact
-  ;; asymptote: spread + phi/2 * impact = 2 + 15 = 17 bp.
   (let [at (fn [minutes] (:slippage-bps (rebalance/twap-cost one-shot-cost minutes)))]
     (is (> (at 5) (at 10)))
     (is (> (at 10) (at 20)))
@@ -413,8 +366,6 @@
     (is (< (at 5) 102))))
 
 (deftest twap-cost-passes-flat-estimates-through-unadjusted-test
-  ;; A flat fallback / prebaked estimate has no impact component to slice — slicing a
-  ;; flat 25 bp assumption into 21 clips of 25 bp would fabricate precision.
   (let [twap (rebalance/twap-cost {:slippage-bps 25 :estimated-slippage-usd 0.75} 10)]
     (is (false? (:twap-adjusted? twap)))
     (is (= 25 (:slippage-bps twap)))
@@ -422,8 +373,6 @@
     (is (nil? (:spread-bps twap)))))
 
 (deftest twap-cost-flags-clips-that-still-exceed-visible-depth-test
-  ;; $1M worked over 5 minutes = 11 clips of ~$90.9k, against a $500 visible book:
-  ;; even sliced, every clip overruns the book — flag it and inherit floor semantics.
   (let [twap (rebalance/twap-cost {:spread-bps 5 :impact-bps 500
                                    :slippage-bps 505 :estimated-slippage-usd 50500
                                    :notional-usd 1000000
@@ -434,13 +383,10 @@
     (is (true? (:slice-exceeds-visible-depth? twap)))
     (is (true? (:estimate-floor? twap)))
     (is (< (:slippage-bps twap) 505)))
-  ;; ...and stays quiet when a clip fits the visible book.
   (let [twap (rebalance/twap-cost (assoc one-shot-cost :visible-notional-usd 5000) 10)]
     (is (false? (:slice-exceeds-visible-depth? twap)))))
 
 (deftest depth-limited-slippage-grows-with-order-size-test
-  ;; Monotonicity: a larger order that overruns the same visible book by more
-  ;; must be charged strictly more slippage than a smaller over-book order.
   (let [slip (fn [capital]
                (-> (rebalance/build-rebalance-preview
                     {:capital-usd capital
@@ -465,10 +411,6 @@
     (is (< medium large))))
 
 (deftest taker-rebalance-includes-nonzero-fees-and-per-id-overrides-test
-  ;; A taker rebalance with no per-instrument fee but a schedule-derived
-  ;; :default-fee-bps must charge a non-zero fee (the bug was a permanent $0 fee).
-  ;; The default bps is the canonical taker rate (domain.trading.core/default-fees,
-  ;; percent -> bps); a per-id :fee-bps-by-id entry still wins.
   (let [taker-bps (* 100 (:taker trading-core/default-fees))
         base {:capital-usd 300
               :rebalance-tolerance 0.0
@@ -489,20 +431,16 @@
                                   :fee-bps-by-id {"perp:BTC" 2}))
                           (get-in [:rows 0 :cost]))]
     (is (near? taker-bps (:fee-bps default-cost)))
-    ;; notional 300 * 4.5 bps / 10000 = 0.135, and crucially > 0.
     (is (pos? (:estimated-fee-usd default-cost)))
     (is (near? (* 300 (/ taker-bps 10000)) (:estimated-fee-usd default-cost)))
     (is (= 2 (:fee-bps override-cost)))
     (is (near? 0.06 (:estimated-fee-usd override-cost)))))
 
 (deftest sub-ten-dollar-leg-is-blocked-below-min-notional-test
-  ;; Hyperliquid rejects orders below a $10 notional. A small reweight on a small
-  ;; portfolio must not be offered as a ready row that fails at submit.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 1000
                   :rebalance-tolerance 0.001
                   :instrument-ids ["perp:SMALL" "perp:BIG"]
-                  ;; deltas: 0.005 -> $5 (below $10), 0.05 -> $50 (above $10)
                   :current-weights [0.10 0.0]
                   :target-weights [0.105 0.05]
                   :instruments-by-id {"perp:SMALL" {:instrument-type :perp
@@ -518,13 +456,7 @@
     (is (= :below-min-notional (:reason small)))
     (is (= :ready (:status big)))))
 
-;; ── 0-bp cost-model guard (M7) ─────────────────────────────────────────────
-
 (deftest implausibly-favorable-buy-snapshot-fill-is-flagged-untrusted-not-zero-test
-  ;; A stale/coin-mismatched snapshot whose ask sits far BELOW the reference implies a
-  ;; non-physical "free" buy fill; the favorable delta would clamp to 0 bp and read as
-  ;; zero cost. The guard refuses that, reporting the configured flat fallback against the
-  ;; reference under an explicit untrusted source.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 300
                   :rebalance-tolerance 0.0
@@ -542,9 +474,9 @@
     (is (= :ready (get-in preview [:rows 0 :status])))
     (is (= :untrusted-snapshot-fill (:source cost)))
     (is (= :implausible-favorable-fill (:fallback-reason cost)))
-    (is (near? 30 (:slippage-bps cost)))           ;; the configured fallback, not 25
-    (is (near? 100 (:estimated-fill-price cost)))   ;; the reference, not the bogus 90
-    (is (near? 0.9 (:estimated-slippage-usd cost)))));; 300 * 30/10000
+    (is (near? 30 (:slippage-bps cost)))
+    (is (near? 100 (:estimated-fill-price cost)))
+    (is (near? 0.9 (:estimated-slippage-usd cost)))))
 
 (deftest implausibly-favorable-sell-snapshot-fill-is-flagged-untrusted-test
   (let [preview (rebalance/build-rebalance-preview
@@ -567,8 +499,6 @@
     (is (near? 100 (:estimated-fill-price cost)))))
 
 (deftest small-favorable-snapshot-fill-still-floors-to-zero-test
-  ;; Genuine sub-threshold improvement (a buy filling just below the reference) is real
-  ;; and still clamps to 0 bp — the guard only fires beyond the 50 bp band.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 300
                   :rebalance-tolerance 0.0
@@ -588,8 +518,6 @@
     (is (near? 0 (:slippage-bps cost)))))
 
 (deftest build-rebalance-preview-exposes-maker-fee-for-resting-orders-test
-  ;; The cost carries both the taker fee (estimated-fee-usd) and the maker fee, so the
-  ;; execution tab can show the lower fee when a row is routed as a resting (maker) order.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :rebalance-tolerance 0.0
@@ -601,15 +529,11 @@
                   :fee-bps-by-id {"perp:BTC" 4.5}
                   :maker-fee-bps 1.5})
         cost (get-in preview [:rows 0 :cost])]
-    ;; notional 1000: taker 4.5 bp -> $0.45, maker 1.5 bp -> $0.15
     (is (near? 0.45 (:estimated-fee-usd cost)))
     (is (= 1.5 (:maker-fee-bps cost)))
     (is (near? 0.15 (:maker-fee-usd cost)))))
 
 (deftest build-rebalance-preview-omits-maker-fee-when-the-assumption-is-missing-test
-  ;; A build site that forgets the maker-fee assumption must leave the keys OFF the cost
-  ;; map, never stamp 0: a resting row pays no spread or impact, so a zero fee reads as a
-  ;; confident "$0.00 all-in" for a real order. Absent => the surfaces render "—".
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :rebalance-tolerance 0.0
@@ -624,13 +548,7 @@
     (is (not (contains? cost :maker-fee-bps)))
     (is (not (contains? cost :maker-fee-usd)))))
 
-;; ── price-cost decomposition (spread + impact) ─────────────────────────────
-
 (deftest build-rebalance-preview-decomposes-price-cost-into-spread-and-impact-test
-  ;; :slippage-bps (price cost) already bundles crossing the spread + walking the book. With
-  ;; asks [101,102] vs mark 100 for a 3-unit buy, the touch (101) is the spread crossing
-  ;; (100 bp) and the residual to the VWAP (101.667) is the book impact (66.67 bp); the two
-  ;; sum back to the total price cost.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 300
                   :rebalance-tolerance 0.0
@@ -646,16 +564,14 @@
                                                     :stale? false
                                                     :age-ms 0}}})
         cost (get-in preview [:rows 0 :cost])]
-    (is (near? 166.66666666666669 (:slippage-bps cost)))   ; total price cost, unchanged
+    (is (near? 166.66666666666669 (:slippage-bps cost)))
     (is (near? 100 (:spread-bps cost)))
     (is (near? 66.66666666666669 (:impact-bps cost)))
     (is (near? (:slippage-bps cost) (+ (:spread-bps cost) (:impact-bps cost))))
-    ;; notional 300: spread 300*100/10000 = 3, impact 300*66.667/10000 = 2 (sum = total 5)
     (is (near? 3 (:spread-usd cost)))
     (is (near? 2 (:impact-usd cost)))))
 
 (deftest top-of-book-price-cost-is-all-spread-no-impact-test
-  ;; A fill that only reaches the touch (best ask) has spread crossing but no book impact.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :rebalance-tolerance 0.0
@@ -672,22 +588,13 @@
     (is (near? 100 (:spread-bps cost)))
     (is (near? 0 (:impact-bps cost)))))
 
-;; ── realized slippage helper ───────────────────────────────────────────────
-
 (deftest realized-slippage-bps-matches-estimate-convention-test
-  ;; buy filling 1% above the reference -> 100 bp; a favorable fill floors to 0 like the
-  ;; estimate so realized and estimated are directly comparable.
   (is (near? 100 (rebalance/realized-slippage-bps :buy 100 101)))
   (is (near? 100 (rebalance/realized-slippage-bps :sell 100 99)))
   (is (near? 0 (rebalance/realized-slippage-bps :buy 100 99)))
   (is (nil? (rebalance/realized-slippage-bps :buy 100 nil))))
 
-;; ── excluded (no optimizer target) rows ────────────────────────────────────
-
 (deftest build-rebalance-preview-holds-rows-with-no-target-weight-test
-  ;; A nil target means the optimizer expressed NO opinion (out-of-universe holding,
-  ;; asset dropped by the allocator). The row must be held — never staged as a
-  ;; sell-to-zero — and must not count as ready or blocked.
   (let [preview (rebalance/build-rebalance-preview
                  {:capital-usd 10000
                   :rebalance-tolerance 0.005
@@ -711,5 +618,4 @@
     (is (= 1 (get-in preview [:summary :ready-count])))
     (is (= 0 (get-in preview [:summary :blocked-count])))
     (is (= 1 (get-in preview [:summary :excluded-count])))
-    ;; The held row contributes nothing to the trade notional.
     (is (near? 1500 (get-in preview [:summary :gross-trade-notional-usd])))))

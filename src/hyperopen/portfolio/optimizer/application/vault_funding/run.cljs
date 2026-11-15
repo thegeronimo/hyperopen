@@ -55,10 +55,6 @@
   [run row-id f]
   (update run :rows (fn [rows] (mapv #(if (= row-id (:row-id %)) (f %) %) rows))))
 
-(defn mark-sending
-  [run row-id]
-  (update-row run row-id #(-> % (assoc :status :sending) (dissoc :error :reason))))
-
 (defn mark-done
   [run row-id]
   (update-row run row-id #(-> % (assoc :status :done) (dissoc :error :reason))))

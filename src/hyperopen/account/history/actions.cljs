@@ -11,18 +11,6 @@
             [hyperopen.borrow-lend.actions :as borrow-lend-actions]
             [hyperopen.router :as router]))
 
-(def default-funding-history-state
-  funding-actions/default-funding-history-state)
-
-(def default-order-history-state
-  order-actions/default-order-history-state)
-
-(def default-trade-history-state
-  order-actions/default-trade-history-state)
-
-(def default-twap-state
-  twap-actions/default-twap-state)
-
 (def normalize-order-history-page-size
   history-shared/normalize-order-history-page-size)
 
@@ -40,15 +28,6 @@
 
 (def restore-trade-history-pagination-settings!
   order-actions/restore-trade-history-pagination-settings!)
-
-(def funding-history-filters
-  funding-actions/funding-history-filters)
-
-(def funding-history-request-id
-  funding-actions/funding-history-request-id)
-
-(def order-history-request-id
-  order-actions/order-history-request-id)
 
 (defn- non-blank-text
   [value]
@@ -100,7 +79,6 @@
                        (= tab :order-history)
                        (order-actions/select-order-history-tab state)
 
-                       ;; The Earn tab shows lending positions, fetched on demand.
                        (= tab :earn)
                        (into [[:effects/save [:account-info :selected-tab] tab]]
                              (borrow-lend-actions/load-borrow-lend state))

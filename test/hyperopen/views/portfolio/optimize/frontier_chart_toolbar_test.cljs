@@ -4,10 +4,6 @@
             [hyperopen.views.portfolio.optimize.test-support :as ts]))
 
 (deftest constrain-frontier-checkbox-dispatches-vector-placeholder-test
-  ;; The event-value placeholder MUST be the vector form `[:event.target/checked]`
-  ;; so nexus interpolates the real boolean. The bare-keyword form dispatches a
-  ;; literal keyword, which `(true? ...)` always reads as false, making the
-  ;; control silently dead.
   (let [node (toolbar/toolbar {:overlay-mode :standalone
                                :constrain-frontier? false
                                :subtitle "Efficient frontier"

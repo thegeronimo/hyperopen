@@ -123,8 +123,6 @@
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node
                               "portfolio-optimizer-universe-selected-header")))
-    ;; The flat candidate table header was replaced by per-type sticky group
-    ;; headers, so a full result list stays readable while it scrolls.
     (is (some? (node-by-role view-node
                               "portfolio-optimizer-universe-candidate-group-header-perp")))
     (is (= "eth"
@@ -155,13 +153,9 @@
     (is (contains? strings "Manual Add"))
     (is (contains? strings "Asset"))
     (is (contains? strings "Perps"))
-    ;; The dedicated History column header was dropped: all-clear rows left it
-    ;; empty, so the by-exception chip now renders inline on the row instead.
     (is (not (contains? strings "History")))
     (is (not (contains? strings "Liquidity")))
     (is (not (contains? strings "medium")))
-    ;; Symbols are never truncated now: the quote token is its own pill and the
-    ;; separator stays on the lead, so the row still reads as the whole symbol.
     (is (str/includes? (rendered-text view-node) "ETH-USDC"))
     (is (contains? strings "History starts loading after assets are included."))))
 
@@ -259,8 +253,6 @@
     (is (str/includes? (rendered-text view-node) "HYPE-USDC"))
     (is (str/includes? (rendered-text view-node) "HYPE/USDC"))
     (is (str/includes? (rendered-text view-node) "HYPE/USDH"))
-    ;; The matched substring is wrapped for highlighting, so "Hyperliquid"
-    ;; renders as "Hype" + "rliquid" for this query.
     (is (str/includes? (rendered-text view-node) "Hyperliquid"))
     (is (not (contains? strings "@107")))
     (is (not (contains? strings "@232")))))
@@ -292,9 +284,6 @@
     (is (contains? strings "missing-candle-history"))))
 
 (deftest portfolio-optimizer-universe-empty-holdings-states-why-test
-  ;; The account snapshot arrived with nothing importable: the empty state says
-  ;; so instead of repeating the "holdings load automatically" promise — and so
-  ;; "Load my holdings" is never a silent no-op.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :webdata2 {:clearinghouseState
@@ -307,8 +296,6 @@
               (collect-strings note)))))
 
 (deftest portfolio-optimizer-universe-empty-before-snapshot-keeps-promise-copy-test
-  ;; Before the account snapshot arrives the auto-load promise is still true, so
-  ;; the "nothing to import" note must NOT render.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer {:draft nil}}})]

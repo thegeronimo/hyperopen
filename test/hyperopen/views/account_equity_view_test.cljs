@@ -561,17 +561,9 @@
             coins @resolver-coins]
         (is (approx= 500.0 (:portfolio-value metrics)))
         (is (approx= (/ 1.0 380.0) (:unified-account-ratio metrics)))
-        ;; Cross only, matching the venue: base dex 0.0 + xyz 1.0. The
-        ;; isolated xyz:GOLD leg contributes nothing here and is reported
-        ;; separately as :isolated-notional.
         (is (approx= 1.0 (:maintenance-margin metrics)))
-        ;; Cross notional 0 + 50 over 400 USDC of collateral. MEOW is not a
-        ;; perp collateral token anywhere, so it stays out of the denominator
-        ;; even though it counts toward portfolio value.
         (is (approx= 0.125 (:unified-account-leverage metrics)))
         (is (approx= 100.0 (:isolated-notional metrics)))
-        ;; Markets are resolved only for a token no balance row prices, and
-        ;; never for USDC, so this state may resolve none; any it does is scalar.
         (is (not-any? #{"USDC"} coins))
         (is (every? scalar-coin-value? coins))
         (is (not-any? map? coins))

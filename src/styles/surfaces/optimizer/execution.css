@@ -1,8 +1,3 @@
-/* ── Optimizer · Execution surface ────────────────────────────────────────
-   Phase-aware control bands, per-order type editor, and the execution-health
-   rail. Reuses the shared optimizer tokens + table/diag/kpi/chip/note classes;
-   only the execution-specific structure lives here. */
-
 @layer components {
   .portfolio-optimizer .optimizer-exec-overflow { position: relative; }
   .portfolio-optimizer .optimizer-exec-overflow > summary { list-style: none; cursor: pointer; }
@@ -29,7 +24,6 @@
   .portfolio-optimizer .optimizer-exec-glyph[data-state="blocked"],
   .portfolio-optimizer .optimizer-exec-glyph[data-state="skipped"] { color: var(--optimizer-text-3); }
 
-  /* row affordances */
   .portfolio-optimizer .optimizer-exec-order-row { cursor: default; }
   .portfolio-optimizer .optimizer-exec-order-row[data-exec-state="staged"],
   .portfolio-optimizer .optimizer-exec-order-row[data-exec-state="queued"] { cursor: pointer; }
@@ -39,14 +33,10 @@
   }
   .portfolio-optimizer .optimizer-exec-order-row.is-muted > td { opacity: 0.55; }
 
-  /* Execution-table legibility: this is the screen where mistakes are expensive, so its
-     rows read a step LARGER than the shared 11px .optimizer-table density baseline —
-     never smaller. */
   .portfolio-optimizer .optimizer-exec-table { font-size: 12.5px; }
   .portfolio-optimizer .optimizer-exec-table td { padding: 7px 10px; }
   .portfolio-optimizer .optimizer-exec-table thead th { font-size: 10px; }
 
-  /* per-order type chip in the Type column */
   .portfolio-optimizer .optimizer-exec-type-chip {
     border: 1px solid var(--optimizer-border);
     border-radius: 2px;
@@ -66,7 +56,6 @@
     background: var(--optimizer-accent); flex-shrink: 0;
   }
 
-  /* spot / perp kind badge */
   .portfolio-optimizer .optimizer-table-kind-badge {
     display: inline-block;
     padding: 0 4px;
@@ -87,7 +76,6 @@
     border-color: var(--optimizer-accent-border);
   }
 
-  /* inline order-type editor */
   .portfolio-optimizer .optimizer-exec-order-editor {
     padding: 12px 16px 14px;
     background: var(--optimizer-surface);
@@ -111,9 +99,6 @@
     color: var(--optimizer-text);
   }
 
-  /* expanded editor — two columns: type controls (left) + cost equation (right).
-     Flex-wraps to a single stacked column on narrow widths; side-by-side gets a quiet
-     divider so the wide row uses the empty right-hand space for a readable breakdown. */
   .portfolio-optimizer .optimizer-exec-editor-grid {
     display: flex;
     flex-wrap: wrap;
@@ -154,7 +139,6 @@
   }
   .portfolio-optimizer .optimizer-exec-cost-info { cursor: help; opacity: 0.7; }
 
-  /* the equation row spreads its terms across the full panel width */
   .portfolio-optimizer .optimizer-exec-cost-eq {
     display: flex;
     flex-wrap: wrap;
@@ -231,7 +215,6 @@
     color: var(--optimizer-text-3);
   }
 
-  /* default-order-type tiles (staged band) */
   .portfolio-optimizer .optimizer-exec-mode-tile {
     flex: 1 1 0%;
     min-width: 0;
@@ -252,8 +235,6 @@
     border-color: var(--optimizer-accent);
     background: var(--optimizer-accent);
   }
-  /* strategy-tile consequence copy — off the 0.6rem floor; these lines carry the
-     tradeoff (est. cost / routing mix) the tile choice is made on. */
   .portfolio-optimizer .optimizer-exec-mode-sub {
     font-size: 10.5px;
     line-height: 1.35;
@@ -261,11 +242,9 @@
   .portfolio-optimizer .optimizer-exec-readonly {
     background: color-mix(in srgb, var(--optimizer-warn) 8%, transparent);
   }
-  /* high-cost crossing warning (staged band) */
   .portfolio-optimizer .optimizer-exec-highcost {
     background: color-mix(in srgb, var(--optimizer-warn) 8%, transparent);
   }
-  /* skipped (no-order) rows collapsed below the order list */
   .portfolio-optimizer .optimizer-exec-skipped > summary { list-style: none; }
   .portfolio-optimizer .optimizer-exec-skipped > summary::-webkit-details-marker { display: none; }
   .portfolio-optimizer .optimizer-exec-skipped > summary::marker { content: ""; }
@@ -279,7 +258,6 @@
     border-bottom: 1px solid var(--optimizer-border);
   }
 
-  /* control bands */
   .portfolio-optimizer .optimizer-exec-band.is-armed {
     background: color-mix(in srgb, var(--optimizer-warn) 7%, transparent);
     border-top: 1px solid var(--optimizer-warn);
@@ -298,7 +276,6 @@
     border-top: 1px solid var(--optimizer-long);
   }
 
-  /* progress bar + pulse */
   .portfolio-optimizer .optimizer-exec-progress {
     position: relative;
     height: 6px;
@@ -346,7 +323,6 @@
     .portfolio-optimizer .optimizer-exec-pulse { animation: none; }
   }
 
-  /* nested discard confirmation inside the overflow menu (pure-markup <details>) */
   .portfolio-optimizer .optimizer-exec-overflow-confirm > summary { list-style: none; }
   .portfolio-optimizer .optimizer-exec-overflow-confirm > summary::-webkit-details-marker { display: none; }
   .portfolio-optimizer .optimizer-exec-overflow-confirm > summary::marker { content: ""; }
@@ -354,8 +330,6 @@
     background: color-mix(in srgb, var(--optimizer-short) 12%, transparent);
   }
 
-  /* live-commit button — reserved danger styling so the irreversible "Confirm & send"
-     never shares the amber primary look of safe actions (Arm / Resume / View tracking). */
   .portfolio-optimizer .optimizer-exec-commit {
     background: var(--optimizer-short);
     border-color: var(--optimizer-short);
@@ -367,7 +341,6 @@
     border-color: color-mix(in srgb, var(--optimizer-short) 84%, white);
   }
 
-  /* diagnostics-rail status pill + rail scroll */
   .portfolio-optimizer .optimizer-diag-status { font-weight: 500; color: var(--optimizer-long); }
   .portfolio-optimizer .optimizer-exec-rail { min-height: 0; }
 }

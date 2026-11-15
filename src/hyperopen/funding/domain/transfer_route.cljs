@@ -138,10 +138,6 @@
   [route]
   (not= :core-internal (route-kind route)))
 
-(defn perps-spot-pair?
-  [{:keys [from to]}]
-  (= #{:perps :spot} (set [from to])))
-
 (defn with-location
   "The route after setting `side` to `location`, as `{:from :to}`.
 
@@ -167,8 +163,6 @@
     (and (= :perps from) (= :hyperevm to)) [:hyperevm :spot]
     (and (= :hyperevm from) (= :perps to)) [:perps :spot]
     :else [to from]))
-
-;; --- location options ------------------------------------------------------
 
 (defn- pooled-perps-evm-pair?
   "Whether choosing `location` for `side` pairs Perps with HyperEVM on an
@@ -219,8 +213,6 @@
                                 :reason reason}))
                            locations)]))
         [:from :to]))
-
-;; --- asset options ---------------------------------------------------------
 
 (defn linked-tokens
   [state]
