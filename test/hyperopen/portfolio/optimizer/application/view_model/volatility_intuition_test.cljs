@@ -11,7 +11,6 @@
         (< (js/Math.abs (- expected actual)) tolerance))))
 
 (deftest card-model-derives-both-portfolios-on-the-repo-basis-test
-  ;; Base fixture: target σ 0.28, current σ 0.24 — both scale on 365 days.
   (let [result (fixtures/sample-solved-result)
         {:keys [basis target current change radio-name
                 target-radio-id current-radio-id]} (vm/card-model result)]
@@ -21,7 +20,6 @@
     (is (near? 0.0802735 (:monthly target) 1e-6))
     (is (near? 0.0125622 (:daily current) 1e-6))
     (is (every? pos? (vals change)))
-    ;; Radio group is keyed by :as-of-ms so co-rendered fixtures never share.
     (is (= "optimizer-volatility-intuition-5000" radio-name))
     (is (= "optimizer-volatility-intuition-5000-target" target-radio-id))
     (is (= "optimizer-volatility-intuition-5000-current" current-radio-id))))
@@ -32,13 +30,10 @@
   (is (nil? (vm/card-model {}))))
 
 (deftest leverage-risk-model-gates-on-gross-or-volatility-test
-  ;; Base fixture is 0.9x gross at 28% σ — no card.
   (is (nil? (vm/leverage-risk-model (fixtures/sample-solved-result))))
-  ;; Gross gate (≥ 2x) surfaces it even at moderate σ.
   (is (some? (vm/leverage-risk-model
               (fixtures/sample-solved-result
                {:diagnostics {:gross-exposure 2.0}}))))
-  ;; Volatility gate (≥ 100%) surfaces it even at low gross.
   (is (some? (vm/leverage-risk-model
               (fixtures/sample-solved-result {:volatility 1.0}))))
   (is (nil? (vm/leverage-risk-model
@@ -52,7 +47,6 @@
          (fixtures/sample-solved-result {:diagnostics {:gross-exposure 2.5}}))]
     (is (= 100000 capital-usd))
     (is (near? 2.5 gross-exposure 1e-9))
-    ;; μ=0.16 σ=0.28 → ν = ln(1.16) − 0.0392; median$ = 100k·e^ν.
     (is (near? (* 100000
                   (js/Math.exp (- (js/Math.log 1.16) (* 0.5 0.28 0.28))))
                (get-in target [:dollar :median-usd])
@@ -78,8 +72,6 @@
     (is (nil? (:current no-current)))))
 
 (deftest leverage-risk-model-nil-when-target-outcome-invalid-test
-  ;; Gate passes on gross but μ ≤ −100% has no lognormal model — no card, no
-  ;; NaN.
   (is (nil? (vm/leverage-risk-model
              (fixtures/sample-solved-result
               {:diagnostics {:gross-exposure 2.5}

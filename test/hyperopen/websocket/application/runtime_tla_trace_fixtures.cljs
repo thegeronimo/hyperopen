@@ -73,9 +73,6 @@
                                       {:socket-id 10
                                        :at-ms 700})]})
 
-;; Reduced from a local headless-browser `HYPEROPEN_DEBUG.flightRecording()` capture
-;; on 2026-03-27 after loading `/trade` against the compiled app and waiting for the
-;; initial websocket startup path to reach `:evt/socket-open`.
 (def browser-startup-recording
   {:session {:metadata {:initial-state (initial-state)
                         :capture-source :hyperopen-debug-flight-recording

@@ -59,10 +59,6 @@
 (defn- step-number [phase]
   (case phase :preview 1 (:canceling :blocked) 2 3))
 
-;; ---------------------------------------------------------------------------
-;; Quantities and lineage texts
-;; ---------------------------------------------------------------------------
-
 (defn remaining-text
   "\"Unfilled remainder: buys 40 VRT, sells 27 VRT.\""
   [{:keys [buy sell]} base]
@@ -83,10 +79,6 @@
   (if-let [t (created-text (:created-at-ms old))]
     (str "Replaces the ladder created " t)
     "Replaces an earlier ladder"))
-
-;; ---------------------------------------------------------------------------
-;; Old versus proposed (spec 10.2 step 1)
-;; ---------------------------------------------------------------------------
 
 (def ^:private anchor-labels
   {:vwap-24h "24h VWAP" :utc-open "UTC open" :market-price "Market price" :custom "Custom anchor"})
@@ -151,10 +143,6 @@
      (row :all-sells-first "If all sells fill first"
           (recorded (with-base (display/exact (:all-sells-first outcomes)) base))
           (with-base (display/exact (get-in plan [:inventory-outcomes :all-sells-first])) base))]))
-
-;; ---------------------------------------------------------------------------
-;; Dialog
-;; ---------------------------------------------------------------------------
 
 (defn- control
   ([label enabled?] (control label enabled? false nil))
@@ -253,10 +241,6 @@
                   :use-quantities (when (= :canceled phase)
                                     (control "Review replacement" (and (:ready? basis) (not working?))))))}))))
 
-;; ---------------------------------------------------------------------------
-;; Ticket banner
-;; ---------------------------------------------------------------------------
-
 (defn banner-model
   "The ticket's update banner, or nil without an update. While the update is
   before its replacement review the banner's controls replace the ticket's
@@ -293,10 +277,6 @@
            :refresh-balances (when (= :ready phase)
                                {:enabled? (not working?) :busy? (boolean working?)})
            :busy? (boolean (or working? (= :canceling phase)))})))))
-
-;; ---------------------------------------------------------------------------
-;; Review lineage (spec 10.2 steps 5-6)
-;; ---------------------------------------------------------------------------
 
 (defn- member-leg [g logical-id]
   (get-in g [:legs (lifecycle/current-cloid (get-in g [:members logical-id]))]))
@@ -349,10 +329,6 @@
        :edited-text (when (edited? (get-in state [:vol-range :frozen-context :draft]) predecessor g)
                       "You changed the quantities from the remainder.")})))
 
-;; ---------------------------------------------------------------------------
-;; Dock
-;; ---------------------------------------------------------------------------
-
 (defn row-control
   "The dock row's Preview update button: shown for a live or partially
   deployed ladder placed in this browser (not recovered, not being canceled)
@@ -374,7 +350,6 @@
         working? (or (busy? state [:repair-preview id]) (busy? state [:repair id])
                      (= id (get-in state [:vol-range :repair :grid-id]))
                      (and u (update-busy? state (:grid-id u)))
-                     ;; A stopped update's operation of this ladder still runs.
                      (update-busy? state id))]
     {:visible? visible?
      :enabled? (boolean (and visible? in-scope? (not other-update?) (not working?)))

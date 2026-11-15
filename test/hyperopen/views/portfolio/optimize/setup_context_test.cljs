@@ -53,8 +53,6 @@
   {:instrument-id "perp:NEW" :market-type :perp :coin "NEW"})
 
 (def ^:private recommendation-discovery
-  ;; A conservative default-assumption keeps the fixture member-free, so the
-  ;; recommendation is applicable without any basket-availability setup.
   {:backend-id-by-local-id {"perp:NEW" "hl:perp:NEW"
                             "perp:BTC" "hl:perp:BTC"}
    :instruments-by-backend-id
@@ -98,9 +96,6 @@
       :result-path nil})))
 
 (deftest history-assumptions-rail-offers-apply-all-recommended-test
-  ;; The rail is where the user reads "0 of N configured", so the one-click
-  ;; bulk apply must be reachable there too — wired to the exact action id the
-  ;; center banner dispatches, and labeled with the applicable count.
   (let [node (recommendation-rail-node)
         button (ts/node-by-role
                 node
@@ -111,18 +106,11 @@
     (is (contains? (set (ts/collect-strings button)) "Apply all recommended (1)"))))
 
 (deftest history-assumptions-rail-hides-apply-all-without-recommendations-test
-  ;; Every workflow asset in the base harness carries an authored entry (and no
-  ;; discovery offers a recommendation), so the shortcut must not render.
   (is (nil? (ts/node-by-role
              (context-rail-node)
              "portfolio-optimizer-history-assumptions-rail-apply-all-recommended"))))
 
 (deftest history-assumptions-rail-rows-are-height-capped-and-scrollable-test
-  ;; Regression guard: a universe with many thin-history assets used to grow
-  ;; this list without bound, stretching the whole 3-column setup grid row
-  ;; (2026-07-08 regression). The rows wrapper must cap its height and scroll
-  ;; internally instead, same idiom as the Return views editor's
-  ;; optimizer-objective-view-rows.
   (let [node (context-rail-node)
         rows (ts/node-by-role node "portfolio-optimizer-history-assumptions-rail-rows")
         classes (set (get-in rows [1 :class]))

@@ -33,7 +33,6 @@
   (let [numeric? (and (string? oid-or-cloid) (re-matches #"\d+" oid-or-cloid))
         id (if numeric? (js/Number oid-or-cloid) oid-or-cloid)]
     (if (and numeric? (not (js/Number.isSafeInteger id)))
-      ;; Never query a rounded oid: it could match a different order.
       (js/Promise.reject (js/Error. (str "Order id " oid-or-cloid " exceeds safe integer precision.")))
     (post-info! {"type" "orderStatus"
                  "user" address

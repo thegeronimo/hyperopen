@@ -100,7 +100,6 @@
       (let [a (snapshots/market-snapshot state now)
             b (snapshots/market-snapshot state (+ now 1000))
             next-day (+ now 86400000)
-            ;; refetched successfully on the next UTC day, so the data is fresh
             c (snapshots/market-snapshot
                (assoc-in state [:vol-range :daily-fetch "@107" :completed-at-ms] next-day)
                next-day)]

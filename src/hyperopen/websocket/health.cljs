@@ -153,8 +153,6 @@
                                       (>= first-payload-at-ms subscribed-at-ms)))
         payload-age-ms (age-ms now-ms last-payload-at-ms)]
     (cond
-      ;; Provider refused the subscription; a fresh subscribe intent clears
-      ;; :rejected-at-ms and re-arms the stream.
       (and (not subscribed?)
            (number? rejected-at-ms))
       :rejected

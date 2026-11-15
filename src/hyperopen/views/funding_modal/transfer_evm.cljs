@@ -50,8 +50,6 @@
               :replicant/on-render (parts/focus-when-shown view-id)}]
         children))
 
-;; --- steps ----------------------------------------------------------------------
-
 (defn- step-marker
   [index status]
   (case status
@@ -143,8 +141,6 @@
      (parts/explorer-link tx-url "View on explorer" "funding-transfer-explorer-link")
      "")])
 
-;; --- progress -------------------------------------------------------------------
-
 (defn progress-content
   "A run waiting on the wallet or the chain."
   [{:keys [evm balances summary destination actions] :as transfer}]
@@ -177,8 +173,6 @@
            :data-role "funding-transfer-close-note"}
        close-note])]))
 
-;; --- pending --------------------------------------------------------------------
-
 (defn pending-content
   "Sent, but the receipt did not arrive in time. The app keeps checking it
    in the background, but a transaction the wallet replaced or dropped
@@ -206,8 +200,6 @@
               :on {:click [[:actions/close-funding-modal]]}}
      "Close"])])
 
-;; --- failed ---------------------------------------------------------------------
-
 (defn failed-content
   "A run that stopped. \"Try again\" is the view-model's `:retry-action`
    (nil when it must not be offered: an outcome that may have moved funds,
@@ -215,7 +207,6 @@
    there and shows why."
   [{:keys [evm]}]
   (let [retry (:retry-action evm)
-        ;; The network retry re-enables the form; it does not resubmit.
         retry-label (if (= :actions/retry-funding-transfer-capability (first retry))
                       "Try switching again"
                       "Try again")]
@@ -242,8 +233,6 @@
                 :on {:click [[:actions/reset-funding-transfer-evm]]}}
        "Back to edit"])]))
 
-;; --- success --------------------------------------------------------------------
-
 (defn- plural-seconds
   [n]
   (str n (if (= 1 n) " second" " seconds")))
@@ -253,8 +242,6 @@
   [{:keys [arrival result]} destination]
   (let [amount (amount-text result)
         place (parts/location-label (:to result))
-        ;; From when the move went through, not from the wallet prompt: the
-        ;; line reads as the bridge's time, not the user's signing time.
         started (or (:sent-at-ms result) (:started-at-ms result))
         arrived-at (:arrived-at-ms result)
         wallet (parts/lower-first (:display destination))]
@@ -316,8 +303,6 @@
     [:span {:class ["text-xs" "text-ho-text-secondary"]}
      (str "Add the HyperEVM network so your wallet shows " (or (:symbol result) "it") " there.")]]
    [:button (cond-> {:type "button"
-                     ;; Disabled while its slot is hidden, so it never counts
-                     ;; as focusable.
                      :disabled (not add-to-wallet?)
                      :class ["h-9" "shrink-0" "rounded-lg" "border" "border-ho-border" "bg-ho-surface" "px-3"
                              "text-xs" "font-semibold" "text-ho-text-hi" "transition-colors"

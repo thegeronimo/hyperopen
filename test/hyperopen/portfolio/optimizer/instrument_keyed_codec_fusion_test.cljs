@@ -48,14 +48,7 @@
 
 (defn- kw [s] (keyword (subs s 1)))
 
-;; ---------------------------------------------------------------------------
-;; Every real key, in every position that matters
-;; ---------------------------------------------------------------------------
-
 (deftest fused-walk-matches-two-pass-for-every-enum-key-test
-  ;; The enum rule keywordizes strings and blanks them to nil. Each key is
-  ;; exercised over a string, an already-keyword value, a blank string, nil,
-  ;; and -- the interesting one -- a map, which the enum rule must leave alone.
   (doseq [key codec/enum-value-keys]
     (doseq [[label item] [["string" "market"]
                           ["keyword" :market]
@@ -71,9 +64,6 @@
       (equivalent! (str key " -> " label ", in a vector") {:outer [{key item}]}))))
 
 (deftest fused-walk-matches-two-pass-for-every-instrument-keyed-key-test
-  ;; The instrument rule stringifies map keys. Each key is exercised over a
-  ;; map, a non-map (which it must leave alone), and a nested instrument-keyed
-  ;; map, which is where post-order versus pre-order actually differs.
   (doseq [key codec/instrument-keyed-map-keys]
     (doseq [[label item] [["keyword-keyed map" {:perp:BTC 0.5 :perp:ETH 0.25}]
                           ["string-keyed map" {"perp:BTC" 0.5}]
@@ -86,9 +76,6 @@
       (equivalent! (str key " -> " label ", nested") {:outer {key item}}))))
 
 (deftest fused-walk-matches-two-pass-when-both-rules-meet-test
-  ;; Both key sets are disjoint today. The fusion does not rely on that, so
-  ;; these assert the overlapping case explicitly -- a key that is in both sets
-  ;; would apply the enum rule and then the instrument rule, in that order.
   (let [e (kw enum-key)
         i (kw instrument-key)]
     (equivalent! "both keys, siblings" {e "market" i {:perp:BTC 0.5}})
@@ -117,10 +104,6 @@
                          ["vector of vectors" [[{:a 1}] [{:b 2}]]]]]
     (equivalent! label value)))
 
-;; ---------------------------------------------------------------------------
-;; Generative
-;; ---------------------------------------------------------------------------
-
 (defn- lcg
   [seed]
   (let [state (atom seed)]
@@ -144,8 +127,6 @@
         2 (doall (map (fn [_] (random-tree rand (dec depth))) (range (inc (rand 3)))))))))
 
 (deftest fused-walk-matches-two-pass-on-random-trees-test
-  ;; The hand-written fixtures cover the cases someone thought of. This covers
-  ;; the ones they did not.
   (let [rand (lcg 20260823)
         failures (->> (range 2000)
                       (map (fn [_] (random-tree rand 5)))
@@ -157,10 +138,6 @@
     (is (empty? failures)
         (str "fused walk diverged from the two-pass composition on "
              (count failures) " random trees, e.g. " (pr-str (first failures))))))
-
-;; ---------------------------------------------------------------------------
-;; The ordering constraint
-;; ---------------------------------------------------------------------------
 
 (defn- pre-order-fusion
   "The wrong version: key rules applied before the recursion. Kept so the test
@@ -189,16 +166,6 @@
     :else value))
 
 (deftest pre-order-fusion-would-be-wrong-test
-  ;; A guard on the guards. If this ever passes, the fixture has stopped
-  ;; exercising the difference between the two orders, and the equivalence
-  ;; tests above are no longer proving that post-order is required.
-  ;; An instrument key directly under an instrument key. Post-order stringifies
-  ;; the inner map first, so the outer pass then rewrites a keyword key;
-  ;; pre-order stringifies the outer keys first, which turns the inner
-  ;; :by-instrument-style key into a STRING, and the recursion no longer
-  ;; recognises it as an instrument key at all. Nesting an instrument key one
-  ;; level deeper does NOT distinguish the two orders, because
-  ;; stringify-instrument-keyed-map only rewrites the keys one level down.
   (let [instrument (kw instrument-key)
         nested {instrument {instrument {:perp:BTC 1}}}]
     (is (same? (two-pass nested) (codec/normalize-boundary-node nested))

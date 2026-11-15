@@ -28,7 +28,6 @@
   (sim/new-sim))
 
 (deftest partial-deployment-repair-then-cancel-test
-  ;; Spec 13.4 steps 1-7.
   (async done
     (let [s (fresh)]
       (sim/script! s {:kind :normal :reject-prices ["76.4"]})
@@ -42,8 +41,6 @@
              (is (= "30" (:live-sell-units counts)))
              (is (= 1 (count (sim/order-sends s))))
              (is (= 7 (count (:orders (first (sim/order-sends s))))))
-             ;; Refresh first: the original reservation is released once a
-             ;; balance read covers the venue holds.
              (ex/reconcile! (sim/deps s) grid)))
           (.then
            (fn [{:keys [grid]}]
@@ -75,7 +72,6 @@
           (.catch (fail done))))))
 
 (deftest unknown-delivery-is-reconciled-by-original-ids-and-never-resent-test
-  ;; VR-13: the venue accepted the batch but the response was lost.
   (async done
     (let [s (fresh)
           plan (sim/frozen-plan s)]
@@ -114,11 +110,10 @@
           (.catch (fail done))))))
 
 (deftest reload-after-crash-mid-send-recovers-original-ids-test
-  ;; The tab died after committing the attempt; the venue accepted the batch.
   (async done
     (let [s (fresh)]
       (sim/script! s {:kind :crash})
-      (place! s) ; never settles
+      (place! s)
       (-> (js/Promise. (fn [res _] (js/setTimeout res 20)))
           (.then (fn [_]
                    (is (= 7 (count (filter #(= "open" (:status %)) (vals (:orders @s))))))
@@ -161,7 +156,6 @@
           (.catch (fail done))))))
 
 (deftest cancel-fill-race-and-replacement-basis-test
-  ;; Spec 13.4: 3 of a 10-unit sell fill while cancellation is pending.
   (async done
     (let [s (fresh)
           sell-cloid (atom nil)]
@@ -189,7 +183,6 @@
           (.catch (fail done))))))
 
 (deftest missing-order-cancel-reply-is-resolved-by-status-test
-  ;; The order fully filled before the cancel arrived.
   (async done
     (let [s (fresh)]
       (-> (place! s)
@@ -204,7 +197,6 @@
           (.catch (fail done))))))
 
 (deftest unknown-cancel-blocks-replacement-test
-  ;; VR-15: a partial or unknown cancel outcome blocks unsafe replacement.
   (async done
     (let [s (fresh)]
       (-> (place! s)
@@ -225,7 +217,6 @@
           (.catch (fail done))))))
 
 (deftest journal-failure-blocks-placement-but-not-cancel-test
-  ;; VR-11.
   (async done
     (let [s (fresh)
           plan (sim/frozen-plan s)]
@@ -244,7 +235,6 @@
           (.catch (fail done))))))
 
 (deftest final-guard-refuses-stale-or-materially-changed-placement-test
-  ;; VR-09: a fill-like balance change, then a stale book, between admission and HTTP.
   (async done
     (let [s (fresh)]
       (sim/script! s {:kind :normal :before-guard (fn [s] (swap! s assoc :usdc "100"))})
@@ -256,7 +246,6 @@
                    (is (empty? (sim/order-sends s)))
                    (is (empty? (lifecycle/releasable-operations grid)) "already released")
                    (is (= "0" (:usdc (jr/pending-reservations (sim/records s) "0xabc"))))
-                   ;; The book read fails, so the store's book (2 s+ old) is all there is.
                    (swap! s assoc :usdc "3000" :bbo-at (sim/now s) :book-down? true)
                    (sim/script! s {:kind :normal :before-guard (fn [s] (sim/advance! s 3000))})
                    (place! s)))
@@ -268,7 +257,6 @@
           (.catch (fail done))))))
 
 (deftest discovered-prefixed-orders-become-a-recovered-grid-test
-  ;; VR-17: live Vol Range orders with no local manifest.
   (async done
     (let [s (fresh)
           plan (sim/frozen-plan s)]
@@ -292,9 +280,6 @@
           (.catch (fail done))))))
 
 (deftest reservation-waits-for-a-balance-read-after-the-evidence-test
-  ;; VR-06: order visibility alone never releases the pending reservation.
-  ;; The response was lost, so the first evidence of the orders is the open
-  ;; orders read whose paired balance read was requested no later.
   (async done
     (let [s (fresh)
           pending #(jr/pending-reservations (sim/records s) "0xabc")]
@@ -312,12 +297,7 @@
                    (done)))
           (.catch (fail done))))))
 
-;; ---------------------------------------------------------------------------
-;; Review regressions
-;; ---------------------------------------------------------------------------
-
 (deftest a-stale-copy-never-erases-a-repair-test
-  ;; A flow holding an older grid copy persists after a repair went live.
   (async done
     (let [s (fresh)
           stale (atom nil)]
@@ -399,7 +379,6 @@
           (.catch (fail done))))))
 
 (deftest cancel-for-another-account-is-refused-test
-  ;; VR-18
   (async done
     (let [s (fresh)]
       (-> (place! s)
@@ -414,8 +393,6 @@
           (.catch (fail done))))))
 
 (deftest a-moving-24h-vwap-does-not-refuse-the-reviewed-ladder-test
-  ;; The reviewed prices are sent although the live anchor moved after review;
-  ;; a moved anchor alone is not a changed plan.
   (async done
     (let [s (fresh)]
       (swap! s assoc :draft (assoc fixtures/draft-13-2 :anchor {:mode :vwap-24h :custom-price ""}))

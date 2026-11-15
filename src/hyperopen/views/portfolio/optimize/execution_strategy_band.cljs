@@ -33,10 +33,6 @@
   (+ (:slippage-usd costs) (:fees-usd costs)))
 
 (defn- all-in-label
-  ;; "≥" when the projection understates what will be paid: a depth-overrun floor (a
-  ;; capped lower bound, not a point estimate), or a row whose fee the estimate is
-  ;; missing — a resting row pays no spread or impact, so an unknown fee read as 0
-  ;; would print a confident "$0.00" for a real order.
   [costs]
   (shared/floor-prefixed (shared/cost-total-incomplete? costs)
                          (opt-format/format-usdc (all-in-usd costs))))
@@ -68,9 +64,6 @@
     :sub "Work every order over time"}])
 
 (defn- mode-tile
-  ;; Always interactive: this band renders only in the pre-commit :staged phase, and picking a
-  ;; strategy only re-projects estimated costs (nothing is sent). A read-only viewer (spectate)
-  ;; compares strategies here; the commit gate lives on Arm/Confirm, not on these tiles.
   [{:keys [id title sub consequence active?]}]
   [:button {:type "button"
             :class (cond-> ["optimizer-exec-mode-tile" "flex" "flex-col" "gap-0.5" "px-3" "py-2"
@@ -106,8 +99,6 @@
 
         :else cost-text))))
 
-;; ── high-cost crossing warning ─────────────────────────────────────────────
-
 (defn high-cost-crossing-rows
   "Ready rows whose EFFECTIVE type under the current selections crosses the book at a
   high estimated cost (>= shared/high-cost-crossing-bps). Costs are effective-type
@@ -133,16 +124,12 @@
     (when (seq flagged)
       (let [sendable (ready-rows rows)
             current (projected-costs model (or (:default-order-type model) :recommended) sendable)
-            ;; Projection of the one-click fix: the flagged rows overridden passive,
-            ;; everything else unchanged.
             fixed-model (update model :overrides
                                 (fn [overrides]
                                   (reduce #(assoc %1 (:row-id %2) :passive)
                                           (or overrides {})
                                           flagged)))
             fixed (projected-costs fixed-model (or (:default-order-type model) :recommended) sendable)
-            ;; Each flagged row is listed at its EFFECTIVE-type cost (a TWAP row shows
-            ;; its sliced estimate, not the one-shot walk it will never pay).
             listed (->> flagged
                         (sort-by #(- (or (shared/effective-crossing-cost-bps model %) 0)))
                         (map #(str (:instrument-label %) " "
@@ -167,9 +154,6 @@
                 (all-in-label current) " to " (all-in-label fixed)
                 (if (= 1 (count flagged)) " — but it may not fill." " — but they may not fill."))]]
          [:span {:class ["flex-1"]}]
-         ;; A cost-simulation shortcut — overrides the flagged rows to passive so the KPI strip
-         ;; re-projects. Available in read-only views too (it sends nothing); the commit gate is
-         ;; on Arm/Confirm.
          [:button {:type "button"
                    :class ["border" "border-warning/60" "px-3" "py-1.5" "text-xs"
                            "font-semibold" "text-warning" "shrink-0"]
@@ -177,22 +161,17 @@
                    :on {:click (rest-passively-actions flagged)}}
           (str "Rest " (if (= 1 (count flagged)) "it" "these") " passively")]]))))
 
-;; ── the staged band ────────────────────────────────────────────────────────
-
 (defn staged-band
   [{:keys [default-order-type commit-blocked? commit-blocked-message stale? stale-message] :as model} rows]
   (let [sendable (ready-rows rows)]
     [:div {:class ["border-b" "border-base-300"]
            :data-role "portfolio-optimizer-execution-control-band"
            :data-phase "staged"}
-     ;; Read-only / stale notice. The tiles below stay interactive — this only explains that
-     ;; arming and sending are disabled (the message itself says simulation is still allowed).
      (when commit-blocked?
        [:p {:class ["optimizer-exec-readonly" "border-b" "border-base-300" "px-5" "py-2"
                     "text-xs" "font-semibold" "text-warning"]
             :data-role "portfolio-optimizer-execution-readonly"}
         commit-blocked-message])
-     ;; A stale plan can't be armed (the action gate refuses it); say why and point to the re-run.
      (when stale?
        [:p {:class ["optimizer-exec-readonly" "border-b" "border-base-300" "px-5" "py-2"
                     "text-xs" "font-semibold" "text-warning"]

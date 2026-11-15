@@ -71,7 +71,6 @@
                      (is (non-decreasing? (mapv :percent (by-step :frontier))))
                      (is (= :succeeded (:status (last (by-step :frontier)))))
                      (is (= [:running :succeeded] (statuses :diagnostics)))
-                     ;; Diagnostics is the final panel row, so it succeeds last.
                      (is (= {:step :diagnostics :status :succeeded}
                             (select-keys (last events*) [:step :status]))))
                    (done)))

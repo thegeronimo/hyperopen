@@ -22,8 +22,6 @@
   #{".cljs" ".css"})
 
 (def exempt-path-patterns
-  ;; Token definitions, the scoped optimizer visual system, and the chart
-  ;; token bridge (whose fallback table mirrors the default theme).
   [#"^src/styles/themes/"
    #"^src/styles/surfaces/optimizer"
    #"^src/hyperopen/portfolio/optimizer/"

@@ -97,20 +97,6 @@
       (= "spot" (str/lower-case dex*)) spot-label
       :else (str dex* " Perps"))))
 
-;; --- re-typing ------------------------------------------------------------
-;;
-;; The reference rewrites a row's effective type before routing it, so a delta
-;; lands on the sub-tab its *meaning* implies rather than the one its raw type
-;; implies. Three of its four rules are ported here. The fourth -- a `send`
-;; whose sender is the native USDC contract becomes a bridge deposit -- is not,
-;; because that contract address is derived at runtime from chain config rather
-;; than being a literal in the bundle.
-;;
-;; The HyperEVM rules go further than the reference. `sendAsset` to a system
-;; address does appear as a `send` delta (live, 2026-09-30), a spotSend to one
-;; as a `spotTransfer`, and HYPE bridges through 0x2222…2222, so each leg of a
-;; HyperCore <-> HyperEVM move is labelled with its two venues.
-
 (defn retype
   "Effective `[type-key delta-overrides]` for a delta, applying the re-typing
    rules. Returns the original type unchanged when no rule matches."
@@ -118,22 +104,17 @@
   (let [user (lower-address (field delta :user))
         destination (lower-address (field delta :destination))]
     (cond
-      ;; A self-send is a movement between the sender's own venues.
       (and (= "send" type-key)
            (some? user)
            (= user destination))
       ["account-class-transfer" {:retyped-from "send"}]
 
-      ;; A spot transfer whose sender is a HyperEVM system address is a bridge
-      ;; movement from HyperEVM into spot.
       (and (= "spot-transfer" type-key)
            (token-system-address? (field delta :user)))
       ["account-class-transfer" {:retyped-from "spot-transfer"
                                  :from-label hyper-evm-label
                                  :to-label spot-label}]
 
-      ;; A spot transfer *to* a system address is a spotSend-based move from
-      ;; spot to HyperEVM. The payload states it unsigned, so negate it.
       (and (= "spot-transfer" type-key)
            (token-system-address? (field delta :destination)))
       ["account-class-transfer" {:retyped-from "spot-transfer"
@@ -141,9 +122,6 @@
                                  :to-label hyper-evm-label
                                  :negate-amount? true}]
 
-      ;; A send *to* a HyperEVM system address is the reverse leg, and the
-      ;; reference negates the amount because the payload states it unsigned.
-      ;; `sourceDex` names the venue it left; USDC can leave perps ("").
       (and (= "send" type-key)
            (token-system-address? (field delta :destination)))
       ["account-class-transfer" {:retyped-from "send"
@@ -153,8 +131,6 @@
                                  :to-label hyper-evm-label
                                  :negate-amount? true}]
 
-      ;; A send *from* a system address is a move from HyperEVM into the
-      ;; venue named by `destinationDex`.
       (and (= "send" type-key)
            (token-system-address? (field delta :user)))
       ["account-class-transfer" {:retyped-from "send"
@@ -165,8 +141,6 @@
 
       :else
       [type-key nil])))
-
-;; --- endpoints ------------------------------------------------------------
 
 (defn endpoints
   "`{:from-label :to-label :destination-address}` for a delta.
@@ -228,11 +202,8 @@
 
                {:from-label trading-account-label :to-label trading-account-label})]
     (cond-> base
-      ;; A re-typing rule may pin the endpoints it already knows.
       (some? from-label) (assoc :from-label from-label)
       (some? to-label) (assoc :to-label to-label))))
-
-;; --- amount, sign and asset -----------------------------------------------
 
 (defn- magnitude
   "The unsigned scalar for a delta, probing the keys each type actually uses.
@@ -273,11 +244,9 @@
                   "deposit" abs-amount
                   "withdraw" (- abs-amount)
 
-                  ;; Two-party transfers: the sign is which side we are on.
                   ("send" "spot-transfer" "internal-transfer" "sub-account-transfer")
                   (* abs-amount direction)
 
-                  ;; The API already signs these.
                   ("account-class-transfer" "vault-withdraw" "vault-leader-commission")
                   amount
 
@@ -309,8 +278,6 @@
       (non-blank-text (field delta :asset))
       collateral-asset))
 
-;; --- USD value ------------------------------------------------------------
-
 (def ^:private usd-denominated-types
   #{"deposit" "withdraw" "account-class-transfer" "internal-transfer"
     "sub-account-transfer" "vault-create" "vault-deposit" "vault-distribution"
@@ -334,21 +301,17 @@
 
       (and (some? payload-value) (pos? payload-value)) payload-value
 
-      ;; USDC-denominated types are their own USD value.
       (and (contains? usd-denominated-types type-key)
            (some? signed)
            (= collateral-asset row-asset))
       (js/Math.abs signed)
 
-      ;; A USDC-denominated amount that carries no token label.
       (and (some? signed)
            (= collateral-asset row-asset)
            (not (contains? no-usd-value-types type-key)))
       (js/Math.abs signed)
 
       :else nil)))
-
-;; --- fee ------------------------------------------------------------------
 
 (defn fee
   "`{:fee :fee-asset}` for a delta, in the asset the fee was actually charged in.

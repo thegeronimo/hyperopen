@@ -179,15 +179,6 @@
                                          :args []}))))
 
 (deftest no-handler-emits-two-order-form-writes-test
-  ;; Regression guard for a bug that shipped silently: selecting a TWAP runtime preset
-  ;; dispatched one :actions/update-order-form per runtime field. Every such action
-  ;; recomputes the WHOLE order form from the state it was handed and emits a whole-map
-  ;; write, and all actions from one event are computed against the same pre-event state --
-  ;; so the last write wins and the earlier ones vanish. The chips looked completely inert
-  ;; while every unit test stayed green.
-  ;;
-  ;; Pairing one update-order-form with a narrow nested write (a dropdown close, say) is
-  ;; fine and several handlers do it. Two whole-map writes in one event are not.
   (let [handlers (handlers/build-handlers)
         order-form-writes (fn [actions]
                             (count (filter #(= :actions/update-order-form (first %))

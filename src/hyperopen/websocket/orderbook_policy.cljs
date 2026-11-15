@@ -53,15 +53,11 @@
     (subvec levels 0 limit*)
     levels))
 
-(defn sort-display-asks [asks]
-  (sort-levels (normalize-levels asks) <))
-
 (defn sort-bids [bids]
   (strip-normalized-levels
    (sorted-normalized-levels bids >)))
 
 (defn sort-asks [asks]
-  ;; Keep legacy sort direction for compatibility with existing consumers.
   (strip-normalized-levels
    (sorted-normalized-levels asks >)))
 

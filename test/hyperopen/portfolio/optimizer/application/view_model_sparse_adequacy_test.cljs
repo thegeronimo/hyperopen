@@ -50,8 +50,6 @@
 
 (deftest young-lane-member-reads-sparse-test
   (testing "a 226-day vault the lane admits is estimated natively, not thin"
-    ;; Reading it :short would enroll it in the assumption workflow, where a bulk
-    ;; apply would override the native estimate with a conservative cap.
     (let [adequacy (universe/history-adequacy
                     :sufficient
                     {}
@@ -73,9 +71,6 @@
 (deftest sparse-member-is-not-told-it-needs-a-proxy-test
   (testing "assumption-required-ids skips off-calendar members"
     (let [state {}
-          ;; 12 rows, deliberately BELOW the 30-observation gate, so this
-          ;; assertion fails if the off-calendar skip is removed. At 31 rows the
-          ;; `(< n 30)` test alone would exclude it and the test would be vacuous.
           readiness* {:request {:history
                                 {:off-calendar-instrument-ids ["vault:growi"]
                                  :raw-price-series-by-instrument
@@ -105,7 +100,6 @@
                     :sufficient
                     {}
                     (readiness "perp:WEEKLY"
-                               ;; sparse and long, but NO :off-calendar? flag
                                {:sparse? true :elapsed-days 400 :observations 57}
                                57)
                     {:instrument-id "perp:WEEKLY"})]

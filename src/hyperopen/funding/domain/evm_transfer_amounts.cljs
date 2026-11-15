@@ -92,8 +92,6 @@
   (some-> (max-amount-text state route token now-ms)
           (transfer-balances/percent-of-text pct (route-precision token))))
 
-;; --- validation -------------------------------------------------------------
-
 (defn- fraction-digits
   [text]
   (let [[_ fraction] (str/split text #"\." 2)]

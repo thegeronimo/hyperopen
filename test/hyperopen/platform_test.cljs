@@ -36,7 +36,6 @@
       (is (= :interval-id (platform/set-interval! (fn []) 5)))
       (is (= :cleared-interval (platform/clear-interval! :interval-id)))
 
-      ;; These should be safe regardless of environment localStorage availability.
       (platform/local-storage-set! "hyperopen:test" "ok")
       (platform/local-storage-get "hyperopen:test")
       (platform/local-storage-remove! "hyperopen:test")

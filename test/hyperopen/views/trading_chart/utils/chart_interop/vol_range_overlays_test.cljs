@@ -111,12 +111,9 @@
     (chart-interop/sync-vol-range-overlays! chart-obj container chart-model {:document document})
     (let [root (aget (.-children container) 0)
           style (.-style root)]
-      ;; Root is exactly the pane, so right:8px labels end inside the pane
-      ;; (left of the price axis) and nothing paints below the price pane.
       (is (= "700px" (aget style "width")))
       (is (= "40px" (aget style "height")))
       (let [labels (role-nodes root "leg-label")]
         (is (every? #(= "8px" (aget (.-style %) "right")) labels))
-        ;; Buy at 76.4 maps to y=88.8, beyond pane height 40 + margin: culled.
         (is (= ["s1"] (mapv #(.getAttribute % "data-leg-id") labels))))
       (is (= "8px" (aget (.-style (first (role-nodes root "stage-label"))) "right"))))))

@@ -54,10 +54,6 @@
       (assoc :equal-risk-solver equal-risk-solver-section)))
 
 (def structured-result
-  ;; approximate-result + the correlation-view section. BTC is held long,
-  ;; PURR short (target weights 0.35 / -0.02), underlying correlation 0.6, so
-  ;; the position-P&L view must flip their pair negative. The decomposition
-  ;; obeys standalone + diversification = net for both assets.
   (assoc approximate-result
          :risk-structure
          {:method :signed-euler-decomposition

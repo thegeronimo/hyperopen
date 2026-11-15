@@ -8,9 +8,6 @@ const HYPERUNIT_MAINNET_URL =
 const HYPERUNIT_TESTNET_URL =
   process.env.HYPERUNIT_TESTNET_URL ?? "https://api.hyperunit-testnet.xyz";
 
-// Mirrors functions/api/coin-icon/[key].js so the share card resolves real coin
-// icons in local development too. The icon host sends no CORS header, so the
-// bytes are only reachable same-origin -- see that file for the full reasoning.
 const COIN_ICON_PREFIX = "/api/coin-icon/";
 const COIN_ICON_UPSTREAM = "https://app.hyperliquid.xyz/coins/";
 const COIN_ICON_KEY_PATTERN =

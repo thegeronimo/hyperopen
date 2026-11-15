@@ -356,7 +356,6 @@
                (effect-order-contract/assert-action-effect-order!
                 :actions/navigate effects {:phase :test}))
             path)))
-    ;; other scopes do not load it
     (is (not-any? #(= :effects/api-fetch-portfolio-vault-attribution (first %))
                   (navigation-adapters/navigate
                    (assoc-in base [:portfolio-ui :summary-scope] :all)

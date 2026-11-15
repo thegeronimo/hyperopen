@@ -3,8 +3,6 @@
 
 (defn reset-account-surface-state
   [state]
-  ;; Clear every account-derived surface when the effective account changes so
-  ;; disconnected, spectate, and connected transitions cannot drift apart.
   (-> state
       (assoc :webdata2 nil)
       (assoc-in [:orders :open-orders] [])
@@ -55,8 +53,6 @@
       (assoc-in [:vaults :loading :user-equities-for-address] nil)
       (assoc-in [:vaults :errors :user-equities] nil)
       (assoc-in [:vaults :loaded-at-ms :user-equities] nil)
-      ;; HyperEVM balances are per address; in-flight transactions are not
-      ;; and must survive account switches.
       (assoc-in [:hyperevm :balances :by-address] {})
       (update :portfolio assoc
               :summary-by-key {} :user-fees nil :ledger-updates []

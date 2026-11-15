@@ -126,7 +126,6 @@
                    (schedule-load! store dispatch!))))
     (execution-watcher/register-tick-listener! listener-key (on-tick dispatch!))
     (live-ingress/register-fills-consumer! consumer-key #(ledger-ingest/on-fills-envelope! store %))
-    ;; Already on the tab at startup (a deep link): load once.
     (when (load-wanted? {} @store)
       (schedule-load! store dispatch!)))
   store)

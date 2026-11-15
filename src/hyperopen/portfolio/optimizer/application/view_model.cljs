@@ -16,42 +16,6 @@
   [state]
   (scenario-library/library-model state))
 
-(defn route-mismatched?
-  [state scenario-id]
-  (scenario/route-mismatched? state scenario-id))
-
-(defn scenario-scoped-state
-  [state scenario-id]
-  (scenario/scenario-scoped-state state scenario-id))
-
-(defn scenario-name
-  [state scenario-id]
-  (scenario/scenario-name state scenario-id))
-
-(defn optimizer-draft
-  [state]
-  (workspace/optimizer-draft state))
-
-(defn optimizer-running?
-  [state]
-  (workspace/optimizer-running? state))
-
-(defn result
-  [state]
-  (workspace/result state))
-
-(defn solved-result?
-  [state]
-  (workspace/solved-result? state))
-
-(defn scenario-stale?
-  [state readiness]
-  (workspace/scenario-stale? state readiness))
-
-(defn current-result?
-  [state readiness]
-  (workspace/current-result? state readiness))
-
 (defn workspace-model
   [state route]
   (workspace/workspace-model state route))

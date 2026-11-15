@@ -67,8 +67,6 @@
 
 (deftest all-sparse-universe-takes-the-lane-test
   (testing "an all-vault universe is estimated pairwise, not by exact timestamps"
-    ;; Hyperliquid samples each vault at its own instants, so exact-timestamp
-    ;; alignment would peel every member; the lane needs no shared calendar.
     (let [ids (sparse-lane/off-calendar-ids
                [(row "vault:a" (spaced-points 31 13))
                 (row "vault:b" (spaced-points 40 11))]

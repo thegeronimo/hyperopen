@@ -25,8 +25,6 @@
                                      true))))
 
 (deftest full-precision-never-moves-an-order-to-a-neighbouring-level-test
-  ;; The level an order rests at can be briefly absent from a snapshot. At full
-  ;; precision the pip must disappear rather than mark the next level down.
   (is (= {:bids {} :asks {}}
          (own-orders/own-order-sizes [{:side "B" :px "99.5" :sz "1"}
                                       {:side "A" :px "101.5" :sz "1"}]
@@ -66,8 +64,6 @@
     (testing "a pending cancel is no longer shown as resting"
       (is (empty? (own-orders/active-asset-open-orders
                    (assoc-in state [:orders :pending-cancel-oids] #{7})))))))
-
-;; --- rendering -----------------------------------------------------------------
 
 (defn- attrs [node] (when (map? (second node)) (second node)))
 

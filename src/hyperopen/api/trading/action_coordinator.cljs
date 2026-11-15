@@ -48,15 +48,11 @@
               (fn []
                 (let [timer (js/setTimeout #(resolve {:status :timeout})
                                            (or timeout-ms default-timeout-ms))]
-                  ;; The lock callback returns the BODY's promise, so the lock is
-                  ;; released only when the body settles, even after :timeout.
                   (-> (js/Promise.resolve nil)
                       (.then (fn [_] (body!)))
                       (.then (fn [v] {:status :ok :value v :coordination (locks/coordination-kind)})
                              (fn [e] {:status :error :error e}))
                       (.finally (fn [] (js/clearTimeout timer)))))))
-             ;; Resolves after the lock is released, so the next admission is free.
-             ;; A caller already told :timeout keeps that answer (resolve is once).
              (.then (fn [{:keys [acquired? value]}]
                       (resolve (if acquired? value {:status :busy}))))
              (.catch (fn [e] (resolve {:status :error :error e})))))))))

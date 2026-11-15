@@ -157,14 +157,6 @@
                                                       history
                                                       instrument-id
                                                       series)
-                        ;; Hyperliquid convention: positive funding => longs PAY shorts
-                        ;; (active_asset/funding_policy.cljs:178-187, :long -1). The
-                        ;; expected-return vector is the per-unit LONG return (weights are
-                        ;; signed, w·mu), so positive funding is a COST to a long and must be
-                        ;; SUBTRACTED. :annualized-carry carries the raw HL sign (positive
-                        ;; funding => positive carry), so negate it to get the long's carry
-                        ;; contribution (negative when funding is positive). A short then
-                        ;; earns it automatically via its negative weight.
                         funding-part (- (funding-carry history instrument-id))
                         total (+ return-part funding-part)
                         warning (sample-size-warning instrument-id series)]

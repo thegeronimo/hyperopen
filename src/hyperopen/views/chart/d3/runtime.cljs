@@ -273,7 +273,6 @@
                           (do
                             (remove-node! existing-root)
                             (ensure-series-root! runtime series)))]
-        ;; Re-append every desired node so keyed updates also preserve visual stacking order.
         (.appendChild series-layer series-root))))
   runtime)
 
@@ -417,7 +416,6 @@
         (update-html-text! label-node label)
         (update-html-text! value-node value)
         (set-style-map! value-node {:color stroke})
-        ;; Re-append to preserve visual order when benchmarks are added or removed.
         (.appendChild rows-node row)))))
 
 (defn- hide-hover!

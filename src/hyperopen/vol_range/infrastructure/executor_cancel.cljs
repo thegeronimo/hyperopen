@@ -57,7 +57,6 @@
             action
             {:expires-after expires
              :vault-address (get-in grid [:scope :vault-address])
-             ;; Best effort: a failed journal commit never blocks a cancel.
              :on-send-attempt!
              (fn [{:keys [nonce expires-after]}]
                (let [at (ex/now deps)

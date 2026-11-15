@@ -39,30 +39,3 @@
 
 (def chart-y-tick-count
   4)
-
-(def performance-periods-per-year
-  365)
-
-(def chart-empty-y-ticks
-  [{:y 1} {:y 0} {:y -1}])
-
-(def strategy-series-stroke
-  "rgba(148, 163, 184, 1)")
-
-(def benchmark-series-strokes
-  ["rgba(217, 119, 6, 1)"
-   "rgba(16, 185, 129, 1)"
-   "rgba(6, 182, 212, 1)"
-   "rgba(139, 92, 246, 1)"])
-
-(def vault-benchmark-prefix
-  "vault:")
-
-(def max-vault-benchmark-options
-  10)
-
-(def empty-benchmark-markets-signature
-  "none")
-
-(def hidden-portfolio-metric-keys
-  #{:expected-monthly :expected-yearly})

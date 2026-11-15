@@ -6,8 +6,6 @@
   (:require [hyperopen.portfolio.optimizer.contracts :as contracts]
             [hyperopen.portfolio.optimizer.domain.refinement :as refinement]))
 
-;; Soft, clearly-hedged time hints. The engine has no enforced wall-clock cap; depth is a
-;; frontier point budget and these are estimates only (see the plan's "point budgets").
 (def ^:private depth-copy
   {:quick {:label "Quick" :hint "Light pass · ~a few seconds"}
    :thorough {:label "Thorough" :hint "Balanced · ~10–20s est."}

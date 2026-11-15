@@ -24,8 +24,6 @@
   (let [spectate-mode-message (spectate-mode-submit-error store)
         address (get-in @store [:wallet :address])
         action (:action request)
-        ;; Send takes any destination, including a HyperEVM system address.
-        ;; The wrong token there (PURR to HYPE's 0x2222…) is lost for good.
         invariant-error (transfer-invariants/check-request @store request)]
     (cond
       (seq spectate-mode-message)
@@ -178,24 +176,13 @@
            close-funding-modal!
            refresh-after-funding-submit!]}]
   (let [spectate-mode-message (spectate-mode-submit-error store)
-        ;; The connected owner wallet signs, even when the funds source from a
-        ;; selected subaccount (Hyperliquid subaccount actions are owner-signed).
         address (get-in @store [:wallet :address])
-        ;; Balances that change belong to the active/effective account (which may be
-        ;; the selected subaccount), so refresh that rather than only the owner wallet.
         refresh-address (or (account-context/effective-account-address @store) address)
         action (:action request)
-        ;; Named-DEX transfers are `sendAsset` and must be signed with the
-        ;; sendAsset signer; default spot <-> perps stays `usdClassTransfer`.
-        ;; Any other type is refused, never signed as a usdClassTransfer (the
-        ;; client-only `hyperEvmToCore` never reaches here, see
-        ;; `api-submit-funding-transfer!`).
         submit-transfer! (case (:type action)
                            "sendAsset" submit-send-asset!
                            "usdClassTransfer" submit-usd-class-transfer!
                            nil)
-        ;; A request that would send a token to the wrong HyperEVM bridge
-        ;; address loses it; refuse before anything is signed.
         invariant-error (transfer-invariants/check-request @store request)]
     (cond
       (seq spectate-mode-message)

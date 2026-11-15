@@ -48,10 +48,6 @@
 
 (defn- fail [done] (fn [e] (is false (str e (when (instance? js/Error e) (.-stack e)))) (done)))
 
-;; ---------------------------------------------------------------------------
-;; Taps
-;; ---------------------------------------------------------------------------
-
 (deftest taps-exist-only-in-a-build-that-includes-placement-test
   (doseq [[preview? built? expected] [[false false #{}] [true false #{}] [false true #{}]
                                       [true true #{:on-raw-user-fills :on-raw-open-orders}]]]
@@ -62,10 +58,6 @@
     (let [{:keys [on-raw-user-fills on-raw-open-orders]} (ingress/user-stream-taps)]
       (is (= ingress/observe-user-fills! on-raw-user-fills))
       (is (= ingress/observe-open-orders! on-raw-open-orders)))))
-
-;; ---------------------------------------------------------------------------
-;; Fills
-;; ---------------------------------------------------------------------------
 
 (deftest a-fill-frame-updates-the-ladder-and-the-dock-test
   (let [store (store-with [(fx/grid)])
@@ -117,10 +109,6 @@
         (is (= :subscription (:address-source envelope)))
         (is (= 1 (count (:fills (store-grid store "grid-live")))))))))
 
-;; ---------------------------------------------------------------------------
-;; Fill before the placement's HTTP response (VR-14, simulator)
-;; ---------------------------------------------------------------------------
-
 (defn- top-buy [grid]
   (last (sort-by #(js/parseFloat (:price %)) (filter #(= :buy (:side %)) (vals (:legs grid))))))
 
@@ -146,7 +134,6 @@
                  (ingress/observe-user-fills! store frame (sim/now s))
                  (is (empty? (:fills (store-grid store gid))))
                  (swap! store update-in [:vol-range :execution :grids] dissoc gid))
-               ;; The response lands, then the REST reconciliation reads the fill.
                (swap! store grid-store/merge-grid-into-state grid)
                (-> (ex/reconcile! (sim/deps s) grid)
                    (.then (fn [{reconciled :grid}]
@@ -171,8 +158,6 @@
              (let [gid (:grid-id grid)
                    leg (top-buy grid)
                    store (store-with [grid])
-                   ;; A fill only the stream has delivered; the venue's REST
-                   ;; window in this run never reports it.
                    row {:coin sim/coin :px (:price leg) :sz (:original-base leg) :side "B"
                         :time (sim/now s) :oid (js/parseInt (:oid leg)) :cloid (:cloid leg) :tid 777001
                         :fee "0" :feeToken "USDC" :builderFee "0" :crossed false :hash "0x0"}]
@@ -188,10 +173,6 @@
                               (is (= :terminal (get-in g [:legs (:cloid leg) :order-state]))))))))))
           (.then (fn [_] (done)))
           (.catch (fail done))))))
-
-;; ---------------------------------------------------------------------------
-;; Reconciliation hints (spec 9.4)
-;; ---------------------------------------------------------------------------
 
 (deftest evidence-on-a-checking-ladder-hints-once-per-interval-test
   (with-sync-microtasks
@@ -217,7 +198,6 @@
           (is (= 2 (count @dispatched))))))))
 
 (deftest a-frame-that-closes-a-ladder-asks-for-a-reconcile-at-once-test
-  ;; Both buys already filled; the last resting sell fills on the stream.
   (with-sync-microtasks
     (fn []
       (install-fake-dispatch!)
@@ -228,7 +208,6 @@
             t fx/received-at-ms
             last-sell (assoc fx/partial-fill :oid 9002 :tid 4403 :side "A" :px "84" :sz "4")]
         (is (= :live (lifecycle/status one-left)))
-        ;; A hint just went out, so the interval is not due.
         (swap! @#'ingress/ingress assoc :account nil :last-hint-at-ms t)
         (ingress/observe-user-fills! store {:channel "userFills" :data {:user fx/account :fills [last-sell]}}
                                      (+ t 100))
@@ -274,10 +253,6 @@
         (is (lifecycle/live-leg? (get-in (store-grid store "grid-live") [:legs fx/cloid-buy-0])))
         (is (= [] @dispatched))))))
 
-;; ---------------------------------------------------------------------------
-;; Live monitoring marker (spec 9.3)
-;; ---------------------------------------------------------------------------
-
 (deftest only-a-snapshot-for-the-trading-account-marks-monitoring-test
   (testing "no trading account, or an increment: monitoring is left alone"
     (let [store (store-with [(fx/grid)])]
@@ -295,10 +270,6 @@
             "the trading account's snapshot is the monitoring marker")
         (is (= (str (:epoch m) ":4") (:account-event-revision envelope)))
         (is (= 1 (count (:fills (store-grid store "grid-live")))) "and its rows still reach the ladder")))))
-
-;; ---------------------------------------------------------------------------
-;; Fills consumers (the seam Reporting's ledger ingest registers on)
-;; ---------------------------------------------------------------------------
 
 (deftest a-registered-consumer-receives-the-whole-frame-test
   (let [store (store-with [(fx/grid)])

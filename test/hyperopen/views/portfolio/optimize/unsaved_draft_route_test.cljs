@@ -126,10 +126,6 @@
                              "portfolio-optimizer-target-exposure-row-0")))))
 
 (deftest unsaved-draft-execution-stages-preview-from-active-target-test
-  ;; Regression: for an unsaved draft (no saved scenario), staging the rebalance must
-  ;; DERIVE the preview from the active target rather than dead-ending. The standalone
-  ;; Rebalance preview tab was retired, so this now flows through the open-execution
-  ;; action into the Execution surface — the derived rows must appear as order rows.
   (let [base-state {:router {:path "/portfolio/optimize/draft"}
                     :portfolio-ui {:optimizer {:results-tab :execution}}
                     :asset-selector
@@ -205,8 +201,6 @@
                                               "perp:ETH" "ETH"})
                 :rebalance-preview)
         seeded-state (with-current-minimal-solved-run base-state result)
-        ;; Exercise the real staging action: it derives the plan from the active target
-        ;; and saves it onto the execution surface, exactly as a "Rebalance" CTA would.
         staged-state (apply-saves seeded-state
                                   (execution-actions/open-portfolio-optimizer-execution
                                    seeded-state))
@@ -221,13 +215,6 @@
                         "Run or load a scenario to stage its rebalance here for review and execution.")))))
 
 (deftest draft-route-renders-workspace-run-of-a-saved-scenario-test
-  ;; Save keeps the user on the workspace (2026-07-06 scenario-library landing),
-  ;; so the workspace draft may BE a saved scenario being edited in place — a
-  ;; run of that draft must render on the /draft alias like any workspace run.
-  ;; Regression pinned: this exact state (saved-status draft whose id matches
-  ;; the stamped loaded-id, current solved run retained) rendered as a masked
-  ;; idle N/A shell with no frontier after running from the workspace in a
-  ;; session where the draft was restored from the per-wallet autosave.
   (let [state (with-current-solved-run
                 {:router {:path "/portfolio/optimize/draft"}
                  :portfolio {:optimizer
@@ -265,8 +252,6 @@
         "no read-only claim about the user's own draft workspace")))
 
 (deftest draft-route-without-a-run-for-a-saved-draft-renders-idle-test
-  ;; No retained run at all: the alias still shows the honest idle empty state
-  ;; (nothing is loading and no loader exists for the id "draft").
   (let [state {:router {:path "/portfolio/optimize/draft"}
                :portfolio {:optimizer
                            {:active-scenario {:loaded-id "scn-1"
@@ -291,9 +276,6 @@
     (is (not-any? #(re-find #"read-only" %) strings))))
 
 (deftest draft-route-with-empty-draft-disables-rerun-with-reason-test
-  ;; Rerun dispatches against the real draft; with an empty universe the run
-  ;; action refuses, so the button must be disabled with a reason — never an
-  ;; enabled control that silently does nothing.
   (let [state {:router {:path "/portfolio/optimize/draft"}
                :portfolio {:optimizer {:draft {:universe []}}}}
         view-node (portfolio-view/portfolio-view state)

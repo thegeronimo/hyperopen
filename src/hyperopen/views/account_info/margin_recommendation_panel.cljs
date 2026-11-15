@@ -69,13 +69,6 @@
                 "default horizon — limited trade history")]
     {:duration duration :basis basis}))
 
-;; --- recommendation summary --------------------------------------------------
-;; The chart already encodes the current and recommended margin plus each of
-;; their liquidation probabilities at the markers, so this column no longer
-;; repeats those as stat cells. It keeps only what the chart does not state
-;; outright: the recommended-margin headline, the amount to add, the
-;; before/after probability as one line, and the resulting liquidation price.
-
 (defn- recommendation-strip
   "Horizontal summary bar above the (now full-width) chart: the recommended
   margin headline, the before/after liquidation probability, and the resulting
@@ -88,9 +81,6 @@
                               (pos? current-equity)
                               (>= additional 0.01))
                      (/ additional current-equity))]
-    ;; No overflow-hidden here: it would clip the hover tooltips. The rounded
-    ;; corners come from the strip's own bg; cells are transparent with
-    ;; divide-x separators.
     [:div {:class ["rounded-lg" "border" "border-trading-green/30" "bg-base-200"]
            :data-role "margin-rec-summary"}
      [:div {:class ["grid" "divide-x" "divide-base-300" "sm:grid-cols-3"]}
@@ -148,8 +138,6 @@
                (if (pos? new-liq-change-frac) " below" " above")
                " current liq. price")])]]]))
 
-;; --- methods + buffers -------------------------------------------------------
-
 (defn- method-row
   ([label value] (method-row label value nil))
   ([label value hint-text]
@@ -181,9 +169,6 @@
                    "Scenario simulation")
                  "Monte Carlo"
                  (copy/simulation-tip paths-count))
-     ;; The intervention horizon lives here now (it used to also be a top-level
-     ;; stat cell); the conceptual tip plus its episode/market basis are the
-     ;; hover title.
      (method-row "Trade-history-derived horizon"
                  (:duration horizon*)
                  (copy/horizon-tip (:basis horizon*)))]))
@@ -198,8 +183,6 @@
                                        "text-trading-text"]}
                          "Recommended margin components"]
                         {:placement :top-end})]
-          ;; Every component, maintenance included, so the amounts sum to the
-          ;; recommended total (the engine guarantees the sum is exact).
           (map (fn [{:keys [key label amount]}]
                  (hint/attach (get copy/buffer-tips key)
                               [:div {:class ["flex" "items-baseline" "justify-between"
@@ -213,8 +196,6 @@
                                        (str " (" (js/Math.round (* 100 (/ amount total))) "%)")))]]
                               {:placement :top-end}))
                breakdown))))
-
-;; --- risk mode ---------------------------------------------------------------
 
 (def risk-mode-options
   [[:conservative "Conservative" "~1% risk" :risk-conservative :top-start]
@@ -265,8 +246,6 @@
   the content in the DOM and needs no app state; a stable :replicant/key stops
   a re-render from recreating the element and closing it."
   [rec-result coin-label]
-  ;; No overflow-hidden (it would clip the row tooltips). Round the summary's
-  ;; own corners so its hover background matches the border radius.
   [:details {:class ["group" "rounded-lg" "border" "border-base-300" "bg-base-300/20"]
              :replicant/key "margin-rec-advanced"
              :data-role "margin-rec-advanced"}
@@ -302,9 +281,6 @@
   [coin-label leverage-label anchor children]
   (let [layout-style (anchored-popover/centered-overlay-layout-style
                       {:anchor anchor
-                       ;; Wide, with the full-width chart as the centrepiece and
-                       ;; the methodology collapsed below, so the footprint stays
-                       ;; over the chart rather than spanning the whole UI.
                        :preferred-width-px 780
                        :preferred-height-px 680})]
     [:div {:class ["fixed" "z-[240]" "flex" "max-h-[calc(100vh-1.5rem)]" "flex-col"
@@ -395,8 +371,6 @@
 
 (defn- ready-panel
   [{:keys [rec-result row-vm read-only? risk-mode]}]
-  ;; Show the selected risk mode's recommendation, read from the precomputed
-  ;; per-mode table so clicking a mode updates instantly without a recompute.
   (let [rec-result (margin-rec-state/select-risk-mode rec-result risk-mode)
         {:keys [as-of p-now p-after recommended curve status]} rec-result
         {:keys [additional]} recommended
@@ -405,8 +379,7 @@
                          (= :ok status)
                          (number? additional)
                          (>= additional 0.01))]
-    [;; Recommendation summary strip, then the full-width chart as the
-     ;; centrepiece, with the methodology tucked into a disclosure below.
+    [
      (recommendation-strip rec-result)
      (when (= :within-target status)
        (status-note "Current margin already meets the selected risk target."
@@ -421,7 +394,6 @@
                     (apply-button position-data additional :top-start)
                     (custom-button position-data :top-end)]
        :else (custom-button position-data :top))
-     ;; Always-visible honesty disclosure — never buried only in a tooltip.
      (when-not read-only?
        [:div {:class ["text-xs" "leading-relaxed" "text-trading-text-secondary"]
               :data-role "margin-rec-disclaimer"}

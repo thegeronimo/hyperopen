@@ -65,8 +65,6 @@
         market-form (when (= :market (:type normalized-form*))
                       (trading-domain/apply-market-price trading-context normalized-form*))
         form-with-market (or market-form normalized-form*)
-        ;; An outcome limit order trades at the price the trader typed or not
-        ;; at all; it never borrows the book midpoint behind a blank field.
         form* (if (and (trading-domain/limit-like-type? (:type form-with-market))
                        (str/blank? (:price form-with-market))
                        (not (outcome-context? trading-context)))
@@ -159,7 +157,6 @@
                                                 prepared-form
                                                 {:confirmation-required? outcome-confirmation-required?
                                                  :market-orders-off? outcome-market-orders-off?})
-         ;; Vol Range A0 is preview-only (VR-24): never build a request.
          vol-range? (and (= :scale (:type normalized-form))
                          (= :volatility-range (vol-range-draft/scale-mode normalized-form)))
          request (when (and (= mode :submit)
@@ -171,8 +168,6 @@
                   (cond
                     vol-range? :vol-range-preview-only
                     (seq spectate-mode-message) :spectate-mode-read-only
-                    ;; An outcome's own reason (e.g. market orders off on a
-                    ;; one-sided book) says more than a missing market price.
                     outcome-message :outcome-order-blocked
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors
@@ -185,8 +180,6 @@
                     vol-range? :vol-range-preview-only
                     submitting? :submitting
                     (seq spectate-mode-message) :spectate-mode-read-only
-                    ;; An outcome's own reason (e.g. market orders off on a
-                    ;; one-sided book) says more than a missing market price.
                     outcome-message :outcome-order-blocked
                     market-price-missing? :market-price-missing
                     (seq errors) :validation-errors

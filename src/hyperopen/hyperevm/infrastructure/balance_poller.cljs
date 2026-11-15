@@ -115,8 +115,6 @@
         last-poll-ms (atom nil)
         last-capacity-ms (atom nil)
         last-in-flight-ms (atom nil)
-        ;; {:address a :at-ms n}: since when the shown account's first
-        ;; read has been pending, as seen by this poller.
         check-started (atom nil)
         refresh! (fn [opts]
                    (when (enabled?-fn)

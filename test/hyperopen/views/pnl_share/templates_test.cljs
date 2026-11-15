@@ -84,14 +84,10 @@
       (is (= "pnl-share-card-svg" (:data-role attrs))))))
 
 (deftest both-templates-print-the-same-numbers-from-the-same-data
-  ;; Size is opt-in, so switch it on here: the point of this test is that the
-  ;; two templates agree on every value they both carry.
   (let [data (card-data-for {} {:options {:show-size? true}})
         neon (strings (card-view/card-svg (assoc data :template :neon-arrow)))
         hero (strings (card-view/card-svg (assoc data :template :number-hero)))]
     (doseq [value ["+214.6%" "$142.08" "$168.90" "41.2 SOL"]]
-      ;; neon-arrow folds size and funding into one footer line, so match on
-      ;; containment rather than on a standalone text node.
       (is (some #(str/includes? % value) neon) (str "neon-arrow is missing " value))
       (is (some #(str/includes? % value) hero) (str "number-hero is missing " value)))
     (testing "the artwork differs even though the figures do not"
@@ -130,7 +126,6 @@
 
 (deftest svg-attribute-keys-follow-the-svg-spec-not-a-guess
   (let [keys* (attr-keys (card-view/card-svg (card-data-for {})))
-        ;; Genuinely camelCase in the SVG spec; everything else must be kebab.
         camel-allowed #{:viewBox :gradientUnits :gradientTransform :maskUnits
                         :patternUnits :preserveAspectRatio :clipPathUnits
                         :stdDeviation}

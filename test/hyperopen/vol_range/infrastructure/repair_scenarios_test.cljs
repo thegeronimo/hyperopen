@@ -36,7 +36,6 @@
                                                      :size (:original-base c)}]})))
 
 (deftest a-repair-inside-the-recorded-limits-is-sent-test
-  ;; 150 + 33 surviving buys + 7 = 190: the survivors count once.
   (async done
     (let [s (fresh)]
       (-> (place-partial! s true)
@@ -52,7 +51,6 @@
           (.catch (fail done))))))
 
 (deftest a-repair-that-would-breach-the-maximum-is-refused-at-admission-test
-  ;; An external deposit since placement: 160 + 33 + 7 = 200 > 190.
   (async done
     (let [s (fresh)]
       (-> (place-partial! s true)

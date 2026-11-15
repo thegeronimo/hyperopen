@@ -47,10 +47,6 @@
   [{:keys [qty vwap]}]
   (if (zero-str? qty) "—" (str qty " @ " (dash vwap))))
 
-;; ---------------------------------------------------------------------------
-;; Status
-;; ---------------------------------------------------------------------------
-
 (defn- status-badge
   [{:keys [status status-label attention? needs-attention? closed? recovered?]}]
   [:span {:class (into ["inline-flex" "items-center" "gap-1.5" "rounded-full" "px-2" "py-0.5"
@@ -65,10 +61,6 @@
          needs-attention? nil
          (not closed?) [:span {:aria-hidden true :class ["h-1.5" "w-1.5" "rounded-full" "bg-ho-accent"]}])
    [:span status-label]])
-
-;; ---------------------------------------------------------------------------
-;; Actions
-;; ---------------------------------------------------------------------------
 
 (defn- market-hint-id [grid-id] (str "vol-ladder-market-hint-" grid-id))
 
@@ -164,10 +156,6 @@
                  :data-role "vol-ladder-view-report"
                  :on {:click (commands/view-report-actions campaign-key)}}
         "View report"])]))
-
-;; ---------------------------------------------------------------------------
-;; Active ladder card
-;; ---------------------------------------------------------------------------
 
 (defn- callout
   [{:keys [grid-id partial-message notice repair]}]
@@ -323,10 +311,6 @@
      (tracking-block row)]]
    (when selected?
      [:div {:class ["px-4" "pb-3"]} (legs-table legs (:anchor settings))])])
-
-;; ---------------------------------------------------------------------------
-;; Closed ladders
-;; ---------------------------------------------------------------------------
 
 (def ^:private closed-columns
   [["Market"] ["Outcome"] ["Placed"] ["Filled" true] ["Bought @ VWAP" true] ["Sold @ VWAP" true]

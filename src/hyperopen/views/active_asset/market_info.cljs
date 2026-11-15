@@ -117,7 +117,6 @@
   [model]
   (when model
     [:div {:data-role "market-info"}
-     ;; Desktop: under the strip, outside its horizontal scroll container.
      [:div {:class ["fixed" "inset-0" "z-[210]" "hidden" "lg:block"]
             :aria-hidden true
             :on {:click [[:actions/close-market-info-panel]]}}]
@@ -128,7 +127,6 @@
                 :aria-labelledby "market-info-title-desktop"
                 :data-role "market-info-panel"}
       (panel-body model :desktop)]
-     ;; Mobile: bottom sheet over a dimmed backdrop.
      [:div {:class ["fixed" "inset-0" "z-[260]" "flex" "flex-col" "justify-end" "lg:hidden"]
             :data-role "market-info-sheet"}
       [:button {:type "button"

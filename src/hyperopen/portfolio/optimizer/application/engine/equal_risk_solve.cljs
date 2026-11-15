@@ -132,9 +132,6 @@
                    (<= step-residual step-tolerance)
                    (finish seed-kind state :step-tolerance true)
 
-                   ;; B is positive definite, so a nonzero QP step is a strict
-                   ;; model-descent direction; nonnegative slope only appears
-                   ;; as numerical noise at convergence.
                    (>= directional (- 1e-18))
                    (finish seed-kind state :step-tolerance true)
 
@@ -252,8 +249,7 @@
 
 (defn- failure-result
   [outcomes]
-  (let [;; Unavailable seeds (e.g. inverse-vol with a zero-variance asset) say
-        ;; nothing about WHY the run failed; classify on the seeds that ran.
+  (let [
         relevant (remove #(= :seed-unavailable (:status %)) outcomes)
         degenerate-only? (and (seq relevant)
                               (every? #(= :degenerate-variance (:status %))

@@ -17,7 +17,6 @@
                  :gross-max 2.0
                  :net-min 1.0
                  :net-max 1.0
-                 ;; Net tolerance as a decimal fraction of realized gross (5% = 0.05).
                  :net-band-pct 0.0
                  :max-asset-weight 0.5
                  :dust-usdc 0.0
@@ -153,20 +152,13 @@
    :plan nil
    :submitting? false
    :error nil
-   ;; v4 execution-tab staging interaction state (cosmetic + pre-submit phase).
    :phase :staged
    :default-order-type :recommended
    :overrides {}
    :params {}
    :open-row nil
    :order-filter :all
-   ;; Per-oid cancel/keep choices for untagged open orders that overlap the rebalance
-   ;; (the cross-session decision surface); {oid-string true} = user chose to cancel.
    :overlap-cancels {}
-   ;; Held instruments the allocator excluded that the trader marked "sell to zero"
-   ;; for THIS staging session (set of instrument-id strings). Deliberately reset on
-   ;; every execution-tab entry: a staged sell of a held-out asset is an explicit,
-   ;; per-staging decision, never a sticky default.
    :exit-instrument-ids #{}})
 
 (defn default-execution-state

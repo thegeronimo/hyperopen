@@ -9,9 +9,6 @@
    :hyperevm "EVM"})
 
 (def ^:private tone-classes
-  ;; Each tone clears WCAG AA (4.5:1) for its 12 px text in every theme;
-  ;; the PERPS text is 80% of the body text (the secondary grey was 4.38:1
-  ;; on the raised surface).
   {:perps ["bg-ho-surface-raised" "text-ho-text/80"]
    :spot ["bg-ho-accent-soft" "text-ho-accent-bright"]
    :hyperevm ["bg-ho-info/15" "text-ho-info"]})

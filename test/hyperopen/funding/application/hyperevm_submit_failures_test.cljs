@@ -41,7 +41,6 @@
 
 (deftest a-failed-chain-read-before-the-deposit-sends-nothing-more-test
   (async done
-    ;; Reads: before the switch, the verified switch, then the deposit's.
     (-> (fake/submit! support/usdc-index "1000" {:chain-reads ["0xa4b1" "0x3e7" :error]} {})
         (.then (fn [{:keys [result log]}]
                  (is (= {:status "err" :step :deposit :kind :wallet :hashes [(fake/tx-hash 1)]}
@@ -82,9 +81,6 @@
 
 (deftest bookkeeping-that-throws-after-a-confirmed-receipt-never-fails-the-move-test
   (async done
-    ;; A validation build asserts app state on every store swap, so the
-    ;; in-flight write after a receipt can throw. The transaction confirmed:
-    ;; the move must still end ok, never as a retryable failure.
     (-> (js/Promise.all
          #js [(fake/submit! support/hype-index "10" {} {} {:throw-on-confirmed-record? true})
               (fake/submit! support/usdc-index "1000" {} {} {:throw-on-confirmed-record? true})])
@@ -121,8 +117,6 @@
                    (done))))
         (.catch (async-support/unexpected-error done)))))
 
-;; --- through the effect -----------------------------------------------------------
-
 (defn- effect-submit!
   "Run `submit-evm-to-core!` with the real submitter over a fake wallet
    (`wallet-config`) and RPC. Resolves with `{:store :log :toasts}`."
@@ -153,7 +147,6 @@
                         (select-keys (h/run-of store) [:phase :error :maybe-sent?])))
                  (is (not-any? #(= (:no-hash transfer-run/messages) (second %)) toasts)
                      "the open failed view says it; no toast over it")
-                 ;; Back to edit, then another move: refused.
                  (swap! store assoc-in [:funding-ui :modal :transfer-evm] nil)
                  (let [seen (atom [])]
                    (transfer-effects/submit-evm-to-core!

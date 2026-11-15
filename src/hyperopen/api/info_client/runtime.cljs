@@ -90,8 +90,6 @@
           (.then (fn [result]
                    (resolve result)
                    result))
-          ;; the caller gets the failure through `reject`; re-rejecting here
-          ;; left this internal chain as an unhandled rejection per failure
           (.catch (fn [err]
                     (reject err)
                     nil))
@@ -253,9 +251,6 @@
               (mark-rate-limit-cooldown! cooldown-until-ms
                                          now-ms-fn
                                          delay-ms)
-              ;; Push a store-agnostic rate-limit event to whoever installed a
-              ;; listener (the app wires this to app-state at startup). Guarded so
-              ;; a misbehaving listener can never break the retry/backoff path.
               (when-let [on-rate-limit-fn @on-rate-limit]
                 (try
                   (on-rate-limit-fn {:at-ms (now-ms-fn)

@@ -124,10 +124,6 @@
                         (-> (commit! deps (into [(jr/grid-record marked (now deps))] releases))
                             (.then (fn [{:keys [ok?]}] (if ok? marked settled)))))))))))))
 
-;; ---------------------------------------------------------------------------
-;; Placement blockers (spec 7.6, 8.6)
-;; ---------------------------------------------------------------------------
-
 (defn- operation-resolved-in-grids?
   "An attempt is settled by evidence-based resolution or by a not-sent outcome
   that the DELIVERY path proved (its HTTP call never started). A not-sent
@@ -168,10 +164,6 @@
          (remove #(contains? known (str/lower-case (str (:cloid %)))))
          vec)))
 
-;; ---------------------------------------------------------------------------
-;; Reconciliation (spec 8.6, 9)
-;; ---------------------------------------------------------------------------
-
 (defn- read-statuses! [deps grid barrier-id]
   (let [ids (lifecycle/status-lookup-ids grid)]
     (-> (if (seq ids)
@@ -197,8 +189,6 @@
                                    :start-ms (fills-window-start grid)
                                    :end-ms end :now-ms! (:now-ms! deps)})
         (.then (fn [fills]
-                 ;; Fill evidence is "as of" the window end: a balance read
-                 ;; requested later includes every fill in it.
                  [(cond-> (evidence/ingest-fills grid {:account-address (account-of grid) :rows (:rows fills)
                                                        :received-at-ms end})
                     (:complete? fills) (lifecycle/note-fills-read end))
@@ -237,10 +227,6 @@
                                                                              :status-lookups n}))))))))))))))))
         (.catch (fn [e] (out grid false (error-text e) nil))))))
 
-;; ---------------------------------------------------------------------------
-;; Reload recovery (spec 7.6, VR-13, VR-17)
-;; ---------------------------------------------------------------------------
-
 (defn recover!
   "Restore the journal before any new grid. Grids for `scope-key` with
   in-flight operations nobody can still be finishing are decided
@@ -255,8 +241,6 @@
          (if-not ok?
            {:status :journal-unavailable :error error :grids [] :unreadable [] :blockers [:journal/unavailable]}
            (let [before (jr/grids records scope-key)]
-             ;; Each grid is settled under its lock: in-flight decisions and
-             ;; any reservation release a failed write left behind.
              (-> (reduce (fn [p g] (.then p (fn [_] (refresh-grid! deps g))))
                          (js/Promise.resolve nil)
                          before)
@@ -266,8 +250,6 @@
                                                          :barrier-id ((:random-id! deps) "rb")
                                                          :scopes [scope]
                                                          :now-ms! (:now-ms! deps)})))
-                 ;; Re-read the journal AFTER the snapshot, so a grid another tab
-                 ;; committed meanwhile is never mistaken for recovered orders.
                  (.then (fn [snap] (.then (load! deps) (fn [j] [snap j]))))
                  (.then
                   (fn [[snap journal]]

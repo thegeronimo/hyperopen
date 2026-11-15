@@ -42,9 +42,6 @@
            :slippage-bps 6.0 :estimated-slippage-usd 13
            :spread-bps 3.5 :spread-usd 8 :impact-bps 2.5 :impact-usd 5
            :fee-bps 4.5 :estimated-fee-usd 11 :maker-fee-bps 1.5 :maker-fee-usd 4}}
-   ;; A small clip whose MARKET cost is high (thin book, 45bp) — the cost-aware
-   ;; Recommended policy routes it Passive maker, with the route hint in the Type cell;
-   ;; under a Market-all default it drives the high-cost warning band instead.
    {:row-id "perp:EWZ" :instrument-id "perp:EWZ" :instrument-type :perp :side :buy
     :quantity 2.47 :order-type :market :delta-notional-usd 87 :status :ready
     :cost {:source :snapshot :age-ms 4000 :depth-status :insufficient-visible-depth
@@ -54,8 +51,6 @@
    {:row-id "perp:ARB" :instrument-id "perp:ARB" :instrument-type :perp :side :buy
     :quantity 4.2 :order-type :market :delta-notional-usd 8 :status :blocked
     :reason :below-min-notional}
-   ;; Within the rebalance tolerance — no order needed; renders in the collapsed
-   ;; skipped section below the order list, never as a 6th order.
    {:row-id "perp:REZ" :instrument-id "perp:REZ" :instrument-type :perp :side :sell
     :quantity 2680.5 :order-type :market :delta-notional-usd -8.4 :status :skipped
     :reason :within-tolerance :tolerance 0.03}])
@@ -63,8 +58,6 @@
 (def ^:private summary
   {:ready-count 5 :blocked-count 1 :skipped-count 1
    :gross-ready-notional-usd 351525 :estimated-fees-usd 116 :estimated-slippage-usd 206
-   ;; Account leverage (gross notional / equity) + free-margin headroom — the commit-moment
-   ;; figure shown on the armed band, KPI strip, and health rail.
    :margin {:after-utilization 0.42 :after-used-usd 482000
             :capital-usd 1200000 :free-margin-usd 718000
             :before-gross-leverage 1.58 :after-gross-leverage 1.64
@@ -109,19 +102,12 @@
 
 (portfolio/defscene staged
   []
-  ;; ETH is overridden to a resting Limit order to show the type-aware cost KPIs: its row
-  ;; reads "rests" (no spread/impact) and the Est. price cost / all-in totals drop accordingly.
-  ;; EWZ (45bp market cost) routes Passive maker under the cost-aware Recommended policy,
-  ;; with its route hint; REZ sits in the collapsed skipped section.
-  ;; Expand any row to see the spread + impact = price cost + fees = all-in breakdown.
   (shell (execution-tab/execution-tab
           (state (modal {:overrides {"perp:ETH" :limit} :open-row "perp:BTC"})
                  {:status :idle :history []}))))
 
 (portfolio/defscene staged-market-all-high-cost
   []
-  ;; The Market strategy exposes EWZ's 45bp crossing: the high-cost warning band lists it
-  ;; with the projected saving and offers the one-click "Rest it passively" fix.
   (shell (execution-tab/execution-tab
           (state (modal {:default-order-type :market})
                  {:status :idle :history []}))))
@@ -138,8 +124,6 @@
 
 (portfolio/defscene done
   []
-  ;; Submitted rows carry :realized (parsed from the fill response) so the Slip column and
-  ;; the slippage KPI show realized-vs-estimate rather than the pre-run estimate.
   (let [realized {"perp:BTC" 4.8 "spot:SOL" 3.6 "perp:ETH" 11.2 "perp:HYPE" 5.5}
         rows (mapv (fn [row]
                      (let [bps (realized (:row-id row))]

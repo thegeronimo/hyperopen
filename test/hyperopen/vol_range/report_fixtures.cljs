@@ -99,21 +99,16 @@
    (fill-records/normalize-fill {:network network :account-address account :row row :source source
                                  :received-at-ms (+ (:time row) 300)})))
 
-;; 13.5 row 1: buy 7 at 76.4 (tracked, buy rung 0), no fees.
 (def buy-7-row (fill-row {:side "B" :px "76.4" :sz "7" :time (+ t0 (* 2 hour)) :tid 501 :oid 7001}))
 
-;; 13.5 row 2: sell 30 for 2,652 in total (88.4 each).
 (def sell-30-row (fill-row {:side "A" :px "88.4" :sz "30" :time (+ t0 (* 2 hour)) :tid 502 :oid 7002}))
 
-;; 13.5 row 3: buy 10 at 80 with a 0.004 base fee.
 (def base-fee-row (fill-row {:side "B" :px "80" :sz "10" :time (+ t0 hour) :tid 503 :oid 7001
                              :fee "0.004" :fee-token "VRT"}))
 
-;; 13.5 row 4: a 0.4 USDC fee that already includes a 0.1 builder fee.
 (def builder-fee-row (fill-row {:side "B" :px "80" :sz "10" :time (+ t0 hour) :tid 504 :oid 7001
                                 :fee "0.4" :fee-token "USDC" :builder-fee "0.1"}))
 
-;; 13.5 row 5: buy 10 at 80 with a 0.1 base fee, then sell 9.9 at 90.
 (def matched-buy-row (fill-row {:side "B" :px "80" :sz "10" :time (+ t0 hour) :tid 505 :oid 7001
                                 :fee "0.1" :fee-token "VRT"}))
 (def matched-sell-row (fill-row {:side "A" :px "90" :sz "9.9" :time (+ t0 (* 2 hour)) :tid 506 :oid 7002}))

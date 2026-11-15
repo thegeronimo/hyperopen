@@ -100,10 +100,6 @@
        [:effects/vol-range-report :start-tracking {:campaign-key k :account-address account}]]
       [])))
 
-;; ---------------------------------------------------------------------------
-;; Windows, the covered subset and hourly marks
-;; ---------------------------------------------------------------------------
-
 (defn- now [] (.now js/Date))
 
 (defn marks-requests
@@ -169,10 +165,6 @@
   (if (contains? report-ui-flags flag)
     [[:effects/save-many [[(conj ui-path flag) (true? on?)]]]]
     []))
-
-;; ---------------------------------------------------------------------------
-;; Export
-;; ---------------------------------------------------------------------------
 
 (def export-formats {:json :json :csv :csv "json" :json "csv" :csv})
 

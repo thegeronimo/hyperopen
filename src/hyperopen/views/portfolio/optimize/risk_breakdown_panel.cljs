@@ -29,8 +29,6 @@
     (neg? value) "negative"
     :else "positive"))
 
-;; --- Shared plot primitives (used by the correlation panel too) ---------------
-
 (defn plot-backdrop
   "Gridlines + zero axis + the continuous dashed equal-target line, drawn once
   behind a stack of lane rows. `row-class` picks the grid template (the
@@ -79,8 +77,6 @@
                      (structure-model/scale-ticks scale max-labels))))
      (when title
        (pad [:p {:class ["optimizer-risk-balance-axis-title"]} title]))]))
-
-;; --- Lanes ---------------------------------------------------------------------
 
 (defn- component-segment
   [{:keys [x]} start end kind]
@@ -182,8 +178,6 @@
     [:span {:class ["optimizer-risk-balance-legend-item"]}
      [:span {:class ["optimizer-risk-decomp-net"]}]
      "Net contribution"]
-    ;; No target entry when the objective has none (Risk-weighted sizing's
-    ;; diagnostic reuse passes nil — the backdrop draws no target line).
     (when (number? target-share)
       [:span {:class ["optimizer-risk-balance-legend-item"]}
        [:span {:class ["optimizer-risk-balance-legend-dash"]}]

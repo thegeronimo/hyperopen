@@ -132,10 +132,8 @@
                       :execution-assumptions {:fallback-slippage-bps 25})
           marks-a (assoc-in base [:execution-assumptions :prices-by-id] {"perp:BTC" 95.0})
           marks-b (assoc-in base [:execution-assumptions :prices-by-id] {"perp:BTC" 96.5})]
-      ;; adding live marks must not change the signature (else a mark tick triggers re-solves)
       (is (= (contracts/optimizer-input-signature base)
              (contracts/optimizer-input-signature marks-a)))
-      ;; and a different mark value must still hash identically
       (is (= (contracts/optimizer-input-signature marks-a)
              (contracts/optimizer-input-signature marks-b))))))
 
@@ -169,17 +167,10 @@
       (is (s/valid? ::contracts/tracking-record record)))))
 
 (deftest migrate-draft-canonicalizes-doubled-dex-ids-test
-  ;; Drafts persisted while the holdings snapshot doubled the dex prefix carry
-  ;; "perp:xyz:xyz:ORCL"-shaped ids that match neither the market catalog key nor
-  ;; the (since-fixed) live holdings id — the current-position join silently missed
-  ;; and the draft page read a held position as current 0%. Loading such a draft
-  ;; must rewrite every id-bearing surface to the canonical single-prefix form.
   (let [draft (assoc sample-draft
                      :universe [{:instrument-id "perp:xyz:ORCL"
                                  :market-type :perp
                                  :coin "xyz:ORCL"}
-                                ;; doubled twin of an entry that already exists
-                                ;; canonically -> dropped, established entry wins
                                 {:instrument-id "perp:xyz:xyz:ORCL"
                                  :market-type :perp
                                  :coin "xyz:ORCL"}
@@ -413,11 +404,6 @@
                               (assoc draft :history-assumptions assumptions)))))))
 
 (deftest history-assumptions-draft-contract-rejects-legacy-proxy-shape-test
-  ;; The ORIGINAL single-proxy :proxy behavior (never engine-backed) stored a
-  ;; singular :proxy-instrument-id and no :proxy submap. That legacy shape is
-  ;; still rejected by the spec; contracts.migrations converts it to
-  ;; conservative on load before validation runs. The 2026-07 engine-backed
-  ;; multi-proxy shape (nested :proxy submap) is accepted.
   (let [draft (contract-fixtures/valid-draft)
         proxy-assumptions {"perp:NEW" {:behavior :proxy
                                        :expected-return 0.25
@@ -465,8 +451,6 @@
     (is (s/valid? ::contracts/draft migrated))))
 
 (deftest migrate-draft-backfills-proxy-reference-instruments-test
-  ;; Additive key: drafts written before reference-only proxies existed lack it;
-  ;; migration backfills [] and the spec accepts both a present vector and nil.
   (let [legacy (dissoc (contract-fixtures/valid-draft) :proxy-reference-instruments)
         migrated (migrations/migrate-draft legacy)]
     (is (= [] (:proxy-reference-instruments migrated))
@@ -659,8 +643,6 @@
     (is (= :solved (get-in normalized [:payload :status])))
     (is (= {"perp:BTC" 0.12}
            (get-in normalized [:payload :expected-returns-by-instrument])))
-    ;; Regression: this map was missing from instrument-keyed-map-keys, so its
-    ;; keyword keys survived the boundary and spawned phantom ":perp:BTC" rows.
     (is (= {"perp:BTC" 0.5}
            (get-in normalized
                    [:payload :current-portfolio-weights-by-instrument])))
@@ -674,8 +656,6 @@
                    :payload (:payload normalized)}))))
 
 (deftest migrate-draft-converts-absolute-net-band-to-percentage-test
-  ;; Old drafts persisted the net band as a net-min/net-max spread in leverage
-  ;; units. q = half-width / gross-target; the min/max collapse to the target.
   (let [draft (assoc-in (optimizer-fixtures/sample-draft) [:constraints]
                         {:long-only? false
                          :gross-max 15.35

@@ -121,9 +121,6 @@
         "6 matches weiDecimals + evm_extra_wei_decimals")))
 
 (deftest usdc-has-no-evm-side-transfer-recipient-test
-  ;; Core->EVM USDC is a sendAsset to 0x2000…0000, but EVM->Core USDC must go
-  ;; through CoreDepositWallet.deposit: native USDC transferred to 0x2000…0000
-  ;; is not credited. The catalog must not hand EVM-side code that address.
   (let [linked (tokens/linked-tokens fixtures/mainnet-spot-meta)
         usdc (tokens/token-by-index fixtures/mainnet-spot-meta 0)]
     (is (= "0x2000000000000000000000000000000000000000" (:system-address usdc))
@@ -172,9 +169,6 @@
     (is (= "0x0b80659a4076e9e93c7dbe0f10675a16a3e5c206" (:spender usdc)))))
 
 (deftest usdc-is-dropped-when-spot-meta-and-chain-disagree-test
-  ;; USDC's spender receives an ERC-20 allowance, so a CoreDepositWallet that
-  ;; is not the chain's own (mainnet spotMeta read against testnet config, or
-  ;; the reverse) must never become one.
   (is (nil? (tokens/token-by-index fixtures/mainnet-spot-meta chain/testnet 0)))
   (is (nil? (tokens/token-by-index fixtures/testnet-spot-meta chain/mainnet 0)))
   (is (= :native (:kind (tokens/token-by-name fixtures/mainnet-spot-meta chain/testnet "HYPE")))))
@@ -229,8 +223,6 @@
     (is (nil? (tokens/system-address value)))))
 
 (deftest system-address-agrees-with-the-ledger-recognizer-test
-  ;; hyperopen.domain.account-ledger.derive labels HyperEVM bridge rows by
-  ;; recognising these addresses; the builder and recognizer must agree.
   (doseq [index [0 1 122 150 197 478 0xffff]]
     (testing index
       (is (true? (ledger-derive/token-system-address? (tokens/system-address index))))))
@@ -244,8 +236,6 @@
       "an ordinary contract address is not a system address"))
 
 (deftest system-address-predicate-matches-the-ledger-recognizer-test
-  ;; `tokens/system-address?` guards signing (the pre-signing invariant) and
-  ;; must accept and refuse exactly what the ledger's recognizer does.
   (doseq [address (concat
                    (map tokens/system-address [0 1 122 150 197 478 0xffff 0x10000])
                    ["0x2222222222222222222222222222222222222222"

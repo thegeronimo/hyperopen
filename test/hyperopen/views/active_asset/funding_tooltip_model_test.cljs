@@ -415,7 +415,6 @@
                                   false)
             ready-view (row/active-asset-row ctx-data market {:visible-dropdown nil} ready-state)]
         (is (contains? loading-strings "Loading 30d stats..."))
-        ;; a refresh keeps the cached 30-day average on screen
         (is (some? (support/find-node-by-role loading-view "funding-projection-fade-note")))
         (is (some? (support/find-node-by-role ready-view "funding-history-chart")))
         (is (some? (support/find-node-by-role ready-view "funding-projection-fade-note")))))))

@@ -32,10 +32,6 @@
 (def ^:private plot-top 30)
 (def ^:private plot-bottom 198)
 (def ^:private grid-stroke "rgb(var(--ho-text-muted) / 0.25)")
-;; The curve is stroked with a horizontal gradient: amber where collateral is
-;; low (liquidation likely) on the left, green where it is high (safe) on the
-;; right, blending across the band between the current and recommended markers.
-;; `curve-stroke` doubles as the solid fallback when a marker is missing.
 (def ^:private curve-stroke "rgb(var(--ho-warn))")
 (def ^:private curve-stroke-safe "rgb(var(--ho-buy))")
 (def ^:private curve-gradient-id "margin-rec-curve-gradient")
@@ -118,8 +114,6 @@
         plot-width (- plot-right plot-left)
         marker-frac (fn [x] (-> (/ (- x plot-left) plot-width) (max 0) (min 1)))
         cur-frac (when cur-x (marker-frac cur-x))
-        ;; Recommended sits at or right of current in normal cases; clamp so the
-        ;; gradient stops stay ordered even in the within-target edge case.
         rec-frac (when rec-x (max (marker-frac rec-x) (or cur-frac 0)))
         gradient? (and cur-frac rec-frac)
         curve-paint (if gradient?
@@ -140,7 +134,6 @@
                :class ["w-full" "overflow-visible" "text-trading-text"]
                :data-role "margin-rec-curve"
                :aria-label "Modeled probability of liquidation versus isolated margin. The curve falls as collateral increases; markers show the current and recommended margin."}]
-        ;; horizontal grid + y labels at 0 / 50 / 100%
         (into (map (fn [p]
                      (let [y (chart-y p)]
                        [:g {:key (str "y-" p)}
@@ -154,7 +147,6 @@
                                 :text-anchor "end"}
                          (str (js/Math.round (* 100 p)) "%")]]))
                    [0 0.5 1]))
-        ;; x ticks
         (into (map (fn [i]
                      (let [value (* (/ x-max 4) i)
                            x (chart-x x-max value)]

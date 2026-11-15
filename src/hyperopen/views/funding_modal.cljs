@@ -56,9 +56,6 @@
         (interpose ", ")
         (apply str))))
 
-;; Transfer openers beyond the header and trade buttons: the Portfolio funds
-;; strip connectors, the /trade HyperEVM line's Move link, and every Balances
-;; row move action (`balances-move-<row>-<to>`).
 (def ^:private transfer-opener-data-roles
   ["portfolio-funds-connector-perps-spot"
    "portfolio-funds-connector-spot-evm"
@@ -321,8 +318,6 @@
                         :on {:click [[:actions/close-funding-modal]]}}
                "×"]]
              (render-content view-model)
-             ;; Transfer shows its message in its own form (next to the
-             ;; sticky submit); presentation never makes this visible there.
              (when (:visible? feedback)
                [:div {:class ["rounded-md"
                               "border"

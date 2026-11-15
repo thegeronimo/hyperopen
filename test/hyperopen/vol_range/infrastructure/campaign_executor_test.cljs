@@ -83,7 +83,6 @@
           held (js/Promise. (fn [resolve _] (reset! release resolve)))]
       (-> (place! s)
           (.then (fn [_]
-                   ;; Another placement holds this account's admission section.
                    (coord/with-account-admission! {:network :hyperliquid-mainnet :account-address "0xabc"
                                                    :allow-in-tab-coordination? true}
                                                   (fn [] held))

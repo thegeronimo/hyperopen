@@ -30,8 +30,6 @@
     (is (= 1 @interceptor-calls))))
 
 (deftest register-runtime-tolerates-missing-interceptor-registrar-test
-  ;; Backward compatibility: callers that predate register-interceptors! must
-  ;; still work (the key is optional).
   (let [system-calls (atom 0)]
     (runtime-bootstrap/register-runtime!
      {:register-effects! (fn [_] nil)
@@ -185,10 +183,6 @@
     (is (= [:store-id] @validation-calls))))
 
 (deftest install-render-loop-skips-the-root-diff-when-telemetry-is-disabled-test
-  ;; `changed-root-keys` is a second structural walk of the whole store on every
-  ;; write, and its only consumer is the render-flush telemetry event that a
-  ;; release build discards. Production wires `:telemetry-enabled?` to
-  ;; `telemetry/dev-enabled?` so the walk is skipped entirely.
   (let [store (atom {:count 0
                      :router {:path "/trade"}})
         scheduled-frame-callbacks (atom [])

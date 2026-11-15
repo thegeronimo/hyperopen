@@ -70,50 +70,36 @@
 
    An empty `:sub-tabs` set means the type is real and shown, but claims no
    sub-tab of its own, so it appears under `All` only."
-  {;; --- Account Transfers: movements between the venues of one account -------
+  {
    "send" {:label "Send" :sub-tabs #{:account-transfers}}
    "account-class-transfer" {:label "Account Transfer" :sub-tabs #{:account-transfers}}
    "activate-dex-abstraction" {:label "Dex Abstraction Activation" :sub-tabs #{:account-transfers}}
 
-   ;; --- Deposits and Withdrawals: movements across the bridge ---------------
    "deposit" {:label "Deposit" :sub-tabs #{:deposits-withdrawals}}
    "withdraw" {:label "Withdrawal" :sub-tabs #{:deposits-withdrawals}}
 
-   ;; --- Spot Transfers -------------------------------------------------------
    "spot-transfer" {:label "Spot Transfer" :sub-tabs #{:spot-transfers}}
 
-   ;; --- Internal Transfers ---------------------------------------------------
    "internal-transfer" {:label "Internal Transfer" :sub-tabs #{:internal-transfers}}
-   ;; The reference drops this type entirely. A transfer between the user's own
-   ;; sub-accounts is internal to their account tree, so it belongs here rather
-   ;; than beside the cross-venue moves on Account Transfers -- and Internal
-   ;; Transfers keeps its Action column, so it stays distinguishable.
    "sub-account-transfer" {:label "Sub Account Transfer" :sub-tabs #{:internal-transfers}}
 
-   ;; --- Earn: the reference renders this tab and never routes anything to it -
    "borrow-lend" {:label "Borrow / Lend" :sub-tabs #{:earn}}
    "rewards-claim" {:label "Rewards Claim" :sub-tabs #{:earn}}
 
-   ;; --- Vaults ---------------------------------------------------------------
    "vault-create" {:label "Vault Create" :sub-tabs #{:vaults}}
    "vault-deposit" {:label "Vault Deposit" :sub-tabs #{:vaults}}
    "vault-distribution" {:label "Vault Distribution" :sub-tabs #{:vaults}}
    "vault-withdraw" {:label "Vault Withdrawal" :sub-tabs #{:vaults}}
    "vault-leader-commission" {:label "Vault Leader Commission" :sub-tabs #{:vaults}}
 
-   ;; --- Staking --------------------------------------------------------------
-   ;; The reference recognises only cStakingTransfer; the spot<->staking deltas
-   ;; Hyperliquid actually emits are added so the tab reflects the whole flow.
    "c-staking-transfer" {:label "Staking Transfer" :sub-tabs #{:staking}}
    "c-deposit" {:label "Staking Deposit" :sub-tabs #{:staking}}
    "c-withdraw" {:label "Staking Withdrawal" :sub-tabs #{:staking}}
    "delegate" {:label "Delegate" :sub-tabs #{:staking}}
    "undelegate" {:label "Undelegate" :sub-tabs #{:staking}}
 
-   ;; --- Auctions -------------------------------------------------------------
    "deploy-gas-auction" {:label "Deploy Gas Auction" :sub-tabs #{:auctions}}
 
-   ;; --- Real types with no natural sub-tab: All only, never dropped ----------
    "liquidation" {:label "Liquidation" :sub-tabs #{}}
    "spot-genesis" {:label "Genesis Distribution" :sub-tabs #{}}
    "welcome-bonus" {:label "Welcome Bonus" :sub-tabs #{}}
@@ -173,17 +159,9 @@
   (get column-labels column (name column)))
 
 (def ^:private hidden-columns-by-sub-tab
-  ;; The reference also hides Action on Account Transfers. We do not: that
-  ;; sub-tab carries send, accountClassTransfer and activateDexAbstraction, and
-  ;; Action is the only column that tells them apart. On Spot Transfers every
-  ;; row is a spotTransfer, so the column really is constant there.
   {:spot-transfers #{:action :destination}})
 
 (defn visible-columns
   [sub-tab]
   (let [hidden (get hidden-columns-by-sub-tab (normalize-sub-tab sub-tab) #{})]
     (into [] (remove hidden) columns)))
-
-(defn column-visible?
-  [sub-tab column]
-  (contains? (set (visible-columns sub-tab)) column))

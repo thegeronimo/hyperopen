@@ -23,9 +23,6 @@
     []))
 
 (defn- current-objective-menu-option
-  ;; The menu key follows the OBJECTIVE only: return views are an input policy,
-  ;; not an objective, so a Black-Litterman return model no longer claims its own
-  ;; menu entry.
   [state]
   (let [objective-kind (get-in state (conj contracts/draft-objective-path :kind))]
     (cond
@@ -72,9 +69,6 @@
     (vec (distinct (concat universe-order existing-order ui-order)))))
 
 (defn- implied-return-inputs
-  ;; Baseline (prior) expected returns only — never the last run's posterior.
-  ;; The implied value a row shows (and the value a confidence click adopts) must
-  ;; be exactly the number the solver uses when the user has no view there.
   [state]
   (return-inputs/readiness-inputs-by-instrument
    (setup-readiness/build-readiness state)))
@@ -95,8 +89,6 @@
                       :return-text)))
 
 (defn- effective-return-text
-  ;; What the row currently displays: the typing buffer wins, then the authored
-  ;; view, then the implied baseline.
   [state views implied-by-instrument instrument-id]
   (let [view (existing-absolute-view-by-instrument views instrument-id)
         ui-text (ui-view-return-text state instrument-id)]
@@ -112,8 +104,6 @@
       :else "")))
 
 (defn- upsert-absolute-view
-  ;; Author or update the user's absolute view for an instrument. Returns
-  ;; {:views ... :view ...}; the caller persists the view to the wallet library.
   [views instrument-id return-value confidence-level]
   (let [existing (existing-absolute-view-by-instrument views instrument-id)
         level (bl-model/normalize-confidence-level
@@ -156,9 +146,6 @@
     :removes (vec (or removes []))}])
 
 (defn- hydrated-black-litterman-return-model
-  ;; The views-aware return model: the draft's authored views, plus remembered
-  ;; library views for universe instruments that have none yet. Zero views is a
-  ;; valid state (the posterior equals the baseline).
   [state]
   {:kind :black-litterman
    :views (view-library/hydrate-views
@@ -167,10 +154,6 @@
            (get-in state contracts/draft-universe-path))})
 
 (defn- preserve-objective-parameters
-  ;; Menu models carry preset parameter values (e.g. target-volatility 0.12);
-  ;; applying an option must not clobber a user-chosen value. The chosen sigma
-  ;; additionally rides along as a dormant key across kind switches so picking
-  ;; target-volatility again remembers the level (per the designer spec).
   [state objective]
   (let [current (get-in state contracts/draft-objective-path)
         preserved-keys (if (= (:kind current) (:kind objective))
@@ -181,8 +164,6 @@
       objective)))
 
 (defn- with-objective-menu-target-sigma
-  ;; The menu's inline sigma editor stages a pending value; applying the
-  ;; target-volatility option commits it over the preset/preserved sigma.
   [state objective]
   (let [pending (get-in state contracts/ui-objective-menu-target-sigma-path)]
     (if (and (map? objective)
@@ -192,9 +173,6 @@
       objective)))
 
 (defn- objective-menu-model-for-state
-  ;; Objective and return model are orthogonal now: picking a non-Sharpe
-  ;; objective leaves the return model (and any authored views) alone instead of
-  ;; downgrading to historical-mean.
   [state value]
   (when-let [model (objective-menu-model value)]
     (let [model (update model :objective
@@ -259,10 +237,6 @@
 
         (str/blank? text)
         (if existing
-          ;; The library REMOVE must hit the state mirror BEFORE the draft
-          ;; write: the view-library hydrate watcher fires on the draft change,
-          ;; and a mirror that still holds the entry would gap-fill the
-          ;; just-cleared view right back (same ordering as assumption clears).
           (into [(view-library-sync-effect {:removes [instrument-id*]})]
                 (common/save-draft-path-values
                  [[contracts/draft-return-model-views-path
@@ -313,8 +287,6 @@
                         0)
             next-text (bl-model/decimal->percent-text
                        (+ current (* step-direction inline-return-step-decimal)))
-            ;; Store the value the DISPLAYED text parses back to, so the authored
-            ;; view and the input can never drift by a float ulp.
             next-value (bl-model/parse-percent-text next-text)]
         (if (black-litterman-return-model? state)
           (let [{:keys [views view]} (upsert-absolute-view views instrument-id* next-value nil)]
@@ -367,8 +339,6 @@
           existing (when (black-litterman-return-model? state)
                      (existing-absolute-view-by-instrument views instrument-id*))]
       (if existing
-        ;; Library remove BEFORE the draft write — see the ordering note in
-        ;; set-portfolio-optimizer-objective-menu-view-return's blank branch.
         (into [(view-library-sync-effect {:removes [instrument-id*]})]
               (common/save-draft-path-values
                (into [[contracts/draft-return-model-views-path
@@ -456,8 +426,6 @@
 (defn set-portfolio-optimizer-return-model-kind
   [state kind]
   (if (= :black-litterman (common/normalize-keyword-like kind))
-    ;; Switching the estimator to the views-aware model restores the user's
-    ;; remembered views for this universe instead of starting from zero.
     (common/save-draft-path-values
      [[contracts/draft-return-model-path
        (hydrated-black-litterman-return-model state)]])
@@ -484,9 +452,6 @@
     (common/save-draft-path-values
      [[contracts/draft-objective-path objective]
       [contracts/draft-return-model-path
-       ;; The Maximum Sharpe preset consumes return views; restore the wallet's
-       ;; remembered views for this universe rather than the preset's empty
-       ;; vector, so switching presets never loses authored views.
        (if (= :black-litterman (:kind return-model))
          (hydrated-black-litterman-return-model state)
          return-model)]])
@@ -495,8 +460,6 @@
 (defn set-portfolio-optimizer-constraint
   [_state constraint-key value]
   (let [constraint-key* (common/normalize-keyword-like constraint-key)
-        ;; Blanking a clearable field clears it: those rows dispatch
-        ;; :event.target/value, so an emptied input sends "" and never nil.
         clear? (and (contains? draft-options/clearable-numeric-constraint-keys
                                constraint-key*)
                     (or (nil? value)
@@ -569,8 +532,6 @@
       [])))
 
 (defn- instrument-cap-map
-  ;; The save-many effect contract only accepts keyword paths, so instrument
-  ;; keyed maps must be saved whole rather than assoc'ed via a string segment.
   [state map-key instrument-id max-weight]
   (-> (or (get-in state (conj contracts/draft-constraints-path map-key)) {})
       (assoc-in [instrument-id :max-weight] max-weight)))
@@ -613,15 +574,6 @@
 
       :else [])))
 
-;; --- History assumptions (per-asset, instrument-keyed) ----------------------
-;;
-;; The :history-assumptions map is keyed by instrument-id (a string), so every
-;; mutation saves the WHOLE map under the single keyword path -- :effects/save-many
-;; only accepts keyword path segments (same constraint as instrument-cap-map).
-;; A behavior (mode) must be chosen first, which seeds the entry; the field
-;; setters operate on an existing entry so partial behavior-less entries never
-;; reach the draft.
-
 (defn- history-assumptions-map
   [state]
   (or (get-in state contracts/draft-history-assumptions-path) {}))
@@ -640,15 +592,6 @@
                                          refs entry)}]}]
     [:effects/sync-portfolio-optimizer-assumption-library
      {:removes [instrument-id]}]))
-
-;; --- Reference-only proxy instruments ---------------------------------------
-;;
-;; A proxy can be ANY catalog asset, not just one already in the universe. A
-;; proxy that is NOT a universe member is a "reference-only" instrument: its
-;; history is loaded (so the engine can synthesize the thin asset's covariance
-;; from it) but it is never allocated. Its instrument metadata (coin,
-;; market-type) is stored in the draft's :proxy-reference-instruments so history
-;; loading and alignment can find it; the universe list stays untouched.
 
 (defn- universe-instrument-ids
   [state]
@@ -709,8 +652,6 @@
                          (history-prefetch/enqueue-missing-instruments state
                                                                        [new-instrument]))
          path-values (cond-> [[contracts/draft-history-assumptions-path assumptions*]]
-                       ;; Only rewrite the reference-instruments when they change,
-                       ;; so seeding a fresh assumption stays a pure assumptions save.
                        (not= refs existing-refs)
                        (conj [contracts/draft-proxy-reference-instruments-path refs])
 
@@ -718,10 +659,6 @@
                        (conj [contracts/history-prefetch-path (:state prefetch-plan)]))
          sync-effect (assumption-library-sync-effect refs assumptions* instrument-id)
          draft-save (common/save-draft-path-values path-values)
-         ;; A library REMOVE (Clear) must hit the state mirror BEFORE the draft
-         ;; write: the hydrate watcher fires on the draft change, and a mirror
-         ;; that still holds the entry would gap-fill the just-cleared card
-         ;; right back. Upserts can never create a gap, so they follow the save.
          effects (if (contains? assumptions* instrument-id)
                    (conj draft-save sync-effect)
                    (into [sync-effect] draft-save))]
@@ -748,9 +685,6 @@
     (if (and instrument-id*
              (some? value*)
              (contains? assumptions instrument-id*))
-      ;; Every assumption save reconciles the reference-only proxies, so a
-      ;; stale stored reference (live 2026-07-09: an emptied basket left
-      ;; BTC/ETH behind) self-heals on the next edit of any card.
       (save-assumptions+refs
        state
        (update assumptions instrument-id*
@@ -767,18 +701,13 @@
       (let [assumptions (history-assumptions-map state)
             existing (get assumptions instrument-id*)]
         (if (= behavior* (:behavior existing))
-          ;; already in this mode; preserve the user's input untouched.
           []
-          ;; switching modes preserves expected return/volatility and reseeds only
-          ;; the mode-specific fields.
           (let [entry (cond-> (history-assumptions/default-assumption behavior*)
                         (some? (:expected-return existing))
                         (assoc :expected-return (:expected-return existing))
 
                         (some? (:volatility existing))
                         (assoc :volatility (:volatility existing)))]
-            ;; Switching away from proxy drops the entry's proxy ids, so
-            ;; reconcile the reference-only instruments (GC any now-unreferenced).
             (save-assumptions+refs state
                                    (assoc assumptions instrument-id* entry)
                                    instrument-id*))))
@@ -805,19 +734,12 @@
         assumptions (history-assumptions-map state)]
     (if (and instrument-id*
              (contains? assumptions instrument-id*))
-      ;; Removing the entry drops its proxy ids, so reconcile the reference-only
-      ;; instruments too (GC any proxy no assumption references anymore). The
-      ;; library entry is removed as well — Clear is the explicit "forget this
-      ;; asset" gesture.
       (save-assumptions+refs state
                              (dissoc assumptions instrument-id*)
                              instrument-id*)
       [])))
 
 (defn- unacknowledged
-  ;; Editing any assumption detail withdraws the Apply acknowledgment: the
-  ;; acknowledgment refers to the values it was clicked on. Entries that never
-  ;; carried metadata stay key-for-key identical.
   [entry]
   (if (get-in entry [:metadata :acknowledged?])
     (let [metadata (dissoc (:metadata entry) :acknowledged?)]
@@ -840,7 +762,6 @@
         assumptions (history-assumptions-map state)
         entry (get assumptions instrument-id*)
         in-universe? (contains? (universe-instrument-ids state) proxy-id*)
-        ;; Only resolve/prefetch when ADDING an out-of-universe proxy.
         resolved (when (and enabled?* proxy-id* (not in-universe?))
                    (resolve-catalog-instrument state proxy-id*))]
     (if (and instrument-id*
@@ -848,7 +769,6 @@
              (not= instrument-id* proxy-id*)
              (some? enabled?*)
              (history-assumptions/proxy? entry)
-             ;; Adding an out-of-universe proxy the catalog can't resolve is a no-op.
              (or (not enabled?*) in-universe? (some? resolved)))
       (let [assumptions* (assoc assumptions instrument-id*
                                 (-> entry
@@ -948,7 +868,5 @@
         behavior (get-in assumptions [instrument-id* :behavior])]
     (if-let [entry (and instrument-id*
                         (history-assumptions/default-assumption behavior))]
-      ;; Re-seeding clears the entry's proxy ids, so reconcile reference-only
-      ;; instruments (GC any now-unreferenced proxy).
       (save-assumptions+refs state (assoc assumptions instrument-id* entry) instrument-id*)
       [])))

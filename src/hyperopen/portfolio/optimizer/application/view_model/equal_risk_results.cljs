@@ -179,9 +179,6 @@
        :hidden-max-pts (when (seq hidden)
                          (reduce max 0 (map #(js/Math.abs (or (get % cap-key) 0))
                                             hidden)))
-       ;; Largest contributor over EVERY row (not just the visible cap): on a
-       ;; wide near-balanced universe the largest share can carry a small
-       ;; deviation and fall outside the worst-deviation cap.
        :largest (when (seq rows)
                   (-> (apply max-key
                              #(if (finite-number? (:share %)) (:share %) ##-Inf)

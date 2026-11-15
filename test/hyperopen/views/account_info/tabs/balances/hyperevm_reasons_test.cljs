@@ -137,7 +137,6 @@
 
 (deftest hyperevm-filter-says-what-hid-its-rows-test
   (let [dust (fixture/with-evm-entry state (assoc fixture/evm-entry
-                                                  ;; 0.01 HYPE, about $0.45
                                                   :native-wei "10000000000000000"
                                                   :token-units {}))
         evm-filter (with-account-info dust :balances-location-filter :hyperevm)

@@ -17,8 +17,6 @@
 
 (defn- expected-open-modal
   [mode & {:keys [legacy-kind] :or {legacy-kind nil}}]
-  ;; Merged over the live defaults so a new default modal key does not break
-  ;; every open-modal expectation; only the keys an open command sets are pinned.
   (merge (funding-actions/default-funding-modal-state)
          {:open? true
           :mode mode
@@ -52,8 +50,6 @@
            (funding-actions/open-funding-deposit-modal state)))
     (is (= [funding-modal-surface-load-effect
             [:effects/save [:funding-ui :modal]
-             ;; With no selected subaccount, the transfer modal sources from the
-             ;; connected wallet: destination defaults to it, fromSubAccount empty.
              (assoc (expected-open-modal :transfer)
                     :transfer-destination-address "0x1234567890abcdef1234567890abcdef12345678")]]
            (funding-actions/open-funding-transfer-modal state)))

@@ -22,8 +22,6 @@
           (.finally done)))))
 
 (deftest a-timed-out-body-keeps-the-section-until-it-settles-test
-  ;; Second review B1: releasing on timeout would let another tab allocate the
-  ;; same funds while the late body still commits its reservations.
   (async done
     (locks/reset-in-tab-state!)
     (let [release (atom nil)

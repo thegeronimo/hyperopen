@@ -76,14 +76,8 @@
     color: rgb(var(--ho-accent-bright));
   }
 
-  /* Flagship nav highlight: an accent shimmer sweeps the label roughly
-     every 3s (sweep ~1s, rest ~2s) with a sparkle that twinkles in
-     sync. Applied to inactive flagship links only (see header/navigation). */
   .header-nav-link-flagship {
     position: relative;
-    /* Stops keep the accent band inside the middle third so the windows
-       shown at both resting positions (100% and 0%) are pure currentColor —
-       otherwise the edge letters pick up a faint accent tint at rest. */
     background-image: linear-gradient(
       100deg,
       currentColor 36%,
@@ -100,10 +94,6 @@
     animation: header-nav-flagship-shimmer 3s linear infinite;
   }
 
-  /* The sparkle twinkles every 3s while a second, slower animation walks it
-     around the label's edge (top-right, bottom-left, top-left, bottom-right).
-     Position jumps land while the sparkle is invisible, so each twinkle
-     appears somewhere new. */
   .header-nav-link-flagship::after {
     content: "\2726";
     position: absolute;
@@ -389,26 +379,6 @@
       opacity: 0.5;
       transform: scale(1.3);
     }
-  }
-
-  .o-toast-area {
-    min-height: 440px;
-    padding: 20px;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(10, 40, 40, 0.3) 0%,
-        rgba(5, 20, 22, 0.6) 100%
-      );
-    border: 1px dashed var(--o-border);
-    border-radius: 14px;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: flex-end;
-    gap: 10px;
-    overflow: hidden;
   }
 
   .o-toast {

@@ -99,10 +99,6 @@
       (catch :default e
         (telemetry/log! "Vol Range fills consumer failed" (str k) (str e))))))
 
-;; ---------------------------------------------------------------------------
-;; Ingress state (per connection and account)
-;; ---------------------------------------------------------------------------
-
 (defn- last-close-at-ms [state]
   (get-in state [:websocket :health :transport :last-close :at-ms]))
 
@@ -122,12 +118,7 @@
   {:received-at-ms received-at-ms
    :network (contracts/current-network)
    :fallback-address (lower (account-context/live-user-stream-address state))
-   ;; `<epoch>:<seq>`; live monitoring supplies the epoch (0 until it exists).
    :revision (monitoring/revision (get-in state monitoring-path) seq-n)})
-
-;; ---------------------------------------------------------------------------
-;; Live monitoring marker (spec 9.3)
-;; ---------------------------------------------------------------------------
 
 (defn- note-fills-snapshot
   "`envelope`, after recording a `userFills` snapshot for the trading account
@@ -152,10 +143,6 @@
         (when-not (= m m*)
           (swap! store assoc-in monitoring-path m*))
         (assoc envelope :account-event-revision (monitoring/revision m* seq-n))))))
-
-;; ---------------------------------------------------------------------------
-;; Application
-;; ---------------------------------------------------------------------------
 
 (defn- apply-routed
   "`state` with every routed grid's rows applied and merged into the store
@@ -193,7 +180,6 @@
 (defn- hint-due? [last-hint-at-ms at]
   (or (nil? last-hint-at-ms)
       (let [gap (- at last-hint-at-ms)]
-        ;; A clock that moved back never silences hints for long.
         (or (neg? gap) (>= gap hint-min-interval-ms)))))
 
 (defn- maybe-hint!

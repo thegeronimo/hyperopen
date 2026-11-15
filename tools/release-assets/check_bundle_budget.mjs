@@ -87,12 +87,6 @@ function loadBudget() {
   return JSON.parse(fs.readFileSync(BUDGET_PATH, "utf8"));
 }
 
-// The budget is a SOFT target, not a build gate. Exceeding it (or a missing /
-// invalid budget file) must never fail the build or the Cloudflare deploy — a
-// few bytes of gzip jitter between the local repro and the prod build toolchain,
-// or a reviewed feature merge, is not a reason to block a release. Surface it
-// loudly as a warning instead, and add a GitHub Actions annotation + job-summary
-// line when running in CI so it stays visible on the PR without failing it.
 function reportSoftBudget(message) {
   console.warn(`bundle budget (soft): ${message}`);
 
@@ -103,7 +97,6 @@ function reportSoftBudget(message) {
       try {
         fs.appendFileSync(summaryPath, `> ⚠️ **Bundle budget (soft):** ${message}\n`);
       } catch {
-        // Surfacing the note must never break the build; ignore summary I/O errors.
       }
     }
   }
@@ -156,7 +149,6 @@ function main() {
   });
 
   if (!result.ok) {
-    // Soft target exceeded (or budget file missing/invalid): warn, never fail.
     reportSoftBudget(result.message);
     return;
   }

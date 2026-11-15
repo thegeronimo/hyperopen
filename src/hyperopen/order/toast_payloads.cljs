@@ -54,8 +54,6 @@
                  (non-blank-text coin))
         side-label (margin-side-label side)]
     (cond
-      ;; Without a coin the side alone identifies nothing, so the caller falls
-      ;; back to describing the amount instead.
       (and base side-label) (str base " " side-label)
       base base
       :else nil)))

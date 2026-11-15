@@ -14,15 +14,11 @@
   (tokens/token-by-name fixtures/mainnet-spot-meta "HYPE"))
 
 (deftest core-to-evm-fee-matches-live-ledger-fees-test
-  ;; Two live Core->EVM ledger fees on 2026-09-30 against the base fee of the
-  ;; next small block: 0.10371 gwei -> 0.00002075 HYPE, 0.11533 gwei ->
-  ;; 0.00002307 HYPE. Both are 200000 x base fee, rounded UP to 8 decimals.
   (is (= "0.00002075" (fees/core->evm-fee-hype "103710000" purr)))
   (is (= "0.00002307" (fees/core->evm-fee-hype "115330000" usdc))))
 
 (deftest core-to-evm-fee-rounding-test
   (testing "the live eth_gasPrice from the RPC probe, decimal or hex"
-    ;; 200000 x 107410883 wei = 0.0000214821766 HYPE -> 0.00002149
     (is (= "0.00002149" (fees/core->evm-fee-hype fixtures/probe-gas-price-wei purr)))
     (is (= "0.00002149" (fees/core->evm-fee-hype fixtures/probe-gas-price-hex purr))))
   (testing "an exact 8-decimal fee is not bumped"
@@ -48,12 +44,9 @@
 
 (deftest evm-tx-cost-applies-the-fee-multiplier-and-floor-test
   (testing "a gas price below 0.2 gwei is charged at the floor"
-    ;; 30000 x 2 x 0.2 gwei
     (is (= "0.000012" (fees/evm-tx-cost-hype fixtures/probe-gas-price-wei [:native])))
-    ;; (70000 + 90000) x 2 x 0.2 gwei
     (is (= "0.000064" (fees/evm-tx-cost-hype "100000000" [:usdc-approve :usdc-deposit]))))
   (testing "above the floor, the quoted price is doubled"
-    ;; 30000 x 2 x 3.47 gwei, the largest base fee seen live
     (is (= "0.0002082" (fees/evm-tx-cost-hype "3470000000" [:native]))))
   (testing "unknown inputs"
     (is (nil? (fees/evm-tx-cost-hype nil [:native])))
@@ -64,7 +57,6 @@
   (is (= "0.001" (fees/native-max-reserve-hype fixtures/probe-gas-price-wei)))
   (is (= "0.001" (fees/native-max-reserve-hype nil))
       "unknown gas price falls back to the floor")
-  ;; 30000 x 2 x 20 gwei = 0.0012 HYPE exceeds the floor
   (is (= "0.0012" (fees/native-max-reserve-hype "20000000000"))))
 
 (deftest evm-gas-status-test

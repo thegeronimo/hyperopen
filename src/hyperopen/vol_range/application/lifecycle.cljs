@@ -24,10 +24,6 @@
 (defn- d [x] (if (map? x) x (or (some-> x precision/parse-decimal) zero)))
 (defn- ds [x] (precision/decimal->string x))
 
-;; ---------------------------------------------------------------------------
-;; Construction
-;; ---------------------------------------------------------------------------
-
 (defn new-leg
   "A leg that has not been sent yet."
   [{:keys [cloid logical-id operation-id side rung-index price size]}]
@@ -91,10 +87,6 @@
     :released-operation-ids #{}}
     (map? settings) (assoc :settings settings)
     (map? predecessor) (assoc :predecessor predecessor)))
-
-;; ---------------------------------------------------------------------------
-;; Queries
-;; ---------------------------------------------------------------------------
 
 (defn current-cloid [member] (peek (:cloids member)))
 
@@ -197,10 +189,6 @@
       (pos? live) :live
       :else :checking)))
 
-;; ---------------------------------------------------------------------------
-;; Operations bookkeeping
-;; ---------------------------------------------------------------------------
-
 (defn mark-sending
   "The send attempt for `operation-id` is committed (spec 8.1 step 7)."
   [grid operation-id attempt-id now-ms]
@@ -234,10 +222,6 @@
   [grid now-ms]
   (update grid :cancel-requested-at-ms #(or % now-ms)))
 
-;; ---------------------------------------------------------------------------
-;; Cancel membership (spec 10.1)
-;; ---------------------------------------------------------------------------
-
 (defn cancel-targets
   "Every leg of the logical grid that may still be resting, across revisions
   and repairs, each exactly once. Legs whose cancel was already acknowledged
@@ -250,10 +234,6 @@
        (remove #(contains? #{:acknowledged :confirmed :requested} (:cancel-state %)))
        (sort-by (juxt (comp name :side) :rung-index :cloid))
        (mapv #(select-keys % [:cloid :oid :side :rung-index]))))
-
-;; ---------------------------------------------------------------------------
-;; Repair (spec 8.6, 13.4)
-;; ---------------------------------------------------------------------------
 
 (def closed-statuses
   "Statuses of a ladder whose every current leg is terminal: it filled, was
@@ -303,10 +283,6 @@
                          (operation {:operation-id operation-id :kind :repair
                                      :cloids (map :cloid legs) :plan-id plan-id
                                      :expires-after-ms expires-after-ms :now-ms now-ms})))})))
-
-;; ---------------------------------------------------------------------------
-;; Replacement basis (spec 10.2, 13.4)
-;; ---------------------------------------------------------------------------
 
 (defn fills-covered?
   "True when a COMPLETE fills read covered the grid's whole life up to after
@@ -389,10 +365,6 @@
             :remaining {:buy (side-sum grid canceled :buy :canceled) :sell (side-sum grid canceled :sell :canceled)}
             :filled-during-update {:buy (during :buy) :sell (during :sell)}))))
 
-;; ---------------------------------------------------------------------------
-;; Pending reservations (spec 3.3, 8.1 step 10, VR-06)
-;; ---------------------------------------------------------------------------
-
 (defn note-balance-snapshot
   "Record the REQUEST time of a successful balance read for this account."
   [grid requested-at-ms]
@@ -431,10 +403,6 @@
 
 (defn mark-released [grid operation-ids]
   (update grid :released-operation-ids into operation-ids))
-
-;; ---------------------------------------------------------------------------
-;; Reconciliation needs (spec 8.6)
-;; ---------------------------------------------------------------------------
 
 (defn status-lookup-ids
   "Original identities to query: oid when known, else CLOID. Every leg whose

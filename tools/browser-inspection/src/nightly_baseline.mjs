@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
-// Root-level files are deliberately outside ArtifactStore's run-directory retention.
 export function baselinePath(artifactRoot) {
   return path.join(artifactRoot, "nightly-baseline.json");
 }
@@ -57,7 +56,6 @@ export async function saveNightlyBaseline(artifactRoot, summary) {
   }
 }
 
-// Called before BrowserInspectionService.create(), which prunes old runs.
 export async function loadNightlyBaseline(artifactRoot, { withSource = false } = {}) {
   const result = (summary, source, sourcePath) => withSource ? { summary, source, sourcePath } : summary;
   const saved = await readSummary(baselinePath(artifactRoot));

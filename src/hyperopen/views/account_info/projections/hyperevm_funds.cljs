@@ -86,17 +86,6 @@
                                [])))
         (assoc unknown-summary :status status :address address)))))
 
-;; --- memo --------------------------------------------------------------------
-;;
-;; /trade asks on every render, and there the market catalogue changes on
-;; every active-asset tick while the equity metrics price the HyperCore rows
-;; against no catalogue at all. Rebuilding those rows on each tick (and
-;; evicting the metrics' entry from the shared single-slot memo) would cost
-;; a full `build-balance-rows` per tick for nothing shown. So the result is
-;; reused while the shown read is the same and, when something is held,
-;; while the HyperCore inputs are the same objects and the catalogue's
-;; price inputs compare equal.
-
 (defonce ^:private funds-cache
   (atom nil))
 
@@ -147,7 +136,8 @@
    - `:gas-status` is `:ok`, `:low`, `:none` or nil (unknown) for one native
      HYPE transfer at the read's gas price.
 
-   Memoized (see above), so the /trade view can ask on every render."
+   Memoized on the shown read, so the /trade view can ask on every render without rebuilding
+   the balance rows on each active-asset tick."
   [state]
   (let [address (hyperevm-balances/display-address state)
         entry (hyperevm-balances/entry state address)
@@ -176,8 +166,6 @@
                          :entry entry
                          :spot-meta spot-meta
                          :held-names held-names
-                         ;; Kept as a pair: `spot-markets` reuses the list
-                         ;; only for the catalogue it was taken from.
                          :market-by-key (if priced? market-by-key (:market-by-key cached))
                          :spot-markets (if priced? spot-markets* (:spot-markets cached))
                          :price-key price-key*

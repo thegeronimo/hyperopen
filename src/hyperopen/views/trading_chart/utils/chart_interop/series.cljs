@@ -23,8 +23,6 @@
            :wickDownColor down}
 
       :hollow-candles
-      ;; upColor stays the transparent body set at creation; applyOptions
-      ;; merges, so omitting it here preserves the hollow look.
       #js {:downColor down
            :borderUpColor up
            :borderDownColor down

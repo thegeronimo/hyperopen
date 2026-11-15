@@ -107,10 +107,6 @@
   [node css width height]
   (let [clone (.cloneNode node true)]
     (.setAttribute clone "xmlns" svg-namespace)
-    ;; The on-screen preview scales itself with an inline style. Inside an
-    ;; Image the SVG has no containing block, so a percentage width would
-    ;; collapse to the 300x150 default replaced-element size and the PNG would
-    ;; come out the wrong size. Pin the intrinsic size and drop the style.
     (.removeAttribute clone "style")
     (.setAttribute clone "width" (str width))
     (.setAttribute clone "height" (str height))

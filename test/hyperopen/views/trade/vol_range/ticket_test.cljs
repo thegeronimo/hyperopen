@@ -303,10 +303,6 @@
         (is (re-find #"at most 190(\.0+)? SYN" note))
         (is (str/includes? (text html) "Review 7 orders"))))))
 
-;; ---------------------------------------------------------------------------
-;; Ladder update banner (spec 10.2)
-;; ---------------------------------------------------------------------------
-
 (def ^:private preview-banner
   {:phase :preview :title "Updating the SYN/USDC ladder · step 1 of 3" :message nil :lineage nil
    :replaces-footer? true :open-update? true :refresh-balances nil :busy? false})

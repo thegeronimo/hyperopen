@@ -8,8 +8,6 @@
             [hyperopen.workbench.support.layout :as layout]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]
             [hyperopen.views.portfolio.optimize.results-summary :as results-summary]
-            ;; recommendation-deltas moved here from scenario-detail-view when
-            ;; the KPI strip was extracted (Equal Risk results redesign).
             [hyperopen.views.portfolio.optimize.scenario-kpi-strip :as kpi-strip]))
 
 (portfolio/configure-scenes

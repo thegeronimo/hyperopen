@@ -103,8 +103,6 @@
                    (let [forced (request-info! user-vault-equities-body refresh-opts)
                          normal-follow-up (request-info! user-vault-equities-body
                                                         user-vault-equities-cache-opts)]
-                     ;; The normal route refresh must join the forced request;
-                     ;; it cannot return the pre-transfer cache entry.
                      (js/setTimeout
                       (fn []
                         (try
@@ -154,8 +152,6 @@
        (fn []
          (try
            (is (= 2 (count @requests)))
-           ;; The newer forced response arrives first. The older normal load
-           ;; must still resolve for its caller but may not poison the cache.
            ((:resolve (second @requests))
             (info-support/fake-http-response 200 {:equity 200}))
            (-> forced
@@ -197,9 +193,6 @@
           refresh-opts (assoc cache-opts
                               :force-refresh? true
                               :replace-response-cache-on-force? true)]
-      ;; Use the real cache flow with deterministic transport promises. The
-      ;; runtime queue deliberately rethrows rejected fetches, so injecting the
-      ;; attempt boundary here isolates the cache failure contract itself.
       (reset! now-ms 1011)
       (let [older-normal (flow/request-info-with-flow!
                           :high response-cache (fn [] @now-ms)
@@ -227,8 +220,6 @@
                          (do
                            ((:resolve fresh-response) {:equity 300})
                            fresh-request)
-                         ;; Keep the RED result assertion-based if the stale
-                         ;; response was reused instead of issuing a new read.
                          (js/Promise.resolve :missing-fresh-network-request)))))
             (.then (fn [fresh-after-failure]
                      (is (= {:equity 300} fresh-after-failure))

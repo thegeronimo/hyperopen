@@ -40,10 +40,6 @@ import {
 const OWNER = "0x1234567890abcdef1234567890abcdef12345678";
 const PURR_ADDRESS = SPOT_TOKENS.PURR.evmContract.address;
 
-// Provenance: the Milestone 1 live probe (test/hyperopen/hyperevm/
-// test_support/fixtures.cljs): one aggregate3 of getEthBalance(0x2222…),
-// PURR balanceOf(0x2222…) and USDC-CDW balanceOf(0x2222…), POSTed to
-// https://rpc.hyperliquid.xyz/evm on 2026-09-30T14:11:05Z, and its answer.
 const PROBE_AGGREGATE3_CALLDATA =
   "0x82ad56cb" +
   "0000000000000000000000000000000000000000000000000000000000000020" +
@@ -94,8 +90,6 @@ function word(value) {
 }
 
 function aggregateCall(calls) {
-  // Re-encode through the probe layout: the handler must decode any
-  // well-formed aggregate3, so build one with the same encoder shape.
   const tails = calls.map(({ target, callData }) => {
     const body = callData.replace(/^0x/, "");
     const padded = body + "0".repeat((64 - (body.length % 64)) % 64);
@@ -111,7 +105,6 @@ function aggregateCall(calls) {
 }
 
 test("simulated hashes match the wallet simulator's", () => {
-  // simulators_evm_test.cljs pins the same two strings.
   assert.equal(simulatedTxHash(1), `0x${"e".repeat(56)}00000001`);
   assert.equal(simulatedTxHash(26), `0x${"e".repeat(56)}0000001a`);
 });
@@ -242,8 +235,6 @@ test("estimates follow the live answers per transaction kind; errors are queued"
   });
   assert.equal(estimate({ from: OWNER, to: HYPE_SYSTEM_ADDRESS, value: "0x1" }).result, "0x5910");
   assert.equal(estimate({ to: USDC_TOKEN_ADDRESS, data: encodeApprove(USDC_CORE_DEPOSIT_WALLET, 1n) }).result, "0xdb88");
-  // A deposit estimate reverts like native USDC's transferFrom until the
-  // approve is mined, then answers the live estimate.
   const deposit = { from: OWNER, to: USDC_CORE_DEPOSIT_WALLET, data: encodeCoreDeposit(1000000000n) };
   assert.deepEqual(estimate(deposit).error, ALLOWANCE_REVERT);
   approveOnReceipt(fixture, { hash: simulatedTxHash(1), owner: OWNER, units: 999999999n });

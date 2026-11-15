@@ -12,16 +12,6 @@
     (when (and (pos? size) (pos? price))
       (* size price))))
 
-(defn open-orders-direction-filter-key [open-orders-state]
-  (let [raw-direction (:direction-filter open-orders-state)
-        direction-filter (cond
-                           (keyword? raw-direction) raw-direction
-                           (string? raw-direction) (keyword (str/lower-case raw-direction))
-                           :else :all)]
-    (if (contains? #{:all :long :short} direction-filter)
-      direction-filter
-      :all)))
-
 (defn filter-open-orders-by-direction [orders direction-filter]
   (let [orders* (or orders [])]
     (case direction-filter

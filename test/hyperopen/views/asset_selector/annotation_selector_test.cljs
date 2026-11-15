@@ -8,7 +8,6 @@
             [hyperopen.views.asset-selector.test-support :as support]))
 
 (def ^:private catalog-annotations
-  ;; The catalog's own enrichment (main's display names and keywords).
   (perp-annotations/normalize-perp-annotations
    [["xyz:SPCX" {:category "stocks" :displayName "SPCX" :keywords ["spacex" "ai"]}]
     ["vntl:SPACEX" {:category "preipo" :keywords ["elon" "preipo"]}]

@@ -113,8 +113,6 @@
 
 (def enable-agent-trading-action wallet-adapters/enable-agent-trading-action)
 
-(def unlock-agent-trading wallet-adapters/unlock-agent-trading)
-
 (def unlock-agent-trading-action wallet-adapters/unlock-agent-trading-action)
 
 (def set-agent-storage-mode-action wallet-adapters/set-agent-storage-mode-action)
@@ -161,47 +159,11 @@
 (def set-portfolio-optimizer-objective-kind-action
   portfolio-optimizer-actions/set-portfolio-optimizer-objective-kind)
 
-(def open-portfolio-optimizer-objective-menu-action
-  portfolio-optimizer-actions/open-portfolio-optimizer-objective-menu)
-
-(def close-portfolio-optimizer-objective-menu-action
-  portfolio-optimizer-actions/close-portfolio-optimizer-objective-menu)
-
-(def handle-portfolio-optimizer-objective-menu-keydown-action
-  portfolio-optimizer-actions/handle-portfolio-optimizer-objective-menu-keydown)
-
-(def select-portfolio-optimizer-objective-menu-option-action
-  portfolio-optimizer-actions/select-portfolio-optimizer-objective-menu-option)
-
-(def set-portfolio-optimizer-objective-menu-view-return-action
-  portfolio-optimizer-actions/set-portfolio-optimizer-objective-menu-view-return)
-
-(def step-portfolio-optimizer-objective-menu-view-return-action
-  portfolio-optimizer-actions/step-portfolio-optimizer-objective-menu-view-return)
-
-(def set-portfolio-optimizer-objective-menu-view-confidence-action
-  portfolio-optimizer-actions/set-portfolio-optimizer-objective-menu-view-confidence)
-
-(def remove-portfolio-optimizer-objective-menu-view-action
-  portfolio-optimizer-actions/remove-portfolio-optimizer-objective-menu-view)
-
-(def add-portfolio-optimizer-objective-menu-view-action
-  portfolio-optimizer-actions/add-portfolio-optimizer-objective-menu-view)
-
-(def apply-portfolio-optimizer-objective-menu-selection-and-run-action
-  portfolio-optimizer-actions/apply-portfolio-optimizer-objective-menu-selection-and-run)
-
-(def switch-portfolio-optimizer-objective-and-run-action
-  portfolio-optimizer-actions/switch-portfolio-optimizer-objective-and-run)
-
 (def set-portfolio-optimizer-return-model-kind-action
   portfolio-optimizer-actions/set-portfolio-optimizer-return-model-kind)
 
 (def set-portfolio-optimizer-risk-model-kind-action
   portfolio-optimizer-actions/set-portfolio-optimizer-risk-model-kind)
-
-(def apply-portfolio-optimizer-setup-preset-action
-  portfolio-optimizer-actions/apply-portfolio-optimizer-setup-preset)
 
 (def set-portfolio-optimizer-constraint-action
   portfolio-optimizer-actions/set-portfolio-optimizer-constraint)
@@ -227,39 +189,6 @@
 (def set-portfolio-optimizer-execution-assumption-action
   portfolio-optimizer-actions/set-portfolio-optimizer-execution-assumption)
 
-(def add-portfolio-optimizer-black-litterman-view-action
-  portfolio-optimizer-bl-actions/add-portfolio-optimizer-black-litterman-view)
-
-(def set-portfolio-optimizer-black-litterman-view-parameter-action
-  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-view-parameter)
-
-(def remove-portfolio-optimizer-black-litterman-view-action
-  portfolio-optimizer-bl-actions/remove-portfolio-optimizer-black-litterman-view)
-
-(def set-portfolio-optimizer-black-litterman-editor-type-action
-  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-editor-type)
-
-(def set-portfolio-optimizer-black-litterman-editor-field-action
-  portfolio-optimizer-bl-actions/set-portfolio-optimizer-black-litterman-editor-field)
-
-(def save-portfolio-optimizer-black-litterman-editor-view-action
-  portfolio-optimizer-bl-actions/save-portfolio-optimizer-black-litterman-editor-view)
-
-(def edit-portfolio-optimizer-black-litterman-view-action
-  portfolio-optimizer-bl-actions/edit-portfolio-optimizer-black-litterman-view)
-
-(def cancel-portfolio-optimizer-black-litterman-edit-action
-  portfolio-optimizer-bl-actions/cancel-portfolio-optimizer-black-litterman-edit)
-
-(def request-clear-portfolio-optimizer-black-litterman-views-action
-  portfolio-optimizer-bl-actions/request-clear-portfolio-optimizer-black-litterman-views)
-
-(def cancel-clear-portfolio-optimizer-black-litterman-views-action
-  portfolio-optimizer-bl-actions/cancel-clear-portfolio-optimizer-black-litterman-views)
-
-(def confirm-clear-portfolio-optimizer-black-litterman-views-action
-  portfolio-optimizer-bl-actions/confirm-clear-portfolio-optimizer-black-litterman-views)
-
 (def set-portfolio-optimizer-instrument-filter-action
   portfolio-optimizer-actions/set-portfolio-optimizer-instrument-filter)
 
@@ -277,12 +206,6 @@
 
 (def handle-portfolio-optimizer-draft-add-asset-keydown-action
   portfolio-optimizer-actions/handle-portfolio-optimizer-draft-add-asset-keydown)
-
-(def set-portfolio-optimizer-results-tab-action
-  portfolio-optimizer-actions/set-portfolio-optimizer-results-tab)
-
-(def set-portfolio-optimizer-selected-risk-instrument-action
-  portfolio-optimizer-actions/set-portfolio-optimizer-selected-risk-instrument)
 
 (def set-portfolio-optimizer-frontier-overlay-mode-action
   portfolio-optimizer-frontier-actions/set-portfolio-optimizer-frontier-overlay-mode)
@@ -323,18 +246,6 @@
 (def confirm-portfolio-optimizer-scenario-save-action
   portfolio-optimizer-actions/confirm-portfolio-optimizer-scenario-save)
 
-(def toggle-portfolio-optimizer-scenario-menu-action
-  portfolio-optimizer-actions/toggle-portfolio-optimizer-scenario-menu)
-
-(def close-portfolio-optimizer-scenario-menu-action
-  portfolio-optimizer-actions/close-portfolio-optimizer-scenario-menu)
-
-(def handle-portfolio-optimizer-scenario-menu-keydown-action
-  portfolio-optimizer-actions/handle-portfolio-optimizer-scenario-menu-keydown)
-
-(def new-portfolio-optimizer-scenario-action
-  portfolio-optimizer-actions/new-portfolio-optimizer-scenario)
-
 (def load-portfolio-optimizer-route-action
   portfolio-optimizer-actions/load-portfolio-optimizer-route)
 
@@ -364,30 +275,6 @@
 
 (def confirm-portfolio-optimizer-execution-action
   portfolio-optimizer-actions/confirm-portfolio-optimizer-execution)
-
-(def amend-portfolio-optimizer-execution-order-action
-  portfolio-optimizer-actions/amend-portfolio-optimizer-execution-order)
-
-(def resume-portfolio-optimizer-execution-action
-  portfolio-optimizer-actions/resume-portfolio-optimizer-execution)
-
-(def revert-portfolio-optimizer-execution-filled-action
-  portfolio-optimizer-actions/revert-portfolio-optimizer-execution-filled)
-
-(def restage-portfolio-optimizer-execution-smaller-action
-  portfolio-optimizer-actions/restage-portfolio-optimizer-execution-smaller)
-
-(def pause-portfolio-optimizer-execution-action
-  portfolio-optimizer-actions/pause-portfolio-optimizer-execution)
-
-(def discard-portfolio-optimizer-execution-action
-  portfolio-optimizer-actions/discard-portfolio-optimizer-execution)
-
-(def open-portfolio-optimizer-execution-in-ticket-action
-  portfolio-optimizer-actions/open-portfolio-optimizer-execution-in-ticket)
-
-(def set-portfolio-optimizer-execution-order-filter-action
-  portfolio-optimizer-actions/set-portfolio-optimizer-execution-order-filter)
 
 (def refresh-portfolio-optimizer-tracking-action
   portfolio-optimizer-actions/refresh-portfolio-optimizer-tracking)

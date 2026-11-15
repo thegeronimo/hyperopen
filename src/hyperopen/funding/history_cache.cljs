@@ -139,7 +139,6 @@
    :coin coin
    :rows []
    :last-row-time-ms nil
-   ;; Empty cache should not be treated as a fresh sync checkpoint.
    :last-sync-ms 0})
 
 (defn normalize-market-funding-history-cache

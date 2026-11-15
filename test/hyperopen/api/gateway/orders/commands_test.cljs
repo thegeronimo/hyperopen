@@ -36,7 +36,6 @@
     (let [spot-context {:active-asset "PURR/USDC"
                         :asset-idx 10000
                         :market {:market-type :spot :szDecimals 0 :asset-id 10000}}
-          ;; start 2 -> end 1 over 4 legs yields raw 1.6666.../1.3333... mid prices.
           request (commands/build-order-request spot-context
                                                 {:type :scale
                                                  :side :buy
@@ -48,11 +47,8 @@
           orders (get-in request [:action :orders])
           leg-prices (mapv :p orders)]
       (is (= 4 (count orders)))
-      ;; every leg carries the encoded spot asset id and reduce-only is suppressed
       (is (every? #(= 10000 (:a %)) orders))
       (is (every? #(false? (:r %)) orders))
-      ;; canonicalized: <= 8 decimal places (spot szDecimals 0), never the raw
-      ;; full-precision interpolation string
       (is (every? #(re-matches #"\d+(\.\d{1,8})?" %) leg-prices)))))
 
 (deftest perp-scale-leg-prices-are-canonicalized-test
@@ -60,8 +56,6 @@
     (let [perp-context {:active-asset "BTC"
                         :asset-idx 5
                         :market {:market-type :perp :szDecimals 4}}
-          ;; start 100 -> end 99 over 4 legs yields raw 99.6666.../99.3333... mids;
-          ;; szDecimals 4 => max 2 price decimals, so they canonicalize to 99.66/99.33.
           request (commands/build-order-request perp-context
                                                 {:type :scale
                                                  :side :buy
@@ -74,9 +68,7 @@
           orders (get-in request [:action :orders])
           leg-prices (mapv :p orders)]
       (is (= 4 (count orders)))
-      ;; canonicalized to perp tick/sig-fig precision, not the raw interpolation
       (is (= ["100" "99.66" "99.33" "99"] leg-prices))
-      ;; perp keeps the encoded asset id and (unlike spot) preserves reduce-only
       (is (every? #(= 5 (:a %)) orders))
       (is (every? #(true? (:r %)) orders)))))
 
@@ -451,9 +443,6 @@
                                                 :randomize true}}))))
 
 (deftest build-order-request-tags-optimizer-cloid-when-present-test
-  ;; The optimizer stamps a client-order-id so its resting orders are recognizable on the
-  ;; live book later. The wire :c must be LAST (a,b,p,s,r,t,c) because the L1 action is
-  ;; signed by msgpacking the map as-is, so field order is part of the signature.
   (let [tagged (commands/build-order-request command-context
                                              {:type :limit
                                               :side :buy

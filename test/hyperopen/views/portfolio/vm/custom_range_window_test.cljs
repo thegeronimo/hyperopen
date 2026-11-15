@@ -21,7 +21,6 @@
 
 (def ^:private summary-by-key
   {:all-time all-time-summary
-   ;; A denser, shorter bucket: hourly samples over the last 3 days.
    :week {:accountValueHistory (mapv (fn [i] [(+ start (* 57 day) (* i 3600000)) (+ 5700 i)])
                                      (range 72))
           :pnlHistory (mapv (fn [i] [(+ start (* 57 day) (* i 3600000)) (+ 570 i)])

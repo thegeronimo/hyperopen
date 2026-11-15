@@ -38,38 +38,18 @@
                                   up-color
                                   down-color))))))
 
-(defn generate-mock-candles []
-  (let [base-time (- (js/Math.floor (/ (platform/now-ms) 1000)) (* 100 60))  ; 100 minutes ago
-        base-price 46000]
-    (->> (range 100)
-         (map (fn [i]
-                (let [time (+ base-time (* i 60))  ; 1-minute intervals
-                      open (+ base-price (* i 10) (- (rand 200) 100))
-                      high (+ open (rand 150))
-                      low (- open (rand 100))
-                      close (+ open (- (rand 100) 50))
-                      volume (* (+ 50000 (rand 100000)) (+ 0.5 (rand 1)))]
-                  {:time time
-                   :open open
-                   :high (max high (max open close))
-                   :low (min low (min open close))
-                   :close close
-                   :volume volume}))))))
-
 (defn update-last-candle [candles current-time new-price volume]
   (if (empty? candles)
     [{:time current-time :open new-price :high new-price :low new-price :close new-price :volume volume}]
     (let [last-candle (last candles)
           is-same-minute (= (:time last-candle) current-time)]
       (if is-same-minute
-        ;; Update existing candle
         (conj (vec (butlast candles))
               (-> last-candle
                   (assoc :close new-price)
                   (update :high max new-price)
                   (update :low min new-price)
                   (update :volume + volume)))
-        ;; Create new candle
         (conj candles {:time current-time
                        :open new-price
                        :high new-price

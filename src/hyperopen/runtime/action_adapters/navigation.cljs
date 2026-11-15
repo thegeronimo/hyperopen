@@ -51,9 +51,6 @@
                 (get-in state [:portfolio-ui :chart-tab]))
                (remove #(= shareable-route-query-effect-id (first %)))
                vec)
-          ;; Resolved against the DESTINATION route: `/portfolio/trader/<addr>`
-          ;; names the account to load, and the router path is only saved after
-          ;; these effects are built.
           (vault-scope-load/load-effects
            (assoc-in state [:router :path] normalized-path)
            (portfolio-actions/normalize-summary-scope
@@ -98,12 +95,6 @@
         (concat (leaderboard-actions/load-leaderboard-route state normalized-path)
                 (portfolio-optimizer-actions/load-portfolio-optimizer-route state
                                                                             normalized-path)
-                ;; On entry to a fresh /optimize/new draft, restore the wallet's
-                ;; persisted draft or, when none exists, seed the universe from the
-                ;; user's holdings (no-op for every other route and for an
-                ;; already-touched draft). A cold load before account data is ready
-                ;; is retried by the holdings-arrival watcher installed in
-                ;; portfolio.optimizer.infrastructure.draft-autosave.
                 (portfolio-optimizer-actions/restore-or-preseed-portfolio-optimizer-draft
                  state normalized-path)
                 (vault-actions/load-vault-route state normalized-path)

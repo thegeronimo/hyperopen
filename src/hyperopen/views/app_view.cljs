@@ -55,8 +55,6 @@
                    :data-role "spectate-mode-active-banner-label"}
             spectate-label])
          [:span {:class (cond-> ["num" "shrink-0" "text-sm"]
-                          ;; With a label leading, the address stays as the
-                          ;; identity check behind it rather than the headline.
                           spectate-label (conj "opacity-70")
                           (not spectate-label) (conj "font-semibold"))
                  :data-role "spectate-mode-active-banner-address"}

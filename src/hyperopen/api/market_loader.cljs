@@ -7,9 +7,6 @@
   (cond-> {:priority priority}
     (and (= phase :bootstrap)
          (nil? dex))
-    ;; Startup already issues a high-priority default `metaAndAssetCtxs` request
-    ;; via `fetch-asset-contexts!`. Share that single-flight instead of sending
-    ;; a second identical `/info` request during bootstrap selector hydration.
     (assoc :dedupe-key :asset-contexts)))
 
 (defn request-asset-selector-markets!
@@ -25,12 +22,6 @@
            log-fn]}]
   (let [phase (if (= :bootstrap (:phase opts)) :bootstrap :full)
         priority (if (= phase :bootstrap) :high :low)
-        ;; Bootstrap hydrates only the default-dex perp catalog from the
-        ;; metaAndAssetCtxs request the critical path already issues (deduped
-        ;; below). Spot/webdata2/outcome catalogs (~320KB of /info JSON) are
-        ;; fetched and built by the demand paths (:full phase) — selector open
-        ;; or a route that needs them — keeping their network, parsing, and
-        ;; build cost out of the post-paint TBT window.
         bootstrap? (= phase :bootstrap)
         perp-dex-names-promise (if bootstrap?
                                  (js/Promise.resolve [])
@@ -47,8 +38,6 @@
         webdata2-promise (if bootstrap?
                            (js/Promise.resolve {})
                            (ensure-public-webdata2! {:priority priority}))
-        ;; Display names only label HIP-3 markets, which bootstrap never builds.
-        ;; A failed fetch must not block the catalog: fall back to coin symbols.
         perp-annotations-promise (if (or bootstrap?
                                          (nil? request-perp-annotations!))
                                    (js/Promise.resolve {})

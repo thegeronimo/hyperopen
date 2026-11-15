@@ -375,10 +375,6 @@
                                        :toggle-action :actions/toggle-vault-detail-performance-metrics-timeframe-dropdown
                                        :close-action :actions/close-vault-detail-performance-metrics-timeframe-dropdown
                                        :selected-timeframe selected-timeframe
-                                       ;; The tearsheet reads the same window as
-                                       ;; the chart, so it labels itself with the
-                                       ;; custom span and offers the same
-                                       ;; Custom... row.
                                        :custom custom-range
                                        :data-role-prefix "vault-detail-performance-metrics-timeframe"}))]
        (for [[idx {:keys [coin label]}] (map-indexed vector benchmark-columns*)]
@@ -393,9 +389,6 @@
         (or (non-blank-text vault-label)
             "Vault")]]
       [:div {:class ["space-y-2.5" "px-4" "py-3"]}
-       ;; Custom... here reveals a strip HERE, not one on the chart card the
-       ;; trader may have scrolled past. Always rendered (it hides itself) to
-       ;; stay out of the nil-hole shape that freezes Replicant's renderer.
        (range-strip/range-strip
         {:model range-strip
          :label "Vault metrics"

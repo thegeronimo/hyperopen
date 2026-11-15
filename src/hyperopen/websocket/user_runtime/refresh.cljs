@@ -14,11 +14,6 @@
 (def ^:private fill-account-surface-refresh-debounce-ms
   250)
 
-;; An account that fills continuously (a market maker, often the account being
-;; spectated) would otherwise refresh after nearly every fill: each refresh
-;; re-requests open orders and balances, and together they pushed page loads
-;; past Hyperliquid's per-minute request weight. Refreshes stay trailing, so
-;; the last fill's state still loads.
 (def ^:private min-account-surface-refresh-interval-ms
   2000)
 
@@ -51,15 +46,6 @@
 
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
-  ;; No `:force-refresh? true` default here on purpose. A forced request is
-  ;; routed past BOTH the 2.5s response cache and the single-flight
-  ;; de-duplicator (see `api/info_client/flow.cljs`), so defaulting it on meant
-  ;; a stream of incoming fills re-downloaded the whole open-orders snapshot up
-  ;; to several times a second -- for a market-making account that is a
-  ;; half-megabyte, 1,600-order payload the `openOrders` websocket topic had
-  ;; just delivered, and it eventually earns an HTTP 429. Callers that genuinely
-  ;; need to bypass the cache (an order the user just placed or cancelled) pass
-  ;; `:force-refresh? true` themselves.
   (-> (api/request-frontend-open-orders! address
                                          (cond-> (or opts {})
                                            (and dex (not= dex "")) (assoc :dex dex)))

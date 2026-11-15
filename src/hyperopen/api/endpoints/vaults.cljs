@@ -26,10 +26,6 @@
   [value]
   (common/boolean-value value))
 
-(defn normalize-vault-snapshot-preview
-  [payload tvl]
-  (snapshots/normalize-vault-snapshot-preview payload tvl))
-
 (defn normalize-vault-pnls
   [payload]
   (snapshots/normalize-vault-pnls payload))
@@ -45,10 +41,6 @@
 (defn normalize-vault-index-row
   [row]
   (snapshots/normalize-vault-index-row row))
-
-(defn normalize-vault-index-rows
-  [payload]
-  (snapshots/normalize-vault-index-rows payload))
 
 (defn merge-vault-index-with-summaries
   [index-rows summary-rows]

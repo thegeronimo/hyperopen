@@ -29,8 +29,6 @@
                                   "bg-transparent"
                                   "p-0"
                                   "appearance-none"])
-                     ;; Flagship shimmer only while inactive; once the user is
-                     ;; on the page there is nothing left to advertise.
                      (and flagship? (not active?))
                      (conj "header-nav-link-flagship"))
             :href (or href route)

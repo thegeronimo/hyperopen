@@ -59,7 +59,6 @@
     [:div {:class ["border-t" "border-ho-border" "pt-2" "text-trading-text-secondary"]}
      [:span {:class ["text-ho-text"]} "Click"]
      " to set limit price"]
-    ;; Arrow pointing at the row.
     [:div {:class ["absolute" "-right-[6px]" "top-1/2" "h-2.5" "w-2.5" "-translate-y-1/2" "rotate-45"
                    "border-r" "border-t" "border-ho-border" "bg-ho-surface-raised"]
            :aria-hidden "true"}]]))

@@ -3,7 +3,6 @@
 
 (def valid-sort-keys #{:name :price :volume :change :openInterest :funding})
 (def valid-sort-directions #{:asc :desc})
-;; Tradfi sub-tabs filter by the asset class HIP-3 deployers publish on-chain.
 (def tradfi-asset-class-tabs
   [[:tradfi-stocks :stocks]
    [:tradfi-indices :indices]
@@ -20,8 +19,6 @@
   [:outcome :outcome-sports :outcome-crypto :outcome-stocks :outcome-economics :outcome-companies])
 
 (def legacy-outcome-tabs
-  ;; Earlier period sub-tabs. Still accepted from saved settings so nobody's
-  ;; selector resets; they filter like Crypto.
   #{:outcome-15m :outcome-1d})
 
 (def outcome-tab-set

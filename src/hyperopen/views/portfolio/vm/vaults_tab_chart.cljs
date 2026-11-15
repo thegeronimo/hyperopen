@@ -83,7 +83,6 @@
             lo (apply min ys)
             hi (apply max ys)
             pad (* 0.06 (if (> hi lo) (- hi lo) (max 1 (js/Math.abs hi))))
-            ;; Never pad below zero when nothing plotted is negative.
             lo* (if (>= lo 0) (max 0 (- lo pad)) (- lo pad))
             hi* (+ hi pad)
             x-of #(scale t0 t1 %)

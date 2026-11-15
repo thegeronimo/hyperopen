@@ -18,8 +18,6 @@
   {"perp:X" readiness-status})
 
 (deftest excluded-from-alignment-paints-shared-gap-chip-not-missing-test
-  ;; An excluded-from-alignment asset (readiness-status :loaded-but-misaligned)
-  ;; must surface as a by-exception shared-gap chip, never as missing.
   (is (= :shared-gap
          (universe/selected-history-status
           {} {} {} (status-by :loaded-but-misaligned) instrument)))
@@ -38,7 +36,6 @@
     (is (= :stale-critical (:history-status incident)))
     (is (= "stale" (:history-label incident)))
     (is (= :warn (:history-tone incident)))
-    ;; Routine 1-2 day staleness stays all-clear: no chip.
     (is (= :stale (:history-status routine)))
     (is (nil? (:history-label routine)))))
 
@@ -65,8 +62,6 @@
                       :stale-history))))
 
 (deftest excluded-and-common-window-empty-readiness-severities-test
-  ;; excluded-from-alignment is a disclosure note (the actionable assumption card
-  ;; is its own caution); common-window-empty is a visible caution.
   (is (= :info
          (severity-of (readiness-with [{:code :excluded-from-alignment
                                         :instrument-id "perp:X"

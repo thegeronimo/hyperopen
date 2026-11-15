@@ -32,10 +32,7 @@
 (def ^:private hour-ms (* 60 60 1000))
 (def min-window-ms hour-ms)
 (def max-window-ms (* 90 24 hour-ms))
-;; Hyperliquid mainnet trading began in 2023: nothing older can exist
 (def history-floor-ms 1672531200000)
-;; aggregated pages may hold fewer than 2000 rows while more exist, so only a
-;; clearly short REST page proves the history complete
 (def ^:private complete-page-max-rows (quot page-size 2))
 
 (defn- parse-ms
@@ -144,8 +141,6 @@
                         (filterv #(< (or (fill-time-ms %) 0) snapshot-from) (:fills current))
                         (:fills current))
              incoming (if rest-page? rows* (outside-rest-span current rows*))
-             ;; a cut-off page may end inside one millisecond: keep that
-             ;; millisecond uncovered so the next window fetches the rest of it
              snapshot-covered (when (number? snapshot-from) (inc snapshot-from))
              covered-from (cond
                             complete? 0
@@ -203,21 +198,16 @@
     (if-not (and history (= end-ms (:loading-end-ms history)))
       state
       (let [rows* (vec (filter map? rows))
-            ;; the window is authoritative for [start-ms, end-ms]: its end
-            ;; millisecond may hold an aggregated REST row it now returns per trade
             kept (filterv #(let [t (or (fill-time-ms %) 0)] (or (< t start-ms) (> t end-ms)))
                           (:fills history))
             merged (merge-fills kept rows*)
             window (or (:window-ms history) (* 24 hour-ms))
-            ;; an empty window widens the next one; a busy one keeps its size
             next-window (if (empty? rows*) (* 2 window) window)
             covered (:covered-from-ms history)]
         (assoc state :chart-trades
                (assoc history
                       :fills merged
                       :loading-end-ms nil
-                      ;; coverage only grows: a complete snapshot may have landed
-                      ;; while this window was in flight
                       :covered-from-ms (cond
                                          truncated? covered
                                          (number? covered) (min covered start-ms)
@@ -232,6 +222,5 @@
   [state address end-ms]
   (let [history (history-for state address)]
     (if (and history (= end-ms (:loading-end-ms history)))
-      ;; stop paging after an error rather than retrying every frame
       (assoc state :chart-trades (assoc history :loading-end-ms nil :exhausted? true))
       state)))

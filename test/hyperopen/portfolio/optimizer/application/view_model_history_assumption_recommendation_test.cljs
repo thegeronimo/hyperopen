@@ -58,10 +58,6 @@
   {:status :succeeded :request-signature {:universe universe}})
 
 (deftest history-assumption-cards-surface-backend-recommendations-test
-  ;; A mode-less card carries the server's default-assumption recommendation:
-  ;; the suggested approach, the members split by whether the backend can
-  ;; serve their history today, and the one-click apply action. Choosing a
-  ;; mode by hand dismisses it — an authored entry always wins.
   (let [state (assoc-in {} contracts/history-discovery-path
                         recommendation-discovery)
         draft {:universe universe
@@ -97,9 +93,6 @@
       (is (zero? (:recommended-count model*))))))
 
 (deftest history-assumption-rail-model-passes-recommendation-aggregates-through-test
-  ;; The right rail renders its own "Apply all recommended (N)" shortcut, so the
-  ;; rail model must carry the SAME aggregates the center banner keys off —
-  ;; passed through from the cards model, never recomputed.
   (let [state (assoc-in {} contracts/history-discovery-path
                         recommendation-discovery)
         draft {:universe universe
@@ -122,9 +115,6 @@
           "A configured asset stops counting toward the rail shortcut."))))
 
 (deftest history-assumption-cards-recommendation-unapplicable-when-all-members-held-test
-  ;; When the backend cannot serve ANY recommended member yet, the card still
-  ;; explains the recommendation but one-click apply is withheld — applying it
-  ;; would park the card in a permanently blocked state.
   (let [discovery (assoc-in recommendation-discovery
                             [:instruments-by-backend-id "hl:perp:NEW"
                              :default-assumption :members]
@@ -159,8 +149,6 @@
      :pnlHistory (mapv (fn [t v] [t (str (- v 100000))]) times values)}))
 
 (deftest young-vault-card-recommends-its-own-history-test
-  ;; No backend recommendation exists for a vault; a strategy has no factor to
-  ;; proxy, so the card offers the vault's own measured volatility instead.
   (let [vault-universe [btc-instrument young-vault]
         state (assoc-in {} [:portfolio :optimizer :history-data :vault-details-by-address
                             "0x00000000000000000000000000000000000000aa"]

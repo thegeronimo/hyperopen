@@ -14,9 +14,8 @@
    :coins-by-owner {}
    :contexts {}})
 
-;; Active asset context state
 (defonce active-asset-ctx-state
-  (atom default-active-asset-ctx-state)) ; Map of coin -> WsActiveAssetCtx or WsActiveSpotAssetCtx
+  (atom default-active-asset-ctx-state))
 
 (defn- normalize-owner [owner]
   (if (keyword? owner)
@@ -43,7 +42,6 @@
   [channel]
   (contains? #{"activeAssetCtx" "activeSpotAssetCtx"} channel))
 
-;; Create a handler function that has access to the store
 (defn create-active-asset-data-handler [store]
   (fn [data]
     (when (and (map? data) (active-asset-ctx-channel? (:channel data)))
@@ -51,7 +49,6 @@
             coin (:coin data-payload)
             ctx (:ctx data-payload)]
         (when (and coin ctx)
-          ;; Transform the data to match our expected format
           (let [mark-raw (:markPx ctx)
                 oracle-raw (:oraclePx ctx)
                 prev-day-raw (:prevDayPx ctx)
@@ -81,7 +78,6 @@
                                 :fundingRate (when (number? funding)
                                                (* 100 funding))}
                 received-at-ms (.now js/Date)]
-            ;; Coalesce market projections so one frame emits one store write.
             (when store
               (market-projection-runtime/queue-market-projection!
                {:store store
@@ -91,13 +87,9 @@
                   (-> state
                       (assoc-in [:active-assets :contexts coin] formatted-data)
                       (assoc-in [:active-assets :loading] false)
-                      ;; Receipt time kept OUTSIDE :active-assets so identical context
-                      ;; payloads stay value-equal for memoized panels; the Vol Range
-                      ;; 24h VWAP anchor reads it as its observation time (spec 7.3).
                       (assoc-in [:market-observations :active-asset-ctx coin] received-at-ms)
                       (market-live-projection/apply-active-asset-ctx-update coin ctx)))}))))))))
 
-;; Subscribe to active asset context for a coin
 (defn subscribe-active-asset-ctx!
   ([coin]
    (subscribe-active-asset-ctx! coin default-owner))
@@ -127,7 +119,6 @@
                                                   :coin coin}}))
        (telemetry/log! "Subscribed to active asset context for:" coin "owner:" owner*)))))
 
-;; Unsubscribe from active asset context for a coin
 (defn unsubscribe-active-asset-ctx!
   ([coin]
    (unsubscribe-active-asset-ctx! coin default-owner))
@@ -166,21 +157,9 @@
                                                   :coin coin}}))
        (telemetry/log! "Unsubscribed from active asset context for:" coin "owner:" owner*)))))
 
-;; Handle incoming active asset context data
-(defn handle-active-asset-ctx-data! [data]
-  (telemetry/log! "Processing active asset context data:" data)
-  (when (and (map? data) (active-asset-ctx-channel? (:channel data)))
-    (let [ctx-data (:data data)
-          coin (:coin ctx-data)]
-      (when coin
-        (swap! active-asset-ctx-state assoc-in [:contexts coin] ctx-data)
-        (telemetry/log! "Updated active asset context for" coin ":" ctx-data)))))
-
-;; Get current subscriptions
 (defn get-subscriptions []
   (:subscriptions (normalized-state @active-asset-ctx-state)))
 
-;; Get subscribed coins for an owner
 (defn get-subscribed-coins-by-owner [owner]
   (get-in (normalized-state @active-asset-ctx-state)
           [:coins-by-owner (normalize-owner owner)]
@@ -198,34 +177,8 @@
     (doseq [coin unsubscribe-coins]
       (unsubscribe-active-asset-ctx! coin owner*))))
 
-;; Get active asset context for a specific coin
-(defn get-active-asset-ctx [coin]
-  (get-in @active-asset-ctx-state [:contexts coin]))
-
-;; Get all active asset contexts
-(defn get-all-active-asset-ctxs []
-  (:contexts (normalized-state @active-asset-ctx-state)))
-
-;; Check if a coin has active asset context
-(defn has-active-asset-ctx? [coin]
-  (contains? (:contexts (normalized-state @active-asset-ctx-state)) coin))
-
-;; Clear active asset context for a specific coin
-(defn clear-active-asset-ctx! [coin]
-  (swap! active-asset-ctx-state update :contexts dissoc coin))
-
-;; Clear all active asset contexts
-(defn clear-all-active-asset-ctxs! []
-  (swap! active-asset-ctx-state assoc :contexts {}))
-
-;; Get list of all subscribed coins
-(defn get-subscribed-coins []
-  (vec (:subscriptions (normalized-state @active-asset-ctx-state))))
-
-;; Initialize active asset context module
 (defn init! [store]
   (telemetry/log! "Active asset context subscription module initialized")
-  ;; Register handler for activeAssetCtx channel with store access
   (let [handler (create-active-asset-data-handler store)]
     (ws-client/register-handler! "activeAssetCtx" handler)
     (ws-client/register-handler! "activeSpotAssetCtx" handler))) 

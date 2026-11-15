@@ -87,9 +87,6 @@
       (is (not (contains? strings "Diversification"))))))
 
 (deftest results-panel-equal-risk-places-leverage-impact-below-risk-contributions-test
-  ;; The existing one-year modeled leverage-impact component belongs in Equal
-  ;; Risk's center column too: directly below the balance chart and above the
-  ;; Equal Risk explanation, with neither frontier machinery nor refinement.
   (let [levered-result (assoc-in approximate-result [:diagnostics :gross-exposure] 2.0)
         view-node (render levered-result)
         order (data-role-order view-node)
@@ -130,10 +127,6 @@
         "The Equal Risk lead stays above volatility intuition; its quality block follows it.")))
 
 (deftest results-panel-equal-risk-clamps-off-scale-current-markers-test
-  ;; A current book concentrating ~all volatility in one asset (the usual
-  ;; reason to run Equal Risk) must not stretch the chart scale: that current
-  ;; renders as an edge chevron (data-offscale) while in-range currents keep
-  ;; their circles.
   (let [result (assoc approximate-result
                       :current-risk-contributions
                       {:relative-contributions-by-instrument {"perp:BTC" 3.0
@@ -173,12 +166,6 @@
         "negative contributions are named, never absolute-valued away")))
 
 (deftest results-panel-equal-risk-exact-fit-shows-shift-columns-test
-  ;; An exact fit with current contributions flips the chart to the rebalance
-  ;; story (:shift display mode): Current/Shift columns replace the constant
-  ;; Target and all-zero Deviation columns, the KPI strip swaps its dead
-  ;; deviation cells for current imbalance + biggest shift, rows order by
-  ;; current share descending, and the per-row target ticks disappear (on
-  ;; uniform targets they only re-drew the continuous dashed line).
   (let [exact-result (-> approximate-result
                          (update :risk-contributions merge
                                  {:relative-contributions [0.5 0.5]
@@ -240,9 +227,6 @@
             "uniform ticks are suppressed in deviation mode too — the dashed line carries the target")))))
 
 (deftest results-panel-equal-risk-degrades-on-persisted-pre-redesign-results-test
-  ;; A scenario saved before this redesign has no current contributions, no
-  ;; allocation freedom, and no initializations — the page must still render
-  ;; with honest placeholders instead of guessing.
   (let [old-result (-> approximate-result
                        (dissoc :current-risk-contributions)
                        (assoc :equal-risk-solver

@@ -12,9 +12,6 @@
 
 (def ^:private finite-number? coercion/finite-number?)
 
-(def supported-l1-codes
-  #{:gross-exposure :turnover})
-
 (defn- fmt
   [value]
   (if (finite-number? value)

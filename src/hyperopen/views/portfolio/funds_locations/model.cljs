@@ -50,8 +50,6 @@
   "The smallest USD amount that rounds to $0.01."
   0.005)
 
-;; --- readiness ---------------------------------------------------------------
-
 (defn hypercore-status
   "`:ready` once the shown account's HyperCore snapshot is loaded (its
    Perps clearinghouse state and its Spot balances), `:unavailable` when
@@ -63,8 +61,6 @@
       (and perps? spot?) :ready
       (and (not spot?) (some? (get-in state [:spot :error]))) :unavailable
       :else :loading)))
-
-;; --- cards -------------------------------------------------------------------
 
 (defn- token-count-text
   [n]
@@ -136,16 +132,12 @@
   [{:keys [status usd token-count unpriced-count] :as funds}]
   (case status
     :ready (let [unpriced? (and (number? unpriced-count) (pos? unpriced-count))]
-             ;; Only unpriced tokens (and dust): their value is unknown, not
-             ;; $0.00.
              {:value-text (if (and unpriced? (< usd min-shown-usd))
                             "Unpriced"
                             (portfolio-format/format-currency usd))
-              ;; A token with no price adds nothing to the value; say so.
               :detail (str (token-count-text token-count)
                            (when unpriced?
                              (str ", " unpriced-count " unpriced")))
-              ;; An empty wallet needs no gas warning.
               :gas (when (or (pos? token-count)
                              (not= :none (:gas-status funds)))
                      (gas-model funds))})
@@ -161,8 +153,6 @@
                "Checking HyperEVM balances…")
      :checking? true
      :gas nil}))
-
-;; --- total -------------------------------------------------------------------
 
 (defn- unknown-total
   "`[status-text tone]` saying why the total is unknown, or nil when both
@@ -216,12 +206,9 @@
     (let [total-equity (:total-equity summary)]
       {:value-text (portfolio-format/format-currency (+ total-equity usd))
        :known? true
-       ;; The summary card's own label for the same figure.
        :status-text (str "Total Equity " (portfolio-format/format-currency total-equity))
        :tone :muted
        :includes-text (elsewhere-text summary unified?)})))
-
-;; --- connectors --------------------------------------------------------------
 
 (defn- connector
   [id data-role aria-label context reason]

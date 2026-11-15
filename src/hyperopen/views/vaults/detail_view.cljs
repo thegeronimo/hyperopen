@@ -54,10 +54,6 @@
   [state]
   (let [route (get-in state [:router :path])
         hover-active? (chart-hover-state/surface-hover-active? :vaults)
-        ;; The custom range changes on every pointer sample of a strip drag.
-        ;; Without it in the cache key, a drag that begins while the chart still
-        ;; reports hover would replay the cached VM and the chart would sit
-        ;; frozen for the whole gesture.
         custom-range-cache-key [(get-in state detail-commands/vault-detail-custom-range-path)
                                 (get-in state detail-commands/vault-detail-range-strip-path)
                                 (get-in state detail-commands/vault-detail-range-drag-path)]

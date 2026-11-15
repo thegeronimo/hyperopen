@@ -57,7 +57,6 @@
 (deftest book-split-follows-encoded-bounds-test
   (let [enc (encoded [(perp "perp:A" :long)
                       (perp "perp:B" :short)
-                      ;; No side, shortable => two-sided bounds.
                       (dissoc (perp "perp:C" :long) :position-side)]
                      {:gross-leverage 2.0
                       :net-exposure {:min 0.0 :max 0.0}})
@@ -79,9 +78,6 @@
     (is (= {:long [0] :short [1]} (:books result)))))
 
 (deftest presolve-ignores-stored-net-target-outside-gross-test
-  ;; Banded gross keeps this out of the base encoder's reach: gross-max 3
-  ;; satisfies |net| <= gross-max. Equal Risk must ignore that stored net
-  ;; midpoint and keep only the gross target active.
   (let [enc (encoded [(perp "perp:A" :long) (perp "perp:B" :short)]
                      {:gross-leverage 3.0
                       :gross-floor 1.0
@@ -176,8 +172,6 @@
       (is (= ["perp:B"] (:instrument-ids violation))))))
 
 (deftest presolve-rejects-non-shortable-short-request-test
-  ;; The bounds encoder silently long-flips a non-shortable short request;
-  ;; Equal Risk must surface that instead of quietly changing the side.
   (let [enc (encoded [(perp "perp:A" :long)
                       (perp "perp:B" :short :shortable? false)]
                      {:gross-leverage 1.0
@@ -289,7 +283,6 @@
                          {:max-absolute-error (* 10 tolerance)
                           :rms-error (* 5 tolerance)}
                          n true)))
-    ;; Non-converged never claims exactness, even at tiny realized error.
     (is (= :not-converged (equal-risk/classify-quality
                            {:max-absolute-error 0.0 :rms-error 0.0}
                            n false)))))
@@ -299,11 +292,9 @@
         s [0.1 -0.05]
         y [0.2 -0.02]
         updated (equal-risk/bfgs-update b s y)]
-    ;; s'Bs > 0 after update for a couple of probe directions.
     (doseq [probe [[1 0] [0 1] [1 1] [1 -1]]]
       (let [bp (mapv (fn [row] (reduce + 0 (map * row probe))) updated)]
         (is (pos? (reduce + 0 (map * probe bp))))))
-    ;; Invalid curvature leaves B unchanged.
     (is (= b (equal-risk/bfgs-update b [0 0] [0 0])))))
 
 (deftest presolve-does-not-warn-on-stored-net-lopsidedness-test

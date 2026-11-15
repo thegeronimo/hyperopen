@@ -17,7 +17,6 @@
         {:keys [status q sigma volatility-contributions relative-contributions]}
         (risk-contributions/contributions diagonal-covariance weights)]
     (is (= :ok status))
-    ;; u = w .* (Sigma w): both assets contribute 0.004444... variance.
     (is (near? 0.5 (nth relative-contributions 0) 1e-12))
     (is (near? 0.5 (nth relative-contributions 1) 1e-12))
     (is (near? sigma (reduce + 0 volatility-contributions) 1e-12))
@@ -28,8 +27,6 @@
                1e-12))))
 
 (deftest negative-contribution-is-preserved-not-absolute-valued-test
-  ;; Hedged book: long 1.5 / short 0.5 of two 20%-vol assets at rho = 0.75.
-  ;; The short leg REDUCES total risk, so its signed contribution is negative.
   (let [covariance [[0.04 0.03]
                     [0.03 0.04]]
         weights [1.5 -0.5]
@@ -60,7 +57,6 @@
       (is (= :error (:status result)))
       (is (= :degenerate-variance (:reason result)))))
   (testing "perfectly hedged singular covariance"
-    ;; rho = 1 with w = [1 -1] gives q = 0 exactly.
     (let [result (risk-contributions/contributions [[0.04 0.04] [0.04 0.04]] [1 -1])]
       (is (= :error (:status result)))
       (is (= :degenerate-variance (:reason result))))))

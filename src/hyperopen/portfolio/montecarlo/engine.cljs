@@ -28,10 +28,6 @@
   capped set of drawn paths and the per-grid percentile bands are materialized
   as ClojureScript vectors for the view layer.")
 
-;; ---------------------------------------------------------------------------
-;; Seeded RNG (mulberry32) — deterministic uniform floats in [0, 1).
-;; ---------------------------------------------------------------------------
-
 (defn mulberry32
   "Return a zero-argument function producing a deterministic stream of uniform
   floats in [0, 1), seeded by integer `seed`."
@@ -47,10 +43,6 @@
                          t)]
           (/ (unsigned-bit-shift-right (bit-xor t (unsigned-bit-shift-right t 14)) 0)
              4294967296))))))
-
-;; ---------------------------------------------------------------------------
-;; Statistics helpers
-;; ---------------------------------------------------------------------------
 
 (defn- f64->vec
   "Copy a (typed) array into a ClojureScript vector of numbers. Avoids relying on
@@ -133,13 +125,7 @@
              data-max (reduce max v)
              dlo (when (and domain (number? (first domain))) (first domain))
              dhi (when (and domain (number? (second domain))) (second domain))
-             ;; Fall back to the full data range if no (valid) domain was given.
              [lo hi] (if (and dlo dhi (< dlo dhi)) [dlo dhi] [data-min data-max])
-             ;; "Degenerate" = effectively a single value. A shuffle-invariant
-             ;; metric (e.g. CAGR) is constant in theory but differs by
-             ;; floating-point noise (~1e-13); an exact `==` would miss that and
-             ;; spread the noise into a fake bell curve. Use a relative tolerance
-             ;; so such a metric collapses to one centered spike.
              degenerate? (<= (- hi lo)
                              (* 1e-9 (max 1 (js/Math.abs lo) (js/Math.abs hi))))
              span (if (or degenerate? (<= (- hi lo) 0)) 1 (- hi lo))
@@ -149,8 +135,8 @@
            (let [b (if degenerate?
                      (quot bins 2)
                      (let [b (js/Math.floor (* (/ (- x lo) span) bins))]
-                       (cond (>= b bins) (dec bins)   ; clamp high overflow into the last bin
-                             (< b 0) 0                 ; clamp low overflow into the first bin
+                       (cond (>= b bins) (dec bins)
+                             (< b 0) 0
                              :else b)))]
              (aset counts b (inc (aget counts b)))))
          {:counts (vec counts)
@@ -163,10 +149,6 @@
           :overflow-lo? (boolean (and (not degenerate?) (< data-min lo)))
           :overflow-hi? (boolean (and (not degenerate?) (> data-max hi)))
           :bin-width (/ span bins)})))))
-
-;; ---------------------------------------------------------------------------
-;; Simulation
-;; ---------------------------------------------------------------------------
 
 (defn- grid-indices
   "Sampled time grid (day indices 0..H) used to bound the memory of the
@@ -237,7 +219,7 @@
   (let [arr (identity-indices n)]
     (loop [i (dec n)]
       (when (pos? i)
-        (let [j (bit-or 0 (* (rng) (inc i)))   ; uniform integer in [0, i]
+        (let [j (bit-or 0 (* (rng) (inc i)))
               tmp (aget arr i)]
           (aset arr i (aget arr j))
           (aset arr j tmp)
@@ -277,15 +259,10 @@
                          (if (< i m) (recur (inc i) (+ acc (aget dt i))) acc))
         ppy-eff (if (pos? realized-years) (/ m realized-years) 0)
         rf-log (if (and (number? rf) (> (+ 1 rf) 0)) (js/Math.log (+ 1 rf)) 0)
-        ;; :shuffle reorders the realized history, so its length is the history
-        ;; length. :bootstrap clamps the step count to the sample size so it can
-        ;; never resample more than the realized calendar span (the anti-inflation
-        ;; guarantee, now expressed in time via the caller's step derivation).
         H (cond
             (zero? m) horizon
             shuffle? m
             :else (min horizon m))
-        ;; Calendar time the simulated paths represent, for the axis and labels.
         span-years (cond
                      (zero? m) 0
                      shuffle? realized-years
@@ -304,7 +281,6 @@
         busts (volatile! 0)
         goals (volatile! 0)]
     (if (zero? m)
-      ;; No realized returns to resample from — return an empty/degenerate run.
       {:meta {:sims sims :horizon H :bust bust :goal goal :seed seed :method method
               :start-equity start-equity :rf rf :sample-size 0
               :total-years 0 :ppy-eff 0 :span-years 0}
@@ -317,18 +293,12 @@
         (dotimes [s sims]
           (let [keep-path? (< s draw-cap)
                 path (when keep-path? (js/Float64Array. (inc H)))
-                ;; Shuffle mode: precompute this sim's permutation of the
-                ;; realized returns. Sim 0 keeps the original order (QuantStats's
-                ;; unshuffled first column); the rest are Fisher–Yates shuffles.
                 perm (when shuffle?
                        (if (zero? s) (identity-indices m) (shuffled-indices rng m)))]
             (when keep-path? (aset path 0 start-equity))
-            ;; Seed grid column 0 (always day 0) with the starting equity.
             (let [gp0 (if (== (aget grid-idx 0) 0)
                         (do (aset (nth cols 0) s start-equity) 1)
                         0)
-                  ;; March the path forward day by day, accumulating moments,
-                  ;; tracking peak/worst-drawdown, and filling grid columns.
                   result
                   (loop [t 1 equity 1.0 peak 1.0 worst-dd 0.0
                          acc-a 0.0 acc-b 0.0 acc-c 0.0 gp gp0]
@@ -352,18 +322,9 @@
                                       (do (aset (nth cols gp) s scaled)
                                           (recur (inc gp)))
                                       gp))]
-                          ;; A = Σ log²/dt, B = Σ log, C = Σ dt — the one-pass
-                          ;; moments for elapsed-time (irregular) annualization.
                           (recur (inc t) equity* peak* worst*
                                  (+ acc-a (/ (* lg lg) d)) (+ acc-b lg) (+ acc-c d) gp*)))))
                   [equity worst-dd acc-a acc-b acc-c] result
-                  ;; Elapsed-time (irregular) annualization, identical to the
-                  ;; tearsheet's interval math (returns/sharpe-irregular,
-                  ;; volatility-ann-irregular, interval-cagr): drift is log-return
-                  ;; per year and the variance is a per-year rate, so Sharpe/vol/
-                  ;; CAGR are already annualized with no periods-per-year guess.
-                  ;; var-rate = (Σlog²/dt − (Σlog)²/Σdt)/(n−1), the one-pass form
-                  ;; of Σ(residual²/dt)/(n−1) with residual = log − drift·dt.
                   drift (if (pos? acc-c) (/ acc-b acc-c) 0)
                   var-rate (if (> H 1)
                              (max 0 (/ (- acc-a (/ (* acc-b acc-b) acc-c)) (dec H)))
@@ -371,10 +332,6 @@
                   vol* (js/Math.sqrt var-rate)
                   cagr* (- (js/Math.exp drift) 1)
                   sharpe-full (if (pos? vol*) (/ (- drift rf-log) vol*) 0)
-                  ;; QuantStats montecarlo_sharpe drops the first observation
-                  ;; (cumret.pct_change().dropna()); generalize to "drop the first
-                  ;; interval of this permutation" so the shuffle Sharpe shows the
-                  ;; same leave-one-out distribution, now correctly annualized.
                   sharpe-val (if (and shuffle? (> H 1))
                                (let [i0 (aget perm 0)
                                      a0 (aget logr i0)
@@ -398,7 +355,6 @@
               (when (<= worst-dd bust) (vswap! busts inc))
               (when (>= (- equity 1) goal) (vswap! goals inc))
               (when keep-path? (conj! draw-paths path)))))
-        ;; Percentile band envelope at each grid point, across all sims.
         (let [band (reduce
                     (fn [acc g]
                       (let [sorted (f64->vec (.sort (.slice (nth cols g))

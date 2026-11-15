@@ -132,7 +132,6 @@ test("screener run paces requests and groups results @regression", async ({ page
   await page.locator("[data-role='vault-screener-tab-fail']").click();
   await expect(page.locator("[data-role='vault-screener-results']")).toContainText("Choppy Vault");
 
-  // Editing a threshold re-filters without fetching again.
   const before = requests.length;
   await dispatch(page, [":actions/set-vault-screener-criterion-value", "sharpe", "-50"]);
   await dispatch(page, [":actions/set-vault-screener-criterion-value", "max-drawdown", "100"]);
@@ -170,7 +169,6 @@ test("saved screener results become a view on the All vaults page @regression", 
   await page.locator("[data-role='vaults-saved-view-all']").click();
   await expect(page.locator("[data-role='vault-row']")).toHaveCount(VAULTS.length);
 
-  // The view survives a reload (IndexedDB).
   await page.reload();
   await waitForIdle(page, { quietMs: 300, timeoutMs: 10_000, pollMs: 100 });
   const chip = page.locator("[data-role='vaults-saved-view-chip']", { hasText: "My calm vaults" });

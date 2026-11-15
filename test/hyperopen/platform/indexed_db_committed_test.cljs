@@ -35,7 +35,6 @@
                                                  (later #(when-let [h (.-onsuccess req)]
                                                            (h #js {:target #js {:result (clj->js (vec (vals @committed)))}})))
                                                  req))}))
-                        ;; The transaction settles after its requests succeeded.
                         (js/setTimeout
                          (fn []
                            (cond
@@ -44,8 +43,6 @@
                                                        (some-> (.-oncomplete tx) (apply [#js {}])))
                              (= outcome :sync-throw) (do (swap! committed merge @pending)
                                                          (some-> (.-oncomplete tx) (apply [#js {}])))
-                             ;; :abort and :request-error: a failed request aborts the
-                             ;; whole transaction unless its error is cancelled.
                              :else (do (aset tx "error" (js/Error. (if (= outcome :abort)
                                                                       "QuotaExceededError"
                                                                       "ConstraintError")))
@@ -114,7 +111,6 @@
         (.finally done))))
 
 (deftest synchronous-put-failure-aborts-earlier-puts-test
-  ;; Review M2: a later put that throws must not let earlier puts auto-commit.
   (async done
     (-> (with-fake :sync-throw
           (fn [committed]

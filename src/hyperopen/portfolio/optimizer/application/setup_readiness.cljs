@@ -27,9 +27,6 @@
   warning-policy/stale-history-warning-codes)
 
 (def ^:private fallback-as-of-bucket-ms
-  ;; Quantize the wall-clock fallback so request building can memoize across
-  ;; streaming renders. Staleness windows are minutes long, so a five second
-  ;; as-of granularity is immaterial to readiness output.
   5000)
 
 (defn- current-as-of-ms
@@ -65,9 +62,6 @@
   (volatile! nil))
 
 (defn- build-request
-  ;; Request building re-aligns the full instrument history, which is far too
-  ;; expensive to redo on every streaming render. The snapshot is memoized on
-  ;; its own inputs, so comparing these resolved inputs by value stays cheap.
   [state draft]
   (let [draft (draft-enrichment/enrich-draft-instruments state draft)
         inputs {:draft draft
@@ -81,10 +75,6 @@
                                     calendar/default-stale-after-ms)
                 :funding-periods-per-year
                 (get-in state contracts/runtime-funding-periods-per-year-path)
-                ;; A user-triggered refinement re-runs at a higher frontier density. The
-                ;; budget is injected onto the solved objective only while a refinement is
-                ;; active; it is stripped from the input-signature so it never reads as
-                ;; stale relative to the draft (see contracts.signatures/stable-objective).
                 :frontier-points-override
                 (when (get-in state contracts/refinement-active-path)
                   (get-in state contracts/refinement-requested-points-path))}
@@ -201,17 +191,12 @@
   (let [n count
         assets (str n (if (= 1 n) " asset" " assets"))]
     (cond
-      ;; The two staleness codes need DISTINCT sentences: rendering both as
-      ;; "use stale cached history" produced two identically-worded groups with
-      ;; different counts side by side (audited live: "15 assets…" and
-      ;; "6 assets…" with overlapping asset lists).
       (= :source-fetch-failed code)
       (str assets " could not refresh from the history provider — using cached or native history")
 
       (contains? stale-history-warning-codes code)
       (str assets (if (= 1 n) " uses" " use") " stale history")
 
-      ;; "Proxy" is an internal mapping term; traders read "substitute history".
       (= :proxy-history-used code)
       (str assets (if (= 1 n) " uses" " use") " substitute history")
 
@@ -303,15 +288,11 @@
       :vault-derived-history-used
       (str label ": row uses vault return-index history, not market candles.")
 
-      ;; Long history, published far apart (a downsampled vault window). Says how
-      ;; it IS estimated - it is not a defect and must not read like one.
       :sparse-native-history
       (str label ": " (:observations warning) " samples across "
            (js/Math.round (or (:elapsed-days warning) 0))
            " days - estimated from its own samples, outside the shared daily window.")
 
-      ;; Without this the code fell through to the raw-keyword branch below and
-      ;; printed "optimizer-history-api-legacy-fallback" at the user.
       :optimizer-history-api-legacy-fallback
       (str label ": served from Hyperliquid directly because the optimizer "
            "history service has no record for it.")
@@ -319,8 +300,6 @@
       :funding-history-missing
       (str label ": funding history is missing; price history availability is separate.")
 
-      ;; Portfolio-level prior fallbacks (no :instrument-id): say what happens
-      ;; instead of leaking the internal code as a headline.
       :missing-market-cap-prior
       (str "Market-cap baseline unavailable — implied returns start from "
            (if (= :equal-weight (:fallback warning))
@@ -401,7 +380,6 @@
 
 (defn- history-assumption-warning
   [entry return-required? instrument-id ctx]
-  ;; An assumption behavior is chosen but a required detail is still missing.
   (let [missing (first-missing-assumption-field entry
                                                 return-required?
                                                 (assoc ctx :self-id instrument-id))]
@@ -422,11 +400,6 @@
   {:usable-proxy-ids (request-builder/usable-proxy-id-set
                       (get-in request [:history :eligible-instruments])
                       (:history-assumptions draft)
-                      ;; MUST match request-builder's set exactly: this ctx feeds
-                      ;; first-missing-proxy-field, so a stale set makes readiness
-                      ;; call a proxy anchor usable that the engine rejected, and
-                      ;; the user gets "needs more history-assumption details"
-                      ;; instead of the name of the unusable proxy.
                       (get-in request [:history :off-calendar-instrument-ids]))
    :max-asset-weight (get-in request [:constraints :max-asset-weight])})
 
@@ -449,11 +422,6 @@
          vec)))
 
 (defn- native-observations-by-id
-  ;; Native price-row counts per instrument: the aligned history's raw series
-  ;; where the asset survived alignment, else the pre-alignment served count.
-  ;; The raw map covers ELIGIBLE assets only, so counting it alone blinded this
-  ;; gate exactly when a poisoned shared calendar excluded everyone (live
-  ;; 2026-07-08) - the served fallback keeps the gate honest for excluded assets.
   [request]
   (merge (get-in request [:history :served-observations-by-instrument])
          (into {}
@@ -473,9 +441,6 @@
         return-required? (history-assumptions/return-required-for-objective?
                           (get-in request [:objective :kind]))
         assumptions (:history-assumptions draft)
-        ;; Off-calendar sparse members are already estimated natively by the
-        ;; mixed-frequency path. Demanding an assumption for them would block the
-        ;; run for an asset the engine is happily modeling.
         off-calendar-ids (set (get-in request [:history :off-calendar-instrument-ids]))]
     (if (< max-obs history-assumptions/short-history-min-observations)
       []
@@ -521,8 +486,6 @@
                                     (contains? history-blocking-warning-codes
                                                (:code warning)))))
                          (:warnings request))
-        ;; Prefer actionable assumption guidance over the lower-level raw history
-        ;; warnings for the same asset.
         assumption-ids (set (keep (fn [warning]
                                     (when (contains? history-assumption-warning-codes
                                                      (:code warning))
@@ -563,9 +526,6 @@
         current-history (:current-portfolio-history request)
         current-ids (instrument-ids (:current-portfolio-universe request))
         selected-ids (instrument-ids (:requested-universe request))
-        ;; A holding counts as covered when it aligned OR when the last
-        ;; current-portfolio fetch already requested it; holdings with no
-        ;; usable backend history must not force a reload on every run.
         covered-ids (set/union (instrument-ids
                                 (:eligible-instruments current-history))
                                (set (:requested-instrument-ids current-history)))]
@@ -620,11 +580,6 @@
   [state]
   (let [draft (get-in state contracts/draft-path)
         requested-universe (vec (or (:universe draft) []))
-        ;; Only a COLD load blocks. A refresh over an existing bundle does not:
-        ;; the bundle is usable, and a newly added asset is still blocked by
-        ;; incomplete-history? below, which compares the requested universe
-        ;; against the ids the request could actually serve. See
-        ;; docs/exec-plans/active/2026-08-24-optimizer-history-load-status-honesty.md.
         history-loading? (and (= :loading
                                  (get-in state contracts/history-load-state-status-path))
                               (not (history-refreshing? state)))]
@@ -672,13 +627,8 @@
                    (or incomplete? risk-history-incomplete?) :incomplete-history
                    :else nil)
          :runnable? (boolean runnable?)
-         ;; Non-blocking: a refresh is running over a bundle that already
-         ;; landed. Carried on readiness so the view-model can name the state
-         ;; without re-reading the store.
          :refreshing? (history-refreshing? state)
          :request request
          :blocking-warnings blocking-warnings
-         ;; Readiness-only (never sent to the engine): one caution per stock
-         ;; held as two listings, so the verdict and Data health carry it.
          :warnings (into (vec (:warnings request))
                          (universe-duplicates/duplicate-warnings requested-universe))}))))

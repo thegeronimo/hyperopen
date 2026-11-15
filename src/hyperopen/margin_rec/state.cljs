@@ -165,10 +165,6 @@
    (js/Math.round (* 100 equity))])
 
 (defn input-sig
-  ;; The risk mode is deliberately NOT part of the signature: the simulated
-  ;; distribution is mode-independent, so finalize precomputes every mode
-  ;; (:by-risk-mode) in one pass and switching modes is a pure view selection
-  ;; (select-risk-mode) that must never force a recompute.
   [{:keys [coin dex szi equity mark] :as entry} candle-last-t]
   [coin
    (or dex "")
@@ -318,10 +314,6 @@
      (mapv (fn [[k intent]] [k (:status intent)])
            (sort-by key (get-in state intents-path)))
      (get-in state panel-path)]))
-
-(defn apply-fills-loading
-  [state address]
-  (update-in state fills-path assoc :status :loading :address address))
 
 (defn apply-fills
   [state address rows fetched-at]

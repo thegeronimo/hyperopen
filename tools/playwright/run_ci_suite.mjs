@@ -24,7 +24,6 @@ function runPlaywright(args) {
 }
 
 async function main() {
-  // Always run both suites so CI keeps both interactive and release reports.
   const interactiveExitCode = await runPlaywright([]);
   const releaseExitCode = await runPlaywright(["-c", "playwright.release.config.mjs"]);
 

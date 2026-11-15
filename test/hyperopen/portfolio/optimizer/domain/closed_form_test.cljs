@@ -17,8 +17,6 @@
   [[0.04 0]
    [0 0.09]])
 
-;; A symmetric, non-singular covariance whose GMV shorts asset B and levers
-;; asset A past 1, so the unconstrained optimum violates long-only/box/gross.
 (def ^:private signed-covariance
   [[0.01 0.02]
    [0.02 0.09]])
@@ -53,8 +51,6 @@
   [objective encoded-overrides]
   (request objective
            {:encoded-constraints (merge (unbounded-encoded 2) encoded-overrides)}))
-
-;; --- numeric correctness (unbounded equality-core) --------------------------
 
 (deftest minimum-variance-diagonal-covariance-matches-inverse-variance-weights-test
   (let [result (closed-form/solve-portfolio (request {:kind :minimum-variance}))]
@@ -126,35 +122,26 @@
     (is (near? 0.6923076923 (get-in result [:weights 0])))
     (is (near? 0.3076923077 (get-in result [:weights 1])))))
 
-;; --- widened eligibility: additional constraints, post-validated ------------
-
 (deftest additional-constraints-accepted-when-candidate-already-satisfies-them-test
-  ;; Long-only with a naturally all-positive GMV inside [0,1]: the unrestricted
-  ;; optimum is feasible, so it is also the constrained optimum -> accepted.
   (is (= {:eligible? true :net-target 1}
          (closed-form/eligible?
           (with-encoded {:kind :minimum-variance}
                         {:long-only? true
                          :lower-bounds [0 0]
                          :upper-bounds [1 1]}))))
-  ;; Loose upper bounds that the GMV clears.
   (is (:eligible? (closed-form/eligible?
                    (with-encoded {:kind :minimum-variance}
                                  {:upper-bounds [1 1]}))))
-  ;; Gross budget the GMV (gross = 1) stays under.
   (is (:eligible? (closed-form/eligible?
                    (with-encoded {:kind :minimum-variance}
                                  {:gross-exposure {:max 2}}))))
-  ;; Turnover budget honored because current weights sit on the GMV already.
   (is (:eligible? (closed-form/eligible?
                    (with-encoded {:kind :minimum-variance}
                                  {:current-weights [0.69 0.31]
                                   :max-turnover 0.5}))))
-  ;; Rebalance tolerance does not constrain the optimum, so it never blocks.
   (is (:eligible? (closed-form/eligible?
                    (with-encoded {:kind :minimum-variance}
                                  {:rebalance-tolerance 0.01}))))
-  ;; A locked weight the GMV naturally lands on (asset A at 9/13) is accepted.
   (is (:eligible? (closed-form/eligible?
                    (with-encoded {:kind :minimum-variance}
                                  {:locked-weights [{:instrument-id "A"
@@ -166,31 +153,20 @@
                            (assoc (with-encoded {:kind :minimum-variance}
                                                  encoded-overrides)
                                   :covariance covariance))))]
-    ;; Tight upper bound the GMV (w1 = 0.6923) exceeds.
     (is (= :violates-bounds
            (reason {:upper-bounds [0.5 1]} diagonal-covariance)))
-    ;; Long-only with a GMV that shorts asset B.
     (is (= :violates-bounds
            (reason {:long-only? true :lower-bounds [0 0] :upper-bounds [1 1]}
                    signed-covariance)))
-    ;; Gross budget below the signed GMV's gross (~1.333).
     (is (= :violates-gross
            (reason {:gross-exposure {:max 1.2}} signed-covariance)))
-    ;; Turnover budget below the full move from cash to the GMV.
     (is (= :violates-turnover
            (reason {:current-weights [0 0] :max-turnover 0.4} diagonal-covariance)))
-    ;; Locked weight the GMV does not land on.
     (is (= :violates-locked-weights
            (reason {:locked-weights [{:instrument-id "A" :weight 0.2}]}
                    diagonal-covariance)))))
 
 (deftest post-validation-uses-absolute-tolerance-subset-of-target-selection-test
-  ;; A weight 5e-5 over a bound of 1000 would have passed the OLD relative
-  ;; tolerance (1e-7 * 1000 = 1e-4), yet target-selection re-validates with an
-  ;; absolute 1e-5 and would reject it -> a feasible run reported infeasible
-  ;; with no fallback. The absolute :constraint-match (1e-8) keeps closed-form's
-  ;; acceptance a strict subset of target-selection's, so it is rejected here
-  ;; and the request falls back to QP instead.
   (let [result (closed-form/validate-solution
                 {:weights [1000.00005 0]
                  :net-target 1000.00005
@@ -202,8 +178,6 @@
                                        :locked-weights []}})]
     (is (false? (:valid? result)))
     (is (= [:bound-violated] (mapv :code (:violations result))))))
-
-;; --- core preconditions (non-widenable) -------------------------------------
 
 (deftest core-preconditions-disqualify-closed-form-test
   (is (= :net-exposure-range
@@ -270,15 +244,11 @@
                    (request {:kind :target-volatility}))))))
 
 (deftest numeric-frontier-failures-fall-back-with-reasons-test
-  ;; Indefinite (here negative-definite) covariance is symmetric and
-  ;; non-singular, so the linear solve succeeds, but A = 1'u < 0, which the
-  ;; moment guards reject rather than producing a bogus portfolio.
   (is (= :indefinite-covariance
          (:reason (closed-form/eligible?
                    (request {:kind :minimum-variance}
                             {:covariance [[-0.04 0]
                                           [0 -0.09]]})))))
-  ;; Equal expected returns collapse the frontier (D = A*C - B^2 = 0).
   (let [degenerate (request {:kind :target-volatility :target-volatility 0.2}
                             {:expected-returns [0.1 0.1]})]
     (is (= :degenerate-frontier (:reason (closed-form/eligible? degenerate))))
@@ -286,8 +256,6 @@
       (is (= :error (:status result)))
       (is (= :degenerate-frontier (:reason result)))
       (is (true? (get-in result [:diagnostics :fallback?]))))))
-
-;; --- validation + rejected diagnostics --------------------------------------
 
 (deftest validate-solution-rejects-bad-weights-test
   (let [base {:net-target 1

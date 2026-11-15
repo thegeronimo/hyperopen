@@ -7,28 +7,20 @@
             [hyperopen.vaults.detail.position :as position]))
 
 (def epsilon
-  ;; Ledger amounts are float strings; a fully withdrawn position can leave a
-  ;; sub-cent residue behind. Same tolerance as the vault detail page.
   0.01)
 
 (def day-ms 86400000)
 
 (def ms-per-year
-  ;; Same year length as `hyperopen.portfolio.metrics.history`.
   (* 365.2425 day-ms))
 
 (def ^:private dense-gap-ms
-  ;; Samples at most this far apart count as "roughly daily" history.
   (* 1.5 day-ms))
 
 (def min-annualised-hold-ms
-  ;; A money-weighted return over a shorter hold is not annualised: a few days
-  ;; of noise would read as an absurd yearly rate.
   (* 30 day-ms))
 
 (def vault-delta-types
-  ;; `vaultDistribution` is the vault paying the depositor out (a leader
-  ;; distribution or the vault closing): money back, like a withdrawal.
   #{"vaultDeposit" "vaultWithdraw" "vaultCreate" "vaultDistribution"})
 
 (defn finite
@@ -237,9 +229,6 @@
      :ending-basis basis
      :leading-withdrawal? leading-withdrawal?}))
 
-;; ---------------------------------------------------------------------------
-;; Share-price index
-
 (defn- index-rows
   "`[[time-ms cumulative-pct] ...]` -> `[[time-ms index] ...]`, sorted,
    one row per time, index > 0."
@@ -313,9 +302,6 @@
                (<= (- (first (nth index i)) (first (nth index (dec i)))) dense-gap-ms))
         (recur (dec i))
         (first (nth index i))))))
-
-;; ---------------------------------------------------------------------------
-;; Money-weighted return
 
 (defn- npv
   [flows t0 rate]

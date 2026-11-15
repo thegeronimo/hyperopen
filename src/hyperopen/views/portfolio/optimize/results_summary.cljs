@@ -23,25 +23,6 @@
    [:p {:class ["mt-2" "text-lg" "font-semibold" "tabular-nums"]}
     value]])
 
-(defn compact-fact
-  [label value]
-  [:div {:class ["optimizer-summary-card" "rounded-lg" "border" "border-base-300" "bg-base-200/50" "px-3" "py-2"]}
-   [:p {:class ["text-[0.6rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
-    label]
-   [:p {:class ["mt-1" "text-sm" "font-semibold" "tabular-nums"]}
-    value]])
-
-(defn panel-shell
-  [data-role title subtitle & children]
-  [:section {:class ["optimizer-results-panel"
-                     "rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-             :data-role data-role}
-   [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
-    title]
-   [:p {:class ["mt-2" "text-sm" "text-trading-muted"]} subtitle]
-   (into [:div {:class ["mt-4" "space-y-2"]}]
-         children)])
-
 (defn stale-result-banner
   [stale?]
   (when stale?
@@ -78,8 +59,6 @@
   [{:keys [at-target? trade-count vault-funding?]}]
   (let [no-trades? (and (true? at-target?) (not vault-funding?))
         label (cond
-                ;; An all-vault run is funded with vault deposits and withdrawals,
-                ;; never orders, so the forward action opens the funding sheet.
                 vault-funding? "Fund this allocation"
                 no-trades? "Already at target"
                 (and (opt-format/finite-number? trade-count) (pos? trade-count))
@@ -137,8 +116,6 @@
         trades-clause (cond
                         vault-funding? "Vaults are funded with deposits and withdrawals, not orders."
                         (not (opt-format/finite-number? trade-count)) nil
-                        ;; Sendable trades only. An all-blocked plan is NOT "at
-                        ;; target" — its trades exist but can't be sent yet.
                         at-target? "No trades needed — you're already at target."
                         (zero? trade-count)
                         (str "No trades can be sent — "
@@ -149,10 +126,6 @@
                         :else (str trade-count " trades get you there."))]
     [:section {:class ["optimizer-results-panel" "optimizer-recommendation-verdict"
                        "rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-               ;; Keyed (with its recommendation-tab siblings) so the recompute
-               ;; banner mounting/unmounting between them reconciles by key instead
-               ;; of recreating subtrees — recreation would reset DOM state like
-               ;; open <details> in the results grid mid-edit.
                :replicant/key "optimizer-recommendation-verdict"
                :data-role "portfolio-optimizer-recommendation-verdict"}
      [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-3"]}
@@ -190,17 +163,12 @@
    [:span {:class ["optimizer-target-context-value" "font-mono" "tabular-nums"]} value]])
 
 (defn- context-label
-  ;; Prefer the enriched human label; instrument-label alone returns the raw id for
-  ;; non-vault instruments.
   [labels-by-instrument instrument-id]
   (or (get labels-by-instrument instrument-id)
       (get labels-by-instrument (keyword instrument-id))
       (results-model/instrument-label labels-by-instrument instrument-id)))
 
 (defn- binding-limit-row
-  ;; Engine truth: a binding constraint is a per-instrument weight sitting on its
-  ;; lower/upper bound (`domain/diagnostics.cljs binding-constraints`), so the copy
-  ;; names the asset and the cap/floor it hit instead of leaking the raw keyword.
   [labels-by-instrument {:keys [instrument-id constraint bound weight]}]
   (let [level (or bound weight)
         level-text (when (opt-format/finite-number? level)
@@ -360,47 +328,3 @@
                               (:value freedom)
                               (:sub freedom)
                               nil)]])))
-
-(defn- history-lookback-label
-  [result]
-  (let [summary (:history-summary result)
-        observations (:return-observations summary)]
-    (if (opt-format/finite-number? observations)
-      (str observations " returns")
-      "Loaded history")))
-
-(defn- funding-assumption-label
-  [result]
-  (let [sources (->> (:return-decomposition-by-instrument result)
-                     vals
-                     (keep :funding-source)
-                     set)]
-    (cond
-      (empty? sources) "No funding data"
-      (= #{:not-applicable} sources) "Spot only"
-      (contains? sources :market-funding-history) "Market funding"
-      :else (opt-format/keyword-label (first sources)))))
-
-(defn assumptions-strip
-  [draft result]
-  (let [objective-kind (or (get-in draft [:objective :kind])
-                           (get-in result [:solver :objective-kind]))]
-    [:section {:class ["optimizer-results-panel"
-                       "rounded-xl" "border" "border-base-300" "bg-base-100/95" "p-4"]
-               :data-role "portfolio-optimizer-assumptions-strip"}
-     [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.24em]" "text-trading-muted"]}
-      "Run Assumptions"]
-     [:div {:class ["mt-3" "grid" "grid-cols-2" "gap-2" "xl:grid-cols-5"]}
-      (compact-fact "Objective" (opt-format/keyword-label objective-kind))
-      (compact-fact "Return Model"
-                    ;; Covariance-only objectives never use returns to size
-                    ;; positions — say so where the model is named, or users
-                    ;; will assume the historical mean drove the weights.
-                    (if (contains? contracts-constants/covariance-only-objective-kinds
-                                   objective-kind)
-                      (str (opt-format/keyword-label (:return-model result))
-                           " · analytics only")
-                      (opt-format/keyword-label (:return-model result))))
-      (compact-fact "Risk Model" (opt-format/keyword-label (:risk-model result)))
-      (compact-fact "Lookback" (history-lookback-label result))
-      (compact-fact "Funding" (funding-assumption-label result))]]))

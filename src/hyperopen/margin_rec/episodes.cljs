@@ -173,8 +173,6 @@
   of contributing markets."
   [fill-rows coin]
   (let [fills (keep normalize-fill fill-rows)
-        ;; Coalesce each coin's partial fills into per-order interventions
-        ;; before measuring the gaps between them.
         by-coin (into {}
                       (map (fn [[c fs]] [c (coalesce-fills fs)]))
                       (group-by :coin fills))
@@ -189,7 +187,7 @@
            :per-coin (count coin-gaps)]
 
           (>= (count market-horizons) min-account-coins)
-          [(quantile (vec (sort market-horizons)) 0.5) ;; median market horizon
+          [(quantile (vec (sort market-horizons)) 0.5)
            :account (count market-horizons)]
 
           :else [default-horizon-hours :default 0])]

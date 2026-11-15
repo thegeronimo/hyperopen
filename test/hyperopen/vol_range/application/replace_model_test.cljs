@@ -17,8 +17,8 @@
             [hyperopen.vol-range.state-fixtures :as sf]))
 
 (def plan (planner/prepare-plan (fixtures/plan-input)))
-(def created-ms 1793196120000)   ; 2026-10-28 14:02 UTC
-(def successor-ms 1793196540000) ; 2026-10-28 14:09 UTC
+(def created-ms 1793196120000)
+(def successor-ms 1793196540000)
 
 (defn- cloid [i] (str "0x" (.padStart (str i) 32 "0")))
 
@@ -68,10 +68,6 @@
                                extra))
 
 (defn- row [model field] (first (filter #(= field (:field %)) (:compare model))))
-
-;; ---------------------------------------------------------------------------
-;; Dialog
-;; ---------------------------------------------------------------------------
 
 (deftest preview-compares-the-deployed-ladder-with-the-proposal-test
   (let [m (rm/replace-dialog-model (state-with (placed-grid #{"buy-0"}) {:phase :preview}) plan)]
@@ -186,10 +182,6 @@
     (is (nil? (:message m)))
     (is (= [:abandon] (vec (keep (fn [[k v]] (when v k)) (:actions m)))))))
 
-;; ---------------------------------------------------------------------------
-;; Banner
-;; ---------------------------------------------------------------------------
-
 (deftest banner-per-phase-test
   (let [banner (fn [u & [f]] (rm/banner-model ((or f identity) (state-with (placed-grid) u))))
         preview (banner {:phase :preview})
@@ -216,10 +208,6 @@
       (let [stale (banner {:phase :preview :scope-key "other"})]
         (is (false? (:replaces-footer? stale)))
         (is (= "Open VRT/USDC to continue updating this ladder." (:message stale)))))))
-
-;; ---------------------------------------------------------------------------
-;; Review lineage
-;; ---------------------------------------------------------------------------
 
 (def predecessor
   {:grid-id "g1" :frozen-cloids [(cloid 2)] :remaining {:buy "40" :sell "27"}
@@ -258,10 +246,6 @@
     (is (nil? (:edited-text (rm/review-replacement
                              (review-state (assoc predecessor :remaining {:buy "40" :sell "0"})
                                            (-> (draft-with "40" "0") (assoc-in [:sell :enabled?] false)))))))))
-
-;; ---------------------------------------------------------------------------
-;; Dock
-;; ---------------------------------------------------------------------------
 
 (deftest preview-update-row-control-test
   (let [g (placed-grid #{"buy-0"})
@@ -322,7 +306,6 @@
            (msg {:op :replace-stop :status :stopped :old-ladder :unsettled})))))
 
 (deftest a-result-after-stop-updating-is-announced-as-stopped-test
-  ;; Stop updating while the cancel runs; the cancel's result arrives later.
   (let [g (placed-grid)
         stopped (state-with g)
         msg (fn [s r] (rm/status-message s (assoc r :grid-id "g1" :update-started-at-ms 5)))]

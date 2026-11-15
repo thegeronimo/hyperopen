@@ -30,8 +30,6 @@
                    (if (http/user-role-agent-for-owner? owner-address role-response)
                      :verified-agent
                      :invalidate)))
-          ;; Preserve local key if lookup itself fails (network/rate-limit),
-          ;; because we could not prove the session is invalid.
           (.catch (fn [_]
                     (js/Promise.resolve :inconclusive)))))))
 
@@ -298,10 +296,6 @@
                (if-let [rejection (missing-agent-session-rejection store session)]
                  rejection
                  (letfn [(attempt! [floor retries-left]
-                           ;; Reserve BEFORE signing through the shared per-signer
-                           ;; coordinator (HO-SPEC-014 8.2): concurrent producers in
-                           ;; any tab never sign with the same nonce. A retry reserves
-                           ;; a new nonce strictly above the rejected one.
                            (-> (nonce-coordinator/reserve-nonce!
                                 {:network (nonce-coordinator/network-for-options options)
                                  :signer (signer-address crypto session)

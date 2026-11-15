@@ -3,7 +3,6 @@
             [hyperopen.api.default.orders :as api-orders]
             [hyperopen.api.default.state :as api-state]))
 
-;; 5 full pages = the API's 10000-fill horizon
 (def ^:private max-requests-per-window 5)
 
 (defn- request-user-fills-by-time!
@@ -17,7 +16,6 @@
   page. Resolves {:rows [...] :truncated? bool}."
   [request-fn address start-ms end-ms]
   (letfn [(step [cursor acc requests]
-            ;; unaggregated, so a short page reliably means the window is done
             (-> (request-fn address {:start-ms cursor :end-ms end-ms :aggregate? false} {})
                 (.then (fn [rows]
                          (let [rows* (if (sequential? rows) (vec rows) [])
@@ -26,8 +24,6 @@
                                full? (>= (count rows*) chart-fill-history/page-size)]
                            (cond
                              (not full?) {:rows acc* :truncated? false}
-                             ;; no progress possible (a page of one millisecond) or the
-                             ;; horizon is reached: stop and report the gap
                              (or (>= (inc requests) max-requests-per-window)
                                  (nil? last-ms)
                                  (<= last-ms cursor))

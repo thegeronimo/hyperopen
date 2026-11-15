@@ -221,8 +221,6 @@
                          (scenario-records/scenario-summary scenario-record))]
      (-> state
          (assoc-in contracts/draft-path (:config scenario-record))
-         ;; Pending target-sigma edits belong to the previous draft; carrying
-         ;; them over would let one click commit them into the loaded scenario.
          (assoc-in contracts/ui-target-sigma-draft-path nil)
          (assoc-in contracts/ui-objective-menu-target-sigma-path nil)
          (assoc-in contracts/last-successful-run-path (:saved-run scenario-record))

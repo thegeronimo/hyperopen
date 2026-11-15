@@ -30,8 +30,6 @@
   [card]
   (boolean (:configured? card)))
 
-;; --- Labels --------------------------------------------------------------------
-
 (defn- native-days-label
   "Terse rail-pill history count (\"34d\"). An UNKNOWN count (history not
   fetched, or still in flight) is not zero — printing \"0d\" for it states a
@@ -69,8 +67,6 @@
 (defn- join-clauses
   [clauses]
   (str/join " · " (keep identity clauses)))
-
-;; --- Model summary line --------------------------------------------------------
 
 (defn- seed-guardrails-summary
   "The guardrails a one-click apply would author - the SAME behavior seeds
@@ -145,8 +141,6 @@
              (when proxy? (similarity-clause (:relationship-label card)))
              (get-in card [:risk-guardrails :summary])])
      :held-count 0
-     ;; The agent/backend rationale already has its own attributed box above the
-     ;; panel; repeating it verbatim here reads as two sources agreeing.
      :why nil
      :cta (if (settled? card) "Keep this" "Accept assumption")
      :cta-action [(get-in card [:actions :apply]) id]
@@ -154,8 +148,6 @@
      :cta-disabled? (boolean (or (not (:engine-applied? card))
                                  (:history-loading? card)))
      :unavailable-note nil}))
-
-;; --- The one folded detail block ------------------------------------------------
 
 (defn- diagnostics-value
   [card cell-key]
@@ -240,8 +232,6 @@
        (keep identity)
        (mapv (fn [[label value]] {:key label :label label :value value}))))
 
-;; --- Queue assembly ---------------------------------------------------------------
-
 (defn- tone
   "Rail-dot tone. Three states, in the order the queue cares about them: this
   asset is done, a one-click model is waiting for it, or it is still unanswered."
@@ -260,8 +250,6 @@
   [card]
   (cond
     (settled? card) "Accepted"
-    ;; Engine-backed but the user never said yes (or edited since): the only
-    ;; thing left is the acceptance.
     (:engine-applied? card) "Ready to accept"
     (get-in card [:recommendation :applicable?]) "Suggested"
     :else (:status-label card)))
@@ -338,9 +326,6 @@
          left-count (- total settled-count)
          requested (get-in state contracts/ui-history-assumption-active-path)
          by-id (into {} (map (juxt :instrument-id identity)) cards)
-         ;; A stale requested id (asset dropped from the universe, or its
-         ;; history arrived and retired the card) silently falls back rather
-         ;; than stranding the queue on nothing.
          active (or (get by-id requested)
                     (first (remove settled? cards))
                     (first cards))

@@ -19,21 +19,6 @@
   callers must write the WHOLE constraints map this namespace returns (it dissocs the key) rather
   than assoc'ing a nil value, which would wrongly register a nil floor.")
 
-;; --- Axis scales (display domain for the pad) --------------------------------------------
-;;
-;; The pad plots gross on Y (0 at the bottom, `gross-axis-max` at the top) and net on X
-;; (-`net-axis-extent` at the left, +`net-axis-extent` at the right). Targets snap to
-;; `target-snap` for clean values. Advanced raw fields may exceed these bounds; the pad simply
-;; clamps the plotted marker.
-
-;; The pad scale is FIXED while the trader interacts with it. The earlier adaptive axis grew
-;; with 1.12 headroom on every render, so holding the pointer at the top edge remapped the pad
-;; under the cursor and ratcheted gross 3×→5×→10×→… without bound. Instead the view renders one
-;; of these paired zoom levels; dragging clamps to the visible scale and NEVER changes it, an
-;; explicit zoom control steps both axes together, and only discontinuous policy changes
-;; (preset / saved profile / reset / advanced raw fields) may re-fit the level. Gross ≈ leverage
-;; (the request builder renames :gross-max → :gross-leverage), so the Y axis is surfaced as
-;; "Gross leverage".
 (def axis-levels
   [{:gross-max 3.0 :net-extent 2.0}
    {:gross-max 5.0 :net-extent 3.0}
@@ -46,16 +31,10 @@
 (def target-snap 0.05)
 (def band-eps 1e-6)
 (def max-band 0.5)
-;; The net band is a PERCENTAGE OF REALIZED GROSS (stored as a decimal: 5% = 0.05),
-;; not a leverage amount: the solver permits net within target ± pct·gross(w).
-;; 1.0 (100%) adds no restriction beyond |net| ≤ gross, so it is the hard ceiling.
 (def max-net-band-pct 1.0)
-;; The slider stops at 50%; direct numeric entry may go to max-net-band-pct.
 (def net-band-pct-slider-max 0.5)
 
 (def preset-keys [:conservative :balanced :high-gross :long-bias])
-
-;; --- Small numeric helpers ----------------------------------------------------------------
 
 (defn- finite-number?
   [x]
@@ -78,8 +57,6 @@
   [a b]
   (and (finite-number? a) (finite-number? b)
        (< (js/Math.abs (- a b)) 1e-4)))
-
-;; --- Fixed zoom levels --------------------------------------------------------------------
 
 (def default-axis (first axis-levels))
 
@@ -132,8 +109,6 @@
          :zoom-in-level (when (> level fit) (dec level))
          :zoom-out-level (when (< level max-zoom-level) (inc level))}))))
 
-;; --- Forward: canonical constraints -> exposure policy ------------------------------------
-
 (defn clamp-net-band-pct
   "Coerce a net-band percentage (decimal: 5% = 0.05) to [0, max-net-band-pct],
   rounded to 1e-6 so persisted values stay clean."
@@ -183,8 +158,6 @@
                         :net-max (get-in constraints [:net-exposure :max])
                         :net-band-pct (:net-band-pct constraints)}))
 
-;; --- Reverse: exposure policy -> canonical constraints ------------------------------------
-
 (defn- pinned-gross?
   "True when `constraints` already express gross as a PIN rather than a ceiling: a finite
   :gross-min under a zero-width gross band (gross-min = gross-max). The explicit nil a
@@ -196,8 +169,9 @@
 (defn policy->constraints
   "Return `constraints` with gross/net bounds recomputed from `policy`. Writes gross-max,
   net-min, net-max, net-band-pct always; writes gross-min when the gross band is positive OR the
-  incoming policy already pinned gross, otherwise DISSOCs it to preserve the no-floor default
-  (see the `floored?` comment below). Any pre-existing net min/max SPREAD
+  incoming policy already pinned gross, otherwise DISSOCs it to preserve the no-floor default.
+  A pinned gross keeps its floor through any pad gesture, so a preset that pins gross to stop
+  Minimum risk answering all-cash does not lose that floor to a click, drag or band edit. Any pre-existing net min/max SPREAD
   (set through the advanced raw fields) is preserved around the moved target, so the pad never
   silently collapses an advanced absolute range. Returns a full constraints map so callers
   persist it whole."
@@ -211,17 +185,6 @@
                  (- nmax nmin)
                  0.0)
         half (/ spread 2)
-        ;; A positive band always writes a floor. A ZERO band keeps one only when the incoming
-        ;; policy was already PINNED (gross-min = gross-max): a pin IS the degenerate band, so
-        ;; its floor tracks the moved target exactly as a positive band's floor does. Keying the
-        ;; dissoc on band width alone (the original rule) meant :conservative — which ships
-        ;; {:gross-min 1.0 :gross-max 1.0} precisely so Minimum risk cannot answer all-cash —
-        ;; lost that floor to any pad click, drag or band edit, including a no-op one. Comparing
-        ;; the OLD floor against the NEW target instead would spare only motionless drags: a
-        ;; gesture that moves out and back kills the pin on its first sample and can never
-        ;; restore it. Clearing still works by both routes that mean it — the advanced
-        ;; :gross-min field writes nil (not finite ⇒ not a pin ⇒ dissoc'd here), and collapsing
-        ;; a POSITIVE gross band to zero on the slider is not a pin either, so it still clears.
         floored? (or (> gb band-eps) (pinned-gross? constraints))]
     (cond-> (assoc constraints
                    :gross-max (round4 (+ gt gb))
@@ -230,8 +193,6 @@
                    :net-band-pct (clamp-net-band-pct net-band-pct))
       floored? (assoc :gross-min (round4 (max 0.0 (- gt gb))))
       (not floored?) (dissoc :gross-min))))
-
-;; --- Pure transforms applied by the action handlers --------------------------------------
 
 (defn apply-point
   "Move the target point to `{:gross-target :net-target}` while preserving both bands."
@@ -255,21 +216,6 @@
                   policy)]
     (policy->constraints constraints policy')))
 
-;; --- Named presets ------------------------------------------------------------------------
-;;
-;; Each preset is a partial constraint map merged over the current constraints. A preset is
-;; ceiling-only on gross UNLESS it names its own :gross-min; applying one that does not still
-;; dissocs :gross-min. Values are starting points a trader can then nudge; see the ExecPlan
-;; Decision Log for the rationale.
-;;
-;; Why :conservative alone carries a floor. Its net is pinned at 0.0, and a zero net with only a
-;; gross CEILING does not forbid w = 0 - so under the default objective (:minimum-variance) cash
-;; is feasible AND globally optimal at zero variance, and Conservative had always silently
-;; returned an all-cash book (domain.objectives' cash-collapse gate simply made that visible).
-;; The floor equals the preset's own advertised gross figure, which turns "1x gross, market
-;; neutral" into an instruction rather than a ceiling. The other three presets pin a NON-ZERO
-;; net (1.0 / 1.0 / 1.5), which already forbids cash, so they stay ceiling-only.
-
 (def presets
   {:conservative {:gross-max 1.0 :gross-min 1.0 :net-min 0.0 :net-max 0.0
                   :net-band-pct 0.0 :max-asset-weight 0.25}
@@ -277,8 +223,6 @@
                   :max-asset-weight 0.5}
    :high-gross   {:gross-max 3.0 :net-min 1.0 :net-max 1.0 :net-band-pct 0.0
                   :max-asset-weight 0.5}
-   ;; Long Bias: net target 1.5x with a ±12.5%-of-gross tolerance (the old ±0.25x
-   ;; absolute band at the preset's 2.0x gross target).
    :long-bias    {:gross-max 2.0 :net-min 1.5 :net-max 1.5 :net-band-pct 0.125
                   :max-asset-weight 0.5}})
 
@@ -322,8 +266,6 @@
             preset-keys)
       :custom))
 
-;; --- Pad pointer math (pure; receives plain numbers, never the DOM) ----------------------
-
 (defn point->targets
   "Convert a pad pointer event to snapped gross/net targets, or nil when this is not an active
   drag (no pressed button) or the pad bounds are degenerate. `bounds` is the pad's bounding rect
@@ -349,27 +291,14 @@
             fy (clamp (/ (- client-y top) height) 0.0 1.0)
             gross-reach (max 0.0 (- g-max g-band))
             gross-target (min (snap (* g-max (- 1.0 fy))) gross-reach)
-            ;; Net reach also respects the gross reach: gross ≥ |net| lifts the gross target to
-            ;; |net|, so a net target beyond gross-reach would push gross-target + gross-band
-            ;; past the axis max (reachable via advanced raw fields, where the gross band is not
-            ;; capped at max-band) and force a mid-drag re-fit. The net band's absolute extent
-            ;; is pct·(gross-target + gross-band); the (1+pct) division covers the case where
-            ;; |net| itself lifts the gross target (gross* = |net|).
             net-reach (max 0.0 (min (- n-ext (* n-pct (+ gross-target g-band)))
                                     (/ (- n-ext (* n-pct g-band)) (+ 1.0 n-pct))
                                     gross-reach))
             net-target (clamp (snap (+ (- n-ext) (* fx (* 2 n-ext))))
                               (- net-reach) net-reach)
-            ;; Gross is total absolute exposure, so it can never be below the absolute net
-            ;; target; clamp to keep the box physically meaningful.
             gross-target* (max gross-target (js/Math.abs net-target))]
         {:gross-target (round4 gross-target*)
          :net-target (round4 net-target)}))))
-
-;; --- Plotting helpers for the view (0..1 fractions; y grows downward like SVG) ------------
-;;
-;; Each takes the render axis {:gross-max :net-extent}; the 1-arity overloads use the floor
-;; level so callers that don't care about the zoomed framing (and tests) stay simple.
 
 (defn- net->fraction
   [net n-ext]

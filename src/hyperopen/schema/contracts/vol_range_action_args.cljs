@@ -2,9 +2,6 @@
   (:require [cljs.spec.alpha :as s]
             [hyperopen.schema.contracts.common :as common]))
 
-;; Vol Range action payload contracts (HO-SPEC-014 v2.1, Release A0). Merged into
-;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
-
 (s/def ::scale-mode #{:price-range :volatility-range "price-range" "volatility-range"})
 (s/def ::select-scale-mode-args (s/tuple ::scale-mode))
 
@@ -26,8 +23,6 @@
 (s/def ::logical-id ::common/non-empty-string)
 (s/def ::logical-id-args (s/tuple ::logical-id))
 
-;; Release B reporting: a market's campaign key, or nil / "all" for All
-;; tracked markets.
 (s/def ::campaign-key ::common/non-empty-string)
 (s/def ::campaign-key-args (s/tuple ::campaign-key))
 (s/def ::report-campaign-args (s/tuple (s/nilable ::campaign-key)))
@@ -46,7 +41,6 @@
    :actions/set-vol-range-ui-flag ::set-vol-range-ui-flag-args
    :actions/handle-vol-range-review-keydown ::common/key-args
    :actions/refresh-vol-range-daily-candles ::common/no-args
-   ;; Release A (placement, cancel and the Vol ladders dock).
    :actions/place-vol-range-orders ::common/no-args
    :actions/cancel-vol-ladder ::grid-id-args
    :actions/refresh-vol-ladder ::grid-id-args
@@ -54,14 +48,12 @@
    :actions/sync-vol-ladders ::common/no-args
    :actions/reconcile-open-vol-ladders ::common/no-args
    :actions/resync-vol-ladders ::common/no-args
-   ;; Release A repair of definitively rejected orders.
    :actions/open-vol-ladder-repair ::grid-id-args
    :actions/refresh-vol-ladder-repair ::common/no-args
    :actions/toggle-vol-ladder-repair-leg ::logical-id-args
    :actions/close-vol-ladder-repair ::common/no-args
    :actions/handle-vol-ladder-repair-keydown ::common/key-args
    :actions/submit-vol-ladder-repair ::common/no-args
-   ;; Release A ladder update (cancel, then review a replacement).
    :actions/preview-vol-ladder-update ::grid-id-args
    :actions/open-vol-ladder-update ::common/no-args
    :actions/close-vol-ladder-update ::common/no-args
@@ -71,7 +63,6 @@
    :actions/toggle-vol-ladder-update-rejected ::logical-id-args
    :actions/review-vol-ladder-replacement ::common/no-args
    :actions/stop-vol-ladder-update ::common/no-args
-   ;; Release B reporting (the Portfolio Vol Range tab).
    :actions/load-vol-range-report ::common/no-args
    :actions/refresh-vol-range-report ::common/no-args
    :actions/select-vol-range-report-campaign ::report-campaign-args

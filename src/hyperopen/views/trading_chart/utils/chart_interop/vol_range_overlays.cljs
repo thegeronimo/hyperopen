@@ -103,7 +103,6 @@
 
 (defn- label-bg [] (theme-colors/token "--ho-chart-bg"))
 
-
 (defn- px* [n] (str (/ (js/Math.round (* 10 n)) 10) "px"))
 
 (defn- side-token [side] (if (= :buy side) "--ho-buy" "--ho-sell"))
@@ -156,8 +155,6 @@
               pane-height (some-> pane-size (aget "height"))
               pane-sized? (and (support/finite-number? pane-width) (pos? pane-width)
                                (support/finite-number? pane-height) (pos? pane-height))
-              ;; Clip the root to the main price pane so labels sit left of the
-              ;; price axis and nothing is drawn over lower indicator panes.
               _ (support/apply-inline-style!
                  root (if pane-sized?
                         {"inset" "auto" "left" "0px" "top" "0px"

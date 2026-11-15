@@ -41,8 +41,6 @@
     (is (= :error (ffirst toasts)))))
 
 (deftest the-client-only-hyperevm-action-is-never-signed-as-a-hypercore-action-test
-  ;; `hyperEvmToCore` goes to the HyperEVM wallet submitter; it is never
-  ;; signed as a usdClassTransfer or posted as a sendAsset.
   (let [store* (store)
         submitted (atom [])
         signed (atom [])
@@ -91,8 +89,6 @@
     (is (= [[:send-asset action]] signed))))
 
 (deftest send-mode-never-signs-a-token-to-the-wrong-system-address-test
-  ;; Send takes any destination; HYPE's 0x2222… and another token's system
-  ;; address swallow a mismatched token for good.
   (doseq [[token destination] [["PURR:0xc1fb593aeffbeb02f85e0308e9956a90"
                                 "0x2222222222222222222222222222222222222222"]
                                ["HYPE:0x0d01dc56dcaaca66ad901c959b4011ec"

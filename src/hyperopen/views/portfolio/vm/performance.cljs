@@ -3,9 +3,6 @@
             [hyperopen.portfolio.actions :as portfolio-actions]
             [hyperopen.portfolio.application.metrics-bridge :as vm-metrics-bridge]))
 
-(def ^:private performance-periods-per-year
-  365)
-
 (def ^:private hidden-portfolio-metric-keys
   #{:time-in-market})
 
@@ -21,22 +18,6 @@
     (nil? worker-ref) nil
     (satisfies? IDeref worker-ref) @worker-ref
     :else worker-ref))
-
-(defn benchmark-performance-column
-  [benchmark-cumulative-rows label-by-coin coin]
-  (let [benchmark-daily-rows (portfolio-metrics/daily-compounded-returns benchmark-cumulative-rows)
-        values (if (seq benchmark-cumulative-rows)
-                 (portfolio-metrics/compute-performance-metrics {:strategy-cumulative-rows benchmark-cumulative-rows
-                                                                 :strategy-daily-rows benchmark-daily-rows
-                                                                 :rf 0
-                                                                 :periods-per-year performance-periods-per-year})
-                 {})]
-    {:coin coin
-     :label (or (get label-by-coin coin)
-                coin)
-     :cumulative-rows benchmark-cumulative-rows
-     :daily-rows benchmark-daily-rows
-     :values values}))
 
 (defn with-performance-metric-columns
   [groups portfolio-values benchmark-columns]
@@ -137,8 +118,6 @@
                                           []))
         benchmark-label-by-coin (or (:label-by-coin returns-benchmark-selector)
                                     {})
-        ;; The scope is part of the question: after a scope switch the result on
-        ;; screen answers the previous scope until the new one lands.
         summary-scope (portfolio-actions/normalize-summary-scope
                        (get-in state [:portfolio-ui :summary-scope]
                                portfolio-actions/default-summary-scope))
@@ -149,15 +128,6 @@
                             (cond-> signature
                               (map? signature) (assoc :summary-scope summary-scope)))
         worker (current-worker *metrics-worker*)
-        ;; The candle store is keyed by INTERVAL and every preset resolves to a
-        ;; different one, so on the first render after a range switch the new
-        ;; interval's slot is still empty and every selected benchmark has zero
-        ;; rows. Posting then produced a full worker job whose benchmark side
-        ;; was `[]`; the reply was applied, `benchmark-min?` failed, and the six
-        ;; benchmark-relative metrics plus their whole labelled group vanished
-        ;; from the tearsheet and reappeared ~700ms later when the real candles
-        ;; landed. Waiting costs nothing — the previous result stays on screen,
-        ;; now labelled stale — and it halves the worker jobs per switch.
         benchmark-rows-ready? (every? (fn [coin]
                                         (seq (get benchmark-cumulative-rows-by-coin coin)))
                                       selected-benchmark-coins)
@@ -179,18 +149,6 @@
         loading? (if worker
                    (boolean (get-in state [:portfolio-ui :metrics-loading?]))
                    false)
-        ;; True when the numbers on screen answer a DIFFERENT QUESTION than the
-        ;; one currently selected — a different window, or a different benchmark
-        ;; set. They stay visible on purpose (blanking is the churn this work
-        ;; removed); the label is what keeps that honest.
-        ;;
-        ;; Deliberately not the whole signature. The rest of it is data
-        ;; freshness: `strategy-source-version` and the per-coin benchmark
-        ;; versions move whenever live data refreshes, which on an active account
-        ;; is constantly, and keying on those made the badge blink on and off
-        ;; every few hundred milliseconds while nothing the trader chose had
-        ;; changed. "A few seconds behind" is not stale; "answers the wrong
-        ;; window" is.
         question-of (juxt :summary-time-range
                          :selected-benchmark-coins
                          #(get % :summary-scope portfolio-actions/default-summary-scope))

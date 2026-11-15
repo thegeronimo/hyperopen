@@ -95,8 +95,6 @@
   ([state axis value render-level]
    (let [axis* (common/normalize-keyword-like axis)
          value* (common/parse-number-value value)
-         ;; :net-pct is the :net band with the value in PERCENT (the UI controls
-         ;; read "5.0%"); the canonical decimal fraction is value / 100.
          [axis* value*] (if (= :net-pct axis*)
                           [:net (when (some? value*) (/ value* 100))]
                           [axis* value*])]
@@ -138,8 +136,6 @@
   [_state]
   (conj (write-constraints (:constraints (defaults/default-draft)))
         (clear-zoom-effect)))
-
-;; --- Remembered profiles (per wallet + universe) -----------------------------------------
 
 (defn save-portfolio-optimizer-constraint-default
   "Remember the current constraints as the default for this wallet + universe. The effect reads

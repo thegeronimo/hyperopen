@@ -24,7 +24,6 @@
                     :else default-unit)]
     (cond
       (contains? valid-units candidate) candidate
-      ;; Legacy compatibility: :percent was historically ROE-based.
       (= candidate :percent) :roe-percent
       :else default-unit)))
 
@@ -69,7 +68,6 @@
            false))))
 
 (defn- round-floor-2 [value]
-  ;; Small epsilon avoids float artifacts (for example 0.999999999 -> 1.00).
   (/ (js/Math.floor (+ (* 100 value) 0.0001)) 100))
 
 (defn offset-value-from-trigger

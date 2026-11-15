@@ -1,19 +1,6 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// Live parity check against Hyperliquid's public API. DELIBERATELY EXCLUDED
-// FROM CI: it depends on the venue being reachable and on real wallets holding
-// open positions, which makes it excellent verification and terrible CI. The
-// hermetic fixture matrix in `test/hyperopen/views/account_equity_parity_test.cljs`
-// is what protects the build. Do not remove the env gate below.
-//
-//     RUN_VENUE_PARITY=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:8090 \
-//       PLAYWRIGHT_REUSE_EXISTING_SERVER=true \
-//       npx playwright test tools/playwright/test/account-equity-venue-parity.live.spec.mjs --workers=1
-//
-// It recomputes the venue's formulas from a snapshot taken in the same run
-// rather than comparing against recorded constants, so it stays correct as the
-// wallets' positions move.
 const RUN = process.env.RUN_VENUE_PARITY === "1";
 const INFO_URL = "https://api.hyperliquid.xyz/info";
 const EQUITY_PANEL = "[data-parity-id='account-equity']";
@@ -29,12 +16,6 @@ const ANCHORS = [
   }
 ];
 
-// The snapshot is issued in three parallel waves rather than serially. That is
-// not a micro-optimisation: every second between the snapshot and the panel read
-// is a second the marks can move, and a serial sweep of ~20 requests opened a
-// wide enough window on a large short that no fixed tolerance could tell drift
-// apart from a defect. Three waves of ~20 requests is a few hundred weight
-// against `/info`'s per-minute budget, well inside it.
 async function info(request, body) {
   const response = await request.post(INFO_URL, {
     data: body,
@@ -54,9 +35,6 @@ function tokenNameByIndex(spotMeta, index) {
   return token?.name ?? null;
 }
 
-// spotMetaAndAssetCtxs contexts are NOT positionally aligned with meta.universe
-// -- there are more contexts than universe entries. Join on the context's own
-// `coin` field or every price comes out wrong.
 function tokenUsdPrice(tokenName, spotMeta, spotCtxs) {
   if (!tokenName) return null;
   if (tokenName.toUpperCase().startsWith("USD")) return 1;
@@ -76,8 +54,6 @@ function tokenUsdPrice(tokenName, spotMeta, spotCtxs) {
   return mark > 0 ? mark : null;
 }
 
-// The venue's own aggregation: every dex converted to USD through its own
-// collateral token, then summed, then every row derived from the sum.
 function venueRows(perDex, spotUsd) {
   let accountValue = 0;
   let crossAccountValue = 0;
@@ -104,8 +80,6 @@ function venueRows(perDex, spotUsd) {
     crossMarginRatio: maintenance / (crossAccountValue + 1e-8),
     maintenance,
     crossAccountLeverage: crossTotalNtlPos / (crossAccountValue + 1e-8),
-    // Not a panel row: how much of the account is marked to a moving price,
-    // which is what sets how far the two observations below can drift apart.
     markedExposure: Math.abs(crossTotalNtlPos) + Math.abs(spotUsd)
   };
 }
@@ -157,9 +131,6 @@ async function snapshotVenue(request, address) {
   };
 }
 
-// Read the panel structurally rather than by scraping innerText: every metric
-// row is a label span followed by a `.num` value span, and rows with tooltips
-// carry the tooltip copy inline, which makes text scraping fragile.
 async function readPanelRows(page, selector) {
   return page.evaluate((panelSelector) => {
     const panel = document.querySelector(panelSelector);
@@ -178,14 +149,6 @@ const money = (value) => Number.parseFloat(String(value).replace(/[$,+]/g, ""));
 const percent = (value) => Number.parseFloat(String(value).replace(/[%,]/g, ""));
 const leverage = (value) => Number.parseFloat(String(value).replace(/[x,]/g, ""));
 
-// The panel is marked from a live websocket feed; the snapshot is a separate
-// REST read taken a second or so later. On an account
-// with an open book the two cannot agree to the cent, and the drift scales with
-// the *marked exposure*, not with the figure being compared: a $76k short
-// against $29k of equity moves that equity figure by several dollars on a single
-// tick. Five basis points of marked exposure absorbs that while staying three
-// orders of magnitude below the defects this spec exists for, which put this
-// account's Perps row $46,631 out.
 function near(actual, expected, exposure, label) {
   const tolerance = Math.max(0.05, Math.abs(exposure) * 2e-4);
   expect(
@@ -223,8 +186,6 @@ test.describe("classic account equity against the live venue", () => {
       const rendered = await readPanelRows(page, EQUITY_PANEL);
       const text = await panel.innerText();
 
-      // Snapshot after reading the panel, so the two observations are as close
-      // together in time as the API's rate limit allows.
       const rows = await snapshotVenue(request, anchor.address);
 
       const drift = rows.markedExposure;
@@ -232,9 +193,6 @@ test.describe("classic account equity against the live venue", () => {
       near(money(rendered["Balance"]), rows.balance, drift, "Balance");
       near(money(rendered["Spot"]), rows.spot, drift, "Spot");
       near(money(rendered["Vaults"]), rows.vaults, 0, "Vaults");
-      // The venue's classic Account Value excludes owned vault deposits. The
-      // application preserves that two-part value behind the panel's Total
-      // Account Value, so subtracting rendered Vaults must match the venue.
       near(
         money(rendered["Total Account Value"]) - money(rendered["Vaults"]),
         rows.accountValue,
@@ -253,9 +211,6 @@ test.describe("classic account equity against the live venue", () => {
         "Cross Account Leverage"
       );
 
-      // Drift-free: these identities hold between the rendered figures alone, at
-      // whatever instant the panel was marked, and they are the shape of the two
-      // formulas this work changed.
       near(
         money(rendered["Balance"]),
         money(rendered["Perps"]) - money(rendered["Unrealized PNL"]),
@@ -269,8 +224,6 @@ test.describe("classic account equity against the live venue", () => {
         "Total Account Value = Spot + Perps + Vaults"
       );
 
-      // Whatever the live figures are, an account with an open book must never
-      // render as an empty one.
       if (Math.abs(rows.perps) > 1) {
         expect(text).not.toContain("$0.00");
         expect(text).not.toContain("0.00x");

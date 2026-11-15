@@ -1,27 +1,6 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute } from "../support/hyperopen.mjs";
 
-// Milestone 0 harness for the PnL share card export path.
-//
-// The riskiest part of the share-card feature is not the artwork, it is whether
-// an SVG -> PNG round trip with an inlined webfont produces correct bytes in a
-// real browser. This spec proves the rasterizer in isolation, against a fixture
-// SVG that shares no code with the card templates.
-//
-// It asserts four things:
-//   1. the result really is a PNG (signature bytes, not just a MIME string),
-//   2. it is rasterized at 2x the SVG's intrinsic size,
-//   3. a known fill colour survives the round trip at the expected pixel, and
-//   4. inlining the font actually changed the rendering -- rendering the same
-//      fixture with no inlined faces must produce different bytes. If the
-//      @font-face injection silently failed, both renders would fall back to
-//      the same generic monospace and the two data URLs would be identical.
-//
-// An SVG loaded through an Image element renders in a sandboxed document that
-// cannot fetch anything, so assertion 4 is the one that catches the failure
-// mode that matters: a card that looks right on screen and ships a PNG set in
-// the wrong typeface.
-
 const FIXTURE_WIDTH = 200;
 const FIXTURE_HEIGHT = 100;
 const FIXTURE_FILL = "#00d4aa";
@@ -29,8 +8,6 @@ const EXPECTED_RGB = [0, 212, 170];
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
-// Deliberately glyph-heavy and wide: the more advance-width differences between
-// JetBrains Mono and the fallback stack, the more pixels differ in assertion 4.
 const FIXTURE_TEXT = "+214.6% W@1809";
 
 function fixtureSvgMarkup() {
@@ -59,8 +36,6 @@ async function renderFixture(page, { withFonts }) {
       }
 
       const host = document.createElement("div");
-      // Keep the node in the document but out of the way: some engines refuse to
-      // serialize a detached SVG's computed geometry.
       host.setAttribute("style", "position:fixed;left:-9999px;top:0;");
       host.innerHTML = markup;
       document.body.appendChild(host);
@@ -88,7 +63,6 @@ async function renderFixture(page, { withFonts }) {
           el.src = result.dataUrl;
         });
         ctx.drawImage(img, 0, 0);
-        // Centre of the 60x30 swatch at (20,20), doubled by the 2x scale.
         const px = ctx.getImageData(100, 70, 1, 1).data;
 
         const head = atob(result.dataUrl.split(",")[1].slice(0, 16));

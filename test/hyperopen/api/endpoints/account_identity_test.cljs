@@ -161,9 +161,6 @@
                          (api-stubs/post-info-stub payload)
                          owner
                          {}))]
-      ;; A bare array is the canonical Hyperliquid shape, but a proxy/gateway
-      ;; that wraps rows in `{:subAccounts [...]}` must not silently collapse
-      ;; the page to "No subaccounts found".
       (-> (js/Promise.all
            #js [(run-request {:subAccounts [row]})
                 (run-request {"subAccounts" [row]})

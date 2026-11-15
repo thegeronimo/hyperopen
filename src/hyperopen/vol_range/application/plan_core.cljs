@@ -25,10 +25,6 @@
 
 (defn- balance [account k] (some-> (get-in account [k :available]) d))
 
-;; ---------------------------------------------------------------------------
-;; Capability
-;; ---------------------------------------------------------------------------
-
 (defn- capability-findings
   "Spec 3.1 / 15.2: the RAW account abstraction must be explicitly allowlisted.
   A missing raw value (not loaded yet) is unavailable; any other value,
@@ -55,10 +51,6 @@
        (or (nil? (:base account)) (nil? (:quote account)))
        (conj (contracts/error :data/balances-unavailable {})))
      :warnings []}))
-
-;; ---------------------------------------------------------------------------
-;; Volatility and anchor
-;; ---------------------------------------------------------------------------
 
 (defn- resolve-volatility [resolved market]
   (if (= :manual (:vol-mode resolved))
@@ -93,10 +85,6 @@
         (when-let [p (positive (some-> (:price a) d))]
           {:price p :observed-at-ms (:observed-at-ms a)}))
       nil)))
-
-;; ---------------------------------------------------------------------------
-;; Inventory
-;; ---------------------------------------------------------------------------
 
 (defn- existing-exposure [open-orders]
   (reduce (fn [acc {:keys [side remaining]}]
@@ -137,10 +125,6 @@
                   (fits? x) x
                   :else (recur (precision/sub x lot)))))))))
 
-;; ---------------------------------------------------------------------------
-;; Perp margin
-;; ---------------------------------------------------------------------------
-
 (def ^:private funds-code->side
   {:plan/insufficient-usdc :buy :plan/insufficient-base :sell})
 
@@ -169,7 +153,6 @@
   (->> errors
        (map (fn [e]
               (if-let [side (funds-code->side (:code e))]
-                ;; The sell capacity check is in base units; the others in quote.
                 (let [notional (when (or (= :buy side) (= :quote (get-in e [:data :unit])))
                                  (some-> (get-in e [:data :required]) d))]
                   (contracts/error :plan/insufficient-margin
@@ -199,10 +182,6 @@
         [(contracts/error :plan/insufficient-base {:required (ds required) :available (ds capacity)
                                                    :unit :quote})]))))
 
-;; ---------------------------------------------------------------------------
-;; Totals
-;; ---------------------------------------------------------------------------
-
 (defn- vwap [gross qty]
   (when (and gross qty (precision/pos-dec? qty))
     (precision/divide gross qty 8 :half-up)))
@@ -230,10 +209,6 @@
       {:per-unit (ds per-unit)
        :pct-of-buy-vwap (ds (precision/divide (precision/mul per-unit (d "100")) bv 4 :half-up))})))
 
-;; ---------------------------------------------------------------------------
-;; Fingerprint
-;; ---------------------------------------------------------------------------
-
 (defn- by-pr [a b] (compare (pr-str a) (pr-str b)))
 
 (defn canonical [x]
@@ -257,10 +232,6 @@
   (str "vr1-" (.toString (hash (pr-str (canonical (without-provenance
                                                    (dissoc input :plan-id :clock :remediations?))))) 16)))
 
-;; ---------------------------------------------------------------------------
-;; Planner core
-;; ---------------------------------------------------------------------------
-
 (defn- side-legs
   "Legs for one side. In USDC mode the base quantity is first solved from the
   amount (`quote-sizing`); the solved quantity is reported as :solved-quantity."
@@ -272,8 +243,6 @@
     (let [params {:side side :r r :v v :skew (:skew sd) :sz-decimals sz :count (:count sd)
                   :z-start (:start sd) :z-end (:end sd) :market-type market-type}
           solved (when (= :quote (:amount-unit sd))
-                   ;; Without a fee quote the plan is not admissible anyway;
-                   ;; size it without a reserve so the preview still renders.
                    (quote-sizing/solve-quantity (assoc params :amount (:quote-amount sd)
                                                        :fee-capability fees)))]
       (cond
@@ -313,9 +282,6 @@
         anchor-error (when (and (nil? anchor) (not= :custom (:anchor-mode resolved)))
                        [(contracts/error :data/anchor-unavailable {:mode (:anchor-mode resolved)})])
         q (when account-ok? (some-> (get-in account [:base :total]) d))
-        ;; USDC limits become base at the unshifted anchor price, rounded to
-        ;; the lot toward protection: core up, maximum down. Target rounds to
-        ;; the nearest lot and is kept between them.
         limits-quote? (= :quote (:limit-unit resolved))
         limit-price (when limits-quote? (:price anchor))
         ->base (fn [x mode]
@@ -329,10 +295,6 @@
                     (cond-> t
                       (and t limits-quote? core-in) (precision/dec-max core-in)
                       (and t limits-quote? maximum) (precision/dec-min maximum)))
-        ;; Defaults: protected core 0 (sells may use all holdings), no
-        ;; maximum, target = current holdings kept within the limits.
-        ;; A perp position is signed: without a protected core there is no
-        ;; lower limit, and sells may open or add to a short.
         core (if perp? core-in (or core-in zero))
         target (or target-in
                    (some-> q (cond-> core (precision/dec-max core)) (cond-> maximum (precision/dec-min maximum))))
@@ -346,15 +308,11 @@
         limit-errors (when (and q (or (nil? core-in) (nil? target-in)))
                        (admission/check-inventory-limits {:core core :target target :maximum maximum}))
         tilt? (:tilt-enabled? resolved)
-        ;; Spec 5.4 needs a real q_max: never invent one for tilt.
-        ;; Skipped when the maximum is already reported missing on the same field.
         tilt-errors (when (and tilt? (nil? maximum)
                                (not-any? #(= :input/maximum-required (:code %)) errors))
                       [(contracts/error :input/maximum-required-for-tilt
                                         {:path [:inventory :maximum]})])
         kappa (when tilt? (or (:tilt-strength resolved) (d (get-in contracts/product-policy [:tilt-strength :default]))))
-        ;; Tilt needs a lower bound too. A perp without one mirrors the
-        ;; maximum around the target.
         tilt-target (or target zero)
         tilt-core (or core
                       (if (and perp? maximum)
@@ -363,9 +321,6 @@
         delta (when (and tilt? anchor v q maximum)
                 (grid/inventory-delta {:q q :core tilt-core :target tilt-target
                                        :maximum maximum}))
-        ;; Without a delta (tilt on but no maximum yet) the legs are built
-        ;; untilted so the plan still shows them and can size the Set maximum
-        ;; offer; the tilt error keeps the plan from review.
         shifted (when (and anchor v)
                   (grid/shifted-anchor {:anchor (:price anchor) :v v :kappa kappa :delta delta
                                         :tilt-enabled? (boolean (and tilt? delta))}))
@@ -401,7 +356,6 @@
                                   :base-credit-bound base-credit :base-debit-bound base-debit
                                   :usdc-debit-bound usdc-bound :buy-notional (sum-by buy-legs :notional)
                                   :cap buy-cap :available-usdc avail-usdc :available-base avail-base})
-                         ;; First, so its notional figures name the sell shortfall.
                          perp? (into (vec (perp-sell-margin-errors
                                            {:q q :sell-legs sell-legs :sell-total sell-total
                                             :reserve (:sell reserves) :margin (:margin account)})))

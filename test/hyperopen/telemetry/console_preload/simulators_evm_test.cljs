@@ -87,8 +87,6 @@
         ((async-support/unexpected-error done) err)))))
 
 (deftest simulated-tx-hashes-are-deterministic-test
-  ;; `tools/playwright/support/hyperevm_fixtures.mjs` `simulatedTxHash`
-  ;; builds the same strings; its node test pins the same two values.
   (is (= (str "0x" (apply str (repeat 56 "e")) "00000001") (wallet-evm/simulated-tx-hash 1)))
   (is (= (str "0x" (apply str (repeat 56 "e")) "0000001a") (wallet-evm/simulated-tx-hash 26)))
   (is (= 66 (count (wallet-evm/simulated-tx-hash 3)))))
@@ -239,9 +237,6 @@
         (cleanup! browser-state)))))
 
 (deftest wallet-chain-id-is-the-wallets-chain-not-the-transactions-test
-  ;; Playwright case (d) relies on `walletChainId` to prove a transaction was
-  ;; sent while the wallet was on HyperEVM, so it must record the wallet's
-  ;; chain even when the transaction names another one.
   (async done
     (let [tx {:from owner
               :to "0x2222222222222222222222222222222222222222"
@@ -256,9 +251,6 @@
                 (:transactions snap))))))))
 
 (deftest chain-after-sends-moves-the-wallet-right-after-that-send-test
-  ;; Acceptance 7 needs a wallet that leaves HyperEVM between the approve and
-  ;; the deposit: `chainAfterSends {1 "0xa4b1"}` moves it after send 1, so
-  ;; `eth_chainId` answers the new chain and listeners hear `chainChanged`.
   (async done
     (let [browser-state (capture-browser-state)
           heard (atom [])]
@@ -286,8 +278,6 @@
           ((async-support/unexpected-error done) err))))))
 
 (deftest unknown-methods-reject-with-4200-and-are-logged-test
-  ;; A read routed through the wallet must fail loudly instead of reading
-  ;; nil: receipts, gas and balances come from the mocked RPC only.
   (async done
     (run-test!
      done

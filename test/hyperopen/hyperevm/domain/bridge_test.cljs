@@ -85,9 +85,6 @@
         "JOFF reverts both calls; only the balanceOf failure is recorded")))
 
 (deftest a-failed-decimals-call-is-rechecked-not-cached-test
-  ;; One gas-starved chunk can fail every decimals() call after the call that
-  ;; burned the gas. Those tokens must be re-checked, not marked unmovable
-  ;; for the session.
   (let [state (bridge/apply-health {} (bridge/health-result
                                        catalog
                                        {:extra-results {[:system 1] (ok-result "5")

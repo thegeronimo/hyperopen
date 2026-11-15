@@ -50,8 +50,6 @@
         stored (get-in state [:chart-options :outcome-answers])
         request-key (answer-chart/plan-key market timeframe)
         current? (= request-key (:key stored))
-        ;; Until the plan for this event exists, draw nothing (a stale plan
-        ;; may name another event's coins).
         coins (if (or current? (= (first (:key stored)) (first request-key)))
                 (:coins stored)
                 [])

@@ -337,11 +337,6 @@
    :now-ms 2000})
 
 (deftest request-history-bundle-lossless-targeted-fallback-failure-degrades-test
-  ;; ETH's API series HAS usable points and only carries a recoverable
-  ;; :missing-candle-history warning, so the gap-fill is a TOP-UP. Losing it
-  ;; costs no history, so the failure degrades to a warning. Pre-2026-08-24 the
-  ;; rejection reached the total-failure handler and refetched the WHOLE
-  ;; universe through the serial legacy loader.
   (async done
     (let [legacy-calls (atom [])]
       (-> (history-client/request-history-bundle!
@@ -359,7 +354,6 @@
              (is (contains? (set (keys (get-in bundle [:api-v2-history
                                                        :series-by-instrument])))
                             "perp:BTC"))
-             ;; No escalation: BTC was never re-requested from /info.
              (is (= [[:candle "ETH"]] @legacy-calls))
              (is (contains? (set (map :code (:warnings bundle)))
                             :optimizer-history-targeted-fallback-failed))
@@ -367,12 +361,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest request-history-bundle-lossy-targeted-fallback-failure-fails-the-load-test
-  ;; ETH's API series has NO points, so the gap-fill was its ONLY source.
-  ;; Resolving here would hand apply-history-success a bundle carrying no
-  ;; :candle-history-by-coin at all, and that assoc-in REPLACES history-data
-  ;; wholesale — destroying candles an earlier load had fetched and persisting
-  ;; the degraded bundle. The load must fail so apply-history-error retains the
-  ;; existing history, and it must still not escalate to the legacy loader.
   (async done
     (let [legacy-calls (atom [])]
       (-> (history-client/request-history-bundle!
@@ -389,15 +377,10 @@
                    (done)))
           (.catch (fn [err]
                     (is (= "info endpoint blew up" (.-message err)))
-                    ;; Crucially: no whole-universe legacy refetch.
                     (is (not (contains? (set @legacy-calls) [:candle "BTC"])))
                     (is (= [[:candle "ETH"]] @legacy-calls))
                     (done)))))))
 (deftest request-history-bundle-does-not-space-after-the-final-legacy-request-test
-  ;; The spacing separates one /info request from the NEXT one. Sleeping after the
-  ;; last entry only delayed the resolved bundle (200ms in production config) with
-  ;; nothing waiting on it. Serialization itself is deliberate and unchanged — see
-  ;; request-history-bundle-throttles-legacy-info-requests-test.
   (async done
     (let [sleeps (atom 0)
           real-set-timeout js/setTimeout
@@ -407,9 +390,6 @@
               (when (= 5 ms)
                 (swap! sleeps inc))
               (real-set-timeout f 0)))
-      ;; js/setTimeout is process-global here, so a synchronous throw out of the
-      ;; call below would leave every later test running against the stub. The
-      ;; promise paths restore it too; this try only covers the sync path.
       (try
         (-> (history-client/request-history-bundle!
            {:optimizer-history-api {:enabled? false
@@ -428,7 +408,6 @@
             :now-ms 2000})
           (.then (fn [_bundle]
                    (set! js/setTimeout real-set-timeout)
-                   ;; 4 entries (candles BTC/ETH, funding BTC/ETH), 3 gaps.
                    (is (= 4 (count @entries)))
                    (is (= 3 @sleeps))
                    (done)))
@@ -440,17 +419,11 @@
           ((async-support/unexpected-error done) e))))))
 
 (deftest request-history-bundle-timeout-does-not-escalate-to-legacy-fallback-test
-  ;; The deadline exists to give the loading status a terminal state. The
-  ;; total-failure handler's normal reading of a rejection is "the API is
-  ;; unavailable, serve everything from /info" — but that loader is the slowest
-  ;; path in the system and has no deadline of its own, so honouring it here
-  ;; would replace a bounded wait with an unbounded one. A timeout must reject.
   (async done
     (let [legacy-calls (atom [])]
       (-> (history-client/request-history-bundle!
            {:optimizer-history-api {:enabled? true
                                     :base-url "https://history.test"
-                                    ;; Production posture: legacy fallback ON.
                                     :fallback-to-legacy? true
                                     :legacy-fallback-request-spacing-ms 0
                                     :request-timeout-ms 10}
@@ -476,6 +449,5 @@
                    (done)))
           (.catch (fn [err]
                     (is (= :timeout (aget err "status")))
-                    ;; The whole-universe legacy loader was never started.
                     (is (= [] @legacy-calls))
                     (done)))))))

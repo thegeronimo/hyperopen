@@ -245,8 +245,6 @@
   (let [current-dropdown (get-in state [:asset-selector :visible-dropdown])
         next-dropdown (if (= current-dropdown coin) nil coin)
         opening-selector? (and (= coin :asset-selector) (some? next-dropdown))
-        ;; Reload on open when the catalog is missing, partial, or older than
-        ;; `outcome-listing/stale-after-ms` (events leave and join the feed).
         should-refresh? (and opening-selector?
                              (or (empty? (get-in state [:asset-selector :markets]))
                                  (not= :full (get-in state [:asset-selector :phase]))
@@ -264,7 +262,6 @@
       should-refresh?
       (conj [:effects/fetch-asset-selector-markets])
 
-      ;; Rows, keyword search and asset-class tabs read the bulk annotations.
       (and (= coin :asset-selector) (some? next-dropdown) (string? (:active-asset state))
            (annotations/concise-load-needed? state))
       (conj [:effects/sync-perp-annotations (:active-asset state)]))))
@@ -334,8 +331,6 @@
                                (assoc :price "")
                                (assoc :size "")
                                (assoc :size-percent 0)
-                               ;; A stale-price confirmation covers one side of one
-                               ;; market only.
                                (dissoc :outcome-stale-confirmed?)
                                (trading/persist-order-form)))
         reset-order-form-ui (when switched-asset?
@@ -344,12 +339,6 @@
                                      :price-input-focused? false
                                      :size-display ""
                                      :size-input-source :manual))
-        ;; An outcome ticket opens as a Buy in dollars: a Sell carried over from
-        ;; a perp, or left by a finished cash out, would open a Cash out on a
-        ;; side the trader may not hold, with no way back. The one exception
-        ;; is switching sides of the same contract while cashing out a side
-        ;; that is held. Cash out and merge composites
-        ;; (`outcomes.application.exit-actions`) set their mode after this.
         outcome-selection? (= :outcome (:market-type selected-market))
         keep-cash-out? (and keep-cash-out?
                             outcome-selection?
@@ -382,19 +371,14 @@
                                         (some? selected-outcome-side-index))
                                    (conj [[:order-form :outcome-side] selected-outcome-side-index])
 
-                                   ;; The selected coin owns the selected answer: header
-                                   ;; picker, ticket rows and side buttons all land here,
-                                   ;; so the form's answer always matches the active asset.
                                    outcome-buy-reset?
                                    (into (cond-> [[[:order-form :side] :buy]
                                                   [[:order-form-ui :size-input-mode] :quote]]
-                                           ;; Shares typed for a sale are not dollars.
                                            side-flipped?
                                            (into [[[:order-form :size] ""]
                                                   [[:order-form :size-percent] 0]
                                                   [[:order-form-ui :size-display] ""]])))
 
-                                   ;; All answers is drawn only on a multi-answer event.
                                    (outcome-answers/reset-path-value state selected-market)
                                    (conj (outcome-answers/reset-path-value state selected-market))
 
@@ -425,10 +409,6 @@
                              (annotations/annotatable-coin? canonical-coin)
                              (conj [:effects/sync-perp-annotations canonical-coin])
 
-                             ;; A coin the loaded catalog can't resolve (a spot
-                             ;; balance's bare token name before spot markets
-                             ;; load) is not a venue coin. Load the full catalog
-                             ;; so the post-load hook can swap in the real pair.
                              (and (nil? resolved-market)
                                   (seq canonical-coin)
                                   (not= :full (get-in state [:asset-selector :phase])))

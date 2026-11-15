@@ -428,9 +428,6 @@
          (.then (fn [persisted]
                   (let [persisted* (when (persisted-range-valid-for-candles? persisted candles)
                                      (let [recentered (recenter-persisted-range-on-live-edge persisted candles)]
-                                       ;; The overhang margins in validation bound any
-                                       ;; recentered window back inside the domain, so
-                                       ;; this re-check only guards future policy edits.
                                        (when (persisted-range-valid-for-candles? recentered candles)
                                          recentered)))
                         can-apply? (boolean (allow-apply-fn))
@@ -493,11 +490,6 @@
                                 (when range-data
                                   (persist-visible-range!* asset timeframe range-data))))
              queue-persist! (fn [range-data]
-                              ;; allow-persist-fn is sampled at queue time, not
-                              ;; flush time: the range belongs to the dataset it
-                              ;; was captured against, so a range read off a
-                              ;; partial seed dataset must never be written even
-                              ;; if the full snapshot lands before the debounce.
                               (if (and range-data (allow-persist-fn))
                                 (do
                                   (reset! pending-range range-data)
@@ -505,9 +497,6 @@
                                     (clear-timeout-fn timeout-id))
                                   (reset! pending-timeout-id
                                           (set-timeout-fn flush-persist! debounce-ms)))
-                                ;; No pending write, so there is no debounce
-                                ;; window to coalesce into: let the next range
-                                ;; event notify interaction again.
                                 (reset! interaction-notified? false)))
              persist-current! (fn []
                                 (when-let [range-data (visible-range-from-time-scale time-scale)]

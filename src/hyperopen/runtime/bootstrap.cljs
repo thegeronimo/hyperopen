@@ -50,13 +50,6 @@
                                         (set/union (set (keys old-state))
                                                    (set (keys new-state))))
                                 #{}))
-          ;; `changed-root-keys` is a SECOND structural walk of the store on
-          ;; every write (the `not=` gate below is the first), and its only
-          ;; consumer is the telemetry event emitted after the frame. In a
-          ;; release build `telemetry/emit!` discards everything it is handed,
-          ;; so paying for that walk on every websocket push — which on a busy
-          ;; account is several times a second — buys nothing. Compute it only
-          ;; when something will actually keep it.
           diff-root-keys? (fn []
                             (and (fn? emit-fn)
                                  (boolean (telemetry-enabled?))))

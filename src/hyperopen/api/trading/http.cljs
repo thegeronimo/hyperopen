@@ -49,9 +49,6 @@
                      "")
                  str
                  str/lower-case)]
-    ;; This predicate is intentionally data-only: we only care whether the
-    ;; returned error text indicates a nonce mismatch, regardless of whether
-    ;; upstream set :status.
     (str/includes? text "nonce")))
 
 (defn response-error-text
@@ -127,9 +124,6 @@
                    vault-address (assoc :vaultAddress vault-address)
                    expires-after (assoc :expiresAfter expires-after))]
      (maybe-assert-signed-exchange-payload! payload action)
-     ;; The simulator's config arrives keywordized (`installExchangeSimulator`
-     ;; reads it with `:keywordize-keys`), so the per-type queue is looked up
-     ;; by keyword, as `post-info!` does.
      (or (debug-exchange-simulator/simulated-fetch-response
           [[:signedActions (keyword (str (:type action)))]
            [:signedActions :default]]

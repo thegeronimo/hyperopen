@@ -21,9 +21,6 @@
   (* 7 24 60 60 1000))
 
 (def ^:private persisted-history-keys
-  ;; Everything alignment/readiness consumes, EXCEPT :current-portfolio-history-data
-  ;; (only populated when holdings exceed the selected fetch — a state tied to
-  ;; the moment's holdings, not worth caching) and :request-plan noise.
   [:api-v2-history
    :candle-history-by-coin
    :funding-history-by-coin
@@ -79,8 +76,4 @@
                                [:api-v2-history :series-by-instrument])))
       (assoc-in state
                 contracts/history-data-path
-                ;; The marker keeps the persist watcher from re-writing the
-                ;; record it just read (persisted-history-keys strips it, and
-                ;; a real load's apply-history-success replaces the whole map,
-                ;; clearing it).
                 (assoc (:history-data record) :restored-from-cache? true)))))

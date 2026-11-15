@@ -60,10 +60,6 @@
       (seq (get-in state unpersisted-path))
       (update-in unpersisted-path #(into #{} (filter (partial contains? grids)) %)))))
 
-;; ---------------------------------------------------------------------------
-;; Ladders closed by stream evidence only
-;; ---------------------------------------------------------------------------
-
 (defn merge-stream-grid
   "`merge-grid-into-state` for a copy changed by WebSocket evidence. When the
   merge closes a store copy that was open, its grid id is remembered in

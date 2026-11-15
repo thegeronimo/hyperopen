@@ -159,8 +159,6 @@
     (is (nil? (model/irr [])))))
 
 (deftest concurrent-short-holds-are-not-annualised-test
-  ;; Three vaults held side by side for 12 days: 36 vault-days, but only 12
-  ;; days of calendar time, so the total is not annualised either.
   (let [start (- now (* 12 day))
         vault-c "0x3333333333333333333333333333333333333333"
         result (attribution/attribution
@@ -173,9 +171,6 @@
     (is (nil? (get-in result [:totals :money-weighted-return])))))
 
 (deftest withdrawals-after-basis-returned-keep-the-period-open-test
-  ;; A distribution returns the whole basis, then two withdrawals take out
-  ;; profit while 250 is still held: one holding period, not a leading
-  ;; withdrawal that drops the vault from the totals.
   (let [start (- now (* 100 day))
         result (attribution/attribution
                 {:ledger-rows [(fx/deposit start fx/vault-a "1000")
@@ -196,8 +191,6 @@
     (fx/assert-series-invariants result)))
 
 (deftest dust-after-a-full-withdrawal-keeps-the-vault-complete-test
-  ;; A full withdrawal leaves 0.005 of basis (under epsilon: closed), then a
-  ;; sub-cent dust payout lands later.
   (let [start (- now (* 100 day))
         wd (- now (* 50 day))
         dust (- now (* 10 day))

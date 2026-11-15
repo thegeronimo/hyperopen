@@ -10,14 +10,11 @@
   (:require [hyperopen.portfolio.vault-attribution.model :as model]))
 
 (def drift-ratio
-  ;; Live equity this far from the snapshot means money moved since the load.
   0.02)
 
 (def drift-min-usd 1)
 
 (def drift-min-age-ms
-  ;; The live rows poll every ~60 s; right after a load they may still trail
-  ;; the snapshot, so drift is only trusted once the snapshot is this old.
   60000)
 
 (defn- row-equity

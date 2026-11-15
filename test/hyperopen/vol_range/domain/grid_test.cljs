@@ -36,7 +36,6 @@
 (deftest bands-and-excursion-test
   (is (= {:minus-2 "70.4" :minus-1 "75.2" :plus-1 "84.8" :plus-2 "89.6"}
          (grid/bands {:anchor (pd "80") :v (pd "0.06")})))
-  ;; (75.92/80 - 1)/0.06 = -0.85 (spec section 5.5 example text)
   (is (= "-0.85" (grid/excursion-sigma {:mid (pd "75.92") :anchor (pd "80") :v (pd "0.06")})))
   (is (= "-1" (ds (pd (grid/excursion-sigma {:mid (pd "75.2") :anchor (pd "80") :v (pd "0.06")})))))
   (is (nil? (grid/excursion-sigma {:mid (pd "75") :anchor (pd "80") :v (pd "0")})))

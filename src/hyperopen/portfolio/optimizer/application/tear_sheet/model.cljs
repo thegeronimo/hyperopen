@@ -60,8 +60,6 @@
   1.5)
 
 (def ^:private return-metric-keys
-  ;; Endpoint returns are exact at sample dates; everything that reads the
-  ;; day-to-day path is estimated when sparse legs are interpolated.
   #{:time-in-market :cumulative-return :cagr :mtd :m3 :m6 :ytd :y1 :y3-ann
     :y5-ann :y10-ann :all-time-ann})
 
@@ -279,7 +277,6 @@
 (defn- cache-key
   [state result opts]
   {:result (select-keys result [:instrument-ids :target-weights])
-   ;; Typing in the compare search must not recompute the backtest.
    :opts (if (map? opts) (dissoc opts :benchmark-search :benchmark-open? :show-all-weights?) opts)
    :universe (get-in state contracts/draft-universe-path)
    :history (get-in state contracts/history-data-path)

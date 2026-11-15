@@ -102,9 +102,6 @@
 
 (deftest daily-row-straddling-a-period-start-is-prorated-test
   (let [now-ms (* 100 day-ms)
-        ;; Ten full daily rows, the newest ending at `now-ms`. Twelve hours
-        ;; later the 7-day window starts halfway through the seventh-newest
-        ;; row: six full rows plus half of that one.
         interest (mapv (fn [d] {:time-ms (- now-ms (* d day-ms)) :token "USDC"
                                 :supply 1 :borrow 0 :hours 24 :daily? true})
                        (range 10 0 -1))

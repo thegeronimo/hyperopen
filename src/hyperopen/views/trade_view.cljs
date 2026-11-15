@@ -21,9 +21,6 @@
             [hyperopen.views.trade-view.shell :as shell]))
 
 (def ^:private trade-chart-view-base-state-keys
-  ;; :account-context and :wallet (with :account and :router) let the chart
-  ;; resolve the effective account, so it never draws another account's
-  ;; fill history (:chart-trades); both change rarely
   [:active-asset
    :active-market
    :account
@@ -31,7 +28,6 @@
    :asset-contexts
    :candles
    :chart-options
-   ;; the chart's own uncapped fill history (trades on chart)
    :chart-trades
    :orders
    :perp-dex-clearinghouse
@@ -44,11 +40,6 @@
    :webdata2])
 
 (def ^:private account-info-view-base-state-keys
-  ;; :staking plus the three identity slices are required by the Balances tab's
-  ;; unstaking annotation: it must resolve the effective account address and
-  ;; verify the loaded delegator summary describes it. Omitting any of them makes
-  ;; the annotation silently never render on the trade route. All four change
-  ;; rarely, so they do not meaningfully widen this panel's memoized slice.
   [:account
    :account-context
    :account-info
@@ -67,7 +58,7 @@
 
 (def ^:private account-equity-view-state-keys
   [:account
-   :account-context :active-asset ; the venue breakdown marks the market's venue
+   :account-context :active-asset
    :borrow-lend
    :perp-dex-clearinghouse
    :router
@@ -119,7 +110,7 @@
   (active-asset-vm/panel-dependency-state state))
 
 (defn- asset-selector-market-lookup-state
-  [state] ;; stable across outcome quote batches: see trade-view.market-lookup
+  [state]
   {:asset-selector {:market-by-key (market-lookup/stable-market-by-key (get-in state [:asset-selector :market-by-key] {}))}})
 
 (defn- ui-voice-state
@@ -133,10 +124,7 @@
   [state]
   (cond-> (merge (select-view-state state trade-chart-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
-                 ;; the chart reads no side bid/ask: same object across quotes
                  {:active-market (market-lookup/stable-active-market (:active-market state))}
-                 ;; Draft overlay model (nil outside Volatility range mode) so the
-                 ;; memoized chart decorates on draft edits without remounting.
                  {:vol-range-chart (vol-range-projections/stable-chart-model state (.now js/Date))})
     (surface-freshness-cues-enabled? state)
     (assoc :websocket (:websocket state)
@@ -153,9 +141,6 @@
    :portfolio {:user-fees (get-in state [:portfolio :user-fees])}})
 
 (defn- account-info-view-state
-  ;; HyperEVM enters as a projected slice, never the raw :hyperevm subtree:
-  ;; every balance poll rewrites timestamps, status and gas price there, and
-  ;; the panel must repaint only when a Balances row would change.
   [state]
   (cond-> (merge (select-view-state state account-info-view-base-state-keys)
                  (asset-selector-market-lookup-state state)
@@ -191,17 +176,11 @@
 
 (defn- account-equity-view-state
   [state]
-  ;; Account Equity needs the HyperEVM value, but raw `:hyperevm` changes on
-  ;; every balance poll even when value, account and pricing did not. The lazy
-  ;; account-surfaces export returns only the ownership and truth fields the
-  ;; total uses, so equal summaries preserve this panel's render cache.
   (assoc (merge (select-view-state state account-equity-view-state-keys)
                 (asset-selector-market-lookup-state state))
          :account-equity/hyperevm-funds
          (when-let [funds-fn (account-surface-export :account-equity-hyperevm-funds)]
            (funds-fn state))
-         ;; Outcome shares at the best bid, as one number, so a book tick that
-         ;; moves no cent does not repaint the panel.
          :account-equity/outcome-shares
          (when-let [shares-fn (account-surface-export :account-equity-outcome-shares)]
            (shares-fn (merge-with merge state (asset-selector-market-lookup-state state))))))
@@ -478,8 +457,6 @@
     {:active-asset-panel-state active-asset-panel-state
      :trade-chart-panel-state trade-chart-panel-state
      :desktop-secondary-panels-ready? desktop-secondary-panels-ready?*
-     ;; The degen experience drops the desktop equity summary so the
-     ;; bottom widget cards get the vertical room (other themes keep it).
      :hide-account-equity? (voice/degen? state)
      :account-info-panel-state account-info-panel-state
      :account-equity-panel-state account-equity-panel-state

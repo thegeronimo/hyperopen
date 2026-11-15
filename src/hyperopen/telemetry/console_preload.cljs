@@ -550,7 +550,6 @@
   (let [global js/globalThis
         api (debug-api)]
     (aset global debug-api-key api)
-    ;; Convenience aliases for direct console use.
     (aset global "hyperopenSnapshot" (aget api "snapshot"))
     (aset global "hyperopenQaSnapshot" (aget api "qaSnapshot"))
     (aset global "hyperopenSnapshotJson" (aget api "snapshotJson"))

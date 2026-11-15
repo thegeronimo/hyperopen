@@ -100,8 +100,6 @@
   10)
 
 (def ^:private limit-margin
-  ;; Stay a little under the exact limit: shares move with every deposit and
-  ;; withdrawal between the read and the send.
   0.98)
 
 (defn deposit-limit
@@ -174,10 +172,6 @@
                       [address :leader-floor]
                       :else nil))))
           addresses)))
-
-(defn closed-addresses
-  [state addresses]
-  (set (keys (closed-reasons state addresses))))
 
 (defn holdings-status
   "Whether the user's vault holdings are known for the account being funded:

@@ -86,7 +86,6 @@
    "focus:ring-0"
    "focus:ring-offset-0"
    "focus-visible:text-ho-accent-bright"
-   ;; Colour alone is too weak a focus cue (WCAG 2.4.7, 1.4.11).
    "focus-visible:underline"
    "underline-offset-2"])
 
@@ -110,12 +109,6 @@
   (str data-role "-reason"))
 
 (def ^:private desktop-reason-classes
-  ;; Anchored at the action's right edge and opening leftward, over the
-  ;; row's own cells, so it never widens the scrolling rows viewport. The
-  ;; gap to the action is the tooltip's own padding, so the pointer can
-  ;; cross onto it without ending the hover (WCAG 1.4.13), and `invisible`
-  ;; (not just transparent) keeps a closed tooltip from catching the
-  ;; pointer over the rows around it.
   ["absolute"
    "right-0"
    "z-[120]"
@@ -162,8 +155,6 @@
                     :aria-label (:aria-label target)}]
     (cond
       (and (:disabled? target) mobile?)
-      ;; The reason is a visible line under the card's actions
-      ;; (`mobile-reasons-node`).
       ^{:key (name (:to target))}
       [:span {:class ["inline-flex" "items-center"]}
        [:button (assoc base-attrs

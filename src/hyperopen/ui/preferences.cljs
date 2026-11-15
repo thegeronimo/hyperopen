@@ -9,9 +9,6 @@
 (def ^:private supported-ui-fonts
   #{"system" "inter"})
 
-;; Inter is the default, matching Hyperliquid's own UI (Inter Regular), and is
-;; already preloaded by every release page. "system" stays available as a
-;; stored preference.
 (def ^:private default-ui-font "inter")
 
 (defn- normalize-ui-font

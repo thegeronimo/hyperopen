@@ -80,7 +80,6 @@
   (let [target (or (some-> event .-currentTarget)
                    (some-> event .-target))]
     (when (and target (fn? (.-select target)))
-      ;; Defer to the next tick so the browser's click caret placement doesn't win.
       (js/setTimeout #(.select target) 0))))
 
 (defn- immediate-tooltip

@@ -76,7 +76,6 @@
    :active-tab
    :market-by-key
    :markets
-   ;; Outcome list: sort, rows on screen, and how old / how healthy the load is.
    :outcome-sort
    :outcome-visible-keys
    :loaded-at-ms
@@ -214,7 +213,6 @@
              :asset-selector (asset-selector-state state active-asset)
              :perp-annotations (:perp-annotations state)
              :perp-dex-full-name-by-name (:perp-dex-full-name-by-name state)
-             ;; Outcome headers price the selected side from its live book.
              :orderbooks (when (= :outcome (:market-type active-market))
                            {active-asset (get-in state [:orderbooks active-asset])})
              :order-form {:outcome-option-id (get-in state [:order-form :outcome-option-id])
@@ -255,9 +253,6 @@
 (defn resolve-active-market [full-state active-asset]
   (let [projected-market (:active-market full-state)
         market-by-key (get-in full-state [:asset-selector :market-by-key] {})
-        ;; The projected market names its catalog entry: read it by key
-        ;; rather than resolving the coin against the whole catalog, which
-        ;; for an outcome side is a scan on every render.
         keyed-market (when (and (map? projected-market)
                                 (= :outcome (:market-type projected-market))
                                 (string? active-asset))

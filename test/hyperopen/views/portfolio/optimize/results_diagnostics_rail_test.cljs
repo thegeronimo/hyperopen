@@ -18,9 +18,6 @@
     :else []))
 
 (deftest diversification-status-actually-evaluates-test
-  ;; Audit regression: "Effective N · 0.5 of 18" rendered "● OK" because the
-  ;; status was hardcoded. A one-position target is bad, a concentrated one is
-  ;; caution, unknown is never falsely reassuring.
   (is (= :bad (rail/diversification-status 0.5 18)))
   (is (= :bad (rail/diversification-status 1.2 4)))
   (is (= :caution (rail/diversification-status 3 18)))
@@ -30,9 +27,6 @@
   (is (= :unknown (rail/diversification-status js/NaN 18))))
 
 (deftest warning-rows-group-per-code-with-plain-labels-test
-  ;; 25 near-identical per-asset rows bury the signal: one row per CODE, assets
-  ;; listed on the headline, engine message deduplicated into a detail line —
-  ;; and raw namespaced ids never leak (perp:HYPE renders as HYPE).
   (let [rows (vec (rail/warning-rows
                    {}
                    [{:code :stale-history
@@ -51,14 +45,9 @@
       (is (str/includes? stale-text "XRP"))
       (is (str/includes? stale-text "HYPE"))
       (is (not (str/includes? stale-text "perp:")) "no raw namespaced ids")
-      ;; The identical per-asset message appears once, not twice.
       (is (= 1 (count (re-seq #"Cached history is stale\." stale-text)))))))
 
 (deftest history-window-flags-stale-shared-calendar-test
-  ;; A live min-variance run silently optimized on a covariance window ending
-  ;; 22 days before the run date while the History Used card said OK — the
-  ;; status only counted observations. Staleness must escalate the card and
-  ;; the subtext must say how far behind the shared window ends.
   (is (= :ok (rail/history-window-status {:return-observations 350
                                           :stale? false})))
   (is (= :caution (rail/history-window-status {:return-observations 350
@@ -84,10 +73,6 @@
       "fresh windows keep the plain limiter subtext"))
 
 (deftest solver-fallback-warning-renders-with-plain-copy-test
-  ;; The fallback used to be entirely silent, so an OSQP that never ran (a CSP
-  ;; without 'wasm-unsafe-eval' blocks WebAssembly outright) looked like a
-  ;; healthy but slow run. It must now render, and it must not leak the raw
-  ;; kebab code as the headline.
   (let [rows (vec (rail/warning-rows
                    {}
                    [{:code :solver-fallback-used
@@ -99,9 +84,6 @@
     (is (str/includes? text "fell back"))))
 
 (deftest solver-fallback-warning-reaches-the-mounted-rail-test
-  ;; warning-rows in isolation is not proof the panel shows it: the warnings
-  ;; block is gated on (seq (:warnings result)) inside the mounted rail, so
-  ;; assert through the real entry point.
   (let [text (str/join " " (collect-strings
                             (rail/trust-diagnostics-rail
                              {:instrument-ids ["perp:BTC" "perp:ETH"]

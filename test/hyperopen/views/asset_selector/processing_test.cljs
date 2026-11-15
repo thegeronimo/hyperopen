@@ -64,7 +64,6 @@
   (testing "outcome category subfilters include economics and sports grouped rows"
     (let [assets (markets/build-outcome-markets outcome-fixtures/live-outcome-meta
                                                 outcome-fixtures/live-outcome-ctxs)]
-      ;; Outcome volume is shares traded, each contract counted once.
       (is (= ["outcome:104" "question:19"]
              (mapv :key (processing/filter-and-sort-assets assets "" :volume :desc #{} false false :outcome-economics))))
       (is (= ["outcome:142" "question:32" "outcome:141"]

@@ -66,8 +66,6 @@
       (is (= 0.0000125 (:funding-rate-hourly entry))))))
 
 (deftest input-sig-buckets-mark-noise
-  ;; The fixture mark (437.5) sits just below a bucket boundary, so the
-  ;; in-bucket move is taken downward.
   (let [entry (first (state/isolated-positions (base-state)))
         tiny-move (assoc entry :mark (* (:mark entry) 0.9995))
         big-move (assoc entry :mark (* (:mark entry) 1.02))]
@@ -124,7 +122,7 @@
           with-recent (assoc-in ready
                                 (conj state/recs-path "xyz:TSM|xyz")
                                 {:status :ok
-                                 :input-sig sig ;; differs by candle-last-t
+                                 :input-sig sig
                                  :structural-sig (state/structural-sig entry)
                                  :computed-at (- now 1000)})
           with-old (assoc-in with-recent

@@ -370,7 +370,6 @@
       (is (fn? @scheduled-refresh))
       (@scheduled-refresh)
       (is (= [] @open-orders-addresses))
-      ;; Default clearinghouse snapshot is skipped when webData2 stream is live.
       (is (= [] @perp-clearinghouse-addresses))
       (is (= [effective-address]
              @spot-clearinghouse-addresses)))))
@@ -529,7 +528,6 @@
         (js/setTimeout
          (fn []
            (is (= [] @open-orders-addresses))
-           ;; Per-dex REST snapshot is suppressed when stream is subscribed and snapshot is already present.
            (is (= [] @perp-clearinghouse-calls))
            (is (= [effective-address]
                   @spot-clearinghouse-addresses))
@@ -558,9 +556,7 @@
                    :descriptor {:type "clearinghouseState"
                                 :user address
                                 :dex "dex-b"}}})
-      ;; No-op sync should not emit duplicate subscribe messages.
       (user-ws/sync-perp-dex-clearinghouse-subscriptions! address ["dex-a" "dex-b"])
-      ;; Removing one dex should emit unsubscribe for the stale dex only.
       (user-ws/sync-perp-dex-clearinghouse-subscriptions! address ["dex-b"])
       (let [subscribe-msgs (filter #(= "subscribe" (get % :method)) @outbound-messages)
             unsubscribe-msgs (filter #(= "unsubscribe" (get % :method)) @outbound-messages)
@@ -641,7 +637,6 @@
                :nonFundingLedgerUpdates [{:time 2000 :coin "USDC" :delta "2.0"}]}})
       (is (fn? @scheduled-refresh))
       (@scheduled-refresh)
-      ;; Event-driven (:n-a) streams are still WS-covered and should suppress fallback refreshes.
       (is (= [] @open-orders-addresses))
       (is (= [] @perp-clearinghouse-addresses))
       (is (= [effective-address]
@@ -717,7 +712,6 @@
       (@scheduled-refresh)
       (is (= [effective-address]
              @open-orders-addresses))
-      ;; Flag disabled should restore default clearinghouse snapshot fetch.
       (is (= [effective-address]
              @perp-clearinghouse-addresses))
       (is (= [effective-address]

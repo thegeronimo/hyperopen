@@ -7,20 +7,13 @@
             [hyperopen.portfolio.metrics.math :as math]
             [hyperopen.portfolio.metrics.builder :as builder]))
 
-;; History functions
 (def history-point-value history/history-point-value)
 (def history-point-time-ms history/history-point-time-ms)
 (def returns-history-rows-from-summary history/returns-history-rows-from-summary)
 (def returns-history-rows history/returns-history-rows)
 (def cumulative-percent-rows->interval-returns history/cumulative-percent-rows->interval-returns)
 (def daily-compounded-returns history/daily-compounded-returns)
-(def strategy-daily-compounded-returns history/strategy-daily-compounded-returns)
-(def returns-values history/returns-values)
-(def normalize-daily-rows history/normalize-daily-rows)
-(def daily-rows->cumulative-percent-rows history/daily-rows->cumulative-percent-rows)
-(def align-daily-returns history/align-daily-returns)
 
-;; Returns functions
 (def comp returns/comp)
 (def time-in-market returns/time-in-market)
 (def cagr returns/cagr)
@@ -32,7 +25,6 @@
 (def probabilistic-sharpe-ratio returns/probabilistic-sharpe-ratio)
 (def omega returns/omega)
 
-;; Drawdown functions
 (def to-drawdown-series drawdown/to-drawdown-series)
 (def max-drawdown drawdown/max-drawdown)
 (def drawdown-details drawdown/drawdown-details)
@@ -44,8 +36,6 @@
 (def serenity-index drawdown/serenity-index)
 (def calmar drawdown/calmar)
 
-;; Distribution functions
-(def aggregate-period-returns distribution/aggregate-period-returns)
 (def expected-return distribution/expected-return)
 (def best-period-return distribution/best-period-return)
 (def worst-period-return distribution/worst-period-return)
@@ -73,8 +63,6 @@
 (def correlation distribution/correlation)
 (def treynor-ratio distribution/treynor-ratio)
 
-;; Benchmark column values are standalone benchmark metrics, except these rows
-;; describe the portfolio relative to that specific benchmark column.
 (def benchmark-column-relative-metric-keys
   [:r2 :information-ratio :beta :alpha :correlation :treynor-ratio])
 
@@ -108,10 +96,8 @@
           (or benchmark-values {})
           benchmark-column-relative-metric-keys))
 
-;; Math functions (exported directly in the original file)
 (def skew math/skew)
 (def kurtosis math/kurtosis)
 
-;; Builder functions
 (def compute-performance-metrics builder/compute-performance-metrics)
 (def metric-rows builder/metric-rows)

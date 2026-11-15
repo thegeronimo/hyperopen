@@ -296,11 +296,9 @@
       (vm/account-info-vm state)
       (is (= 1 @normalize-calls))
 
-      ;; Sort-state churn should not invalidate derived row identity cache.
       (vm/account-info-vm (assoc-in state [:account-info :open-orders-sort :direction] :asc))
       (is (= 1 @normalize-calls))
 
-      ;; Input identity change should invalidate cache.
       (vm/account-info-vm (assoc state :orders (assoc (:orders state) :open-orders [{:coin "ETH" :oid 12}])))
       (is (= 2 @normalize-calls)))))
 

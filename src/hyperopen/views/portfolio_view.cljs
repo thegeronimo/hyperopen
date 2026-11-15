@@ -27,7 +27,6 @@
                (portfolio-header/portfolio-inspection-header state)
                (portfolio-header/header-actions state))
      :background-status (portfolio-header/background-status-banner (:background-status view-model*))
-     ;; Always a node (hidden by class with no account shown), never nil.
      :funds-locations (funds-locations/funds-locations-strip
                        (funds-locations/funds-locations-model state (:summary view-model*)))
      :summary-grid
@@ -55,22 +54,11 @@
         fee-schedule-cache-key (:open? fee-schedule-model)
         hover-active? (chart-hover-state/surface-hover-active? :portfolio)
         volume-history-open? (true? (get-in state [:portfolio-ui :volume-history-open?]))
-        ;; :sections contains the whole account table, whose tabs load their code
-        ;; lazily. Without this term a chunk that lands while the chart is hovered
-        ;; would be held out of the cached sections and the tab would stay on its
-        ;; pending state.
         account-tab-modules (:account-tab-modules state)
-        ;; The custom range changes on every pointer sample of a strip drag.
-        ;; Without it in the cache key, a drag that begins while the chart still
-        ;; reports hover would replay cached sections and the chart would sit
-        ;; frozen for the whole gesture.
         custom-range-cache-key [(get-in state portfolio-actions/summary-custom-range-path)
                                 (get-in state portfolio-actions/summary-range-strip-path)
                                 (get-in state portfolio-actions/summary-range-drag-path)
-                                ;; The Vol Range report revises as loads, backfills and
-                                ;; restarts land; hover must not freeze it.
                                 (get-in state [:vol-range :report])]
-        ;; Vault attribution loads/refreshes while the chart may be hovered.
         vault-attribution (get-in state [:portfolio :vault-attribution])
         cached-entry @portfolio-view-cache
         sections (when-not optimizer-route?
@@ -94,11 +82,6 @@
                                                     :sections next-sections})
                        next-sections)))]
     (if optimizer-route?
-      ;; shrink-0 is load-bearing: this frame is a flex item of the fixed-height
-      ;; app <main>, and the explicit :min-height below replaces the min-height:auto
-      ;; content floor — without shrink-0 the box clamps to the viewport, content
-      ;; overflows it, and the :padding-bottom footer clearance lands mid-content
-      ;; (the fixed z-170 footer then eclipses the page tail).
       [:div {:class ["portfolio-optimizer" "w-full" "shrink-0"]
              :style {:background-color "var(--optimizer-bg)"
                      :min-height "calc(100vh - 3.5rem)"

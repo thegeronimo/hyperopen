@@ -456,9 +456,6 @@ test("portfolio optimizer setup and retained draft detail routes render through 
     performance.getEntriesByType("navigation").length
   );
 
-  // The standalone Rebalance preview tab was retired — the rebalance is staged straight
-  // into Execution. Entering Execution must switch the tab in place (no full navigation)
-  // and render the execution surface from the view model.
   await page.locator("[data-role='portfolio-optimizer-scenario-tab-execution']").click();
 
   const executionRoute = await page.evaluate(() => ({
@@ -1113,9 +1110,6 @@ test("portfolio optimizer draft objective menu changes objective and reruns fron
   await trigger.click();
   await expect(menu).toBeVisible();
   await expect(menu).toContainText("Change objective");
-  // Apply is enabled even before a selection change: re-applying Maximum
-  // Sharpe on this historical-mean draft would switch it onto the views-aware
-  // return model, which is a real change under the consolidated model.
   await expect(apply).toBeEnabled();
   await minimumVolatility.click();
   await expect(minimumVolatility).toHaveAttribute("data-selected", "true");
@@ -1195,8 +1189,6 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   const editor = page.locator(
     "[data-role='portfolio-optimizer-objective-menu-use-my-views-editor']"
   );
-  // Row locators are scoped to the menu editor: once the views-aware model is
-  // active the results rail renders the same row roles.
   const btcReturn = editor.locator(
     "[data-role='portfolio-optimizer-objective-menu-view-hl:perp:BTC-return']"
   );
@@ -1215,9 +1207,6 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
 
   await trigger.click();
   await expect(menu).toBeVisible();
-  // Return views are an input policy carried by Maximum Sharpe — there is no
-  // separate "use my views" objective, and the views editor renders under the
-  // pending max-sharpe selection (pending defaults to the current key).
   await expect(useMyViews).toHaveCount(0);
   await expect(menu.locator("[data-role^='portfolio-optimizer-objective-menu-option-']"))
     .toHaveCount(4);
@@ -1229,8 +1218,6 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   await expect(cancel).toBeVisible();
   await expect(apply).toBeVisible();
   await expect(menu.locator("select")).toHaveCount(0);
-  // The draft's return model is still historical-mean, so views are OFF: the
-  // panel says so honestly instead of rendering rows that would not be used.
   await expect(editor.locator(
     "[data-role='portfolio-optimizer-objective-menu-use-my-views-editor-views-off']"
   )).toBeVisible();
@@ -1246,14 +1233,10 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   await expect(btcStepDown).toHaveCount(0);
   await expect(menu).toHaveCSS("outline-style", "none");
 
-  // Apply is enabled even though max-sharpe is already current: applying
-  // attaches the views-aware return model to the historical-mean draft.
   await expect(apply).toBeEnabled();
   await apply.click();
 
   await expect(menu).toHaveCount(0);
-  // Zero views is a valid state — the run proceeds with posterior = baseline;
-  // nothing is materialized from the UI buffers.
   await expect.poll(async () => {
     const returnModel = await readOptimizerState(page, [
       "portfolio",
@@ -1298,18 +1281,11 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   await expect(railEditor).toBeVisible();
   await expect(railEditor).toContainText("Return views");
   await expect(railEditor).not.toContainText("Your return views");
-  // The rail editor is collapsed by default — input editing is by-exception on
-  // the results page — so the summary toggle carries the title + live counts and
-  // the rows stay hidden until opened.
   const railToggle = railEditor.locator(
     "[data-role='portfolio-optimizer-results-your-views-editor-toggle']"
   );
   await expect(railToggle).toBeVisible();
   await expect(railBtcReturn).toBeHidden();
-  // Scroll the app root fully to the bottom first: the collapsed editor is the
-  // last rail row, and a minimal scroll-into-view leaves it flush with the
-  // viewport bottom where the fixed footer (z-170) intercepts the click point.
-  // At max scroll the main pb clearance lifts it above the footer.
   await page.evaluate(() => {
     const root = document.querySelector("[data-parity-id='app-root']");
     if (root) root.scrollTop = root.scrollHeight;
@@ -1318,17 +1294,12 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   await expect(page.locator("[data-role='portfolio-optimizer-results-your-views-apply']"))
     .toBeVisible();
 
-  // With the views-aware model active, rows render with the implied BASELINE
-  // pre-filled (the raw estimate the solver uses for viewless assets — NOT the
-  // last run's posterior, which used to pose as the seed here) and honest
-  // provenance: implied, no selected confidence.
   await expect(railBtcReturn).not.toHaveValue("");
   await expect(railEthReturn).not.toHaveValue("");
   await expect(railBtcSource).toHaveAttribute("data-source", "implied");
   await expect(railEditor.locator("[data-role*='-confidence-'][data-selected='true']"))
     .toHaveCount(0);
 
-  // Rail edits author absolute views IMMEDIATELY — no Apply round-trip.
   await railBtcReturn.fill("18");
   await railBtcHigh.click();
   await railEthReturn.fill("16.5");
@@ -1385,8 +1356,6 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   await expect(editorBtcHigh).toHaveAttribute("data-selected", "true");
   await expect(editorEthLow).toHaveAttribute("data-selected", "true");
 
-  // Arrow-key stepping on a views-aware draft updates the authored view
-  // immediately (buffer and draft stay in lockstep), and steps back cleanly.
   await editorBtcReturn.focus();
   await page.keyboard.press("ArrowUp");
   await expect(editorBtcReturn).toHaveValue("18.5");
@@ -1414,8 +1383,6 @@ test("portfolio optimizer draft objective menu edits max sharpe return views imm
   expect(returnBox?.height ?? 0).toBeGreaterThanOrEqual(28);
   expect(confidenceBox?.height ?? 0).toBeGreaterThanOrEqual(28);
 
-  // Picking a non-Sharpe objective no longer downgrades the return model: the
-  // views-aware model and the authored views survive the switch.
   await minimumVolatility.click();
   await expect(minimumVolatility).toHaveAttribute("data-selected", "true");
   await expect(editor).toHaveCount(0);
@@ -1462,9 +1429,6 @@ test("portfolio optimizer max sharpe return views popover stays usable across re
       });
 
       await seedTwoAssetDraftScenario(page);
-      // The dense row layout is what this test protects, so put the draft on
-      // the views-aware model (rows only render there — historical drafts show
-      // the views-off note instead).
       await dispatch(page, [
         ":actions/apply-portfolio-optimizer-setup-preset",
         ":max-sharpe"
@@ -1490,16 +1454,11 @@ test("portfolio optimizer max sharpe return views popover stays usable across re
       await trigger.scrollIntoViewIfNeeded();
       await trigger.click();
       await expect(menu).toBeVisible();
-      // The views editor renders inline under the max-sharpe option (there is
-      // no separate "use my views" option anymore).
       await maximumSharpe.click();
       await expect(editor).toBeVisible();
       await expect(editor).toContainText("Return views");
       await expect(editor).not.toContainText("Relative views");
       await expect(addView).toHaveCount(0);
-      // The popover is page-anchored under the trigger; on narrow single-column
-      // layouts the trigger can sit low enough that reaching the footer takes a
-      // page scroll (same as any long dropdown) — usable means reachable.
       await footerActions.scrollIntoViewIfNeeded();
       await expect(footerActions).toBeInViewport({ ratio: 1 });
       await expect(menu.locator("select")).toHaveCount(0);
@@ -1517,8 +1476,6 @@ test("portfolio optimizer max sharpe return views popover stays usable across re
       const btcHigh = menu.locator(
         "[data-role='portfolio-optimizer-objective-menu-view-hl:perp:BTC-confidence-high']"
       );
-      // Rows edit the views-aware draft immediately: the fill authors the view
-      // and the confidence click re-weights it.
       await btcReturn.fill("18");
       await expect(btcReturn).toHaveValue("18");
       await btcHigh.click();
@@ -1627,10 +1584,6 @@ test("portfolio optimizer draft add asset selector stays contained and focused a
       const searchInput = page.locator("[data-role='portfolio-optimizer-draft-add-asset-search-input']");
       const ethRow = page.locator("[data-role='portfolio-optimizer-draft-add-asset-candidate-row-perp:ETH']");
 
-      // Center the anchor first: a minimal scroll can leave the button flush
-      // with the viewport bottom, where the downward-opening popover's
-      // containment depends on incidental page height above the anchor rather
-      // than on the popover's own sizing (which is what this test pins).
       await addAsset.evaluate((el) => el.scrollIntoView({ block: "center" }));
       await addAsset.click();
       await expect(popover).toBeVisible();

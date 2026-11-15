@@ -26,11 +26,6 @@
 (def ^:private bid-side 0)
 (def ^:private ask-side 1)
 
-(def empty-sides
-  [[] []])
-
-;; ---------------------------------------------------------------- subscription
-
 (defn build-subscription
   "The `l2` channel requires the short key `:c`. Sending `:coin` is rejected by
    the server with a JSON parse error."
@@ -45,8 +40,6 @@
    so the two paths agree on what counts as an aggregated subscription."
   [aggregation-config]
   (not (contains? #{2 3 4 5} (:nSigFigs aggregation-config))))
-
-;; ------------------------------------------------------------------- envelopes
 
 (defn snapshot-payload
   "The snapshot map from an `l2` frame's `:data`, or nil when the frame is a delta."
@@ -83,8 +76,6 @@
     [(sort-side (side-at levels bid-side) bid-side)
      (sort-side (side-at levels ask-side) ask-side)]))
 
-;; ----------------------------------------------------------------- delta parse
-
 (defn- normalize-upserts [side-levels]
   (into []
         (keep (fn [level]
@@ -115,8 +106,6 @@
          :removals [(normalize-removals (get-in raw [:r bid-side]))
                     (normalize-removals (get-in raw [:r ask-side]))]}))))
 
-;; ----------------------------------------------------------------- delta apply
-
 (defn- remove-indices [levels indices]
   (if (empty? indices)
     levels
@@ -135,8 +124,6 @@
   (if (empty? upserts)
     levels
     (reduce (fn [acc {:keys [px sz]}]
-              ;; Deltas carry no order count, so a touched level drops the stale
-              ;; `:n` it may have arrived with rather than reporting a wrong one.
               (let [next-level {:px px :sz sz}]
                 (if-let [index (index-of-price acc (policy/parse-number px))]
                   (assoc acc index next-level)

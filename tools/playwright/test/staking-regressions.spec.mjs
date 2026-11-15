@@ -461,8 +461,6 @@ const DAY_MS = 86_400_000;
 const QUEUE_MS = 7 * DAY_MS;
 
 function formatLocalStamp(ms) {
-  // Mirrors hyperopen.utils.formatting/format-local-date-time. The spec pins
-  // timezoneId "UTC", so UTC parts are the local parts the app renders.
   const d = new Date(ms);
   const pad2 = (n) => String(n).padStart(2, "0");
   return (
@@ -471,12 +469,7 @@ function formatLocalStamp(ms) {
   );
 }
 
-// Served through the stubbed /info route rather than written straight into
-// app-db, so the wire shapes go through the real normalizers and the route's own
-// post-visit refresh cannot overwrite the scenario.
 function withdrawWireRow(amount, startedAtMs) {
-  // The live delegatorHistory shape for a queue entry still in flight. cWithdraw
-  // is what starts the queue but never appears in this endpoint's responses.
   return {
     time: startedAtMs,
     hash: `0x${String(startedAtMs)}`,
@@ -504,8 +497,6 @@ async function seedUnstakingQueue(page, { pending, count, history }) {
 }
 
 test("staking balance panel reports in-flight unstaking as locked with an arrival time @regression", async ({ page }) => {
-  // Offset by 30 minutes so the rendered hour bucket cannot straddle a boundary
-  // between the seed and the render.
   const startedAtMs = Date.now() - 2 * DAY_MS - 30 * 60_000;
   await seedUnstakingQueue(page, {
     pending: 25,

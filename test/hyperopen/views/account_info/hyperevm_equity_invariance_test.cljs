@@ -67,8 +67,6 @@
 (deftest hyperevm-balances-change-only-the-classic-grouped-total-test
   (let [baseline (fresh account-equity-view/account-equity-metrics without-evm)
         _ (reset-caches!)
-        ;; Render the Balances tab first, as the page does, so the HyperEVM
-        ;; rows exist when the metrics are derived.
         _ (account-info-vm/account-info-vm with-evm)
         with-rows (account-equity-view/account-equity-metrics with-evm)]
     (is (some? (:spot-equity baseline)))

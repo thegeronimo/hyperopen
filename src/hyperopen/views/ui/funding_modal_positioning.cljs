@@ -19,11 +19,6 @@
 (def ^:private estimated-panel-height-px
   560)
 
-;; The Transfer form (places, asset list, amount, blocked card, summary) runs
-;; taller than the other funding forms. Placing it as if it were 700px tall
-;; keeps an anchored popover opened from a low row high enough that its fix
-;; and submit buttons stay in view at 1280x800; the panel scrolls inside past
-;; that (see the funding modal shell's height cap).
 (def ^:private estimated-panel-height-px-by-mode
   {:transfer 700})
 

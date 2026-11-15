@@ -30,10 +30,6 @@
   (when-let [key* (some-> icon-key str str/trim not-empty)]
     (str icon-proxy-prefix (js/encodeURIComponent key*) ".svg")))
 
-(defn cached-data-uri
-  [icon-key]
-  (get @data-uri-cache icon-key))
-
 (defn- svg-markup?
   [text]
   (and (string? text)

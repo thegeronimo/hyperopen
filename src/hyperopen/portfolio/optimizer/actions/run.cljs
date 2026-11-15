@@ -39,9 +39,6 @@
   [:effects/run-portfolio-optimizer-pipeline])
 
 (defn- black-litterman-run-effects
-  ;; Zero authored views is a valid run: the posterior equals the baseline
-  ;; expected returns, exactly the pre-views Maximum Sharpe behavior. Only a
-  ;; half-entered structured-editor draft still blocks (with its field errors).
   [state]
   (let [pending (bl-editor-model/pending-editor-view-result state)]
     (case (:status pending)
@@ -62,13 +59,6 @@
     (let [run-effects (if (bl-common/black-litterman-return-model? state)
                         (black-litterman-run-effects state)
                         [(run-pipeline-effect)])
-          ;; A blocked draft's Run click otherwise dead-ends in the pipeline's
-          ;; readiness throw; when the backend has applicable recommendations
-          ;; for the pending workflow assets, the click applies them all first
-          ;; (the same funnel as the Apply-all-recommended banner) and then
-          ;; runs. A runnable draft is never silently reconfigured, and a
-          ;; click the Black-Litterman editor rejects (no pipeline effect in
-          ;; run-effects) must not mutate assumptions as a side effect.
           auto-apply (when (and (some #{(run-pipeline-effect)} run-effects)
                                 (not (:runnable? (setup-readiness/build-readiness state))))
                        (default-assumptions-actions/pending-recommended-apply-effects
@@ -170,9 +160,6 @@
   [(open-scenario-save-modal-effect state)])
 
 (defn confirm-portfolio-optimizer-scenario-save
-  ;; Saving needs a name, nothing else: a scenario without a current solved run
-  ;; persists as a setup-only snapshot (the workflow attaches the results
-  ;; snapshot only when it still matches the draft).
   [state]
   (let [scenario-name (non-blank-text
                        (get-in state
@@ -204,8 +191,6 @@
                                     (:kind route))]
     (cond-> (into
              (case (:kind route)
-               ;; The workspace hosts the Scenarios menu, so arriving there loads
-               ;; the wallet's saved-scenario index alongside the draft machinery.
                :optimize-new [[:effects/load-portfolio-optimizer-scenario-index]]
                :optimize-scenario [[:effects/load-portfolio-optimizer-scenario
                                     (:scenario-id route)]]
@@ -215,17 +200,11 @@
                      (into (asset-selector-market-fetch-effects state)
                            (action-common/vault-list-metadata-fetch-effects state)))
                []))
-      ;; Hydrate the wallet's remembered constraint profiles, return-view
-      ;; library, and history-assumption library (and, if the draft is
-      ;; pristine, seed the draft from the default for this universe), so the
-      ;; trader stops re-entering them.
       optimizer-route?
       (conj [:effects/load-portfolio-optimizer-constraint-profiles]
             [:effects/load-portfolio-optimizer-view-library]
             [:effects/load-portfolio-optimizer-assumption-library])
 
-      ;; The Recommendation tab's hypothetical-performance card compares
-      ;; against HLP; the tear sheet against the user's picked benchmarks.
       (= :optimize-scenario (:kind route))
       (into (tear-sheet-sources/benchmark-fetch-effects
              state

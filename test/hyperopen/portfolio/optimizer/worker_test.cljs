@@ -333,10 +333,6 @@
      :as-of-ms 1777046400000}))
 
 (deftest optimizer-worker-solves-equal-risk-with-exact-gross-target-test
-  ;; The real worker path (OSQP under Node): the sequential equal-risk solve
-  ;; must produce a solved payload whose published weights hit the selected
-  ;; gross target exactly, leave net as a resulting exposure, and carry a sane
-  ;; risk-contribution section.
   (async done
     (-> (worker/optimizer-result-payload (equal-risk-worker-request))
         (.then (fn [result]

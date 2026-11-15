@@ -22,10 +22,6 @@
 
 (defn- leg [g cloid] (get-in g [:legs cloid]))
 
-;; ---------------------------------------------------------------------------
-;; Envelopes
-;; ---------------------------------------------------------------------------
-
 (deftest fills-envelope-reads-nested-and-vector-payloads-test
   (let [e (fills fx/fills-snapshot)]
     (is (= {:kind :fills :scope {:network :hyperliquid-mainnet :account-address "0xabc"} :source :websocket
@@ -79,10 +75,6 @@
     (is (= [fx/buy-0-row] (:rows (orders {:channel "openOrders" :data {:user "0xabc" :data [fx/buy-0-row]}}))))
     (is (= [fx/buy-0-row] (:rows (orders {:channel "openOrders" :user "0xabc" :data [fx/buy-0-row]}))))))
 
-;; ---------------------------------------------------------------------------
-;; Routing (VR-18, VR-19)
-;; ---------------------------------------------------------------------------
-
 (deftest routing-ignores-other-scopes-and-unknown-orders-test
   (let [g (fx/grid)
         e (fills fx/fills-snapshot)]
@@ -135,7 +127,6 @@
         (is (= 1 (count (:fills g))))))))
 
 (deftest checking-ladders-are-reported-test
-  ;; An unknown placement has no oid yet, so the fill names it by CLOID.
   (let [g (fx/grid :unknown)
         row (assoc fx/partial-fill :cloid fx/cloid-buy-0)
         e (fills {:channel "userFills" :data {:user "0xabc" :fills [row]}})
@@ -146,10 +137,6 @@
     (let [leg* (leg (live/apply-envelope g e [row]) fx/cloid-buy-0)]
       (is (= :accepted (:placement-state leg*)) "a fill proves acceptance")
       (is (= "9000" (:oid leg*))))))
-
-;; ---------------------------------------------------------------------------
-;; Fill identity (spec 9.2, VR-14)
-;; ---------------------------------------------------------------------------
 
 (deftest snapshot-increment-and-rest-row-count-one-fill-test
   (let [g (get (-> {"grid-live" (fx/grid)}
@@ -179,10 +166,6 @@
     (is (= "hyperliquid-mainnet|0xabc|SYN/USDC|||"
            (evidence/fill-key nil "0xabc" {:coin "SYN/USDC"}))
         "missing parts render as before")))
-
-;; ---------------------------------------------------------------------------
-;; Open orders (spec 9.1: presence only, never stale state)
-;; ---------------------------------------------------------------------------
 
 (deftest presence-resolves-an-unknown-leg-test
   (let [g (fx/grid :unknown)

@@ -3,8 +3,6 @@
             [hyperopen.portfolio.optimizer.application.view-model :as optimizer-view-model]))
 
 (def ^:private severity-card-classes
-  ;; Blocking issues read as errors, cautions as warnings, by-design notes as
-  ;; muted info — the old panel rendered every kind as the same amber box.
   {:blocking ["border-error/40" "bg-error/10" "text-error"]
    :caution ["border-warning/40" "bg-warning/10" "text-warning"]
    :info ["border-base-300" "bg-base-200/40" "text-trading-muted"]})
@@ -29,14 +27,10 @@
                         "px-1.5" "font-mono" "text-[0.6875rem]"]
                 :data-role "portfolio-optimizer-readiness-warning-count"}
          count])]
-     ;; One plain sentence of context under the headline, so the headline can
-     ;; stay short and the raw diagnostics can stay behind Details.
      (when detail
        [:p {:class ["mt-0.5" "opacity-80"]
             :data-role "portfolio-optimizer-readiness-warning-detail"}
         detail])
-     ;; A warning that can be fixed in-app carries its fix: one click,
-     ;; no hunting for the right control elsewhere.
      (when action
        [:button {:type "button"
                  :class (into ["mt-1.5" "border" "px-2" "py-1" "font-mono"
@@ -46,8 +40,6 @@
                  :data-role "portfolio-optimizer-readiness-warning-action"
                  :on {:click (:actions action)}}
         (:label action)])
-     ;; Repeated same-code warnings collapse into one row with an expandable list of the
-     ;; affected assets, instead of N near-identical rows.
      (when (and (number? count) (> count 1) (seq assets))
        [:details {:class ["mt-1"]}
         [:summary {:class ["cursor-pointer" "select-none" "font-mono"
@@ -57,8 +49,6 @@
         [:p {:class ["mt-1" "leading-[1.5]" "opacity-80"]
              :data-role "portfolio-optimizer-readiness-warning-assets"}
          (str/join ", " (map :label assets))]])
-     ;; The raw warning code is a diagnostic, not a headline: available by
-     ;; exception, never leading the card.
      (when code-label
        [:details {:class ["mt-1"]}
         [:summary {:class ["cursor-pointer" "select-none" "font-mono"
@@ -95,11 +85,6 @@
                    "text-xs"
                    "text-error"]}
        error-message])
-      ;; Blocking issues and cautions stay expanded — they need attention.
-      ;; Informational notes (stale cache, provider limits, by-design
-      ;; fallbacks) fold behind a collapsed disclosure: they are honest
-      ;; disclosures, not action items, and expanded they read as a wall of
-      ;; problems (owner review 2026-07-04).
       (let [{notes :info, primary :primary}
             (group-by #(if (= :info (:severity %)) :info :primary) warnings)]
         (list

@@ -43,10 +43,6 @@
 
 (defn- visible? [doc] (or (nil? doc) (not (.-hidden doc))))
 
-;; ---------------------------------------------------------------------------
-;; Monitoring
-;; ---------------------------------------------------------------------------
-
 (defn- write-monitoring!
   "Apply `f` to the current monitoring map; write only when it changed."
   [store f]
@@ -117,10 +113,6 @@
       (.addEventListener document "visibilitychange" f)
       (reset! visibility-listener {:doc document :f f}))))
 
-;; ---------------------------------------------------------------------------
-;; Tick listeners (no timer of their own, spec 9.3)
-;; ---------------------------------------------------------------------------
-
 (defn register-tick-listener!
   "Call `(f {:store :now-ms :visible?})` on every watcher tick under key `k`,
   replacing any listener already registered under `k`."
@@ -144,10 +136,6 @@
         (catch :default e
           (telemetry/log! "Vol Range tick listener failed" (str k) (str e)))))))
 
-;; ---------------------------------------------------------------------------
-;; Install
-;; ---------------------------------------------------------------------------
-
 (defn install-vol-range-execution-watcher!
   "`now-ms-fn` and `document` are optional (tests); they default to the
   platform clock and the browser document."
@@ -156,9 +144,6 @@
     (let [ctx {:store store :dispatch! dispatch!
                :now-ms-fn (or now-ms-fn platform/now-ms)
                :document (if (contains? deps :document) document (default-document))}]
-      ;; Placement reads the gate and cap live on every operation; this copy
-      ;; only drives the dock and commit button and is refreshed after each
-      ;; operation.
       (swap! store (fn [state]
                      (update-in state [:vol-range :execution] merge
                                 {:enabled? (gate/enabled?) :max-ladder-usdc (gate/max-ladder-usdc)
@@ -178,9 +163,6 @@
       (reset! interval-id
               (platform/set-interval!
                (fn []
-                 ;; The tick runs while hidden too (suspension detection). REST
-                 ;; work only while visible, and never on top of a resync, which
-                 ;; reconciles every open ladder itself.
                  (let [resync-dispatched? (tick! ctx)]
                    (when (and (visible? (:document ctx))
                               (not resync-dispatched?)

@@ -64,8 +64,6 @@
   Clamped to [P(terminal ≤ b), 1], which are the true mathematical bounds."
   [nu sigma barrier]
   (if (zero? sigma)
-    ;; Deterministic path e^{νt} is monotone: it touches the barrier iff the
-    ;; terminal value is at or below it.
     (if (<= (js/Math.exp nu) barrier) 1 0)
     (let [lb (js/Math.log barrier)
           terminal (normal-cdf (/ (- lb nu) sigma))

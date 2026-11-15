@@ -10,8 +10,6 @@
   (:require [hyperopen.account.context :as account-context]
             [hyperopen.telemetry :as telemetry]))
 
-;; ---------- Address Change Handler Protocol ----------------------------------
-
 (defprotocol IAddressChangeHandler
   "Protocol for handling wallet address changes"
   (on-address-changed [this old-address new-address]
@@ -24,8 +22,6 @@
    other than the plain effective account address."
   (watched-value [this state]
     "Returns the comparable watched value for the given state. State can be nil."))
-
-;; ---------- Address Watcher State and Management -------------------------
 
 (defonce ^:private address-watcher-state
   (atom {:handlers []
@@ -85,7 +81,6 @@
         new-address (default-watch-value new-state)]
     (when (seq events)
       (if ws-connected?
-        ;; WebSocket is connected, notify handlers immediately
         (doseq [{:keys [handler old-value new-value]} events]
           (try
             (on-address-changed handler old-value new-value)
@@ -93,7 +88,6 @@
               (telemetry/log! (str "Error in address change handler "
                                    (get-handler-name handler) ": "
                                    (.-message e))))))
-        ;; WebSocket not connected, store the latest observed state transition
         (do
           (telemetry/log! "WebSocket not connected, storing pending subscription for address:" new-address)
           (swap! address-watcher-state assoc :pending-subscription {:old-state old-state
@@ -109,16 +103,13 @@
         handlers (get @address-watcher-state :handlers)
         events (handler-change-events handlers old-state new-state)]
     
-    ;; Only process if a handler-observed value actually changed and we're watching
     (when (and (get @address-watcher-state :watching?)
                (seq events))
       (when (not= old-address new-address)
         (telemetry/log! (str "Wallet address changed: " old-address " -> " new-address)))
 
-      ;; Update our tracked address
       (swap! address-watcher-state assoc :current-address new-address)
       
-      ;; Notify all handlers
       (notify-handlers! old-state new-state))))
 
 (defn- process-pending-subscription!
@@ -136,7 +127,6 @@
             (telemetry/log! (str "Error in pending subscription handler "
                                  (get-handler-name handler) ": "
                                  (.-message e))))))
-      ;; Clear pending subscription
       (swap! address-watcher-state assoc :pending-subscription nil))))
 
 (defn on-websocket-connected!
@@ -152,8 +142,6 @@
   (telemetry/log! "Address watcher: WebSocket disconnected")
   (swap! address-watcher-state assoc :ws-connected? false))
 
-;; ---------- Public API ---------------------------------------------------
-
 (defn start-watching!
   "Start watching for wallet address changes on the given store atom"
   [store]
@@ -162,7 +150,6 @@
     (add-watch store address-watcher-key address-change-listener)
     (swap! address-watcher-state assoc :watching? true)
     
-    ;; Initialize current effective account address
     (let [current-address (default-watch-value @store)]
       (swap! address-watcher-state assoc :current-address current-address)
       (telemetry/log! (str "Initial effective account address: " current-address)))))
@@ -183,4 +170,3 @@
   (let [current-address (default-watch-value @store)]
     (swap! address-watcher-state assoc :current-address current-address)
     (notify-handlers! nil @store)))
-

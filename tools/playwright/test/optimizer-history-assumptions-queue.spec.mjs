@@ -1,11 +1,3 @@
-// The History-assumptions section is a QUEUE (designer restructure 2026-08-14,
-// option 1c): a fixed asset rail that never scrolls, one question at a time,
-// the recommended model leading, and manual controls opt-in. This pins the
-// three properties that make it a queue rather than a stack — the rail moves
-// the pointer without settling anything, accepting advances to the next asset,
-// and the rail's order does NOT reshuffle as assets get accepted — plus the
-// "every diagnostic behind one toggle" fold. Discovery and history-bundle are
-// stubbed, so the whole flow is deterministic.
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
@@ -169,8 +161,6 @@ async function addAsset(page, key) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-// MEGA accepted, PUMP engine-backed but still owing an Accept, CHIP untouched
-// on its backend recommendation — one asset in each of the queue's three states.
 async function seedQueue(page) {
   await stubHistoryApi(page);
   await visitRoute(page, "/portfolio/optimize/new");
@@ -210,7 +200,6 @@ test("portfolio optimizer history assumptions queue asks one question at a time 
   test.setTimeout(180_000);
   await seedQueue(page);
 
-  // The rail carries every asset; the queue opens on the first UNSETTLED one.
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumptions-settled']"))
     .toHaveText("1 of 3 settled");
   await expect(pill(page, "MEGA")).toHaveAttribute("aria-pressed", "false");
@@ -219,21 +208,16 @@ test("portfolio optimizer history assumptions queue asks one question at a time 
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-question']"))
     .toHaveText("What does PUMP behave like?");
 
-  // Exactly one asset's editors exist at a time — that is the whole point.
   await expect(page.locator("[data-role^='portfolio-optimizer-history-assumption-card-']"))
     .toHaveCount(1);
 
-  // Engine-backed but unaccepted reads as the decision still owed, while the
-  // raw engine-backing status rides on untouched underneath.
   const status = page.locator("[data-role='portfolio-optimizer-history-assumption-status-perp:PUMP']");
   await expect(status).toHaveText("Ready to accept");
   await expect(status).toHaveAttribute("data-status", "configured");
 
-  // The panel leads with the basket the engine would use.
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-model-line']"))
     .toHaveText("ETH 50% / BTC 50% · medium similarity · 80% vol · 5% max");
 
-  // Moving the rail settles nothing.
   await pill(page, "MEGA").click();
   await waitForIdle(page, { quietMs: 250, timeoutMs: 6_000, pollMs: 50 });
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-question']"))
@@ -249,7 +233,6 @@ test("portfolio optimizer history assumptions queue folds every diagnostic behin
   const detail = page.locator("[data-role='portfolio-optimizer-history-assumption-model-detail']");
   await expect(detail).toHaveCount(1);
   expect(await detail.evaluate((el) => el.open)).toBe(false);
-  // Closed, the head still answers the question.
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-model-line']"))
     .toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-detail-Final basket']"))
@@ -262,7 +245,6 @@ test("portfolio optimizer history assumptions queue folds every diagnostic behin
       .toBeVisible();
   }
 
-  // Manual controls are a separate, independently opt-in disclosure.
   const adjust = page.locator("[data-role='portfolio-optimizer-history-assumption-adjust-perp:PUMP']");
   expect(await adjust.evaluate((el) => el.open)).toBe(false);
   await expect(page.locator("[data-role='portfolio-optimizer-history-assumption-proxy-search-perp:PUMP']"))
@@ -281,7 +263,6 @@ test("portfolio optimizer history assumptions queue advances on accept and keeps
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-role")));
   const before = await railOrder();
 
-  // "Accept & next" settles the active asset and hands over the next one.
   await page.locator("[data-role='portfolio-optimizer-history-assumptions-queue-advance']").click();
   await waitForIdle(page, { quietMs: 400, timeoutMs: 10_000, pollMs: 100 });
 
@@ -294,10 +275,8 @@ test("portfolio optimizer history assumptions queue advances on accept and keeps
   ]);
   expect(entry["perp:PUMP"].metadata["acknowledged?"]).toBe(true);
 
-  // A rail that reshuffles as you accept destroys the only thing it is for.
   expect(await railOrder()).toEqual(before);
 
-  // The last one settles from its recommendation; the queue then owes nothing.
   await page.locator("[data-role='portfolio-optimizer-history-assumption-recommendation-apply-perp:CHIP']")
     .click();
   await waitForIdle(page, { quietMs: 400, timeoutMs: 10_000, pollMs: 100 });

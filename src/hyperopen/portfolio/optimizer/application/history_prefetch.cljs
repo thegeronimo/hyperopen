@@ -73,10 +73,6 @@
    (some #(= instrument-id* (instrument-id %))
          (:queue prefetch-state*))))
 
-(defn prefetch-active?
-  [state]
-  (boolean (:active-instrument-id (prefetch-state state))))
-
 (defn prefetch-instrument?
   [state prefetch-state* instrument]
   (let [instrument-id* (instrument-id instrument)]
@@ -167,10 +163,6 @@
            (concat (map instrument-id
                         (get-in state contracts/draft-universe-path))
                    (keys (:by-instrument-id (prefetch-state state)))))))
-
-(defn first-queued-instrument
-  [state]
-  (first (:queue (prefetch-state state))))
 
 (defn instrument-selected?
   "True when the instrument's history matters to the current draft: a universe

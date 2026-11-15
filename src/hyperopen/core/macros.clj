@@ -230,20 +230,9 @@
     load-user-data
     set-funding-modal])
 
-(def ^:private core-legacy-publics
-  (vec
-   (concat
-    core-effect-adapter-publics
-    core-action-adapter-publics
-    core-public-action-publics)))
-
 (defmacro def-core-compat-exports
   []
   `(do
      (def-public-action-aliases effect-adapters ~core-effect-adapter-publics)
      (def-public-action-aliases action-adapters ~core-action-adapter-publics)
      (def-public-action-aliases public-actions ~core-public-action-publics)))
-
-(defmacro def-core-legacy-exports
-  [compat-alias]
-  `(def-public-action-aliases ~compat-alias ~core-legacy-publics))

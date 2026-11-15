@@ -16,8 +16,6 @@
 (def estimator-version "parkinson-v1")
 (def draft-schema-version 1)
 
-;; Release B reporting (spec 12): campaign baselines are captured at the
-;; first admitted placement in every build that can place.
 (def accounting-model-version 1)
 (def campaign-schema-version 1)
 (def ledger-schema-version 1)
@@ -74,9 +72,6 @@
   {:network :hyperliquid-mainnet
    :market-types #{:spot :perp}
    :quote-symbols #{"USDC"}
-   ;; Spec 3.1: admission inspects the RAW `userAbstraction` value. The
-   ;; normalized `[:account :mode]` maps unknown values to :classic, so it is
-   ;; never used for admission. Missing or unlisted raw values are blocked.
    :raw-account-modes #{"default" "disabled" "dexAbstraction"}
    :release :a0
    :execution? false
@@ -119,10 +114,6 @@
   Range at all. It never implies placement permission."
   []
   (and (config/vol-range-preview-enabled?) (config/vol-range-reporting-enabled?)))
-
-;; ---------------------------------------------------------------------------
-;; Error and warning registry
-;; ---------------------------------------------------------------------------
 
 (def ^:private registry-rows
   [[:input/no-side-enabled :input :invalid "Enable at least one side"]
@@ -236,10 +227,6 @@
   (str (name (or network (current-network))) "|" (or account-address "none") "|"
        (if market-type (name market-type) "unknown") "|" (or dex "") "|" spot-pair-index))
 
-;; ---------------------------------------------------------------------------
-;; Specs (exact keys)
-;; ---------------------------------------------------------------------------
-
 (defn- exact-keys? [m ks]
   (and (map? m) (= (set (keys m)) ks)))
 
@@ -298,7 +285,6 @@
                            :inventory-outcomes :fee-reserves :source-versions :remediations
                            :errors :warnings})
          #(contains? #{:ready :invalid :unavailable} (:status %))
-         ;; Status is a function of the errors, and a :ready plan has legs.
          #(= (:status %) (status-for-errors (:errors %)))
          #(or (not= :ready (:status %))
               (and (seq (:legs %))
@@ -327,7 +313,6 @@
 (defn- balance? [b] (exact-keys? b #{:total :hold :available}))
 
 (s/def ::account-snapshot
-  ;; `:margin` is present only on perp snapshots.
   (s/and #(exact-keys? (dissoc % :margin)
                        #{:status :errors :account-address :account-mode :raw-account-mode
                          :read-only? :base :quote :open-orders :observed-at-ms})
@@ -345,7 +330,6 @@
 
 (defn leg-valid? [x] (s/valid? ::leg x))
 (defn error-valid? [x] (s/valid? ::error x))
-(defn warning-valid? [x] (s/valid? ::warning x))
 (defn remediation-valid? [x] (s/valid? ::remediation x))
 (defn plan-result-valid? [x] (s/valid? ::plan-result x))
 (defn market-snapshot-valid? [x] (s/valid? ::market-snapshot x))

@@ -183,8 +183,6 @@
       (.then (fn [details]
                (let [entry {:saved-at-ms (now-ms)
                             :portfolio (screener-metrics/cacheable-portfolio (:portfolio details))
-                            ;; The leader has switched deposits off: open, but
-                            ;; nobody can add to it, so the screen leaves it out.
                             :deposits-closed? (false? (:allow-deposits? details))}]
                  (swap! portfolio-memo assoc address entry)
                  (when (fn? persist-record!)
@@ -221,7 +219,6 @@
 
 (defn- pass-count
   [state]
-  ;; Thresholds are live UI state (editable mid-run), so count against them.
   (let [config (model/normalize-config (get-in state [:vaults-ui :screener]))
         results (vals (get-in state results-path))]
     (count (filter #(= :pass (:status (model/evaluate config %))) results))))
@@ -281,8 +278,6 @@
                 (js/Promise.resolve nil)
                 (if-let [address (next-pending-address @store)]
                   (-> (process-address! deps run-id address seen-rate-limits)
-                      ;; Yield between vaults so a burst of cached vaults never
-                      ;; blocks rendering.
                       (.then (fn [_] (->promise (sleep-ms! 0))))
                       (.then (fn [_] (step))))
                   (do (finish-run! deps run-id)

@@ -34,7 +34,7 @@
  "src/hyperopen/views/funding_modal/send.cljs" 12
  "src/hyperopen/views/funding_modal/shared.cljs" 47
  "src/hyperopen/views/funding_modal/withdraw.cljs" 31
- "src/hyperopen/views/header/account_selector.cljs" 4
+ "src/hyperopen/views/header/account_selector.cljs" 2
  "src/hyperopen/views/header/icons.cljs" 2
  "src/hyperopen/views/header/navigation.cljs" 13
  "src/hyperopen/views/header/spectate.cljs" 7
@@ -56,7 +56,6 @@
  "src/hyperopen/views/portfolio/montecarlo/chart/model.cljs" 6
  "src/hyperopen/views/portfolio/performance_metrics_view.cljs" 1
  "src/hyperopen/views/portfolio/vm/chart.cljs" 7
- "src/hyperopen/views/portfolio/vm/constants.cljs" 5
  "src/hyperopen/views/portfolio_view.cljs" 2
  "src/hyperopen/views/referrals/modals.cljs" 21
  "src/hyperopen/views/referrals_view.cljs" 29
@@ -102,10 +101,10 @@
  "src/hyperopen/views/vaults/list_view/format.cljs" 1
  "src/hyperopen/views/vaults/list_view/rows.cljs" 2
  "src/hyperopen/views/vaults/route_shell.cljs" 12
- "src/styles/base.css" 18
+ "src/styles/base.css" 11
  "src/styles/surfaces/account.css" 5
- "src/styles/surfaces/app-shell.css" 85
+ "src/styles/surfaces/app-shell.css" 83
  "src/styles/surfaces/chart.css" 11
  "src/styles/surfaces/montecarlo.css" 21
  "src/styles/surfaces/trading-controls.css" 7
- "src/styles/surfaces/utilities.css" 96}
+ "src/styles/surfaces/utilities.css" 94}

@@ -39,8 +39,6 @@
   (is (nil? (txs/erc20-to-core-tx owner (assoc erc20-action :recipient "0x20")))))
 
 (deftest usdc-approves-the-exact-amount-then-deposits-to-spot-test
-  ;; approve(0x6b9e…0a24, 1000000000) on 0xb883…630f, then
-  ;; deposit(1000000000, 4294967295) on 0x6b9e…0a24.
   (is (= {:from owner
           :to usdc-token
           :data (str "0x095ea7b3"

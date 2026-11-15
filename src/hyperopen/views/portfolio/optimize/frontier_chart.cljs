@@ -35,12 +35,6 @@
               (:label target)
               " and rerun.")]]])))
 
-;; The chart model + SVG rebuild is the most expensive hiccup on the scenario
-;; route, and the app re-renders the whole route on every store change (each
-;; streaming tick and every target-sigma dial event). The chart is a pure
-;; function of these four inputs, which keep their identity across unrelated
-;; state changes — a single-entry memo makes those renders near-free. Same
-;; pattern as the setup-route workspace-model memos.
 (def ^:private chart-memo (volatile! nil))
 
 (defn frontier-chart

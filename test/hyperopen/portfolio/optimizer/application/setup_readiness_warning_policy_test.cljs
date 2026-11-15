@@ -53,8 +53,6 @@
                           :market-type :perp
                           :coin "STRK"
                           :name "Starknet"}]}
-      ;; Discovery decoration is what lets the backend-keyed warning attribute
-      ;; to the draft instrument at all (see setup-readiness-enrichment-test).
       :history-discovery
       {:backend-id-by-local-id {"perp:BTC" "hl:perp:BTC"
                                 "perp:STRK" "hl:perp:STRK"}
@@ -77,11 +75,6 @@
          "perp:STRK" second-series}}}}}}))
 
 (deftest proxy-validation-failure-forgiven-for-usable-native-series-test
-  ;; Regression (live 2026-07-07): STRK's Tiingo lookback-extension proxy
-  ;; failed backend quality validation while the backend served 870 usable
-  ;; NATIVE daily points - and the hard-warning exclusion discarded all of
-  ;; them, single-handedly blocking the run. A failed OPTIONAL extension must
-  ;; not reject the asset's own served history.
   (let [readiness (setup-readiness/build-readiness
                    (two-asset-state
                     (native-series "perp:STRK" "hl:perp:STRK" 50)
@@ -99,10 +92,6 @@
              (filter #(= :proxy-validation-failed (:code %)))
              (every? :forgiven?))
         "The forgiven warning is tagged so no downstream surface reads it as a rejection.")
-    ;; Regression (live 2026-07-08): POL aligned on 658 native days yet badged
-    ;; "No history" - the forgiven warning still drove the per-asset status to
-    ;; :rejected. The status must come from what actually happened (aligned,
-    ;; stale note), never from a forgiven diagnostic.
     (is (not= :rejected
               (get (setup-readiness/history-status-by-instrument readiness)
                    "perp:STRK")))))
@@ -122,8 +111,6 @@
       "Other warnings on the same asset still project normally."))
 
 (deftest proxy-validation-failure-still-excludes-unusable-series-test
-  ;; Forgiveness requires the served series to be the asset's OWN usable
-  ;; history. A rejected/empty series (the GRAM case) must stay excluded.
   (let [readiness (setup-readiness/build-readiness
                    (two-asset-state
                     {:local-instrument-id "perp:STRK"
@@ -137,8 +124,6 @@
            (mapv :instrument-id (get-in readiness [:request :universe]))))))
 
 (deftest proxy-validation-failure-still-excludes-proxy-lineage-series-test
-  ;; A series that is ITSELF proxy-derived cannot be forgiven by the proxy
-  ;; failure that indicts it.
   (let [readiness (setup-readiness/build-readiness
                    (two-asset-state
                     (assoc (native-series "perp:STRK" "hl:perp:STRK" 50)
@@ -149,9 +134,6 @@
            (mapv :instrument-id (get-in readiness [:request :universe]))))))
 
 (deftest strongest-warning-status-wins-over-input-order-test
-  ;; Regression (live 2026-07-07): last-warning-wins let STRK's stale-history
-  ;; note overwrite the :rejected status from its hard warning, so the
-  ;; excluded asset read as fine and never surfaced a proxy-workflow card.
   (is (= {"perp:A" :rejected}
          (warning-policy/strongest-warning-status-by-id
           [{:code :validation-failed :instrument-id "perp:A"}
@@ -168,10 +150,6 @@
            {:code :stale-history :instrument-id "perp:B"}]))))
 
 (deftest excluded-from-alignment-maps-to-loaded-but-misaligned-test
-  ;; The backend excludes an asset from the shared calendars when its served
-  ;; window can't overlap the majority window, but still serves the asset's own
-  ;; per-instrument series. That is "loaded but misaligned" (the by-exception
-  ;; shared-gap chip), never "missing".
   (is (= :loaded-but-misaligned
          (warning-policy/warning-history-status
           {:code :excluded-from-alignment
@@ -182,9 +160,6 @@
           [{:code :excluded-from-alignment :instrument-id "perp:X"}]))))
 
 (deftest excluded-from-alignment-yields-to-stronger-client-verdict-test
-  ;; The backend exclusion is only a FLOOR: when the client peel produced a
-  ;; stronger, more-specific verdict for the same asset, that wins so per-asset
-  ;; labels still derive from what alignment actually did.
   (is (= {"perp:X" :insufficient}
          (warning-policy/strongest-warning-status-by-id
           [{:code :excluded-from-alignment :instrument-id "perp:X"}

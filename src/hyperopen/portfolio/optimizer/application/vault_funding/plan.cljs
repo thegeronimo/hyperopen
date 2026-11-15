@@ -127,7 +127,6 @@
   [{:keys [deposit after lock-days locked? locked-until-ms]} now-ms]
   (cond
     (< after min-step-usd) nil
-    ;; A deposit restarts the lock on the whole position.
     (and (pos? deposit) (number? now-ms)) (+ now-ms (* day-ms (or lock-days 1)))
     locked? locked-until-ms
     :else nil))

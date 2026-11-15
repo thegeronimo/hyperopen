@@ -1,10 +1,5 @@
 (ns hyperopen.schema.runtime-registration.hyperevm)
 
-;; HyperEVM balance and bridge reads, the background receipt check for a
-;; HyperEVM -> Core move left confirming, and the Balances tab's location
-;; filter. None of these actions is covered by the effect-order policy: they
-;; emit only reads and :effects/save.
-
 (def effect-binding-rows
   [[:effects/fetch-hyperevm-balances :fetch-hyperevm-balances]
    [:effects/fetch-hyperevm-core-bridge-balance :fetch-hyperevm-core-bridge-balance]

@@ -129,7 +129,6 @@
                    :else awaiting)
          :settles (cond
                     upcoming? (ahead (countdown "Settles" until-ms at-ms now-ms opts))
-                    ;; Settlement takes minutes; past that it is just awaiting.
                     (< (- until-ms) settling-window-ms) {:phase :awaiting :label "Settling" :absolute absolute}
                     :else awaiting)
          :ends (if upcoming?

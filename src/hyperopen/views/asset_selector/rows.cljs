@@ -73,7 +73,6 @@
                      (not is-outcome) (conj "col-span-3"))}
       (icons/favorite-button favorite? key)
       [:div.flex.items-center.space-x-1.5.min-w-0.overflow-hidden
-       ;; With a descriptor, the ticker keeps its width and the descriptor truncates.
        [:div {:class (cond-> ["text-sm" "truncate" "whitespace-nowrap"]
                        (:descriptor asset) (conj "shrink-0"))}
         symbol]

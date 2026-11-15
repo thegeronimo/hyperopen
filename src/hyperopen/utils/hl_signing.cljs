@@ -460,20 +460,3 @@
                        :r (str "0x" (bytes->hex r-bytes))
                        :s (str "0x" (bytes->hex s-bytes))
                        :v (+ 27 recovery)})))))))
-
-(defn sign-l1-action!
-  "Uses the selected wallet provider to sign typed data. Returns a promise resolving
-   to {:connectionId :r :s :v :sig}."
-  [address action nonce & {:keys [vault-address expires-after is-mainnet]
-                           :or {vault-address nil
-                                expires-after nil
-                                is-mainnet true}}]
-  (let [connection-id (compute-connection-id action
-                                             nonce
-                                             :vault-address vault-address
-                                             :expires-after expires-after)
-        typed-data (build-typed-data connection-id :is-mainnet is-mainnet)]
-    (-> (sign-typed-data! address typed-data)
-        (.then (fn [sig]
-                 (clj->js (merge {:connectionId connection-id}
-                                 (js->clj sig :keywordize-keys true))))))))

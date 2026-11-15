@@ -87,13 +87,6 @@
         runtime (optimizer-runtime state)
         now-ms (or (:now-ms opts*)
                    (:as-of-ms runtime))
-        ;; Reference-only proxy instruments (catalog proxies outside the universe)
-        ;; must have their history fetched too, so a full reload keeps the
-        ;; covariance inputs the synthesis needs. They ride the same fetch as the
-        ;; universe but never become allocatable (the request builder excludes
-        ;; them from the engine universe). A stored reference that has since
-        ;; joined the universe is skipped - appending it would spend a second
-        ;; slot in the capped fetch batch on an instrument already covered.
         universe-instruments (vec (get-in state contracts/draft-universe-path))
         universe-ids (into #{} (keep :instrument-id) universe-instruments)
         universe (into universe-instruments
@@ -283,16 +276,6 @@
       (let [prefetch-universe (if (and (get-in state (conj contracts/history-data-path
                                                            :api-v2-history))
                                        (aligned-only-member? state))
-                                ;; An aligned-only member pins the alignment to
-                                ;; the backend's aligned-returns, which are only
-                                ;; consistent within ONE response — refetch the
-                                ;; whole draft universe PLUS the reference-only
-                                ;; proxies. Otherwise fetch just the queued
-                                ;; instruments: merge-history-bundle folds their
-                                ;; series in and the client-side point-level
-                                ;; alignment (the calendar-poisoning fallback)
-                                ;; realigns the merged set, at delta cost instead
-                                ;; of a ~full-universe backend round trip.
                                 (into (vec (get-in state contracts/draft-universe-path))
                                       (get-in state contracts/draft-proxy-reference-instruments-path))
                                 queued)

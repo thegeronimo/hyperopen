@@ -5,8 +5,6 @@
 
 (def view-kinds editor-model/view-kinds)
 
-(def max-active-views editor-model/max-active-views)
-
 (def editor-path
   contracts/ui-black-litterman-editor-path)
 
@@ -14,23 +12,11 @@
 
 (def instrument-parameter-keys editor-model/instrument-parameter-keys)
 
-(def confidence-weight-by-level editor-model/confidence-weight-by-level)
-
-(def horizons editor-model/horizons)
-
-(def relative-directions editor-model/relative-directions)
-
 (def normalize-keyword-like coercion/normalize-keyword-like)
 
 (def non-blank-text coercion/non-blank-text)
 
-(def finite-number? coercion/finite-number?)
-
 (def parse-number-value editor-model/parse-number-value)
-
-(def parse-percent-text editor-model/parse-percent-text)
-
-(def decimal->percent-text editor-model/decimal->percent-text)
 
 (defn save-draft-path-values
   [path-values]
@@ -57,10 +43,6 @@
   (vec (or (get-in state contracts/draft-return-model-views-path)
            [])))
 
-(defn universe-instrument-ids
-  [state]
-  (vec (keep :instrument-id (draft-universe state))))
-
 (defn instrument-present?
   [universe instrument-id]
   (boolean
@@ -79,37 +61,9 @@
   [views]
   (editor-model/next-view-id views))
 
-(defn normalize-confidence-level
-  [value]
-  (editor-model/normalize-confidence-level value))
-
-(defn confidence-weight
-  [value]
-  (editor-model/confidence-weight value))
-
-(defn confidence-level-from-view
-  [view]
-  (editor-model/confidence-level-from-view view))
-
-(defn normalize-horizon
-  [value]
-  (editor-model/normalize-horizon value))
-
-(defn normalize-direction
-  [value]
-  (editor-model/normalize-direction value))
-
-(defn relative-weights
-  [instrument-id comparator-id direction]
-  (editor-model/relative-weights instrument-id comparator-id direction))
-
 (defn selected-kind
   [state]
   (editor-model/selected-kind (get-in state editor-path)))
-
-(defn draft-defaults
-  [state kind]
-  (editor-model/draft-defaults (draft-universe state) kind))
 
 (defn editor-draft
   [state kind]
@@ -121,10 +75,6 @@
 (defn editor-draft-path
   [kind field]
   (conj editor-path :drafts kind field))
-
-(defn trim-notes
-  [value]
-  (editor-model/trim-notes value))
 
 (defn normalized-draft-field
   [field value]

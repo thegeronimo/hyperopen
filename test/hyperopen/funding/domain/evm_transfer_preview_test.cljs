@@ -51,8 +51,6 @@
     (is (= "Rounded down to 12.345678 USDC (6 decimals max)." (:notice result)))))
 
 (deftest perps-to-evm-is-not-a-route-test
-  ;; Only `sourceDex "spot"` sends to a system address were seen bridged
-  ;; live; one leaving the Perps dex could strand the USDC on HyperCore.
   (testing "USDC goes Perps -> Spot -> HyperEVM"
     (let [result (preview {:transfer-from :perps :transfer-to :hyperevm
                            :transfer-asset support/usdc-index :amount-input "5"})]

@@ -33,10 +33,6 @@
 
 (defn- lower [x] (some-> x str str/trim str/lower-case not-empty))
 
-;; ---------------------------------------------------------------------------
-;; Forbidden keys
-;; ---------------------------------------------------------------------------
-
 (def ^:private forbidden-key-names
   "Normalized (lower-case, no separators) key names that could hold signing
   material. Exports never carry them."
@@ -58,10 +54,6 @@
     (sequential? x) (mapv sanitize x)
     (set? x) (mapv sanitize (sort-by str x))
     :else x))
-
-;; ---------------------------------------------------------------------------
-;; Report pieces
-;; ---------------------------------------------------------------------------
 
 (defn- market-label
   ([c] (let [{:keys [symbol quote-symbol coin]} (:scope c)]
@@ -156,7 +148,6 @@
                     :unreadable (mapv #(pick % [:time :record-id]) (:unreadable found))
                     :fill-keys (mapv :event-id (ledger/fills (:events found)))
                     :activity (ledger/activity (:events found))
-                    ;; Headline windows exist only for open campaigns.
                     :windows (if (nil? ended) (mapv (comp window-view window-of) windows/window-ids) [])})}))
 
 (defn- orders
@@ -259,10 +250,6 @@
                            (mapv #(pick % balance-check-keys)))
       :marks (marks-entries (:marks report))})))
 
-;; ---------------------------------------------------------------------------
-;; JSON text
-;; ---------------------------------------------------------------------------
-
 (defn- key-text [k]
   (cond (keyword? k) (subs (str k) 1) (string? k) k :else (str k)))
 
@@ -282,10 +269,6 @@
   "The bundle as pretty-printed JSON text."
   [doc]
   (js/JSON.stringify (->js doc) nil 2))
-
-;; ---------------------------------------------------------------------------
-;; CSV
-;; ---------------------------------------------------------------------------
 
 (def csv-columns
   ["Time (UTC)" "Market" "Coin" "Side" "Price" "Size" "Fee" "Fee token" "Builder fee" "Liquidity" "Tracking"
@@ -324,10 +307,6 @@
   (str (str/join "\r\n" (map #(str/join "," (map csv-cell %))
                              (cons csv-columns (map fill-row (:fills doc)))))
        "\r\n"))
-
-;; ---------------------------------------------------------------------------
-;; File names
-;; ---------------------------------------------------------------------------
 
 (defn- pad2 [n] (if (< n 10) (str "0" n) (str n)))
 

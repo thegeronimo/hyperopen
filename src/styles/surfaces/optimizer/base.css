@@ -11,22 +11,14 @@
     --optimizer-text-3: #5a5f68;
     --optimizer-accent: #d4b558;
     --optimizer-accent-soft: rgb(212 181 88 / 0.06);
-    --optimizer-accent-strong: rgb(212 181 88 / 0.2);
     --optimizer-accent-border: rgb(212 181 88 / 0.58);
     --optimizer-long: #4ea674;
     --optimizer-short: #c25b5b;
     --optimizer-warn: #d49a3a;
     --optimizer-info: #6b8db5;
-    /* Target/equal-budget color for the Equal Risk balance chart (designer
-       spec 2026-07-11): purple so it can never be confused with the long/short
-       signal pair or the amber accent. */
     --optimizer-target: #a78bfa;
     --optimizer-target-border: rgb(167 139 250 / 0.55);
     --optimizer-target-soft: rgb(167 139 250 / 0.14);
-    /* Pin DaisyUI base surfaces to the optimizer charcoal so every bg-base-100/200/300
-       (and opacity variant, which all resolve to oklch(var(--b1|2|3)/a)) stays
-       theme-independent — the design surface is near-black, not the active theme's
-       tinted base. OKLCH equivalents of --optimizer-surface / -2 / -3. */
     --b1: 18.5877% 0.006899 258.369891;
     --b2: 20.7611% 0.009203 255.618180;
     --b3: 22.9793% 0.010692 260.683815;
@@ -81,16 +73,6 @@
     background-color: var(--optimizer-info);
   }
 
-  /* ── Signal-tint leak fix ────────────────────────────────────────
-     DaisyUI emits the bg-/border- *opacity* utilities (e.g. bg-primary/10,
-     border-warning/50) from its own theme vars. The text-primary /
-     text-warning / text-success / text-error remaps above never covered
-     them, so in the default theme these tinted backgrounds and borders
-     pulled the global teal-green primary, yellow warning, and bright
-     green/red signals into this amber/charcoal surface (most visibly the
-     primary-tinted CTAs). Remap the variants the optimizer views actually
-     use to the --optimizer-* signal colors. color-mix keeps these on the
-     existing tokens so no raw color literals are introduced. */
   .portfolio-optimizer .bg-primary\/10 { background-color: color-mix(in srgb, var(--optimizer-accent) 10%, transparent); }
   .portfolio-optimizer .bg-primary\/20 { background-color: color-mix(in srgb, var(--optimizer-accent) 20%, transparent); }
   .portfolio-optimizer .bg-primary\/70 { background-color: color-mix(in srgb, var(--optimizer-accent) 70%, transparent); }
@@ -135,7 +117,7 @@
   }
 
   .portfolio-optimizer
-    :is(table, th, td, .optimizer-row, .optimizer-kpi-card, .optimizer-exposure-row) {
+    :is(table, th, td, .optimizer-kpi-card, .optimizer-exposure-row) {
     font-variant-numeric: tabular-nums;
   }
 
@@ -162,10 +144,6 @@
     outline: none;
   }
 
-  /* Target-sigma dial sliders render the bare native range control: the
-     input chrome above (background box, fixed height, amber focus ring)
-     reads as a border wall around the track, and the accent fill already
-     signals the control's state. */
   .portfolio-optimizer input.optimizer-target-sigma-slider,
   .portfolio-optimizer input.optimizer-target-sigma-slider:focus,
   .portfolio-optimizer input.optimizer-exposure-band,
@@ -241,9 +219,6 @@
     color: var(--optimizer-long);
   }
 
-  /* Shared optimizer checkbox — the frontier toolbar's custom control generalized
-     (appearance:none square, accent fill, drawn check glyph) so every optimizer
-     checkbox reads as one design instead of the browser default. */
   .portfolio-optimizer .optimizer-checkbox {
     appearance: none;
     -webkit-appearance: none;

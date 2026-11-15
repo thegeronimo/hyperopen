@@ -126,21 +126,15 @@
         verdict (node-by-role view-node "portfolio-optimizer-recommendation-verdict")
         verdict-text (str/join " " (collect-strings verdict))]
     (is (some? verdict) "The recommendation tab leads with a plain-language verdict.")
-    ;; The verdict is the FIRST child of the recommendation tab, ahead of the
-    ;; results/frontier diagnostics (which still render below).
     (is (= "portfolio-optimizer-recommendation-verdict"
            (get-in (nth recommendation-tab 2) [1 :data-role])))
     (is (some? (node-by-role view-node "portfolio-optimizer-results-surface")))
-    ;; Signed deltas, framed as estimates; volatility down and expected return up.
     (is (str/includes? verdict-text "estimated volatility 24.00%"))
     (is (str/includes? verdict-text "-6.00 pts vs current"))
     (is (str/includes? verdict-text "+2.00 pts vs current"))
     (is (str/includes? verdict-text "3 trades get you there"))))
 
 (deftest portfolio-optimizer-all-blocked-plan-is-not-already-at-target-test
-  ;; ready 0 + blocked 2 is NOT "already at target": the trades exist, they just
-  ;; can't be sent yet. The verdict must say so instead of muting the CTA into a
-  ;; false all-done state.
   (let [view-node (solved-baseline-view {:current-vol 0.30 :target-vol 0.24
                                          :current-return 0.08 :target-return 0.10
                                          :ready-count 0 :blocked-count 2})
@@ -149,8 +143,6 @@
                                                   "portfolio-optimizer-recommendation-verdict")))]
     (is (str/includes? verdict-text "No trades can be sent — 2 legs are blocked."))
     (is (not (str/includes? verdict-text "Already at target")))
-    ;; Zero sendable trades ⇒ the count-less fallback label; the blocked plan
-    ;; still deserves a path in to see why.
     (is (str/includes? verdict-text "Review trades"))))
 
 (deftest portfolio-optimizer-provenance-strip-drops-invariant-horizon-field-test
@@ -169,29 +161,18 @@
         cta (node-by-role view-node "portfolio-optimizer-recommendation-rebalance-cta")
         rerun (node-by-role view-node "portfolio-optimizer-scenario-rerun")
         rerun-classes (set (node-attr rerun :class))]
-    ;; The verdict-bar Review-trades CTA is THE single primary action; the header
-    ;; duplicate was removed (it diluted the signal and cluttered the toolbar).
-    ;; Rerun stays demoted to neutral; Save and Refine remain present.
     (is (nil? (node-by-role view-node "portfolio-optimizer-scenario-review-rebalance"))
         "The header must not duplicate the rebalance CTA.")
     (is (some? cta))
-    ;; The label carries the sendable trade count and names the destination
-    ;; honestly — clicking stages for review, it does not place trades.
     (is (some #{"Review 3 trades"} (collect-strings cta)))
     (is (contains? rerun-classes "bg-base-200/40"))
     (is (not (contains? rerun-classes "bg-primary/10")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-save")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-refine")))
-    ;; The standalone Rebalance preview tab was retired, so the primary CTA stages
-    ;; straight into Execution.
     (is (= [[:actions/open-portfolio-optimizer-execution]]
            (click-actions cta)))))
 
 (deftest portfolio-optimizer-recommendation-cta-prominence-test
-  ;; The verdict-bar CTA is the page's single forward-motion action: the actionable
-  ;; state carries the animated-border modifier and a large standalone label, with
-  ;; the explanatory sentence demoted to a delayed tooltip node instead of standing
-  ;; subtext (2026-07-13 redesign — the two-line card blended into the page).
   (let [view-node (solved-baseline-view {:current-vol 0.30 :target-vol 0.24
                                          :current-return 0.08 :target-return 0.10
                                          :ready-count 3})
@@ -203,8 +184,6 @@
     (is (contains? cta-classes "optimizer-verdict-cta--live")
         "Actionable CTA carries the sweeping-border modifier.")
     (is (some? tip) "Guidance moved into the tooltip node.")
-    ;; The tooltip is explicit that nothing is sent from this click — the label
-    ;; promises review, and the tooltip backs that up.
     (is (str/includes? (str/join " " (collect-strings tip))
                        "nothing is sent until you arm and confirm"))))
 
@@ -219,7 +198,6 @@
     (is (str/includes? verdict-text "No trades needed"))
     (is (contains? (set (node-attr cta :class)) "text-trading-muted"))
     (is (str/includes? cta-text "Already at target"))
-    ;; A no-op must not carry the attention-drawing animated border.
     (is (not (contains? (set (node-attr
                               (node-by-role view-node
                                             "portfolio-optimizer-recommendation-rebalance-cta")
@@ -294,8 +272,6 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-provenance-strip")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-tabs")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-tab-recommendation")))
-    ;; The standalone Rebalance preview tab was retired — it must no longer appear in
-    ;; the tab bar; the Execution tab is its replacement entry point.
     (is (nil? (node-by-role view-node "portfolio-optimizer-scenario-tab-rebalance")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-tab-execution")))
     (is (some? (node-by-role view-node "portfolio-optimizer-scenario-tab-tracking")))
@@ -316,8 +292,6 @@
     (is (= [[:actions/set-portfolio-optimizer-results-tab :tracking]]
            (click-actions
             (node-by-role view-node "portfolio-optimizer-scenario-tab-tracking"))))
-    ;; Entering Execution rebuilds the staged plan, so its tab routes through the open
-    ;; action rather than a bare set-tab.
     (is (= [[:actions/open-portfolio-optimizer-execution]]
            (click-actions
             (node-by-role view-node "portfolio-optimizer-scenario-tab-execution"))))
@@ -331,11 +305,6 @@
     (is (contains? strings "Inputs"))))
 
 (deftest portfolio-optimizer-scenario-detail-exposes-rebalance-paths-for-solved-result-test
-  ;; Regression: on the scenario-detail Recommendation tab there was no
-  ;; discoverable path to the rebalance preview. A solved result must expose the
-  ;; verdict-bar CTA and the result-confidence rail step, each switching tabs
-  ;; in-place (no navigation, so unsaved run state is preserved). The header
-  ;; duplicate CTA was removed 2026-07-13.
   (let [scenario-id "draft"
         state (ready-scenario-state scenario-id {:kind :historical-mean})
         solved-run (solved-run-for-state state)
@@ -347,8 +316,6 @@
                                  solved-run)))
         recommendation-cta (node-by-role view-node "portfolio-optimizer-recommendation-rebalance-cta")
         confidence-cta (node-by-role view-node "portfolio-optimizer-result-confidence-rebalance")
-        ;; The standalone Rebalance preview tab was retired, so every rebalance CTA
-        ;; stages straight into Execution (in-place, no navigation).
         expected [[:actions/open-portfolio-optimizer-execution]]
         strings (set (collect-strings view-node))]
     (is (nil? (node-by-role view-node "portfolio-optimizer-scenario-review-rebalance"))
@@ -359,19 +326,13 @@
         "The result-confidence rail must lead with rebalance as a clickable next step, not a refine imperative.")
     (is (= expected (click-actions recommendation-cta)))
     (is (= expected (click-actions confidence-cta)))
-    ;; One sendable trade in this fixture ⇒ singular count label.
     (is (contains? strings "Review 1 trade"))
-    ;; The rail frames refine as optional rather than required: it is relabelled "From
-    ;; here" (not "Next step") and tells the user the draft is usable as-is.
     (is (contains? strings "From here"))
     (is (contains? strings "Draft is solved and usable. Refining only adds frontier density; selection rarely moves."))
-    ;; The new CTA roles must not collide with reserved roles other tests pin to nil.
     (is (nil? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-recommendation-stale-blocked")))))
 
 (deftest portfolio-optimizer-scenario-detail-hides-rebalance-paths-without-solved-result-test
-  ;; The CTAs are gated on a solved result: with no result the recommendation
-  ;; tab still renders (empty state), but neither rebalance CTA appears.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/scn_no_result"}})]
     (is (some? (node-by-role view-node "portfolio-optimizer-recommendation-tab"))
@@ -446,8 +407,6 @@
               (node-by-role view-node "portfolio-optimizer-scenario-stale-banner")
               :replicant/on-render)))
     (is (nil? (node-by-role view-node "portfolio-optimizer-scenario-rerun-stale")))
-    ;; Save stays available while stale: the workflow persists a setup-only
-    ;; snapshot instead of freezing the outdated result.
     (is (= false
            (boolean
             (get-in (node-by-role view-node "portfolio-optimizer-scenario-save")
@@ -754,7 +713,6 @@
         open-view (portfolio-view/portfolio-view (open-menu-state :max-sharpe))
         changed-view (portfolio-view/portfolio-view
                       (open-menu-state :minimum-volatility))
-        ;; Views are Maximum Sharpe's input policy: a Black-Litterman draft renders rows.
         views-view (portfolio-view/portfolio-view
                     (-> (open-menu-state :max-sharpe)
                         (assoc-in [:portfolio :optimizer :draft :universe]
@@ -775,7 +733,6 @@
                                             :weights {"perp:BTC" 1}}]})
                         (assoc-in [:portfolio-ui :optimizer :objective-menu-view-drafts]
                                   {:perp:BTC {:return-text "18"}})))
-        ;; No authored view and no typing buffer: implied rows prefill from readiness.
         implied-state (-> (open-menu-state nil)
                           (assoc-in [:portfolio :optimizer :draft :return-model]
                                     {:kind :black-litterman :views []}))
@@ -859,8 +816,6 @@
            (click-actions minimum-row)))
     (is (= [[:actions/select-portfolio-optimizer-objective-menu-option :max-sharpe]]
            (click-actions max-sharpe-row)))
-    ;; Pending Maximum Sharpe always shows the views section: a historical-mean
-    ;; draft gets the views-off note; other pending objectives get nothing.
     (is (nil? (node-by-role open-view
                             "portfolio-optimizer-objective-menu-use-my-views-editor-rows")))
     (is (= [[:actions/set-portfolio-optimizer-return-model-kind :black-litterman]]

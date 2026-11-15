@@ -45,11 +45,6 @@
     (or (get-in validation-error-specs [code :message])
         "Invalid order form.")))
 
-(defn validation-errors->messages [errors]
-  (->> (or errors [])
-       (map validation-error-message)
-       vec))
-
 (defn- invalid-positive? [value]
   (or (nil? value)
       (<= value 0)))
@@ -168,9 +163,6 @@
            (< twap-order-notional core/twap-min-order-notional))
       (conj (validation-error :twap/order-notional-too-small))
 
-      ;; The advanced settings are optional, so blank is fine -- but a value that was typed
-      ;; and cannot be used must say so here. Without this the request builder just fails
-      ;; closed and the user gets a disabled submit button with no explanation.
       (advanced-price-invalid? twap-trigger-px)
       (conj (validation-error :twap/trigger-price-invalid))
 

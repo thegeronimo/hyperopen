@@ -76,8 +76,6 @@
         (is (= "-3 USDC" (:amount-text row)))
         (is (= "0xdirect" (:hash row)))))
     (testing "a row whose amount cannot be resolved is kept and shown as --"
-      ;; It used to be dropped, which is why the Vault Withdrawal and
-      ;; Liquidation labels were unreachable by real data.
       (let [row (get by-type "unknown-without-amount")]
         (is (some? row))
         (is (= "--" (:amount-text row)))))

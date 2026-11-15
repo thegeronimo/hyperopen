@@ -10,8 +10,6 @@
             [hyperopen.portfolio.optimizer.domain.history-assumption-proxy :as history-assumption-proxy]
             [hyperopen.portfolio.optimizer.domain.history-assumptions :as history-assumptions]))
 
-;; --- In-flight history loading signals ---------------------------------------
-
 (def ^:private in-flight-prefetch-statuses
   #{:queued :loading})
 
@@ -49,8 +47,6 @@
                                    (not (contains? (or usable-ids #{}) id))))})
         selected-ids))
 
-;; --- Tier labels ---------------------------------------------------------------
-
 (defn confidence-tier
   "Low/Medium/High tier for a [0,1] confidence fraction."
   [fraction]
@@ -82,8 +78,6 @@
       :high "Moderate"
       "Medium")))
 
-;; --- Summary lines --------------------------------------------------------------
-
 (defn basket-summary-text
   "\"ETH 60% / BTC 40%\"-style rendering of basket rows."
   ([rows] (basket-summary-text rows " / "))
@@ -111,8 +105,6 @@
     (str observations " days of returns")
     "No usable native returns"))
 
-;; --- Diagnostics strip -----------------------------------------------------------
-
 (defn- covariance-window-detail
   "Detail line under the covariance-window cell. Only rendered once the aligned
   window is known: the proxies carry the asset's risk links across the FULL
@@ -138,11 +130,6 @@
       :label "Specific risk"
       :value (specific-risk-tier-label observations relationship-strength)
       :detail "Unique risk not explained by proxies"}
-     ;; The window the risk model actually estimates over. The asset's own short
-     ;; history never truncates it (complete proxy assets are excluded from
-     ;; alignment); showing the overlap here read as "the model only uses N days".
-     ;; While proxy history is still downloading, "No usable native returns" is
-     ;; a mid-flight falsehood — say loading instead.
      {:key :history-window
       :label "Covariance window"
       :value (if window-loading?
@@ -151,8 +138,6 @@
       :detail (if window-loading?
                 "Proxy history is still downloading"
                 (covariance-window-detail covariance-observations observations))}]))
-
-;; --- Exposure preview + regression estimate --------------------------------------
 
 (defn exposure-preview
   "Pre-run exposure story for a proxy card, computed by the SAME domain pipeline

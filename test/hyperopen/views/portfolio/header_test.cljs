@@ -83,11 +83,6 @@
                                   :label "Performance metrics"}]})
         benchmark-item (hiccup/find-by-data-role visible-banner "portfolio-background-status-item-benchmark-history")
         metrics-item (hiccup/find-by-data-role visible-banner "portfolio-background-status-item-performance-metrics")]
-    ;; The region is ALWAYS present: it is a fixed, out-of-flow live region, so
-    ;; the page above and below it is laid out identically whether there is
-    ;; anything to report or not. Returning nil here used to make the banner an
-    ;; in-flow sibling that shifted the whole page ~86px on the way in and back
-    ;; again on the way out, twice per timeframe switch.
     (is (some? (hiccup/find-by-data-role hidden-banner "portfolio-background-status-region"))
         "the live region exists before any content is inserted into it")
     (is (nil? (hiccup/find-by-data-role hidden-banner "portfolio-background-status"))
@@ -101,9 +96,6 @@
     (is (= "Performance metrics" (first (hiccup/collect-strings metrics-item))))))
 
 (deftest background-status-banner-spinner-is-compositor-driven-test
-  ;; DaisyUI's `loading loading-spinner` animates via SMIL inside a mask-image,
-  ;; which has no compositor path and therefore freezes for exactly as long as
-  ;; the main thread is blocked. `.ho-spinner` animates `transform` only.
   (let [visible-banner (header/background-status-banner
                         {:visible? true
                          :title "Syncing"

@@ -105,8 +105,6 @@
     (shared/key-value-row "Total Staked"
                           (shared/format-balance-hype (:total-staked balances))
                           "staking-balance-total-staked")
-    ;; The queue is deliberately separated from the spendable rows above: it is
-    ;; the one figure here that cannot be traded or transferred.
     [:div {:class ["border-t" "border-ho-surface" "pt-2"]}
      (staking-unstaking/unstaking-block unstaking)]]])
 

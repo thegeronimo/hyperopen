@@ -84,10 +84,6 @@
        (or (not (number? last-close-at-ms))
            (> fills-snapshot-at-ms last-close-at-ms))))
 
-;; ---------------------------------------------------------------------------
-;; Stream usability
-;; ---------------------------------------------------------------------------
-
 (defn- transport-live? [health]
   (and (= :connected (get-in health [:transport :state]))
        (= :live (get-in health [:transport :freshness]))))
@@ -118,10 +114,6 @@
                   (subscribed-elsewhere? health % account))
             stream-topics) :streams-elsewhere
       :else :streams-not-ready)))
-
-;; ---------------------------------------------------------------------------
-;; Transitions
-;; ---------------------------------------------------------------------------
 
 (defn- adopt-account
   "A different account starts over from `initial`, with a higher epoch so no
@@ -233,10 +225,6 @@
                           :attempt n
                           :error error
                           :next-at-ms (+ now-ms (backoff-ms n jitter))})))))
-
-;; ---------------------------------------------------------------------------
-;; Blockers
-;; ---------------------------------------------------------------------------
 
 (defn view-blocker
   "The status and account rules of `placement-blocker`, without the tick gap

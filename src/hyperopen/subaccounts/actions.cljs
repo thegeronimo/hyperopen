@@ -152,10 +152,6 @@
      [[:account-context :subaccounts :transfer-account-menu-open?] false]
      [[:account-context :subaccounts :transfer-token] "USDC"]
      [[:account-context :subaccounts :transfer-token-menu-open?] false]
-     ;; View preference for the Send Tokens token list, not transfer data:
-     ;; defined here so a fresh route entry starts with the short list, but
-     ;; deliberately NOT reset by start/cancel-transfer, so a user who wants to
-     ;; see dust balances does not have to re-check it for every sub-account.
      [[:account-context :subaccounts :show-zero-balances?] false]
      [[:account-context :subaccounts :selection-loaded?] false]]
     [[[:account-context :subaccounts :status] :idle]
@@ -175,10 +171,6 @@
      [[:account-context :subaccounts :transfer-account-menu-open?] false]
      [[:account-context :subaccounts :transfer-token] "USDC"]
      [[:account-context :subaccounts :transfer-token-menu-open?] false]
-     ;; View preference for the Send Tokens token list, not transfer data:
-     ;; defined here so a fresh route entry starts with the short list, but
-     ;; deliberately NOT reset by start/cancel-transfer, so a user who wants to
-     ;; see dust balances does not have to re-check it for every sub-account.
      [[:account-context :subaccounts :show-zero-balances?] false]
      [[:account-context :subaccounts :selection-loaded?] false]]))
 

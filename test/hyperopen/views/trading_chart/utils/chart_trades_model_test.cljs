@@ -4,7 +4,6 @@
 
 (def ^:private day 86400)
 
-;; Daily candles opening at t0, t0+1d, ... (seconds).
 (def ^:private t0 1700006400)
 
 (def ^:private candles
@@ -52,7 +51,6 @@
     (is (= 1 (count groups)))
     (is (= 3 (:count group)))
     (is (= 4 (:size group)))
-    ;; (10*1 + 13*2 + 11*1) / 4
     (is (= 11.75 (:avg-price group)))
     (is (= 47 (:notional group)))
     (is (< (js/Math.abs (- 0.25 (:fees group))) 1e-9))
@@ -77,7 +75,6 @@
                 {:coin "HYPE" :tid 2 :side "B" :px "10" :sz "4" :time (at 1 1)}
                 {:coin "HYPE" :tid 3 :side "B" :px "10" :sz "5" :time (at 2 1)}
                 {:coin "HYPE" :tid 4 :side "B" :px "10" :sz "20" :time (at 3 1)}])]
-    ;; notionals 10, 40, 50, 200 -> median 45
     (is (= 45 median-notional))
     (is (= [:small :typical :typical :large] (mapv :size-step groups)))))
 
@@ -112,12 +109,10 @@
     (is (= [] ribbon) "no ribbon for spot")))
 
 (deftest orders-same-millisecond-fills-by-execution-not-by-trade-id-text-test
-  ;; one buy sweeping three makers: tids 9, 10, 11 sort "10" < "11" < "9" as text
   (let [{:keys [groups ribbon]}
         (build [{:coin "HYPE" :tid 11 :side "B" :px "10.2" :sz "1" :time (at 1 1) :startPosition "2"}
                 {:coin "HYPE" :tid 9 :side "B" :px "10" :sz "1" :time (at 1 1) :startPosition "0"}
                 {:coin "HYPE" :tid 10 :side "B" :px "10.1" :sz "1" :time (at 1 1) :startPosition "1"}
-                ;; same-ms row without a tid must not crash the ordering
                 {:coin "HYPE" :side "A" :px "10" :sz "0.5" :time (at 1 1) :startPosition "3"}])
         buy (first groups)]
     (is (= 3 (:position-after buy)))
@@ -169,7 +164,6 @@
 (deftest ribbon-merges-adjacent-identical-segments-test
   (let [{:keys [ribbon]}
         (build [{:coin "HYPE" :tid 1 :side "B" :px "10" :sz "1" :time (at 1 1) :startPosition "0"}
-                ;; a buy and a sell in candle 2 net to the same position
                 {:coin "HYPE" :tid 2 :side "B" :px "10" :sz "1" :time (at 2 1) :startPosition "1"}
                 {:coin "HYPE" :tid 3 :side "A" :px "10" :sz "1" :time (at 2 2) :startPosition "2"}])]
     (is (= [{:from-time (+ t0 day) :to-time (:time (last candles)) :direction :long :size 1

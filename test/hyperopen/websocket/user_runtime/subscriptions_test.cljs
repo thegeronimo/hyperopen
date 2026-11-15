@@ -64,12 +64,10 @@
     (with-redefs [ws-client/send-message! (fn [payload]
                                             (swap! outbound conj payload)
                                             true)]
-      ;; No named dexes still subscribes the base book.
       (subscriptions-runtime/sync-perp-dex-clearinghouse-subscriptions! address [])
       (is (= [{:method "subscribe"
                :subscription {:type "clearinghouseState" :user address :dex ""}}]
              @outbound))
-      ;; A subscribed base stream is not re-subscribed and not unsubscribed.
       (set-runtime-streams!
        {base-key {:topic "clearinghouseState"
                   :subscribed? true
@@ -175,8 +173,6 @@
             {:type "userTwapHistory" :user address}
             {:type "userTwapSliceFills" :user address}]
            (user-subscriptions address)))
-    ;; Blank descriptor dex is the base book and must be tracked so address
-    ;; switches unsubscribe it.
     (is (= #{[address "vault"] [address ""]}
            (clearinghouse-keys address)))
     (is (= #{}

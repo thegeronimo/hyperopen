@@ -7,8 +7,6 @@
             [hyperopen.api.default.state :as state]
             [hyperopen.api.default.vaults :as vaults]))
 
-(def info-url state/info-url)
-
 (defn- now-ms [] (state/now-ms))
 (defn- active-api-service [] (state/active-api-service))
 (defn- api-log-fn [] (state/api-log-fn))
@@ -116,22 +114,6 @@
    (request-frontend-open-orders! address
                                   (cond-> (or opts {})
                                     (and dex (not= dex "")) (assoc :dex dex)))))
-
-(defn fetch-frontend-open-orders!
-  ([store address]
-   (fetch-frontend-open-orders! store address {}))
-  ([store address opts]
-   (orders/fetch-frontend-open-orders!
-    {:log-fn (api-log-fn)
-     :request-frontend-open-orders! request-frontend-open-orders!}
-    store
-    address
-    opts))
-  ([store address dex opts]
-   (fetch-frontend-open-orders! store
-                                address
-                                (cond-> (or opts {})
-                                  (and dex (not= dex "")) (assoc :dex dex)))))
 
 (defn request-user-fills!
   ([address] (request-user-fills! address {}))

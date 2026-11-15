@@ -93,7 +93,6 @@
     (let [r (plan (-> (usdc-buys "1000") (assoc-in [:inventory :target] "100")))]
       (is (not-any? #(= [:buy :quantity] (get-in % [:data :path])) (:errors r)))))
   (testing "an amount too small for the rung count offers fewer rungs"
-    ;; Whole-unit lots (~70 USDC each): 200 USDC cannot give 4 rungs a lot each.
     (let [r (planner/prepare-plan (fx/plan-input {:draft (usdc-buys "200")
                                                   :market (fx/market-snapshot {:sz-decimals 0})}))]
       (is (contains? (codes r) :input/quote-amount-too-small))

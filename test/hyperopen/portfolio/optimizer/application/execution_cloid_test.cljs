@@ -16,8 +16,6 @@
     (is (= "0x0770c0deabc123def456abc123def456" c))
     (is (= 34 (count c)) "0x + 32 hex chars")
     (is (cloid/optimizer-cloid? c)))
-  ;; A short / dirty suffix is right-padded and truncated so the cloid is always
-  ;; exactly 0x + 32 hex chars.
   (is (= 34 (count (cloid/make-cloid "ab"))))
   (is (= 34 (count (cloid/make-cloid "ffffffffffffffffffffffffffffffff-too-long"))))
   (is (cloid/optimizer-cloid? (cloid/make-cloid "ab"))))
@@ -35,9 +33,6 @@
     (is (nil? (:cloid (second rows))) "absent cloid stays nil")))
 
 (deftest live-open-orders-reads-ws-payload-map-and-per-dex-snapshots-test
-  ;; Production shapes (verified live 2026-07-04): the ws feed stores the WHOLE payload
-  ;; map {:dex :user :orders [...]} and named-dex snapshots key rows by dex with BARE
-  ;; coins. Both must surface, with per-dex coins namespaced to match plan instruments.
   (let [state {:orders {:open-orders {:dex "" :user "0xabc"
                                       :orders [{:oid 10 :coin "BTC" :side "B"}]}
                         :open-orders-snapshot-by-dex
@@ -55,9 +50,9 @@
                   {:oid 2 :coin "ETH" :cloid "0xmanualmanualmanualmanualmanual00"}
                   {:oid 3 :coin "SOL" :cloid nil}
                   {:oid 4 :coin "DOGE" :cloid "0xdeadbeef0000000000000000000000ff"}]
-        ready-rows [{:instrument-id "perp:BTC"}   ; ours resting here
-                    {:instrument-id "perp:ETH"}   ; manual order overlaps here
-                    {:instrument-id "perp:SOL"}]  ; untagged order overlaps here
+        ready-rows [{:instrument-id "perp:BTC"}
+                    {:instrument-id "perp:ETH"}
+                    {:instrument-id "perp:SOL"}]
         {:keys [optimizer-owned untagged-overlap]} (cloid/classify-overlap snapshot ready-rows)]
     (is (= [1] (mapv :oid optimizer-owned))
         "our cloid-tagged order -> auto-cancel candidate")

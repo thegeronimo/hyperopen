@@ -49,7 +49,6 @@
         "frontendOpenOrders"
         (if (= "xyz" (get body "dex"))
           (.then (base body opts) (fn [rows] (mapv named rows)))
-          ;; The first perp dex (and spot) has none of this ladder's orders.
           (js/Promise.resolve []))
         "orderStatus"
         (.then (base body opts) (fn [r] (cond-> r (get-in r [:order :order]) (update-in [:order :order] named))))
@@ -71,7 +70,6 @@
      :draft (assoc fixtures/draft-13-2 :inventory {:tilt-enabled? false})
      :market (fixtures/market-snapshot {:coin coin :market-type :perp :base-symbol "NVDA"
                                         :bbo {:bid "79.99" :ask "80.01" :observed-at-ms t}})
-     ;; What the ticket shows: the account as the store last saw it.
      :account (account reviewed)
      :fees (assoc fees :loaded-at-ms t)
      :pending-intents [] :clock t :model-version 1 :precision-version 1}))
@@ -136,7 +134,6 @@
 (deftest a-venue-leverage-the-user-did-not-review-refuses-the-send-test
   (async done
     (let [s (fresh)
-          ;; The ticket planned at 5x; the exchange has this market at 3x.
           venue (atom (assoc flat :leverage 3))
           d (deps s venue (atom []) flat)
           plan (frozen-plan s flat)]

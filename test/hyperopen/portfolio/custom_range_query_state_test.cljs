@@ -9,8 +9,6 @@
   {:from (ms "2026-03-03T00:00:00.000Z")
    :to (ms "2026-06-12T00:00:00.000Z")})
 
-;; --- portfolio ------------------------------------------------------------------------------
-
 (deftest portfolio-custom-range-round-trips-through-the-url-test
   (testing "written only while a custom window is live"
     (is (some #{["from" "2026-03-03"]} (portfolio-query-state/portfolio-query-params
@@ -42,8 +40,6 @@
       (is (nil? (get-in applied [:portfolio-ui :summary-custom-range]))))
     (testing "and a shared link never lands with the editor already open"
       (is (nil? (get-in applied [:portfolio-ui :summary-range-strip]))))))
-
-;; --- vault detail ---------------------------------------------------------------------------
 
 (deftest vault-detail-custom-range-round-trips-through-the-url-test
   (let [params (vault-query-state/vault-detail-query-params

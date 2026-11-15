@@ -14,7 +14,6 @@
   {:all true
    :read-cond :allow
    :features #{:cljs}
-   ;; Auto-resolved keywords (::k, ::alias/k) only need to READ here.
    :auto-resolve (fn [alias]
                    (if (= :current alias)
                      'hiccup-lint.current
@@ -250,18 +249,6 @@
           (println "No string keys found in literal :style maps.")
           0)))))
 
-;; Replicant fragment guard.
-;;
-;; This repo's Replicant has no fragment tag. `[:<> a b]` is treated as an
-;; element whose tag name is the literal string "<>", so the render reaches
-;; document.createElement("<>"), throws, and takes the surrounding subtree with
-;; it. Nothing else in the suite catches this: view tests assert on hiccup DATA
-;; and never run the renderer, so a fragment passes every cljs test and only
-;; fails in a browser.
-;;
-;; Scanned across all of src, not just src/hyperopen/views: view functions also
-;; live outside that tree (hyperopen.wallet.core is one), and a views-only glob
-;; would have missed a real occurrence.
 (def ^:private fragment-tag :<>)
 
 (defn- fragment-violations-in-forms
@@ -292,8 +279,6 @@
 
 (defn fragment-violations-in-text
   [file-path ^String text]
-  ;; Parsed, not grepped, so ":<>" inside a comment or a string literal is not a
-  ;; violation. Location metadata rides on the vector itself.
   (fragment-violations-in-forms file-path
                                 (edamame/parse-string-all text parse-opts)))
 
@@ -325,13 +310,6 @@
           (println "No Replicant fragment tags found in hiccup.")
           0)))))
 
-;; Misspelled DOM attribute guard.
-;;
-;; Replicant passes `(name attr)` straight to setAttribute: there is no
-;; React-style kebab/camel translation. `:tab-index 0` therefore writes an
-;; unknown `tab-index="0"` attribute and the element stays unfocusable. Like
-;; fragments, this is invisible to view tests, which read back whatever key the
-;; view used.
 (def misspelled-attrs
   {:tab-index :tabindex})
 
@@ -352,7 +330,6 @@
 
                 (or (vector? x) (list? x) (set? x) (seq? x))
                 (do
-                  ;; `(assoc attrs :tab-index -1)` builds the map at runtime.
                   (when (seq? x)
                     (doseq [item x]
                       (when (contains? misspelled-attrs item)

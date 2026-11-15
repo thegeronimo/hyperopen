@@ -122,7 +122,6 @@
      :value (if (and open? (finite? value)) (currency value) unknown)
      :pnl (cell (signed-currency pnl) pnl)
      :money-weighted (cell (annualised money-weighted-return) money-weighted-return)
-     ;; Same time-weighted estimate as the total (the vault's own sleeve).
      :while-held (assoc (cell (signed-percent vault-return-while-held-pct)
                               vault-return-while-held-pct)
                         :estimated? true)

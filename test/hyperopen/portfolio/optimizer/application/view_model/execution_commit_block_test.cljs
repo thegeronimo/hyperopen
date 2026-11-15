@@ -25,9 +25,6 @@
                      :status :ready :side :buy :delta-notional-usd 100}]}}}}})
 
 (deftest read-only-plan-blocks-commit-but-invites-simulation-test
-  ;; Spectate / read-only: commit stays blocked (Arm/Confirm), but the notice clarifies that the
-  ;; strategy/type controls are still usable to compare costs — and the old conflated :read-only?
-  ;; key (which used to lock those controls) is gone.
   (let [model (vm/execution-tab-model
                (commit-blocked-state {:disabled-reason :read-only
                                       :disabled-message "Spectate Mode is read-only."}))]
@@ -43,8 +40,6 @@
         "the flag that used to double as a simulation lock is gone")))
 
 (deftest stale-plan-blocks-commit-without-the-simulate-note-test
-  ;; A stale-at-entry plan is also commit-blocked, but its only honest fix is a re-run — so the
-  ;; notice is the stale message verbatim, NOT the spectate simulate-anyway copy.
   (let [stale-message "Inputs changed since this recommendation was computed — re-run the optimizer before executing."
         model (vm/execution-tab-model
                (commit-blocked-state {:disabled-reason :stale-recommendation

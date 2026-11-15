@@ -68,7 +68,6 @@
           (.catch (fail done))))))
 
 (deftest a-blocker-after-admission-is-refused-at-the-final-guard-test
-  ;; Admitted while live; the socket drops before HTTP.
   (async done
     (let [s (fresh)]
       (sim/script! s {:kind :normal :before-guard (fn [s] (block! s :monitoring/stale))})
@@ -88,8 +87,6 @@
           (.catch (fail done))))))
 
 (deftest a-blocker-during-the-final-guard-reads-is-refused-test
-  ;; `live!` is still live when the guard starts; the socket drops while its
-  ;; journal and barrier reads are in flight.
   (async done
     (let [s (fresh)
           armed? (atom false)

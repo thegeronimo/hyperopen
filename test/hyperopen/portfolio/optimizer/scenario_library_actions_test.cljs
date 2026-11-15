@@ -4,8 +4,6 @@
             [hyperopen.portfolio.optimizer.contracts :as contracts]))
 
 (deftest toggle-scenario-menu-opens-and-refreshes-index-test
-  ;; Opening the menu also reloads the wallet's saved-scenario index so the
-  ;; list is fresh after saves, wallet switches, or work in another tab.
   (is (= [[:effects/save contracts/ui-scenario-menu-open-path true]
           [:effects/load-portfolio-optimizer-scenario-index]]
          (actions/toggle-portfolio-optimizer-scenario-menu {}))))

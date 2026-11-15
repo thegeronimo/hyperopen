@@ -84,8 +84,6 @@
 
 (defn- refresh-open-orders-snapshot!
   [store address dex opts]
-  ;; `:force-refresh?` is the caller's call, not a default here -- see the same
-  ;; helper in `websocket/user_runtime/refresh.cljs` for why.
   (-> (api/request-frontend-open-orders! address
                                          (cond-> (or opts {})
                                            (and dex (not= dex "")) (assoc :dex dex)))
@@ -98,7 +96,6 @@
       (.then (fn [data]
                (swap! store
                       (fn [state]
-                        ;; Guard stale async completions from older wallet sessions.
                         (if (= address (current-order-account-address state))
                           (assoc-in state [:webdata2 :clearinghouseState] data)
                           state)))))
@@ -737,7 +734,6 @@
 
       :else
       (do
-        ;; Hide targeted orders immediately; rollback by clearing pending ids on failure.
         (when (seq cancel-oids)
           (swap! store add-pending-cancel-oids cancel-oids))
         (-> (cancel-order-for-target! store address (:action request) options)

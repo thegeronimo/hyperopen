@@ -67,7 +67,6 @@
    post])
 
 (def ^:private link-icon
-  ;; Two chain links: "this is linked to something you already have".
   [:svg {:width "10" :height "10" :viewBox "0 0 24 24" :fill "none"
          :stroke "currentColor" :stroke-width "2.5" :stroke-linecap "round"
          :stroke-linejoin "round" :aria-hidden "true"}
@@ -94,8 +93,6 @@
                  "grid" "items-center" "gap-2" "border-b" "border-base-300"
                  "cursor-pointer" "px-2" "py-1.5" "last:border-b-0"
                  "hover:bg-base-200/30"]
-         ;; Keyed so Replicant moves rows instead of rebuilding all of them on
-         ;; every keystroke and every vault-index tick.
          :replicant/key market-key
          :data-role (str "portfolio-optimizer-universe-candidate-row-" market-key)
          :id (str "portfolio-optimizer-universe-candidate-" idx)
@@ -106,9 +103,6 @@
          :data-confirm-open (when duplicate-prompt "true")
          :on {:click [[:actions/add-portfolio-optimizer-universe-instrument market-key]]}}
    [:span {:class ["min-w-0"]}
-    ;; The symbol wraps rather than truncating, and the quote token is its own
-    ;; tinted pill. The separator stays on the lead span, so the row's text
-    ;; content still reads as the whole symbol for anything matching on text.
     [:span {:class ["optimizer-universe-candidate-symbol" "block" "font-mono"
                     "text-[0.8125rem]" "font-semibold"]}
      (highlighted symbol-segments ["optimizer-universe-match"])
@@ -117,8 +111,6 @@
                        "text-[0.5625rem]" "font-semibold" "tracking-[0.06em]"]
                :data-quote quote-label}
         quote-label])]
-    ;; A name line that just repeats the symbol is a wasted row in a narrow rail —
-    ;; every vault renders its own name as both, which read as a stutter.
     (when-not duplicate-name?
       [:span {:class ["optimizer-universe-candidate-name" "block" "truncate"
                       "text-[0.6875rem]" "text-trading-muted"]}
@@ -175,8 +167,6 @@
   (let [question-id (str "portfolio-optimizer-universe-duplicate-question-" market-key)
         choice (fn [c] {:click [[:actions/add-portfolio-optimizer-universe-instrument
                                  market-key c]]})]
-    ;; scroll-mt clears the sticky group header when the confirm scrolls itself
-    ;; into view, so its headline is never tucked under "PERPS".
     [:div {:class ["optimizer-universe-duplicate-confirm" "flex" "flex-col" "gap-2"
                    "scroll-mt-7" "border" "border-warning/60" "bg-base-100" "p-2.5"]
            :replicant/key (str market-key "::confirm")
@@ -267,9 +257,6 @@
   [{:keys [key label count rows]} count-label]
   (into [:div {:replicant/key (name key)
                :data-role (str "portfolio-optimizer-universe-candidate-group-" (name key))}
-         ;; Sticky so the type stays legible while the list scrolls. Deliberately
-         ;; a DIFFERENT data-role stem from the rows: two tests select rows with
-         ;; [data-role^="portfolio-optimizer-universe-candidate-row-"].
          [:div {:class ["optimizer-universe-candidate-group-header"
                         "flex" "items-center" "justify-between" "px-2" "py-1"
                         "font-mono" "text-[0.5625rem]" "font-semibold" "uppercase"
@@ -292,8 +279,6 @@
                  "flex" "flex-wrap" "items-center" "justify-between" "gap-x-2"
                  "gap-y-0.5" "px-2" "py-1.5"]
          :data-role "portfolio-optimizer-universe-search-footer"}
-   ;; Both halves stay on one line each; a long add-all label (with its
-   ;; "skips N duplicates" note) wraps whole onto its own line.
    [:span {:class ["whitespace-nowrap" "font-mono" "text-[0.625rem]" "text-trading-muted/80"]
            :data-role "portfolio-optimizer-universe-search-footer-count"}
     footer-label]
@@ -391,9 +376,6 @@
                     "font-mono" "text-[0.625rem]" "text-trading-muted"]
             :data-role "portfolio-optimizer-universe-search-add-hint"}
      "↵ add"]]
-   ;; The hit count sits BELOW the shell rather than inside it: the shell's
-   ;; geometry (icon / field / clear / "↵ add") is pinned by a browser spec at
-   ;; four viewports, and a fifth child there displaces the add hint.
    (when searching?
      [:div {:class ["mt-1" "flex" "items-center" "justify-between" "gap-2"]}
       [:span {:class ["font-mono" "text-[0.625rem]" "uppercase" "tracking-[0.1em]"
@@ -414,8 +396,6 @@
      (if (seq search-groups)
        (results-panel {:groups search-groups
                        :footer-label search-footer-label
-                       ;; Add-all skips same-stock rows, so it is fed the
-                       ;; de-duplicated batch and says how many it skipped.
                        :add-all-label search-add-all-label
                        :market-keys search-addable-market-keys
                        :count-label count-label

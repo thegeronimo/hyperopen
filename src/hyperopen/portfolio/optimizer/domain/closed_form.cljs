@@ -23,8 +23,6 @@
 (def closed-form-objective-kinds
   #{:minimum-variance :target-return :max-sharpe :target-volatility})
 
-;; --- frontier moments -------------------------------------------------------
-
 (defn- frontier-moments
   "Solves the two systems covariance*u = 1 and covariance*v = mu in one
   elimination pass and derives the classical frontier scalars
@@ -58,8 +56,6 @@
                :d d}
               {:status :failed
                :reason :indefinite-covariance})))))))
-
-;; --- per-objective weights --------------------------------------------------
 
 (defn- gmv-weights
   [net-target {:keys [u a]}]
@@ -104,7 +100,6 @@
   [{:keys [objective net-target moments]}]
   (let [risk-free-rate (or (:risk-free-rate objective) 0)
         {:keys [u v a b]} moments
-        ;; x = inv(covariance)*(mu - rf*1) = v - rf*u by linearity of the solve.
         x (mapv (fn [v-value u-value]
                   (- v-value (* risk-free-rate u-value)))
                 v
@@ -160,8 +155,6 @@
     :target-volatility (target-volatility-weights inputs)
     {:status :failed
      :reason :unsupported-objective}))
-
-;; --- eligibility ------------------------------------------------------------
 
 (defn- net-equality-target
   "Mirrors the planner's equality encoding: the single net equality comes from
@@ -230,23 +223,6 @@
                   col (range row)]
               [row col]))))
 
-;; Two-tier eligibility (the widened, still-safe design):
-;;
-;; core-eligibility checks ONLY that the closed-form FORMULA is solving the
-;; correct equality-core problem (supported objective, finite params, a single
-;; well-defined net equality target b, a solvable/symmetric covariance, and no
-;; objective-changing inputs like explicit return tilts or a net-exposure
-;; range). These cannot be widened away.
-;;
-;; Every OTHER encoded constraint (finite box bounds, long-only, gross/L1,
-;; turnover, locked weights, per-asset caps that encode into bounds) is treated
-;; as an ADDITIONAL RESTRICTION and enforced by post-validation, NOT here. We
-;; solve the unrestricted equality-core candidate, then accept it only if it
-;; already satisfies every such constraint within tolerance. Rationale: the
-;; candidate is the global optimum over a superset of the constrained feasible
-;; region, so if it is itself feasible for the narrower region it is optimal
-;; there too (KKT). If it violates anything, we fall back to the QP/frontier
-;; path. We never clamp, project, or renormalize the candidate.
 (defn- core-eligibility
   [{:keys [objective instrument-ids expected-returns covariance
            encoded-constraints return-tilts]}]
@@ -260,8 +236,6 @@
       param-failure
       {:eligible? false :reason param-failure}
 
-      ;; Explicit user return tilts change the objective to :return-tilted, so
-      ;; the formula's objective no longer matches; preserve the sweep.
       (some? return-tilts)
       {:eligible? false :reason :explicit-return-tilts}
 
@@ -282,17 +256,12 @@
       (not (symmetric-covariance? covariance))
       {:eligible? false :reason :asymmetric-covariance}
 
-      ;; A net-exposure RANGE is an inequality on sum(w); the formulas need a
-      ;; single equality target b, so the core problem genuinely differs.
       (active-net-range? encoded-constraints)
       {:eligible? false :reason :net-exposure-range}
 
-      ;; A percentage-of-gross net band couples net to realized gross via
-      ;; inequality rows the closed form cannot encode; keep the QP path.
       (some? (:net-band-spec encoded-constraints))
       {:eligible? false :reason :net-band-pct}
 
-      ;; No single net equality => the GMV/frontier formulas have no b.
       (nil? net-target)
       {:eligible? false :reason :missing-net-equality}
 
@@ -341,8 +310,6 @@
         (if (= :solved (:status outcome))
           core
           {:eligible? false :reason (:reason outcome)})))))
-
-;; --- solving ----------------------------------------------------------------
 
 (defn- accepted-diagnostics
   [problem]

@@ -1,20 +1,9 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// Hyperliquid reports isolated positions only inside `marginSummary`, leaving
-// `crossMarginSummary.totalNtlPos` and `crossMaintenanceMarginUsed` at zero. Its
-// own Unified Account Summary is cross-only -- "Unified Account Leverage = Total
-// Cross Positions Value / Total Collateral Balance", and the maintenance row is
-// `crossMaintenanceMarginUsed` unmodified -- so a book that is entirely isolated
-// genuinely reads 0.00x and $0.00 there, and must read the same here. What this
-// spec pins is that the panel says so honestly: the zeros are accompanied by an
-// explicit note naming the isolated notional they exclude.
 const EQUITY_PANEL = "[data-parity-id='account-equity']";
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
 
-// Spectate gives the state an effective account (account-derived surfaces are
-// asserted empty without one), then the live sync is detached so the seeded
-// snapshot is not overwritten by the real account's data.
 async function freezeAccountSurfaceSync(page, address) {
   await page.evaluate((nextAddress) => {
     const store = globalThis.hyperopen?.system?.store;
@@ -114,8 +103,6 @@ test.describe("unified account summary with an all-isolated book", () => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await visitRoute(page, "/trade");
     await dispatch(page, [":actions/start-spectate-mode", SPECTATE_ADDRESS]);
-    // Let the real spectate fetches land before detaching sync, otherwise a
-    // late response overwrites the seeded snapshot.
     await waitForIdle(page, { quietMs: 800, timeoutMs: 12_000, pollMs: 50 });
     await freezeAccountSurfaceSync(page, SPECTATE_ADDRESS);
     await seedUnifiedIsolatedAccountState(page);
@@ -125,17 +112,9 @@ test.describe("unified account summary with an all-isolated book", () => {
 
     const text = (await panel.innerText()).replace(/\s+/g, " ");
 
-    // Hyperliquid defines Unified Account Leverage as cross positions over
-    // collateral and renders Perps Maintenance Margin straight from
-    // crossMaintenanceMarginUsed. This book is entirely isolated, so both are
-    // zero on the venue and must be zero here.
     expect(text).toContain("0.00x");
     expect(text).toContain("$0.00");
-    // A bare zero next to a real book reads as "no exposure", so the panel
-    // names what the cross-only lens leaves out.
     expect(text).toContain("Excludes $1,700.00 isolated");
-    // Isolated positions liquidate individually, so a portfolio-liquidation
-    // ratio has nothing to say; "--" beats a 0% that reads as no risk.
     expect(text).not.toContain("0.00%");
   });
 });

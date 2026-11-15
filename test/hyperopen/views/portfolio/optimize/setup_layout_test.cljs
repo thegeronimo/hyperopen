@@ -11,45 +11,27 @@
         strings (set (collect-strings view-node))]
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-route-surface")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-header")))
-    ;; The top "Start with" preset row is retired — the objective/preset choice is
-    ;; consolidated into the center "Optimization goal" control.
     (is (nil? (node-by-role view-node "portfolio-optimizer-setup-preset-row")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-surface")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-control-rail")))
-    ;; CENTER column is now the editable policy pane (was the passive summary pane); the RIGHT
-    ;; column leads with a compact summary card. The "Return views" panel is a full editor only
-    ;; when the views-aware model is active; for the default Conservative draft it is DEMOTED to
-    ;; a one-line inactive note ranked last, so inactive functionality never competes with
-    ;; readiness warnings.
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-policy-pane")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-summary-card")))
     (is (some? (node-by-role view-node "portfolio-optimizer-assumptions-rail")))
     (is (contains? strings "Return views"))
     (is (some? (node-by-role view-node "portfolio-optimizer-return-views-inactive")))
     (is (contains? strings "Not used by Minimum risk"))
-    ;; ...and the full editor (including its old conservative note) is gone.
     (is (nil? (node-by-role
                view-node
                "portfolio-optimizer-setup-use-my-views-editor-conservative-note")))
-    ;; The Run summary is the designer's icon-row card (2026-07-10): no
-    ;; "Return forecast" row — the inactive Return-views one-liner (asserted
-    ;; above) carries the not-used fact — and a Status row shares the footer's
-    ;; run-verdict.
     (is (not (contains? strings "Return forecast")))
     (is (contains? strings "Status"))
     (is (not (contains? strings "Trust & Freshness")))
     (is (nil? (node-by-role view-node "portfolio-optimizer-left-rail")))
     (is (contains? strings "Portfolio Optimizer"))
-    ;; The single goal control replaces the retired preset row's "Start with".
     (is (contains? strings "Optimization goal"))
-    ;; A connected account with no clearinghouse data yet is the holdings
-    ;; auto-seed window: the strip presents "My holdings" as the source in
-    ;; flight rather than offering "Load my holdings" as a manual command.
     (is (contains? strings "My holdings"))
     (is (contains? strings "Custom"))
     (is (not (contains? strings "Index")))
-    ;; Renamed from "Scenario contract" (2026-07-10): the card now also carries
-    ;; the History-data line and the global Status verdict.
     (is (contains? strings "Run summary"))
     (is (not (contains? strings "Scenario contract")))
     (is (not (contains? strings "What this scenario will solve for")))
@@ -57,23 +39,12 @@
     (is (not (contains? strings "Execution Assumptions")))))
 
 (deftest setup-surface-grid-sizes-columns-independently-test
-  ;; Regression guard: CSS Grid's default align-items: stretch would make the
-  ;; left universe rail and right context rail stretch to match the CENTER
-  ;; policy pane whenever it grows much taller (e.g. many thin-history assets
-  ;; each rendering a full assumption card) — the shorter rails then render
-  ;; thousands of pixels of blank panel background below their real content
-  ;; (2026-07-08: "the background seems unusually large"). items-start makes
-  ;; every column exactly as tall as its own content instead.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}})
         surface (node-by-role view-node "portfolio-optimizer-setup-surface")]
     (is (contains? (class-token-set surface) "items-start"))))
 
 (deftest setup-holdings-loading-window-mirrors-across-rail-and-run-bar-test
-  ;; Cold load with a connected account and no clearinghouse data yet: the wait
-  ;; must be visible everywhere the user checks readiness — the scenario
-  ;; contract's Universe row, the Readiness copy, and the Run CTA — and the CTA
-  ;; must not ask the user to add assets the seed is about to add.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :wallet {:address "0x1111111111111111111111111111111111111111"}})
@@ -89,10 +60,6 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-universe-holdings-loading")))))
 
 (deftest setup-universe-source-strip-reflects-live-source-test
-  ;; The source strip leads with "My holdings" (the default path — the universe
-  ;; seeds itself from holdings) and shows "Custom" as the alternate state; with
-  ;; NO account connected there is nothing to wait for, so neither segment is
-  ;; active and the holdings segment reads as the manual load action.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}})
         universe-panel (node-by-role view-node "portfolio-optimizer-universe-panel")
@@ -109,10 +76,6 @@
     (is (not (contains? strings "Index")))))
 
 (deftest setup-universe-load-holdings-is-single-affordance-test
-  ;; "Load my holdings" lives in ONE place — the universe source strip button
-  ;; (portfolio-optimizer-universe-use-current), relabelled from "From holdings".
-  ;; The old duplicate prominent empty-state button (…-universe-load-holdings) was
-  ;; removed; the empty state points at the strip button instead.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}})
         load-strip (node-by-role view-node "portfolio-optimizer-universe-use-current")]
@@ -120,7 +83,6 @@
     (is (= [[:actions/set-portfolio-optimizer-universe-from-current]]
            (click-actions load-strip)))
     (is (str/includes? (node-text load-strip) "Load my holdings"))
-    ;; the duplicate empty-state button is gone
     (is (nil? (node-by-role view-node "portfolio-optimizer-universe-load-holdings")))))
 
 (deftest setup-policy-pane-orders-exposure-before-return-risk-model-test
@@ -136,12 +98,8 @@
                                          :constraints {:long-only? true}}}}})
         control-rail (node-by-role view-node "portfolio-optimizer-setup-control-rail")
         policy-pane (node-by-role view-node "portfolio-optimizer-setup-policy-pane")]
-    ;; LEFT rail is universe-only now; the editable policy controls moved to the wide CENTER pane.
     (is (= ["portfolio-optimizer-universe-panel"]
            (child-roles control-rail)))
-    ;; The Run bar is the LAST DIRECT child of the policy pane (not nested in the assumptions
-    ;; stack) so its sticky positioning can pin it to the viewport bottom while the tall pane
-    ;; scrolls.
     (is (= ["portfolio-optimizer-objective-panel"
             "portfolio-optimizer-constraints-panel"
             "portfolio-optimizer-proxy-workflow-slot"
@@ -151,8 +109,6 @@
             "portfolio-optimizer-model-assumptions-stack"
             "portfolio-optimizer-setup-bottom-actions"]
            (child-roles policy-pane)))
-    ;; The leading section numbers (01..05) are gone: the panels read as a
-    ;; sovereign workbench, not a required wizard sequence. Titles remain.
     (is (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-objective-panel"))
                        "Optimization goal"))
     (is (not (str/includes? (node-text (node-by-role view-node "portfolio-optimizer-objective-panel"))
@@ -219,9 +175,6 @@
            (input-actions
             (node-by-role view-node
                           "portfolio-optimizer-universe-search-input"))))
-    ;; The Maximum Sharpe goal is a primary card: it applies the setup preset so
-    ;; the objective and its views-aware return model move together (the retired
-    ;; preset row's behavior, now the single goal control).
     (is (= [[:actions/apply-portfolio-optimizer-setup-preset :max-sharpe]]
            (click-actions
             (node-by-role view-node
@@ -279,8 +232,6 @@
                        "focus:shadow-[inset_0_0_0_1px_rgba(212,181,88,0.75)]"))
         (is (= "tooltip" (get-in tooltip [1 :role])))
         (is (= copy (node-text tooltip)))))
-    ;; The views-aware option is an input policy, not a persona: "With my views"
-    ;; (sublabel "Views + baseline"), no longer the "Use my views" strategy label.
     (let [bl-button (node-by-role view-node
                                   "portfolio-optimizer-return-model-black-litterman")
           bl-strings (set (collect-strings bl-button))]
@@ -310,16 +261,11 @@
                                                        :gross-max 1}}}}})
         summary-card (node-by-role view-node "portfolio-optimizer-setup-summary-card")
         summary-text (node-text summary-card)]
-    ;; The compact summary card shows the asset COUNT (the labelled list lives in the universe
-    ;; panel now); it must never leak a raw vault address/id.
     (is (str/includes? summary-text "2 assets"))
     (is (not (str/includes? summary-text vault-id)))
     (is (not (str/includes? summary-text vault-address)))))
 
 (deftest setup-run-action-renders-under-center-assumptions-panel-test
-  ;; The Run bar sits AFTER the assumptions stack as the policy pane's LAST direct child: that
-  ;; placement is what lets `position: sticky; bottom: 0` pin it to the viewport bottom while
-  ;; the tall pane (e.g. an expanded Constraints panel) scrolls.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer
@@ -414,17 +360,9 @@
                    "Small rebalance trades below this USDC notional are ignored so the output avoids noisy dust orders."))
     (is (contains? strings
                    "Minimum target-vs-current weight difference before a rebalance row is considered actionable. 0.03 means 3 percentage points."))
-    ;; The panel leads with the 2D exposure-map Positioning control; its trailing eyebrow now
-    ;; reflects the active positioning preset (here :custom) instead of the old "defaults
-    ;; applied", and the controls are grouped by what the trader decides.
     (is (contains? strings "Custom"))
     (is (contains? strings "Portfolio exposure"))
     (is (contains? strings "Set target leverage and net long/short bias."))
-    ;; The simplified default view (2026-07-10): no drag caption, no
-    ;; "Positioning" eyebrow, no preset chips — pad + stacked readout + the two
-    ;; read-only cards ("Risk guards" / "Rebalancing") with the editable
-    ;; controls behind their Edit disclosures, and the band sliders behind
-    ;; "Fine-tune exposure".
     (is (not (contains? strings "Drag the dot to set target exposure.")))
     (is (not (some #(str/includes? % "The dot shows the target gross leverage")
                    strings)))
@@ -433,27 +371,17 @@
     (is (contains? strings "Risk guards"))
     (is (contains? strings "Rebalancing"))
     (is (contains? strings "Fine-tune exposure"))
-    ;; The exact solver echo is an audit detail: it lives inside the Advanced
-    ;; solver limits drawer, not in the primary controls column.
     (is (contains? strings "Sent to solver"))
     (is (some? (node-by-role
                 (node-by-role view-node "portfolio-optimizer-constraints-advanced")
                 "portfolio-optimizer-exposure-echo")))
     (is (contains? strings "Advanced solver limits"))
-    ;; Each numeric constraint echoes its interpreted unit persistently (not only in the
-    ;; hover tooltip): 0.25 -> "max 25% per asset", 3 -> "3.00× capital", 0.03 -> "3.0 pp band".
     (is (contains? strings "max 25% per asset"))
     (is (contains? strings "3.00× capital"))
     (is (contains? strings "3.0 pp band"))
     (is (not (contains? strings "mandatory")))))
 
 (deftest setup-exposure-panel-discloses-holdings-seeded-constraints-test
-  ;; A holdings import rewrites the constraint envelope from the current book
-  ;; (gross floor, cap, net bias). That is disclosed inside the Portfolio
-  ;; exposure panel — the section that owns the constraints — NOT the goal card:
-  ;; the objective didn't seed them, the holdings import did. A silent replace
-  ;; of the preset's 'safe' envelope is a mixed-state lie (audited live: cap
-  ;; 152%, net-short floor).
   (let [holdings-draft
         {:universe [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}]
          :objective {:kind :minimum-variance}
@@ -477,7 +405,6 @@
     (is (contains? strings "Custom · from holdings"))))
 
 (deftest setup-exposure-panel-quiet-on-default-constraints-test
-  ;; A pristine default draft keeps the preset defaults: no disclosure note.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :wallet {:address "0x1111111111111111111111111111111111111111"}})]

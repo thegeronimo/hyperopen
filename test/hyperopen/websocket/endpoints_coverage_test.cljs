@@ -737,8 +737,6 @@
             {:vaultAddress "0xA1"
              :equity "120.5"
              :lockedUntilTimestamp "1700"})))
-    ;; A malformed member cannot be silently discarded: doing so would report
-    ;; an undercounted vault balance as a confirmed value.
     (is (nil? (vaults-endpoints/normalize-user-vault-equities
                [{:vaultAddress "0xA1"
                  :equity "1"}

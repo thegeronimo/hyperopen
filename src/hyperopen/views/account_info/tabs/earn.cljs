@@ -48,21 +48,12 @@
 (def ^:private health-classes
   {:safe "text-ho-buy" :caution "text-ho-warn" :risk "text-ho-sell" :none "text-ho-text"})
 
-;; Sizes and padding follow the design (12px text, 8x12 header and 10x12 body
-;; cells). Weights follow Hyperliquid's account panel, which renders Inter
-;; Regular (400) throughout.
 (def ^:private th-base
   ["px-3" "py-2" "text-xs" "leading-4" "font-normal" "text-trading-text-secondary" "whitespace-nowrap"])
 
-;; No text color here on purpose: a base `text-trading-text` and a tone class
-;; are two competing color utilities, and the base won, so Supplied, Borrowed,
-;; APY and interest all rendered in the default text color. Each cell names
-;; exactly one color through `cell-classes`.
 (def ^:private td-base
   ["px-3" "py-2.5" "text-xs" "leading-4" "font-normal" "border-t" "border-base-300" "whitespace-nowrap"])
 
-;; Fixed widths keep the columns together on wide viewports; the actions
-;; column has none, so it takes the spare width and stays at the right edge.
 (def ^:private column-widths-px [96 176 128 128 96 144 120 nil])
 
 (def ^:private neg "\u2212")

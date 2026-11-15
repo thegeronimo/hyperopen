@@ -311,16 +311,11 @@
       (let [coin-a (or (:coin row-a) "")
             coin-b (or (:coin row-b) "")
             coin-cmp (compare coin-a coin-b)
-            ;; A token held on both ledgers lists HyperCore first, whatever
-            ;; the direction; the keys alone would put \"hyperevm-150\"
-            ;; before \"spot-150\".
             location-cmp (compare (location-sort-rank row-a)
                                   (location-sort-rank row-b))
             key-cmp (compare (or (:key row-a) "")
                              (or (:key row-b) ""))]
         (if coin-column?
-          ;; One Coin group: HyperCore first, then the labels in the
-          ;; sort's direction (as the Coin sort ordered them before).
           (cond
             (not (zero? location-cmp)) location-cmp
             (not (zero? coin-cmp)) (directed-compare direction coin-a coin-b)

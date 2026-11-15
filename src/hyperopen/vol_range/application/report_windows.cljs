@@ -113,10 +113,6 @@
      :status (if (and (= :ok status) (nil? figures)) :unavailable status)
      :reason (if (and (= :ok status) (nil? figures)) :marks/missing-boundary-close reason)}))
 
-;; ---------------------------------------------------------------------------
-;; Marks the selected window needs
-;; ---------------------------------------------------------------------------
-
 (defn open-campaigns
   "The open campaigns of `campaigns` ({id campaign}) for `selected-key` (nil
   = every market), sorted by key."

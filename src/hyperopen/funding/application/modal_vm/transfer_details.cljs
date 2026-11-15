@@ -27,8 +27,6 @@
     (string? value) (keyword value)
     :else nil))
 
-;; --- summary ----------------------------------------------------------------
-
 (defn- core->evm-rows
   [state token]
   (let [fee (evm-preview/core-fee-hype state token)]
@@ -78,8 +76,6 @@
       :evm->core (evm->core-rows deps state owner token activation-fee?)
       [])
     []))
-
-;; --- blocked card ---------------------------------------------------------------
 
 (defn- hype-token
   [state]
@@ -154,8 +150,6 @@
               :no-evm-gas (gas-fix deps state modal)
               :no-chain-switch (retry-fix)
               nil))}))
-
-;; --- HyperEVM run ---------------------------------------------------------------
 
 (def ^:private phases
   #{:running :pending :failed :succeeded})

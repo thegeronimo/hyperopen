@@ -122,9 +122,6 @@
                                 "Click an open order to amend it")))
 
 (deftest rejected-row-surfaces-the-exchange-error-test
-  ;; A rejection without its reason reads as an arbitrary failure at the moment the
-  ;; trader decides whether to resume (observed live: an amend-to-market rejected with
-  ;; "Order could not immediately match…" and the row showed only "rejected").
   (let [message "Order could not immediately match against any resting orders. asset=110026"
         rendered (table {} [(-> (working-row nil)
                                 (assoc :status :failed

@@ -118,8 +118,6 @@
    (search-controls search-term strict? favorites-only? nil))
   ([search-term strict? favorites-only? market-keys]
    (search-controls search-term strict? favorites-only? market-keys nil))
-  ;; `active-tab` and `include-outcomes?` drive the Outcomes pill, which only
-  ;; the All tab offers: every other tab is already one kind of market.
   ([search-term strict? favorites-only? market-keys {:keys [active-tab include-outcomes?]}]
   [:div.flex.items-center.gap-2.mb-4
    [:div.relative.flex-1
@@ -320,9 +318,6 @@
       (sort-chevron direction))]
    [:div {:class ["text-xs" "leading-tight" "text-gray-500"]}
     subtitle]])
-
-(defn mobile-outcome-subtab-row [active-tab]
-  (outcome-subtab-row active-tab))
 
 (defn mobile-tradfi-subtab-row [active-tab]
   (tradfi-subtab-row active-tab))

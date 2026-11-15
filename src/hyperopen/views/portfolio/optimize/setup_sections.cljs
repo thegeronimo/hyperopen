@@ -15,10 +15,6 @@
             [hyperopen.views.portfolio.optimize.setup-use-my-views-workspace :as use-my-views-workspace]
             [hyperopen.views.portfolio.optimize.target-sigma :as target-sigma]))
 
-;; The setup route is a 3-column grid (workspace_view). LEFT = universe selection only; CENTER =
-;; the editable scenario policy (objective / exposure / model / advanced); RIGHT = the compact
-;; summary + Run readiness (setup_context). This namespace owns the LEFT and CENTER columns.
-
 (defn control-rail
   "LEFT column: universe selection only. Everything the trader configures about POLICY lives in
   the wider center policy-pane, not this narrow rail."
@@ -53,14 +49,10 @@
   (let [black-litterman? (= :black-litterman (get-in draft [:return-model :kind]))
         current-exposure (exposure-vm/snapshot->current-exposure
                           (current-portfolio/current-portfolio-snapshot state))
-        ;; One global verdict for the footer pill (the rail computes the same
-        ;; one from the same readiness inputs).
         verdict (optimizer-view-model/run-verdict readiness history-load-state)]
     (into
      [:main {:class ["optimizer-policy-pane" "space-y-4" "leading-4"]
              :data-role "portfolio-optimizer-setup-policy-pane"}
-      ;; The objective/model/constraint PICKERS are always shown so the trader can change any of
-      ;; them (including switching Black-Litterman off) without losing the controls.
       (objective-controls/objective-section
        draft
        highlighted-controls
@@ -74,10 +66,6 @@
                              (constraint-profiles/universe-key
                               (get-in state optimizer-contracts/draft-universe-path)))
         :exposure-zoom-level (get-in state optimizer-contracts/ui-exposure-zoom-level-path)})
-      ;; Proxy workflow sits right below Portfolio exposure: it gates the run, so
-      ;; it must be seen before the model/advanced sections. The slot wrapper
-      ;; ALWAYS renders (the section inside is conditional) so the later keyed
-      ;; disclosure siblings never shift position when cards appear/disappear.
       [:div {:data-role "portfolio-optimizer-proxy-workflow-slot"
              :replicant/key "proxy-workflow-slot"}
        (setup-history-assumptions/history-assumptions-section
@@ -92,11 +80,6 @@
         "Advanced Overrides"
         (instrument-overrides-panel/overrides-trailing-label draft))
        (instrument-overrides-panel/instrument-overrides-panel draft))]
-     ;; One pane tail for every model. The Black-Litterman trust explainer no
-     ;; longer replaces it (every Maximum Sharpe scenario is views-aware now) —
-     ;; it collapses into a disclosure above the notes. The Run bar stays the
-     ;; LAST DIRECT child of the policy pane so `position: sticky` can pin it to
-     ;; the viewport bottom while any part of the pane is in view.
      (concat
       (when black-litterman?
         [(controls/disclosure-panel

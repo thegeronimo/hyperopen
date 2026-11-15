@@ -17,26 +17,6 @@ import {
   venueOid
 } from "../support/vol_range_world.mjs";
 
-// Vol Range Portfolio report (HO-SPEC-014 v2.1 sections 11.2, 11.3, 12.1, 12.6; reporting
-// plan stage R3).
-//
-// The shared world (tools/playwright/support/vol_range_world.mjs) stubs /info (including the
-// report backfill's `userFillsByTime` and `userNonFundingLedgerUpdates` reads), answers
-// signed actions with the debug exchange simulator and aborts anything bound for a real
-// /exchange endpoint. Its WebSocket simulator owns the page's Hyperliquid socket, so the
-// streamed fill below is pushed by the test. A ladder is placed through the simulator, which
-// records the tracking baseline (q0 = 150 VRT, P0 = 80 from the 79.99/80.01 book); the
-// dock's View report opens the Portfolio Vol Range tab. Before the first completed hourly close
-// there are no dollar figures.
-//
-// Stage R6 exports the seeded report as a JSON bundle and a fills CSV (Blob downloads built from
-// this browser's stored report; nothing is read from or sent to the venue) and checks the tab at
-// four viewports and its keyboard order.
-//
-// Stage R4 scenarios seed SYNTHETIC tracking into this browser's journal and ledger through
-// `seedVolRangeFixture({report})` and stub the 1h `candleSnapshot` reads with a flat close
-// (`world.hourlyCloses`), so the headline figures are exact.
-
 const report = (page) => page.locator('[data-role="vol-range-report"]');
 const campaigns = (page) => page.locator('[data-role="vol-range-report-campaign"]');
 const openCampaign = (page) => page.locator('[data-role="vol-range-report-campaign"][data-open="true"]');
@@ -69,7 +49,6 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
   await expect(statusLabel(page)).toContainText("Live");
   await expect(row(page).locator('[data-role="vol-ladder-tracking"]')).toContainText("Tracking since");
 
-  // A buy rung fills on the stream (the venue's REST reads then show it too).
   const buy = orderAction.orders[0];
   expect(buy.b).toBe(true);
   const fill = fillRow(buy, venueOid(0, 0), { sz: "2", tid: 990001 });
@@ -79,7 +58,6 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
     timeout: 5_000
   });
 
-  // View report: the Portfolio Vol Range tab on this ladder's market.
   await row(page).locator('[data-role="vol-ladder-view-report"]').click();
   await expect(page).toHaveURL(/\/portfolio/);
   await expect(report(page)).toBeVisible({ timeout: 20_000 });
@@ -94,7 +72,6 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
   );
   await expect(page.locator('[data-role="vol-range-report-coverage"]')).toBeVisible();
 
-  // Execution activity of the tracked fill (no P&L figures anywhere yet).
   await expect(page.locator('[data-role="vol-range-report-activity-fills"]')).toHaveText("1", { timeout: 15_000 });
   await expect(page.locator('[data-role="vol-range-report-activity-bought"]')).toContainText("2 VRT");
   const decimals = (String(buy.p).split(".")[1] || "").length;
@@ -108,8 +85,6 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
   const text = await report(page).innerText();
   expect(text).not.toMatch(/\bgrid\b|equity|%/i);
 
-  // Start new tracking from now: an inline confirmation, then a new baseline. No order is
-  // changed and nothing is signed.
   const signedBefore = (await exchangeCalls(page)).length;
   await page.locator('[data-role="vol-range-report-start-tracking"]').click();
   const confirm = page.locator('[data-role="vol-range-report-start-tracking-confirm"]');
@@ -132,10 +107,6 @@ test("a placed ladder's tracking baseline, activity and Start tracking in the Po
   expect(world.blockedExchange).toEqual([]);
 });
 
-// ---------------------------------------------------------------------------
-// Stage R4: headline figures, windows, suppression and All tracked markets
-// ---------------------------------------------------------------------------
-
 const role = (page, r) => page.locator(`[data-role="${r}"]`);
 
 async function hasFixtureSpotMeta(page) {
@@ -145,11 +116,6 @@ async function hasFixtureSpotMeta(page) {
   });
 }
 
-/**
- * Bootstrap the world, load the app, seed a report scenario and open the Vol Range tab. The
- * app's own spot metadata load can land after a seed and replace the synthetic markets, so the
- * seed is repeated (it commits the scenario only once) until they stay.
- */
 async function openSeededReport(page, world, scenario) {
   await bootstrap(page, world);
   await loadTrade(page);
@@ -196,7 +162,6 @@ test("Since tracking began shows the three headline figures and windows switch @
   await expect(headline.locator('[data-role="vol-range-report-suppressed"]')).toHaveCount(0);
   await expect(role(page, "vol-range-report-activity-fills")).toHaveText("1");
 
-  // 7D needs tracking to have started a week before the window end: unavailable, not clipped.
   await role(page, "vol-range-report-window-7d").click();
   await expect(role(page, "vol-range-report-window-7d")).toHaveAttribute("aria-pressed", "true");
   await expect(role(page, "vol-range-report-suppressed")).toHaveText(
@@ -217,11 +182,11 @@ test("Since tracking began shows the three headline figures and windows switch @
   }
   const net = await role(page, "vol-range-report-net-pnl").boundingBox();
   const hold = await role(page, "vol-range-report-hold-pnl").boundingBox();
-  expect(Math.abs(net.y - hold.y)).toBeLessThan(2); // side by side at 1440
+  expect(Math.abs(net.y - hold.y)).toBeLessThan(2);
   await page.setViewportSize({ width: 375, height: 812 });
   const net375 = await role(page, "vol-range-report-net-pnl").boundingBox();
   const hold375 = await role(page, "vol-range-report-hold-pnl").boundingBox();
-  expect(hold375.y).toBeGreaterThan(net375.y); // stacked at 375
+  expect(hold375.y).toBeGreaterThan(net375.y);
 
   const text = await report(page).innerText();
   expect(text).not.toMatch(/\bgrid\b|equity|%/i);
@@ -276,7 +241,6 @@ test("All tracked markets totals only covered markets on request @regression", a
   await expect(role(page, "vol-range-report-hold-pnl-value")).toHaveText("0.00 USDC");
   await expect(role(page, "vol-range-report-range")).toContainText("valued at hourly closes");
 
-  // One market chosen: its own figures.
   await role(page, "vol-range-report-market").selectOption({ label: "VRT/USDC" });
   await expect(role(page, "vol-range-report-headline-title")).toHaveText("VRT/USDC");
   await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("−44.80 USDC");
@@ -288,21 +252,16 @@ test("All tracked markets totals only covered markets on request @regression", a
   expect(world.blockedExchange).toEqual([]);
 });
 
-// ---------------------------------------------------------------------------
-// Stage R5: the cumulative P&L chart and Gross spread on matched fills
-// ---------------------------------------------------------------------------
-
 test("the P&L chart and the matched-fill spread reconcile to the contribution @regression", async ({ page }) => {
   const exchange = trackExchange(page);
   const world = newWorld();
-  world.totals.base = "150"; // 150 + 10 − 0.1 − 9.9
+  world.totals.base = "150";
   world.hourlyCloses = { [COIN]: "100" };
   await openSeededReport(page, world, "matched-fees");
 
   await expect(role(page, "vol-range-report-contribution-value")).toHaveText("+91.00 USDC", { timeout: 20_000 });
   await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("+3,091.00 USDC");
 
-  // The chart: shared d3 host, axis title, both series drawn, never called equity.
   const chart = role(page, "vol-range-report-chart");
   await expect(chart).toBeVisible();
   await expect(role(page, "vol-range-report-chart-axis-title")).toHaveText("Cumulative P&L (USDC)");
@@ -316,7 +275,6 @@ test("the P&L chart and the matched-fill spread reconcile to the contribution @r
   expect(await chart.innerText()).not.toMatch(/equity/i);
   expect(await chart.innerHTML()).not.toMatch(/equity/i);
 
-  // Hovering shows the checkpoint's two values.
   const plot = role(page, "vol-range-report-chart-plot-area");
   await plot.scrollIntoViewIfNeeded();
   const box = await plot.boundingBox();
@@ -327,7 +285,6 @@ test("the P&L chart and the matched-fill spread reconcile to the contribution @r
   await expect(tooltip).toContainText("Hold P&L");
   await page.mouse.move(0, 0);
 
-  // Gross spread on matched fills: collapsed, then 99 / 2 / −10 / 91.
   const matched = role(page, "vol-range-report-matched");
   await expect(matched).toHaveJSProperty("open", false);
   await role(page, "vol-range-report-matched-summary").click();
@@ -345,7 +302,6 @@ test("the P&L chart and the matched-fill spread reconcile to the contribution @r
   await role(page, "vol-range-report-matched-summary").click();
   await expect(matched).toHaveJSProperty("open", false);
 
-  // A window change re-renders the chart: 7D has none (before tracking), back again redraws it.
   await role(page, "vol-range-report-window-7d").click();
   await expect(chart).toHaveCount(0);
   await expect(matched).toHaveCount(0);
@@ -363,10 +319,6 @@ test("the P&L chart and the matched-fill spread reconcile to the contribution @r
   expect(exchange).toEqual([]);
   expect(world.blockedExchange).toEqual([]);
 });
-
-// ---------------------------------------------------------------------------
-// Stage R6: export, viewports and keyboard
-// ---------------------------------------------------------------------------
 
 const FORBIDDEN_KEY = /^(private[-_]?key|signatures?|session|agent[-_]?key|secret|unlocked[-_]?session|nonce|signed[-_]?action|mnemonic|api[-_]?key)$/i;
 
@@ -408,8 +360,7 @@ test("the report exports a JSON bundle and a fills CSV @regression", async ({ pa
   const since = campaign.windows.find((w) => w.window === "since-start");
   expect(since.figures).toEqual({ "net-pnl": "-1544.8", "hold-pnl": "-1500", contribution: "-44.8" });
   expect(since["b-mark"]).toMatchObject({ price: "70", source: "hourly-close" });
-  expect(since.coverage.state).toBe("complete"); // [T0 − skew, b) is proven
-  // To the export time the last seconds are not confirmed yet (the read settle), and say so.
+  expect(since.coverage.state).toBe("complete");
   expect(["complete", "partial"]).toContain(campaign.coverage.state);
   expect(campaign.coverage.intervals.length).toBeGreaterThan(0);
   expect(bundle.fills).toHaveLength(1);
@@ -470,7 +421,6 @@ test("the report tab works at four viewports and in keyboard order @regression",
     await expectNoHorizontalScroll(page);
   }
 
-  // Keyboard: the controls are reached in reading order and work with the keyboard.
   await page.setViewportSize({ width: 1280, height: 800 });
   await role(page, "vol-range-report-market").focus();
   const order = [];
@@ -494,7 +444,6 @@ test("the report tab works at four viewports and in keyboard order @regression",
   await page.keyboard.press("Space");
   await expect(role(page, "vol-range-report-net-pnl-value")).toHaveText("−1,544.80 USDC");
 
-  // The polite live region announces a refresh.
   await role(page, "vol-range-report-refresh").focus();
   await page.keyboard.press("Enter");
   await expect(role(page, "vol-range-report-status")).toHaveAttribute("aria-live", "polite");

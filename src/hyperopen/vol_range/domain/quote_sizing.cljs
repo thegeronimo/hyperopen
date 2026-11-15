@@ -76,16 +76,10 @@
                                         (if (= side :buy) "buy" "sell") " rungs. Enter at least "
                                         (precision/to-fixed minimum 2) " USDC, or use fewer rungs.")})]})
       :else
-      ;; Gross value grows by at least one lot at the lowest rung price per
-      ;; extra lot, which bounds the search from above. Lot counts are BigInts:
-      ;; a large amount over a tiny lot exceeds 2^53.
       (let [lot (precision/lots->decimal 1 sz-decimals)
             low (reduce precision/dec-min (map :price prices))
             hi (:units (precision/divide amount (precision/mul lot low) 0 :floor))
             hi (if (b>= hi n-min) hi n-min)
-            ;; Largest fitting n by bisection; `lo` only ever holds a fitting
-            ;; count, so the result fits even though largest-remainder
-            ;; allocation is not strictly monotone in cost.
             n (loop [lo n-min hi hi]
                 (if (b>= lo hi)
                   lo

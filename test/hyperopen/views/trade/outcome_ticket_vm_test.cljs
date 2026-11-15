@@ -15,7 +15,6 @@
   [market-key coin]
   (markets/market-with-selected-outcome-coin (get (market-by-key) market-key) coin))
 
-;; #270370 (DET) book, 2026-11-09 16:25 UTC.
 (def ^:private det-book
   {:asks [{:px "0.81902" :sz "758"} {:px "0.81903" :sz "97"} {:px "0.8194" :sz "700"}]
    :bids [{:px "0.81886" :sz "69"} {:px "0.81885" :sz "135"} {:px "0.81859" :sz "67"}]})
@@ -103,7 +102,6 @@
                                       (vm {:type :limit :form {:size "333" :price "0.03"}})
                                       now-ms)]
     (is (true? (:market-blocked? model)))
-    ;; The submit gate itself is the submit policy's (`outcome-order-message`).
     (is (re-find #"No two-sided quotes · best ask 98\.8¢" (:no-market-note model)))
     (is (= "Place limit · 333 DET at 3.000¢" (:submit-label limit)))
     (is (= "3" (:limit-cents-text limit)))
@@ -141,12 +139,10 @@
 
 (deftest ladder-flags-a-rung-priced-above-the-one-nearer-the-money-test
   (let [ladder (get (market-by-key) "ladder:price-touch|BTC|out|BTC-USDC perp mark|3|20261201-0000")
-        ;; Make $90k (further out) dearer than $85k: a kink.
         kinked (update ladder :question-options
                        (fn [options]
                          (mapv (fn [option]
                                  (case (:label option)
-                                   ;; Live best bid/ask written by the book feed.
                                    "$90,000" (update-in option [:sides 0] assoc :bid 0.295 :ask 0.305)
                                    "$85,000" (update-in option [:sides 0] assoc :bid 0.195 :ask 0.205)
                                    option))
@@ -168,8 +164,6 @@
                                            :form {:size "110" :price ""}})
                                       now-ms)]
     (is (= 100 (:held model)))
-    ;; 110 > 100 free is refused by the submit policy, see
-    ;; outcome-order-policy-test/outcome-balance-checks-before-submit-test.
     (is (= :cash-out (:mode model)))))
 
 (deftest market-summary-respects-the-ioc-price-cap-test
@@ -215,8 +209,6 @@
     (is (true? (:submit-blocked? unconfirmed)))
     (is (false? (:submit-blocked? confirmed)))
     (is (true? (:stale-confirmed? confirmed)))))
-
-;; ---- Chance rule states (4b) -------------------------------------------
 
 (defn- det-model
   [book vm-overrides & [balances]]
@@ -274,8 +266,6 @@
         model (ticket-vm/ticket-model (state active coin nil) (vm {:type :limit :form {:size "1" :price "0.5"}}) now-ms)]
     (is (false? (get-in model [:options :stale?])) "marks are not chances, so they cannot add up to a stale board")))
 
-;; ---- Fees (4c) -----------------------------------------------------------
-
 (deftest unconfirmed-venue-prints-no-fee-number-test
   (let [game (assoc (active-market "outcome:27037" "#270370") :outcome-venue "skew")
         balances [{:coin "+270370" :total "122.0" :entryNtl "99.92"}]
@@ -308,8 +298,6 @@
         tiered (assoc-in base [:portfolio :user-fees] {:userSpotCrossRate "0.0003" :userSpotAddRate "0.0001"})
         rows (into {} (:summary-rows (ticket-vm/ticket-model tiered (vm {}) now-ms)))]
     (is (= "−$0.07" (get rows "Settlement fee (0.06%)")))))
-
-;; ---- Merge pairs (4c ticket C) ---------------------------------------------
 
 (def ^:private both-sides
   [{:coin "+270370" :total "122.0" :entryNtl "99.92"}

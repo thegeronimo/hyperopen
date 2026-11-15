@@ -20,9 +20,6 @@
    :core-deposit "0x2b2dfd2c"
    :get-eth-balance "0x4d2301cc"
    :aggregate3 "0x82ad56cb"
-   ;; ERC-20 `decimals()`, added in Milestone 2. The live bridge-health probe
-   ;; on 2026-09-30 got the expected decimals back through it for PURR, SIX,
-   ;; UBTC and FUNT.
    :decimals "0x313ce567"})
 
 (def ^:private word-hex-length 64)
@@ -168,8 +165,6 @@
                  (uint256-word (count tails))
                  (concat (map uint256-word offsets) tails)))))))
 
-;; --- decoding --------------------------------------------------------------
-
 (defn- word-at
   "The 64-hex word starting at byte `offset` of `body`, or nil past the end."
   [body offset]
@@ -252,8 +247,6 @@
   (when-let [body (hex-body hex)]
     (when-let [word (word-at body 0)]
       (js/BigInt (str "0x" word)))))
-
-;; --- JSON-RPC quantities -----------------------------------------------------
 
 (defn quantity-hex
   "JSON-RPC quantity encoding (`0x` + minimal lowercase hex, `0x0` for zero)

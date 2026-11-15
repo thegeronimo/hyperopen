@@ -137,8 +137,6 @@
                        loaded-at-ms (:loaded-at-ms history-data)]
                    (when (and address
                               loaded-at-ms
-                              ;; Cache-hydrated data is the record we just
-                              ;; read - never write it straight back.
                               (not (:restored-from-cache? history-data))
                               (not= loaded-at-ms @last-persisted-at))
                      (when-let [record (history-cache/history-cache-record
@@ -170,12 +168,6 @@
     :or {dispatch! nxr/dispatch}}]
   (remove-watch store preseed-watch-key)
   (add-watch store preseed-watch-key
-             ;; Fire on EACH holdings source's arrival (perp clearinghouse and
-             ;; spot balances land independently, spot usually first): a
-             ;; single any-source transition would be consumed by the spot
-             ;; arrival while the perp book is still in flight and the seed
-             ;; would never retry. The untouched-draft gate keeps repeat
-             ;; dispatches idempotent.
              (fn [_ _ old-state new-state]
                (when (and (current-portfolio/holdings-source-arrived? old-state new-state)
                           (optimizer-defaults/untouched-draft?

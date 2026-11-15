@@ -301,12 +301,6 @@
     (is (nil? action-button))))
 
 (deftest pnl-cell-keeps-its-share-trigger-inside-its-own-column-test
-  ;; The share glyph made the PNL cell wider than its track: "+$5.01 (+216.6%)"
-  ;; measures 112px at the table's 12px/600 type, and the glyph adds 18px more,
-  ;; against a track that used to bottom out at 114px. It spilled over Liq.
-  ;; Price. The track now bottoms out at 160px, reclaimed from Entry, Mark,
-  ;; Liq. Price, Funding and Margin rather than by widening the table, and the
-  ;; cell clips itself so no value can ever reach the next column again.
   (let [row-node (positions-tab/position-row (fixtures/sample-position-row "SOL" 20 "41.2"))
         pnl-cell (nth (vec (hiccup/node-children row-node)) 5)
         trigger (hiccup/find-first-node pnl-cell

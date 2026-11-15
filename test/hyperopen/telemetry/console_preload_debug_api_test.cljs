@@ -35,8 +35,6 @@
                @dispatched))))))
 
 (deftest debug-api-exposes-the-hyperevm-poller-kill-switch-test
-  ;; Playwright specs rely on HYPEROPEN_DEBUG.setHyperevmPollerEnabled to
-  ;; stop background HyperEVM reads deterministically.
   (let [api (@#'console-preload/debug-api)
         set-enabled! (aget api "setHyperevmPollerEnabled")]
     (is (fn? set-enabled!))

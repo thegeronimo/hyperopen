@@ -6,9 +6,6 @@
             [hyperopen.portfolio.optimizer.ids :as ids]))
 
 (def ^:private maker-fee-bps
-  ;; The lower fee a resting (limit/passive) execution order would pay. Shared with the
-  ;; worker payload build site (application.engine.payload) so the two previews can never
-  ;; charge different maker fees. The taker fee comes from the draft :fee-mode.
   contracts-constants/maker-fee-bps)
 
 (def ^:private finite-number? coercion/finite-number?)
@@ -154,9 +151,6 @@
       0))
 
 (defn- current-perp-gross-usdc
-  ;; Perp-only current notional — the numerator of the trade page's Unified
-  ;; Account Leverage lens, threaded to the margin model so execution views can
-  ;; bridge portfolio (gross) leverage to venue (margin-account) leverage.
   [request]
   (let [exposures (get-in request [:current-portfolio :exposures])
         perp-notionals (keep #(when (= :perp (:market-type %))
@@ -166,17 +160,11 @@
       (reduce + 0 perp-notionals))))
 
 (defn- stable-dollar-coin?
-  ;; Stable-dollar spot tokens the venue accepts as unified perp collateral
-  ;; (USDC/USDH/USDT/USDE...). Mirrors the trade page's collateral-token set.
   [coin]
   (boolean (some-> coin str str/trim str/upper-case
                    (str/starts-with? "USD"))))
 
 (defn- venue-collateral-usd
-  ;; Venue-lens denominator, mode-split exactly like the trade page: unified
-  ;; accounts collateralize perps from the stable spot pool (cash + stable
-  ;; tokens, which the snapshot otherwise counts as exposures); classic
-  ;; accounts fall back to NAV (the trade page's classic denominator).
   [request]
   (let [portfolio (:current-portfolio request)]
     (if (= :unified (get-in portfolio [:account :mode]))
@@ -223,11 +211,6 @@
                                                target-by-id
                                                current-by-id)
         instruments (instruments-by-id request)
-        ;; Execution-scoped exits (the trader's per-staging "sell this held-out asset
-        ;; to zero" marks) union into the blocklist: both are the SAME explicit-exit
-        ;; semantics (target 0), so they share one code path in target-weight-for.
-        ;; Exits arrive as an opts arg, never on the request — they must not enter the
-        ;; input-signature or the persisted run.
         blocklist (into (set (keep non-blank-text
                                    (get-in request [:constraints :blocklist])))
                         (keep non-blank-text exit-instrument-ids))]

@@ -18,8 +18,6 @@
             [hyperopen.portfolio.optimizer.domain.math :as math]
             [hyperopen.portfolio.optimizer.domain.risk-ledoit-wolf :as ledoit-wolf]))
 
-;; --- reference: the original persistent-vector implementation, verbatim ----
-
 (defn- zero-matrix
   [size]
   (vec (repeat size (vec (repeat size 0)))))
@@ -132,8 +130,6 @@
        :sample-count sample-count
        :feature-count feature-count})))
 
-;; --- deterministic fixture data --------------------------------------------
-
 (defn- synthetic-series
   "n instruments x t observations of deterministic, irrational-ish returns."
   [n t]
@@ -147,7 +143,6 @@
 (defn- parity?
   [expected actual]
   (or (bit-parity/bit= expected actual)
-      ;; `is` prints both sides, which is no help when they render identically.
       (do (println "  bit-parity divergence:"
                    (bit-parity/first-difference expected actual))
           false)))
@@ -170,24 +165,14 @@
 (deftest loop-estimator-preserves-degenerate-fallbacks-test
   (is (parity? (reference-estimate {:series [] :periods-per-year 365})
                (arithmetic-only (ledoit-wolf/estimate {:series [] :periods-per-year 365}))))
-  ;; ragged series still produce the zero matrix here; estimate-risk-model
-  ;; substitutes a pairwise sample covariance on the :ragged-return-series
-  ;; warning (see risk-degeneracy-test)
   (let [ragged [[0.01 0.02 0.03] [0.01 0.02]]]
     (is (parity? (reference-estimate {:series ragged :periods-per-year 365})
                  (arithmetic-only (ledoit-wolf/estimate {:series ragged :periods-per-year 365})))))
-  ;; single observation, single instrument
   (let [tiny [[0.01]]]
     (is (parity? (reference-estimate {:series tiny :periods-per-year 12})
                  (arithmetic-only (ledoit-wolf/estimate {:series tiny :periods-per-year 12}))))))
 
 (deftest loop-estimator-is-bit-identical-on-non-finite-observations-test
-  ;; The fixture that makes the comparator load-bearing. A NaN observation
-  ;; propagates into the covariance -- `math/mean` filters it out of the mean
-  ;; but the centering and the accumulation keep it -- so the correct answer
-  ;; contains NaN, and this assertion is red under plain `=` even though both
-  ;; implementations agree exactly. If the suite is ever moved back onto `=`,
-  ;; this test says so immediately instead of the hole staying latent.
   (let [with-nan [[js/NaN 0.01 0.02] [0.01 0.02 0.03] [0.03 0.01 0.02]]]
     (is (parity? (reference-estimate {:series with-nan :periods-per-year 365})
                  (arithmetic-only (ledoit-wolf/estimate {:series with-nan

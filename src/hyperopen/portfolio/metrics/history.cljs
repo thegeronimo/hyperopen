@@ -6,20 +6,11 @@
 (def ms-per-year (* 365.2425 24 60 60 1000))
 (def epsilon 1e-12)
 
-(def ^:private direct-vault-summary-preference
-  [:one-year :six-month :three-month :month :week :day])
-
-(def ^:private derived-one-year-vault-min-observations
-  3)
-
-(defn optional-number [value] (normalization/optional-number value))
 (defn finite-number? [value] (normalization/finite-number? value))
 (defn history-point-value [row] (normalization/history-point-value row))
 (defn history-point-time-ms [row] (normalization/history-point-time-ms row))
 (defn day-string-from-ms [time-ms] (normalization/day-string-from-ms time-ms))
 (defn parse-day-ms [day] (normalization/parse-day-ms day))
-(defn history-points [rows] (normalization/history-points rows))
-(defn dedupe-history-points-by-time [points] (normalization/dedupe-history-points-by-time points))
 (defn aligned-account-pnl-points [summary] (normalization/aligned-account-pnl-points summary))
 (defn normalize-daily-rows [rows] (normalization/normalize-daily-rows rows))
 (defn normalize-cumulative-percent-rows [rows] (normalization/normalize-cumulative-percent-rows rows))
@@ -198,8 +189,6 @@
 
 (defn bounded-summary-context
   [summary time-range]
-  ;; Clipping the points to the custom end here is what lets `last-time-ms`
-  ;; below read the custom window end instead of the newest sample.
   (let [points (custom-range/clip-rows-to-end (anchored-account-pnl-points summary)
                                               time-range)
         last-time-ms (some-> points last :time-ms)
@@ -217,49 +206,6 @@
      :complete-window? (boolean (and (seq points)
                                      complete-window?))
      :has-data? (boolean (seq points))}))
-
-(defn- summary-entry
-  [portfolio summary-key]
-  (let [summary (get portfolio summary-key)]
-    (when (map? summary)
-      summary)))
-
-(defn- first-summary
-  [portfolio summary-keys]
-  (some (fn [summary-key]
-          (summary-entry portfolio summary-key))
-        summary-keys))
-
-(defn- first-any-summary
-  [portfolio]
-  (some (fn [[_summary-key summary]]
-          (when (map? summary)
-            summary))
-        portfolio))
-
-(defn- summary-observation-count
-  [summary]
-  (count (returns-history-rows-from-summary (or summary {}))))
-
-(defn preferred-vault-summary
-  [portfolio]
-  (let [direct-one-year-summary (summary-entry portfolio :one-year)]
-    (if direct-one-year-summary
-      direct-one-year-summary
-      (let [all-time-summary (summary-entry portfolio :all-time)
-            direct-fallback-summary (first-summary portfolio
-                                                   (rest direct-vault-summary-preference))
-            derived-one-year-context (when all-time-summary
-                                       (bounded-summary-context all-time-summary
-                                                                :one-year))
-            derived-summary (:summary derived-one-year-context)
-            derived-observations (summary-observation-count derived-summary)]
-        (if (and (:complete-window? derived-one-year-context)
-                 (>= derived-observations derived-one-year-vault-min-observations))
-          derived-summary
-          (or direct-fallback-summary
-              all-time-summary
-              (first-any-summary portfolio)))))))
 
 (defn cumulative-percent-rows->interval-returns
   [cumulative-percent-rows]
@@ -315,10 +261,6 @@
                      (if (some? current-day)
                        (conj output {:day current-day :time-ms current-time-ms :return (- current-factor 1)})
                        output)))))))))
-
-(defn strategy-daily-compounded-returns
-  [state summary summary-scope]
-  (daily-compounded-returns (returns-history-rows state summary summary-scope)))
 
 (defn returns-values
   [daily-rows]

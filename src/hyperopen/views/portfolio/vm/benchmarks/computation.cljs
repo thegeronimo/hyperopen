@@ -71,9 +71,6 @@
    (if (seq benchmark-coins)
      (let [{:keys [interval]} (portfolio-actions/returns-benchmark-candle-request summary-time-range)
            normalized-range (portfolio-actions/normalize-summary-time-range summary-time-range)
-           ;; Another trader's vault sleeve is never loaded here, so a trader
-           ;; benchmark against the Vaults scope compares with that trader's
-           ;; whole account.
            summary-scope (if (vaults-scope/vaults-scope? summary-scope)
                            :all
                            summary-scope)]

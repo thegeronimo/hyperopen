@@ -113,8 +113,6 @@
       (is (contains? text "-25.5 USDC"))
       (is (contains? text "+2.67 HYPE")))
     (testing "an INCOMING spot transfer is a credit"
-      ;; The viewer is the payload's destination, so this must be positive. The
-      ;; pre-parity table hardcoded every spot transfer negative.
       (is (contains? text "+1 HYPE")))
     (testing "an OUTGOING sub-account transfer is a debit"
       (is (contains? text "-12 USDC")))
@@ -122,8 +120,6 @@
       (doseq [venue ["Arbitrum" "Trading Account" "Spot" "Perps" "Vault"]]
         (is (contains? text venue) (str "missing venue " venue))))
     (testing "a vault withdrawal renders at all"
-      ;; Its value lives in netWithdrawnUsd, which the old amount probe never
-      ;; looked at, so the row used to be dropped entirely.
       (is (contains? text "+480.25 USDC")))
     (testing "USD value comes from usdcValue where the payload supplies it"
       (is (contains? text "$42.50")))

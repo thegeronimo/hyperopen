@@ -117,7 +117,6 @@
                       (get-in stats [:rate-limited-by-source "websocket/user-fill-refresh"])))
                (is (= 1
                       (get-in stats [:rate-limited-by-type-source "clearinghouseState" "websocket/user-fill-refresh"])))
-               ;; One explicit retry delay plus cooldown wait before next attempt.
                (is (= 2 (count @sleeps))))
              (done)))
           (.catch (fn [err]

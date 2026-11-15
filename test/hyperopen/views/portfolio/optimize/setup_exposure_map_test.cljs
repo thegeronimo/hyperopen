@@ -63,8 +63,6 @@
       (is (nil? (node-by-role node pinned-role))))))
 
 (deftest net-band-above-the-slider-ceiling-renders-coherently-test
-  ;; 0.8 is inside max-net-band-pct, so the numeric field and the infeasible
-  ;; panel's :widen-net-band fix can both write it.
   (let [node (bands-for 0.8)]
     (testing "the slider renders the value the browser will actually show"
       (is (= "50" (node-attr (slider node) :value))
@@ -98,8 +96,6 @@
     (is (some? (node-by-role node pinned-role)))))
 
 (deftest net-band-value-label-and-slider-never-disagree-silently-test
-  ;; The regression this file exists for: any band the model can hold must
-  ;; either be representable on the slider or be explicitly labelled as pinned.
   (doseq [pct [0.0 0.025 0.2 0.5 0.5005 0.75 1.0]]
     (let [node (bands-for pct)
           shown (node-attr (slider node) :value)

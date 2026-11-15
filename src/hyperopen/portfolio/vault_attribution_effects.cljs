@@ -13,7 +13,6 @@
 (def max-in-flight 4)
 
 (def max-ledger-pages
-  ;; Hyperliquid answers at most ~2,000 rows per ledger read.
   25)
 
 (def ^:private vault-delta-types
@@ -132,7 +131,6 @@
           (.then
            (fn [{:keys [rows partial?]}]
              (let [ledger-rows (vec rows)
-                   ;; Only the account's own transfers name vaults to load.
                    vault-addresses (ledger-vault-addresses
                                     (model/account-rows ledger-rows address*))]
                (if-not (account-current? store address*)

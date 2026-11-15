@@ -55,8 +55,6 @@
    :approved-only (str "The USDC approval confirmed, but the deposit wasn't sent. Try again to "
                        "finish the move; the approval is kept.")})
 
-;; --- steps --------------------------------------------------------------------
-
 (def ^:private chain-detail
   "Chain 999 · trading still works on any network")
 
@@ -150,8 +148,6 @@
             (= :active (:status s)) (assoc s :status :pending)
             :else s))
         steps))
-
-;; --- run ----------------------------------------------------------------------
 
 (defn result-summary
   "What the success view reports about a move: amount, asset and places.
@@ -262,8 +258,6 @@
     (assoc run :arrival :slow)
     run))
 
-;; --- arrival ------------------------------------------------------------------
-
 (defn- request-token
   [state request]
   (tokens/token-by-index (get-in state [:spot :meta]) (get-in request [:evm :token-index])))
@@ -327,7 +321,3 @@
         target (transfer-balances/add-text before expected)]
     (boolean (and current target
                   (not (neg? (transfer-balances/compare-text current target)))))))
-
-(defn location-label
-  [location]
-  (get transfer-route/location-labels location ""))

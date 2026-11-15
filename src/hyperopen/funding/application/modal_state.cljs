@@ -33,12 +33,9 @@
    :transfer-dex ""
    :transfer-destination-address ""
    :transfer-from-subaccount ""
-   ;; Transfer places and asset. Both places nil means the legacy Perps <->
-   ;; Spot route derived from :to-perp?. :transfer-asset is a spot token index.
    :transfer-from nil
    :transfer-to nil
    :transfer-asset nil
-   ;; HyperEVM run progress and the one-click gas top-up, written by effects.
    :transfer-evm nil
    :transfer-gas-topup nil
    :destination-input ""

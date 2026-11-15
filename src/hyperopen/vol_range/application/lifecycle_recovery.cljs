@@ -90,10 +90,6 @@
      :balance-requested-at-ms nil
      :released-operation-ids #{}}))
 
-;; ---------------------------------------------------------------------------
-;; Merging concurrent copies (spec 8.2)
-;; ---------------------------------------------------------------------------
-
 (def ^:private op-rank
   "Evidence-based resolution outranks a not-sent decision, which outranks
   every in-flight state."
@@ -125,8 +121,6 @@
         (nil? b) a
         :else (let [winner (if (pos? (compare (leg-rank b) (leg-rank a))) b a)]
                 (assoc winner
-                       ;; Cancel state is merged on its own clock: a copy with
-                       ;; newer order evidence may predate the cancel request.
                        :cancel-state (:cancel-state (cancel-newest a b))
                        :cancel-prior (:cancel-prior (cancel-newest a b))
                        :cancel-updated-at-ms (:cancel-updated-at-ms (cancel-newest a b))
@@ -158,8 +152,6 @@
                                              (or (:balance-requested-at-ms ours) 0))
                :fills-through-ms (max (or (:fills-through-ms stored) 0) (or (:fills-through-ms ours) 0))
                :cancel-requested-at-ms (or (:cancel-requested-at-ms stored) (:cancel-requested-at-ms ours)))
-        ;; Settings and a replacement's predecessor are immutable once
-        ;; placed; a copy that lacks them never erases them.
         (and (nil? (:settings ours)) (some? (:settings stored)))
         (assoc :settings (:settings stored))
 

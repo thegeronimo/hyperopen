@@ -123,8 +123,6 @@
                      :dayNtlVlm "1200"})]
     (is (= 0.6 (get-in next-state [:asset-selector :market-by-key "outcome:0" :mark])))
     (is (= 0.6 (get-in next-state [:asset-selector :market-by-key "outcome:0" :outcome-sides 0 :mark])))
-    ;; Outcome contexts carry supply, not a perp openInterest: the event's
-    ;; interest is recomputed from its contracts, never taken from this field.
     (is (= 537233 (get-in next-state [:asset-selector :market-by-key "outcome:0" :openInterest])))
     (is (nil? (get-in next-state [:asset-selector :market-by-key "outcome:0" :fundingRate])))))
 

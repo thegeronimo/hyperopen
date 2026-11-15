@@ -11,8 +11,6 @@
   3600000)
 
 (def ^:private band-surface
-  ;; Same family as the vault hero and panels: deep teal ground with a faint
-  ;; accent wash at the top, teal hairlines.
   ["rounded-2xl" "border" "border-ho-border-accent"
    "bg-[linear-gradient(180deg,rgb(var(--ho-accent-soft)/0.55)_0%,rgb(var(--ho-bg-deep))_42%)]"])
 
@@ -149,8 +147,6 @@
             ^{:key (row-key transfer)}
             (transfer-row transfer))
           (when (seq hidden)
-            ;; Native disclosure: no UI state to own, and a stable key keeps it
-            ;; open across re-renders.
             [:details {:class ["group"]
                        :replicant/key "vault-position-older-transfers"
                        :data-role "vault-position-older-transfers"}

@@ -209,10 +209,6 @@
       {:is-ok true
        :display-message label})))
 
-(defn- close-enough?
-  [x y]
-  (< (js/Math.abs (- x y)) 0.00000001))
-
 (defn- base-margin-basis
   [modal]
   (let [margin-used (parse-num (:margin-used modal))
@@ -358,13 +354,6 @@
     :position-percent (estimated-loss-position-percent modal)
     (estimated-loss-roe-percent modal)))
 
-(defn valid-size?
-  [modal]
-  (let [{:keys [active-size position-size]} (parsed-inputs modal)]
-    (and (positive-number? active-size)
-         (or (close-enough? active-size position-size)
-             (< active-size position-size)))))
-
 (defn- pnl->price
   [modal pnl-value mode]
   (let [{:keys [active-size]} (parsed-inputs modal)
@@ -413,13 +402,6 @@
          "")
        ""))))
 
-(defn pnl-mode-unit-token
-  [mode]
-  (case (position-tpsl-state/normalize-pnl-input-mode mode)
-    :roe-percent "%(E)"
-    :position-percent "%(P)"
-    "$"))
-
 (defn pnl-mode-menu-label
   [mode]
   (case (position-tpsl-state/normalize-pnl-input-mode mode)
@@ -445,7 +427,6 @@
       :usd :usd
       :roe-percent :roe-percent
       :position-percent :position-percent
-      ;; Legacy command compatibility.
       :percent :roe-percent
       nil)))
 

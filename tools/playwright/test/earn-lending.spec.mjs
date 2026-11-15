@@ -1,15 +1,3 @@
-// Earn (HyperCore borrow/lend), end to end against this build.
-//
-// Every case runs the real app with:
-// - fixture lending reads (`allBorrowLendReserveStates`, `borrowLendUserState`,
-//   `userBorrowLendInterest`) shaped like the live API, plus the shared
-//   HyperCore account fixtures from hyperevm_fixtures.mjs;
-// - the debug wallet simulator and a remembered agent-trading session, because
-//   `borrowLend` is an L1 action signed by the agent key;
-// - the debug exchange simulator, which records each signed action
-//   (`exchangeSimulatorSnapshot`), so a case asserts the exact wire action.
-// The worked example is the lending brief's: 100 HYPE at $40 (65% LTV) with
-// 2,000 USDC borrowed, a $2,600 limit, 130% health, liquidation at $24.24.
 import { expect, test } from "../support/guarded_test.mjs";
 import { debugCall, dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 import {
@@ -120,9 +108,6 @@ async function setupAccount(page, {
     chainId: ARBITRUM
   });
   await debugCall(page, "installExchangeSimulator", {
-    // Answers are queued per action type: the app signs its own
-    // `scheduleCancel` around connect, which must not use up `borrowLend`'s.
-    // Anything else signed reaches the refusing default queue.
     signedActions: {
       scheduleCancel: { responses: Array.from({ length: 8 }, () => OK) },
       borrowLend: { responses: [...exchange, ...Array.from({ length: 6 }, () => UNEXPECTED)] },
@@ -137,8 +122,6 @@ async function setupAccount(page, {
   return info;
 }
 
-// A remembered, unlocked agent session (as after "Enable trading"), so
-// `borrowLend` can sign without a wallet prompt.
 async function seedReadyAgentSession(page) {
   await page.evaluate(
     ({ walletAddress, agentAddress }) => {
@@ -154,8 +137,6 @@ async function seedReadyAgentSession(page) {
         `hyperopen:agent-session:v1:${walletAddress.toLowerCase()}`,
         JSON.stringify({
           "agent-address": agentAddress,
-          // Any valid 32-byte secp256k1 key: signing runs for real, the
-          // exchange simulator only records the result.
           "private-key": `0x${"11".repeat(32)}`,
           "last-approved-at": lastApprovedAt,
           "nonce-cursor": lastApprovedAt
@@ -209,7 +190,6 @@ test("earn page lists live-shaped pools and collateral without a wallet @regress
   await expect(role(page, "earn-collateral-row-150")).toContainText("HYPE");
   await expect(role(page, "earn-collateral-row-150")).toContainText("65%");
   await expect(role(page, "earn-collateral-row-150")).toContainText("82.5%");
-  // Without an account, nothing is supplied and the page invites connecting.
   await expect(role(page, "earn-summary-supplied")).toContainText("$0.00");
   await expectNoHorizontalOverflow(page);
 });
@@ -241,7 +221,6 @@ test("supply previews the pool rate, then signs the exact borrowLend action @reg
   const amount = role(page, "earn-modal-amount");
   const preview = role(page, "earn-modal-preview");
   await amount.fill("10000000");
-  // 269.0M borrowed over 333.7M supplied is 80.6% utilization.
   await expect(preview).toContainText("80.6%");
   await expect(preview).toContainText("83.1%");
   await expect(role(page, "earn-modal-submit")).toHaveText(/Supply 10,000,000\.00 USDC/);
@@ -265,7 +244,6 @@ test("borrow above the limit is rejected before anything is signed @regression",
   await expect(role(page, "earn-modal-submit")).toBeDisabled();
   expect(await signedBorrowLendActions(page)).toHaveLength(0);
 
-  // 300 more keeps the account inside its limit and previews the new health.
   await role(page, "earn-modal-amount").fill("300");
   const preview = role(page, "earn-modal-preview");
   await expect(preview).toContainText("113%");
@@ -305,7 +283,6 @@ test("portfolio margin accounts cannot manual-borrow @regression", async ({ page
   await expect(role(page, "earn-borrow-0")).toBeDisabled();
   await expect(role(page, "earn-supply-0")).toBeEnabled();
 
-  // Opening a borrow lands on repay, the one debt action PM accounts keep.
   await dispatch(page, [":actions/open-borrow-lend-modal", ":borrow", USDC]);
   await expect(role(page, "earn-modal")).toContainText("Repay USDC");
   await expect(role(page, "earn-modal-tab-borrow")).toBeDisabled();
@@ -319,21 +296,18 @@ test("account panel Earn tab lists positions and its Repay opens the modal on /e
   await expect(role(page, "account-earn-summary")).toContainText("130%");
   await expect(role(page, "account-earn-row-0-borrow")).toContainText("2,000.00");
 
-  // The design colors by meaning: Supplied/APY/interest green, Borrowed red,
-  // pool utilization amber above the 80% kink. Check the painted colors, not
-  // the class names, since competing color utilities once hid all of them.
   const GREEN = "rgb(0, 212, 170)";
   const RED = "rgb(255, 107, 107)";
   const AMBER = "rgb(251, 189, 35)";
   const color = (locator) => locator.evaluate((node) => getComputedStyle(node).color);
   const cell = (rowRole, index) => role(page, rowRole).locator("td").nth(index);
-  await expect.poll(() => color(cell("account-earn-row-0-supply", 1))).toBe(GREEN); // Type: Supplied
-  await expect.poll(() => color(cell("account-earn-row-0-supply", 4))).toBe(GREEN); // APY
-  await expect.poll(() => color(cell("account-earn-row-0-supply", 5))).toBe(GREEN); // Interest
-  await expect.poll(() => color(cell("account-earn-row-0-supply", 6))).toBe(AMBER); // utilization 83.1%
-  await expect.poll(() => color(cell("account-earn-row-0-borrow", 1))).toBe(RED); // Type: Borrowed
-  await expect.poll(() => color(cell("account-earn-row-0-borrow", 2))).toBe(RED); // Amount
-  await expect.poll(() => color(cell("account-earn-row-0-borrow", 4))).toBe(RED); // APY
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 1))).toBe(GREEN);
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 4))).toBe(GREEN);
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 5))).toBe(GREEN);
+  await expect.poll(() => color(cell("account-earn-row-0-supply", 6))).toBe(AMBER);
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 1))).toBe(RED);
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 2))).toBe(RED);
+  await expect.poll(() => color(cell("account-earn-row-0-borrow", 4))).toBe(RED);
   await expect(cell("account-earn-row-0-borrow", 2)).toHaveText("\u22122,000.00");
   await expect(cell("account-earn-row-150-supply", 1)).toHaveText("Collateral \u00b7 65% LTV");
 
@@ -349,7 +323,6 @@ test("earn page has no horizontal overflow at phone width @regression", async ({
   await expect(role(page, "earn-pool-row-0")).toBeAttached();
   await expectNoHorizontalOverflow(page);
 
-  // Wide tables scroll inside their own cards; the positions tab too.
   await role(page, "earn-tab-positions").click();
   await expect(role(page, "earn-position-0-supply")).toBeAttached();
   await expectNoHorizontalOverflow(page);

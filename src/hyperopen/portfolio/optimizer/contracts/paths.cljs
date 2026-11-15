@@ -57,8 +57,6 @@
 (def last-successful-run-result-path (conj last-successful-run-path :result))
 (def constraint-profiles-path (conj optimizer-path :constraint-profiles))
 (def view-library-path (conj optimizer-path :view-library))
-;; Per-wallet remembered history assumptions (state mirror of the
-;; assumption-library::<addr> IndexedDB record): {instrument-id library-entry}.
 (def assumption-library-path (conj optimizer-path :assumption-library))
 (def refinement-path (conj optimizer-path :refinement))
 (def refinement-active-path (conj refinement-path :active?))
@@ -73,10 +71,6 @@
 (def execution-run-attempt-path (conj execution-path :run-attempt))
 (def execution-abort-requested-path (conj execution-path :abort-requested?))
 (def execution-persistence-error-path (conj execution-path :persistence-error))
-;; Resting orders left on the book by PREVIOUS optimizer execution runs. Lives OUTSIDE
-;; execution-path because that map is replaced wholesale on staging / discard / restage /
-;; ledger-apply — exactly the moments the carryover must survive so a new run can cancel
-;; the stale orders before submitting.
 (def execution-resting-carryover-path (conj optimizer-path :execution-resting-carryover))
 (def tracking-path (conj optimizer-path :tracking))
 (def tracking-error-path (conj tracking-path :error))
@@ -89,40 +83,24 @@
 (def ui-universe-search-query-path (conj optimizer-ui-path :universe-search-query))
 (def ui-universe-search-active-index-path
   (conj optimizer-ui-path :universe-search-active-index))
-;; Universe search facets. :all, or a market-type keyword / quote token string.
-;; Shared with the draft add-asset popover the same way the query is, and reset
-;; alongside it so a filter can never sit invisibly on a surface with no chips.
 (def ui-universe-search-type-filter-path
   (conj optimizer-ui-path :universe-search-type-filter))
 (def ui-universe-search-quote-filter-path
   (conj optimizer-ui-path :universe-search-quote-filter))
-;; Same-underlying guard. The prompt holds the market-key whose add is waiting
-;; on the inline "already in your mix" confirm (nil when none is open); the
-;; acknowledged list holds underlyings the trader chose to keep twice this
-;; session, so the confirm is asked once per underlying.
 (def ui-universe-duplicate-prompt-path
   (conj optimizer-ui-path :universe-duplicate-prompt))
 (def ui-universe-duplicate-acknowledged-path
   (conj optimizer-ui-path :universe-duplicate-acknowledged))
-;; Per-thin-asset proxy search query: {thin-instrument-id query-string}. Each
-;; proxy card's catalog typeahead reads/writes its own entry.
 (def ui-proxy-search-queries-path
   (conj optimizer-ui-path :proxy-search-queries))
-;; Asset the History-assumptions queue is working on (the rail pills, Prev and
-;; Skip set it). Never cleaned up: an id absent from the current card set falls
-;; back to the queue view-model's default — the first asset still unsettled.
 (def ui-history-assumption-active-path
   (conj optimizer-ui-path :history-assumption-active))
 (def ui-draft-add-asset-open-path
   (conj optimizer-ui-path :draft-add-asset-open?))
-;; Instrument whose contribution breakdown the Equal Risk correlation view
-;; explains (set by Allocation-row clicks). Never cleaned up: an id absent
-;; from the current result falls back to the view-model's default selection.
 (def ui-selected-risk-instrument-path
   (conj optimizer-ui-path :selected-risk-instrument))
 (def ui-objective-menu-open-path
   (conj optimizer-ui-path :objective-menu-open?))
-;; Workspace-header "Scenarios" popover (the saved-scenario library menu).
 (def ui-scenario-menu-open-path
   (conj optimizer-ui-path :scenario-menu-open?))
 (def ui-objective-menu-selection-path
@@ -148,13 +126,7 @@
 (def ui-return-views-io-note-path (conj optimizer-ui-path :return-views-io-note))
 (def ui-history-assumptions-io-note-path
   (conj optimizer-ui-path :history-assumptions-io-note))
-;; Hypothetical tear sheet options: {:range :mode :rebalance :missing
-;; :profit-share? :benchmarks :tab}. Absent keys fall back to the tear-sheet
-;; model's defaults.
 (def ui-tear-sheet-path (conj optimizer-ui-path :tear-sheet))
-;; Fund-this-allocation sheet and its run: {:open? :screen :amount-input
-;; :include-existing? :withdraw-over? :closed-mode :error :run {...}}. Kept on
-;; the UI side so draft resets and scenario loads never wipe a run mid-flight.
 (def ui-vault-funding-path (conj optimizer-ui-path :vault-funding))
 (def ui-vault-funding-run-path (conj ui-vault-funding-path :run))
 

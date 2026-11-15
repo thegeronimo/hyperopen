@@ -81,7 +81,6 @@
           switched-read (hyperevm-runtime/refresh-spot-clearinghouse! switched owner {} request-fn)]
       (hyperevm-runtime/refresh-spot-clearinghouse! spectating owner {} request-fn)
       (is (= [owner owner] (mapv first @requests)) "no read while another account is already shown")
-      ;; The user starts spectating while the second read is out.
       (swap! switched assoc
              :account-context {:spectate-mode {:active? true :address other}}
              :spot {:clearinghouse-state shown-spot})

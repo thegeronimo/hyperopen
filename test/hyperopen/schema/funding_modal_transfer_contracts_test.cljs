@@ -3,8 +3,6 @@
             [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.funding.application.modal-vm :as funding-modal-vm]
             [hyperopen.funding.application.modal-vm.test-support :as funding-support]
-            ;; The parent contract registers :funding-modal-vm.transfer/actions,
-            ;; so it must load for the transfer submap spec to resolve.
             [hyperopen.schema.funding-modal-contracts :as funding-modal-contracts]))
 
 (defn- transfer-vm
@@ -99,4 +97,3 @@
     (doseq [[label invalid-vm] cases]
       (testing label
         (is (false? (s/valid? :funding-modal-vm/transfer (:transfer invalid-vm))))))))
-

@@ -35,8 +35,6 @@
     :history {:return-series-by-instrument return-series-by-instrument}}))
 
 (deftest ledoit-wolf-dense-differentiates-volatility-on-clean-history-test
-  ;; Baseline for the saturation test below: on plausible returns the estimator
-  ;; shrinks only partially and the three assets keep distinct volatilities.
   (let [result (estimate twelve-day-returns)
         covariance (:covariance result)
         shrinkage (get-in result [:shrinkage :shrinkage])
@@ -54,10 +52,6 @@
         "Clean history must not warn.")))
 
 (deftest ledoit-wolf-dense-saturates-to-a-scaled-identity-on-a-single-outlier-test
-  ;; One +3000% print in ONE asset drives beta-hat/delta-hat above 1, the
-  ;; (min 1) in risk_ledoit_wolf.cljs fires, and the covariance collapses to
-  ;; 365*mu*I: every correlation discarded and the poisoned variance broadcast
-  ;; onto all three diagonals. This is the whole-book failure the user saw.
   (let [poisoned (assoc-in twelve-day-returns ["A" 5] 30.0)
         result (estimate poisoned)
         covariance (:covariance result)
@@ -71,13 +65,9 @@
     (is (= 0 (get-in covariance [1 2])))
     (is (every? #(> (js/Math.sqrt %) 5.0) diag)
         "The broadcast volatility is far past any market number.")
-    ;; The diagnostic the user actually looked at is blind to this by
-    ;; construction: a condition number is a RATIO, and every eigenvalue of a
-    ;; scaled identity is equal.
     (is (= 1 (:condition-number (risk/covariance-conditioning covariance))))
     (is (= :ok (:status (risk/covariance-conditioning covariance)))
         "Conditioning reports :ok, which the rail renders as Healthy.")
-    ;; ...so the magnitude check must be the one that catches it.
     (is (= :implausible
            (:status (risk/covariance-plausibility covariance (:instrument-ids result))))
         "A magnitude check, unlike a conditioning ratio, must reject this matrix.")
@@ -85,9 +75,6 @@
         "Full shrinkage discards every correlation; the run must say so.")))
 
 (deftest ledoit-wolf-dense-ragged-history-must-not-return-a-silent-zero-covariance-test
-  ;; :ledoit-wolf-dense is the LIVE DEFAULT (request-builder/default-risk-model),
-  ;; so one short series made the whole portfolio read 0% volatility with no
-  ;; explanation - the opposite failure, equally dishonest and more believable.
   (let [result (estimate {"A" [0.01 -0.02 0.03 -0.01]
                           "B" [0.02 -0.01 0.01]})
         covariance (:covariance result)]
@@ -102,8 +89,6 @@
         "Asset B has three observations; its variance is knowable.")))
 
 (deftest ledoit-wolf-estimator-reports-ragged-series-at-its-own-boundary-test
-  ;; Unit-level twin: the estimator itself must name the condition, so the
-  ;; fallback policy can live in estimate-risk-model rather than being guessed.
   (let [result (ledoit-wolf/estimate {:series [[0.01 0.02 0.03] [0.01 0.02]]
                                       :periods-per-year 365})
         warning (first (filter #(= :ragged-return-series (:code %))
@@ -130,8 +115,6 @@
       (is (= 2 (:feature-count warning))))))
 
 (deftest covariance-plausibility-accepts-a-market-covariance-test
-  ;; The magnitude check must not fire on a normal levered crypto book: the
-  ;; measured per-asset ceiling across 60 perpetuals was 390% annualized.
   (let [result (estimate twelve-day-returns)]
     (is (= :ok (:status (risk/covariance-plausibility (:covariance result)
                                                       (:instrument-ids result)))))))

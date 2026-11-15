@@ -21,7 +21,6 @@
    :vault-details-by-address {}
    :warnings []
    :loaded-at-ms 5000
-   ;; Non-persistable noise that must be stripped from the record.
    :current-portfolio-history-data {:api-v2-history {}}
    :request-plan {:candle-requests []}})
 

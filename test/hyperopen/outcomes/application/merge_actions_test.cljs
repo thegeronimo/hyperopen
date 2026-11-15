@@ -7,8 +7,6 @@
 (def ^:private owner "0x1111111111111111111111111111111111111111")
 
 (deftest merge-payload-follows-the-documented-user-outcome-shape-test
-  ;; Hyperliquid exchange endpoint, "Merge outcome":
-  ;;   {"type": "userOutcome", "mergeOutcome": {"outcome": Number, amount: String | null}}
   (is (= {:type "userOutcome"
           :mergeOutcome {:outcome 27037 :amount "40"}}
          (merge-actions/merge-outcome-action {:outcome-id 27037 :pairs 40})))

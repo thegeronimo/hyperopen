@@ -69,5 +69,3 @@
     (is (contains? third-pass :ETH))
     (is (not (contains? fourth-pass :BTC)))
     (is (contains? fourth-pass :ETH))))
-
-;; Tests are run by the test runner, not automatically on namespace load

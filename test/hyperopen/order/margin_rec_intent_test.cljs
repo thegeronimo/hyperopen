@@ -82,8 +82,6 @@
                           conj {:a 1 :b true :p "1" :s "1"}))))))
 
 (deftest submit-flow-includes-intent-before-heavy-io
-  ;; The intent save must be a projection emitted before the heavy submit
-  ;; effect; assert via the draft-intent stamping path in process-intents.
   (let [draft (margin-rec-state/make-intent-draft
                {:position-key "xyz:TSM|xyz"
                 :coin "xyz:TSM"

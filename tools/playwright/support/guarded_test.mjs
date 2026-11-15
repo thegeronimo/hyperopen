@@ -1,11 +1,3 @@
-// The `test` every Playwright spec imports (never `@playwright/test`'s own;
-// `spec_imports.test.mjs` enforces it).
-//
-// It adds one automatic fixture, `hyperEvmRpcGuard`
-// (`hyperevm_rpc_guard.mjs`): the test's browser context, and every context
-// it opens through `browser.newContext()`, answers the HyperEVM RPC from an
-// empty mock, and the test fails at teardown if any request reached the
-// public RPC host without the mock answering it.
 import { expect, test as base } from "@playwright/test";
 import { createHyperEvmRpcGuard } from "./hyperevm_rpc_guard.mjs";
 

@@ -82,15 +82,6 @@
        (get-in state [:staking :delegations]))
       0))
 
-;; The delegator summary is written by two fetch paths that resolve different
-;; addresses (account bootstrap uses the effective/subaccount address; the
-;; /staking route uses the owner), so an ungated read can report another
-;; account's HYPE. Everything below returns nil unless the loaded summary can be
-;; shown to describe the account the surface is about; nil means "render an
-;; explicit unknown", never zero. The headline and its breakdown are gated
-;; together on purpose — gating one and not the other lets the card contradict
-;; itself.
-
 (defn verified-staking-account-hype
   "Total staking-system HYPE for `address`, or nil when unverifiable."
   ([state]

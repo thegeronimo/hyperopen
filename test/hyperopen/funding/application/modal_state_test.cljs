@@ -15,8 +15,6 @@
     (is (= false (:submitting? state)))
     (is (nil? (:error state)))))
 
-;; Other tests merge over these defaults, so this literal is the one place every
-;; default value is pinned; a new modal key must be added here on purpose.
 (deftest default-funding-modal-state-pins-every-default-value-test
   (is (= {:open? false
           :mode nil

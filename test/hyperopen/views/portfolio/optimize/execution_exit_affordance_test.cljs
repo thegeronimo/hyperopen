@@ -105,21 +105,16 @@
         sell-ens (node-by-role view-node "portfolio-optimizer-execution-exit-perp-ENS")
         sell-all (node-by-role view-node "portfolio-optimizer-execution-exit-all")]
     (is (some? skipped))
-    ;; The collapsed summary already says the affordance exists.
     (is (str/includes? (node-text skipped) "2 can be closed instead"))
     (is (some? sell-ens))
     (is (= [[:actions/set-portfolio-optimizer-execution-exit ["perp:ENS"] true]]
            (click-actions sell-ens)))
-    ;; Bulk control stages every held-out asset at once.
     (is (some? sell-all))
     (is (= [[:actions/set-portfolio-optimizer-execution-exit
              ["perp:ENS" "perp:WLD"] true]]
            (click-actions sell-all)))))
 
 (deftest auto-exit-setting-strip-renders-and-toggles-test
-  ;; The persisted preference is discoverable on the surface it affects, both ways:
-  ;; with candidates still held (strip offers turning it on) and with every candidate
-  ;; already auto-staged (strip is the only way to find and turn it off).
   (let [held-view (scenario-view
                    {:execution {:status :idle :history []}
                     :execution-modal {:open? true :phase :staged
@@ -129,11 +124,9 @@
         checkbox (find-first-node strip #(= "checkbox" (get-in % [1 :type])))]
     (is (some? strip))
     (is (str/includes? (node-text strip) "Close perp positions removed from the allocation"))
-    ;; Default preference is ON (no :trading-settings in state normalizes to true).
     (is (true? (get-in checkbox [1 :checked])))
     (is (= [[:actions/set-portfolio-optimizer-execution-auto-exit false]]
            (get-in checkbox [1 :on :change])))
-    ;; Explicit opt-out reads back unchecked and toggles ON.
     (let [off-view (portfolio-view/portfolio-view
                     {:router {:path "/portfolio/optimize/scn_01"}
                      :trading-settings {:optimizer-auto-exit-excluded? false}
@@ -158,8 +151,6 @@
              (get-in off-checkbox [1 :on :change]))))))
 
 (deftest exit-marked-row-shows-chip-and-revert-test
-  ;; After the toggle the (restaged) plan carries the held-out asset as a real sell;
-  ;; the row is chip-marked as a trader-staged exit and its editor offers the revert.
   (let [exit-row {:row-id "perp:ENS" :instrument-id "perp:ENS" :instrument-type :perp
                   :status :ready :side :sell :quantity 10 :order-type :market
                   :delta-notional-usd -200
@@ -182,8 +173,6 @@
            (click-actions revert)))))
 
 (deftest exit-affordance-absent-after-terminal-run-test
-  ;; Post-run the ledger owns the surface — a held-out row must not offer a sell that
-  ;; could imply the already-executed plan can still change.
   (let [view-node (scenario-view
                    {:execution {:status :executed :history []}
                     :execution-modal {:open? true :phase :staged

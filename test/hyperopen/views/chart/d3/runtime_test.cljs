@@ -301,12 +301,6 @@
         (restore!)))))
 
 (deftest on-render-returns-the-identical-handler-while-the-spec-is-unchanged-test
-  ;; Replicant decides a subtree is unchanged by comparing the new hiccup to the
-  ;; old BY VALUE, and it explicitly folds :replicant/on-render into that
-  ;; comparison. A fresh closure per render therefore guaranteed the comparison
-  ;; failed for the chart host and every ancestor containing it, so the chart
-  ;; card was re-diffed and this hook re-invoked on every store write -- including
-  ;; the websocket pushes that have nothing to do with the chart.
   (runtime/reset-on-render-handlers!)
   (let [spec (chart-spec)
         handler-a (runtime/on-render spec)
@@ -321,10 +315,6 @@
         "the test seam actually clears the memo")))
 
 (deftest on-render-handler-tracks-the-tooltip-key-test
-  ;; :build-tooltip is a closure, so it cannot be part of the update key. Callers
-  ;; publish :tooltip-key instead. Without it a spec whose only change was which
-  ;; metric the tooltip names would hand back a handler closed over the previous
-  ;; formatter -- and the runtime would short-circuit the redraw too.
   (runtime/reset-on-render-handlers!)
   (let [handler-a (runtime/on-render (chart-spec {:tooltip-key :returns}))
         handler-b (runtime/on-render (chart-spec {:tooltip-key :pnl}))]

@@ -35,10 +35,6 @@
 (defn- norm-price [x] (some-> (dn x) ds))
 (defn- sum [xs] (reduce precision/add zero xs))
 
-;; ---------------------------------------------------------------------------
-;; Context
-;; ---------------------------------------------------------------------------
-
 (defn proposal-limits
   "The ladder's recorded inventory limits {:core :maximum} (base units,
   strings or nil), or nil when the grid recorded no settings."
@@ -56,10 +52,6 @@
                    (remove lifecycle/definitively-not-placed?)
                    (mapv #(select-keys % [:side :price])))
    :limits (proposal-limits grid)})
-
-;; ---------------------------------------------------------------------------
-;; Leg checks
-;; ---------------------------------------------------------------------------
 
 (defn- book [market]
   (let [bid (dn (get-in market [:bbo :bid]))
@@ -122,10 +114,6 @@
      :base (ds (sum (map #(if (base-fee? fees :sell) (precision/mul (d (:size %)) (precision/add one f)) (d (:size %)))
                          sells)))}))
 
-;; ---------------------------------------------------------------------------
-;; Inventory and cash bounds (spec 6.6)
-;; ---------------------------------------------------------------------------
-
 (defn- less-pending [balance pending]
   (when balance
     (let [available (precision/dec-max zero (precision/sub (d (:available balance)) (d pending)))]
@@ -170,8 +158,6 @@
 
 (defn- bound-code [{:keys [code data]}]
   (if (= :plan/corrective-direction code)
-    ;; A buy while already above the maximum (or a sell while below the
-    ;; core) deepens that breach.
     (if (= :buy (:side data)) :repair/max-inventory-breach :repair/protected-core-breach)
     (get bound-codes code code)))
 
@@ -241,10 +227,6 @@
     (some-> (bound-input {:account (:account proposal) :limits (:limits proposal) :fees (:fees proposal)
                           :legs (filter #(contains? selected (:logical-id %)) (:legs proposal))})
             admission/inventory-outcomes)))
-
-;; ---------------------------------------------------------------------------
-;; Proposal
-;; ---------------------------------------------------------------------------
 
 (defn- model-inputs [grid]
   (let [r (dn (get-in grid [:model :shifted-anchor]))

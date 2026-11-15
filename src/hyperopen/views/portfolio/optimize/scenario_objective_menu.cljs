@@ -5,9 +5,6 @@
             [hyperopen.views.portfolio.optimize.target-sigma :as target-sigma]))
 
 (defn- target-volatility-menu-sigma
-  ;; The menu preset is 12%, but applying the option preserves a user-chosen
-  ;; sigma when target-volatility is already the active objective — the label
-  ;; reflects the value Apply & re-run would actually use.
   [draft]
   (or (when (= :target-volatility (get-in draft [:objective :kind]))
         (get-in draft [:objective :target-volatility]))
@@ -36,8 +33,6 @@
     :description "Aggressive. Drives toward the right of the frontier"}])
 
 (defn current-objective-menu-key
-  ;; Keyed by the OBJECTIVE only. Return views are an input policy, not an
-  ;; objective, so a Black-Litterman return model no longer claims its own entry.
   [draft result]
   (let [objective-kind (or (get-in draft [:objective :kind])
                            (get-in result [:solver :objective-kind]))]
@@ -140,8 +135,6 @@
    {:keys [state draft pending-key sigma-bounds] :as ctx}]
   (let [selected? (= key pending-key)
         sigma-editor? (and (= :target-volatility key) selected?)]
-    ;; The whole padded card selects (per spec); editor clicks bubbling here
-    ;; re-select the already-selected option, which is a harmless no-op.
     [:div {:class ["optimizer-objective-menu-option"
                    "cursor-pointer"
                    "border"
@@ -150,8 +143,6 @@
            :data-selected (str selected?)
            :on {:click [[:actions/select-portfolio-optimizer-objective-menu-option key]]}}
      (objective-option-row option ctx)
-     ;; Inline σ editor — expands when Target volatility is the pending
-     ;; selection so the level is set before the first run (designer spec).
      (when sigma-editor?
        (target-sigma/menu-sigma-editor state draft sigma-bounds))]))
 
@@ -169,7 +160,6 @@
             :readiness readiness
             :now-ms (return-views-panel/panel-now-ms)}
            opts))))
-
 
 (defn- objective-menu-mount-focus!
   [render-arg]
@@ -192,11 +182,6 @@
         current-key (current-objective-menu-key draft result)
         pending-key (or (get-in state optimizer-contracts/ui-objective-menu-selection-path)
                         current-key)
-        ;; :specialist? goals are discovered through the More-goals card and
-        ;; the floored-state cross-link, not the quick-switch menu: their rows
-        ;; render by exception, only while one is the current or pending
-        ;; objective (so the menu can honestly show and re-apply the
-        ;; selection). The mainstream goals always render.
         rendered-options (vec (remove (fn [{:keys [key specialist?]}]
                                         (and specialist?
                                              (not= key current-key)
@@ -207,10 +192,6 @@
                     :current-key current-key
                     :pending-key pending-key
                     :sigma-bounds (target-sigma/frontier-sigma-bounds result)}
-        ;; Same objective re-applied is a no-op — view edits commit live and the
-        ;; stale-run watcher reruns — EXCEPT when applying would change something:
-        ;; a new sigma, or switching an old historical-mean draft onto the
-        ;; views-aware return model that Maximum Sharpe now carries.
         apply-disabled? (and (= current-key pending-key)
                              (not (and (= :max-sharpe pending-key)
                                        (not= :black-litterman

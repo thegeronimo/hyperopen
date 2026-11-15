@@ -86,7 +86,6 @@
       (is (= "USDC" (:quote purr-market)))
       (is (false? (:stable-pair? purr-market)))
       (is (= 0 (:szDecimals purr-market)))
-      ;; Spot wire asset id is offset by 10000; raw pair index is kept on :idx.
       (is (= 0 (:idx purr-market)))
       (is (= 10000 (:asset-id purr-market)))
       (is (= :spot (:market-type purr-market)))
@@ -206,8 +205,6 @@
     (is (= "0.65012" (:markRaw market)))
     (is (close-to? 0.10012 (:change24h market)))
     (is (close-to? 18.20363636363638 (:change24hPct market)))
-    ;; Event volume is shares, each contract once: the two sides' notionals
-    ;; add up to shares × $1 when the feed omits dayBaseVlm.
     (is (= 683834 (js/Math.round (:volume24h market))))
     (is (= 204692.0 (:openInterest market)))
     (is (= "Yes if the Bitcoin mark price is above $78,213 at settlement, May 3, 2026 06:00 UTC. Otherwise No. Each winning share pays $1.00; the other side pays $0."
@@ -259,7 +256,6 @@
     (is (= :economics (:outcome-category cpi)))
     (is (= ["Below 4.3%" "Exactly 4.3%" "Above 4.3%"]
            (mapv :label (:question-options cpi))))
-    ;; No answer has a midpoint yet, so the default is the most traded one.
     (is (= "#1030" (:coin cpi)))
     (is (= 100001030 (:asset-id cpi)))
 
@@ -274,7 +270,6 @@
     (is (= ["#1630" "#1631"] (mapv :coin (:outcome-sides range-market))))
     (is (= ["#1610" "#1611" "#1620" "#1621" "#1630" "#1631"]
            (markets/outcome-subscription-coins range-market)))
-    ;; Summaries read the one chance rule: no book yet, no number.
     (is (= "Below $61,044 —  *  $61,044 – $63,535 —  *  Above $63,535 —"
            (:outcome-summary range-market)))
     (is (= "Other" (get-in range-market [:fallback-option :label])))

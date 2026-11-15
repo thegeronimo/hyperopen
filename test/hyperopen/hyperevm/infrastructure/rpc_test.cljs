@@ -7,9 +7,6 @@
                      request-body single-fetch]]
             [hyperopen.test-support.async :as async-support]))
 
-;; read-balances! is covered in rpc-balances-test; this namespace covers the
-;; transport, batching, errors and receipt polling.
-
 (deftest encode-results-stub-reproduces-the-live-response-test
   (is (= fixtures/probe-aggregate3-result
          (encode-results [[true (amount-data fixtures/probe-native-wei)]
@@ -218,8 +215,6 @@
        (fn [data _err]
          (is (= :invalid-response (:kind data))))))))
 
-;; --- receipts ------------------------------------------------------------------
-
 (defn- receipt-response
   [receipt]
   (fn [] (js/Promise.resolve (json-response 200 {:jsonrpc "2.0" :id 1 :result receipt}))))
@@ -280,8 +275,6 @@
          (is (= 180000 @now)))))))
 
 (deftest wait-for-receipt-retries-a-failed-poll-test
-  ;; A rate-limited poll must not report a transaction that may have landed
-  ;; as failed; the wait keeps polling until its deadline.
   (async done
     (let [fetch-fn (single-fetch (atom [])
                                  [(fn [] (js/Promise.resolve (json-response 429 {})))
@@ -296,8 +289,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest wait-for-receipt-backs-off-while-rate-limited-test
-  ;; Another tab on the same IP can hold the public RPC's limit; retrying
-  ;; every second would keep it there for the whole three-minute wait.
   (async done
     (let [delays (atom [])
           limited (fn [] (js/Promise.resolve
@@ -323,9 +314,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest wait-for-receipt-treats-nil-options-as-defaults-test
-  ;; A present-but-nil option must not replace its default. A nil
-  ;; :timeout-ms used to compare `elapsed >= null` (always true) and report a
-  ;; false timeout right after the first pending poll.
   (async done
     (let [delays (atom [])
           fetch-fn (single-fetch (atom []) [(receipt-response nil)
@@ -343,7 +331,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest wait-for-receipt-falls-back-to-platform-timers-test
-  ;; nil scheduler and clock fall back to the real platform timers.
   (async done
     (let [fetch-fn (single-fetch (atom []) [(receipt-response nil)
                                             (receipt-response {:status "0x1"})])]
@@ -358,9 +345,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest wait-for-receipt-poll-scheduler-is-not-the-request-timer-test
-  ;; One map passed as both deps and opts: its immediate-firing poll
-  ;; scheduler must not be taken for each request's deadline timer, which
-  ;; would time out every poll.
   (async done
     (let [delays (atom [])
           shared {:fetch-fn (single-fetch (atom []) [(receipt-response nil)

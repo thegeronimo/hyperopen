@@ -42,10 +42,6 @@
   (when (contains? module-name-by-id surface-id)
     surface-id))
 
-(defn resolved-surface-view
-  [surface-id]
-  (cached-or-exported-export surface-id :view))
-
 (defn resolved-surface-export
   [surface-id export-id]
   (cached-or-exported-export surface-id export-id))
@@ -97,10 +93,6 @@
   [state surface-id]
   (= (get-in state [:surface-modules :loading])
      (surface-module-id surface-id)))
-
-(defn surface-error
-  [state surface-id]
-  (get-in state [:surface-modules :errors (surface-module-id surface-id)]))
 
 (defn render-surface-view
   [state surface-id]

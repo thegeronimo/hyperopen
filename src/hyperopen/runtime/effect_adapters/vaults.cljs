@@ -172,7 +172,6 @@
                   :exchange-response-error common/exchange-response-error
                   :runtime-error-message common/runtime-error-message
                   :show-toast! show-toast!})]
-     ;; Money moved: the Portfolio vault attribution snapshot is now behind.
      (if (instance? js/Promise result)
        (.then result (fn [resp]
                        (when (= "ok" (:status resp))

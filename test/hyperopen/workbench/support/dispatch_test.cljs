@@ -44,11 +44,6 @@
     (is (true? (:checked? @store)))))
 
 (deftest dispatch-treats-bare-placeholder-keywords-as-plain-data-test
-  ;; Nexus parity: the real runtime's interpolate only matches the VECTOR
-  ;; form, so a bare placeholder keyword must reach the reducer untouched —
-  ;; a workbench that resolved it would green-light views that break in the
-  ;; app (and postwalk would double-resolve [:event.target/value] to a
-  ;; wrapped ["value"], corrupting canonical-form args).
   (let [store (ws/create-store ::bare-keyword {:search :unset})
         _scene-id (dispatch/install-dispatch! store
                                               {:actions/set-search

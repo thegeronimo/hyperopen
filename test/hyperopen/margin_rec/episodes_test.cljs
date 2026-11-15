@@ -36,7 +36,6 @@
           merged (episodes/coalesce-fills rows)]
       (is (= 1 (count merged)))
       (is (= -12 (:delta (first merged))))
-      ;; keeps the earliest time and the pre-order start position
       (is (= (* 3 24 hour) (:time-ms (first merged))))
       (is (= 12 (:start-position (first merged))))))
   (testing "without ids, same-direction fills within the window merge"
@@ -47,32 +46,23 @@
       (is (= 10 (:delta (first (episodes/coalesce-fills rows)))))))
   (testing "different orders and opposite directions stay separate"
     (let [rows (keep episodes/normalize-fill
-                     [(fill-ms "TSM" 0 "B" 5 0 100)          ;; order 100 buy
-                      (fill-ms "TSM" 1000 "A" 2 5 200)        ;; order 200 sell (different id)
-                      (fill-ms "TSM" 2000 "A" 1 3 200)])]     ;; continues order 200
+                     [(fill-ms "TSM" 0 "B" 5 0 100)
+                      (fill-ms "TSM" 1000 "A" 2 5 200)
+                      (fill-ms "TSM" 2000 "A" 1 3 200)])]
       (is (= 2 (count (episodes/coalesce-fills rows))))))
   (testing "same-direction fills beyond the window stay separate"
     (let [rows (keep episodes/normalize-fill
                      [(fill-ms "X" 0 "A" 1 5 nil)
-                      (fill-ms "X" (* 2 60000) "A" 1 4 nil)])] ;; 2 min apart, no id
+                      (fill-ms "X" (* 2 60000) "A" 1 4 nil)])]
       (is (= 2 (count (episodes/coalesce-fills rows))))))
   (testing "one order id merges even when it fills across a long span"
-    ;; A resting limit order can fill in pieces minutes apart; the shared id
-    ;; keeps it a single intervention regardless of the window.
     (let [rows (keep episodes/normalize-fill
                      [(fill-ms "X" 0 "B" 1 0 555)
-                      (fill-ms "X" (* 10 60000) "B" 1 1 555)])] ;; 10 min apart, same id
+                      (fill-ms "X" (* 10 60000) "B" 1 1 555)])]
       (is (= 1 (count (episodes/coalesce-fills rows))))
       (is (= 2 (:delta (first (episodes/coalesce-fills rows))))))))
 
 (deftest horizon-not-collapsed-by-multi-fill-close
-  ;; The reported bug: hold positions for hours/days, then close each with one
-  ;; order that fills in many pieces. Each partial fill used to count as its
-  ;; own intervention, so the real hold gaps were buried under a swarm of
-  ;; ~8s intra-order gaps and the 80th-percentile horizon pinned to the 6h
-  ;; floor. Eight episodes held 10..17h, each closed by a 5-fill order:
-  ;; coalescing yields eight real gaps (80th pctile 15.6h); without it the
-  ;; distribution would be 40 gaps (32 near-zero) and clamp to 6h.
   (let [rows (mapcat
               (fn [i]
                 (let [open-t (* i 100 hour)
@@ -92,16 +82,16 @@
   (testing "open, add, partial reduce, close"
     (let [fills (keep episodes/normalize-fill
                       [(fill "TSM" 0 "B" 1 0)
-                       (fill "TSM" 2 "B" 1 1)      ;; add: not an intervention
-                       (fill "TSM" 5 "A" 1 2)      ;; reduce: gap 5h from open
-                       (fill "TSM" 9 "A" 1 1)])    ;; close: gap 4h from reduce
+                       (fill "TSM" 2 "B" 1 1)
+                       (fill "TSM" 5 "A" 1 2)
+                       (fill "TSM" 9 "A" 1 1)])
           gaps (episodes/intervention-gaps-for-coin fills)]
       (is (= [(* 5 hour) (* 4 hour)] gaps))))
   (testing "direction flip is an intervention and re-anchors"
     (let [fills (keep episodes/normalize-fill
                       [(fill "X" 0 "B" 1 0)
-                       (fill "X" 3 "A" 2 1)        ;; flip long->short: gap 3h
-                       (fill "X" 10 "B" 1 -1)])    ;; close short: gap 7h
+                       (fill "X" 3 "A" 2 1)
+                       (fill "X" 10 "B" 1 -1)])
           gaps (episodes/intervention-gaps-for-coin fills)]
       (is (= [(* 3 hour) (* 7 hour)] gaps))))
   (testing "running net without startPosition matches"
@@ -116,7 +106,6 @@
     (is (= {:hours episodes/default-horizon-hours :source :default :samples 0}
            (episodes/horizon-hours [] "TSM"))))
   (testing "per-coin quantile with enough samples"
-    ;; Nine open/close episodes with gaps 1..9 hours -> 0.8 quantile = 7.4 h.
     (let [rows (mapcat (fn [i]
                          (let [t0 (* i 100)]
                            [(fill "TSM" t0 "B" 1 0)
@@ -127,9 +116,6 @@
       (is (= 9 samples))
       (is (< (js/Math.abs (- hours 7.4)) 1e-9))))
   (testing "thin coin falls back to the median of per-market horizons"
-    ;; Three markets, one episode each (gaps 5h, 10h, 20h). The target coin is
-    ;; thin, so the horizon is the median market horizon (10h), and samples is
-    ;; the number of contributing markets.
     (let [rows [(fill "TSM" 0 "B" 1 0) (fill "TSM" 5 "A" 1 1)
                 (fill "ETH" 0 "B" 1 0) (fill "ETH" 10 "A" 1 1)
                 (fill "SOL" 0 "B" 1 0) (fill "SOL" 20 "A" 1 1)]
@@ -138,10 +124,6 @@
       (is (= 3 samples))
       (is (< (js/Math.abs (- hours 10)) 1e-9))))
   (testing "a hyperactively traded market cannot collapse the account estimate"
-    ;; Two markets held ~80-100h, plus one scalped market with many
-    ;; alternating-direction fills seconds apart (which coalescing cannot
-    ;; merge, being genuine round-trips). Pooling raw gaps would drown the
-    ;; slow markets and clamp to the floor; the per-market median does not.
     (let [scalp (mapcat (fn [i]
                           (let [t0 (* i 10000)]
                             [(fill-ms "SCALP" t0 "B" 1 0 nil)

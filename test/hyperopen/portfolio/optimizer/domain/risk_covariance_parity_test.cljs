@@ -30,11 +30,6 @@
             [hyperopen.portfolio.optimizer.domain.math :as math]
             [hyperopen.portfolio.optimizer.domain.risk :as risk]))
 
-;; ---------------------------------------------------------------------------
-;; The oracle: domain/risk.cljs `covariance-matrix` exactly as it stood before
-;; the port. Do not tidy it -- being a frozen copy is the whole point.
-;; ---------------------------------------------------------------------------
-
 (defn- reference-covariance-matrix
   [series periods-per-year]
   (mapv (fn [xs]
@@ -49,9 +44,6 @@
   (doseq [periods-per-year [365 252 1]]
     (let [expected (reference-covariance-matrix series periods-per-year)
           actual (risk/covariance-matrix series periods-per-year)]
-      ;; bit=, not =, because this estimator propagates NaN by design and `=`
-      ;; reports two NaNs as different -- it fails comparing the reference to
-      ;; itself. See the bit-parity namespace.
       (is (bit-parity/bit= expected actual)
           (str "covariance-matrix diverged from the pre-port reference on "
                label " at periods-per-year=" periods-per-year ": "
@@ -76,10 +68,6 @@
              (returns n observations (+ 3 n observations)))))
 
 (deftest covariance-matches-the-reference-on-ragged-series-test
-  ;; Unequal lengths must produce an exact 0 off-diagonal while both diagonals
-  ;; stay correct. This is the shape the volatility-integrity work made common:
-  ;; return_plausibility now REJECTS implausible bars at ingestion rather than
-  ;; winsorizing them, so series genuinely arrive at different lengths.
   (parity! "one short series" [[0.1 0.2 0.3 0.4] [0.1 0.2 0.3] [0.2 0.1 0.4 0.3]])
   (parity! "all different lengths" [[0.1 0.2] [0.1 0.2 0.3] [0.1 0.2 0.3 0.4]])
   (parity! "one empty series" [[0.1 0.2 0.3] [] [0.3 0.2 0.1]])
@@ -89,10 +77,6 @@
   (parity! "no series at all" []))
 
 (deftest covariance-matches-the-reference-on-non-finite-holes-test
-  ;; The asymmetry lives here. `mean` drops these and shrinks its divisor; the
-  ;; covariance sum keeps them and divides by the full length. A port that
-  ;; computes the mean off the packed array, or that guards the sum, changes
-  ;; the answer on exactly this data.
   (parity! "nil hole" [[0.1 nil 0.3 0.2] [0.2 0.1 0.4 0.3]])
   (parity! "nil holes in both" [[0.1 nil 0.3 0.2] [nil 0.1 0.4 0.3]])
   (parity! "NaN hole" [[0.1 js/NaN 0.3 0.2] [0.2 0.1 0.4 0.3]])
@@ -111,10 +95,6 @@
   (parity! "very small magnitudes" [[1e-200 2e-200 3e-200] [3e-200 1e-200 2e-200]]))
 
 (deftest covariance-matrix-is-symmetric-test
-  ;; The port computes only the upper triangle and mirrors it, which is exact
-  ;; because each pair's terms are the same two doubles multiplied in the other
-  ;; order and summed in the same order. If that ever stops holding, this fails
-  ;; independently of the parity oracle.
   (let [series (returns 8 90 42)
         matrix (risk/covariance-matrix series 365)]
     (is (every? true?

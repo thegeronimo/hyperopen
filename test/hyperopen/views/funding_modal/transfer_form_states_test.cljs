@@ -45,8 +45,6 @@
   [node]
   (when (vector? node) (first node)))
 
-;; --- keyboard trap -----------------------------------------------------------------
-
 (defn- focusable?
   "What the dialog's trap selector would match, before its visibility
    check: a link, an enabled control, or a non-negative tabindex."
@@ -102,8 +100,6 @@
     (is (nil? (by-role node "funding-transfer-token-explorer"))
         "the link renders only with its notice")))
 
-;; --- a submit in flight --------------------------------------------------------------
-
 (deftest a-submit-in-flight-locks-every-control-test
   (let [node (form (support/state (assoc spot->evm :transfer-asset support/hype-index
                                          :amount-input "250" :submitting? true)))
@@ -127,8 +123,6 @@
       (is (true? (:disabled (attrs button))) (:data-role (attrs button)))
       (is (nil? (:on (attrs button))) (:data-role (attrs button))))
     (is (= "Submitting..." (text (by-role node "funding-transfer-submit"))))))
-
-;; --- blocked cards -------------------------------------------------------------------
 
 (deftest refused-network-switch-offers-the-capability-retry-test
   (let [node (form (assoc-in (support/state (assoc evm->spot :transfer-asset support/purr-index))
@@ -185,8 +179,6 @@
     (is (= "Checking HyperEVM balances…"
            (text (by-role node "funding-transfer-blocked-status"))))))
 
-;; --- assets --------------------------------------------------------------------------
-
 (deftest an-unmovable-asset-explains-itself-test
   (let [node (form (support/state (assoc spot->evm :transfer-asset support/hype-index)))
         option (by-role node "funding-transfer-asset-option-122")
@@ -197,8 +189,6 @@
     (is (= "funding-transfer-asset-reason-122" (:aria-describedby (attrs radio))))
     (is (not (hidden? reason)))
     (is (= "This token's HyperEVM link can't be verified, so it can't be moved here." (text reason)))))
-
-;; --- the draft's message -------------------------------------------------------------
 
 (deftest the-draft-message-sits-above-the-submit-test
   (let [state (support/state (assoc spot->evm :transfer-asset support/hype-index :amount-input "500"))
@@ -236,8 +226,6 @@
     (is (nil? (by-role node "funding-status"))
         "the draft now exceeds the refreshed balance, but the success view never says so")
     (is (nil? (by-role node "funding-transfer-message")))))
-
-;; --- panel ---------------------------------------------------------------------------
 
 (deftest the-sticky-footer-reaches-over-the-panel-padding-test
   (let [footer (by-role (form (support/state {:to-perp? true})) "funding-transfer-actions")]

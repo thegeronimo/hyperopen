@@ -56,7 +56,6 @@
                {:key :exit :label "Exit / slippage buffer (1.0% notional)" :amount 1.82}
                {:key :model :label "Model uncertainty buffer" :amount model}]})
 
-;; additional (equity - current 12.42) fixed up to be coherent per mode.
 (def ^:private by-risk-mode
   {:conservative (assoc-in (mode-rec :conservative 21.4 0.009 398.0 0.0617 9.55 1.72)
                            [:recommended :additional] 8.98)
@@ -80,7 +79,6 @@
     :risk-level :high
     :confidence {:tier :high :n-bars 1080}
     :by-risk-mode by-risk-mode}
-   ;; top-level mirrors the compute-time active mode (balanced), as the engine does.
    (:balanced by-risk-mode)))
 
 (def ^:private anchor
@@ -90,9 +88,6 @@
 (defn- scene-shell
   [rec-entry & [overrides]]
   (layout/page-shell
-   ;; Tailwind only scans src/, so scene-only arbitrary classes never exist in
-   ;; the built CSS; inline style keeps the canvas iframe tall enough for the
-   ;; fixed-position popover.
    {:style {:min-height "1120px"}}
    [:div
     (panel/margin-recommendation-panel
@@ -110,17 +105,11 @@
 
 (portfolio/defscene capital-efficient-selected
   []
-  ;; Same computed result, capital-efficient selected — the panel reads that
-  ;; mode's precomputed recommendation from :by-risk-mode (no recompute).
   (scene-shell {:status :ok :result rec-result :computed-at 1}
                {:risk-mode :capital-efficient}))
 
 (portfolio/defscene within-target
   []
-  ;; Already safe: recommended ≈ current, nothing to add, probability already
-  ;; under the target on both sides. Drop :by-risk-mode so the single
-  ;; within-target result renders directly (this scene is about that state,
-  ;; not mode selection).
   (scene-shell {:status :ok
                 :result (-> rec-result
                             (dissoc :by-risk-mode)

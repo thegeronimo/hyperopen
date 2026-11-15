@@ -103,10 +103,6 @@
     (is (true? (get-in transition [:order-form :sl :enabled?])))))
 
 (deftest twap-runtime-preset-expands-in-a-single-transition-test
-  ;; Regression: selecting a preset used to dispatch one action per runtime field. Every
-  ;; update-order-form action re-reads the SAME pre-event form and rewrites the whole map,
-  ;; so the three writes clobbered each other and the chip appeared to do nothing. The
-  ;; preset is now one write that the transition expands.
   (let [state (base-state {:type :twap
                            :twap {:days 0 :hours 0 :minutes 30 :randomize false
                                   :custom-runtime? false :trigger-px "" :stop-px ""}})
@@ -116,7 +112,6 @@
     (is (= 0 (:hours twap)))
     (is (= 0 (:minutes twap)))
     (is (false? (:custom-runtime? twap)))
-    ;; The key itself is a command channel, not stored state.
     (is (nil? (:preset twap)))))
 
 (deftest twap-custom-runtime-preset-keeps-the-current-runtime-test
@@ -125,7 +120,6 @@
                                   :custom-runtime? false :trigger-px "" :stop-px ""}})
         applied (transitions/update-order-form state [:twap :preset] :custom)
         twap (get-in applied [:order-form :twap])]
-    ;; Custom reveals the fields without discarding what is already in them.
     (is (true? (:custom-runtime? twap)))
     (is (= 4 (:hours twap)))
     (is (= 0 (:days twap)))))

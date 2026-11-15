@@ -29,7 +29,6 @@
         :default-funding-history (default-funding-history-state)
         :default-order-history (default-order-history-state)})
       (assoc-in [:router :path] (router/current-path))
-      ;; Defer lower desktop trade surfaces until the first post-render startup pass.
       (assoc-in [:trade-ui :desktop-secondary-panels-ready?] false)))
 
 (defn make-system

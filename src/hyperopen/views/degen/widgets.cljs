@@ -197,7 +197,6 @@
     [:div {:class ["pointer-events-none" "absolute" "inset-0" "z-[5]"
                    "hidden" "lg:block" "opacity-80"]
            :data-role "degen-chart-doodles"}
-     ;; rising arrow + "seems good"
      [:div {:class ["absolute" "left-[8%]" "top-[40%]" "w-[26%]" "text-ho-buy"]}
       [:svg {:viewBox "0 0 120 60"
              :class ["w-full"]
@@ -214,7 +213,6 @@
                :stroke-linejoin "round"
                :vector-effect "non-scaling-stroke"}]]
       (doodle-label ["text-ho-buy"] "seems good")]
-     ;; circle around a local top
      [:div {:class ["absolute" "left-[52%]" "top-[10%]" "w-[9%]" "text-ho-buy"]}
       [:svg {:viewBox "0 0 100 60"
              :class ["w-full"]
@@ -223,7 +221,6 @@
                   :stroke "currentColor"
                   :stroke-width "3"
                   :vector-effect "non-scaling-stroke"}]]]
-     ;; "uh oh" + arrow into the dump
      [:div {:class ["absolute" "right-[6%]" "top-[8%]" "w-[12%]" "text-ho-sell"
                     "flex" "flex-col" "items-end" "gap-1"]}
       (doodle-label ["text-ho-sell" "text-lg"] "uh oh")
@@ -241,7 +238,6 @@
                :stroke-linecap "round"
                :stroke-linejoin "round"
                :vector-effect "non-scaling-stroke"}]]]
-     ;; gold dashed MAGIC LINE
      [:div {:class ["absolute" "left-[10%]" "top-[64%]" "w-[58%]" "text-ho-warn"]}
       [:div {:class ["flex" "items-baseline" "gap-2"]}
        (doodle-label ["text-ho-warn"] "MAGIC LINE ✨")]
@@ -255,7 +251,6 @@
                :stroke-dasharray "14 10"
                :stroke-linecap "round"
                :vector-effect "non-scaling-stroke"}]]]
-     ;; cat + "trust me bro"
      [:div {:class ["absolute" "right-[8%]" "bottom-[24%]" "w-[8%]" "text-ho-info"
                     "flex" "flex-col" "items-center" "gap-1"]}
       [:svg {:viewBox "0 0 100 90"

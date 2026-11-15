@@ -9,8 +9,6 @@
             [hyperopen.views.portfolio.optimize.execution-shared :as shared]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
-;; ── row helpers ─────────────────────────────────────────────────────────
-
 (defn- data-role-token
   "Selector-safe data-role suffix (instrument ids carry colons/slashes)."
   [value]
@@ -50,10 +48,6 @@
       nil)))
 
 (defn- editable?
-  ;; Pre-commit (:staged/:armed) the per-order type/param editor is open — including in read-only
-  ;; views (spectate). Toggling a row's type only re-projects its estimated cost; it dispatches
-  ;; nothing but modal-state writes. The commit gate is on Arm/Confirm, and live-order amend has
-  ;; its own `amendable?` guard, so nothing here can send an order.
   [{:keys [phase]}]
   (contains? #{:staged :armed} phase))
 
@@ -71,7 +65,6 @@
   [{:keys [phase]} row]
   (case (:status row)
     :submitted :filled
-    ;; Accepted and live on the book, but NOT filled — an open order.
     :resting :resting
     :failed :failed
     :blocked :blocked
@@ -90,8 +83,6 @@
         coverage (:depth-coverage cost)]
     (->> [(when-let [source (:source cost)] (opt-format/keyword-label source))
           (case (:depth-status cost)
-            ;; Disclose HOW limited: the share of the order the visible book covers is
-            ;; the difference between "slightly beyond the book" and "409× the book".
             :insufficient-visible-depth
             (if (and (number? coverage) (pos? coverage))
               (str "book covers "
@@ -134,9 +125,6 @@
   (case display-state
     :filled [:span {:class ["text-trading-green"]} "filled"]
     :resting [:span {:class ["text-info"]} "open"]
-    ;; A rejection without its reason reads as an arbitrary failure at the exact
-    ;; moment the trader must decide whether to resume — surface the exchange's
-    ;; own message on the row (truncated; full text on hover).
     :failed (let [message (get-in row [:error :message])]
               [:span {:class ["text-trading-red"]
                       :title (when message (str message))}
@@ -189,9 +177,6 @@
         splittable? (and crossing? (some? spread-usd))
         price-cost-usd (if crossing? (or estimated-slippage-usd 0) 0)
         price-cost-bps (if crossing? (or slippage-bps 0) 0)
-        ;; An absent fee is UNKNOWN, not zero. A resting row pays no spread or impact, so
-        ;; coercing its missing maker fee to 0 would render "$0.00 all-in" for a real
-        ;; order; nil flows through to "—" and suppresses the all-in total instead.
         fee-usd (if crossing? (:estimated-fee-usd cost) (:maker-fee-usd cost))
         fee-bps (if crossing? (:fee-bps cost) (:maker-fee-bps cost))
         fee-known? (shared/finite fee-usd)]
@@ -232,9 +217,6 @@
                          (when slice-exceeds-visible-depth?
                            " · each clip still exceeds the visible book"))
 
-                    ;; Slicing a flat assumption would fabricate precision, so twap-cost
-                    ;; passes it through — which makes this tile read identically to
-                    ;; Market. Say why instead of leaving two equal numbers unexplained.
                     twap-row?
                     "no live book to slice — this is the same flat estimate a Market order pays")
         floor-note (when floor?
@@ -254,15 +236,12 @@
        "ⓘ"]]
      [:div {:class ["optimizer-exec-cost-eq"]}
       (cond
-        ;; A crossing row with a real book: show the spread vs impact split.
         splittable?
         (list (cost-stat "Spread crossing" spread-bps spread-usd :input)
               (cost-op "+")
               (cost-stat (if twap-adjusted? "Book impact (worked)" "Book impact")
                          impact-bps impact-usd :input))
 
-        ;; A crossing row whose book can't be split (untrusted snapshot / flat fallback):
-        ;; the spread is unknown — say so honestly instead of rendering a deceptive 0 bp.
         crossing?
         [:div {:class ["optimizer-exec-cost-rests"]
                :data-role "portfolio-optimizer-execution-cost-unsplit"}
@@ -270,7 +249,6 @@
          [:span {:class ["optimizer-exec-cost-rests-note"]}
           "Not separable — flat estimate (no live book)"]]
 
-        ;; A resting Limit/Passive row pays neither.
         :else
         [:div {:class ["optimizer-exec-cost-rests"]}
          [:span {:class ["optimizer-exec-cost-stat-label"]} "Resting order"]
@@ -298,7 +276,6 @@
     [:tr {:data-role (str "portfolio-optimizer-execution-order-editor-" (data-role-token (:instrument-id row)))}
      [:td {:colspan colspan :class ["optimizer-exec-order-editor"]}
       [:div {:class ["optimizer-exec-editor-grid"]}
-       ;; LEFT — order-type controls + plain-English consequence
        [:div {:class ["optimizer-exec-editor-controls"]}
         [:div {:class ["flex" "flex-wrap" "items-center" "gap-3"]}
          [:span {:class ["font-mono" "text-[0.6rem]" "uppercase" "tracking-[0.08em]" "text-trading-muted"]}
@@ -345,9 +322,6 @@
                                  (= (:twap-min params) m) (conj "optimizer-primary-action" "font-semibold"))
                         :on {:click [[:actions/set-portfolio-optimizer-execution-row-param row-id :twap-min m]]}}
                (str m " min")])
-            ;; Clip count AND gap from the venue's real slice model: 30s is a spacing
-            ;; FLOOR, so a small order over a long runtime is not "one every 30s" — the
-            ;; label prices the notional-aware count the cost model also charges.
             [:span {:class ["font-mono" "text-trading-muted/70"]}
              (shared/twap-clip-schedule-label row (:twap-min params))]]
            [:span "Post-only at the best price — never crosses the spread, re-pegs as the book moves."])]
@@ -364,15 +338,11 @@
                                    [(:instrument-id row)] false]]}}
             "↺ keep holding — remove this close"]])
         (when source
-          ;; Cost-basis provenance lifted off the lowest 50% opacity / 0.6rem floor so the
-          ;; trust signal (snapshot / orderbook / proxy) is actually readable.
           [:p {:class ["font-mono" "text-[0.65rem]" "text-trading-muted/70"]}
            (str "Cost basis · " source)])]
-       ;; RIGHT — execution-cost equation across the remaining width
        (cost-breakdown-strip model row)]]]))
 
 (def ^:private amend-order-type-labels
-  ;; TWAP is not offered — slicing one live order over time is not an in-place amend.
   [[:limit "Limit"] [:passive "Passive maker"] [:market "Market"]])
 
 (defn- amend-bps-presets
@@ -516,17 +486,12 @@
          [:td {:class ["optimizer-exec-glyph"] :data-state (name display-state)}
           (state-glyph display-state)]
          [:td {:class ["num" "text-trading-muted/70"]} (opt-format/format-decimal (or (:order-no row) (inc index)) {:maximum-fraction-digits 0})]
-         ;; The venue is stated once above the table (every order routes to Hyperliquid);
-         ;; only the per-row perp/spot kind stays, folded into the asset cell.
          [:td
           [:span {:class ["font-mono" "font-semibold" "text-trading-text"]} (:instrument-label row)]
           (when (:instrument-type row)
             [:span {:class ["optimizer-table-kind-badge" "ml-1.5"]
                     :data-kind (name (:instrument-type row))}
              (name (:instrument-type row))])
-          ;; A closing order staged for a held asset the optimizer excluded (by the
-          ;; trader or the auto-exit preference) — marked so it never reads as an
-          ;; allocator decision. Reverted from the row editor.
           (when (:exit? row)
             [:span {:class ["ml-1.5" "inline-block"]
                     :title "Exit — the optimizer expressed no target for this held position; this order closes it to zero. Revert from the row editor."}
@@ -543,8 +508,6 @@
                     :data-role "portfolio-optimizer-execution-route-hint"}
              hint])]
          [:td {:class ["num" "right"]} (opt-format/format-decimal (:quantity row) {:maximum-fraction-digits 4})]
-         ;; Exact dollar notional (not $Nk-rounded) on the row the trader vets before arming,
-         ;; matching the rebalance preview's precision so the same order reads the same in both.
          [:td {:class ["num" "right" (if buy? "text-trading-green" "text-trading-red")]
                :title "Order notional"}
           (str (if buy? "+" "−") (opt-format/format-usdc (shared/abs-num notional)))]
@@ -560,7 +523,6 @@
 (defn- row-visible?
   [order-filter display-state]
   (case order-filter
-    ;; A resting order is a live, working order on the book — surface it under "Working".
     :working (contains? #{:queued :working :resting} display-state)
     :filled (= :filled display-state)
     true))
@@ -640,9 +602,6 @@
                  :data-role "portfolio-optimizer-execution-skipped"}
        [:summary {:class ["px-4" "py-2.5" "text-xs" "font-medium" "text-trading-muted"
                           "select-none" "cursor-pointer"]}
-        ;; Held-out assets the trader can exit are a decision, not noise — the summary
-        ;; says so while the section stays collapsed (forcing :open every render would
-        ;; fight the user's collapse).
         (str "Skipped — " (count skipped) " asset" (when (not= 1 (count skipped)) "s")
              " · no orders will be sent"
              (when (seq exitable)
@@ -691,8 +650,6 @@
                         :data-kind (name (:instrument-type row))}
                  (name (:instrument-type row))])]
              [:td (let [side (:side row)]
-                    ;; :none = an excluded/held row — there is no trade direction, so
-                    ;; "hold" reads truthfully where "none" would read as broken data.
                     (if (contains? #{:buy :sell} side)
                       (shared/chip (name side) (side-tone side))
                       (shared/chip "hold" :muted)))]
@@ -723,8 +680,6 @@
                :data-role "portfolio-optimizer-execution-order-list"}
      [:div {:class ["border-b" "border-base-300" "px-4" "py-3"]}
       [:div {:class ["flex" "flex-wrap" "items-center" "justify-between" "gap-2"]}
-       ;; Pre-run the headline counts what will actually send (ready rows); post-run the
-       ;; phase bands own the outcome counts, so the list header stays neutral.
        (shared/eyebrow (if (contains? #{:staged :armed} (:phase model))
                          (let [n (count (filter #(= :ready (:status %)) order-rows))]
                            (str "Order list — " n " to send"))
@@ -741,10 +696,6 @@
 
               :else
               "Order types are locked once execution is armed."))]]
-     ;; Stable slots below: the body alternates between a <table> and an empty-state <p>,
-     ;; and the auto-exit strip is nil post-run. A bare tag swap desyncs Replicant's child
-     ;; walk, the keyed skipped <details> then lands on the nil, and reconciliation throws
-     ;; mid-render — freezing the whole surface, toasts included. One tag, always present.
      [:div {:class (cond-> [] any-visible? (conj "overflow-x-auto"))
             :data-role "portfolio-optimizer-execution-order-list-body"}
       (cond
@@ -770,8 +721,6 @@
             [:th {:class ["right"]} "Notional"]
             [:th {:class ["right"]} "Cost"]
             [:th "State"]]]]
-         ;; index over the full row set so the # column keeps stable order numbers
-         ;; even when a filter hides rows.
          (mapcat (fn [index row]
                    (if (and (not= :skipped (row-display-state model row))
                             (row-visible? active-filter (row-display-state model row)))

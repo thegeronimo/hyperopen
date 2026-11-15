@@ -368,7 +368,6 @@
       (is (nil? (:exchange-response-error deposit-default)))
 
       (is (nil? ((:show-toast! transfer-default) store :info "ignored")))
-      ;; HyperEVM runs time their arrival and Spot re-reads.
       (is (identical? platform/set-timeout! (:set-timeout-fn transfer-default)))
       (is (identical? platform/now-ms (:now-ms-fn transfer-default)))
       (is (identical? custom-show-toast! (:show-toast! transfer-custom)))

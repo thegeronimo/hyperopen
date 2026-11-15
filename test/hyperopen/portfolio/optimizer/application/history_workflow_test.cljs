@@ -366,10 +366,6 @@
                 {"perp:SOL" queued-status})))
 
 (deftest begin-selection-prefetch-includes-reference-proxy-instruments-test
-  ;; A queued reference-only proxy with the api-v2 cache already populated (and
-  ;; no aligned-only member pinning the backend alignment) fetches as a DELTA:
-  ;; just the queued reference, not a full-universe backend round trip. Its
-  ;; series then merges into history data (next test).
   (let [result (workflow/begin-selection-prefetch
                 {:state (reference-proxy-prefetch-state)
                  :opts {:source :selection-prefetch :queue? true :merge? true}
@@ -379,10 +375,6 @@
                  (get-in result [:commands 0 :request :universe]))))))
 
 (deftest history-request-skips-references-already-in-universe-test
-  ;; Live 2026-07-09: BTC lingered in :proxy-reference-instruments after it
-  ;; joined the universe; appending it again would spend a second slot in the
-  ;; capped fetch batch on an instrument already covered. Only genuinely
-  ;; out-of-universe references ride the fetch.
   (let [state (assoc-in (prefetch-state)
                         [:portfolio :optimizer :draft :proxy-reference-instruments]
                         [btc-instrument sol-reference-instrument])
@@ -392,9 +384,6 @@
         "The in-universe reference is not fetched twice; the true reference rides along.")))
 
 (deftest complete-selection-prefetch-merges-reference-proxy-series-test
-  ;; The fetched bundle for a reference-only proxy must merge into history data
-  ;; (it is "selected" even though it is outside the universe) and its prefetch
-  ;; status must survive the cleanup-to-universe pass.
   (let [started (workflow/begin-selection-prefetch
                  {:state (reference-proxy-prefetch-state)
                   :opts {:source :selection-prefetch :queue? true :merge? true}
@@ -457,10 +446,6 @@
                  "perp:ETH" queued-status})))
 
 (deftest begin-selection-prefetch-requests-current-universe-after-api-v2-cache-test
-  ;; BTC has aligned returns but NO point-level returns (aligned-only): merging
-  ;; a delta would force the all-or-nothing alignment into point-level mode and
-  ;; silently drop BTC — so this member's presence keeps the full-universe
-  ;; refetch whose single response stays aligned-consistent.
   (let [result (workflow/begin-selection-prefetch
                 {:state (cached-prefetch-state {:instrument-id "hl:perp:BTC"})
                  :opts {:source :selection-prefetch
@@ -472,10 +457,6 @@
                  (get-in result [:commands 0 :request :universe]))))))
 
 (deftest begin-selection-prefetch-fetches-only-queued-delta-after-api-v2-cache-test
-  ;; BTC's cached series carries point-level returns, so nothing pins the
-  ;; backend's aligned mode: the queued instrument fetches as a DELTA instead
-  ;; of refetching the whole universe (the double-fetch the 2026-07-08 trace
-  ;; paid ~6.8s for).
   (let [result (workflow/begin-selection-prefetch
                 {:state (cached-prefetch-state
                          {:instrument-id "hl:perp:BTC"

@@ -50,7 +50,6 @@
 
 (def bridge
   {:evm-system-units bridge-fixtures/live-system-units
-   ;; Read by the poll requested 2 s before `now-ms`, like the health stamp.
    :evm-system-read-at-ms (zipmap (keys bridge-fixtures/live-system-units) (repeat (- now-ms 2000)))
    :core->evm-sent-at-ms {}
    :core-system-balances {hype-index {:amount "51277474.282994248" :loaded-at-ms now-ms}

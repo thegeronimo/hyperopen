@@ -63,8 +63,6 @@
     (if (= scope-key bound)
       []
       (cond-> []
-        ;; save-many paths are keyword-only, so the whole :drafts map (keyed by
-        ;; scope-key string) is written rather than one string-keyed path.
         bound (conj [[:vol-range :drafts]
                      (assoc (get-in state [:vol-range :drafts]) bound
                             (vol-range-draft/scoped-values (form-draft state)))])

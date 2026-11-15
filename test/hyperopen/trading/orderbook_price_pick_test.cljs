@@ -37,8 +37,6 @@
     (is (= "99" (:price form)))))
 
 (deftest raw-price-is-not-reinterpreted-in-the-users-locale-test
-  ;; Typed input in de-DE reads "." as a thousands separator, so "1.234" would become
-  ;; 1234. A clicked level carries the venue's canonical decimal and is kept verbatim.
   (let [state (-> (state-with-form {:type :limit :price ""} {:entry-mode :limit})
                   (assoc-in [:ui :locale] "de-DE"))
         form (trading/order-form-draft

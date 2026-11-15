@@ -14,9 +14,6 @@
    sides of the divergence rather than skipping the row, so a change that
    accidentally erases one fails loudly.")
 
-;; ---------------------------------------------------------------------------
-;; Wire-shape constructors
-
 (defn- summary
   [account-value total-ntl-pos total-raw-usd total-margin-used]
   {:accountValue account-value
@@ -42,9 +39,6 @@
     cross (assoc :crossMarginSummary cross)
     maintenance (assoc :crossMaintenanceMarginUsed maintenance)
     positions (assoc :assetPositions positions)))
-
-;; ---------------------------------------------------------------------------
-;; Application state
 
 (defn- spot-meta
   [spot]
@@ -103,9 +97,6 @@
      :asset-selector {:market-by-key (market-by-key description)}
      :perp-dex-clearinghouse (into {} (map (juxt :dex :state)) named)}))
 
-;; ---------------------------------------------------------------------------
-;; Fixture assembly
-
 (defn build
   "Turn one description into `{:label :mode :state :oracle :divergences}`.
 
@@ -137,9 +128,6 @@
                                        (concat dexes* collateral-only*))
               :price-by-token prices}}))
 
-;; ---------------------------------------------------------------------------
-;; Reusable divergence reasons
-
 (def ^:private no-data-reason
   (str "No clearinghouse snapshot contributed a figure, so there is nothing to "
        "divide or display. The venue falls back to a zero; we render \"--\", "
@@ -156,9 +144,6 @@
   []
   {:cross-margin-ratio {:venue 0.0 :ours nil :reason flat-quotient-reason}
    :cross-account-leverage {:venue 0.0 :ours nil :reason flat-quotient-reason}})
-
-;; ---------------------------------------------------------------------------
-;; The matrix
 
 (def ^:private usd-prices
   {"USDC" 1 "USDH" 1})
@@ -178,9 +163,6 @@
                      :positions []})}]
    :divergences (flat-quotient-divergences)})
 
-;; The long and the short exist as a pair on purpose: our Balance overstates the
-;; venue's by `totalMarginUsed + totalNtlPos + upnl`, so the error's size and
-;; sign both move with position direction. A long-only matrix under-detects.
 (def ^:private classic-base-cross-long
   {:label "classic / base dex, one cross long"
    :mode :classic
@@ -189,7 +171,6 @@
    :dexes [{:dex nil
             :collateral "USDC"
             :coin "BTC"
-            ;; accountValue = totalRawUsd + signed position value: -3000 + 4000.
             :state (clearinghouse-state
                     {:margin (summary "1000.0" "4000.0" "-3000.0" "400.0")
                      :cross (summary "1000.0" "4000.0" "-3000.0" "400.0")
@@ -208,7 +189,6 @@
    :dexes [{:dex nil
             :collateral "USDC"
             :coin "ETH"
-            ;; A short inverts the identity: 7000 - 5000 = 2000.
             :state (clearinghouse-state
                     {:margin (summary "2000.0" "5000.0" "7000.0" "500.0")
                      :cross (summary "2000.0" "5000.0" "7000.0" "500.0")
@@ -219,9 +199,6 @@
                                             :margin-used "500.0"
                                             :upnl "-1500.0"})]})}]})
 
-;; The shape behind `0xb9aebb46919bccbf210537a1f2173690d9ee7af7`: a zeroed base
-;; dex alongside a six-figure book on a named dex. Reading only the base dex
-;; puts four confident zeros on screen over real liquidation risk.
 (def ^:private classic-named-dex-only
   {:label "classic / empty base dex, whole book on a named dex"
    :mode :classic
@@ -249,9 +226,6 @@
                                             :margin-used "15255.31"
                                             :upnl "6743.65"})]})}]})
 
-;; A dex settling in something other than a dollar. Every figure it reports is
-;; denominated in HYPE, so adding it to a USD total without converting is a
-;; 40x error on that dex's contribution.
 (def ^:private classic-two-collateral-tokens
   {:label "classic / base dex in USDC plus a dex settling in HYPE"
    :mode :classic
@@ -273,7 +247,6 @@
            {:dex "hna"
             :collateral "HYPE"
             :coin "GOLD"
-            ;; 50 HYPE of equity is $2,000, not $50.
             :state (clearinghouse-state
                     {:margin (summary "50.0" "100.0" "-50.0" "10.0")
                      :cross (summary "50.0" "100.0" "-50.0" "10.0")
@@ -293,8 +266,6 @@
    :dexes [{:dex nil
             :collateral "USDC"
             :coin "BTC"
-            ;; marginSummary spans both legs; crossMarginSummary excludes the
-            ;; isolated one, which is why the two summaries disagree here.
             :state (clearinghouse-state
                     {:margin (summary "3000.0" "7000.0" "-4000.0" "1200.0")
                      :cross (summary "2000.0" "4000.0" "-2000.0" "400.0")
@@ -328,9 +299,6 @@
                                             :margin-used "100.0"
                                             :upnl "10.0"})]})}]})
 
-;; The case commit `dc2ada72d` introduced: a cross-only lens genuinely reads
-;; 0.00x and $0.00 here, which the panel qualifies with the excluded notional
-;; rather than folding isolated exposure into the headline figures.
 (def ^:private unified-all-isolated
   {:label "unified / every position isolated"
    :mode :unified
@@ -389,9 +357,6 @@
                                             :upnl "-30.0"
                                             :max-leverage 10})]})}]})
 
-;; `flx` settles in USDH. The wallet has never traded there, so it has no
-;; clearinghouse snapshot for it, but the venue still counts a USDH holding as
-;; collateral -- the denominator spans the whole dex catalogue.
 (def ^:private unified-untraded-collateral-token
   {:label "unified / USDH collateral from a dex the wallet never traded"
    :mode :unified

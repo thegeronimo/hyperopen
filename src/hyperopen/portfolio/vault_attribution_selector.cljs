@@ -60,9 +60,6 @@
                      (not= address (:for-address slot)) :idle
                      :else (or (:status slot) :idle))
         held? (number? (:loaded-at-ms slot))
-        ;; Stale-while-revalidate: a refresh keeps the rows of the SAME address
-        ;; (see `begin-load`), so the last good figures stay on screen. A
-        ;; failed refresh keeps them too, with the error alongside.
         refreshing? (and (= :loading raw-status) held?)
         refresh-error (when (and (= :error raw-status) held?) (:error slot))
         load-status (if (or refreshing? refresh-error) :ready raw-status)
@@ -93,7 +90,6 @@
         address (account-context/effective-account-address state)
         equity-rows (get-in state [:vaults :user-equities])
         equity-rows-for-address (get-in state [:vaults :user-equities-for-address])
-        ;; Orphan vault names come from these.
         vault-rows (get-in state [:vaults :merged-index-rows])
         vault-details (get-in state [:vaults :details-by-address])
         cached @model-cache]

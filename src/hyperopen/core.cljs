@@ -8,9 +8,6 @@
 (def make-system
   app-system/make-system)
 
-(def system
-  app-system/system)
-
 (def store
   app-system/store)
 

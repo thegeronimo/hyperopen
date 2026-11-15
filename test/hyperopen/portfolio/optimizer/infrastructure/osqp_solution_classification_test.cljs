@@ -18,8 +18,6 @@
   (:require [cljs.test :refer-macros [async deftest is testing]]
             [hyperopen.portfolio.optimizer.infrastructure.osqp :as osqp]))
 
-;; --- the pure row check ----------------------------------------------------
-
 (defn- csc
   "A CSC matrix in the shape .setup is handed, from a dense row-major matrix."
   [matrix]
@@ -46,27 +44,15 @@
 (defn- f64 [values] (js/Float64Array.from (clj->js values)))
 
 (def ^:private osqp-nan
-  ;; OSQP's constants.h: `#define OSQP_NAN ((c_float)0x7fc00000)`. A cast, not a
-  ;; reinterpretation, so the sentinel is the finite double 2143289344.0.
   2143289344.0)
 
 (deftest a-satisfying-point-reports-no-row-violation-test
-  ;; One row, 1 <= x <= 2. Anything inside must come back clean, or every
-  ;; feasible solve in the app turns into a failure.
   (let [A (csc [[1]])]
     (doseq [x [1.0 1.5 2.0]]
       (is (nil? (osqp/worst-row-violation A (f64 [x]) (f64 [1.0]) (f64 [2.0]) [:net-band]))
           (str "x=" x " is inside [1, 2] and must not be flagged")))))
 
 (deftest the-tolerance-matches-the-downstream-one-on-checked-rows-test
-  ;; The safety argument for the boundary tolerance is that on the rows this
-  ;; check actually looks at -- the ones with an exact downstream counterpart --
-  ;; it is the SAME 1.0e-5 that
-  ;; application.engine.target-selection/solution-tolerance applies, evaluating
-  ;; the same linear form against the same constant. (Only summation ORDER
-  ;; differs, so the two agree to within rounding rather than bit-for-bit; that
-  ;; caveat is why the comment there does not claim a structural identity.) If
-  ;; someone tightens the boundary value independently, this is what goes red.
   (let [A (csc [[1]])
         l (f64 [1.0])
         u (f64 [2.0])]
@@ -81,14 +67,7 @@
         (is (< 1.0e-5 (:amount violation) 3.0e-5))))))
 
 (deftest rows-with-no-downstream-counterpart-are-skipped-test
-  ;; The scoping fix. Three row families exist ONLY in the adapted problem --
-  ;; the split sign rows p_i >= 0, the turnover difference equalities, and the
-  ;; L1 rows sum(p_i + n_i) <= G / sum(tp_i + tn_i) <= T -- so nothing
-  ;; downstream re-checks them and this boundary must not adjudicate them
-  ;; either. `unchecked-rows` carries their indices.
   (let [A (csc [[1 0] [0 1]])
-        ;; row 0: a split gross L1 row, badly breached. row 1: an ordinary
-        ;; net-band row, satisfied.
         solution (f64 [9.0 1.5])
         l (f64 [(- 1.0e20) 1.0])
         u (f64 [4.0 2.0])
@@ -105,14 +84,6 @@
             "row 1 is 1.0 short of its floor and is still reported")))))
 
 (deftest a-lower-bound-miss-is-flagged-test
-  ;; The reported failure was a gross FLOOR miss, i.e. the lower side.
-  ;;
-  ;; This is also the shape of the row check's FALLBACK cover for a declined
-  ;; solve. :gross-floor rides the generic :inequalities channel, so its split
-  ;; image is a checked row; and under a uniform OSQP_NAN sentinel that image
-  ;; evaluates to sum(c_i*S) + sum(-c_i*S) = 0, exactly as the decode cancels to
-  ;; zero weights. Measured against the real solver on the reported request: the
-  ;; row lands on 0.0 against a floor of 3.995.
   (let [violation (osqp/worst-row-violation (csc [[1]]) (f64 [0.0])
                                             (f64 [3.995]) (f64 [1.0e20])
                                             [:gross-floor])]
@@ -121,25 +92,12 @@
     (is (< 3.99 (:amount violation) 4.0))))
 
 (deftest osqp-infinity-is-an-absent-bound-not-a-number-test
-  ;; infrastructure.osqp writes unbounded sides as +/-1e20. With the OSQP_NAN
-  ;; sentinel filling x at var-count 400, A*x reaches ~8.6e11, which a naive
-  ;; `l <= Ax <= u` comparison against 1e20 would wave straight through.
   (is (nil? (osqp/worst-row-violation (csc [[1]]) (f64 [8.6e11])
                                       (f64 [-1.0e20]) (f64 [1.0e20])
                                       [:unbounded]))
       "a row with no finite bound can never be violated"))
 
 (deftest the-osqp-nan-sentinel-is-flagged-against-a-finite-row-test
-  ;; The sentinel is a finite double, so nothing about it is self-evidently
-  ;; wrong to a numeric check -- a row is flagged only because the sentinel
-  ;; misses a real bound.
-  ;;
-  ;; Note what this does and does not prove. The row it misses by ten decades in
-  ;; production is the split gross L1 row, which is now UNCHECKED, so this
-  ;; asserts the arithmetic rather than the production path. The scoped fallback
-  ;; for a declined solve is the one in `a-lower-bound-miss-is-flagged-test`,
-  ;; and it only bites when some constraint excludes w = 0 -- which is why
-  ;; `declined-solution?`, not this, is the primary detector.
   (let [violation (osqp/worst-row-violation (csc [[1]]) (f64 [osqp-nan])
                                             (f64 [-1.0e20]) (f64 [4.0])
                                             [:net-band])]
@@ -148,14 +106,11 @@
     (is (> (:amount violation) 1.0e9))))
 
 (deftest a-non-finite-row-value-is-flagged-test
-  ;; Every comparison against NaN is false, so an unguarded check would report
-  ;; a NaN point as satisfying its constraints.
   (is (some? (osqp/worst-row-violation (csc [[1]]) (f64 [js/NaN])
                                        (f64 [1.0]) (f64 [2.0]) [:net-band]))
       "a NaN in A*x is never a satisfied row"))
 
 (deftest the-worst-row-wins-test
-  ;; Two independent rows, both missed; the message names the bigger miss.
   (let [A (csc [[1 0] [0 1]])
         violation (osqp/worst-row-violation A (f64 [0.0 0.0])
                                             (f64 [0.5 3.995]) (f64 [1.0e20 1.0e20])
@@ -231,14 +186,7 @@
    :lower-bounds (vec (repeat n 0))
    :upper-bounds (vec (repeat n 0.5))})
 
-;; --- which rows the boundary is allowed to adjudicate ----------------------
-
 (deftest split-only-rows-are-marked-unchecked-test
-  ;; `unchecked-rows` is built where `split?` is known, because it cannot be
-  ;; recovered from the rows afterwards: on the split path the bound rows come
-  ;; from problem-adapter's all-zero :lower-bounds and are the sign constraints
-  ;; p_i >= 0, while on the unsplit path the identical shape is the caller's
-  ;; real weight box, which target-selection DOES re-check.
   (testing "the split path"
     (let [{:keys [row-codes unchecked-rows]}
           (osqp/build-static-parts-uncached (reported-problem [1.25 1.3906]))
@@ -253,15 +201,6 @@
                                          (nth row-codes idx)))
                             unchecked-rows))))))
   (testing "the restricted check still catches the reported failure"
-    ;; The reason scoping the check was safe. Feed the REAL row layout of the
-    ;; reported request the all-OSQP_NAN vector OSQP actually returns for it,
-    ;; with the real `unchecked-rows` applied, and a violation must still come
-    ;; back -- so cover does not rest on the sentinel branch alone.
-    ;;
-    ;; It survives because the split image of an original constraint cancels
-    ;; under a uniform sentinel exactly as the decode does: every checked row
-    ;; evaluates to 0, and 0 misses the 3.995 gross floor. The split gross L1
-    ;; row, which misses by 8.6e10, is the one that is now skipped.
     (let [{:keys [A l u row-codes unchecked-rows]}
           (osqp/build-static-parts-uncached (reported-problem [1.25 1.3906]))
           sentinel (f64 (repeat (* 2 universe-size) osqp-nan))
@@ -279,9 +218,6 @@
           "no split rows exist, so the bound rows are the real weight box")
       (is (empty? unchecked-rows)))))
 
-;; --- end to end, against the real solver -----------------------------------
-
-
 (deftest an-infeasible-request-is-reported-as-infeasible-not-solved-test
   (async done
     (-> (osqp/solve (reported-problem [1.25 1.3906]))
@@ -294,10 +230,6 @@
            (is (= :osqp (:solver result))
                "a classified infeasibility must not be relabelled as a quadprog fallback")
            (is (= :solver-primal-infeasible (:reason result)))
-           ;; THE regression that matters. The old code decoded OSQP's all-NaN
-           ;; sentinel through w_i = x_i - x_(i+n), the sentinel cancelled with
-           ;; itself, and downstream was handed a fabricated all-zero portfolio
-           ;; that got reported as "solver returned 0.0000".
            (is (nil? (:weights result))
                (str "a declined solve must carry NO weight vector, but got: "
                     (pr-str (:weights result))))
@@ -309,9 +241,6 @@
                   (done))))))
 
 (deftest the-same-shape-with-a-reachable-net-band-still-solves-test
-  ;; The companion to the test above, and the guard against an over-tight
-  ;; boundary check: widen the net band so gross and net are jointly reachable
-  ;; and the identical shape must still come back :solved with real weights.
   (async done
     (let [problem (reported-problem [3.8 4.0])]
       (-> (osqp/solve problem)
@@ -326,10 +255,6 @@
              (let [weights (:weights result)
                    gross (reduce + 0 (map * (signs) weights))
                    net (reduce + 0 weights)]
-               ;; Measured against the real solver on this exact shape: gross
-               ;; lands on its 3.995 floor and net on 3.875, with a worst row
-               ;; residual of 6.3e-9 -- three decades inside the boundary
-               ;; tolerance, so this is nowhere near a knife edge.
                (is (<= (- 3.995 1.0e-4) gross (+ 4.0 1.0e-4))
                    (str "gross should sit between its 3.995 floor and its 4.0 cap, got " gross))
                (is (<= (- 3.8 1.0e-4) net (+ 4.0 1.0e-4))
@@ -347,8 +272,6 @@
                     (done)))))))
 
 (deftest an-ordinary-long-only-request-is-unaffected-test
-  ;; Regressions in the classification would show up on the plainest shape
-  ;; before they showed up anywhere interesting.
   (async done
     (let [problem (long-only-problem 8)]
       (-> (osqp/solve problem)

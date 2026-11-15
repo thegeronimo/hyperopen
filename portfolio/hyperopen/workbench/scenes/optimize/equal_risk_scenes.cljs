@@ -94,13 +94,6 @@
                           diagnostics)}
      overrides)))
 
-;; The mock's book: 3 long / 2 short, per-side signed targets (the designer's
-;; reading), deviations within a few points, gray current circles further out.
-;; The overrides carry the RISK / RETURN mock's exact portfolio points
-;; (current 298.88% / 853.23%, recommended 301.47% / 841.91%) and its five
-;; labeled standalone assets, so the tab can be pixel-compared against the
-;; 2026-07-11 designer spec. Equity-index ids use their real dex namespaces
-;; so asset icons resolve.
 (def ^:private designer-parity-result
   (equal-risk-result
    {:rows [["BTC" 0.30 0.231 0.302 0.20]
@@ -144,8 +137,6 @@
                     :volatility 3.32
                     :expected-return -3.4}]}}}))
 
-;; The real engine's uniform +1/n target on a hedged book: hedges sit far
-;; below target and the deviation column must say so honestly.
 (def ^:private hedged-book-result
   (equal-risk-result
    {:rows [["BTC" 0.35 0.62 0.71 0.25]
@@ -202,11 +193,6 @@
                 :binding-count 3
                 :books {:long 24 :short 0}}})))
 
-;; The 2026-07-11 live-session shape: the CURRENT book concentrates ~100% of
-;; volatility in one asset (that concentration is why Equal Risk gets run), so
-;; its current marker sits far beyond the recommended/target range. The scale
-;; must stay fitted to the bars and render that current as an edge chevron —
-;; not stretch the axis to 100% and squash everything left.
 (def ^:private concentrated-current-result
   (equal-risk-result
    {:rows [["BTC" 0.35 0.278 0.005 0.20]
@@ -223,8 +209,6 @@
               :books {:long 4 :short 1}}
     :diagnostics {:binding-constraints []}}))
 
-;; Persisted pre-redesign payload: no current contributions, no allocation
-;; freedom, no initializations — honest placeholders, no fabricated markers.
 (def ^:private persisted-pre-redesign-result
   (-> designer-parity-result
       (dissoc :current-risk-contributions)

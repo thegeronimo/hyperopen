@@ -97,7 +97,6 @@
        (every? true? (map identical? inputs cached-inputs))))
 
 (defonce ^:private outcome-shares-memo
-  ;; {:inputs <outcome-shares-inputs> :narrow <outcome-rows-inputs> :value}
   (atom nil))
 
 (defn account-equity-outcome-shares
@@ -161,9 +160,6 @@
 
 (defn- account-equity-hyperevm-funds-summary
   [state]
-  ;; A present key belongs to the reduced /trade slice. In particular, nil
-  ;; means the lazy export has not supplied a full-state summary yet; deriving
-  ;; from that incomplete slice would invent a second source of truth.
   (if (contains? state hyperevm-funds-summary-key)
     (get state hyperevm-funds-summary-key)
     (account-equity-hyperevm-funds state)))
@@ -186,40 +182,21 @@
         market-by-key (get-in state [:asset-selector :market-by-key] {})
         balance-rows (derived-cache/memoized-balance-rows webdata2 (:spot state) (:account state) market-by-key (:perp-dex-clearinghouse state))
         balance-row-by-token (balance-rows-by-token balance-rows)
-        ;; One record per dex the wallet has a snapshot on, base dex included.
-        ;; The venue folds them into a single state before deriving anything,
-        ;; and so do we: reading `[:webdata2 :clearinghouseState]` alone is the
-        ;; base dex only, which reports nothing at all for an account carrying
-        ;; its book on a HIP-3 dex.
         records (clearinghouse-state-records state market-by-key)
         aggregate (aggregate-clearinghouse-usd records balance-row-by-token market-by-key)
         cross-account-value (:cross-account-value aggregate)
         cross-total-ntl-pos (:cross-total-ntl-pos aggregate)
-        ;; Both panels show the same figure here: the venue renders
-        ;; `crossMaintenanceMarginUsed` straight through, and its tooltip says
-        ;; "the minimum portfolio value required to keep your *cross* positions
-        ;; open". Isolated positions each carry their own maintenance and
-        ;; liquidate alone; the unified panel discloses their notional
-        ;; separately rather than folding it in here.
         maintenance-margin (:maintenance-margin aggregate)
         positions (derived-cache/memoized-positions webdata2 (:perp-dex-clearinghouse state))
         unrealized-from-positions (let [values (keep #(parse-num (get-in % [:position :unrealizedPnl])) positions)]
                                     (when (seq values)
                                       (reduce + values)))
-        ;; A snapshot that lists its positions tells us the book is flat when
-        ;; that list is empty. No snapshot at all tells us nothing, and must not
-        ;; be reported as a flat book.
         positions-known? (boolean (some #(sequential? (get-in % [:state :assetPositions]))
                                         records))
         unrealized-pnl (cond
                          (some? unrealized-from-positions) unrealized-from-positions
                          positions-known? 0
                          :else nil)
-        ;; The venue's two definitions, which our own tooltips already promise:
-        ;; Perps is the aggregate account value, and Balance is that net of
-        ;; unrealized PNL -- "Total Net Transfers + Total Realized Profit + Total
-        ;; Net Funding Fees", the money in the account before the open book is
-        ;; marked.
         perps-value (:account-value aggregate)
         base-balance (when (and (number? perps-value)
                                 (number? unrealized-pnl))
@@ -229,9 +206,6 @@
                             (when-not (perps-balance-row? row)
                               (parse-num (:usdc-value row))))
                           balance-rows)
-        ;; Retain the existing public metric whenever spot rows are unavailable.
-        ;; Only a classic account's confirmed empty balance snapshot is zero for
-        ;; the new four-part total; Unified keeps its existing fallback.
         spot-equity-from-rows (when (seq spot-values)
                                 (reduce + spot-values))
         spot-equity (or spot-equity-from-rows
@@ -242,9 +216,6 @@
         portfolio-value (account-projections/portfolio-usdc-value balance-rows)
         cross-margin-ratio (safe-div maintenance-margin cross-account-value)
         cross-account-leverage (safe-div cross-total-ntl-pos cross-account-value)
-        ;; The existing classic Account Value presentation remains Spot + Perps.
-        ;; Summing balance rows instead would double-count named-dex equity and
-        ;; add its collateral token to a USD total unconverted.
         account-value-display (plus-outcome-shares
                                (if unified?
                                  (derive-account-value-display portfolio-value spot-equity perps-value)
@@ -254,9 +225,6 @@
                        (user-equity/current-vault-equity state))
         hyperevm-equity (when-not unified?
                           (current-hyperevm-equity state hyperevm-funds-summary))
-        ;; Supplied funds leave the spot balance (and a borrow lands in it),
-        ;; so lending is counted here, net of debt, or the total drops when
-        ;; the account supplies.
         earn-equity (when-not unified?
                       (bl-account/net-earn-usd state))
         total-account-value-display (when (and (not unified?)
@@ -267,9 +235,6 @@
                                       (+ spot-equity perps-value vault-equity hyperevm-equity
                                          (or earn-equity 0)
                                          (or outcome-shares 0)))
-        ;; What the cross-only leverage and maintenance figures leave out. The
-        ;; panel prints it beside them so an all-isolated book cannot render a
-        ;; bare 0.00x that reads as "no exposure".
         unified-isolated-notional (when unified?
                                     (unified/isolated-notional-usd-value records
                                                                          balance-row-by-token

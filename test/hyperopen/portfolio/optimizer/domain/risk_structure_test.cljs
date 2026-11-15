@@ -13,7 +13,6 @@
    (and (number? actual)
         (< (js/Math.abs (- expected actual)) tolerance))))
 
-;; Unit-vol pair at rho = 0.5 held long/short — every number below is dyadic.
 (def ^:private hedged-pair-covariance
   [[1.0 0.5]
    [0.5 1.0]])
@@ -42,8 +41,6 @@
     (is (nil? (get-in matrix [2 2])))))
 
 (deftest hedged-pair-decomposition-test
-  ;; m = [0.5 -0.5], q = 1: each side nets exactly half the risk, carries a
-  ;; full unit of standalone risk, and hedges half a unit away.
   (let [{:keys [status portfolio-volatility standalone-shares
                 diversification-shares net-shares
                 pnl-portfolio-correlations]}
@@ -54,8 +51,6 @@
     (is (= [1.0 1.0] standalone-shares))
     (is (= [-0.5 -0.5] diversification-shares))
     (is (= [0.5 0.5] net-shares))
-    ;; Both position P&L streams correlate +0.5 with the portfolio — the
-    ;; SHORT flips its raw-return correlation sign.
     (is (= [0.5 0.5] pnl-portfolio-correlations))))
 
 (deftest decomposition-identity-holds-on-a-mixed-book-test
@@ -113,9 +108,6 @@
     (is (= 0 (get-in summary [:correlation :hidden-count])))))
 
 (deftest structure-summary-cap-order-and-hidden-count-test
-  ;; Four independent unit-vol assets: |net share| is proportional to w^2, so
-  ;; the cap keeps C (w=2) and D (w=-1.5), and the display order is signed
-  ;; net-share descending (both nets are positive here; C > D).
   (let [summary (risk-structure/structure-summary
                  {:instrument-ids ["A" "B" "C" "D"]
                   :covariance [[1.0 0.0 0.0 0.0]

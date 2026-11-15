@@ -42,8 +42,6 @@
   {:allocation :recommendation
    :frontier :recommendation
    :diagnostics :recommendation
-   ;; The standalone Rebalance preview tab was retired — the rebalance now stages
-   ;; straight into Execution, so old ?otab=rebalance deep-links land there.
    :rebalance :execution})
 
 (def ^:private diagnostics-tab-values

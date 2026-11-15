@@ -18,17 +18,6 @@
             [hyperopen.views.trading-chart.utils.chart-interop.visible-range-persistence :as visible-range-persistence]
             [hyperopen.views.trading-chart.utils.chart-options :as chart-options]))
 
-(defn create-chart-with-volume!
-  "Create a chart with volume pane."
-  [container]
-  (let [chart-options* (clj->js (chart-options/fixed-height-chart-options 400))
-        chart (createChart container chart-options*)
-        volume-series (.addSeries chart HistogramSeries #js {:priceFormat #js {:type "volume"}
-                                                             :priceScaleId ""
-                                                             :scaleMargins #js {:top 0.8 :bottom 0}
-                                                             :color (transforms/hyperliquid-volume-up-color)})]
-    #js {:chart chart :volumeSeries volume-series :volumePaneIndex 1}))
-
 (defn create-chart!
   "Create a chart with common options."
   [container]
@@ -124,11 +113,6 @@
   "Transform candles into solid high-low range bars."
   [data]
   (transforms/transform-data-for-high-low data))
-
-(defn transform-data-for-volume
-  "Transform OHLC data to volume data for volume chart."
-  [data]
-  (transforms/transform-data-for-volume data))
 
 (defn sync-baseline-base-value-subscription!
   "Ensure baseline base-value subscription state matches current chart type."

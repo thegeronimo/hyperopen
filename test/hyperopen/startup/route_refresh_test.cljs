@@ -94,9 +94,6 @@
     (is (true? (boolean (route-refresh/spot-catalog-route?
                          "/portfolio/trader/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")))))
   (testing "sub-accounts needs it for Send Tokens wire token ids"
-    ;; Regression: the Send Tokens dialog resolves a spot balance's numeric token
-    ;; index to a `NAME:0x<hash>` wire token id through spotMeta. Without the
-    ;; catalog every non-USDC token rendered "unavailable" and could not be sent.
     (is (true? (boolean (route-refresh/spot-catalog-route? "/subAccounts")))))
   (testing "routes that render no spot instruments do not"
     (is (not (route-refresh/spot-catalog-route? "/leaderboard")))
@@ -105,9 +102,6 @@
 
 (deftest spot-catalog-markets-needed?-test
   (testing "spot-catalog routes need the full catalog while spot meta is missing"
-    ;; Regression: bootstrap builds a perp-only catalog, so spot open orders
-    ;; (coin like \"@230\") would otherwise render as the raw provider symbol
-    ;; instead of a readable name (USDH).
     (is (true? (route-refresh/spot-catalog-markets-needed? {} "/trade")))
     (is (true? (route-refresh/spot-catalog-markets-needed? {} "/portfolio")))
     (is (true? (route-refresh/spot-catalog-markets-needed?
@@ -120,18 +114,11 @@
     (is (false? (route-refresh/spot-catalog-markets-needed?
                  {:spot {:meta {:tokens []}}} "/subAccounts"))))
   (testing "no-op while a catalog load is already in flight"
-    ;; `begin-asset-selector-load` sets :loading? in the same synchronous swap!
-    ;; as the phase, so this dedupes the route-change bucket against the
-    ;; post-render :idle bucket.
     (is (false? (route-refresh/spot-catalog-markets-needed?
                  {:asset-selector {:loading? true}} "/trade")))
     (is (false? (route-refresh/spot-catalog-markets-needed?
                  {:asset-selector {:loading? true}} "/subAccounts"))))
   (testing "a failed load stays retryable instead of latching off"
-    ;; Regression: the gate used to read `(not= :full phase)`. The phase is
-    ;; advanced before the request and `apply-asset-selector-error` never rolls
-    ;; it back, so one rejected load (an /info rate limit, say) made every later
-    ;; demand path a permanent no-op for the rest of the page's life.
     (is (true? (route-refresh/spot-catalog-markets-needed?
                 {:asset-selector {:phase :full :loading? false}
                  :spot {:meta nil}}

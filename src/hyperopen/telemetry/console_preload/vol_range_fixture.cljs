@@ -87,7 +87,6 @@
                   (assoc-in [:orderbooks coin] {:bids [{:px "79.99" :sz "100"}]
                                                 :asks [{:px "80.01" :sz "100"}]})
                   (assoc-in [:candles coin :1d] (daily-candles now-ms))
-                  ;; Provenance: the seeded series counts as fetched successfully now.
                   (assoc-in [:vol-range :daily-fetch coin :completed-at-ms] now-ms)
                   (assoc-in [:portfolio :user-fees] {:userSpotCrossRate "0.0007"
                                                      :userSpotAddRate "0.0004"

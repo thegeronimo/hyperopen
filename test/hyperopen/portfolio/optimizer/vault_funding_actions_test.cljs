@@ -135,7 +135,6 @@
 (deftest send-after-unlock-only-sends-the-plan-that-was-shown-test
   (let [state (assoc-in (with-amount (base-state) "4000") [:wallet :agent :status] :locked)
         unlocking (apply-saves state (actions/portfolio-optimizer-vault-funding-command state :confirm now))
-        ;; The passkey unlock finished, but the holdings moved meanwhile.
         moved (-> unlocking
                   (assoc-in [:wallet :agent :status] :ready)
                   (assoc-in [:vaults :user-equity-by-address vb :equity] 6500))
@@ -292,4 +291,3 @@
         "a second click includes it again")
     (is (= #{} (:skipped (model/options (apply-saves skipped (actions/portfolio-optimizer-vault-funding-command skipped :open now)))))
         "a fresh plan starts with every vault included")))
-

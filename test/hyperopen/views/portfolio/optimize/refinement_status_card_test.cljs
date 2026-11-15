@@ -26,9 +26,6 @@
    :progress {:overall-percent nil :active-step nil}})
 
 (deftest refinement-card-demotes-options-behind-closed-disclosure-test
-  ;; Refinement is a by-exception tool: the compact card keeps the status header +
-  ;; quality/stability tags visible, and the depth picker lives behind a native
-  ;; <details> that is closed by default.
   (let [card (refinement-card/refinement-status-card draft-refinement)
         status (node-by-role card "portfolio-optimizer-refinement-status")
         disclosure (node-by-role card "portfolio-optimizer-refinement-disclosure")
@@ -64,8 +61,6 @@
                    "Refine now · Thorough · 72 points"))))
 
 (deftest refinement-card-moves-selection-explanation-into-disclosure-test
-  ;; The tier/selection explanation is refinement guidance, so it discloses with the
-  ;; options instead of padding the compact card.
   (let [card (refinement-card/refinement-status-card draft-refinement)
         disclosure (node-by-role card "portfolio-optimizer-refinement-disclosure")
         status (node-by-role card "portfolio-optimizer-refinement-status")
@@ -74,8 +69,6 @@
     (is (not (contains? (set (collect-strings status)) explanation)))))
 
 (deftest refinement-card-in-flight-view-is-unchanged-test
-  ;; While a refinement runs, progress feedback is the primary content: the running
-  ;; view renders as before and the disclosure is absent.
   (let [card (refinement-card/refinement-status-card
               (assoc draft-refinement
                      :in-flight? true
@@ -89,8 +82,6 @@
            (click-actions stop)))))
 
 (deftest refinement-card-outcome-stays-outside-disclosure-test
-  ;; A just-finished refinement's before/after comparison is review content, so it
-  ;; stays visible in the compact card rather than hiding with the options.
   (let [card (refinement-card/refinement-status-card
               (assoc draft-refinement
                      :outcome {:depth :thorough

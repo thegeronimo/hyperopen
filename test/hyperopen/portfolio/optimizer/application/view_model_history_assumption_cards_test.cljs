@@ -24,9 +24,6 @@
    :market-type :perp
    :coin "NEW"})
 
-;; History assumption cards are load-aware: an asset is only carded once its history
-;; has actually been fetched (a succeeded load that requested it), so a fully-historied
-;; asset never flashes a card while history is still loading.
 (def ^:private loaded-state-with-new
   {:status :succeeded
    :request-signature {:universe [btc-instrument new-perp-instrument]}})
@@ -157,8 +154,6 @@
            (get-in card [:actions :apply])))))
 
 (deftest history-assumption-cards-guardrails-read-edited-off-seed-test
-  ;; Editing either guardrail away from its behavior seed (vol 0.8, proxy cap
-  ;; 0.05) flips the drawer's tag from Auto-set to Edited.
   (let [universe [btc-instrument new-perp-instrument]
         draft {:universe universe
                :objective {:kind :minimum-variance}
@@ -198,10 +193,6 @@
      :observations n}))
 
 (deftest history-assumption-cards-preview-the-model-adjusted-basket-test
-  ;; When the readiness request carries the overlap series, the card runs the
-  ;; SAME domain pipeline the engine will run and previews the regression
-  ;; estimate and the confidence-shrunk final basket - no more equal prior
-  ;; presented as the model's output.
   (let [universe [btc-instrument eth-instrument
                   {:instrument-id "perp:NEW" :market-type :perp :coin "NEW"}]
         draft {:universe universe
@@ -280,10 +271,6 @@
     (is (true? (:applicable? model)))
     (is (true? (:all-configured? model)))
     (is (= 1 (:configured-count model)))
-    ;; The aggregate ready banner and the results-disclosure note are gone
-    ;; (2026-07-10 comprehension pass): "ready" belongs to the run verdict +
-    ;; Data health, and the disclosure fact is the folded :proxy-history-used
-    ;; data note.
     (is (not (contains? model :ready-message)))
     (is (not (contains? model :disclosure-note)))
     (is (= "perp:NEW" (:instrument-id row)))
@@ -305,9 +292,6 @@
               (:summary-pairs row)))))
 
 (deftest history-assumption-cards-hidden-while-history-still-loading-test
-  ;; Regression: before history loads, readiness reports every asset as :missing
-  ;; (nothing aligned yet). A fully-historied asset (e.g. DOGE) must NOT be carded
-  ;; until its history has actually been fetched.
   (let [draft {:universe [btc-instrument new-perp-instrument]
                :objective {:kind :minimum-variance}
                :history-assumptions {}}
@@ -325,12 +309,6 @@
     (is (empty? (:cards idle)))))
 
 (deftest history-assumption-cards-read-observations-from-aligned-history-test
-  ;; Production regression (live-session finding, 2026-07-05): real sessions load
-  ;; optimizer history through the api-v2 backend, so the state-side
-  ;; :candle-history-by-coin map is EMPTY and the old state-only observation
-  ;; count returned nil for every asset - thin-history detection never fired.
-  ;; The count must come from the aligned history's raw per-instrument series
-  ;; carried on the readiness request.
   (let [soph {:instrument-id "perp:SOPH" :market-type :perp :coin "SOPH"}
         universe [btc-instrument soph]
         readiness {:request {:requested-universe universe
@@ -342,7 +320,7 @@
                                         "perp:SOPH" (vec (repeat 180 {:close 1}))}}}
                    :blocking-warnings []}
         model (view-model/history-assumption-cards
-               {} ;; NO state-side candles - the api-v2 production shape.
+               {}
                {:universe universe
                 :objective {:kind :minimum-variance}
                 :history-assumptions {}}
@@ -362,9 +340,6 @@
         "The full-history asset remains manually addable (with its aligned day count in the option label); the carded one is not listed twice.")))
 
 (deftest history-assumption-cards-flag-short-but-present-history-test
-  ;; An asset with thin-but-present history (e.g. SKR's ~75 daily candles) clears the
-  ;; engine's tiny minimum (status :sufficient) but is below the user-facing threshold,
-  ;; so it should still be offered a card; an asset with ample history should not.
   (let [skr {:instrument-id "perp:SKR" :market-type :perp :coin "SKR"}
         draft {:universe [btc-instrument skr]
                :objective {:kind :minimum-variance}
@@ -376,7 +351,6 @@
         state {:portfolio
                {:optimizer
                 {:history-data
-                 ;; SKR has only ~75 daily candles; BTC has the full ~1-year fetch cap.
                  {:candle-history-by-coin
                   {"SKR" (vec (repeat 75 {:time 1 :close "1"}))
                    "BTC" (vec (repeat 365 {:time 1 :close "1"}))}}}}}
@@ -390,10 +364,6 @@
         "An asset with ample history is not flagged.")))
 
 (deftest history-assumption-cards-addable-assets-sort-by-day-count-test
-  ;; The manual entry dropdown ranks by native return-day count ASCENDING so the
-  ;; assets limiting the shared covariance window sit at the top - the user
-  ;; proxies out the most limiting asset first instead of guessing. Unknown
-  ;; counts (history still loading) sink to the bottom with a bare label.
   (let [sol {:instrument-id "perp:SOL" :market-type :perp :coin "SOL"}
         pending {:instrument-id "perp:PEND" :market-type :perp :coin "PEND"}
         universe [btc-instrument sol pending]
@@ -430,11 +400,6 @@
         "Fewest days first; unknown counts last with no claimed count.")))
 
 (deftest history-assumption-cards-separate-engine-backing-from-acceptance-test
-  ;; Two different questions, two different keys. `:engine-applied?` /
-  ;; `:status :configured` answer "can the engine back this?"; `:configured?`
-  ;; additionally requires the user's yes. The queue's "settled" is the latter,
-  ;; so conflating them would mark an entry the user edited since accepting as
-  ;; done and stop asking about it.
   (let [conservative {:behavior :conservative
                       :expected-return 0.0
                       :volatility 0.8
@@ -469,10 +434,6 @@
       (is (false? (:configured? card))))))
 
 (deftest history-assumption-cards-unconfigured-sort-above-configured-test
-  ;; A card that still needs assumptions floats above a configured one even when
-  ;; the configured asset comes first in universe order, so the asset the user
-  ;; must act on is never buried beneath a finished one. Within each group the
-  ;; universe order is preserved (stable sort), so the ordering stays predictable.
   (let [complete-entry {:behavior :conservative
                         :expected-return 0.0
                         :volatility 0.8
@@ -484,7 +445,6 @@
                           :max-weight 0.03
                           :correlation-floor 0.75}
         inst (fn [id] {:instrument-id id :market-type :perp :coin id})
-        ;; Universe interleaves configured (A, C) and unconfigured (B, D).
         universe [(inst "perp:ACFG") (inst "perp:BNEED")
                   (inst "perp:CCFG") (inst "perp:DNEED")]
         draft {:universe universe
@@ -506,4 +466,3 @@
         "Unconfigured cards float to the top; within each group universe order is preserved.")
     (is (= [:incomplete :incomplete :configured :configured]
            (mapv :status cards)))))
-

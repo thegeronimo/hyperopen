@@ -6,12 +6,10 @@
 (def default-hyperunit-lifecycle-state lifecycle/default-hyperunit-lifecycle-state)
 (def normalize-hyperunit-lifecycle lifecycle/normalize-hyperunit-lifecycle)
 (def default-hyperunit-fee-estimate-state lifecycle/default-hyperunit-fee-estimate-state)
-(def normalize-hyperunit-fee-estimate lifecycle/normalize-hyperunit-fee-estimate)
 (def default-hyperunit-withdrawal-queue-state lifecycle/default-hyperunit-withdrawal-queue-state)
 (def normalize-hyperunit-withdrawal-queue lifecycle/normalize-hyperunit-withdrawal-queue)
 
 (def default-funding-modal-state modal-actions/default-funding-modal-state)
-(def modal-open? modal-actions/modal-open?)
 (def funding-modal-view-model modal-actions/funding-modal-view-model)
 (def open-funding-send-modal modal-actions/open-funding-send-modal)
 (def open-funding-deposit-modal modal-actions/open-funding-deposit-modal)

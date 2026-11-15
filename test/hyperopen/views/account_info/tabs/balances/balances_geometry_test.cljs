@@ -17,9 +17,9 @@
    headless probe)."
   960)
 
-(def ^:private row-padding-px 12)  ; px-3
+(def ^:private row-padding-px 12)
 
-(def ^:private column-gap-px 16)   ; gap-x-4
+(def ^:private column-gap-px 16)
 
 (def ^:private transfer-column-index 6)
 

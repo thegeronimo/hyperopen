@@ -51,18 +51,9 @@
                                (format-number upper))
       lower? (str "expected at least " (format-number lower))
       upper? (str "expected at most " (format-number upper))
-      ;; No finite bound at all cannot produce a violation (within-lower?/
-      ;; within-upper? both pass), so this arm exists only for totality.
       :else "expected within its bounds")))
 
 (def ^:private no-value-phrase
-  ;; A row whose VALUE could not be computed at all -- a :turnover L1 row whose
-  ;; :current-weights are absent or the wrong length, or a linear row whose
-  ;; coefficients do not match the returned weight vector -- used to render as
-  ;; "... but solver returned N/A.": a sentence shaped like a numeric
-  ;; comparison with a non-number spliced into the number's place. That reads
-  ;; as corrupt data rather than as the missing input it actually is, which is
-  ;; the same wart `range-phrase` fixed for a missing BOUND.
   "but the solver returned no value for this row")
 
 (defn- comparison-message
@@ -159,9 +150,6 @@
                                 (constraint-label equality "equality")
                                 (str "expected " (format-number target))
                                 value)
-                               ;; A non-finite :target is a broken encoding, not
-                               ;; a number the solver missed; say that instead of
-                               ;; "expected N/A but solver returned 0.0000."
                                (str (constraint-label equality "equality")
                                     " target is not a finite number."))}))))
        vec))
@@ -181,9 +169,6 @@
                     :lower lower
                     :upper upper
                     :value value
-                    ;; `value` is nil whenever the row's coefficients do not
-                    ;; line up with the returned weights, so this message has
-                    ;; the same missing-value case the L1 rows do.
                     :message (comparison-message
                               (constraint-label inequality "inequality")
                               (range-phrase lower upper)
@@ -219,11 +204,6 @@
                     :constraint-code (:code constraint)
                     :max max-value
                     :value value
-                    ;; `l1-constraint-value` returns nil for a :turnover row
-                    ;; whose :current-weights are missing or the wrong length
-                    ;; (and for any code it cannot evaluate), which is exactly
-                    ;; the case that used to print "limit 2.0000 but solver
-                    ;; returned N/A.".
                     :message (if (math/finite-number? max-value)
                                (comparison-message
                                 (constraint-label constraint "L1 constraint")
@@ -285,47 +265,6 @@
       (assoc :equal-risk (:equal-risk result)))))
 
 (def ^:private solver-declined-arms
-  ;; infrastructure.osqp classifies the raw primal vector BEFORE decoding it and,
-  ;; when the solve produced no usable point, returns {:status :infeasible
-  ;; :reason <a :solver-reason below>} carrying NO :weights. Such a result gives
-  ;; `solver-result-violations` nothing to re-derive, so the solver's own
-  ;; diagnosis is what the run repeats -- the generic "did not return any
-  ;; feasible solution" copy would throw it away.
-  ;;
-  ;; The two outcomes are NOT the same fact and must not collapse onto one
-  ;; run-level reason:
-  ;;
-  ;; - :solver-primal-infeasible is the OSQP_NAN sentinel, which OSQP writes
-  ;;   into every element of solution->x exactly when it declined to produce a
-  ;;   point because it diagnosed the problem as infeasible. That is the
-  ;;   solver's certificate about the REQUEST, so it earns
-  ;;   :constraints-unsatisfiable, which the banner headlines as "no portfolio
-  ;;   satisfies every constraint".
-  ;; - :solver-solution-outside-constraints is OUR residual check rejecting a
-  ;;   point OSQP DID return -- an unconverged iterate, in the terms of
-  ;;   `worst-row-violation` in infrastructure.osqp. It carries no certificate
-  ;;   and proves nothing about the request: the constraint set may well be
-  ;;   satisfiable and the solver simply failed to land inside it. Headlining
-  ;;   that as unsatisfiable asserts something we never established, and sends
-  ;;   the user editing constraints that may never have been the problem, so it
-  ;;   gets a run-level reason of its own.
-  ;;
-  ;; ORDER IS PRECEDENCE, and it decides which declined result speaks for a run
-  ;; that produced both kinds -- a certificate outranks a bad point rather than
-  ;; plan order deciding. Within one sweep every point is handed the SAME A/l/u
-  ;; (the sweep varies only the linear term, see `structural-key` in
-  ;; infrastructure.osqp), so a primal infeasibility diagnosed at any point is a
-  ;; statement about the constraint set the whole sweep shares, while a
-  ;; row-check rejection is local to the one point that returned badly. Within
-  ;; an arm the first rejection in plan order wins, so the choice is
-  ;; deterministic either way.
-  ;;
-  ;; One entry per arm keeps the run reason and its fallback copy from drifting
-  ;; apart, and a solver reason that is absent here is simply not treated as
-  ;; declined -- it falls through to the generic arms below rather than
-  ;; inheriting a headline that was written for a different diagnosis. Which
-  ;; reason the solver actually reported stays visible per rejection under
-  ;; [:details :rejected-results] and in the solver's own :message.
   [{:solver-reason :solver-primal-infeasible
     :run-reason :constraints-unsatisfiable
     :fallback-message
@@ -369,9 +308,6 @@
                                   :violations (vec (concat
                                                     (self-reported-violations result)
                                                     (solver-result-violations result)))}
-                           ;; Iterative strategies attach a specific failure
-                           ;; reason/message (e.g. :equal-risk-no-feasible-start);
-                           ;; carry them so the run banner can say why.
                            (:reason result) (assoc :reason (:reason result))
                            (:message result) (assoc :message (:message result))))))
        vec))

@@ -47,20 +47,11 @@
 (defn format-total [total & {:keys [decimals] :or {decimals 0}}]
   (orderbook-policy/format-total total :decimals decimals))
 
-(defn calculate-spread [best-bid best-ask]
-  (orderbook-policy/calculate-spread best-bid best-ask))
-
 (defn calculate-cumulative-totals [orders]
   (orderbook-policy/calculate-cumulative-totals orders))
 
 (defn normalize-size-unit [size-unit]
   (if (= size-unit :quote) :quote :base))
-
-(defn base-symbol-from-coin [coin]
-  (instrument/base-symbol-from-value coin))
-
-(defn quote-symbol-from-coin [coin]
-  (or (instrument/quote-symbol-from-value coin) "USDC"))
 
 (defn resolve-base-symbol [coin market]
   (or (some-> (:display-name market) str not-empty)
@@ -162,17 +153,11 @@
 (defn order-total-for-unit [order size-unit]
   (orderbook-policy/order-total-for-unit order size-unit))
 
-(defn get-max-cumulative-total [orders size-unit]
-  (orderbook-policy/get-max-cumulative-total orders size-unit))
-
 (defn format-order-size [order size-unit]
   (orderbook-policy/format-order-size order size-unit))
 
 (defn format-order-total [order size-unit]
   (orderbook-policy/format-order-total order size-unit))
-
-(defn cumulative-bar-width [cum-size max-cum-size]
-  (orderbook-policy/cumulative-bar-width cum-size max-cum-size))
 
 (defn cumulative-bar-scale [cum-size max-cum-size]
   (orderbook-policy/cumulative-bar-scale cum-size max-cum-size))

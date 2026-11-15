@@ -31,9 +31,6 @@
             :request-id (fn [] "rid-1")})
           (.then
            (fn [body]
-             ;; Discovery carries the same deadline as the bundle request, so
-             ;; its init now includes an AbortSignal. Compare the addressing
-             ;; fields, then pin the signal separately.
              (is (= [["https://history.test/v1/optimizer/instruments"
                       {"method" "GET"
                        "headers" {"x-request-id" "rid-1"}}]]
@@ -94,14 +91,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest request-history-bundle-posts-canonical-target-id-for-proxied-hip3-test
-  ;; Regression guard for the "0 usable shared observations" bug: even for a HIP-3
-  ;; market with an approved, default-allowed, stitched trading-calendar (tiingo)
-  ;; proxy under approved-proxy-allowed policy, the request identity is the
-  ;; canonical backend target id — NEVER the proxy id (external:tiingo:*). The
-  ;; backend selects the proxy/stitched lineage itself from `proxy_policy`;
-  ;; sending the proxy id made it a bare external identity with a tiny cache and
-  ;; collapsed the shared calendar. (API_CONTRACT.md: instrument_id is the only
-  ;; accepted request identity.)
   (async done
     (let [calls (atom [])
           fetch-fn (fn [url init]
@@ -316,9 +305,6 @@
                     (done)))))))
 
 (deftest request-history-bundle-error-status-wins-over-partial-across-chunks-test
-  ;; A common-window-empty (status "error") chunk must not be masked by a
-  ;; :partial sibling chunk, and its per-instrument series stay served (an error
-  ;; bundle is usable data plus a loud warning, never an empty response).
   (async done
     (let [universe (mapv (fn [i]
                            {:instrument-id (str "perp:A" i)
@@ -372,10 +358,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest request-history-bundle-rejects-when-the-request-exceeds-its-timeout-test
-  ;; Without a deadline, history-load-state has no path out of :loading — it only
-  ;; moves on the fetch promise settling — so a hung request leaves the optimizer's
-  ;; Run summary spinning until the page is reloaded. Pre-change this test hangs
-  ;; and the async runner times it out.
   (async done
     (let [aborted? (atom false)]
       (-> (client/request-history-bundle!
@@ -386,7 +368,6 @@
                           (.addEventListener signal
                                              "abort"
                                              (fn [] (reset! aborted? true))))
-                        ;; Never settles.
                         (js/Promise. (fn [_resolve _reject])))}
            {:universe [{:instrument-id "perp:BTC"
                         :optimizer-history/instrument-id "hl:perp:BTC"}]
@@ -398,13 +379,10 @@
           (.catch (fn [err]
                     (is (= :timeout (aget err "status")))
                     (is (re-find #"timed out" (.-message err)))
-                    ;; The in-flight request is cancelled, not merely abandoned.
                     (is (true? @aborted?))
                     (done)))))))
 
 (deftest request-history-bundle-without-a-timeout-does-not-abort-test
-  ;; A non-positive timeout disables the deadline; the request must still work
-  ;; and must not attach an abort signal that something else could trip.
   (async done
     (-> (client/request-history-bundle!
          {:base-url "https://history.test"

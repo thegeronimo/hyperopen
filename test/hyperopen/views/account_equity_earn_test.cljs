@@ -51,7 +51,6 @@
              (select-keys with [:cross-margin-ratio :maintenance-margin :cross-account-leverage]))))))
 
 (deftest collateral-counts-and-borrows-are-netted-test
-  ;; 100 HYPE at $40 plus 5,000 USDC supplied, 2,000 USDC borrowed.
   (let [m (metrics-for (with-lending (base-state) account-a
                                      [{:token 0 :supplied 5000 :borrowed 2000}
                                       {:token 150 :supplied 100 :borrowed 0}]))]

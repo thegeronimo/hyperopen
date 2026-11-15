@@ -295,10 +295,6 @@
    :volume24h volume})
 
 (deftest candidate-limit-is-opts-scoped-so-shared-pickers-stay-bounded-test
-  ;; The six-cap is the ONLY bound on the proxy typeahead and on the results-page
-  ;; "Add to universe" popover, and that popover queries with a blank string
-  ;; against the whole catalog. It must stay the default; only callers that can
-  ;; render a long list opt out.
   (let [markets (mapv #(perp-market (str "PUMP" %) (- 100 %)) (range 12))
         state (state-with-markets markets)]
     (is (= 6 (count (universe-candidates/candidate-markets state [] "pump")))
@@ -312,9 +308,6 @@
                      state [] "pump" {:limit 3}))))))
 
 (deftest candidate-markets-excludes-market-types-the-universe-cannot-take-test
-  ;; Outcome (prediction) markets are concatenated into [:asset-selector :markets]
-  ;; upstream and market->universe-instrument refuses them, so "+ add" on one is a
-  ;; silent no-op. The old six-cap hid them; a full result list would not.
   (let [state (state-with-markets
                [(perp-market "PUMP" 100)
                 {:key "outcome:PUMP-2026"

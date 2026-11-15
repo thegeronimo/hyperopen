@@ -63,8 +63,6 @@
      (str (.toFixed (* 100 value) decimals) "%")
      "—")))
 
-;; --- Shared lane scale --------------------------------------------------------
-
 (defn lane-scale
   "One scale for every lane, fitted to the PRIMARY data — zero, every target,
   and every recommended share — padded and rounded to 5% so the domain reads
@@ -92,11 +90,6 @@
         pad (max 0.02 (* 0.08 (- hi0 lo0)))
         lo1 (- lo0 pad)
         hi1 (+ hi0 pad)
-        ;; Balance floor: once the book mixes signs, the smaller side gets at
-        ;; least 45% of the larger side's extent so the zero origin reads
-        ;; "between" the green and red bars — a tiny hedge no longer pins
-        ;; zero to the plot edge, and a purely one-sided book still uses the
-        ;; full width for its bars.
         mixed? (and (some #(< % -1e-9) values)
                     (some #(> % 1e-9) values))
         lo2 (if mixed? (min lo1 (* -0.45 hi1)) lo1)
@@ -106,8 +99,6 @@
         span (max 1e-9 (- hi lo))]
     {:lo lo
      :hi hi
-     ;; The uniform equal target rides along so lanes can suppress their
-     ;; per-row tick when it would only re-draw the continuous dashed line.
      :uniform-target target-share
      :x (fn [value]
           (-> (* 100 (/ (- value lo) span))
@@ -122,8 +113,6 @@
                  5)]
     (->> (range (js/Math.ceil (/ lo step)) (inc (js/Math.floor (/ hi step))))
          (map #(* step %)))))
-
-;; --- Plot ---------------------------------------------------------------------
 
 (defn- legend-row
   "Legend + the two right column heads. The per-row tick legend entry appears
@@ -209,9 +198,6 @@
               :data-sign (if negative? "negative" "positive")
               :style {:left (str (min x0 xs) "%")
                       :width (str (max 0.4 (js/Math.abs (- xs x0))) "%")}}])
-     ;; A per-row tick only where it says something the continuous dashed
-     ;; equal-target line does not — a per-instrument target off the uniform
-     ;; one. On plain Equal Risk every tick coincided with the line.
      (when (and (number? target-share)
                 (or (not (number? uniform-target))
                     (> (js/Math.abs (- target-share uniform-target)) 1e-9)))
@@ -311,8 +297,6 @@
      "Contribution to Total Volatility (%)"]
     [:span] [:span]]])
 
-;; --- Footnotes ----------------------------------------------------------------
-
 (defn- reading-note
   [{:keys [target-share negative-count] :as model}]
   [:p {:class ["optimizer-risk-balance-reading"]
@@ -399,8 +383,6 @@
             (when-let [start (:selected-initialization solver)]
               (str " · " (name start) " start")))])))
 
-;; --- Tabs ---------------------------------------------------------------------
-
 (defn- tab-label
   "A tab is a label wrapping its own visually-hidden radio: checked state
   lives in the DOM (never controlled by the render), and the scoped :has()
@@ -416,8 +398,6 @@
             :class ["sr-only"]
             :data-risk-view view}]
    text])
-
-;; --- Card ---------------------------------------------------------------------
 
 (defn risk-contributions-card
   "Renders nil unless the result carries the :risk-contributions section

@@ -110,8 +110,6 @@
     (is (empty? @calls))))
 
 (deftest user-equity-poller-refreshes-portfolio-routes-and-unified-accounts-test
-  ;; The Portfolio total counts vault equity for every account mode, so the
-  ;; refresh runs there too and is no longer skipped for unified accounts.
   (doseq [[label state]
           [["portfolio route" (assoc-in (active-trade-state account-a) [:router :path] "/portfolio")]
            ["unified account on /trade" (assoc-in (active-trade-state account-a) [:account :mode] :unified)]

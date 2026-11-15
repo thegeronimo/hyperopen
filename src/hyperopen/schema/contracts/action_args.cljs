@@ -95,20 +95,12 @@
 (s/def ::portfolio-optimizer-constraint-args
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-exposure-point-args
-  ;; [client-x client-y bounds-map buttons gross-axis-max net-axis-extent render-level] — pad
-  ;; pointer coordinates + resolved bounding rect + pressed-button bitmask + the baked fixed
-  ;; axis scale and its zoom level. All positional; coords/buttons are runtime-resolved, the
-  ;; scale/level are baked literals.
   (s/tuple any? any? any? any? any? any? any?))
 (s/def ::portfolio-optimizer-exposure-band-args
-  ;; [axis value render-level] — band axis + slider value + the baked zoom level the slider was
-  ;; rendered at (pins the pad scale so narrowing a band never shrinks the view mid-slide).
   (s/tuple ::common/keyword-or-string any? any?))
 (s/def ::portfolio-optimizer-key-value-args
   (s/tuple ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-zoom-level-args
-  ;; [level] — a zoom-level index baked into the dispatch by the view (disabled buttons never
-  ;; dispatch); the handler validates the integer range.
   (s/tuple number?))
 (s/def ::portfolio-optimizer-view-key-value-args
   (s/tuple ::common/non-empty-string ::common/keyword-or-string any?))
@@ -119,14 +111,10 @@
 (s/def ::portfolio-optimizer-scenario-id-args
   (s/tuple ::common/non-empty-string))
 (s/def ::portfolio-optimizer-draft-record-args
-  ;; [record] — a persisted draft record loaded from IndexedDB; the hydrate action
-  ;; migrates and spec-validates the contained draft before applying it.
   (s/tuple map?))
 (s/def ::portfolio-optimizer-instrument-id-args
   (s/tuple ::common/non-empty-string))
 (s/def ::portfolio-optimizer-universe-add-args
-  ;; [market-key] for a plain add, or [market-key choice] when answering the
-  ;; same-stock confirm (choice: swap | both | keep).
   (s/or :add (s/tuple ::common/non-empty-string)
         :resolve (s/tuple ::common/non-empty-string ::common/keyword-or-string)))
 (s/def ::portfolio-optimizer-instrument-side-args
@@ -136,11 +124,8 @@
 (s/def ::portfolio-optimizer-execution-row-param-args
   (s/tuple ::common/non-empty-string ::common/keyword-or-string any?))
 (s/def ::portfolio-optimizer-execution-overlap-cancel-args
-  ;; [oid cancel?] — oid is an exchange order id (number or string), cancel? a boolean.
   (s/tuple (s/or :number number? :string ::common/non-empty-string) boolean?))
 (s/def ::portfolio-optimizer-execution-exit-args
-  ;; [instrument-ids exit?] — instrument-ids is a collection (one id for the per-row
-  ;; toggle, many for the bulk sell-all control), exit? true = stage sell-to-zero.
   (s/tuple (s/coll-of ::common/non-empty-string :min-count 1) boolean?))
 (s/def ::portfolio-optimizer-universe-search-keydown-args
   (s/tuple ::common/non-empty-string
@@ -167,35 +152,19 @@
 (s/def ::action-id (s/and keyword?
                           #(= "actions" (namespace %))))
 (s/def ::margin-rec-now-args (s/tuple number?))
-;; The anchor slot carries the raw :event.currentTarget/bounds placeholder at
-;; dispatch-validation time (placeholders resolve after this check), so it must
-;; accept `any?` — mirrors ::position-margin-open-args / ::position-reduce-open-args.
 (s/def ::margin-rec-panel-args
   (s/or :key-only (s/tuple (s/nilable ::common/non-empty-string))
         :key-and-anchor (s/tuple (s/nilable ::common/non-empty-string) any?)))
 (s/def ::margin-rec-risk-mode-args
   (s/tuple (s/or :keyword keyword? :string string?)))
-;; Anchor slot carries the raw :event.currentTarget/bounds placeholder at
-;; dispatch-validation time, so it must accept `any?`.
 (s/def ::margin-rec-batch-toggle-args
   (s/or :none ::common/no-args
         :anchor-only (s/tuple any?)))
-;; --- custom chart range (design 1c) ---------------------------------------------------------
-;; The pointer slots carry raw :event/clientX, :event.currentTarget/bounds and
-;; :event/pointer-buttons placeholders at dispatch-validation time (placeholders
-;; resolve after this check), so every one of them must accept `any?` — the same
-;; reason ::portfolio-optimizer-exposure-point-args is all-`any?`. The domain
-;; slots are baked literals but stay `any?` for symmetry with the pair they
-;; travel with.
 (s/def ::chart-range-open-args
-  ;; [target seed-from-ms seed-to-ms] — which panel should show the strip
-  ;; (:chart / :metrics) plus the window currently on screen.
   (s/tuple any? any? any?))
 (s/def ::chart-range-drag-start-args
-  ;; [client-x bounds domain-from-ms domain-to-ms]
   (s/tuple any? any? any? any?))
 (s/def ::chart-range-drag-move-args
-  ;; [client-x bounds buttons domain-from-ms domain-to-ms]
   (s/tuple any? any? any? any? any?))
 
 (def ^:private core-action-args-spec-by-id

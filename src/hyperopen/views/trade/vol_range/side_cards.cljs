@@ -99,7 +99,6 @@
              (when enabled?
                [:div {:class ["flex" "flex-col" "gap-2"]}
                 (amount-field :buy buy base-symbol fe)
-                ;; In USDC mode the amount is the debit ceiling.
                 (when-not (= :quote amount-unit)
                   [:div {:class ["flex" "flex-col" "gap-1"]}
                    [:div {:class ["flex" "items-end" "gap-2"]}

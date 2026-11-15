@@ -8,9 +8,6 @@
   (async done
     (let [calls (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-          ;; The results snapshot attaches only when the run is CURRENT for the
-          ;; draft being saved: clean draft + succeeded run-state with a
-          ;; matching input signature.
           solved-run (fixtures/sample-last-successful-run
                       {:request-signature {:scenario-id "scn_3000"
                                            :input-signature "sig-current"}
@@ -109,11 +106,6 @@
             (.catch (async-support/unexpected-error done)))))))
 
 (deftest save-portfolio-optimizer-scenario-effect-updates-open-scenario-on-workspace-route-test
-  ;; /portfolio/optimize is the working page: saving with a loaded scenario
-  ;; updates THAT scenario in place instead of forking a copy. Fresh identity
-  ;; comes from the explicit "New scenario" action, which clears the active
-  ;; scenario before any save. Setup-only honesty: the fixture's run is stale
-  ;; (dirty draft), so the record persists without a saved-run snapshot.
   (async done
     (let [calls (atom [])
           address "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -172,7 +164,6 @@
                      (is (= "scn_old"
                             (get-in @store
                                     [:portfolio :optimizer :active-scenario :loaded-id])))
-                     ;; Saving from the workspace never navigates away.
                      (is (not-any? #(= :dispatch (first %)) @calls))
                      (done)))
             (.catch (async-support/unexpected-error done)))))))
@@ -608,8 +599,6 @@
                       (swap! calls conj [:dispatch effects]))]
         (-> (portfolio-optimizer-adapters/reset-portfolio-optimizer-draft-effect nil store)
             (.then (fn [_]
-                     ;; The IndexedDB record dies FIRST so the restore watchers
-                     ;; cannot resurrect the old draft into the fresh workspace.
                      (is (= [:delete-draft address] (first @calls)))
                      (is (= "Untitled Optimization"
                             (get-in @store [:portfolio :optimizer :draft :name])))

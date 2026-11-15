@@ -65,18 +65,12 @@
       (and ready? (= :caution (:level verdict)))
       {:ready? true :tone :caution :label (:label verdict)}
 
-      ;; A background reload over an already-loaded bundle. The run is allowed,
-      ;; so this stays ready-toned; the label just tells the truth about the
-      ;; fetch still in flight instead of claiming a settled "Ready to run".
       (and ready? (= :refreshing (:level verdict)))
       {:ready? true :tone :ready :label (:label verdict)}
 
       ready?
       {:ready? true :tone :ready :label "Ready to run"}
 
-      ;; Waiting on the holdings snapshot is a machine state, not a user task:
-      ;; it must win over the zero-asset "Add assets to run" instruction, which
-      ;; would tell the user to do the work the seed is about to do.
       (= :holdings-loading (:reason readiness))
       {:ready? false :tone :busy :label "Loading holdings"}
 
@@ -142,19 +136,8 @@
                        "disabled:bg-base-200/30" "disabled:text-trading-muted"
                        "disabled:shadow-none"]
                :data-role "portfolio-optimizer-run-draft"
-               ;; The button stays clickable while a universe is present even when
-               ;; readiness is not runnable: clicking is the intentional
-               ;; "run retries anything still missing" history-load affordance.
-               ;; Honesty lives in the status pill below, not by disabling the CTA.
-               ;; Row edits materialize views into the draft immediately, so BL no
-               ;; longer needs the objective-menu apply path to bulk-collect them:
-               ;; Run is the same plain action for every return model.
                :disabled (not run-triggerable?)
                :on {:click [[:actions/run-portfolio-optimizer-from-draft]]}}
-      ;; Goal language, not policy language: "safe defaults" described the app's
-      ;; internal posture and turned misleading the moment the user customized
-      ;; anything. The status-detail line below still names the exact
-      ;; objective/model being solved.
       (cond
         running? "Optimizing…"
         holdings-loading? "Loading holdings…"
@@ -167,9 +150,6 @@
                :data-role "portfolio-optimizer-save-scenario"
                :disabled saving-scenario?
                :on {:click [[:actions/open-portfolio-optimizer-scenario-save-modal]]}}
-      ;; Save works at ANY point: it snapshots a NAMED scenario (results attach
-      ;; only when a current solved run exists). The draft itself autosaves per
-      ;; wallet on every edit — see the "Saved <time>" note in the setup header.
       (if saving-scenario? "Saving" "Save scenario")]
      (when (and solved-run? result-path)
        (result-nav-button {:result-path result-path
@@ -185,10 +165,6 @@
                                      [:actions/open-portfolio-optimizer-execution]]}))
      [:div {:class ["flex" "max-w-full" "flex-col" "items-start" "gap-1.5" "font-mono"
                     "sm:ml-auto" "sm:min-w-[220px]" "sm:items-end" "sm:text-right"]}
-      ;; Status tag stays a small uppercase-mono TAG (0.75rem), but in the
-      ;; readable muted tier: when blocked it is the explanation of why Run is
-      ;; gated, so it cannot whisper at ~2:1 contrast (the old #444951/#5a5f68
-      ;; literals failed WCAG AA on the bar background).
       [:div {:class ["flex" "items-center" "gap-2" "text-[0.75rem]" "font-semibold"
                      "whitespace-nowrap" "uppercase" "tracking-[0.08em]"
                      (if ready? "text-trading-muted/80" "text-trading-muted")
@@ -204,9 +180,6 @@
        [:span (:label status)]
        [:span {:class ["text-trading-muted/50"]} "·"]
        [:span (str asset-count " assets")]]
-      ;; The detail line names the exact objective/model being solved — the most
-      ;; informative text in the bar, so it sits a tier brighter than the status
-      ;; tag above it (portfolio-regressions pins that relationship).
       [:div {:class ["max-w-full" "text-[0.6875rem]" "font-semibold" "normal-case"
                      "tracking-normal" "text-trading-text/90" "sm:max-w-[260px]"]
              :data-role "portfolio-optimizer-setup-bottom-actions-status-detail"}

@@ -46,9 +46,6 @@
 (defn- scene-shell
   [margin-rec]
   (layout/page-shell
-   ;; Tailwind only scans src/, so scene-only arbitrary classes never exist in
-   ;; the built CSS; inline style keeps the canvas iframe tall enough for the
-   ;; fixed-position popover.
    {:style {:min-height "900px"}}
    [:div (batch-panel/batch-panel margin-rec)]))
 
@@ -63,8 +60,6 @@
 
 (portfolio/defscene insufficient-collateral
   []
-  ;; Pool covers only the worst position; the footer says how much of the
-  ;; total is covered and how many positions would be skipped.
   (scene-shell (slice {:batch-available-pools {"xyz" 13.2}})))
 
 (portfolio/defscene still-modeling-others

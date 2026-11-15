@@ -252,10 +252,6 @@
                       :webdata2 {:clearinghouseState {:marginSummary {:accountValue 10}}}
                       :borrow-lend {:total-supplied-usd 0}}]
       (vm/portfolio-vm base-state)
-      ;; Deref the ATOMS, not the Vars holding them. `@#'vm/x` derefs the Var and
-      ;; hands back the atom itself, so `(:context <atom>)` is nil -- which made
-      ;; all three assertions here compare nil to nil and pass no matter what the
-      ;; caches did. Found while adding the candle-slot cache-key coverage below.
       (let [benchmark-cache @vm/benchmark-computation-context-cache
             performance-cache @vm/performance-metrics-model-cache
             chart-cache @vm/chart-model-cache]
@@ -347,7 +343,6 @@
       (is (= ["Returns" "Account Value" "PNL"]
              (mapv :label (get-in view-model [:chart :tabs])))))))
 
-
 (deftest portfolio-vm-returns-tab-uses-shared-portfolio-metrics-returns-source-test
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                               {:spot-equity 10
@@ -394,12 +389,6 @@
              (mapv :value (get-in view-model [:chart :points])))))))
 
 (deftest portfolio-vm-benchmark-context-ignores-candle-writes-it-never-reads-test
-  ;; The benchmark context used to cache-key on the identity of the WHOLE
-  ;; `[:candles]` map. The trades websocket handler writes
-  ;; `[:candles active-asset timeframe]` on a buffered interval regardless of
-  ;; route, so on /portfolio that identity check failed roughly twice a second
-  ;; and the entire benchmark pipeline re-derived for candles this page never
-  ;; draws. The key is now the specific `[coin interval]` slots it reads.
   (with-redefs [account-equity-view/account-equity-metrics (fn [_]
                                                              {:spot-equity 10
                                                               :perps-value 10
@@ -408,7 +397,6 @@
     (let [spy-rows [{:t 1 :c "100"} {:t 2 :c "101"}]
           base-state {:account {:mode :classic}
                       :portfolio-ui {:summary-scope :all
-                                     ;; 30D resolves to the :1h candle interval.
                                      :summary-time-range :month
                                      :chart-tab :returns
                                      :returns-benchmark-coins ["SPY"]}
@@ -426,12 +414,9 @@
                       :borrow-lend {:total-supplied-usd 0}}]
       (vm/portfolio-vm base-state)
       (let [first-context (:context @vm/benchmark-computation-context-cache)
-            ;; Exactly what the trades stream does on this route: writes a slot
-            ;; for the ACTIVE ASSET, which the portfolio benchmark never reads.
             unrelated (assoc-in base-state [:candles "BTC" :1h] [{:t 9 :c "60000"}])
             _ (vm/portfolio-vm unrelated)
             after-unrelated (:context @vm/benchmark-computation-context-cache)
-            ;; A write to a slot the benchmark DOES read must still invalidate.
             related (assoc-in base-state [:candles "SPY" :1h] (conj spy-rows {:t 3 :c "102"}))
             _ (vm/portfolio-vm related)
             after-related (:context @vm/benchmark-computation-context-cache)]

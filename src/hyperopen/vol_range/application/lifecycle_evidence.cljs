@@ -83,10 +83,6 @@
           grid
           (vals (:operations grid))))
 
-;; ---------------------------------------------------------------------------
-;; Placement delivery (spec 8.4)
-;; ---------------------------------------------------------------------------
-
 (defn- apply-leg-result [leg {:keys [placement-state order-state oid filled-base reason]} at-ms]
   (let [oid (oid-string oid)
         current (:placement-state leg)]
@@ -140,13 +136,7 @@
                       (cond (= :not-sent delivery) :not-sent
                             unresolved? :unresolved
                             :else :resolved))
-      ;; The delivery path proves a not-sent outcome (its HTTP call never
-      ;; started), unlike a recovery decision.
       (= :not-sent delivery) (assoc-in [:operations operation-id :not-sent-source] :delivery))))
-
-;; ---------------------------------------------------------------------------
-;; Orders snapshot (spec 8.6, 9.1)
-;; ---------------------------------------------------------------------------
 
 (defn apply-orders-snapshot
   "Apply raw open orders read for the grid's account. Presence accepts the leg
@@ -186,10 +176,6 @@
               :else g)))
         grid
         (vals (:legs grid)))))))
-
-;; ---------------------------------------------------------------------------
-;; Order status lookups (spec 8.6)
-;; ---------------------------------------------------------------------------
 
 (defn- status-kind [s]
   (cond (= "open" s) :open
@@ -254,10 +240,6 @@
     grid
     statuses)))
 
-;; ---------------------------------------------------------------------------
-;; Fills (spec 9.2, VR-14)
-;; ---------------------------------------------------------------------------
-
 (defn int-text
   "Venue time and trade id as integer text, whether they arrive as numbers
   (WebSocket and REST rows today) or numeric strings, so both sources give
@@ -311,16 +293,10 @@
                          (>= (precision/cmp (d filled) (d (:original-base leg*))) 0) (terminal leg* :filled received-at-ms)
                          (nil? (:order-state leg*)) (assoc leg* :order-state :unconfirmed)
                          :else leg*)]
-              ;; A new fill always changes the commitment, even when the leg
-              ;; record itself looks the same.
               (assoc-in (touch g leg leg* received-at-ms)
                         [:legs (:cloid leg) :settled-evidence-at-ms] received-at-ms)))))
       grid
       rows))))
-
-;; ---------------------------------------------------------------------------
-;; Cancel delivery (spec 10.1)
-;; ---------------------------------------------------------------------------
 
 (defn apply-cancel-delivery
   "Apply a cancel delivery ({:delivery ... :results [{:cloid :cancel-state}]}).

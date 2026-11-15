@@ -258,10 +258,6 @@
                    (done)))
           (.catch fail!)))))
 
-;; ---------------------------------------------------------------------------
-;; Review fixes (Reporting 1)
-;; ---------------------------------------------------------------------------
-
 (def busy-perp-fills
   "10,000 perp fills an hour after T0: more than the venue keeps."
   (mapv #(fx/fill-row {:coin "BTC" :side "B" :px "1" :sz "1" :time (+ t0 hour %) :tid % :oid (+ 100000 %)})
@@ -304,7 +300,6 @@
           until (+ t0 (* 5 hour))]
       (-> (backfill! w)
           (.then (fn [_]
-                   ;; Another build (or corruption) leaves a row this build cannot decode.
                    (swap! (:rows (:io w)) assoc-in [id :edn] "{:schema-version 99")
                    (executor/load! (:deps w) fx/account)))
           (.then (fn [loaded]

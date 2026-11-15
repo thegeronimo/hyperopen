@@ -26,7 +26,6 @@
   (or error
       (when (and (not preview-ok?)
                  (seq preview-message)
-                 ;; A blocked Transfer explains itself in its own card.
                  (not (and (= mode :transfer) transfer-blocked))
                  (or (not= mode :deposit)
                      deposit-step-amount-entry?)
@@ -85,7 +84,6 @@
            (not deposit-step-amount-entry?))
       (and withdraw?
            (not withdraw-step-amount-entry?))
-      ;; A HyperEVM run owns the modal until it ends; never resubmit from it.
       (and (= mode :transfer) (some? transfer-evm))
       (not preview-ok?)))
 

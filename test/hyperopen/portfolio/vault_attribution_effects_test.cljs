@@ -194,7 +194,6 @@
   (async done
     (let [store (new-store)
           calls (atom [])
-          ;; two rows share time 13 across the page boundary
           rows (vec (concat (map #(fx/deposit % fx/vault-a "1") (range 10 14))
                             [(assoc (fx/deposit 13 fx/vault-b "2") :hash "0xother")]
                             (map #(fx/deposit % fx/vault-b "1") (range 14 18))))]
@@ -255,9 +254,6 @@
                      (done))))))))
 
 (deftest fetch-probes-past-a-page-of-one-timestamp-test
-  ;; Page size 3; four rows share time 10, so re-reading from 10 returns the
-  ;; same page forever. A probe from 11 must find the newer rows (and say the
-  ;; ledger may be incomplete: the fourth row at 10 cannot be reached).
   (async done
     (let [store (new-store)
           calls (atom [])

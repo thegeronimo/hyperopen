@@ -122,6 +122,3 @@
       (emit! :log/message
              {:message (str/join " " (map str values))
               :args values}))))
-
-(def log-fn
-  log!)

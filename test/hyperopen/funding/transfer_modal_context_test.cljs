@@ -37,7 +37,6 @@
     (is (= false (:to-perp? saved)))))
 
 (deftest open-funding-transfer-modal-applies-spot-row-context-test
-  ;; Spot row context selects the default perps dex and the spot -> perps direction.
   (let [saved (saved-funding-modal
                (funding-actions/open-funding-transfer-modal (base-state) nil nil
                                                             {:dex ""
@@ -46,15 +45,12 @@
     (is (= true (:to-perp? saved)))))
 
 (deftest open-funding-transfer-modal-without-context-keeps-defaults-test
-  ;; The context-free global transfer modal keeps today's defaults.
   (let [saved (saved-funding-modal
                (funding-actions/open-funding-transfer-modal (base-state)))]
     (is (= "" (:transfer-dex saved)))
     (is (= true (:to-perp? saved)))))
 
 (deftest open-funding-transfer-modal-master-defaults-transfer-identity-test
-  ;; With no selected subaccount, the transfer sources from the connected wallet:
-  ;; destination defaults to that wallet and fromSubAccount stays empty.
   (let [saved (saved-funding-modal
                (funding-actions/open-funding-transfer-modal (base-state) nil nil
                                                             {:dex "xyz"
@@ -64,9 +60,6 @@
     (is (= "" (:transfer-from-subaccount saved)))))
 
 (deftest open-funding-transfer-modal-carries-selected-subaccount-identity-test
-  ;; A named-DEX balance shown for a selected, owner-controlled subaccount belongs to
-  ;; that subaccount: the modal must carry it as both transfer source and destination
-  ;; so the sendAsset sets fromSubAccount and lands in the subaccount's own spot.
   (let [saved (saved-funding-modal
                (funding-actions/open-funding-transfer-modal (selected-subaccount-state) nil nil
                                                             {:dex "xyz"

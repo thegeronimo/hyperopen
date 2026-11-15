@@ -66,22 +66,6 @@
   [x]
   (or (nil? x) (s/valid? ::repair-model x)))
 
-;; ---------------------------------------------------------------------------
-;; Replace (spec 10.2)
-;; ---------------------------------------------------------------------------
-;;
-;; REPLACE MODEL (`replace-model/replace-dialog-model`): nil when the update
-;; dialog is closed, or `replace-keys` with `step-keys` {:label :current?},
-;; `compare-row-keys` {:field :label :current :proposed}, `rejected-row-keys`
-;; {:logical-id :label :selected? :enabled?} and `:actions` (`action-keys`,
-;; each nil or a `control-keys` map {:label :enabled? :busy? :aria-label};
-;; `:abandon` is always present).
-;;
-;; BANNER MODEL (`replace-model/banner-model`): nil without an update, or
-;; `banner-keys` {:phase :title :message :lineage :replaces-footer?
-;; :open-update? :refresh-balances :busy?}; `:refresh-balances` is nil or
-;; {:enabled? :busy?}.
-
 (def replace-phases #{:preview :canceling :blocked :canceled :ready})
 (def replace-keys #{:grid-id :phase :stale-text :title :identity-line :steps :explainer :compare :settings-note
                     :quantity-note :phase-text :blocking :message :remaining-text :filled-text :included-text

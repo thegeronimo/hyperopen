@@ -8,13 +8,8 @@
             [hyperopen.views.account-info.tabs.trade-history.shared :as trade-shared]
             [hyperopen.utils.formatting :as fmt]))
 
-(def default-trade-history-sort trade-shared/default-trade-history-sort)
-(def trade-history-direction-filter-options trade-shared/trade-history-direction-filter-options)
-(def trade-history-direction-filter-labels trade-shared/trade-history-direction-filter-labels)
 (def trade-history-direction-filter-key trade-shared/trade-history-direction-filter-key)
 (def trade-history-sort-state trade-shared/trade-history-sort-state)
-(def sort-trade-history-by-column trade-shared/sort-trade-history-by-column)
-(def reset-trade-history-sort-cache! trade-shared/reset-trade-history-sort-cache!)
 
 (defn- empty-state [message]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-base-content

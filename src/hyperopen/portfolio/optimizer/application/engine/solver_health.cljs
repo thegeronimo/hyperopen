@@ -19,15 +19,6 @@
   This namespace turns that silence into one result warning."
   (:require [clojure.string :as str]))
 
-;; A run solves two separate batches: the selection problems, and the display
-;; frontier sweep. Which one dominates depends on the objective, so neither can
-;; be assumed to be the small one. Under :minimum-variance the selection often
-;; takes the closed-form path and never touches the QP solver at all, leaving
-;; the sweep as every solve in the run. Under :max-sharpe closed-form is
-;; rejected and the selection becomes its own multi-point sweep, roughly half
-;; the run's solves. Reading only :solver-results would miss the first case
-;; entirely and undercount the second.
-
 (def ^:private fallback-solver-ids
   "Solver ids that exist only because the primary solver failed.
   fallback.cljs relabels a recovered solve :quadprog-fallback rather than
@@ -35,9 +26,6 @@
   #{:quadprog-fallback})
 
 (def ^:private max-error-characters
-  ;; Enough to carry the operative clause of a browser CompileError -- the
-  ;; "violates the following Content Security policy directive" phrasing lands
-  ;; about 90 characters in -- without pasting a whole stack into the rail.
   200)
 
 (defn- fallback-result?

@@ -171,10 +171,6 @@
                    (= #{:perps :spot} (set [from to])) (= :perps to)
                    (contains? context :to-perp?) (true? (:to-perp? context))
                    :else true)
-        ;; A named-DEX balance shown for a selected owner-controlled subaccount belongs
-        ;; to it: source from it (`fromSubAccount`) and land in its own spot; owner still
-        ;; signs. `nil` vault = master active (wallet destination, empty fromSubAccount).
-        ;; Explicit context addresses (normalized) win, for direct request-builder tests.
         vault (account-context/exchange-vault-address state)
         ctx-destination (some-> (:destination context) account-context/normalize-address)
         ctx-from-subaccount (some-> (:from-subaccount context) account-context/normalize-address)
@@ -202,8 +198,6 @@
                                 (assoc modal :transfer-asset asset)
                                 from
                                 to)]
-                   ;; An asset the opener named is kept even before its
-                   ;; balance loads; the preview says why it cannot move yet.
                    (if (and asset (transfer-route/evm-route? (transfer-route/transfer-route routed)))
                      (assoc routed :transfer-asset asset)
                      routed)))]

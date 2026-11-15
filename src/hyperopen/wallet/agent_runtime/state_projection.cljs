@@ -89,7 +89,3 @@
   (swap! store update-in [:wallet :agent]
          (fn [agent-state]
            (apply dissoc (or agent-state {}) operation-keys))))
-
-(defn invalidate-operation!
-  [store operation-key]
-  (invalidate-operations! store operation-key))

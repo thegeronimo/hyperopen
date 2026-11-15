@@ -13,8 +13,6 @@
 
 (def first-window-day (js/Date.UTC 2026 9 5))
 
-;; Real source observation times (spec 7.3), deliberately distinct from now-ms
-;; so tests prove snapshots carry the source time, never the render clock.
 (def book-observed-ms (- now-ms 400))
 (def ctx-received-ms (- now-ms 1500))
 (def fees-loaded-ms (- now-ms 60000))
@@ -61,7 +59,6 @@
                :ui {:locale "en-US"}}]
     (-> state
         (assoc-in [:vol-range :draft-binding] (draft-scope/current-scope-key state))
-        ;; The daily series was fetched successfully "now": fresh for auto volatility.
         (assoc-in [:vol-range :daily-fetch "@107" :completed-at-ms] now-ms))))
 
 (defn apply-path-values

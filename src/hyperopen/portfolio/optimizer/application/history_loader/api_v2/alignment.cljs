@@ -79,7 +79,6 @@
     (mapv #(get by-time %) calendar)))
 
 (defn- points-by-local-id
-  ;; The calendar helpers consume id -> point rows; alignment carries id -> series.
   [series-by-local-id]
   (into {}
         (map (fn [[local-id series]]
@@ -151,19 +150,10 @@
   (contains? api-v2-display-data-warning-codes (:code warning)))
 
 (def ^:private proxy-extension-warning-codes
-  ;; Codes about the backend's OPTIONAL catalog-proxy lookback extension. When
-  ;; that extension fails validation the backend falls back to serving the
-  ;; asset's own native series, so the warning documents a shorter lookback -
-  ;; it must not reject the served series itself (live 2026-07-07: STRK's
-  ;; Tiingo extension failed quality checks while 870 usable native daily
-  ;; points were served, and the hard exclusion discarded all of them).
   #{:proxy-mapping-unapproved
     :proxy-validation-failed})
 
 (def ^:private own-history-lineage-kinds
-  ;; Lineages that are the asset's OWN realized history - the only series a
-  ;; failed-proxy warning may be forgiven against. A proxy-derived or unknown
-  ;; lineage stays hard-excluded when its proxy failed validation.
   #{:native :vault-derived})
 
 (defn- own-usable-series?
@@ -255,10 +245,6 @@
                                               local-id
                                               backend-id
                                               api-series)
-                           ;; The legacy series is only consulted when the api
-                           ;; series can't be used, and building it (candle +
-                           ;; funding normalization) dominates alignment cost —
-                           ;; never compute it for an instrument the api serves.
                            fallback-wanted? (and (not hard-api-warning?)
                                                  (legacy-fallback/series-fallback-needed?
                                                   api-series))
@@ -280,10 +266,6 @@
                         :legacy-fallback? legacy-fallback?
                         :series series}))
                    (or universe []))
-        ;; Pre-eligibility depth of each member's OWN served series. Readiness
-        ;; and the universe badges consume this so a degraded alignment (e.g. a
-        ;; collapsed shared calendar) can never blind them to how much history
-        ;; an excluded asset actually has.
         served-observations-by-instrument
         (into {}
               (keep (fn [{:keys [instrument-id series]}]
@@ -310,13 +292,6 @@
                                     fallback-local-ids
                                     (warning-local-id id-map %)
                                     %))
-                          ;; A failed OPTIONAL proxy lookback-extension on an
-                          ;; asset whose served series is its own usable native
-                          ;; history stays visible as information, but must not
-                          ;; read as a rejection anywhere downstream: pre-tag it
-                          ;; so status projection and run blocking skip it (live
-                          ;; 2026-07-08: POL aligned on 658 native days yet
-                          ;; badged "No history" off its forgiven warning).
                           (mapv (fn [warning]
                                   (cond-> warning
                                     (forgiven-proxy-warning?
@@ -342,11 +317,6 @@
                                                         instrument-id))
                                         (not= :rejected (:lineage-kind series))))
                                  rows)
-        ;; Members whose own series is long but sampled far too coarsely to share
-        ;; a daily calendar (a downsampled vault history). They stay in the
-        ;; universe and are estimated by the mixed-frequency pairwise path from
-        ;; their native rows; they never join the intersection below, so they
-        ;; cannot shrink anyone else's window. See history-loader.api-v2.sparse-lane.
         off-calendar-cadence-by-id (sparse-lane/cadence-by-id
                                     base-candidates
                                     #(usable-aligned-returns? api-v2-history
@@ -358,7 +328,6 @@
                                                         (:instrument-id %)))
                                        base-candidates)
                               base-candidates)
-        ;; Reject superset calendars that omit an actual member-valid timestamp.
         candidate-series-by-id (into {}
                                      (map (juxt :instrument-id :series))
                                      calendar-candidates)
@@ -367,9 +336,6 @@
                                             (map :points (vals candidate-series-by-id)))]
                                 [common (point-level-return-calendar
                                          candidate-series-by-id common)]))
-        ;; Deliberately still the FULL candidate set: an off-calendar member the
-        ;; backend also served would otherwise read as an unexpected extra key and
-        ;; falsely trip calendar-poisoned?.
         response-superset? (let [member? (set (map :instrument-id base-candidates))]
                              (boolean
                               (some #(not (member? %))
@@ -414,9 +380,6 @@
                                     :warning (missing-series-warning instrument
                                                                     series))
 
-                             ;; In the universe, off the shared calendar. Must sit
-                             ;; ABOVE use-aligned? so a member the backend happens
-                             ;; to have aligned still takes the lane.
                              (contains? off-calendar-local-ids instrument-id)
                              (assoc row
                                     :excluded? false
@@ -452,10 +415,6 @@
                              :else
                              (assoc row :excluded? false))))
                        rows)
-        ;; ONE predicate for shared-calendar membership, used by BOTH `eligible`
-        ;; bindings (here and after the peel below). A lane row carries
-        ;; :excluded? false, so filtering only the first binding would let any
-        ;; peel silently re-admit every lane member to the calendar.
         calendar-member? (fn [row]
                            (and (not (:excluded? row))
                                 (not (:off-calendar? row))))
@@ -465,12 +424,7 @@
                                  (map (fn [{:keys [instrument-id series]}]
                                         [instrument-id series]))
                                  eligible)
-        ;; Lane members must not force the client-side calendar recompute below:
-        ;; they are not on the calendar at all, so the backend's clean
-        ;; common_calendar stays usable for everyone else.
         legacy-fallback-used? (seq (remove off-calendar-local-ids fallback-local-ids))
-        ;; A poisoned response taints the price calendar too — recompute it from
-        ;; the eligible members' own series instead of adopting the backend's.
         effective-calendar (if (and (seq (:common-calendar api-v2-history))
                                     (not legacy-fallback-used?)
                                     (not calendar-poisoned?))
@@ -501,11 +455,6 @@
                                                                 effective-return-calendar))
         common-gap? (< (count effective-return-calendar)
                        min-return-observations)
-        ;; A collapsed shared calendar used to exclude EVERY member behind one
-        ;; anonymous universe-level warning (live 2026-07-08: a 6-day listing
-        ;; disjoint from a stale-ended series nuked a 79-asset universe, and the
-        ;; UI blamed the healthy assets). Peel the poisoning members instead:
-        ;; each is excluded individually with its own warning, the rest align.
         peel (when (and common-gap? (> (count eligible) 1))
                (calendar/peel-poisoning-members
                 (points-by-local-id series-by-local-id)
@@ -554,11 +503,6 @@
                           {:code :insufficient-common-history
                            :observations (count effective-return-calendar)
                            :required min-return-observations})
-        ;; calendar-eligible = shared-calendar members (feed the calendar-sampled
-        ;; maps). effective-eligible = everything that stays in the run, lane
-        ;; members included (feeds the NATIVE maps the mixed-frequency estimator
-        ;; reads). A collapsed calendar still drops the calendar members, but the
-        ;; lane does not depend on the calendar and survives it.
         calendar-eligible (if common-gap? [] eligible)
         off-calendar-rows (filterv :off-calendar? prepared)
         lane-series-by-local-id (into {}
@@ -585,22 +529,11 @@
                                   api-warnings)
                           legacy-fallback-warnings
                           (keep :warning prepared)
-                          ;; Funding disclosure covers lane members too - it is
-                          ;; perp-gated and reads only the member's own series, so
-                          ;; it is correct off the calendar. plausibility-warnings
-                          ;; deliberately stays calendar-only: its copy states the
-                          ;; bar "was discarded before estimating risk", which is
-                          ;; true of calendar/point-return-map but NOT of the lane,
-                          ;; where pair-estimate reads the raw close.
                           (keep (fn [{:keys [instrument series]}]
                                   (funding-warning instrument series))
                                 (into eligible off-calendar-rows))
                           (calendar/plausibility-warnings eligible)
                           (when history-warning [history-warning])))
-        ;; Calendar-sampled maps stay CALENDAR-ONLY: sampling a lane member on a
-        ;; calendar it never joined would hand the solver a vector of nils, and
-        ;; letting it into source-series would let history-window name it as the
-        ;; window-limiting instrument.
         price-series-by-instrument (into {}
                                          (keep (fn [{:keys [instrument-id series]}]
                                                  (when (seq (:points series))
@@ -619,13 +552,7 @@
                          :return-calendar effective-return-calendar
                          :return-intervals return-intervals
                          :source-series-by-instrument source-series-by-instrument})
-        ;; THE load-bearing line: native metadata over calendar members AND lane
-        ;; members, so a lane member gets :raw-price-series, :cadence and the
-        ;; expected-return maps the mixed-frequency estimator reads.
         native-history (history-series/native-history-metadata-for-series effective-eligible)
-        ;; The lane's own cadence carries :off-calendar? so domain.constraints can
-        ;; cap it - sparse-safety-max-weight's ladder returns nil above 59
-        ;; intervals, which would leave a deep lane member uncapped.
         cadence-by-instrument (reduce (fn [acc local-id]
                                         (cond-> acc
                                           (contains? acc local-id)
@@ -663,15 +590,8 @@
                                 :status (:status api-v2-history)
                                 :dataset-version (:dataset-version api-v2-history)
                                 :observations (count effective-calendar)}}
-      ;; Emitted ONLY when the lane is populated. `optimizer-input-signature`
-      ;; hashes the whole :history map minus :freshness, so emitting these
-      ;; unconditionally would change every existing scenario's signature and
-      ;; mass-invalidate cached results.
       (seq off-calendar-rows)
       (assoc :off-calendar-instrument-ids (mapv :instrument-id off-calendar-rows)
-             ;; request-builder re-stamps :freshness from the shared calendar
-             ;; after alignment returns; an all-lane universe has none, and
-             ;; calendar/freshness reports stale? true for an empty calendar.
              :freshness-calendar (if (seq effective-calendar)
                                    effective-calendar
                                    (->> (vals lane-series-by-local-id)

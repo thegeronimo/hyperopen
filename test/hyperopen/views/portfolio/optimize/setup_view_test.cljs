@@ -41,10 +41,6 @@
     (is (nil? (node-by-role view-node "portfolio-optimizer-provenance-strip")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-header")))
     (is (some? (node-by-role view-node "portfolio-optimizer-setup-status-tag")))
-    ;; The top "Start with" preset row is retired: the two canonical presets are
-    ;; now the PRIMARY Optimization goal cards, which apply the SAME preset action
-    ;; (objective + its return-model pairing move together). The old preset-row and
-    ;; the merged "Risk-adjusted" / "Use my views" roles must be gone.
     (is (nil? (node-by-role view-node "portfolio-optimizer-setup-preset-row")))
     (is (= [[:actions/apply-portfolio-optimizer-setup-preset :conservative]]
            (click-actions
@@ -54,9 +50,6 @@
            (click-actions
             (node-by-role view-node
                           "portfolio-optimizer-objective-max-sharpe"))))
-    ;; Equal Risk is the parameterless third PRIMARY card (between Minimum risk
-    ;; and Maximum Sharpe): it sets only the objective, leaving the return model
-    ;; untouched (forecasts never move Equal Risk weights).
     (is (= [[:actions/set-portfolio-optimizer-objective-kind :equal-risk]]
            (click-actions
             (node-by-role view-node
@@ -67,8 +60,6 @@
     (is (= true
            (get-in (node-by-role view-node "portfolio-optimizer-run-draft")
                    [1 :disabled])))
-    ;; Save is available at any point — a pre-run save persists a setup-only
-    ;; named scenario, so an empty fresh workspace still offers it.
     (is (= false
            (boolean
             (get-in (node-by-role view-node "portfolio-optimizer-save-scenario")
@@ -161,8 +152,6 @@
            (change-actions
             (node-by-role view-node
                           "portfolio-optimizer-constraint-rebalance-tolerance-input"))))
-    ;; The advanced targets under "More goals" set only the objective (no
-    ;; return-model pairing), unlike the two canonical-path cards above.
     (is (= [[:actions/set-portfolio-optimizer-objective-kind :target-volatility]]
            (click-actions (node-by-role view-node "portfolio-optimizer-objective-target-volatility"))))
     (is (= [[:actions/set-portfolio-optimizer-return-model-kind :black-litterman]]
@@ -215,10 +204,7 @@
         volatility-role "portfolio-optimizer-objective-target-volatility-input"
         view-for #(portfolio-optimizer-setup-view {:kind % :target-return 0.18 :target-volatility 0.25})
         action-for #(change-actions (node-by-role (view-for %1) %2))]
-    ;; Target Return is now percent-entry (commits on change like Target σ) and routes through
-    ;; the percent handler that divides by 100, so a typed 15 means 15% — not 1500%.
     (is (= [[:actions/set-portfolio-optimizer-objective-parameter-percent :target-return [:event.target/value]]] (action-for :target-return return-role)))
-    ;; the field echoes the interpreted percent (0.18 -> "18"), not the raw fraction "0.18"
     (is (= "18" (get-in (node-by-role (view-for :target-return) return-role) [1 :value])))
     (is (= [[:actions/set-portfolio-optimizer-objective-parameter-percent :target-volatility [:event.target/value]]]
            (change-actions (node-by-role (view-for :target-volatility) volatility-role)))
@@ -358,16 +344,11 @@
                              "portfolio-optimizer-objective-menu-view-perp:BTC-confidence-high")
         run-button (node-by-role view-node "portfolio-optimizer-run-draft")
         strings (set (collect-strings view-node))]
-    ;; The BL trust explainer is a collapsed disclosure inside the standard
-    ;; policy-pane tail — no dedicated center workspace, no BL panel.
     (is (some? blend-shell))
     (is (some? (node-by-role blend-shell
                              "portfolio-optimizer-setup-use-my-views-context")))
     (is (contains? strings "How your views shape the forecast"))
     (is (nil? (node-by-role view-node "portfolio-optimizer-black-litterman-panel")))
-    ;; A views-aware (Black-Litterman) draft is the Maximum Sharpe goal: its
-    ;; primary card is selected and Minimum risk is not. The third "Use my views"
-    ;; card is gone.
     (is (= "true"
            (get-in (node-by-role view-node
                                  "portfolio-optimizer-objective-max-sharpe")
@@ -377,16 +358,9 @@
                                  "portfolio-optimizer-objective-minimum-variance")
                    [1 :aria-pressed])))
     (is (nil? (node-by-role view-node "portfolio-optimizer-setup-preset-use-my-views")))
-    ;; Live provenance counts (1 authored view over a 2-asset universe) thread
-    ;; through the Maximum Sharpe goal-card kicker, the scenario contract's Returns
-    ;; row, and the rail editor's summary line.
     (is (contains? strings "1 your view · 1 implied"))
-    ;; Views are edited in the always-present right-rail "Return views" panel.
     (is (contains? strings "Return views"))
     (is (some? inline-editor))
-    ;; Under Maximum Sharpe the per-asset forecasts DRIVE the result: the rail
-    ;; editor must be expanded by default (owner review 2026-07-04), while
-    ;; staying a collapsible <details> the user can tuck away.
     (is (= :details (first inline-editor)))
     (is (true? (get-in inline-editor [1 :open])))
     (is (contains? editor-strings "Used by Maximum Sharpe"))
@@ -410,17 +384,10 @@
              "perp:BTC"
              :high]]
            (click-actions btc-confidence-high)))
-    ;; Row edits materialize views into the draft immediately, so Run is the same
-    ;; plain draft action for every return model — no BL apply-and-run special case.
     (is (= [[:actions/run-portfolio-optimizer-from-draft]]
            (click-actions run-button)))))
 
 (deftest portfolio-optimizer-equal-risk-with-black-litterman-demotes-views-editor-test
-  ;; Regression: Maximum Sharpe activates Black-Litterman, and switching to
-  ;; Equal Risk sets only the objective — the return model stays views-aware.
-  ;; Equal Risk never consumes return forecasts, so the rail must demote the
-  ;; full views editor to the inactive one-liner instead of keeping per-asset
-  ;; return inputs on screen that cannot move the weights.
   (let [view-node (portfolio-view/portfolio-view
                    {:router {:path "/portfolio/optimize/new"}
                     :portfolio {:optimizer
@@ -451,8 +418,5 @@
                             "portfolio-optimizer-objective-menu-view-row-perp:BTC")))
     (is (some? inactive-note))
     (is (contains? (set (collect-strings inactive-note)) "Not used by Equal Risk"))
-    ;; The one-click escape hatch switches the GOAL (preset), not just the
-    ;; return model — under a return-free objective flipping the model alone
-    ;; would change nothing.
     (is (= [[:actions/apply-portfolio-optimizer-setup-preset :max-sharpe]]
            (click-actions activate)))))

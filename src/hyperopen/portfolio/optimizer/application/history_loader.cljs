@@ -3,17 +3,8 @@
             [hyperopen.portfolio.optimizer.application.history-loader.api-v2 :as api-v2]
             [hyperopen.portfolio.optimizer.application.history-loader.request-plan :as request-plan]))
 
-(def default-interval
-  request-plan/default-interval)
-
 (def default-bars
   request-plan/default-bars)
-
-(def default-priority
-  request-plan/default-priority)
-
-(def default-min-observations
-  alignment/default-min-observations)
 
 (def default-funding-periods-per-year
   alignment/default-funding-periods-per-year)

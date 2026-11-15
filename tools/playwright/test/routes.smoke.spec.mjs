@@ -38,7 +38,6 @@ test("trade desktop header links Earn to /earn and includes Referrals link @smok
   await expect(headerNav.getByRole("link", { name: "Trade", exact: true })).toBeVisible();
   await expect(headerNav.getByRole("link", { name: "Vaults", exact: true })).toBeVisible();
   await expect(headerNav.getByRole("link", { name: "Referrals", exact: true })).toBeVisible();
-  // Earn was once a dead placeholder link; it now opens the /earn route.
   await expect(headerNav.getByRole("link", { name: "Earn", exact: true })).toHaveAttribute("href", "/earn");
 });
 

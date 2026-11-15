@@ -460,9 +460,6 @@
                           :asset asset-id
                           :isBuy is-buy
                           :ntli ntli}
-                 ;; Local-only metadata (never sent to the exchange): batch and
-                 ;; auto top-up submit one request per position, so the success
-                 ;; toast needs to name the position this request belongs to.
                  :position {:coin (:coin modal)
                             :dex (:dex modal)
                             :side (:position-side modal)}}})))

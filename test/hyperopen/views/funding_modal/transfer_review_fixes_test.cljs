@@ -38,8 +38,6 @@
 (defn- hidden? [node] (contains? (classes node) "hidden"))
 (defn- text [node] (str/join "" (hiccup/collect-strings node)))
 
-;; --- success cards ------------------------------------------------------------------
-
 (defn- purr-success
   [arrival]
   (support/state (assoc spot->evm :transfer-asset support/purr-index :amount-input "100"
@@ -64,8 +62,6 @@
       (is (= "HyperEVM now" (text (by-role success "funding-transfer-result-to-label"))))
       (is (str/ends-with? (text (by-role success "funding-transfer-result-from")) "9,800.00 PURR")))))
 
-;; --- blocked card -----------------------------------------------------------------------
-
 (deftest the-gas-card-announces-its-title-not-the-changing-estimate-test
   (let [node (form (support/with-evm-entry
                      (support/state (assoc evm->spot :transfer-asset support/purr-index))
@@ -85,8 +81,6 @@
     (is (str/includes? (text (by-role node "funding-transfer-blocked-status"))
                        "reload the page to start another"))
     (is (hidden? (by-role node "funding-transfer-blocked-detail")))))
-
-;; --- amount field ---------------------------------------------------------------------
 
 (deftest the-amount-field-names-and-describes-its-controls-test
   (let [node (form (support/state (assoc evm->spot :transfer-asset support/hype-index)))
@@ -110,8 +104,6 @@
            (text (by-role (form (support/state (assoc evm->spot :transfer-asset support/hype-index)))
                           "funding-transfer-available"))))))
 
-;; --- links, assets, swap, retry --------------------------------------------------------
-
 (deftest explorer-links-hide-the-arrow-and-say-they-open-a-tab-test
   (let [link (parts/explorer-link "https://hyperevmscan.io/tx/0x1" "View on explorer" "x")
         [arrow note] (filter vector? (hiccup/node-children link))]
@@ -122,7 +114,6 @@
     (is (= " (opens in a new tab)" (text note)))))
 
 (deftest a-disabled-asset-keeps-its-reason-readable-test
-  ;; SIX's HyperEVM bridge is empty, so toward HyperEVM it is listed disabled.
   (let [node (form (support/state (assoc spot->evm :transfer-asset support/purr-index)))
         row (by-role node (str "funding-transfer-asset-option-" support/six-index))
         reason (hiccup/find-first-node row #(= (str "funding-transfer-asset-reason-" support/six-index)
@@ -148,8 +139,6 @@
     (is (= "Try switching again" (text retry)))
     (is (= {:click [[:actions/retry-funding-transfer-capability]]} (:on (attrs retry))))))
 
-;; --- focus after the fix goes away -------------------------------------------------------
-
 (defn- call-hook
   [hook life-cycle memory node]
   (let [remembered (atom ::none)]
@@ -171,7 +160,6 @@
     (let [original-document (.-document js/globalThis)
           body #js {}
           document #js {:body body :activeElement body}]
-      ;; The focused fix left the DOM, so the browser put focus on the body.
       (set! (.-document js/globalThis) document)
       (try
         (with-redefs [platform/set-timeout! (fn [f ms] (swap! timeouts conj ms) (f))]

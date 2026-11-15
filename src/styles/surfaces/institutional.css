@@ -1,27 +1,10 @@
-/*
- * Institutional theme chrome.
- *
- * Treatments the token palette alone cannot express: uppercase tracked
- * micro-labels on data-dense chrome, the accent slider fill, re-themes of the
- * legacy literals carried by ob-* classes, and the design's structural-sans
- * exceptions (nav, page titles) to the mono-first UI face.
- *
- * Every rule is scoped to :root[data-theme="institutional"]; colors only as
- * rgb(var(--ho-*)) / var(--ho-chart-*) so the color-ratchet stays clean and
- * other themes are untouched. See
- * docs/exec-plans/active/2026-06-10-institutional-theme-buildout.md.
- */
-
 @layer components {
-  /* Portfolio d3 chart chrome; read by chart_view.cljs / vm.chart via
-     getComputedStyle with the legacy literals as fallback. */
   :root[data-theme="institutional"] {
     --portfolio-strategy-stroke: rgb(var(--ho-accent));
     --portfolio-chart-baseline: var(--ho-chart-grid-strong);
     --portfolio-chart-hover-line: var(--ho-chart-text);
   }
 
-  /* Structural sans exceptions to the mono-first UI face. */
   :root[data-theme="institutional"] .header-nav-link {
     font-family: "Inter Variable", var(--font-ui-system);
   }
@@ -31,7 +14,6 @@
     letter-spacing: -0.02em;
   }
 
-  /* Market stats strip kickers (hook class in active_asset/row.cljs). */
   :root[data-theme="institutional"] .asset-stat-label {
     color: rgb(var(--ho-text-muted));
     text-transform: uppercase;
@@ -40,7 +22,6 @@
     border-color: rgb(var(--ho-border-accent-muted));
   }
 
-  /* Chart toolbar: hairline chrome, muted mono tools, uppercase intervals. */
   :root[data-theme="institutional"] [data-parity-id="chart-toolbar"] {
     border-color: rgb(var(--ho-border));
     background-color: rgb(var(--ho-bg-deep));
@@ -69,8 +50,6 @@
     background-color: rgb(var(--ho-border));
   }
 
-  /* Orderbook: design colors for the legacy literal classes, uppercase
-     column heads and panel tabs. */
   :root[data-theme="institutional"] .ob-body-text {
     color: rgb(var(--ho-text));
   }
@@ -105,10 +84,6 @@
     color: rgb(var(--ho-text-hi));
   }
 
-  /* Account-info tab strip and table heads. Uppercase only (no
-     letter-spacing): tab widths are canvas-measured from the label text, and
-     under the mono UI face an uppercase transform keeps glyph advances
-     unchanged while extra tracking would not. */
   :root[data-theme="institutional"] .account-info-tab-strip button {
     text-transform: uppercase;
   }
@@ -119,7 +94,6 @@
     font-size: 11px;
   }
 
-  /* Order-size / leverage sliders: accent fill per the design. */
   :root[data-theme="institutional"] .order-size-slider.range,
   :root[data-theme="institutional"] .leverage-adjust-slider.range {
     --slider-accent-rgb: var(--ho-accent);
@@ -137,18 +111,13 @@
     --slider-accent-rgb: var(--ho-accent);
   }
 
-  /* Portfolio chart range/series tabs: tinted hairline active state. */
   :root[data-theme="institutional"] [data-role^="portfolio-chart-tab-"][aria-pressed="true"] {
     border-color: rgb(var(--ho-border-accent));
     background-color: rgb(var(--ho-surface-raised));
   }
 }
 
-/* --- Fidelity pass 2 (2026-06-11): squared chrome, dividers, type details. */
 @layer components {
-  /* JetBrains Mono ships 400/500 only; refuse synthesized bold so heavier
-     copy renders at the crisp 500 cut like the design comps. Slashed zeros
-     on all numerals per the comps' "zero" feature. */
   :root[data-theme="institutional"] body {
     font-synthesis: none;
   }
@@ -157,7 +126,6 @@
     font-feature-settings: "tnum" 1, "lnum" 1, "zero" 1;
   }
 
-  /* Brand: white upright wordmark, accent mark. */
   :root[data-theme="institutional"] .brand-wordmark,
   :root[data-theme="institutional"] .brand-mark {
     font-style: normal;
@@ -172,7 +140,6 @@
     color: rgb(var(--ho-accent));
   }
 
-  /* Nav: boxed active link instead of tinted text. */
   :root[data-theme="institutional"] .header-nav-link {
     padding: 6px 10px;
     border: 1px solid transparent;
@@ -185,7 +152,6 @@
     border-color: rgb(var(--ho-border));
   }
 
-  /* Market strip: raised band with hairline cell dividers. */
   :root[data-theme="institutional"] .asset-strip-row,
   :root[data-theme="institutional"] .ob-ctl-row {
     background-color: rgb(var(--ho-surface));
@@ -195,7 +161,6 @@
     border-left: 1px solid rgb(var(--ho-border));
   }
 
-  /* SPOT/dex/leverage chips next to the asset name. */
   :root[data-theme="institutional"] .asset-chip {
     background-color: transparent;
     border-color: rgb(var(--ho-border-accent));
@@ -205,13 +170,11 @@
     font-size: 10px;
   }
 
-  /* Chart toolbar timeframe cells get hairline separators. */
   :root[data-theme="institutional"] [data-parity-id="chart-toolbar"] .space-x-1 > button {
     border-right: 1px solid rgb(var(--ho-border));
     border-radius: 0;
   }
 
-  /* Orderbook: design depth-bar translucency and SPREAD treatment. */
   :root[data-theme="institutional"] .ob-bid-bar {
     background-color: rgb(var(--ho-buy) / 0.08);
   }
@@ -230,9 +193,6 @@
     letter-spacing: 0.08em;
   }
 
-  /* Account tables: hairline row dividers; tab cells separated by inset
-     hairlines (box-shadow, not border — tab widths are canvas-measured and
-     a real border would desync the active indicator). */
   :root[data-theme="institutional"] .account-table-row {
     border-bottom: 1px solid rgb(var(--ho-border));
   }
@@ -241,7 +201,6 @@
     box-shadow: inset -1px 0 0 rgb(var(--ho-border));
   }
 
-  /* Positions side/leverage chips: outlined, signal-colored, square. */
   :root[data-theme="institutional"] .pos-side-chip {
     background-color: transparent;
     border-color: rgb(var(--ho-buy) / 0.35);
@@ -254,7 +213,6 @@
     color: rgb(var(--ho-sell));
   }
 
-  /* REDUCE: outlined uppercase micro-button per the comps. */
   :root[data-theme="institutional"] [data-position-reduce-trigger] {
     width: auto;
     justify-content: center;
@@ -272,8 +230,6 @@
     color: rgb(var(--ho-accent));
   }
 
-  /* Order ticket side toggle: square, outlined inactive, solid signal fill
-     with near-black text when active. */
   :root[data-theme="institutional"] .of-side-row {
     background-color: transparent;
     padding: 0;
@@ -311,8 +267,6 @@
     color: rgb(var(--ho-bg-deep));
   }
 
-  /* Submit button: design's loud uppercase tracking; neutral disabled state
-     (the literal dark-teal disabled utilities read as default-theme). */
   :root[data-theme="institutional"] [data-parity-id="trade-submit-order-button"] {
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -325,11 +279,7 @@
   }
 }
 
-/* --- Fidelity pass 3 (2026-06-11): trade equity actions + portfolio panels. */
 @layer components {
-  /* Trade-route Account Equity actions: rounded-[8px] is an arbitrary radius
-     the token scale cannot reach, and the teal fills are literals. Square
-     them and use the design's primary/secondary button language. */
   :root[data-theme="institutional"] [data-role^="funding-action-"] {
     border-radius: 0;
     background-color: transparent;
@@ -357,7 +307,6 @@
     color: rgb(var(--ho-bg-deep));
   }
 
-  /* Portfolio quick actions: flush joined cells, solid accent primary. */
   :root[data-theme="institutional"] [data-role="portfolio-actions-row"] {
     gap: 0;
   }
@@ -378,13 +327,10 @@
     color: rgb(var(--ho-bg-deep));
   }
 
-  /* Portfolio page: flat background (the root carries an inline accent
-     radial-gradient wash; inline style requires the important flag). */
   :root[data-theme="institutional"] [data-parity-id="portfolio-root"] {
     background-image: none !important;
   }
 
-  /* Equity-breakdown card: uppercase selector head, hairline kv rows. */
   :root[data-theme="institutional"] .summary-card-head button {
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -402,7 +348,6 @@
     padding-bottom: 0;
   }
 
-  /* Chart card: uppercase series tabs, line swatches in the legend. */
   :root[data-theme="institutional"] [data-role^="portfolio-chart-tab-"] {
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -414,9 +359,6 @@
     border-radius: 0;
   }
 
-  /* Performance table: hairline metric rows and group-head bands. The
-     group labels are generated content keyed off the stable group
-     data-roles — decorative theme chrome mirroring the design comps. */
   :root[data-theme="institutional"] [data-role^="portfolio-performance-metrics-group-"] > div {
     border-bottom: 1px solid rgb(var(--ho-border));
     padding-bottom: 6px;

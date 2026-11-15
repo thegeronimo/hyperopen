@@ -55,7 +55,6 @@
                                 :account (fixtures/account-snapshot
                                           (merge {:open-orders (survivor-orders grid)} account-overrides))
                                 :fees fixtures/synthetic-fees
-                                ;; 2023-11-14 22:13:20 UTC
                                 :now-ms 1700000000000})
           :grid-id "g" :status :ready :proposal-id "rp-1" :error nil :errors [])))
 

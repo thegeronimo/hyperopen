@@ -255,8 +255,6 @@
         (dialog-focus/restore-remembered-focus!)
         (is (= (:node opener) (.-activeElement document)))
 
-        ;; Simulate the live browser path where focus briefly restores, then
-        ;; later falls back to BODY after teardown continues.
         (set! (.-activeElement document) body-node)
         ((:run-all! timeout-queue))
 
@@ -377,9 +375,6 @@
         (dialog-focus/restore-remembered-focus!)
         (is (= (:node opener) (.-activeElement document)))
 
-        ;; Simulate the real close interleaving: focus falls back to BODY,
-        ;; one retry restores it, then the user moves somewhere else before
-        ;; the retry window drains.
         (set! (.-activeElement document) body-node)
         ((:run-next! timeout-queue))
         (is (= 2 @(-> opener :focus-calls)))
@@ -395,10 +390,6 @@
         (set! (.-getComputedStyle js/globalThis) original-get-computed-style)))))
 
 (deftest dialog-focus-trap-skips-nodes-under-a-hidden-ancestor-test
-  ;; A link inside a `display:none` slot reports its own `display` as inline,
-  ;; so only `checkVisibility` (which looks at ancestors) can tell it is not
-  ;; rendered. Counted as the last focusable, it would let Tab leave the
-  ;; dialog from the real last control.
   (let [original-document (.-document js/globalThis)
         original-get-computed-style (.-getComputedStyle js/globalThis)
         document #js {}

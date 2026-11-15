@@ -23,8 +23,6 @@
            (compat/refresh-asset-markets state)))
     (is (= [[:effects/api-load-user-data "0xabc"]]
            (compat/load-user-data state "0xabc")))
-    ;; Merged over the modal defaults, which modal-state-test pins literally,
-    ;; so a new default key is checked once there rather than in every opener.
     (is (= [[:effects/load-surface-module :funding-modal]
             [:effects/save [:funding-ui :modal]
              (merge (funding-actions/default-funding-modal-state)

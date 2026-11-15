@@ -29,8 +29,6 @@
   point render as neutral, so rounded 0.0 pts is never colored red or green."
   diversification-model/cross-effect-neutral-threshold)
 
-;; --- Shared identity/formatting -----------------------------------------------
-
 (defn risk-view-radio-name
   "The DOM-state tab radio group for a result's risk card. Suffixed with the
   result's :as-of-ms so co-rendered fixtures don't share a group."
@@ -68,8 +66,6 @@
     :long "Long"
     :short "Short"
     nil))
-
-;; --- Sides and selection --------------------------------------------------------
 
 (defn instrument-side
   "Position side implied by the published target weight: :long, :short, or
@@ -155,8 +151,6 @@
        (sort-by :label)
        vec))
 
-;; --- Correlation heatmap ---------------------------------------------------------
-
 (defn- pair-effect
   [position diagonal?]
   (cond
@@ -232,8 +226,6 @@
          :cells cells
          :hidden-count (or (:hidden-count correlation) 0)}))))
 
-;; --- Decomposition ---------------------------------------------------------------
-
 (defn breakdown-rows
   "Balance-chart rows (same cap, same signed-share display order) enriched
   with the standalone/diversification split, for the BREAKDOWN tab. Rows
@@ -283,8 +275,6 @@
          :negative? (and (finite-number? net) (neg? net))
          :target-share (first (get-in result [:risk-contributions
                                               :target-relative-contributions]))}))))
-
-;; --- Per-asset summary tiles ------------------------------------------------------
 
 (defn- summary-tile
   [rms-pts target-share]
@@ -378,8 +368,6 @@
        (diversification-tile label diversification)
        (net-tile net target-share)
        (freedom-tile result)])))
-
-;; --- Plot scale ------------------------------------------------------------------
 
 (defn fit-scale
   "One shared axis for decomposition lanes: fits zero plus every finite value,

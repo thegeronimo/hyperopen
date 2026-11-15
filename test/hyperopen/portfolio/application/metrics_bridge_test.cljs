@@ -94,8 +94,6 @@
     (with-redefs [system/store store
                   metrics-bridge/metrics-worker fake-worker]
       (metrics-bridge/request-metrics-computation! {:seed 1} signature-a)
-      ;; `:id` is the correlation token the worker already echoes back. Without
-      ;; it every reply was applied no matter which request it answered.
       (is (= {:id (metrics-bridge/request-id signature-a)
               :type "compute-metrics"
               :payload {:seed 1}}
@@ -143,8 +141,6 @@
         (is (false? (get-in applied [:portfolio-ui :metrics-loading?])))))))
 
 (deftest apply-worker-metrics-result-accepts-an-untagged-reply-test
-  ;; Defensive: a reply with no id (an older worker build served from cache)
-  ;; still applies rather than wedging the tearsheet on stale numbers forever.
   (let [signature {:summary-time-range :month
                    :selected-benchmark-coins []
                    :strategy-source-version 1

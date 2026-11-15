@@ -22,8 +22,6 @@
             [hyperopen.views.portfolio.optimize.execution-strategy-band :as strategy-band]
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
-;; ── Buys/Sells flow (ported from the retired Rebalance preview) ───────────
-
 (defn- instrument-group-key
   "Collapses multi-leg instruments under one asset name (e.g. a perp + spot leg of the
   same asset count once), mirroring the retired rebalance preview so the Buys/Sells
@@ -50,8 +48,6 @@
          acc)))
    {:buys 0 :sells 0 :buy-assets #{} :sell-assets #{}}
    (remove #(contains? #{:blocked :skipped} (:status %)) rows)))
-
-;; ── counts ──────────────────────────────────────────────────────────────
 
 (defn- fill-counts
   "Status breakdown of the displayed order rows so every summary surface agrees and a resting
@@ -82,8 +78,6 @@
                        :armed ["armed" :warn]
                        ["staged" :accent])]
     (shared/chip label tone)))
-
-;; ── header ──────────────────────────────────────────────────────────────
 
 (defn- subtitle
   [phase]
@@ -152,8 +146,6 @@
                 :on {:click [[:actions/set-portfolio-optimizer-results-tab :recommendation]]}}
        "Back to recommendation"])
     (when (= :staged phase)
-      ;; The CTA counts exactly what arming covers — never a vague "execution" when the
-      ;; next screen is live money.
       [:button {:type "button"
                 :class ["optimizer-primary-action" "border" "px-3" "py-2" "text-sm" "font-semibold"
                         "disabled:cursor-not-allowed" "disabled:border-base-300"
@@ -166,8 +158,6 @@
        (if (pos? ready-count)
          (str "Arm " ready-count " order" (when (not= 1 ready-count) "s"))
          "Arm execution")])]]))
-
-;; ── control band (one per phase) ────────────────────────────────────────
 
 (defn- order-summary-line
   [model rows]
@@ -194,8 +184,6 @@
      [:div {:class ["min-w-0"]}
       [:p {:class ["text-[0.8125rem]" "font-medium" "text-trading-text"]}
        (str "Send " order-count " live order" (when (not= 1 order-count) "s") " to Hyperliquid")]
-      ;; Restate the load-bearing figures in the read-forcing copy: how much money moves,
-      ;; in which direction, and where it leaves the margin — not just the order count.
       [:p {:class ["mt-0.5" "font-mono" "text-[0.7rem]" "tabular-nums" "text-trading-text"]
            :data-role "portfolio-optimizer-execution-armed-figures"}
        (str "+" (opt-format/format-usdc ready-buys-usd) " buys · "
@@ -205,15 +193,10 @@
               (str " · leverage " (opt-format/format-multiple after-lev)
                    (when (shared/finite before-lev)
                      (str " (was " (opt-format/format-multiple before-lev) ")")))))]
-      ;; Irreversibility caveat raised above the ~10px legibility floor — it is the single most
-      ;; consequential sentence on the screen and must not be the smallest text on it.
       [:p {:class (cond-> ["mt-0.5" "font-mono" "text-[0.72rem]" "text-trading-muted"]
                     margin-warn? (conj "text-trading-red"))}
        (str (when (seq type-summary) (str "Order types: " type-summary ". "))
             "Filled trades can't be undone — closing them later sends new market orders at then-current prices and costs.")]
-      ;; Isolated-margin legs (HIP-3) get a per-position liquidation price; the
-      ;; margin-rec background loop can top each fill up to its modeled
-      ;; recommendation once, capped by available collateral.
       (when (pos? (or margin-rec-isolated-legs 0))
         [:label {:class ["mt-1" "flex" "w-fit" "cursor-pointer" "items-center" "gap-1.5"
                          "font-mono" "text-[0.7rem]" "text-trading-muted"]
@@ -246,8 +229,6 @@
 (defn- running-band
   [{:keys [abort-requested?]} rows]
   (let [{:keys [filled resting total]} (fill-counts rows)
-        ;; Progress tracks orders the exchange has accepted (filled or resting), not just fills,
-        ;; so the bar advances as passive orders land on the book.
         accepted (+ filled resting)
         pct (if (pos? total) (/ accepted total) 0)
         pct-100 (js/Math.round (* 100 pct))]
@@ -322,8 +303,6 @@
   [{:keys [error confirm-disabled?] :as _model} rows phase]
   (let [{:keys [filled resting failed]} (fill-counts rows)
         partial? (= :partial phase)
-        ;; Reference the ledger order number (:order-no) of the first failed row, not the
-        ;; sorted display position, so "Resume from #N" stays consistent with the # column.
         resume-from (when-let [nos (seq (keep :order-no (filter #(= :failed (:status %)) rows)))]
                       (apply min nos))]
     [:div {:class ["optimizer-exec-band" (if partial? "is-partial" "is-halted")
@@ -400,9 +379,6 @@
   [{:keys [phase carryover-count]}]
   (when (and (contains? #{:staged :armed} phase)
              (pos? (or carryover-count 0)))
-    ;; Keyed: this block appears/disappears between fixed siblings, and unkeyed
-    ;; conditional siblings make Replicant remount the later ones (resetting any open
-    ;; <details> below).
     [:div {:replicant/key "execution-carryover-note"
            :class ["flex" "items-center" "gap-2" "border-b" "border-base-300"
                    "bg-base-200/30" "px-5" "py-2"]
@@ -471,11 +447,6 @@
     :partial (halted-band model rows :partial)
     (strategy-band/staged-band model rows)))
 
-;; ── KPI strip ───────────────────────────────────────────────────────────
-;; The live type-aware cost recompute (type-aware-costs) lives in execution-shared —
-;; the strategy tiles project per-strategy costs from the same function, so the tiles,
-;; the KPI strip, and the health rail can never disagree.
-
 (def ^:private type-aware-costs shared/type-aware-costs)
 (def ^:private fee-mix-label shared/fee-mix-label)
 (def ^:private price-cost-split-text shared/price-cost-split-text)
@@ -513,21 +484,14 @@
         total (+ (count ready) (count submitted) (count resting) (count failed))
         filled (count submitted)
         resting-count (count resting)
-        ;; "Executed" notional is filled-only — a resting (open) order has not executed.
         filled-notional (reduce + 0 (map #(shared/abs-num (:delta-notional-usd %)) submitted))
         staged-notional (or (:gross-ready-notional-usd summary)
                             (reduce + 0 (map #(shared/abs-num (:delta-notional-usd %))
                                              (concat ready submitted resting failed))))
-        ;; Slippage + fees recomputed from each row's LIVE effective order type, so the KPIs
-        ;; update as the user toggles types (resting => no impact + maker fee, crossing =>
-        ;; impact + taker fee) without re-staging. Covers ready/working (pre-run) and accepted
-        ;; (submitted + resting, post-run) rows so the fee total survives a run.
         costs (type-aware-costs model (concat ready submitted resting))
         slip-bps-samples (:slip-bps costs)
         avg-bps (when (seq slip-bps-samples)
                   (/ (reduce + 0 slip-bps-samples) (count slip-bps-samples)))
-        ;; Realized slippage is recoverable only post-run, off filled rows (the effect
-        ;; stamps :realized; resting/unfilled rows have none). Never relabel the estimate.
         post-run? (contains? #{:done :resting :halted :partial} phase)
         realized-rows (filter #(get-in % [:realized :slippage-bps]) submitted)
         realized-bps (when (seq realized-rows)
@@ -535,7 +499,6 @@
                           (count realized-rows)))
         realized-usd (reduce + 0 (keep #(get-in % [:realized :slippage-usd]) submitted))
         show-realized? (and post-run? (seq realized-rows))
-        ;; Price cost = spread + impact (realized fill cost post-run); all-in = price cost + fees.
         price-cost-usd (if show-realized? realized-usd (:slippage-usd costs))
         all-in-usd (+ price-cost-usd (:fees-usd costs))
         margin (:margin summary)
@@ -560,8 +523,6 @@
            :label "Notional executed"
            :value (shared/format-knotional filled-notional)
            :sub (str "of " (shared/format-knotional staged-notional) " staged")})
-     ;; Buys/Sells directional flow, ported from the retired Rebalance preview so the
-     ;; at-a-glance in/out magnitude survives the one-click Rebalance → Execution flow.
      (kpi {:data-role "portfolio-optimizer-execution-kpi-buys"
            :label "Buys"
            :value (str "+" (opt-format/format-usdc buys))
@@ -606,8 +567,6 @@
            :sub (if (:fees-unknown? costs)
                   "price cost + fees — a row's fee is unknown"
                   "price cost + fees")})]))
-
-;; ── Execution-health rail ───────────────────────────────────────────────
 
 (defn- diag
   ([label value sub] (diag label value sub nil nil))
@@ -712,12 +671,9 @@
         blocked-count (count (filter #(= :blocked (:status %)) rows))
         total (+ (count ready) (count submitted) (count resting) (count failed))
         filled (count submitted)
-        ;; Fill progress tracks fills only — a resting order has not filled, so the bar stays
-        ;; honest (it does not advance for orders merely accepted onto the book).
         pct (if (pos? total) (/ filled total) 0)
         margin (:margin summary)
         margin-warn? (shared/margin-warn? margin)
-        ;; Same live, type-aware recompute as the KPI strip so the rail agrees with it.
         costs (type-aware-costs model (concat ready submitted resting))
         sources (->> (concat ready submitted resting)
                      (keep #(get-in % [:cost :source]))
@@ -747,9 +703,6 @@
            (shared/leverage-headroom-sub margin true)
            (if margin-warn? "breach" "ok")
            (if margin-warn? "text-trading-red" nil))
-     ;; What will actually route + what won't be sent at all — the checklist facts a
-     ;; trader confirms before arming, stated here so the rail reads top-to-bottom as
-     ;; "how many, how routed, what it costs".
      (diag "Routing"
            (let [n (+ (count ready) (count submitted) (count resting))]
              (str n " order" (when (not= 1 n) "s")))
@@ -773,8 +726,6 @@
      (book-data-diag (filter #(get-in % [:cost :source])
                              (concat ready submitted resting)))
      (health-note model)]))
-
-;; ── latest attempt (retry context) ──────────────────────────────────────
 
 (defn- latest-attempt-panel
   [{:keys [latest-attempt phase]}]
@@ -804,8 +755,6 @@
           [:td {:class ["right" "num"]} (shared/format-knotional (:delta-notional-usd row))]
           [:td {:class ["text-trading-muted"]}
            (or (get-in row [:error :message]) (opt-format/keyword-label (:reason row)) "—")]]]))]))
-
-;; ── entry point ─────────────────────────────────────────────────────────
 
 (defn execution-tab
   [state]

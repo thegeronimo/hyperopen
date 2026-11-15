@@ -66,7 +66,6 @@
 (def ^:private valid-pnl-input-modes
   #{:usd :roe-percent :position-percent})
 (def ^:private legacy-pnl-input-mode-aliases
-  ;; Historical compatibility: older modes represented ROE% or position%.
   {:percent :roe-percent
    :roe :roe-percent
    :position :position-percent})

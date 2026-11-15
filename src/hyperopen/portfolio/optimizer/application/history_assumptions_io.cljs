@@ -105,8 +105,6 @@
       (when (coercion/finite-number? parsed)
         parsed))))
 
-;; --- Export -------------------------------------------------------------------
-
 (defn- export-proxies
   [entry symbol-by-id]
   (let [weights (history-assumptions/proxy-prior-weights entry)]
@@ -125,9 +123,6 @@
      :name name
      :kind kind
      :native-days native-days
-     ;; Whether this asset itself has enough history to serve as a proxy. In the
-     ;; universe export (no separate candidate menu) the agent reads this to pick
-     ;; proxies from the verified entries in `assets`.
      :history-status (if verified? "verified" "unverified")
      :status status
      :approach (some-> behavior cljs.core/name)
@@ -167,8 +162,6 @@
                 :objective-uses-returns (history-assumptions/return-required-for-objective?
                                          objective-kind)
                 :assets (mapv #(export-asset symbol-by-instrument-id %) rows)}}))
-
-;; --- Import -------------------------------------------------------------------
 
 (defn- entry-field
   [entry & keys*]
@@ -364,8 +357,6 @@
             pool-index (resolution-index (concat universe proxy-pool))]
         (reduce
          (fn [acc entry]
-           ;; targets resolve against the universe only (an assumption on a
-           ;; non-universe asset is meaningless); proxies against the full pool.
            (let [instrument-id (resolve-ref universe-index entry)
                  approach (coercion/normalize-keyword-like
                            (entry-field entry :approach))]
@@ -435,8 +426,6 @@
          entries)))
     {:status :error :reason :invalid}))
 
-;; --- Note messages --------------------------------------------------------------
-
 (defn- pluralize-assets
   [n]
   (if (= 1 n) (str n " asset") (str n " assets")))
@@ -455,8 +444,6 @@
 (defn import-success-message
   [{:keys [applied unchanged unknown invalid skipped-proxies]}]
   (if (zero? (or applied 0))
-    ;; Say WHY nothing landed — a real import failed silently-ish when the
-    ;; note hid the dropped-proxy count behind a generic "invalid entries".
     (str/join " · "
               (keep identity
                     ["No assumptions applied"

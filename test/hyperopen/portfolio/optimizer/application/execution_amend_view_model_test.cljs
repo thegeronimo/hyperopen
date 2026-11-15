@@ -59,8 +59,6 @@
     (is (= -5 (:limit-bps amend)))))
 
 (deftest gone-from-book-row-is-not-amendable-test
-  ;; The oid is off the live book (filled or cancelled elsewhere): there is nothing
-  ;; safe to cancel-and-replace, so the row carries no :amend affordance.
   (is (nil? (:amend (zeta-row (vm/execution-tab-model
                                (state-with {:open-orders []})))))))
 

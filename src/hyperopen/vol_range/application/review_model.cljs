@@ -128,7 +128,6 @@
         window (:volatility-window v)
         frozen (:frozen-at-ms context)
         policy contracts/freshness-policy
-        ;; Live provenance captured at freeze; plan source-versions as fallback.
         prov (merge {:bbo-observed-at-ms (:bbo-observed-at-ms v)
                      :vwap-observed-at-ms (:anchor-observed-at-ms v)
                      :fee-loaded-at-ms (:fee-loaded-at-ms v)}
@@ -139,8 +138,6 @@
      (row "Volatility window" (when window
                                 (str (display/utc-date (:first-day-ms window)) " – "
                                      (display/utc-date (:last-day-ms window)) " (UTC)")))
-     ;; The store only keeps visually changed books, so this is the time of the
-     ;; last book CHANGE, not proof of a current observation (spec 7.3).
      (row "Book last changed" (source-age-text (:bbo-observed-at-ms prov) frozen (:bbo-ms policy)))
      (row "Anchor observed" (case (get-in plan [:model :anchor :mode])
                               :custom "Custom anchor"
@@ -187,7 +184,5 @@
          :inventory (inventory-rows plan scope)
          :details (detail-rows plan context)
          :note fixed-order-note
-         ;; A replacement's lineage section is execution code: the order-form
-         ;; view fills it at the view boundary (`replace-model/review-replacement`).
          :replacement nil
          :footer (:footer empty-review)}))))

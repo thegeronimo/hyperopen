@@ -1,13 +1,3 @@
-// Equal Risk correlation + per-asset breakdown views (designer specs
-// 2026-07-11). The workbench scenes render the REAL risk card + Allocation
-// table with a scene-local dispatcher, so this covers the browser-only
-// behavior deterministically without solving an optimization in-app:
-// DOM-state tab switching, the POSITION P&L / UNDERLYING RETURNS matrix
-// toggle (sign flips included), the BREAKDOWN tab's per-asset default with
-// its Selected asset / All assets sub-toggle, selection flowing between
-// allocation-row clicks and the Change-asset select, the full-width
-// correlation heatmap, the 12-asset heatmap cap, and degenerate-variance
-// em-dashes.
 import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE_BASE =
@@ -319,8 +309,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
     );
     await expect(positionGrid).toBeVisible();
     await expect(underlyingGrid).toBeHidden();
-    // BTC long × MSTR short: the held-position P&L correlation flips the
-    // underlying +0.28 negative.
     await expect(corrCell(positionGrid, "perp:BTC", "perp:MSTR")).toHaveText(
       "-0.28"
     );
@@ -365,9 +353,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
       role("portfolio-optimizer-target-exposure-asset-BTC")
     );
 
-    // The scene store preselects MSTR — the short whose decomposition the
-    // designer's spec explains. The per-asset view is the default sub-view,
-    // and the select must sync to the selection on first render.
     await expect(assetPanel).toBeVisible();
     await expect(selected).toHaveText("MSTR");
     await expect(picker).toHaveValue("perp:MSTR");
@@ -379,14 +364,12 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
       frame.locator(role("portfolio-optimizer-risk-asset-tile-freedom"))
     ).toContainText("Limited · 2 binding caps");
 
-    // Allocation-row click re-targets the panel AND the select's value.
     await btcRow.click();
     await expect(selected).toHaveText("BTC");
     await expect(btcRow).toHaveAttribute("data-selected", "true");
     await expect(mstrRow).not.toHaveAttribute("data-selected", "true");
     await expect(picker).toHaveValue("perp:BTC");
 
-    // The Change-asset select drives the same app state back the other way.
     await picker.selectOption("perp:ETH");
     await expect(selected).toHaveText("ETH");
     await expect(
@@ -394,7 +377,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
     ).toHaveAttribute("data-selected", "true");
     await expect(btcRow).not.toHaveAttribute("data-selected", "true");
 
-    // The per-row P&L-correlation line rides every held row.
     await expect(
       frame.locator(
         role("portfolio-optimizer-target-exposure-pnl-corr-perp-MSTR")
@@ -444,8 +426,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
       role("portfolio-optimizer-risk-correlation-heatmap")
     );
     await expect(heatmap).toBeVisible();
-    // The old in-tab breakdown block now lives on the BREAKDOWN tab, so it
-    // must be hidden while the correlation tab is active.
     await expect(
       frame.locator(role("portfolio-optimizer-risk-selected-breakdown"))
     ).toBeHidden();
@@ -463,7 +443,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
   }) => {
     const frame = await openScene(page, "balance-exact-fit");
 
-    // The strip leads with current → target facts.
     const strip = frame.locator(
       role("portfolio-optimizer-equal-risk-impact-strip")
     );
@@ -472,14 +451,10 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
     await expect(
       strip.locator(role("portfolio-optimizer-equal-risk-impact-balance"))
     ).toContainText("→");
-    // 2.31x gross clears the leverage gate, so the outcome chip renders and
-    // carries the ruin-floor odds on its sub line.
     await expect(
       strip.locator(role("portfolio-optimizer-equal-risk-impact-outcome"))
     ).toContainText("Touch −50% odds");
 
-    // Exact fit + current book → the chart tells the move, not the misfit:
-    // Current/Shift columns, no constant Target column, no dead-zero KPIs.
     const chart = frame.locator(
       role("portfolio-optimizer-risk-contribution-chart")
     );
@@ -490,8 +465,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
     await expect(
       frame.locator(role("portfolio-optimizer-risk-contribution-target"))
     ).toHaveCount(0);
-    // The shared KPI strip renders once per tab panel — assert the balance
-    // tab's copy.
     await expect(
       frame
         .locator(role("portfolio-optimizer-risk-contributions-imbalance"))
@@ -503,8 +476,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
         .first()
     ).toContainText("BTC");
 
-    // The volatility chip is a plain label→radio deep-link into the
-    // Diversification tab, where the verdict leads and the bridge renders.
     await frame
       .locator(role("portfolio-optimizer-equal-risk-impact-volatility"))
       .click();
@@ -550,7 +521,6 @@ test.describe("equal risk correlation view (workbench scenes)", () => {
     await expect(
       positionGrid.locator("[data-sign='missing']").first()
     ).toHaveText("—");
-    // The healthy pair keeps its number.
     await expect(corrCell(positionGrid, "perp:BTC", "perp:ETH")).toHaveText(
       "0.72"
     );

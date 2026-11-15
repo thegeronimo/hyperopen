@@ -74,7 +74,6 @@
                           :last-tick-ms 1000 :resync {:state :idle :attempt 0}}}))
 
 (deftest slice-ignores-ladder-fills-ticks-and-background-busy-keys-test
-  ;; Stream fills and the watcher's 15 s tick must not repaint the ticket.
   (let [base (with-execution (state))]
     (is (= (slice base)
            (slice (assoc-in base [:vol-range :execution :grids "g1" :fills "k"] {:sz "1" :px "76.4"})))

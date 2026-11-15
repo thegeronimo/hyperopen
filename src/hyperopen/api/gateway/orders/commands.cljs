@@ -205,8 +205,6 @@
         wire-values-valid? (order-wire-values-valid? order-type
                                                      {:price-text price-text
                                                       :trigger-text trigger-text})
-        ;; TP/SL brackets are perp-only (their legs are reduce-only against a
-        ;; position); spot suppresses them, keeping grouping "na".
         tpsl-enabled? (and (not spot?)
                            (or (get-in form [:tp :enabled?]) (get-in form [:sl :enabled?])))
         grouping (if tpsl-enabled? "normalTpsl" "na")]
@@ -263,14 +261,6 @@
                   (get scale :end)
                   (effective-reduce-only command-context form)
                   (:post-only form)))
-        ;; Interpolated ladder prices come out raw from scale-order-legs (e.g.
-        ;; 99.66666666666667), exceeding the wire precision the exchange accepts:
-        ;; perp = 5 sig figs / (6 - szDecimals) decimals, spot = (8 - szDecimals)
-        ;; decimals. Canonicalize every leg price (both perp and spot) so the
-        ;; exchange does not reject ladder legs. Adjacent legs may canonicalize to
-        ;; the same price on very tight ladders; duplicates are left as-is (the
-        ;; exchange accepts multiple resting orders at one price, and dropping
-        ;; would silently under-fill the requested total size).
         orders (if (seq orders)
                  (mapv (fn [order]
                          (if-let [p (canonical-price-text command-context
@@ -357,9 +347,6 @@
                                                    :r (effective-reduce-only command-context form)
                                                    :m (int minutes)
                                                    :t randomize))
-                 ;; Assoc'd LAST so the signed key order stays type, twap, details. With no
-                 ;; advanced settings the key is absent entirely and the msgpack bytes are
-                 ;; identical to every TWAP this app has ever sent.
                  details (assoc :details details))
        :asset-idx asset-idx})))
 

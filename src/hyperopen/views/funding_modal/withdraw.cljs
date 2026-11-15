@@ -77,8 +77,6 @@
                     "text-[#7b919b]"]}
       "No assets match your search."])])
 
-(def render-select-content withdraw-select-content)
-
 (defn- withdrawal-queue-copy
   [{:keys [state length]}]
   (case state
@@ -250,5 +248,3 @@
                          :submit-action :actions/submit-funding-withdraw
                          :submit-label (get-in actions [:submit-label])
                          :submit-disabled? (get-in actions [:submit-disabled?])})]))
-
-(def render-detail-content withdraw-detail-content)

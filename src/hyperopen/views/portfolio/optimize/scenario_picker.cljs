@@ -23,8 +23,6 @@
          " · σ " (opt-format/format-pct volatility))))
 
 (defn- row-action-click-handler
-  ;; Trailing row actions live INSIDE the clickable row, so they must stop the
-  ;; bubble or every Duplicate/Archive would also open the scenario.
   [action]
   (fn [event]
     (when (fn? (.-preventDefault event))
@@ -104,9 +102,6 @@
 
 (defn- scenario-menu
   [{:keys [has-address? active-scenario-id scenario-summaries]}]
-  ;; z must clear the sticky run banner (190) and Run bar (180) that the menu
-  ;; drops over; no ancestor creates a stacking context, so this competes in
-  ;; the root context directly.
   [:section {:class ["absolute" "right-0" "top-full" "z-[240]" "mt-2" "flex"
                      "max-h-[60vh]" "w-[26rem]" "max-w-[90vw]" "flex-col"
                      "overflow-y-auto" "border" "border-base-300" "bg-base-100"

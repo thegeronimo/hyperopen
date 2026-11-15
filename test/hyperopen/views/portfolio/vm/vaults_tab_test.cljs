@@ -75,7 +75,6 @@
         (is (re-find #"^[+-]\d+\.\d%$" (get-in time-weighted [:value :text]))))
       (is (= "Vault picks alone, ignoring deposit timing" (:detail time-weighted))))
     (testing "equity"
-      ;; complete vaults only: the orphan's 500 is excluded (and counted)
       (is (= "$1,800.00" (get-in equity [:value :text])))
       (is (re-find #"^Net deposited \$" (:detail equity))))))
 

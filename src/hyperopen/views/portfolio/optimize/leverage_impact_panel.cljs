@@ -76,8 +76,6 @@
     (compact-usd (* capital-usd factor))
     (str (opt-format/format-multiple factor))))
 
-;; --- Median ending wealth bars --------------------------------------------------
-
 (defn- median-bar-width
   [factor max-factor]
   (if (and (number? factor) (number? max-factor) (pos? max-factor))
@@ -95,9 +93,6 @@
     label]
    [:div {:class ["optimizer-leverage-impact-track"]
           :aria-hidden "true"}
-    ;; Hairline at the starting-equity position (factor 1.0): everything left
-    ;; of it is modeled loss, right of it modeled growth. Inset 1px so the
-    ;; tick survives the track's overflow clip when start IS the scale max.
     [:div {:class ["optimizer-leverage-impact-start-tick"]
            :style {:left (str "calc(" (median-bar-width 1.0 max-factor) "% - 1px)")}}]
     [:div {:class ["optimizer-leverage-impact-fill"
@@ -138,8 +133,6 @@
                          (if shortfall? "text-warning" "text-trading-green")]}
           (str (if shortfall? "−" "+") (whole-usd (js/Math.abs diff)))]]))))
 
-;; --- Stat tiles -----------------------------------------------------------------
-
 (defn- stat-tile
   "`:compare` is the current book's same statistic (\"Now 12.1%\") — the frame
   that turns an absolute target number into the decision-relevant delta.
@@ -165,8 +158,6 @@
       compare])
    (when subtext
      [:p {:class ["mt-0.5" "text-[0.6rem]" "text-trading-muted/70"]} subtext])])
-
-;; --- Ending-wealth distribution --------------------------------------------------
 
 (def ^:private dist-width 720)
 (def ^:private dist-height 150)
@@ -247,10 +238,6 @@
           x-min (- nu (* dist-domain-sigmas sigma))
           span (* 2 dist-domain-sigmas sigma)
           plot-w (- dist-width (* 2 dist-pad-x))
-          ;; An ending factor that underflows to 0 makes (js/Math.log 0) return
-          ;; -Infinity, which used to land verbatim in the SVG :x1/:cx
-          ;; attributes. Clamp to the plotted domain so a marker is always a
-          ;; finite coordinate; the value it labels is formatted separately.
           x-px (fn [x]
                  (if-not (js/isFinite x)
                    (if (and (number? x) (pos? x)) (+ dist-pad-x plot-w) dist-pad-x)
@@ -333,8 +320,6 @@
                 :font-size 9
                 :text-anchor "end"}
          "Higher"]]])))
-
-;; --- Panel ------------------------------------------------------------------------
 
 (defn leverage-impact-panel
   [result]

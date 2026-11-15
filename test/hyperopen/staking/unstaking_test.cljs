@@ -142,8 +142,6 @@
                         :delta {:kind :undelegate :amount 25}}
                        {:time-ms (days-ago 3)
                         :delta {:kind :deposit :amount 25}}
-                       ;; cWithdraw is the action that starts the queue, but live
-                       ;; delegatorHistory never returns it, so it is not an anchor.
                        {:time-ms (days-ago 4)
                         :delta {:kind :withdraw :amount 25}}])
                now-ms)]

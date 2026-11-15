@@ -160,13 +160,6 @@
      (side-button scope role-id instrument-id position-side short-selectable? :long)
      (side-button scope role-id instrument-id position-side short-selectable? :short)]))
 
-;; --- Equal Risk row selection + P&L-correlation line ---------------------------
-;; Present only when the result carries :risk-structure (equal-risk runs):
-;; clicking a row with an instrument selects it for the correlation tab's
-;; contribution breakdown, and each held row shows Corr(side·returns,
-;; portfolio returns) — a short can correlate POSITIVELY with the book it
-;; hedges, which is exactly the point of surfacing it.
-
 (defn- pnl-corr-line
   [result instrument-id]
   (when-let [{:keys [correlation effect title]}
@@ -245,8 +238,6 @@
       (when excluded?
         [:span {:class ["optimizer-target-exposure-status" "ml-2"]}
          status-label])
-      ;; Hidden single-leg rows mirror their group row — skip the line there
-      ;; so each instrument's P&L correlation renders exactly once.
       (when-not hidden?
         (pnl-corr-line result instrument-id))]
      [:td {:class ["px-2" "text-right"]}
@@ -306,8 +297,6 @@
        [:span {:class ["optimizer-target-exposure-excluded-tag"]}
         "excluded"])]
     (when binding?
-      ;; A floor-at-zero binding must not read as "capped at max weight" —
-      ;; that ambiguity made a side-locked 0% target look like a solver bug.
       (let [floored? (= :floored binding-kind)]
         [:span {:class ["ml-2" "border" "border-warning/50" "px-1.5" "py-0.5"
                         "font-mono" "text-[0.5rem]" "font-semibold" "uppercase"
@@ -387,9 +376,6 @@
                    "overflow-hidden" "border" "border-base-300" "p-3"
                    "shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
                    "md:absolute" "md:inset-auto" "md:right-0" "md:top-[calc(100%+4px)]"
-                   ;; Cap the dropdown shorter than the row it anchors to so it stays
-                   ;; within the viewport even when content above (e.g. the
-                   ;; recommendation verdict) pushes the anchor row lower on the page.
                    "md:w-[380px]" "md:max-h-[224px]"]
            :data-role "portfolio-optimizer-draft-add-asset-popover"}
      [:div {:class ["flex" "items-start" "justify-between" "gap-3"]}
@@ -479,8 +465,6 @@
   (let [{:keys [groups]} (rebalance-view-model/target-exposure-table-model result
                                                                             {:draft draft})
         max-delta (max-abs-delta groups)
-        ;; Highlight the EFFECTIVE selection (explicit or fallback) so the
-        ;; ring always points at the asset the breakdown panel explains.
         structure? (some? (:risk-structure result))
         ctx {:max-delta max-delta
              :result result
@@ -512,11 +496,6 @@
 	             (map (partial exposure-row ctx) rows)))
 	          groups))]]))
 
-;; The row hiccup scales with the universe (100+ assets on levered accounts)
-;; and depends only on result + draft + the selected risk instrument, all
-;; identity-stable across streaming ticks and target-sigma dial events — a
-;; single-entry memo keeps those renders cheap. Same pattern as the
-;; frontier-chart memo.
 (def ^:private exposure-table-memo (volatile! nil))
 
 (defn- memoized-exposure-table-body

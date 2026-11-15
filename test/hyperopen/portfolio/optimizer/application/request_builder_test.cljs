@@ -79,8 +79,6 @@
            (mapv :instrument-id (:universe request))))
     (is (= ["perp:BTC" "spot:PURR"]
            (mapv :instrument-id (get-in request [:history :eligible-instruments]))))
-    ;; Fees are derived from :fee-mode (absent -> taker) + the canonical schedule,
-    ;; so the preview's "Est. fees + slippage" is no longer always $0.
     (is (near? (* 100 (:taker trading-core/default-fees))
                (get-in request [:execution-assumptions :default-fee-bps])))
     (is (= [] (:warnings request)))))
@@ -90,7 +88,6 @@
              (request-builder/fee-bps-for-mode :taker)))
   (is (near? (* 100 (:maker trading-core/default-fees))
              (request-builder/fee-bps-for-mode :maker)))
-  ;; Unknown / missing mode falls back to the conservative taker rate.
   (is (near? (request-builder/fee-bps-for-mode :taker)
              (request-builder/fee-bps-for-mode nil)))
   (is (pos? (request-builder/fee-bps-for-mode :taker))))
@@ -225,8 +222,6 @@
                                    :gross-max 1.3
                                    :net-min -0.2
                                    :net-max 0.8
-                                   ;; present ⇒ the net-band migration leaves the
-                                   ;; advanced absolute range untouched
                                    :net-band-pct 0.05
                                    :max-asset-weight 0.6
                                    :allowlist ["perp:BTC"]
@@ -316,7 +311,6 @@
                             {"perp:NEW" {:max-weight 0.5}}))
         request (request-builder/build-engine-request
                  {:draft draft
-                  ;; Only BTC has candle history; NEW and PXY are dropped by alignment.
                   :history-data {:candle-history-by-coin
                                  {"BTC" [{:time 1000 :close "100"}
                                          {:time 2000 :close "110"}]}
@@ -367,7 +361,6 @@
     :history-data {:candle-history-by-coin
                    {"BTC" (proxy-daily-candles 0 400 100)
                     "ETH" (proxy-daily-candles 0 400 2000)
-                    ;; TOKENX covers only the last 10 days of the window.
                     "TOKENX" (proxy-daily-candles 390 10 10)}
                    :funding-history-by-coin {}}
     :market-cap-by-coin {}
@@ -397,11 +390,6 @@
         "The proxy cap mirrors into the constraint machinery.")))
 
 (deftest build-engine-request-proxy-asset-never-truncates-shared-window-test
-  ;; The owner-facing guarantee behind proxy assumptions: a thin asset with a
-  ;; complete proxy entry leaves the shared covariance window EXACTLY as it
-  ;; would be without the asset — the proxies extend the asset, the asset never
-  ;; truncates the window. Also pins :history-window :return-observations, the
-  ;; count the assumption card displays as "Covariance window".
   (let [with-proxy (proxy-request complete-proxy-assumption)
         without-thin (request-builder/build-engine-request
                       {:draft (-> (defaults/default-draft)
@@ -443,13 +431,6 @@
    :warnings []})
 
 (deftest build-engine-request-api-v2-poisoned-calendar-recovers-full-window-test
-  ;; Production topology (owner-reported): the api-v2 fetch covers the FULL
-  ;; draft universe, so the backend's aligned calendar is intersected over the
-  ;; thin proxy asset too — 9 observations here — even though the request
-  ;; builder excludes that asset from alignment. The main alignment must detect
-  ;; the poisoned superset response and re-intersect the members' own series
-  ;; (399 observations), while the regression sub-alignment (thin asset +
-  ;; proxies, no superset) still uses the backend overlap.
   (let [decorate (fn [instrument]
                    (assoc instrument :optimizer-history/instrument-id
                           (str "hl:" (:instrument-id instrument))))
@@ -512,9 +493,6 @@
         "The tighter of the existing override and the proxy cap wins.")))
 
 (deftest build-engine-request-keeps-incomplete-proxy-assumptions-out-of-engine-test
-  ;; No proxies selected => not engine-backed. The thin asset stays in alignment
-  ;; like any thin asset (so the shared window shrinks to its overlap, exactly as
-  ;; before this feature) and readiness blocks the run until the entry completes.
   (let [request (proxy-request (assoc-in complete-proxy-assumption
                                          [:proxy :instrument-ids] []))]
     (is (= ["perp:BTC" "perp:ETH" "perp:TOKENX"]
@@ -529,8 +507,6 @@
         "The entry still normalizes to the flattened engine shape.")))
 
 (deftest build-engine-request-rejects-assumption-backed-assets-as-proxies-test
-  ;; ETH itself leans on a conservative assumption, so TOKENX cannot proxy to it:
-  ;; a synthetic row must never anchor another synthetic row.
   (let [draft (-> (proxy-draft (assoc-in complete-proxy-assumption
                                          [:proxy :instrument-ids] ["perp:ETH"]))
                   (update :history-assumptions assoc
@@ -555,9 +531,6 @@
         "The proxy asset is not engine-backed while it points at an assumption-backed proxy.")))
 
 (deftest build-engine-request-aligns-reference-only-proxy-but-excludes-from-allocation-test
-  ;; TOKENX (universe, thin history) proxies to SOL, which is NOT in the universe.
-  ;; SOL is a reference-only proxy: its history is aligned so covariance can use
-  ;; it, but it must never be allocatable.
   (let [draft (-> (defaults/default-draft)
                   (assoc :id "draft-reference-proxy"
                          :universe [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}
@@ -591,13 +564,6 @@
     (is (= 9 (count (get-in entry [:regression-series :proxy-returns-by-id "perp:SOL"]))))))
 
 (deftest build-engine-request-keeps-universe-member-listed-as-reference-allocatable-test
-  ;; Live 2026-07-09: an emptied proxy basket left BTC/ETH behind in the
-  ;; draft's :proxy-reference-instruments, and the reference-drop silently
-  ;; evicted both REAL portfolio assets from the engine universe (the UI then
-  ;; badged them "Excluded - needs assumption" on 1094 days of history). A
-  ;; stored reference that is also a universe member is not reference-only:
-  ;; it stays allocatable and is not aligned a second time. A genuine
-  ;; out-of-universe reference (SOL) keeps the reference-only treatment.
   (let [draft (-> (defaults/default-draft)
                   (assoc :id "draft-stale-reference"
                          :universe [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}
@@ -606,7 +572,6 @@
                          :history-assumptions
                          {"perp:TOKENX" (assoc-in complete-proxy-assumption
                                                   [:proxy :instrument-ids] ["perp:SOL"])}
-                         ;; BTC/ETH are stale leftovers; SOL is genuinely reference-only.
                          :proxy-reference-instruments
                          [{:instrument-id "perp:BTC" :market-type :perp :coin "BTC"}
                           {:instrument-id "perp:ETH" :market-type :perp :coin "ETH"}

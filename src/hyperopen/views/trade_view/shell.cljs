@@ -48,8 +48,6 @@
                :class ["h-10" "shrink-0" "rounded-md" "bg-primary" "px-6" "text-sm" "font-semibold"
                        "text-primary-content" "focus:outline-none"]
                :data-role "outcome-mobile-buy"
-               ;; ONE action: open the sheet as a Buy in dollars, whatever side
-               ;; the form last carried.
                :on {:click [[:actions/set-outcome-ticket-entry {:side :buy
                                                                 :size-input-mode :quote
                                                                 :open-ticket-sheet? true}]]}}

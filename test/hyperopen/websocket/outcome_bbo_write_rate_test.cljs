@@ -204,7 +204,6 @@
       (let [s0 (holder-state)
             v0 (metrics/account-equity-outcome-shares (as-trade-view-sees s0))
             walks0 @walks
-            ;; a perp book tick, an unrelated key and a quote batch for the open event
             s1 (-> s0
                    (assoc-in [:orderbooks "BTC" :bids 0 :px] "101")
                    (assoc :unrelated 1)

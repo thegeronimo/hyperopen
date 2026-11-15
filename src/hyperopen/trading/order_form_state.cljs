@@ -68,7 +68,6 @@
                     :else default-tpsl-unit)]
     (cond
       (contains? valid-tpsl-units candidate) candidate
-      ;; Legacy compatibility: :percent historically meant ROE%.
       (= candidate :percent) :roe-percent
       :else default-tpsl-unit)))
 

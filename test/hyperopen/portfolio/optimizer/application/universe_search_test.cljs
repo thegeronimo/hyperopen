@@ -36,14 +36,9 @@
     (is (= "USDH" (universe-candidates/market-quote
                    {:market-type :spot :symbol "HYPE/USDH"}))))
   (testing "a vault has no quote, and must not be given a fabricated one"
-    ;; A vault candidate is seven keys with no :quote and no :base. A "USDC"
-    ;; fallback would file every vault under the USDC facet.
     (is (nil? (universe-candidates/market-quote pump-vault)))))
 
 (deftest type-chip-counts-are-taken-before-the-type-filter-test
-  ;; The chips must keep saying what is AVAILABLE. If they counted the filtered
-  ;; set, selecting PERP would collapse every other chip to zero and there would
-  ;; be no way to see that spot rows exist.
   (let [chips (universe-search/type-chips markets :perp)
         by-key (into {} (map (juxt :key identity)) chips)]
     (is (= 5 (:count (:all by-key))))
@@ -94,9 +89,6 @@
   (is (= {:pre "Hype" :match "rliquid" :post ""}
          (universe-search/highlight "Hyperliquid" "rliquid")))
   (testing "a field that does not contain the query still renders in full"
-    ;; The candidate filter searches several fields, so a visible row need not
-    ;; contain the query in either RENDERED field. Losing the text would blank
-    ;; the row.
     (is (= {:pre "Bitcoin" :match "" :post ""}
            (universe-search/highlight "Bitcoin" "pump"))))
   (testing "a blank query highlights nothing and keeps the text"
@@ -104,8 +96,6 @@
            (universe-search/highlight "Bitcoin" "")))))
 
 (deftest row-search-fields-keeps-the-separator-on-the-symbol-lead-test
-  ;; The quote token renders as its own pill. The separator must stay on the
-  ;; lead so the row's text content still concatenates to the whole symbol.
   (let [perp (universe-search/row-search-fields
               {:market pump-perp :label "PUMP-USDC" :name "PUMP"}
               "pump")
@@ -134,10 +124,6 @@
   (is (= "1 market" (universe-search/group-count-label 1))))
 
 (deftest candidate-markets-carries-the-true-pre-limit-match-count-test
-  ;; The footer promises "N of M matches shown". M cannot be read off the
-  ;; returned vector — that vector is already capped — so it rides along as
-  ;; metadata. Without it the panel would report "25 of 25" for a 27-match query
-  ;; and re-hide exactly the truncation this work removes.
   (let [state {:asset-selector
                {:markets (mapv (fn [i]
                                  {:key (str "perp:PUMP" i)
@@ -165,7 +151,6 @@
            (universe-search/add-all-label 500)))))
 
 (deftest filter-normalizers-tolerate-view-supplied-strings-test
-  ;; The chips dispatch (name key), so every value arrives as a string.
   (is (= :perp (universe-search/normalize-type-filter "perp")))
   (is (= :all (universe-search/normalize-type-filter "all")))
   (is (= :all (universe-search/normalize-type-filter "not-a-type")))
@@ -174,9 +159,6 @@
   (is (= :all (universe-search/normalize-quote-filter "all")))
   (is (= :all (universe-search/normalize-quote-filter "   ")))
   (testing "the STORED default is the keyword :all, not a string"
-    ;; Regression: the shared non-blank-text helper stringifies :all to ":all",
-    ;; which normalized to a quote token of ":ALL" and filtered every row out —
-    ;; an empty list under a "197 hits" count.
     (is (= :all (universe-search/normalize-quote-filter :all)))
     (is (= :all (universe-search/normalize-quote-filter nil)))
     (is (= "USDC" (universe-search/normalize-quote-filter :usdc)))))

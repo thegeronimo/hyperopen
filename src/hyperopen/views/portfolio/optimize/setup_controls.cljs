@@ -1,13 +1,6 @@
 (ns hyperopen.views.portfolio.optimize.setup-controls
   (:require [clojure.string :as str]))
 
-;; Setup-surface type ladder (2026-07-02 design review): section titles 0.875rem
-;; sentence case; primary body/values/inputs/CTAs 0.8125rem; secondary metadata
-;; 0.75rem; micro labels/eyebrows 0.6875rem; chips/table headers floor at
-;; 0.625rem. Uppercase-mono is reserved for genuine tags (eyebrows, chips,
-;; status tags) — titles, picker labels, and prose stay sentence case so the
-;; page reads as a product, not log output. Keep new text on this ladder.
-
 (def eyebrow-class
   ["font-mono" "text-[0.6875rem]" "font-semibold" "uppercase" "tracking-[0.08em]" "text-trading-muted/70"])
 
@@ -32,16 +25,7 @@
     (str (.toFixed (* value 100) 0) "%")
     "--"))
 
-(defn panel
-  [role & children]
-  (into [:section {:class ["optimizer-setup-panel" "border" "border-base-300" "bg-base-100/90" "p-3"]
-                   :data-role role}]
-        children))
-
 (defn disclosure-panel
-  ;; :id mirrors the data-role (roles are unique per page) so plain fragment
-  ;; anchors — e.g. the rail's exposure-policy warning link — can scroll to a
-  ;; panel without any dispatch machinery.
   [role & children]
   (into [:details {:class ["optimizer-setup-panel" "border" "border-base-300" "bg-base-100/90" "p-3"]
                    :data-role role
@@ -60,20 +44,10 @@
         children))
 
 (defn section-heading
-  ;; No leading section number: the optimizer setup is a sovereign workbench, not
-  ;; an ordered wizard. Numbering the panels 01..05 falsely implied a required
-  ;; sequence; the only real gate to Run is "add >=1 asset" (see workspace
-  ;; run-triggerable?). The optional `trailing` eyebrow still carries at-a-glance
-  ;; state (chosen objective/model, "optional", "N active").
   [title trailing]
   [:div {:class ["flex" "items-center" "justify-between" "gap-3" "border-b" "border-base-300" "pb-2"]}
    [:p {:class section-title-class} title]
    (when trailing
-     ;; Live-value summary ("Historical mean · Ledoit-Wolf", constraint numbers):
-     ;; mono for the numbers, sentence case so a collapsed header reads as a
-     ;; value, not a shouted tag. `optimizer-section-trailing` hides it while the
-     ;; owning disclosure panel is OPEN (setup.css) — the summary exists for the
-     ;; collapsed state; open, it duplicates the panel body / scenario contract.
      [:span {:class ["optimizer-section-trailing" "font-mono" "text-[0.75rem]" "text-trading-muted/70"]}
       trailing])])
 
@@ -126,23 +100,6 @@
                 :role "tooltip"
                 :data-role tooltip-id}
          help-copy])])))
-
-(defn number-input
-  [label value role action highlighted?]
-  [:label {:class (cond-> ["block" "border" "border-base-300" "bg-base-200/20" "p-2"]
-                    highlighted? (conj "border-warning/70" "bg-warning/10"))}
-   [:span {:class eyebrow-class} label]
-   [:input {:type "text"
-            :inputmode "decimal"
-            :class (conj input-class "mt-2")
-            :data-role role
-            :data-infeasible (when highlighted? "true")
-            :aria-invalid (when highlighted? "true")
-            :value (str value)
-            ;; Commit on blur/Enter, not per keystroke: an eager parse rewrites the
-            ;; controlled :value mid-typing (e.g. "0." collapses to "0"), so a decimal
-            ;; can never be entered. See setup-constraint-controls + target-sigma.
-            :on {:change [action]}}]])
 
 (defn decimal->percent-text
   "Render a stored fraction as a clean percent string for a percent-entry input

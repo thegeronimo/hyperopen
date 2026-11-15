@@ -56,7 +56,6 @@
     (is (apply < (map :time-ms series)))
     (is (= now (:time-ms (peek series))))
     (is (near? 1100 (:value (peek series))))
-    ;; zero model drift: the midpoint sits exactly on the index
     (let [mid (some #(when (= (:time-ms %) (+ start (* 50 day))) %) series)]
       (is (near? 1050 (:value mid))))
     (is (= [{:time-ms start :kind :deposit :amount 1000 :vault-address fx/vault-a :name "HLP"}]
@@ -131,7 +130,6 @@
                                             {:requested "2350" :commission "35"
                                              :basis "2000" :net "2315"})
                                (fx/deposit (- now (* 10 day)) fx/vault-a "1000")]
-                 ;; deliberately off-model equity: drift must be absorbed
                  :equity-by-vault {(.toUpperCase fx/vault-a) 6700}
                  :vaults {fx/vault-a {:name "A" :returns-candidates
                                       [(fx/index-rows (- now (* 30 day)) now day a-index)
@@ -152,7 +150,6 @@
                                 :closed-count :first-deposit-ms])))
     (is (number? (:money-weighted-return totals)))
     (is (near? 6700 (:value (peek (:series result)))))
-    ;; vault A is only sampled ~daily for the last 30 days, B is closed by then
     (is (= (- now (* 30 day)) (:daily-from-ms result)))
     (fx/assert-series-invariants result)))
 
@@ -168,8 +165,6 @@
                  :now-ms now})
         row (vault-row result fx/vault-a)]
     (is (near? 100 (:pnl row)))
-    ;; No index: the sleeve holds cost and recognises P&L at each withdrawal
-    ;; and at the end; the row reads that sleeve, like the total.
     (is (near? (final-return-pct result) (:vault-return-while-held-pct row)))
     (is (= [[start 0 0] [(inc start) 1000 0] [wd 1050 50] [(inc wd) 750 50] [now 800 100]]
            (mapv (juxt :time-ms :value :pnl) (:series result))))
@@ -186,9 +181,6 @@
         (fx/assert-series-invariants result)))))
 
 (deftest reopened-vault-live-ledger-test
-  ;; Real follower ledger (see position_test): two deposits, a FULL withdrawal
-  ;; with commission, then a re-deposit. Hyperliquid's followerState for it
-  ;; reported allTimePnl 1869.6200659182 and pnl 655.8756779182.
   (let [[t1 t2 t3 t4] [1774416974173 1777965182591 1786041424115 1788034752230]
         origin (- t1 day)
         index #(+ 1 (* 0.0004 (/ (- % origin) day)))
@@ -210,7 +202,6 @@
     (is (near? (final-return-pct result) (:vault-return-while-held-pct row))
         "one vault: the row reads the same sleeve as the total")
     (let [gap (filter #(<= (inc t3) (:time-ms %) t4) (:series result))]
-      ;; only the close's after-point and the re-deposit's before-point
       (is (= [(inc t3) t4] (mapv :time-ms gap)))
       (is (every? #(near? 0 (:value %)) gap) "nothing held between the periods")
       (is (every? #(near? (- 22301.734387 21087.99) (:pnl %)) gap)))

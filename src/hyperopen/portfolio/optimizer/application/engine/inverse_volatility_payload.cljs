@@ -52,7 +52,6 @@
              :weight weight
              :sigma sigma
              :risk-weight (* (js/Math.abs weight) sigma)
-             ;; Transient — consumed by the turnover annotation, never published.
              :at-bound? pinned?
              :moved-off-seed? (boolean
                                (and pinned?

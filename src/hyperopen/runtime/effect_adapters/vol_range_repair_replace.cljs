@@ -153,12 +153,7 @@
                                           (assoc-in state [:vol-range :repair] nil)
                                           state))))
                        result))))
-        ;; Every result names the proposal it answers (the review shows only its own).
         (.then #(assoc % :proposal-id proposal-id)))))
-
-;; ---------------------------------------------------------------------------
-;; Ladder update (spec 10.2 steps 2-4)
-;; ---------------------------------------------------------------------------
 
 (defn- update-in-state [store] (get-in @store [:vol-range :replace]))
 

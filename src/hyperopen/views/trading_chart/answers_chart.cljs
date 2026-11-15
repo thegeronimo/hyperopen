@@ -15,8 +15,6 @@
           :data-coin coin
           :data-selected (str (boolean selected?))}
    [:span {:class ["inline-block" "w-3.5" "rounded-sm" (if selected? "h-1" "h-0.5")]
-           ;; `color` is a --ho-chart-answer-N token: the swatch follows a
-           ;; theme switch without a render
            :style {:background-color (str "var(" color ")")}
            :aria-hidden "true"}]
    [:span label]

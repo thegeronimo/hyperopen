@@ -347,25 +347,12 @@
           (assoc :shrinkage {:kind :diagonal
                              :shrinkage shrinkage})))
       (let [series (series-by-id history instrument-ids)
-            ;; Still deferred, though no longer the same order of cost: hoisting
-            ;; the per-series means and moving to typed arrays took a
-            ;; 100-instrument, 730-observation estimate from 8.3 s to 0.26 s.
-            ;; The Ledoit-Wolf branch reads it only when that estimator reports
-            ;; ragged input, so on the default model it is usually never forced,
-            ;; and a quarter of a second is still worth not spending.
             sample (delay (covariance-matrix series periods-per-year*))
             shrinkage (or (:shrinkage risk-model*) default-shrinkage)
             ledoit-wolf-result (when (= :ledoit-wolf-dense model-kind)
                                  (risk-ledoit-wolf/estimate
                                   {:series series
                                    :periods-per-year periods-per-year*}))
-            ;; The Ledoit-Wolf estimator reports that it could not run on ragged
-            ;; series; deciding what to use instead is this function's job. The
-            ;; pairwise sample covariance gets every DIAGONAL right (each series
-            ;; against itself) and zeroes only the unequal-length off-diagonals,
-            ;; so it understates diversification - conservative, and honest.
-            ;; Publishing its all-zero matrix instead reported 0% volatility for
-            ;; a real book, which is the more believable failure.
             ledoit-wolf-unavailable? (boolean
                                       (some #(= :ragged-return-series (:code %))
                                             (:warnings ledoit-wolf-result)))
@@ -379,9 +366,6 @@
         (cond-> {:model model-kind
                  :instrument-ids instrument-ids
                  :covariance covariance
-                 ;; concat, never merge: `select-keys` below runs through
-                 ;; `merge`, so folding :warnings into it would OVERWRITE the
-                 ;; cadence and :risk-model-renamed warnings in warnings*.
                  :warnings (vec (concat warnings*
                                         (:warnings ledoit-wolf-result)))}
           (= :ledoit-wolf-dense model-kind)
@@ -462,11 +446,6 @@
                                              (or (get-in base-cov [r c]) 0))))
                                        (range n))))
                              (range n))
-            ;; Keep the repair warning. The sibling call site in
-            ;; `estimate-risk-model` threads it through; this one used to
-            ;; destructure only :covariance, so a matrix that a history
-            ;; assumption pushed indefinite was diagonally loaded back into
-            ;; shape and the user was never told.
             {repaired :covariance psd-warning :warning} (repair-psd covariance)]
         (cond-> (assoc risk-result
                        :instrument-ids ids

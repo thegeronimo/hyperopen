@@ -3,11 +3,6 @@ import { visitRoute, waitForDebugBridge, waitForIdle } from "../support/hyperope
 
 const SPECTATE_ADDRESS = "0x162cc7c861ebd0c06b3d72319201150482518185";
 
-/**
- * Two years of daily account-value history under the all-time bucket, which is
- * the series the context strip plots. Seeded directly into the store so the test
- * never depends on live market data.
- */
 async function seedPortfolioHistory(page) {
   await page.evaluate((spectateAddress) => {
     const c = globalThis.cljs.core;
@@ -34,8 +29,6 @@ async function seedPortfolioHistory(page) {
     const summaryByKey = c.PersistentArrayMap.fromArray([kw("all-time"), summary], true);
     const store = globalThis.hyperopen.system.store;
     let next = c.deref(store);
-    // An effective account must exist before account-derived surfaces may be
-    // held, or the app-state lifecycle invariant rejects the write.
     next = c.assoc_in(next, path("account-context", "spectate-mode", "active?"), true);
     next = c.assoc_in(next, path("account-context", "spectate-mode", "address"), spectateAddress);
     next = c.assoc_in(next, path("portfolio", "summary-by-key"), summaryByKey);
@@ -46,24 +39,12 @@ async function seedPortfolioHistory(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 6_000, pollMs: 50 });
 }
 
-/**
- * Load a route WITH its query string applied.
- *
- * `visitRoute` deliberately navigates by pathname only, so it cannot exercise a
- * shared link — the query has to arrive on the initial load for
- * `apply-route-query-state` to see it.
- */
 async function visitSharedUrl(page, url) {
   await page.goto(url, { waitUntil: "commit" });
   await waitForDebugBridge(page);
   await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
 }
 
-/**
- * Sweep a window on the strip. The bounding box is re-captured immediately
- * before every drag: an intervening click or render can scroll the page, and a
- * drag against a stale rect silently misses the element and looks green.
- */
 async function dragStrip(page, trackRole, fromFraction, toFraction) {
   const track = page.locator(`[data-role='${trackRole}']`);
   await track.scrollIntoViewIfNeeded();
@@ -89,8 +70,6 @@ test.describe("custom chart range (design 1c)", () => {
     const strip = page.locator("[data-role='portfolio-chart-range-strip']");
 
     await expect(trigger).toHaveText("30D");
-    // The strip is always in the DOM and hides itself — never a `when`, which
-    // would leave a nil hole between the chart's nil-able trailing siblings.
     await expect(strip).toHaveClass(/hidden/);
 
     await trigger.click();
@@ -102,28 +81,22 @@ test.describe("custom chart range (design 1c)", () => {
     await expect(page.locator("[data-role='portfolio-chart-range-strip-track'] polyline").first())
       .toHaveCount(1);
 
-    // Sweeping left-to-right across the middle of the all-time strip.
     await dragStrip(page, "portfolio-chart-range-strip-track", 0.2, 0.65);
 
-    // The chip now reads the chosen span rather than a preset name.
     const chipText = await trigger.innerText();
     expect(chipText).toMatch(/–/);
     expect(chipText).not.toBe("30D");
     await expect(page.locator("[data-role='portfolio-chart-range-strip-draft']"))
       .toContainText("D");
 
-    // ...and the window is shareable.
     expect(page.url()).toMatch(/from=\d{4}-\d{2}-\d{2}/);
     expect(page.url()).toMatch(/to=\d{4}-\d{2}-\d{2}/);
 
-    // Done collapses the strip but keeps the window applied.
     await page.locator("[data-role='portfolio-chart-range-strip-done']").click();
     await waitForIdle(page);
     await expect(strip).toHaveClass(/hidden/);
     expect(await trigger.innerText()).toBe(chipText);
 
-    // Clearing restores the preset that was never overwritten, and drops the
-    // bounds from the URL.
     await page.locator("[data-role='portfolio-summary-time-range-selector-clear']").click();
     await waitForIdle(page);
     await expect(trigger).toHaveText("30D");
@@ -159,7 +132,6 @@ test.describe("custom chart range (design 1c)", () => {
     const before = await trigger.innerText();
     expect(before).toMatch(/Jun 12/);
 
-    // The handles must advertise themselves as draggable edges.
     const cursorAt = (x, y) =>
       page.evaluate(
         ({ px, py }) => {
@@ -175,12 +147,9 @@ test.describe("custom chart range (design 1c)", () => {
       .boundingBox();
     const midY = track0.y + track0.height / 2;
     expect(await cursorAt(startHandle0.x + startHandle0.width / 2, midY)).toBe("ew-resize");
-    // ...including the invisible margin where a grab still works.
     expect(await cursorAt(startHandle0.x - 4, midY)).toBe("ew-resize");
-    // Open track still reads as "sweep a new range", not "resize an edge".
     expect(await cursorAt(track0.x + track0.width * 0.5, midY)).toBe("crosshair");
 
-    // Grab the END handle where it sits and drag it further right.
     const handles = page.locator("[data-role='portfolio-chart-range-strip'] .ho-range-strip__handle");
     const endHandle = handles.nth(1);
     const handleBox = await endHandle.boundingBox();
@@ -196,12 +165,9 @@ test.describe("custom chart range (design 1c)", () => {
 
     const after = await trigger.innerText();
     expect(after).not.toBe(before);
-    // The start edge is untouched by an end-handle drag.
     expect(after).toMatch(/Mar 3/);
   });
 });
-
-// --- vault detail -----------------------------------------------------------------------------
 
 const VAULT_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 const LEADER_ADDRESS = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
@@ -239,8 +205,6 @@ function vaultDetailsFixture() {
 }
 
 function candleSnapshot(coin, interval) {
-  // Daily candles spanning the same two years as the vault history, so the
-  // benchmark actually resolves and the metrics panel's loading overlay clears.
   const day = 86400000;
   const end = Date.UTC(2026, 7, 24);
   const out = [];
@@ -339,13 +303,11 @@ test.describe("custom chart range (design 1c) — vault detail", () => {
     expect(page.url()).toMatch(/from=\d{4}-\d{2}-\d{2}/);
     expect(page.url()).toMatch(/to=\d{4}-\d{2}-\d{2}/);
 
-    // Done collapses the strip and keeps the window.
     await page.locator("[data-role='vault-detail-chart-range-strip-done']").click();
     await waitForIdle(page);
     await expect(strip).toHaveClass(/hidden/);
     expect(await trigger.innerText()).toBe(after);
 
-    // Clearing restores the preset and drops the bounds from the URL.
     await page.locator("[data-role='vault-detail-chart-timeframe-clear']").click();
     await waitForIdle(page);
     expect(await trigger.innerText()).not.toMatch(/–/);
@@ -370,22 +332,17 @@ test.describe("custom chart range (design 1c) — vault detail", () => {
     const presetLabel = await metricsTrigger.innerText();
     expect(presetLabel).not.toMatch(/–/);
 
-    // Set a custom window from the CHART.
     await chartTrigger.click();
     await waitForIdle(page);
     await page.locator("[data-role='vault-detail-chart-timeframe-option-custom']").click();
     await waitForIdle(page);
     await dragStrip(page, "vault-detail-chart-range-strip-track", 0.15, 0.7);
 
-    // The tearsheet must report the SAME window, not the preset underneath it.
     const chartLabel = await chartTrigger.innerText();
     const metricsLabel = await metricsTrigger.innerText();
     expect(metricsLabel).toMatch(/–/);
     expect(metricsLabel.replace(/^Range\s*/, "")).toBe(chartLabel.replace(/^Range\s*/, ""));
 
-    // The chip grew from "Range 30D" to a full span, so its column has to grow
-    // with it — otherwise the chip and its clear control sit on top of the first
-    // benchmark column header.
     const chipBox = await page
       .locator("[data-role='vault-detail-performance-metrics-timeframe-menu']")
       .boundingBox();
@@ -397,11 +354,8 @@ test.describe("custom chart range (design 1c) — vault detail", () => {
       .boundingBox();
     expect(chipBox.x + chipBox.width).toBeLessThan(benchBox.x);
     expect(clearBox.x + clearBox.width).toBeLessThan(benchBox.x);
-    // ...and the label stays on one line rather than wrapping inside the chip.
     expect(chipBox.height).toBeLessThan(60);
 
-    // The tearsheet can set one itself, and its strip opens in place rather than
-    // on the chart card the trader may have scrolled past.
     await page.locator("[data-role='vault-detail-chart-range-strip-done']").click();
     await waitForIdle(page);
     await metricsTrigger.click();
@@ -415,14 +369,12 @@ test.describe("custom chart range (design 1c) — vault detail", () => {
     await expect(metricsStrip).not.toHaveClass(/hidden/);
     await expect(chartStrip).toHaveClass(/hidden/);
 
-    // Dragging the tearsheet's own strip moves both chips together.
     await dragStrip(page, "vault-detail-performance-metrics-range-strip-track", 0.3, 0.85);
     const afterMetrics = await metricsTrigger.innerText();
     const afterChart = await chartTrigger.innerText();
     expect(afterMetrics).not.toBe(metricsLabel);
     expect(afterMetrics.replace(/^Range\s*/, "")).toBe(afterChart.replace(/^Range\s*/, ""));
 
-    // Clearing from the tearsheet restores the preset on both.
     await page.locator("[data-role='vault-detail-performance-metrics-timeframe-clear']").click();
     await waitForIdle(page);
     expect(await metricsTrigger.innerText()).not.toMatch(/–/);

@@ -31,8 +31,6 @@
 
 (def ^:private memoized-main-series-markers
   (memoize-last
-   ;; Only indicator markers ride on the series' built-in markers; the
-   ;; trader's own fills are drawn by the trades layer (`:chart-trades`).
    (fn [indicator-markers]
      (cond
        (vector? indicator-markers) indicator-markers
@@ -135,8 +133,6 @@
             :aria-busy history-backfill-loading?
             :aria-label chart-accessible-label
             :tabindex 0
-            ;; The outcome price unit is in the key: the legend's formatters
-            ;; are fixed when it mounts, so a unit switch remounts the chart.
             :replicant/key (cond-> (str "chart-" (hash active-indicators) "-" legend-key "-" volume-visible?)
                              (:price-unit series-options)
                              (str "-" (name (:price-unit series-options))))
@@ -171,8 +167,6 @@
            :data-parity-id "chart-panel"}
      [:div {:class ["w-full" "h-full" "flex" "flex-col" "min-h-0" "min-w-0" "overflow-hidden"]}
       (chart-top-menu state)
-      ;; All answers draws the event's lines whatever the selected coin's own
-      ;; candle slot says (a failed load there must not blank every line).
       (if (answers-vm/all-answers? state)
         (answers-chart/answers-chart (answers-vm/answers-view-model state dispatch-fn))
         (candle-chart state dispatch-fn))]]))

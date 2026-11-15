@@ -3,9 +3,6 @@
 (def ^:private twap-subtabs
   #{:active :history :fill-history})
 
-(defn default-twap-state []
-  {:selected-subtab :active})
-
 (defn normalize-twap-subtab
   [value]
   (let [subtab (cond

@@ -152,12 +152,6 @@
                    [:request :execution-assumptions :cost-contexts-by-id "perp:ETH" :fallback-bps])))))
 
 (deftest build-readiness-injects-native-marks-as-execution-prices-test
-  ;; A HIP-3 perp prices its returns off an equity proxy, so the last history close is the
-  ;; proxy level (here 112), not the native perp mark. build-readiness must seed the execution
-  ;; reference price from the live market catalog ([:asset-selector :market-by-key]), so the
-  ;; rebalance preview sizes and costs against the native mark (95), not the proxy. The "spot:BTC"
-  ;; decoy shares the coin "BTC" with a different price: resolution is per market-type (by the
-  ;; instrument's own catalog key), so the perp must NOT pick up the spot price.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:asset-selector
@@ -174,18 +168,13 @@
                                 {:time 2000 :close "2200"}]}
                         :funding-history-by-coin {}}}}}))]
     (is (= :ready (:status readiness)))
-    ;; native perp mark (95) is seeded as the execution price, keyed by instrument-id — NOT the
-    ;; same-coin spot decoy price (1.0)
     (is (= 95.0
            (get-in readiness
                    [:request :execution-assumptions :prices-by-id "perp:BTC"])))
-    ;; ETH has no catalog mark -> no native price injected (preview falls back to history close)
     (is (nil? (get-in readiness
                       [:request :execution-assumptions :prices-by-id "perp:ETH"])))))
 
 (deftest build-readiness-allows-empty-black-litterman-views-test
-  ;; Zero authored views is a valid views-aware run: the posterior equals the
-  ;; baseline expected returns, so readiness must not block on it.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:portfolio
@@ -503,8 +492,6 @@
     (is (= "Bitcoin: approved substitute history is included."
            message))))
 
-;; --- History assumptions (no-history asset: perp:ETH has no candle history) ---
-
 (defn- assumptions-state
   [eth-assumption objective]
   (optimizer-state
@@ -569,8 +556,6 @@
                                        {:kind :max-sharpe}))]
       (is (= :ready (:status supplied))
           "With the expected return supplied, the return-seeking run is allowed."))))
-
-;; --- Proxy history assumptions -------------------------------------------------
 
 (def ^:private complete-proxy-assumption
   {:behavior :proxy
@@ -653,7 +638,6 @@
     (is (= "ETH needs a max allocation cap." (:message warning)))))
 
 (deftest readiness-blocks-proxy-cap-above-global-max-test
-  ;; The base fixture draft has no explicit :max-asset-weight, so give it one.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:portfolio
@@ -690,8 +674,6 @@
                                                {:kind :max-sharpe}))))
         "With the expected return present the return-seeking run is allowed.")))
 
-;; --- Short-history blocking (assumption-required threshold) ---------------------
-
 (def ^:private day-ms* (* 24 60 60 1000))
 
 (defn- daily-candles
@@ -717,7 +699,6 @@
       :history-data
       {:candle-history-by-coin
        {"BTC" (daily-candles 0 btc-days 100)
-        ;; TOKENX's candles cover the LAST tokenx-days of BTC's window.
         "TOKENX" (daily-candles (- btc-days tokenx-days) tokenx-days 10)}
        :funding-history-by-coin {}}}}}))
 
@@ -733,8 +714,6 @@
            (:message warning)))))
 
 (deftest readiness-keeps-all-young-universe-runnable-test
-  ;; With no long-history asset to borrow from, the long-standing thin-history
-  ;; behavior stands: the run is not blocked.
   (let [readiness (setup-readiness/build-readiness
                    (short-history-state {:btc-days 100 :tokenx-days 10}))]
     (is (= :ready (:status readiness)))))
@@ -758,28 +737,18 @@
     (is (= 9 (count (get-in series [:proxy-returns-by-id "perp:BTC"]))))))
 
 (deftest warning-code-summary-distinguishes-staleness-codes-test
-  ;; Regression: both staleness codes rendered the identical "use stale cached
-  ;; history" sentence, so the readiness panel showed two same-worded groups
-  ;; with different counts side by side.
   (let [stale (setup-readiness/warning-code-summary :stale-history 15)
         fetch-failed (setup-readiness/warning-code-summary :source-fetch-failed 6)]
     (is (= "15 assets use stale history" stale))
     (is (= "6 assets could not refresh from the history provider — using cached or native history"
            fetch-failed))
     (is (not= stale fetch-failed))
-    ;; "Proxy" is internal mapping language; the grouped summary says
-    ;; "substitute history".
     (is (= "8 assets use substitute history"
            (setup-readiness/warning-code-summary :proxy-history-used 8)))
     (is (= "1 asset uses substitute history"
            (setup-readiness/warning-code-summary :proxy-history-used 1)))))
 
 (deftest build-readiness-allows-running-while-refreshing-a-loaded-bundle-test
-  ;; The stale-while-revalidate cache hydrates the wallet's last bundle and
-  ;; deliberately leaves history-load-state alone, so a repeat visit runs a
-  ;; background refresh over data that is already complete. Before 2026-08-24
-  ;; that refresh reported :history-loading and set runnable? false for its whole
-  ;; duration. :loaded-at-ms is what separates it from a cold load.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:portfolio
@@ -806,9 +775,6 @@
     (is (= :ready (:status readiness)))))
 
 (deftest build-readiness-refreshing-still-blocks-an-asset-with-no-history-test
-  ;; Running during a refresh must never mean running with a missing asset.
-  ;; incomplete-history? is the guard that keeps that true: DOGE is requested but
-  ;; has no candles, so it drops out of the built request and the mismatch blocks.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:portfolio

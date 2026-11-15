@@ -55,8 +55,6 @@
     :hyperevm (filterv hyperevm-row? rows)
     (vec rows)))
 
-;; --- held tokens -------------------------------------------------------------
-
 (defn- display-address
   [state]
   (hyperevm-balances/display-address state))
@@ -122,8 +120,6 @@
     (mapv (comp :name first) (held-tokens state address))
     []))
 
-;; --- rows ------------------------------------------------------------------------
-
 (defn- native-gas-reserve
   "HYPE kept on HyperEVM for gas by a move to Core: the same reserve the
    Transfer modal's MAX holds back."
@@ -162,10 +158,6 @@
              :usdc-value (when (number? price) (* total price))
              :pnl-value nil
              :pnl-pct nil
-             ;; Shown like the token's HyperCore Spot row (weiDecimals),
-             ;; so a HyperEVM USDC row lines up with the Spot one instead
-             ;; of showing its 6 on-chain decimals. The Transfer modal keeps
-             ;; its own route precision.
              :amount-decimals (:wei-decimals token)
              :contract-id nil
              :evm-native? native?

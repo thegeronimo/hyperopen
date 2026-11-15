@@ -275,7 +275,6 @@
    (fn [idx {:keys [label value divider?]}]
      (let [row-y (+ header-height* (* row-height idx))]
        (if divider?
-         ;; Separates optimizer outputs from the volatility-intuition rows.
          [:line {:key (str "row-" idx)
                  :x1 10
                  :x2 (- width* 10)

@@ -5,7 +5,6 @@
 (deftest equity-helpers-follow-classic-and-unified-account-contracts-test
   (is (true? (vm-equity/top-up-abstraction-enabled? {:account {:mode :unified}})))
   (is (false? (vm-equity/top-up-abstraction-enabled? {:account {:mode :classic}})))
-  ;; Earn is the owned lending state's supplied value net of borrows.
   (let [owner "0x1111111111111111111111111111111111111111"]
     (is (= 12 (vm-equity/earn-balance {:wallet {:address owner}
                                        :borrow-lend {:user-address owner

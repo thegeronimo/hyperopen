@@ -8,9 +8,6 @@
   the market header and selector rows show."
   (:require [clojure.string :as str]))
 
-;; ---------------------------------------------------------------------------
-;; Text helpers
-
 (defn- non-blank-text
   [value]
   (when (string? value)
@@ -29,12 +26,6 @@
   "Only HIP-3 perps (`dex:BASE`) carry deployer annotations."
   [coin]
   (some? (coin-dex coin)))
-
-;; ---------------------------------------------------------------------------
-;; Categories
-
-(def category-order
-  [:stocks :indices :commodities :preipo :fx :rates :crypto])
 
 (def ^:private category-aliases
   {"stock" :stocks
@@ -90,9 +81,6 @@
     (or (get category-plural-labels category)
         (str/capitalize (name category)))))
 
-;; ---------------------------------------------------------------------------
-;; Payload normalization
-
 (defn- normalize-keywords
   [value]
   (when (sequential? value)
@@ -146,9 +134,6 @@
 
     :else
     {}))
-
-;; ---------------------------------------------------------------------------
-;; App-db projection: [:perp-annotations]
 
 (def default-state
   {:concise-status :idle
@@ -208,9 +193,6 @@
                    [:detail-by-coin coin]
                    {:status :error})))
 
-;; ---------------------------------------------------------------------------
-;; Subtitle derivation
-
 (def ^:private max-subtitle-length 56)
 
 (defn- clip
@@ -225,15 +207,9 @@
     text))
 
 (def ^:private issuer-patterns
-  ;; Deployers phrase single-share contracts three ways. Periods and commas
-  ;; are never terminators, so "Tesla, Inc." and "N.V." survive intact.
-  [;; "SPCX references 1 share of Space Exploration Technologies Corp. Class A
-   ;; common stock (Nasdaq: SPCX)" -> "Space Exploration Technologies Corp."
+  [
    #"(?i)\b(?:references|tracks|represents)\s+(?:one|\d+(?:\.\d+)?)\s+(?:registered\s+)?(?:Class\s+[A-Z]\s+)?(?:ordinary\s+|common\s+)?(?:American\s+depositary\s+shares?|ADSs?|[AH]-shares?|shares?|units?)\s+of\s+(?:the\s+)?(.+?)(?:\s+Class\s+[A-Z]\b|\s+(?:common|ordinary|preferred|American)\b|\s+(?:shares?|ADSs?)\b|\s+stock\b(?!\s+company)|\s*\(|;|\s+quoted\b)"
-   ;; "ARM references 1 Arm Holdings plc ADS (Nasdaq: ARM)"
-   ;; "NBIS references 1 Nebius Group N.V. Class A ordinary share"
    #"\breferences\s+(?:one|1)\s+(.+?)\s+(?:Class\s+[A-Z]\s+)?(?:ADSs?|ordinary\s+shares?|common\s+shares?|[AH]-shares?)\b"
-   ;; "GDX tracks the value of one share of the VanEck Gold Miners ETF."
    #"(?i)\bvalue\s+of\s+(?:one|1)\s+share\s+of\s+(?:the\s+)?(.+?)(?:\.(?:\s|$)|,|;|\s*\()"])
 
 (defn issuer-from-description
@@ -250,14 +226,9 @@
           issuer-patterns)))
 
 (def ^:private description-lead-pattern
-  ;; "WTIOIL references the USD price ..." -> "the USD price ..."
-  ;; "A perpetual future contract tracking the price of Gold" -> "Gold"
   #"(?i)^(?:(?:[A-Z0-9][A-Za-z0-9&.$/-]*\s+)?(?:references|tracks|represents|provides|offers)\s+|a\s+perpetual\s+future(?:\s+contract)?\s+tracking\s+(?:the\s+price\s+of\s+)?)")
 
 (def ^:private sentence-boundary
-  ;; A period after a lowercase letter, digit or ")" ends a sentence, so
-  ;; "U.S." and "N.V." do not. No-limit split: CLJS's limited split ignores
-  ;; lookbehind.
   #"(?<=[a-z0-9)])\.\s+")
 
 (defn description-first-clause

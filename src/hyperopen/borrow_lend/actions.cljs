@@ -44,8 +44,6 @@
         stale? (not= (account-context/normalize-address address)
                      (get-in state [:borrow-lend :user-address]))]
     (into [(if stale?
-             ;; A different account: drop the previous one's positions so its
-             ;; Earn balance never shows under the new account.
              [:effects/save-many [[[:borrow-lend :requested-address] address]
                                   [[:borrow-lend :user-state] nil]
                                   [[:borrow-lend :user-address] nil]

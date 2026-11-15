@@ -202,8 +202,6 @@
        (or volume-text "—")]]
      [:div {:class ["flex" "min-w-0" "items-center" "gap-2" "pl-6"]}
       (desktop-answers row)
-      ;; Many-answer rows need the room for their answers: the clock moves to
-      ;; the row's tooltip.
       (when (<= (count (:answers row)) 2)
         [:div {:class (into ["max-w-[9rem]" "shrink-0" "truncate" "text-right" "text-xs"] (clock-classes (:phase clock)))
                :title (:absolute clock)}
@@ -316,9 +314,6 @@
         (doseq [prop ["top" "left" "width" "height"]]
           (.removeProperty style prop))))))
 
-;; ---------------------------------------------------------------------------
-;; Rows on screen -> live price subscriptions
-
 (def ^:private visible-report-delay-ms 150)
 
 (defn visible-row-keys
@@ -369,9 +364,6 @@
   [^js event]
   (schedule-visible-report! (.-currentTarget event)))
 
-;; ---------------------------------------------------------------------------
-;; Sort + freshness
-
 (defn sort-and-freshness-row
   "Sort select, how old the list is, and Refresh."
   [{:keys [sort sort-options load]}]
@@ -413,9 +405,6 @@
 
 (defn event-list
   [{:keys [sections selected-market-key highlighted-market-key favorites suppress-empty-state? mobile? panel? load]}]
-  ;; Flat sorts return one section even with no rows: no rows is empty.
-  ;; The empty or failed state takes the list's place (same role), so it sits
-  ;; where the rows would.
   (if (not-any? (comp seq :rows) sections)
     [:div {:class (if (or mobile? panel?) ["min-h-0" "flex-1"] [])
            :data-role "outcome-event-list"}
@@ -449,9 +438,6 @@
                                    row selected-market-key highlighted-market-key favorites)))
                            (:rows section)))
                    sections)))))
-
-;; ---------------------------------------------------------------------------
-;; The All tab's outcome events
 
 (def ^:private all-tab-event-limit 5)
 

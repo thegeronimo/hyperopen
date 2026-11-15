@@ -24,9 +24,6 @@
                                    selections (assoc :overlap-cancels selections))}}})
 
 (deftest confirm-auto-cancels-cloid-recognized-orders-across-reload-test
-  ;; Fresh session (empty in-memory carryover) with the optimizer's OWN tagged order
-  ;; still resting on the live snapshot: confirm recognizes it by cloid and attaches it
-  ;; to :cancel-orders automatically, so a reload doesn't let it fill on top of the run.
   (let [state (state-with-snapshot
                [{:oid 900 :coin "ZETA" :side "B" :sz "5"
                  :cloid "0x0770c0deaaaaaaaaaaaaaaaaaaaaaaaa"}])
@@ -35,8 +32,6 @@
         "our cloid-tagged resting order is auto-cancelled with no in-memory state")))
 
 (deftest confirm-does-not-auto-cancel-untagged-overlap-until-user-selects-test
-  ;; A manual (untagged) order on a traded instrument must NOT be cancelled unless the
-  ;; user explicitly ticks it on the decision surface.
   (let [snapshot [{:oid 901 :coin "ZETA" :side "A" :sz "3" :cloid "0xmanual00000000000000000000000000"}]]
     (let [[_ d] (nth (actions/confirm-portfolio-optimizer-execution
                       (state-with-snapshot snapshot)) 2)]

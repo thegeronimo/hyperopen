@@ -4,12 +4,6 @@
             [hyperopen.portfolio.optimizer.fixtures :as fixtures]
             [hyperopen.views.portfolio.optimize.results-panel :as results-panel]))
 
-;; The standalone Rebalance preview tab (views.portfolio.optimize.rebalance-tab) was
-;; retired — its rebalance is now staged straight into Execution. The rebalance-tab
-;; vault-label / buys-sells / slippage-source coverage moved to execution-tab-test
-;; (which renders the same data through the execution surface). What remains here is the
-;; results-panel target-exposure vault-label coverage.
-
 (defn- node-children
   [node]
   (if (map? (second node))

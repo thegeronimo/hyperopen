@@ -148,7 +148,6 @@
   [start-y idx {:keys [label value divider?]}]
   (let [row-y (+ start-y (* row-height idx))]
     (if divider?
-      ;; Separates optimizer outputs from the volatility-intuition rows.
       [:line {:key (str "blended-metric-row-" idx)
               :x1 10
               :x2 (- callout-width 10)

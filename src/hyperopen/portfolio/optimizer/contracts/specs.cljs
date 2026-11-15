@@ -6,8 +6,6 @@
             [hyperopen.portfolio.optimizer.contracts.result-sections :as result-sections]
             [hyperopen.portfolio.optimizer.contracts.signatures :as signatures]))
 
-(def result-payload-schema-version constants/result-payload-schema-version)
-
 (defn- contains-keys?
   [value ks]
   (and (map? value)
@@ -226,10 +224,6 @@
                 :cost-contexts-by-id])))
 
 (defn- history-assumption-proxy-config?
-  ;; The nested :proxy submap of a proxy-mode entry. Instrument ids may be empty
-  ;; while the user is still picking chips (completeness is enforced by
-  ;; readiness, not the persistence spec); prior weights are nil (equal weight)
-  ;; or an id-keyed map reserved for explicit baskets.
   [value]
   (and (map? value)
        (id-vector? (:instrument-ids value))
@@ -244,10 +238,6 @@
        (finite-field? value :expected-return)
        (finite-field? value :volatility)
        (finite-field? value :max-weight)
-       ;; expected-return / volatility stay nil-allowed (blank until the user
-       ;; fills them, completeness enforced by readiness). Legacy single-proxy
-       ;; entries (:proxy-instrument-id, no :proxy submap) are converted to
-       ;; :conservative on load (see contracts.migrations).
        (case (:behavior value)
          :conservative (coercion/finite-number? (:correlation-floor value))
          :proxy (history-assumption-proxy-config? (:proxy value))
@@ -356,11 +346,6 @@
              (map? (:return-decomposition-by-instrument value)))
          (or (nil? (:diagnostics value))
              (map? (:diagnostics value)))
-         ;; Present only on covariance-only runs (:equal-risk,
-         ;; :inverse-volatility): the signed Euler risk-contribution section
-         ;; (:quality is objective-owned — a convergence quality for Equal
-         ;; Risk, :diagnostic for Risk-weighted sizing) and, on :equal-risk
-         ;; only, the sequential-solver metadata.
          (or (nil? (:risk-contributions value))
              (let [contributions (:risk-contributions value)]
                (and (map? contributions)
@@ -373,9 +358,6 @@
                      (:target-relative-contributions-by-instrument contributions)))))
          (optional? map? (:current-risk-contributions value))
          (optional? map? (:equal-risk-solver value))
-         ;; Present only on :inverse-volatility runs: the sizing-fidelity
-         ;; section (per-asset |w|·σ rows, the ideal pre-projection seed, and
-         ;; the realized parity deviation among unbound rows).
          (or (nil? (:inverse-volatility value))
              (let [sizing (:inverse-volatility value)]
                (and (map? sizing)
@@ -383,11 +365,6 @@
                     (every? map? (:sizing-rows sizing))
                     (finite-number-vector? (:seed-weights sizing))
                     (coercion/finite-number? (:max-sizing-deviation sizing)))))
-         ;; Present only on covariance-only runs (:equal-risk,
-         ;; :inverse-volatility): the correlation-view section —
-         ;; standalone/diversification decomposition maps plus the capped
-         ;; underlying correlation matrix (square, aligned to its own id list;
-         ;; entries may be nil for degenerate-variance assets).
          (or (nil? (:risk-structure value))
              (let [structure (:risk-structure value)
                    correlation (:correlation structure)
@@ -434,10 +411,6 @@
 	         #(constraints? (:constraints %))
 	         #(execution-assumptions? (:execution-assumptions %))
 	         #(history-assumptions? (:history-assumptions %))
-	         ;; Reference-only proxy assets: catalog instruments picked as proxies
-	         ;; that are NOT in the universe. Their history loads and feeds
-	         ;; covariance synthesis, but they are never allocated. Optional +
-	         ;; additive (older drafts lack the key; migration backfills []).
 	         #(or (nil? (:proxy-reference-instruments %))
 	              (instrument-vector? (:proxy-reference-instruments %)))
 	         #(draft-metadata? (:metadata %))))
@@ -520,13 +493,3 @@
 (s/def ::worker-envelope
   (s/and map?
          #(contains-keys? % [:type :payload])))
-
-(def contract-specs
-  {:optimizer/draft ::draft
-   :optimizer/engine-request ::engine-request
-   :optimizer/request-signature ::request-signature
-   :optimizer/scenario-record ::scenario-record
-   :optimizer/tracking-record ::tracking-record
-   :optimizer/tracking-snapshot ::tracking-snapshot
-   :optimizer/result-payload ::result-payload
-   :optimizer/worker-envelope ::worker-envelope})

@@ -50,10 +50,6 @@
                        {:cloid cloid-sell-0 :oid "9002" :placement-state :accepted :order-state :resting}]}
         placed-at-ms)))))
 
-;; ---------------------------------------------------------------------------
-;; Fill rows
-;; ---------------------------------------------------------------------------
-
 (def partial-fill
   "2 of buy rung 0's 5, as a WebSocket `userFills` row."
   {:coin coin :px "76.4" :sz "2" :side "B" :time fill-time-ms :startPosition "150.0" :dir "Buy"
@@ -94,10 +90,6 @@
 (def fills-vector-frame
   "The payload as a bare vector with the snapshot flag on the message."
   {:channel "userFills" :user account :isSnapshot true :data [partial-fill]})
-
-;; ---------------------------------------------------------------------------
-;; Open-order rows
-;; ---------------------------------------------------------------------------
 
 (defn order-row
   "An `openOrders` row as the venue lists it."

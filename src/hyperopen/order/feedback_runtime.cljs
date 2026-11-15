@@ -63,7 +63,6 @@
         latest-toast (peek toasts*)]
     (-> state
         (assoc-in [:ui :toasts] toasts*)
-        ;; Keep legacy readers stable while stacked toasts migrate.
         (assoc-in [:ui :toast] (some-> latest-toast
                                        (dissoc :id))))))
 

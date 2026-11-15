@@ -117,8 +117,6 @@ test("release CSP permits the optimizer history API origin", () => {
 });
 
 test("release CSP permits the HyperEVM RPC origin", () => {
-  // The dev server sends no CSP, so a missing entry only breaks production:
-  // every HyperEVM balance read would be silently blocked.
   assert.ok(
     extractCspDirective(buildContentSecurityPolicy(), "connect-src").includes(
       "https://rpc.hyperliquid.xyz"
@@ -127,8 +125,6 @@ test("release CSP permits the HyperEVM RPC origin", () => {
 });
 
 test("release CSP permits the Entropy fallback icon origin", () => {
-  // Market icons fall back to Entropy's logo CDN when Hyperliquid's has none.
-  // Dev sends no CSP, so only production would render the monogram instead.
   assert.ok(
     extractCspDirective(buildContentSecurityPolicy(), "img-src").includes(
       "https://assets.entropy.trade"
@@ -722,8 +718,6 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     generatedPortfolio,
     /<link rel="preload" as="script" href="\/js\/trade_chart\.CHUNK\.js"/
   );
-  // Account tab chunks are prefetched (lowest browser priority, no `as`), never
-  // preloaded: a preload here would compete with first paint.
   assert.match(
     generatedTrade,
     /<link rel="prefetch" href="\/js\/account_orders\.CHUNK\.js" data-hyperopen-perf="module-prefetch" \/>/

@@ -23,12 +23,6 @@
   immediately."
   [addable-assets]
   (when (seq addable-assets)
-    ;; Full-width own row (see history-assumptions-section) so the placeholder
-    ;; "+ Model an asset with proxies…" is never clipped horizontally. py-0 +
-    ;; leading-none: optimizer surfaces pin inputs/selects to a fixed 26px
-    ;; border-box (optimizer/base.css) while @tailwindcss/forms adds 0.5rem
-    ;; vertical padding to every <select> - left alone it clips the text, so
-    ;; py-0 overrides it; pr-7 leaves room for the native chevron.
     (into [:select {:class ["w-full" "border" "border-base-300" "bg-base-100/80"
                             "py-0" "pl-2" "pr-7" "font-mono" "text-[0.75rem]" "leading-none"
                             "text-trading-muted"]
@@ -37,9 +31,6 @@
                     :on {:change [[:actions/set-portfolio-optimizer-history-assumption-mode
                                    [:event.target/value] :proxy]]}}
            [:option {:value ""} "+ Model an asset with proxies…"]]
-          ;; Options arrive sorted ascending by native return-day count with the
-          ;; count in the label, so the assets limiting the shared covariance
-          ;; window sit at the top of the list.
           (map (fn [{:keys [instrument-id label option-label]}]
                  [:option {:value instrument-id} (or option-label label)]))
           addable-assets)))
@@ -118,22 +109,13 @@
        [:summary {:class ["cursor-pointer" "select-none" "focus:outline-none"
                           "focus:text-warning"]}
         [:div {:class ["flex" "items-center" "justify-between" "gap-3"]}
-         ;; Result vocabulary in the title ("History assumptions" — same concept
-         ;; the rail panel summarizes); the mechanism word "proxy" stays in the
-         ;; body (queue detail, "Behaves like" field, picker).
          [:p {:class controls/section-title-class} "History assumptions"]
-         ;; The count role only exists while assets are in the queue (pinned
-         ;; contract); the zero-card resting label stays role-less.
          [:span (cond-> {:class ["optimizer-section-trailing" "shrink-0" "whitespace-nowrap"
                                  "font-mono" "text-[0.6875rem]" (:tone trailing)]}
                   (pos? card-count)
                   (assoc :data-role "portfolio-optimizer-history-assumptions-count"))
           (:label trailing)]]]
        [:div {:class ["mt-3" "space-y-3"]}
-        ;; The work leads. Background state and the one-click bulk accept sit
-        ;; above the queue because both change what the queue still has to ask;
-        ;; the file tooling and the manual entry point are accelerators, so they
-        ;; trail it rather than standing between the user and the question.
         (loading-banner loading-count)
         (recommendations/recommended-banner queue-model)
         (if (pos? card-count)
@@ -145,6 +127,4 @@
            :universe-count (+ card-count (count addable-assets))})
          (assumptions-io/io-note
           (get-in state contracts/ui-history-assumptions-io-note-path))
-         ;; The picker gets its OWN full-width row so the placeholder text is
-         ;; never clipped by the toolbar competing for width.
          (add-asset-select addable-assets)]]])))

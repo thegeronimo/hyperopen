@@ -17,13 +17,11 @@
    :stale-visible-ms 45000
    :stale-hidden-ms 180000
    :market-coalesce-window-ms 16
-   ;; A socket must stay open this long before a close restarts retry backoff.
    :stable-connection-ms 10000})
 
 (defn- normalize-runtime-config
   [config]
   (let [config* (merge default-runtime-config (or config {}))]
-    ;; Reducer defaults keep direct reducer usage safe in tests/replay tooling.
     (assert (pos-int? (:max-queue-size config*)) "runtime config :max-queue-size must be a positive integer")
     (assert (pos-int? (:watchdog-interval-ms config*)) "runtime config :watchdog-interval-ms must be a positive integer")
     (assert (pos-int? (:health-tick-interval-ms config*)) "runtime config :health-tick-interval-ms must be a positive integer")
@@ -34,30 +32,11 @@
     config*))
 
 (defn initial-runtime-state [config]
-  ;; Runtime message time semantics:
-  ;; - :ts is message creation time.
-  ;; - :at-ms / :recv-at-ms are transport-originated timestamps when present.
-  ;; - :now-ms in state is reducer's latest known runtime time.
-  ;;
-  ;; Runtime states:
-  ;; - :disconnected, :connecting, :connected, :reconnecting.
-  ;;
-  ;; Tier meanings:
-  ;; - :market streams are coalesced briefly before dispatch.
-  ;; - :lossless streams dispatch immediately in order.
-  ;;
-  ;; Expected traffic:
-  ;; - true when subscribed streams have stale-threshold policy and transport freshness
-  ;;   should degrade when payloads stop arriving.
   (let [config* (normalize-runtime-config config)]
     {:config config*
    :ws-url nil
    :status :disconnected
    :attempt 0
-   ;; Consecutive sockets that opened then closed before :stable-connection-ms.
-   ;; :attempt resets on every open, so without this a server that drops each
-   ;; fresh socket (e.g. on a subscription it rejects) is retried at the base
-   ;; delay forever.
    :short-lived-streak 0
    :next-retry-at-ms nil
    :last-close nil
@@ -451,11 +430,6 @@
                                                           :raw (:raw msg)})])))))
 
 (defmethod handle-runtime-msg :evt/subscription-rejected
-  ;; The provider refused a subscription at the schema level (e.g. a removed
-  ;; topic). Downgrade only the stream's health bookkeeping so `usable?` gates
-  ;; fall back to REST; :desired-subscriptions is untouched, so reconnect
-  ;; replay keeps the TLA-modeled behavior and self-heals if the provider
-  ;; restores the topic.
   [_ state msg]
   (let [msg-type (:msg/type msg)
         ts (:ts msg)

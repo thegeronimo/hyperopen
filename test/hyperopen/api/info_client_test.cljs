@@ -239,7 +239,6 @@
           request-init #js {:method "POST"}
           result (flow/fetch-with-timeout!
                   {:fetch-fn (fn [_url _init]
-                               ;; Never settles: simulates a stalled /info connection.
                                (js/Promise. (fn [_resolve _reject] nil)))
                    :set-timeout-fn (fn [callback _ms]
                                      (swap! timer-callbacks conj callback)
@@ -252,7 +251,6 @@
       (is (identical? signal (aget request-init "signal"))
           "The abort signal must be attached to the request init.")
       (is (= 1 (count @timer-callbacks)))
-      ;; Fire the scheduled timeout to simulate the deadline elapsing.
       ((first @timer-callbacks))
       (-> result
           (.then (fn [_]
@@ -293,8 +291,6 @@
                (fn [_] (done-fn :rejected @fetch-calls))))))
 
 (deftest request-info-retries-a-persistent-429-max-retries-times-test
-  ;; a failed nested retry used to be retried again by every outer attempt:
-  ;; 31 fetches instead of 5 for a request that kept getting 429
   (async done
     (persistent-failure-attempts
      #(js/Promise.resolve (info-support/fake-http-response 429 {:error "rate-limited"}))

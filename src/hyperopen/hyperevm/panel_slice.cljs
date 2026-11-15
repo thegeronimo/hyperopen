@@ -57,7 +57,6 @@
   [entry]
   (cond
     (read? entry) :ready
-    ;; A retry of a failed first read keeps reading as failed.
     (balances/first-read-failed? entry) :error
     :else :loading))
 
@@ -77,7 +76,6 @@
            :token-units (or (:token-units entry) {})
            :token-indexes (set (:token-indexes entry))
            :unread-token-indexes (set (:unread-token-indexes entry))
-           ;; Read partial (`balances/partial-read?`) only while non-empty.
            :never-read-token-indexes (set (:never-read-token-indexes entry))
            :gas-price-wei (reserve-gas-price (:gas-price-wei entry)))))
 
@@ -112,9 +110,6 @@
         entry (balances/entry state address)]
     {:hyperevm {:balances {:by-address (if (and address
                                                 entry
-                                                ;; An entry still loading its
-                                                ;; first read reads exactly
-                                                ;; like no entry at all.
                                                 (not= :loading (projected-status entry)))
                                          {address (projected-entry entry)}
                                          {})}

@@ -55,7 +55,6 @@ export class CDPClient {
     });
 
     this.socket.addEventListener("error", () => {
-      // on close handler rejects pending requests
     });
   }
 
@@ -85,7 +84,6 @@ export class CDPClient {
           try {
             handler(msg);
           } catch (_err) {
-            // swallow listener errors
           }
         }
       }
@@ -96,7 +94,6 @@ export class CDPClient {
           try {
             handler(msg);
           } catch (_err) {
-            // swallow listener errors
           }
         }
       }
@@ -219,7 +216,6 @@ export async function getBrowserWsUrl(options) {
         }
       }
     } catch (_err) {
-      // retry until timeout
     }
     await sleep(pollIntervalMs);
   }

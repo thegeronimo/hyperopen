@@ -55,19 +55,12 @@
                         "tracking-[0.12em]" "text-trading-muted/70"]
                 :data-role "portfolio-optimizer-setup-status-tag"}
          (if (= :computed (:status draft)) "computed" "draft")]
-        ;; Modeless autosave feedback: the draft persists per wallet on every edit,
-        ;; so the header reports it instead of asking for a manual "save draft".
-        ;; Hidden while the scenario-saved note shows — two adjacent "Saved" stamps
-        ;; read as noise, and the named save is the stronger guarantee.
         (when-not scenario-saved?
           (when-let [saved-label (clock-label (:at-ms draft-persist))]
             [:span {:class ["font-mono" "text-[0.6875rem]" "uppercase" "tracking-[0.12em]"
                             "text-trading-muted/60"]
                     :data-role "portfolio-optimizer-draft-autosave-note"}
              (str "Saved " saved-label)]))
-        ;; Named-scenario save feedback (distinct from the draft autosave note):
-        ;; confirms the LIBRARY record was written, since saving no longer
-        ;; navigates away from the workspace.
         (when scenario-saved?
           (when-let [saved-label (clock-label (:completed-at-ms save-state))]
             [:span {:class ["font-mono" "text-[0.6875rem]" "uppercase" "tracking-[0.12em]"

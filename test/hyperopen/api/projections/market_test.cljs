@@ -93,11 +93,6 @@
     (is (= [{:coin "PURR"}] (get-in next-state [:webdata2 :spotAssetCtxs])))))
 
 (deftest candle-snapshot-error-on-a-warm-slot-records-without-throwing-test
-  ;; Regression: the success path stores a plain VECTOR of rows, so the error
-  ;; path's `(assoc-in state [:candles coin interval :error] ...)` resolved to
-  ;; associating a keyword key into a vector and threw. It threw inside the
-  ;; `swap!` that runs in the fetch's `.catch`, so a failed refresh of an
-  ;; already-populated slot recorded nothing and cleared no pending flag.
   (let [warm (market/apply-candle-snapshot-success {:candles {}}
                                                    "BTC"
                                                    :1d

@@ -215,9 +215,6 @@
            (cond-> (-> state
                        (update-in (conj report-path :busy) dissoc busy-key)
                        (write-last op result (platform/now-ms)))
-             ;; A load that failed before writing (a timeout) still marks the
-             ;; account as loaded, with nothing known, so the watcher does not
-             ;; retry it on every change and no other account's data shows.
              (and (not (contains? #{:marks :export} op))
                   (= account (shown-account state))
                   (not= account (get-in state (conj report-path :account-address))))

@@ -1,13 +1,3 @@
-// A realistic, fully stubbed outcome-markets world for the Playwright specs.
-//
-// Nothing here reaches the live venue: `/info` is answered locally, `/exchange`
-// is guarded (a real request fails the test), the websocket is owned by
-// `page.routeWebSocket` and answers `l2Book` subscriptions from `BOOKS`.
-//
-// The feed is deliberately unkind. `markPx` is never the book midpoint (a mark
-// is not a trade), a never-traded contract carries the live placeholder
-// (`midPx` 0.50, `prevDayPx` "0.0", no volume), and the books run from tight to
-// wide. Ids are invented so no live websocket data can move the numbers.
 import { dispatch, waitForIdle } from "./hyperopen.mjs";
 
 export const DAY = 24 * 60 * 60 * 1000;
@@ -16,14 +6,13 @@ export const HL_EXCHANGE_URL = "https://api.hyperliquid.xyz/exchange";
 export const HL_WS_URL = "wss://api.hyperliquid.xyz/ws";
 export const WALLET = "0x1111111111111111111111111111111111111111";
 
-// Contract ids. A side coin is `#<outcome * 10 + side>`.
-export const GAME = 990001; // head-to-head, tight book
+export const GAME = 990001;
 export const FED = { question: 99002, fallback: 990020, hold: 990021, cut: 990022, hike: 990023 };
-export const IPO_NEVER = 990030; // never traded: placeholder quotes
-export const IPO_RANGE = 990031; // 10c spread
-export const IPO_WIDE = 990032; // 40c spread
-export const LADDER_OUT = [990040, 990041, 990042]; // venue `out`
-export const LADDER_TXYZ = [990050, 990051]; // venue `txyz`
+export const IPO_NEVER = 990030;
+export const IPO_RANGE = 990031;
+export const IPO_WIDE = 990032;
+export const LADDER_OUT = [990040, 990041, 990042];
+export const LADDER_TXYZ = [990050, 990051];
 export const FILLER_GAMES = [990060, 990061, 990062];
 export const FILLER_RUNGS = [990070, 990071];
 
@@ -126,15 +115,11 @@ export function outcomeMeta(now) {
   };
 }
 
-// One entry per contract: the asset context the feed publishes (`mark` is NOT
-// the midpoint of the book on purpose) and the side-0 book (`null` = empty).
-// Volumes are shares per contract (mirrored across both sides).
 const CONTRACTS = {
   [GAME]: { mark: 0.58, prev: 0.6, volume: 180000, book: { bid: 0.64, ask: 0.66 } },
   [FED.hold]: { mark: 0.55, prev: 0.5, volume: 90000, book: { bid: 0.6, ask: 0.62 } },
   [FED.cut]: { mark: 0.36, prev: 0.3, volume: 60000, book: { bid: 0.3, ask: 0.32 } },
   [FED.hike]: { mark: 0.1, prev: 0.05, volume: 20000, book: { bid: 0.06, ask: 0.08 } },
-  // The fallback and one IPO never traded: placeholders, no volume, empty book.
   [FED.fallback]: { mark: 0.5, prev: 0, volume: 0, book: null, mid: 0.5 },
   [IPO_NEVER]: { mark: 0.5, prev: 0, volume: 0, book: null, mid: 0.5 },
   [IPO_RANGE]: { mark: 0.62, prev: 0.45, volume: 5000, book: { bid: 0.4, ask: 0.5 } },
@@ -144,8 +129,6 @@ const CONTRACTS = {
   [LADDER_OUT[2]]: { mark: 0.3, prev: 0.28, volume: 30000, book: { bid: 0.22, ask: 0.24 } },
   [LADDER_TXYZ[0]]: { mark: 0.69, prev: 0.65, volume: 12000, book: { bid: 0.62, ask: 0.64 } },
   [LADDER_TXYZ[1]]: { mark: 0.48, prev: 0.45, volume: 9000, book: { bid: 0.4, ask: 0.42 } },
-  // A quiet book: the venue's `bbo` only pushes on change, so this one never
-  // answers a bbo subscription; only the REST l2Book snapshot reports it.
   [FILLER_GAMES[0]]: { mark: 0.52, prev: 0.5, volume: 8000, book: { bid: 0.5, ask: 0.52 }, quiet: true },
   [FILLER_GAMES[1]]: { mark: 0.45, prev: 0.5, volume: 7000, book: { bid: 0.44, ask: 0.46 } },
   [FILLER_GAMES[2]]: { mark: 0.4, prev: 0.4, volume: 6000, book: { bid: 0.38, ask: 0.4 } },
@@ -179,7 +162,6 @@ export function outcomeCtxs(overrides = {}) {
   ]);
 }
 
-/** Top of book of one side coin as `{bid, ask}` (null = empty side). */
 export function sideBook(coinName, overrides = {}) {
   const table = { ...CONTRACTS, ...overrides };
   const match = /^#(\d+)$/.exec(coinName);
@@ -193,7 +175,6 @@ export function sideBook(coinName, overrides = {}) {
     : { bid: 1 - entry.book.ask, ask: 1 - entry.book.bid };
 }
 
-/** True for a contract whose book never changes, so `bbo` never reports it. */
 function isQuiet(coinName, overrides = {}) {
   const match = /^#(\d+)$/.exec(coinName);
   if (!match) return false;
@@ -240,11 +221,6 @@ function perpCtx(price) {
   };
 }
 
-/**
- * Synthetic candles for one side coin (opt-in, see `installOutcomeWorld`):
- * `bars` bars of `interval` ending at `endTime`, drifting toward the side's
- * mark so the axis spans a few cents. Deterministic for a given coin.
- */
 function outcomeCandles(coinName, { interval = "1d", endTime = Date.now(), bars = 90 } = {}, overrides = {}) {
   const match = /^#(\d+)$/.exec(coinName);
   if (!match) return [];
@@ -270,7 +246,6 @@ function outcomeCandles(coinName, { interval = "1d", endTime = Date.now(), bars 
 
 const PERP_PRICES = { BTC: 66880, ETH: 3410, SOL: 168 };
 
-/** Synthetic perp candles (opt-in with outcome candles): a gentle drift to the mark. */
 function perpCandles(coinName, { interval = "1d", endTime = Date.now(), bars = 90 } = {}) {
   const mark = PERP_PRICES[coinName];
   if (!mark) return [];
@@ -287,20 +262,6 @@ function perpCandles(coinName, { interval = "1d", endTime = Date.now(), bars = 9
   return out;
 }
 
-/**
- * Own `/info`, `/exchange` and the websocket for `page` (call before the first
- * navigation). Returns a handle:
- *   `exchangeRequests`  real POSTs that reached `/exchange` (must stay empty:
- *                       simulator-answered orders never get this far)
- *   `catalogFails(on)`  make `outcomeMeta` fail (503) while `on` is true
- *   `subscriptions`     parsed websocket subscribe messages
- *   `l2BookRequests`    coins of REST `l2Book` snapshots asked for
- *   `candleRequests`    `{coin, interval}` of every `candleSnapshot` asked for
- *   `overrides`         per-contract overrides of CONTRACTS, applied to the
- *                       catalog and the books served from now on
- * Options: `candles: true` serves synthetic candles for outcome side coins
- * and the BTC/ETH/SOL perps (spot still gets none).
- */
 export async function installOutcomeWorld(page, { now = Date.now(), candles = false } = {}) {
   const world = {
     now,
@@ -346,7 +307,6 @@ export async function installOutcomeWorld(page, { now = Date.now(), candles = fa
       case "perpConciseAnnotations":
         return json([]);
       case "candleSnapshot": {
-        // Off by default: the other specs run against an empty chart.
         const req = payload?.req || {};
         world.candleRequests.push({ coin: req.coin, interval: req.interval });
         if (!candles) return json([]);
@@ -365,7 +325,6 @@ export async function installOutcomeWorld(page, { now = Date.now(), candles = fa
     }
   });
 
-  // A real order can never leave the page: anything that gets here is a bug.
   await page.route(HL_EXCHANGE_URL, async (route) => {
     world.exchangeRequests.push(route.request().postData() || "");
     await route.fulfill({
@@ -427,7 +386,6 @@ export async function installOutcomeWorld(page, { now = Date.now(), candles = fa
   return world;
 }
 
-/** Wait until the outcome catalog (all fixture events) is in the store. */
 export async function waitForCatalog(page, timeout = 30_000) {
   await page.waitForFunction(
     (key) => {
@@ -443,13 +401,6 @@ export async function waitForCatalog(page, timeout = 30_000) {
   );
 }
 
-/**
- * The top-of-book seam: `apply-outcome-top-of-book-update` writes a side's best
- * bid/ask onto every selector market that holds it, which is what list rows,
- * headers and the stale-price rule read through the one chance rule. The
- * product feeds it from `bbo` subscriptions; feeding it here makes every
- * contract's book known at once, independent of which rows are on screen.
- */
 export async function feedTopOfBooks(page, books) {
   await page.evaluate((entries) => {
     const c = globalThis.cljs?.core;
@@ -469,7 +420,6 @@ export async function feedTopOfBooks(page, books) {
   }, Object.entries(books));
 }
 
-/** Feed every fixture contract's two sides from the world books. */
 export async function feedWorldBooks(page, world) {
   const books = {};
   for (const id of contractIds()) {
@@ -481,8 +431,6 @@ export async function feedWorldBooks(page, world) {
   await feedTopOfBooks(page, books);
 }
 
-
-/** Stop the account stream bootstrap so seeded balances are not overwritten. */
 export async function freezeAccountSync(page, address = WALLET) {
   await page.evaluate((nextAddress) => {
     const store = globalThis.hyperopen?.system?.store;
@@ -499,7 +447,6 @@ export async function freezeAccountSync(page, address = WALLET) {
   }, address);
 }
 
-/** A connected wallet with a ready (plain, local) agent session: orders sign. */
 export async function seedReadySession(page, address = WALLET) {
   await page.evaluate((walletAddress) => {
     const c = globalThis.cljs?.core;
@@ -507,7 +454,6 @@ export async function seedReadySession(page, address = WALLET) {
     const kw = c.keyword;
     const path = (...segments) => c.PersistentVector.fromArray(segments.map((s) => kw(s)), true);
     const lower = String(walletAddress).toLowerCase();
-    // Well-known throwaway key (private key 1) so the app can really sign; the exchange is a simulator.
     const agentAddress = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
     const approvedAt = 1700000000000;
     localStorage.setItem("hyperopen:agent-storage-mode:v1", "local");
@@ -537,7 +483,6 @@ export async function seedReadySession(page, address = WALLET) {
   }, address);
 }
 
-/** Write balances of the connected account (and a ready agent session). */
 export async function seedBalances(page, balances) {
   await page.evaluate((rows) => {
     const c = globalThis.cljs?.core;
@@ -564,7 +509,6 @@ export const outcomeBalance = (outcomeId, side, total, entryNtl) => ({
   entryNtl: String(entryNtl)
 });
 
-/** Open the Outcome tab of the market selector. */
 export async function openOutcomeTab(page) {
   await dispatch(page, [":actions/toggle-asset-dropdown", ":asset-selector"]);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
@@ -572,7 +516,6 @@ export async function openOutcomeTab(page) {
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 }
 
-/** The exchange simulator's recorded `order` actions. */
 export async function simulatedOrders(page) {
   const snapshot = await page.evaluate(() => globalThis.HYPEROPEN_DEBUG.exchangeSimulatorSnapshot());
   return (snapshot?.calls ?? [])
@@ -580,11 +523,6 @@ export async function simulatedOrders(page) {
     .filter((action) => action?.type === "order");
 }
 
-/**
- * A resting open order of the connected account, written where the venue's
- * `frontendOpenOrders` lands. The coin uses the `#` form the catalog uses;
- * the live venue's form for outcome sides is not confirmed.
- */
 export async function seedOpenOrders(page, orders) {
   await page.evaluate((rows) => {
     const c = globalThis.cljs?.core;

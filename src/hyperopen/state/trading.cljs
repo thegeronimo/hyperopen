@@ -12,58 +12,35 @@
             [hyperopen.trading.order-form-state :as order-form-state]
             [hyperopen.trading.submit-policy :as trading-submit-policy]))
 
-(def order-types trading-domain/order-types)
-(def order-type-spec trading-domain/order-type-spec)
 (def advanced-order-types trading-domain/advanced-order-types)
-(def limit-like-order-types trading-domain/limit-like-order-types)
-(def tif-options trading-domain/tif-options)
 (def default-max-slippage-pct trading-domain/default-max-slippage-pct)
 (def default-market-slippage-pct trading-domain/default-market-slippage-pct)
 (def default-fees trading-domain/default-fees)
-(def legacy-scale-skew->number trading-domain/legacy-scale-skew->number)
-(def scale-min-order-count trading-domain/scale-min-order-count)
-(def scale-max-order-count trading-domain/scale-max-order-count)
-(def scale-min-endpoint-notional trading-domain/scale-min-endpoint-notional)
 (def twap-min-runtime-minutes trading-domain/twap-min-runtime-minutes)
 (def twap-max-runtime-minutes trading-domain/twap-max-runtime-minutes)
-(def twap-frequency-seconds trading-domain/twap-frequency-seconds)
-(def twap-min-suborder-notional trading-domain/twap-min-suborder-notional)
-(def twap-min-order-notional trading-domain/twap-min-order-notional)
 
 (def parse-num trading-domain/parse-num)
 (def clamp-percent trading-domain/clamp-percent)
-(def normalize-scale-skew-number trading-domain/normalize-scale-skew-number)
 (def split-twap-total-minutes trading-domain/split-twap-total-minutes)
 (def twap-total-minutes trading-domain/twap-total-minutes)
 (def valid-twap-runtime? trading-domain/valid-twap-runtime?)
 (def twap-suborder-count trading-domain/twap-suborder-count)
 (def twap-venue-suborder-count trading-domain/twap-venue-suborder-count)
-(def twap-suborder-interval-seconds trading-domain/twap-suborder-interval-seconds)
 (def twap-interval-seconds-for-count trading-domain/twap-interval-seconds-for-count)
 (def twap-order-notional trading-domain/twap-order-notional)
 (def twap-runtime-presets trading-domain/twap-runtime-presets)
 (def twap-preset-runtime trading-domain/twap-preset-runtime)
 (def twap-preset-key-for-runtime trading-domain/twap-preset-key-for-runtime)
 (def twap-suborder-size trading-domain/twap-suborder-size)
-(def twap-suborder-notional trading-domain/twap-suborder-notional)
-;; Value-object adapters for canonical order field semantics.
 (def order-type-value trading-domain/order-type-value)
 (def tif-value trading-domain/tif-value)
 (def side-value trading-domain/side-value)
-(def price-value trading-domain/price-value)
-(def size-value trading-domain/size-value)
-(def percent-value trading-domain/percent-value)
-(def leverage-value trading-domain/leverage-value)
 (def normalize-order-type trading-domain/normalize-order-type)
 (def limit-like-type? trading-domain/limit-like-type?)
 (def entry-mode-for-type trading-domain/entry-mode-for-type)
 (def normalize-entry-mode trading-domain/normalize-entry-mode)
 (def normalize-pro-order-type trading-domain/normalize-pro-order-type)
-(def validation-error-message trading-domain/validation-error-message)
-(def validation-errors->messages trading-domain/validation-errors->messages)
 (def submit-required-fields trading-domain/submit-required-fields)
-(def order-side->is-buy trading-domain/order-side->is-buy)
-(def opposite-side trading-domain/opposite-side)
 (def scale-weights trading-domain/scale-weights)
 (def scale-preview-boundaries trading-domain/scale-preview-boundaries)
 (def normalize-size-input-mode order-form-state/normalize-size-input-mode)
@@ -276,10 +253,6 @@
         named-dex? (named-dex-market? market*)
         spot? (= :spot (:market-type market*))]
     (or explicit-asset-id
-        ;; Spot wire ids are offset (10000 + pair index); the raw :idx is only a
-        ;; metadata/lookup key and collides 1:1 with low-index perps (raw idx 0
-        ;; is the SOL perp). Require the explicit encoded :asset-id for spot
-        ;; rather than leaking the raw index.
         (when (and (some? idx)
                    (not named-dex?)
                    (not spot?))
@@ -299,10 +272,6 @@
         named-dex? (named-dex-market? active-market)
         spot? (= :spot (:market-type active-market))]
     (or market-idx
-        ;; asset-context idx is the raw (un-offset) index — safe for perps but
-        ;; would leak the colliding raw spot index, so never use it for spot.
-        ;; A spot market without an encoded :asset-id resolves to nil and the
-        ;; order fails closed rather than targeting the wrong asset.
         (when-not (or named-dex? spot?)
           (asset-context-idx state active-asset)))))
 
@@ -400,10 +369,6 @@
               (:spot state))
       :clearinghouse (or (active-clearinghouse-state state) {})})))
 
-(def outcome-stale-sum-threshold
-  "Listed answers of one event adding up past this read as stale prices."
-  outcome-quotes/stale-sum-threshold)
-
 (defn outcome-listed-quotes
   "One quote per listed answer (its first side) under the one chance rule
    (`book/quote-for-side`, the same source the ticket rows and list read)."
@@ -412,12 +377,6 @@
           (let [[side sibling] (:sides option)]
             (outcome-book/quote-for-side side sibling nil)))
         (:question-options market)))
-
-(defn outcome-listed-chance-sum
-  "Sum of the listed answers' midpoint chances. Only :live quotes count: a
-   mark, a range or a one-sided book is not a chance."
-  [market]
-  (:sum (outcome-quotes/exclusive-sum (outcome-listed-quotes market))))
 
 (defn outcome-stale-listed-prices?
   "True when only one listed answer can win yet their live chances add up past
@@ -500,12 +459,6 @@
   "Format canonical base size by truncating to market szDecimals."
   [state value]
   (trading-domain/base-size-string (trading-context state) value))
-
-(defn best-bid-price [state]
-  (trading-domain/best-bid-price (trading-context state)))
-
-(defn best-ask-price [state]
-  (trading-domain/best-ask-price (trading-context state)))
 
 (defn reference-price [state form]
   (trading-domain/reference-price (trading-context state
@@ -624,12 +577,6 @@
       :context-label (if mid-available? "Mid" "Ref")
       :mid-price (mid-price-string state normalized-form)})))
 
-(defn size-from-percent [state form percent]
-  (trading-domain/size-from-percent (trading-context state) form percent))
-
-(defn percent-from-size [state form size]
-  (trading-domain/percent-from-size (trading-context state) form size))
-
 (defn apply-size-percent [state form percent]
   (sync-size-display-for-input-mode
    state
@@ -650,8 +597,6 @@
         outcome? (outcome-market? (:market context))
         normalized-type (:value (trading-domain/order-type-value (:type form)))
         entry-mode* (normalize-entry-mode (:entry-mode form) normalized-type)
-        ;; The outcome ticket offers market and limit only: a pro type carried
-        ;; over from a perp form trades as a plain limit.
         entry-mode (if (and outcome? (= :pro entry-mode*)) :limit entry-mode*)
         final-type (case entry-mode
                      :market :market
@@ -679,8 +624,6 @@
     (cond-> normalized-form
       (= :scale final-type) (assoc-in [:tp :enabled?] false)
       (= :scale final-type) (assoc-in [:sl :enabled?] false)
-      ;; Perp-only settings the outcome ticket never shows must not ride along
-      ;; into an outcome order.
       outcome? (assoc :post-only false
                       :reduce-only false
                       :tif :gtc)
@@ -707,26 +650,6 @@
 
 (defn build-scale-orders [asset-idx side total-size start end reduce-only post-only]
   (order-commands/build-scale-orders asset-idx side total-size start end reduce-only post-only))
-
-(defn build-tpsl-orders [asset-idx side form]
-  (order-commands/build-tpsl-orders asset-idx side form))
-
-(defn build-order-action
-  "Return {:action action :grouping grouping}"
-  [state form]
-  (order-commands/build-order-action (trading-context state
-                                                      (trading-fee-context/select-fee-context state)
-                                                      form)
-                                     form))
-
-(defn build-twap-action [state form]
-  (order-commands/build-twap-action (trading-context state
-                                                     (trading-fee-context/select-fee-context state)
-                                                     form)
-                                    form))
-
-(defn best-price [state side]
-  (trading-domain/best-price (trading-context state) side))
 
 (defn apply-market-price [state form]
   (trading-domain/apply-market-price (trading-context state

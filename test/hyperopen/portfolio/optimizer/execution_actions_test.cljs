@@ -16,10 +16,6 @@
               effects {:phase :action-emission :action-id action-id})))
 
 (def ^:private current-run-signature
-  ;; A run-state whose signature matches the retained run marks the solve as *current* (via
-  ;; run-identity/completed-run?), so the staged plan is not flagged stale at the entry. Real
-  ;; staging always comes from an up-to-date solved run; the minimal draft fixtures here have no
-  ;; universe, so without this they would yield a nil readiness signature and read as stale.
   {:scenario-id "draft-1" :input-signature "sig-current"})
 
 (defn- current-run-state
@@ -84,16 +80,10 @@
                                      :order-type :market
                                      :reduce-only? false}}]}}]
            (first effects)))
-    ;; run-state is reset and the surface switches to the Execution tab.
     (is (= [:effects/save [:portfolio :optimizer :execution]
             {:status :idle :attempt nil :history [] :error nil}]
            (nth effects 1)))
-    ;; Staging refreshes the open-order snapshots (base + per-dex frontendOpenOrders)
-    ;; so confirm can recognize cloid-tagged resting orders from previous sessions.
     (is (= [:effects/refresh-portfolio-optimizer-open-orders] (nth effects 2)))
-    ;; ...and re-prices the plan against live books. Entry is the trigger because a tab
-    ;; entry that does not follow a fresh solve (deep link, reload, restored autosave,
-    ;; loaded scenario) would otherwise quote flat fallback costs with no book at all.
     (is (= [:effects/refresh-portfolio-optimizer-rebalance-slippage-snapshots]
            (nth effects 3)))
     (is (= [:effects/save [:portfolio-ui :optimizer :results-tab] :execution]
@@ -190,9 +180,6 @@
            (nth effects 4)))))
 
 (deftest open-execution-stages-disabled-plan-when-recommendation-stale-test
-  ;; The entry gates on currency, not just solved?: a stale recommendation (dirty draft) stages a
-  ;; plan flagged execution-disabled :stale-recommendation. The rows are still staged (the trader
-  ;; sees what WOULD trade), but the plan can't be armed/committed until the optimizer is re-run.
   (let [state {:portfolio {:optimizer
                            {:draft {:id "draft-1"
                                     :metadata {:dirty? true}
@@ -212,14 +199,10 @@
     (is (true? (:execution-disabled? plan)))
     (is (= :stale-recommendation (:disabled-reason plan)))
     (is (= exec-actions/stale-recommendation-message (:disabled-message plan)))
-    ;; rows still present for context; the ready row is not silently dropped
     (is (= 1 (count (:rows plan))))
     (is (= "perp:BTC" (:instrument-id (first (:rows plan)))))))
 
 (def ^:private exit-request
-  ;; Stored run request for the exit-toggle tests: a $1000 NAV book holding perp:BTC
-  ;; (targeted by the run) and perp:ENS (held, NO result target — the allocator
-  ;; excluded it), both with live metadata + prices.
   {:current-portfolio
    {:capital {:nav-usdc 1000}
     :by-instrument {"perp:BTC" {:instrument-id "perp:BTC"
@@ -274,15 +257,12 @@
             #{"perp:ENS"}]
            (first effects)))
     (is (= [:portfolio :optimizer :execution-modal :plan] (get-in effects [1 1])))
-    ;; The held-out asset is now a real sell order: 0.2 weight on $1000 = a $200 sell.
     (is (= :ready (:status ens-row)))
     (is (= :sell (:side ens-row)))
     (is (= -200 (:delta-notional-usd ens-row)))
     (is (= :perp-order (get-in ens-row [:intent :kind])))
-    ;; ENS sells; BTC sits at its target (within tolerance) and stays skipped.
     (is (= 1 (get-in plan [:summary :ready-count])))
     (is (= 1 (get-in plan [:summary :skipped-count])))
-    ;; The order set changed — an :armed surface must drop back to :staged for re-review.
     (is (= [:effects/save [:portfolio :optimizer :execution-modal :phase] :staged]
            (nth effects 2)))
     (is (= [:effects/save [:portfolio :optimizer :execution-modal :error] nil]
@@ -297,33 +277,23 @@
         ens-row (plan-row plan "perp:ENS")]
     (is (emitted-effects-valid? :actions/set-portfolio-optimizer-execution-exit effects))
     (is (= #{} (get-in effects [0 2])))
-    ;; Back to the excluded-holdings contract: held, not sold.
     (is (= :skipped (:status ens-row)))
     (is (= :excluded-from-optimization (:reason ens-row)))
     (is (= :none (:side ens-row)))
-    ;; Nothing trades: ENS holds again, BTC stays within tolerance.
     (is (zero? (get-in plan [:summary :ready-count])))
     (is (= 2 (get-in plan [:summary :skipped-count])))))
 
-;; ── restage on fresher book data ──────────────────────────────────────────
-
 (deftest restage-plan-rebuilds-the-staged-plan-and-keeps-the-exit-set-test
-  ;; The snapshot-refresh effect dispatches this once live books land: the modal holds a
-  ;; plan SNAPSHOT, so re-costing the run alone would leave the surface quoting the
-  ;; estimate it staged before the books arrived. Staging choices must survive.
   (let [effects (actions/restage-portfolio-optimizer-execution-plan
                  (exit-toggle-state {:exit-instrument-ids #{"perp:ENS"}}))
         plan (get-in effects [0 2])]
     (is (emitted-effects-valid? :actions/restage-portfolio-optimizer-execution-plan effects))
     (is (= 1 (count effects)) "only the plan is rewritten — no phase or error churn")
     (is (= [:portfolio :optimizer :execution-modal :plan] (get-in effects [0 1])))
-    ;; The exit set is honored by the rebuild, so a staged sell-to-zero is not lost.
     (is (= :ready (:status (plan-row plan "perp:ENS"))))
     (is (= -200 (:delta-notional-usd (plan-row plan "perp:ENS"))))))
 
 (deftest restage-plan-never-touches-a-committed-or-in-flight-surface-test
-  ;; A restage must never move the ground under a trader who has already reviewed and
-  ;; armed, is mid-submit, or is watching a run that left :idle.
   (is (= [] (actions/restage-portfolio-optimizer-execution-plan
              (exit-toggle-state {:phase :armed}))))
   (is (= [] (actions/restage-portfolio-optimizer-execution-plan
@@ -338,10 +308,6 @@
                        :submitted)))))
 
 (def ^:private auto-exit-request
-  ;; Stored run request for the auto-exit tests: BTC targeted; ENS a held perp the
-  ;; trader REMOVED from the allocation (not in :requested-universe); DROPPED a held
-  ;; perp the trader REQUESTED but the engine dropped (in :requested-universe, no
-  ;; result target); a spot HYPE holding (excluded asset class).
   {:current-portfolio
    {:capital {:nav-usdc 1000}
     :by-instrument {"perp:BTC" {:instrument-id "perp:BTC"
@@ -393,9 +359,6 @@
       (some? trading-settings) (assoc :trading-settings trading-settings))))
 
 (deftest open-execution-auto-stages-exits-for-removed-perps-by-default-test
-  ;; The persisted preference defaults ON: entry pre-stages closing orders for held
-  ;; perps the trader removed from the allocation. The two excluded groups stay held:
-  ;; spot, and a perp the trader requested but the engine dropped (data failure).
   (let [effects (actions/open-portfolio-optimizer-execution (auto-exit-state nil))
         modal (get-in effects [0 2])
         plan (:plan modal)
@@ -408,7 +371,6 @@
     (is (= :skipped (:status (row "spot:@1"))))))
 
 (deftest open-execution-honors-auto-exit-opt-out-test
-  ;; An explicitly persisted false keeps every held-out asset a hold at entry.
   (let [effects (actions/open-portfolio-optimizer-execution
                  (auto-exit-state {:optimizer-auto-exit-excluded? false}))
         modal (get-in effects [0 2])]
@@ -416,9 +378,6 @@
     (is (= :skipped (:status (plan-row (:plan modal) "perp:ENS"))))))
 
 (deftest set-auto-exit-persists-and-restages-test
-  ;; Turning the preference OFF on a staged surface persists the opt-out to
-  ;; browser-local settings AND returns every auto-staged close to a held row;
-  ;; turning it back ON re-seeds the candidates.
   (let [on-state (-> (auto-exit-state nil)
                      (assoc-in [:portfolio :optimizer :execution-modal]
                                {:open? true
@@ -436,7 +395,6 @@
     (is (false? (:optimizer-auto-exit-excluded? (nth persist-json 2))))
     (is (= #{} (nth save-exits 2)))
     (is (= :skipped (:status (plan-row (nth save-plan 2) "perp:ENS"))))
-    ;; Toggling back ON from the opted-out state re-seeds the candidate set.
     (let [off-state (-> on-state
                         (assoc :trading-settings {:optimizer-auto-exit-excluded? false})
                         (assoc-in [:portfolio :optimizer :execution-modal
@@ -446,8 +404,6 @@
       (is (= :ready (:status (plan-row (nth (nth effects-on 3) 2) "perp:ENS")))))))
 
 (deftest set-auto-exit-only-persists-without-staged-plan-test
-  ;; With no staged pre-run plan (modal closed / run in flight / terminal run) the
-  ;; toggle still persists the preference but rewrites nothing on the surface.
   (let [effects (actions/set-portfolio-optimizer-execution-auto-exit
                  (auto-exit-state nil)
                  false)]
@@ -456,9 +412,6 @@
            (set (map first effects))))))
 
 (deftest execution-exit-toggle-guards-test
-  ;; No staged plan, a submit in flight, a run attempt past :idle, or an empty id
-  ;; collection each no-op — a sell-to-zero can never be staged into a surface that
-  ;; is not reviewably pre-run.
   (is (= [] (actions/set-portfolio-optimizer-execution-exit
              (exit-toggle-state {:plan nil}) ["perp:ENS"] true)))
   (is (= [] (actions/set-portfolio-optimizer-execution-exit
@@ -482,7 +435,6 @@
          (actions/set-portfolio-optimizer-execution-default-order-type {} :twap)))
   (is (= [[:effects/save [:portfolio :optimizer :execution-modal :overrides] {"perp:BTC" :limit}]]
          (actions/set-portfolio-optimizer-execution-row-order-type {} "perp:BTC" :limit)))
-  ;; the :recommended sentinel clears an existing override
   (is (= [[:effects/save [:portfolio :optimizer :execution-modal :overrides] {}]]
          (actions/set-portfolio-optimizer-execution-row-order-type
           {:portfolio {:optimizer {:execution-modal {:overrides {"perp:BTC" :limit}}}}}
@@ -499,9 +451,6 @@
          (actions/set-portfolio-optimizer-execution-order-filter {} :working))))
 
 (deftest confirm-execution-applies-order-type-selections-and-dispatches-test
-  ;; Confirm must re-resolve each ready row's order type from the LIVE staging
-  ;; selections (overrides + params) and stamp them onto the intent before dispatch,
-  ;; so the submitted order matches what the user picked — not the staged :market.
   (let [row {:row-id "perp:BTC"
              :status :ready
              :side :buy
@@ -533,8 +482,6 @@
     (is (= :limit (get-in dispatched [:rows 0 :order-type])))))
 
 (deftest confirm-execution-recommended-default-routes-by-clip-size-test
-  ;; With the default :recommended and no override, a medium perp clip (22k–70k)
-  ;; resolves to :passive (the recommend-exec-type policy).
   (let [row {:row-id "perp:BTC"
              :status :ready
              :side :buy
@@ -597,8 +544,6 @@
                   (fixtures/sample-last-successful-run {:request-signature signature})))))
 
 (deftest confirm-execution-blocks-stale-recommendation-test
-  ;; Inputs edited since the solve => the staged plan is stale. Confirm must refuse to send
-  ;; (no execute, no agent-unlock) even with a ready agent, and emit the re-run prompt.
   (let [effects (actions/confirm-portfolio-optimizer-execution (stale-execution-state))]
     (is (emitted-effects-valid? :actions/confirm-portfolio-optimizer-execution effects))
     (is (= [[:effects/save [:portfolio :optimizer :execution-modal :error]
@@ -607,34 +552,21 @@
     (is (not (some #{:effects/execute-portfolio-optimizer-plan} (map first effects))))))
 
 (deftest arm-execution-blocked-when-stale-test
-  ;; Arming a stale plan is refused: the surface stays :staged with the re-run prompt, so the
-  ;; live-commit button is never reachable from a stale recommendation.
   (is (= [[:effects/save [:portfolio :optimizer :execution-modal :phase] :staged]
           [:effects/save [:portfolio :optimizer :execution-modal :error]
            exec-actions/stale-recommendation-message]]
          (actions/set-portfolio-optimizer-execution-phase (stale-execution-state) :armed))))
 
 (deftest confirm-execution-current-solved-run-still-submits-test
-  ;; A just-completed solved run is NOT stale, so a ready agent must still submit — guards the
-  ;; gate against blocking a valid, current recommendation.
   (let [effects (actions/confirm-portfolio-optimizer-execution (current-execution-state))]
     (is (some #{:effects/execute-portfolio-optimizer-plan} (map first effects)))))
 
 (deftest confirm-execution-locked-agent-prompts-unlock-and-replays-confirm-test
-  ;; A locked agent must behave like normal order entry: prompt the passkey unlock and
-  ;; replay the confirm on success, instead of dispatching the submit (which would dead-end
-  ;; with a per-row "Trading is locked" rejection). An action can only emit effects/*, so it
-  ;; runs the :effects/unlock-agent-trading EFFECT directly (not an :actions/* chain, which
-  ;; would throw the effect-id schema at runtime dispatch).
   (let [effects (actions/confirm-portfolio-optimizer-execution (locked-state :locked))
         effect-keys (map first effects)]
-    ;; the emitted effects must pass the real action-emission contract (regression guard:
-    ;; an :actions/* emission throws here)
     (is (emitted-effects-valid? :actions/confirm-portfolio-optimizer-execution effects))
     (is (some #{:effects/unlock-agent-trading} effect-keys))
-    ;; never dispatches the submit while locked
     (is (not (some #{:effects/execute-portfolio-optimizer-plan} effect-keys)))
-    ;; flips the agent to :unlocking so a second confirm-click can't double-prompt
     (is (some #{[:effects/save-many [[[:wallet :agent :status] :unlocking]
                                      [[:wallet :agent :error] nil]]]}
               effects))
@@ -650,9 +582,6 @@
     (is (some #{:effects/save} effect-keys))))
 
 (deftest confirm-execution-not-ready-agent-opens-enable-recovery-test
-  ;; Trading never enabled (the DEFAULT :not-ready status) must open the enable-trading
-  ;; recovery modal — like manual order entry — instead of submitting orders that would each
-  ;; dead-end on "Enable trading first".
   (let [effects (actions/confirm-portfolio-optimizer-execution (locked-state :not-ready))
         effect-keys (map first effects)]
     (is (emitted-effects-valid? :actions/confirm-portfolio-optimizer-execution effects))
@@ -660,7 +589,6 @@
     (is (some #{[:effects/save [:wallet :agent :recovery-modal-open?] true]} effects))))
 
 (deftest confirm-execution-ready-agent-still-submits-test
-  ;; Only a :ready agent submits.
   (let [effects (actions/confirm-portfolio-optimizer-execution (locked-state :ready))]
     (is (emitted-effects-valid? :actions/confirm-portfolio-optimizer-execution effects))
     (is (some #{:effects/execute-portfolio-optimizer-plan} (map first effects)))))
@@ -678,8 +606,6 @@
            (actions/confirm-portfolio-optimizer-execution state)))))
 
 (deftest resume-execution-retries-only-failed-rows-test
-  ;; A partial run filled BTC and rejected ETH. Resume must re-arm ONLY ETH and demote
-  ;; the already-filled BTC to :skipped :already-filled so it can never double-submit.
   (let [plan {:scenario-id "draft-1"
               :status :partially-blocked
               :execution-disabled? false
@@ -705,11 +631,9 @@
     (is (= [:effects/save [:portfolio :optimizer :execution-modal :error] nil]
            (second effects)))
     (is (= :effects/execute-portfolio-optimizer-plan effect-key))
-    ;; filled row demoted, stale response dropped, intent removed so it can't re-request
     (is (= {:status :skipped :reason :already-filled}
            (select-keys (row-by-id "perp:BTC") [:status :reason])))
     (is (nil? (:intent (row-by-id "perp:BTC"))))
-    ;; failed row re-armed, stale error dropped
     (is (= :ready (:status (row-by-id "perp:ETH"))))
     (is (nil? (:error (row-by-id "perp:ETH"))))
     (is (= {:kind :perp-order} (:intent (row-by-id "perp:ETH"))))
@@ -730,7 +654,6 @@
            (actions/resume-portfolio-optimizer-execution state)))))
 
 (deftest revert-execution-builds-reversing-orders-from-filled-ledger-test
-  ;; Only the filled (:submitted) BTC is reverted — opposite side, reduce-only, market.
   (let [plan {:scenario-id "draft-1" :execution-disabled? false :summary {} :rows []}
         ledger {:rows [{:row-id "perp:BTC" :instrument-id "perp:BTC" :instrument-type :perp
                         :status :submitted :side :buy :quantity 0.25 :price 100
@@ -779,14 +702,12 @@
         [_ plan-path restaged] (first effects)
         eth (first (:rows restaged))]
     (is (= [:portfolio :optimizer :execution-modal :plan] plan-path))
-    ;; the filled BTC is dropped; only ETH remains, halved
     (is (= 1 (count (:rows restaged))))
     (is (= "perp:ETH" (:row-id eth)))
     (is (= 0.5 (:quantity eth)))
     (is (= 0.5 (get-in eth [:intent :quantity])))
     (is (= 1000 (:delta-notional-usd eth)))
     (is (= 1 (get-in restaged [:summary :ready-count])))
-    ;; surface returns to staged for a fresh arm
     (is (= [:effects/save [:portfolio :optimizer :execution-modal :phase] :staged]
            (second effects)))))
 
@@ -800,8 +721,6 @@
         effects (actions/discard-portfolio-optimizer-execution state)]
     (is (= [:portfolio :optimizer :execution-modal] (get-in effects [0 1])))
     (is (= [:portfolio :optimizer :execution] (get-in effects [1 1])))
-    ;; The standalone Rebalance preview tab was retired, so discarding returns to the
-    ;; Recommendation tab rather than a dead :rebalance value.
     (is (= [:effects/save [:portfolio-ui :optimizer :results-tab] :recommendation]
            (nth effects 2)))
     (is (= [:effects/replace-shareable-route-query] (nth effects 3)))))
@@ -818,4 +737,3 @@
            (actions/open-portfolio-optimizer-execution-in-ticket state))))
   (is (= [] (actions/open-portfolio-optimizer-execution-in-ticket
              {:portfolio {:optimizer {:execution-modal {:plan {:rows []}}}}}))))
-

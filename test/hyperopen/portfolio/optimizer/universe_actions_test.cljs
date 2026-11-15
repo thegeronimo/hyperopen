@@ -4,7 +4,6 @@
             [hyperopen.portfolio.optimizer.defaults :as optimizer-defaults]))
 
 (def ^:private custom-universe-source-path-value
-  ;; Hand-editing the universe flips the recorded source to a custom set.
   [[:portfolio :optimizer :draft :metadata :universe-source] {:kind :custom}])
 
 (def ^:private selection-prefetch-effect
@@ -79,21 +78,15 @@
                                               :mark "2"}}}}]
     (let [effects (actions/set-portfolio-optimizer-universe-from-current state)
           values (effect-values-by-path effects)]
-      ;; An untouched (nil) draft is materialized as a full default draft first,
-      ;; so the persisted/autosaved draft is always spec-complete.
       (is (= (optimizer-defaults/default-draft)
              (get values [:portfolio :optimizer :draft])))
       (is (= [btc-instrument]
              (get values [:portfolio :optimizer :draft :universe])))
-      ;; Loading from holdings records the source and accounts for what was
-      ;; omitted (spot assets are excluded while :include-spot? is off).
       (is (= {:kind :holdings
               :omitted [{:instrument-id "spot:PURR"
                          :label "PURR/USDC"
                          :reason :spot-excluded}]}
              (get values [:portfolio :optimizer :draft :metadata :universe-source])))
-      ;; Materializing the default also seeds the holdings-derived constraint
-      ;; bands (the button path now matches the route preseed path).
       (is (number? (:gross-min (get values [:portfolio :optimizer :draft :constraints]))))
       (is (= (queued-prefetch-state [btc-instrument])
              (get values [:portfolio :optimizer :history-prefetch])))
@@ -266,8 +259,6 @@
             "perp:ETH")))))
 
 (deftest add-draft-universe-instrument-and-run-runs-with-zero-black-litterman-views-test
-  ;; Zero authored views no longer gates the run: the posterior equals the
-  ;; baseline, so adding an asset to a views-aware draft runs immediately.
   (let [btc-instrument {:instrument-id "perp:BTC"
                         :market-type :perp
                         :coin "BTC"
@@ -298,7 +289,6 @@
            (get values [:portfolio :optimizer :draft :universe])))
     (is (= false
            (get values [:portfolio-ui :optimizer :draft-add-asset-open?])))))
-
 
 (deftest toggle-draft-universe-instrument-exclusion-and-run-keeps-row-in-universe-test
   (let [btc-instrument {:instrument-id "perp:BTC"
@@ -609,9 +599,6 @@
             "perp:SOL")))))
 
 (deftest clear-universe-empties-selection-and-per-asset-residue-test
-  ;; The "start from scratch" escape hatch: one action empties the universe and
-  ;; every per-asset constraint/assumption remnant, and records the custom source
-  ;; so the holdings preseed will not refill the cleared draft.
   (let [state {:portfolio
                {:optimizer
                 {:draft
@@ -637,6 +624,5 @@
     (is (= {} (get path-values [:portfolio :optimizer :draft :constraints :perp-leverage])))
     (is (= {} (get path-values [:portfolio :optimizer :draft :history-assumptions])))
     (is (true? (get path-values [:portfolio :optimizer :draft :metadata :dirty?]))))
-  ;; Clearing an already-empty universe is a no-op.
   (is (= [] (actions/clear-portfolio-optimizer-universe
              {:portfolio {:optimizer {:draft {:universe []}}}}))))

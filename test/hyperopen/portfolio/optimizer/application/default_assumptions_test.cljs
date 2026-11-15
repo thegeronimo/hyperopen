@@ -28,8 +28,6 @@
    {"hl:perp:NEW" {:instrument-id "hl:perp:NEW"
                    :aliases {:hyperopen-market-key "perp:NEW"}
                    :history {:status :available}
-                   ;; Values arrive as strings — the generic API normalization
-                   ;; kebab-cases keys but never keywordizes values.
                    :default-assumption
                    {:approach "proxy"
                     :members [{:instrument-id "hl:perp:ETH" :role "anchor"}

@@ -14,10 +14,6 @@
   (* 24 60 60 1000))
 
 (deftest historical-mean-annualizes-return-series-and-subtracts-funding-carry-test
-  ;; HL convention: positive funding => longs PAY. The expected-return vector is the
-  ;; per-unit LONG return, so a positive :annualized-carry (raw HL sign) is a COST and is
-  ;; SUBTRACTED: return 0.2 − carry 0.12 = 0.08, and :funding-component is the long's carry
-  ;; contribution (−0.12). A short earns it via its negative weight.
   (let [result (returns/estimate-expected-returns
                 {:return-model {:kind :historical-mean}
                  :periods-per-year 10
@@ -36,8 +32,6 @@
            (get-in result [:decomposition-by-instrument "perp:BTC"])))))
 
 (deftest negative-funding-carry-is-income-to-a-long-test
-  ;; Negative funding (shorts pay longs) is INCOME to a long: it raises the long's
-  ;; expected return. return 0.2 − (−0.12) = 0.32.
   (let [result (returns/estimate-expected-returns
                 {:return-model {:kind :historical-mean}
                  :periods-per-year 10

@@ -140,10 +140,6 @@
             policy (trading/submit-policy s (trading/order-form-draft s) {:mode :submit :agent-ready? true})]
         (is (not= :vol-range-preview-only (:reason policy)))))))
 
-;; ---------------------------------------------------------------------------
-;; Static scan
-;; ---------------------------------------------------------------------------
-
 (def ^:private fs (js/require "fs"))
 (def ^:private path (js/require "path"))
 
@@ -250,8 +246,6 @@
       (is (not (str/includes? text needle)) (str file " mentions " needle)))))
 
 (deftest preview-sources-never-require-execution-foundations-test
-  ;; VR-24 stays true while stage 4 foundations exist: nothing on an A0
-  ;; preview path can reach a journal write, a nonce reservation or a send.
   (let [files (-> []
                   (into (remove execution-foundations
                                 (filter #(str/ends-with? % ".cljs") (list-files "src/hyperopen/vol_range"))))

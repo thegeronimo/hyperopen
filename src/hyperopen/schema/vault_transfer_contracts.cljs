@@ -31,12 +31,6 @@
   (and (integer? value)
        (<= 0 value max-safe-integer)))
 
-(defn canonical-decimal-text?
-  [value]
-  (and (string? value)
-       (boolean
-        (re-matches #"^(?:(\d+)(?:\.(\d*))?|\.(\d+))$" value))))
-
 (defn normalized-transfer-mode?
   [value]
   (contains? #{:deposit :withdraw} value))

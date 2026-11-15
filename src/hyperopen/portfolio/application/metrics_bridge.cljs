@@ -121,8 +121,6 @@
   [request-data request-signature]
   (when (not= request-signature (:signature @last-metrics-request))
     (reset! last-metrics-request {:signature request-signature})
-    ;; Keep existing metrics visible during background recomputes to avoid
-    ;; flashing the overlay spinner on live data refreshes.
     (when (nil? (get-in @system/store [:portfolio-ui :metrics-result]))
       (swap! system/store assoc-in [:portfolio-ui :metrics-loading?] true))
     (when-let [worker (current-worker metrics-worker)]

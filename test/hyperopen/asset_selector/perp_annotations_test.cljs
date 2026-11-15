@@ -4,7 +4,6 @@
             [hyperopen.asset-selector.query :as query]))
 
 (def ^:private payload
-  ;; Shape of {"type" "perpConciseAnnotations"} after JSON keywordization.
   [["xyz:HO" {:category "commodities"
               :displayName "DIESEL"
               :keywords ["ho" "ULSD" " " "ho"]}]

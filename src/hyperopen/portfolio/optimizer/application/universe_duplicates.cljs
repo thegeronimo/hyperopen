@@ -124,9 +124,6 @@
      (and sibling
           (not (acknowledged? state (underlying-key market)))))))
 
-;; ---------------------------------------------------------------------------
-;; Search projection
-
 (defn- quote-label
   [market-or-instrument]
   (some-> (normalized-text (:quote market-or-instrument)) str/upper-case))
@@ -222,9 +219,6 @@
            {:seen (set (keys (universe-index universe)))
             :items []}
            instruments)))
-
-;; ---------------------------------------------------------------------------
-;; Universe-list projection
 
 (def duplicate-warning-code
   :duplicate-underlying)

@@ -14,9 +14,6 @@
    :target-return-above-feasible-maximum #{:target-return}
    :gross-floor-above-gross-max #{:gross-min :gross-max}
    :gross-floor-exceeds-capacity #{:gross-min :max-asset-weight}
-   ;; The two codes with a remediation model are refined per violation by
-   ;; `refined-control-keys`; these entries are the code-only fallback for a
-   ;; result that carries no violation payload.
    :net-unreachable-given-sides #{:gross-min :gross-max :net-min :net-max :max-asset-weight}
    :minimum-risk-without-exposure-floor #{:gross-min :net-min :net-max}
    :solver-result-gross-exposure-violation #{:gross-max}
@@ -47,10 +44,6 @@
    :blocklist "Excluded Assets"})
 
 (def ^:private code-labels
-  ;; opt-format/keyword-label falls back to (name value), which leaks the raw
-  ;; diagnostic token into the "Reason:" headline and the chip row. Every reason
-  ;; the engine can publish at run level gets a label here, alongside the
-  ;; violation codes that carry copy.
   {:net-unreachable-given-sides "Net target out of reach"
    :minimum-risk-without-exposure-floor "No exposure floor"
    :solver-boundary-row-violation "Constraint row out of bounds"
@@ -61,10 +54,6 @@
    :solver-returned-no-solution "Solver found no solution"
    :solver-primal-infeasible "Solver: constraints conflict"
    :solver-solution-outside-constraints "Solver answer outside its own bounds"
-   ;; The run-level twin of the solver-level reason above. It must NOT read as a
-   ;; proof of infeasibility: the solver returned a real point that failed the
-   ;; row check, which is a solver-quality failure, not a statement about the
-   ;; request.
    :solver-solution-failed-boundary-check "Solver answer outside its own bounds"
    :target-return-above-feasible-maximum "Target return out of reach"
    :equal-risk-presolve "Equal Risk setup cannot be solved"
@@ -83,8 +72,6 @@
     (or (:result run-state)
         run-state)))
 
-;; The remediation model's public surface, re-exported so `workspace_view` and
-;; the panel tests keep one entry point for the banner.
 (def remediation-suggestions remediation/suggestions)
 
 (def remediation-rationale remediation/rationale)
@@ -148,8 +135,6 @@
 
       :minimum-risk-without-exposure-floor
       (cond-> #{:net-min :net-max}
-        ;; A setup whose net window admits no positive floor must not point at
-        ;; Gross Exposure Min: every value it could take is rejected on read.
         (or (nil? max-feasible-gross-floor)
             (and (opt-format/finite-number? max-feasible-gross-floor)
                  (pos? max-feasible-gross-floor)))

@@ -25,19 +25,14 @@
           overrides)))
 
 (deftest restore-or-preseed-fires-on-fresh-optimize-new-draft-test
-  ;; The route-entry funnel: an untouched draft on /optimize/new asks the restore
-  ;; effect to hydrate the persisted per-wallet draft or preseed from holdings.
   (is (= [[:effects/restore-portfolio-optimizer-draft]]
          (actions/restore-or-preseed-portfolio-optimizer-draft
           {:portfolio {:optimizer {:draft nil}}}
           "/portfolio/optimize/new")))
-  ;; A materialized-but-pristine default draft counts as untouched.
   (is (= [[:effects/restore-portfolio-optimizer-draft]]
          (actions/restore-or-preseed-portfolio-optimizer-draft
           {:portfolio {:optimizer {:draft (optimizer-defaults/default-draft)}}}
           "/portfolio/optimize/new")))
-  ;; The bare path IS the workspace now (the index page is gone), so landing on
-  ;; it restores/preseeds exactly like the legacy /new alias.
   (is (= [[:effects/restore-portfolio-optimizer-draft]]
          (actions/restore-or-preseed-portfolio-optimizer-draft
           {:portfolio {:optimizer {:draft nil}}}
@@ -64,8 +59,6 @@
            (get path-values [:portfolio :optimizer :draft])))
     (is (= {:status :saved :at-ms 1700000000000}
            (get path-values [:portfolio :optimizer :draft-persist])))
-    ;; A restored universe re-requests history: the route's initial load saw the
-    ;; pre-restore empty draft.
     (is (= [:effects/load-portfolio-optimizer-history] history-effect))))
 
 (deftest hydrate-never-clobbers-a-touched-draft-test
@@ -77,11 +70,9 @@
   (let [untouched {:portfolio {:optimizer {:draft nil}}}]
     (is (= [] (actions/hydrate-portfolio-optimizer-draft untouched nil)))
     (is (= [] (actions/hydrate-portfolio-optimizer-draft untouched {:draft "nope"})))
-    ;; Unknown record version: ignored rather than guessed at.
     (is (= [] (actions/hydrate-portfolio-optimizer-draft
                untouched
                (draft-record {:version 99}))))
-    ;; A draft that fails the ::draft contract (missing required keys) is ignored.
     (is (= [] (actions/hydrate-portfolio-optimizer-draft
                untouched
                (draft-record {:draft {:universe [btc-instrument]}}))))
@@ -97,11 +88,7 @@
                                             {" " {:behavior :conservative}})}))))))
 
 (deftest hydrate-skips-history-load-for-an-empty-universe-test
-  ;; A persisted deliberately-cleared universe restores as-is (the remembered
-  ;; "start from scratch" choice) and has no history to request.
   (let [record (draft-record {:draft (optimizer-defaults/default-draft)})
-        ;; An empty default draft would normally be filtered by untouched? at the
-        ;; restore layer, so exercise a cleared-but-customized draft instead.
         cleared (assoc-in (optimizer-defaults/default-draft)
                           [:metadata :universe-source]
                           {:kind :custom})

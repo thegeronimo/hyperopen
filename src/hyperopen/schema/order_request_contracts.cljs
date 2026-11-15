@@ -171,8 +171,6 @@
        (twap-trigger-detail? (:t value))
        (or (nil? (:s value))
            (positive-numberish-string? (:s value)))
-       ;; An all-nil details block carries no information and must be omitted instead, so
-       ;; that a plain TWAP signs byte-identically to how it always has.
        (boolean (or (:t value) (:s value)))))
 
 (defn twap-action?
@@ -236,11 +234,6 @@
   (or (standard-order-request-valid? request)
       (scale-request-valid? request)
       (twap-request-valid? request)))
-
-(defn nil-or-order-request-valid?
-  [request]
-  (or (nil? request)
-      (order-request-valid? request)))
 
 (defn assert-standard-order-request!
   [request context]

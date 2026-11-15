@@ -910,7 +910,6 @@
                                            :end-time-ms 100000}]
                        %)
                    @stage-a-calls))
-         ;; Startup WS-first disabled means no delayed stream-backed fallback scheduling.
          (is (= [] @scheduled-delays))
          (done))
        0))))

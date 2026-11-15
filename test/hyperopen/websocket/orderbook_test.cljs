@@ -51,7 +51,6 @@
           (handler payload-b)
           (is (= 1 @schedule-count))
           (is (= 0 @store-write-count))
-          ;; Local module state still tracks latest payload immediately.
           (is (= 2 (get-in @orderbook/orderbook-state [:books "BTC" :timestamp])))
           (@scheduled-callback 16)
           (is (= 1 @store-write-count))
@@ -81,7 +80,6 @@
   (market-runtime/reset-market-projection-runtime!)
   (try
     (let [base (support/spot-buy-state {:ask "1.00" :usdc "100"})
-          ;; Classic spot account with a committed 100 USDC buy at best-ask 1.00.
           committed (support/apply-order-form-transition
                      base
                      (transitions/set-order-size-display base "100"))
@@ -91,7 +89,6 @@
                                                         (reset! scheduled-callback f)
                                                         :raf-id)]
         (let [handler (orderbook/create-orderbook-data-handler store)]
-          ;; Best-ask for the active spot market ticks up ~1%.
           (handler {:channel "l2Book"
                     :data {:coin "PURR"
                            :levels [[{:px "0.99" :sz "1000"}]
@@ -101,8 +98,6 @@
           (let [form (trading/order-form-draft @store)]
             (is (= [{:px "1.01" :sz "1000"}]
                    (:asks (get-in @store [:orderbooks "PURR"]))))
-            ;; The displayed commitment is preserved while the canonical size is
-            ;; re-projected, so the affordability check no longer false-rejects.
             (is (= "100" (:size-display form)))
             (is (empty? (support/validation-codes
                          (trading/validate-order-form @store form))))))))
@@ -174,15 +169,6 @@
       (reset-orderbook-state!)
       (market-runtime/reset-market-projection-runtime!))))
 
-;; ---------------------------------------------------------------------------
-;; Fast incremental `l2` channel
-;;
-;; Hyperliquid throttles the documented `l2Book` channel to roughly one snapshot
-;; every 5.4s. The undocumented `l2` channel carries the same book at roughly 550ms
-;; as one snapshot plus compressed deltas. Both stay subscribed: `l2Book` bootstraps
-;; the book, backstops a missing `l2` channel, and keeps the websocket freshness
-;; surface (keyed on the "l2Book" topic) working unchanged.
-
 (defn- sent-subscriptions [sent method]
   (->> @sent
        (filter #(= method (:method %)))
@@ -209,8 +195,6 @@
       (reset-orderbook-state!))))
 
 (deftest subscribe-orderbook-skips-the-fast-stream-when-the-runtime-cannot-inflate-test
-  ;; No DecompressionStream('deflate-raw') means no delta decoding, so the book stays
-  ;; on `l2Book` alone and keeps working at the old cadence with nothing else to detect.
   (reset-orderbook-state!)
   (try
     (let [sent (with-captured-sends
@@ -223,9 +207,6 @@
       (reset-orderbook-state!))))
 
 (deftest subscribe-orderbook-drops-the-fast-stream-for-aggregated-precision-test
-  ;; `l2` silently ignores nSigFigs, so the coarse precision modes must fall back to
-  ;; the aggregated `l2Book` subscription rather than silently serving a full-precision
-  ;; book. Switching away must also discard the sides the deltas were mutating.
   (reset-orderbook-state!)
   (try
     (with-redefs [platform/inflate-raw-base64-supported? (constantly true)]
@@ -234,8 +215,6 @@
       (swap! orderbook/orderbook-state assoc-in [:l2-sides "BTC"] [[{:px "100" :sz "1"}] []])
       (let [sent (with-captured-sends
                    (fn [_] (orderbook/subscribe-orderbook! "BTC" {:nSigFigs 3})))]
-        ;; The unaggregated `l2Book` subscription is replaced by the aggregated one, and
-        ;; the fast stream is dropped entirely because it cannot honour nSigFigs.
         (is (= [{:type "l2Book" :coin "BTC"} {:type "l2" :c "BTC"}]
                (sent-subscriptions sent "unsubscribe")))
         (is (= [{:type "l2Book" :coin "BTC" :nSigFigs 3}]
@@ -287,8 +266,6 @@
       (market-runtime/reset-market-projection-runtime!))))
 
 (deftest l2-delta-applies-to-the-seeded-sides-test
-  ;; The decode is asynchronous, so the inflate seam is injected rather than redefined:
-  ;; a `with-redefs` would already have unwound by the time the promise chain resolves.
   (reset-orderbook-state!)
   (market-runtime/reset-market-projection-runtime!)
   (async done
@@ -308,10 +285,8 @@
                                     [{:px "101" :sz "4"}]]}}})
       (is (= 10 (get-in @orderbook/orderbook-state [:books "BTC" :timestamp])))
       (handler {:channel "l2" :data {:c "blob"}})
-      ;; A macrotask lands after every pending microtask, so the chain has resolved.
       (js/setTimeout
        (fn []
-         ;; Removal index 1 drops the 99 bid, then the 98 upsert is inserted.
          (is (= [[{:px "100" :sz "1"} {:px "98" :sz "5"}] [{:px "101" :sz "4"}]]
                 (get-in @orderbook/orderbook-state [:l2-sides "BTC"])))
          (is (= 20 (get-in @orderbook/orderbook-state [:books "BTC" :timestamp])))
@@ -340,7 +315,6 @@
        0))))
 
 (deftest l2-delta-decode-failure-leaves-the-book-untouched-test
-  ;; A rejected inflate must not poison the shared decode chain or the stored book.
   (reset-orderbook-state!)
   (market-runtime/reset-market-projection-runtime!)
   (async done
@@ -364,8 +338,6 @@
        0))))
 
 (deftest stale-l2book-snapshot-does-not-drag-a-newer-book-backwards-test
-  ;; Once deltas are flowing the stored book is usually newer than the 5s `l2Book`
-  ;; snapshot. Replaying the older one would make the ladder stutter every 5 seconds.
   (reset-orderbook-state!)
   (market-runtime/reset-market-projection-runtime!)
   (try
@@ -399,8 +371,6 @@
       (market-runtime/reset-market-projection-runtime!))))
 
 (deftest l2-snapshot-seeds-a-one-sided-book-test
-  ;; A thin market with no resting asks must still seed its sides, otherwise deltas can
-  ;; never be positioned and the coin silently stays on the throttled `l2Book` stream.
   (reset-orderbook-state!)
   (market-runtime/reset-market-projection-runtime!)
   (try

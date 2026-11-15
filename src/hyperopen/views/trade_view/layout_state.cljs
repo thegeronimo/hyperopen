@@ -160,8 +160,7 @@
   ([desktop-layout? mobile-surface funding-tooltip-open?]
    (trade-layout desktop-layout? mobile-surface funding-tooltip-open? nil))
   ([desktop-layout? mobile-surface funding-tooltip-open? {:keys [outcome-market?]}]
-   (let [;; On a phone an outcome market's ticket is a sheet over the chart, not a
-         ;; surface of its own: the chart surface stays underneath.
+   (let [
          outcome-sheet? (and (not desktop-layout?) (true? outcome-market?) (= :ticket mobile-surface))
          base-surface (if outcome-sheet? :chart mobile-surface)
          mobile-market-surface? (contains? trade-layout-actions/market-mobile-surfaces
@@ -174,7 +173,6 @@
       :mobile-orderbook-surface? mobile-orderbook-surface?
       :outcome-market? (boolean outcome-market?)
       :outcome-sheet? outcome-sheet?
-      ;; The pinned Buy bar shows on the market surfaces of a phone.
       :outcome-bar? (and (not desktop-layout?) (true? outcome-market?) mobile-market-surface?
                          (not outcome-sheet?))
       :chart-panel-visible? (or desktop-layout? (= base-surface :chart))

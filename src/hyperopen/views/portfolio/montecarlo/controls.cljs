@@ -95,8 +95,6 @@
                                       :value horizon
                                       :options horizon-options
                                       :fmt months-label
-                                      ;; Compare at month granularity so near-year
-                                      ;; histories do not lock out the 1Y option.
                                       :disabled? (fn [m] (> m observed-months))}))))
      (field "Bust threshold (drawdown)"
             (stepper (merge base {:control :bust :value bust :suffix "%" :step 5})))

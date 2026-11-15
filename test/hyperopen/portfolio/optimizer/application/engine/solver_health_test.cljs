@@ -26,8 +26,6 @@
     :weights [0.5 0.5]}))
 
 (deftest no-warning-when-every-solve-used-the-primary-solver-test
-  ;; The healthy path must stay silent: a warning on every run trains people to
-  ;; ignore the rail, which is the failure mode this surface exists to fix.
   (is (nil? (solver-health/warnings [(osqp-result) (osqp-result)] nil)))
   (is (nil? (solver-health/warnings [] nil)))
   (is (nil? (solver-health/warnings nil nil)))
@@ -37,10 +35,6 @@
       "an explicitly configured quadprog run is not a fallback"))
 
 (deftest counts-frontier-solves-not-just-selection-solves-test
-  ;; The frontier sweep is where nearly every solve happens, and a
-  ;; min-variance selection often takes the closed-form path and never touches
-  ;; the QP solver at all -- so reading only :solver-results missed the
-  ;; ordinary case entirely.
   (let [warnings (solver-health/warnings
                   [{:status :solved :solver :closed-form :weights [0.5 0.5]}]
                   {:unconstrained [(fallback-result) (fallback-result)]})
@@ -58,8 +52,6 @@
     (is (str/starts-with? message "Every solve in this run (2)"))))
 
 (deftest carries-the-underlying-solver-error-test
-  ;; The whole point: the CSP CompileError is the sentence that tells someone
-  ;; what to actually fix, so it has to reach the rail.
   (let [message (:message (first (solver-health/warnings
                                   nil
                                   {:unconstrained [(fallback-result)]})))]
@@ -107,9 +99,6 @@
                                              :fallback-message csp-error})})
         warning (first (filter #(= :solver-fallback-used (:code %))
                                (:warnings result)))]
-    ;; Assert the solved path was actually taken and the stub actually ran --
-    ;; a request that quietly fails, or a problem kind that bypasses the
-    ;; injected solver, would otherwise let this pass while proving nothing.
     (is (= :solved (:status result)))
     (is (pos? @calls))
     (is (some? warning))

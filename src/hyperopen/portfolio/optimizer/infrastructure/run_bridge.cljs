@@ -134,9 +134,6 @@
     ((or dispatch! nxr/dispatch) store nil [[:actions/navigate (:path command)]])
 
     :optimizer.workflow/reveal-results
-    ;; Navigate + select the Recommendation tab explicitly, so a stale
-    ;; previously-selected tab (e.g. Execution from an earlier result) cannot
-    ;; swallow the reveal.
     ((or dispatch! nxr/dispatch)
      store
      nil
@@ -144,8 +141,6 @@
       [:actions/set-portfolio-optimizer-results-tab :recommendation]])
 
     :optimizer.workflow/announce-run-complete
-    ;; The user finished the run somewhere else in the app; announce through the
-    ;; global aria-live toast region instead of teleporting them.
     (feedback-runtime/set-order-feedback-toast!
      store
      :success

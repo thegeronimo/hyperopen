@@ -31,12 +31,6 @@
    :progress {:overall-percent nil :active-step nil}})
 
 (deftest results-panel-rail-reads-review-first-with-collapsed-views-editor-test
-  ;; The rail is review-first: the next-step lead, then volatility/leverage-risk
-  ;; context, then frontier solve-quality detail (2026-07-12: split out of the
-  ;; confidence card so it trails the volatility/leverage cards instead of
-  ;; leading the rail), then trust, then the views editor — a closed-by-default
-  ;; <details> whose summary carries the title + live counts, so input editing
-  ;; no longer dominates the rail.
   (let [draft {:universe [{:instrument-id "perp:BTC"
                            :market-type :perp
                            :coin "BTC"}
@@ -73,9 +67,6 @@
         "Frontier quality/selection stability/stop reason trail the volatility card.")
     (is (< (index-of order "portfolio-optimizer-result-confidence-quality-panel")
            (index-of order "portfolio-optimizer-trust-caution-panel")))
-    ;; The leverage-impact panel is gated on gross ≥ 2x / σ ≥ 100%; this
-    ;; result (0.37x gross, 42% σ) must not surface it — but its center-column
-    ;; slot always renders so the gate toggling can't shift the cards below.
     (is (nil? (index-of order "portfolio-optimizer-leverage-impact")))
     (is (some? (index-of order "portfolio-optimizer-leverage-impact-slot")))
     (is (< (index-of order "portfolio-optimizer-trust-caution-panel")
@@ -84,8 +75,6 @@
         "The relocated card still carries its three original rows.")
     (is (contains? (set (collect-strings quality-panel)) "Selection stability"))
     (is (contains? (set (collect-strings quality-panel)) "Stop reason"))
-    ;; The next-step lead ("Rebalance now, or refine...") stays in the
-    ;; confidence card up top, not in the relocated quality panel.
     (is (not (contains? (set (collect-strings quality-panel)) "Rebalance")))
     (is (= :details (first editor)))
     (is (nil? (node-attr editor :open))
@@ -93,7 +82,6 @@
     (is (= :summary (first toggle)))
     (is (contains? toggle-strings "Return views"))
     (is (contains? toggle-strings "1 your view · 1 implied"))
-    ;; Everything the editor could do stays available once opened.
     (is (some? (node-by-role editor
                              "portfolio-optimizer-objective-menu-view-row-perp:BTC")))
     (is (= [[:actions/apply-portfolio-optimizer-objective-menu-selection-and-run]]
@@ -101,10 +89,6 @@
             (node-by-role editor "portfolio-optimizer-results-your-views-apply"))))))
 
 (deftest results-panel-leverage-impact-sits-under-the-frontier-chart-test
-  ;; The one-year modeled leverage impact panel (2026-07-12 user request) is a
-  ;; CENTER-column component: directly under the frontier chart, above the
-  ;; 'Why this target' card — never in the right rail (the rail keeps only the
-  ;; volatility-intuition card between confidence and solve quality).
   (let [levered-result (assoc-in solved-result [:diagnostics :gross-exposure] 2.5)
         view-node (results-panel/results-panel
                    {:result levered-result
@@ -126,9 +110,6 @@
            (index-of order "portfolio-optimizer-result-confidence-quality-panel")))))
 
 (deftest results-panel-renders-target-context-card-between-chart-and-refinement-test
-  ;; "Why this target" surfaces engine-derived facts (book shape, largest position,
-  ;; binding constraints) in the center column, between the frontier chart and the
-  ;; demoted refinement card.
   (let [result (assoc solved-result
                       :labels-by-instrument {"perp:BTC" "BTC"
                                              "spot:PURR" "PURR"})

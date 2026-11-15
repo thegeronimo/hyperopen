@@ -41,10 +41,6 @@
   "Staking balance -> spot balance takes 7 days."
   604800000)
 
-(def delegation-lockup-ms
-  "A fresh delegation cannot be undelegated for 1 day."
-  86400000)
-
 (def ^:private ready-grace-ms
   "A queue entry whose 7 days have elapsed can still be reported as pending by
   the summary for a while. Keep such entries as candidates so they read as

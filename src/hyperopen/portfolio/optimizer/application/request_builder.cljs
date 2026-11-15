@@ -103,8 +103,6 @@
     (-> (cond-> (dissoc assumptions* :slippage-fallback-bps)
           (some? fallback-slippage-bps)
           (assoc :fallback-slippage-bps fallback-slippage-bps))
-        ;; Derive the fee assumption once, here, so BOTH preview build sites (the
-        ;; worker payload and the frontend refresh) inherit it via execution-assumptions.
         (assoc :default-fee-bps (fee-bps-for-mode (:fee-mode assumptions*))))))
 
 (declare align-history universe-by-id)
@@ -506,23 +504,12 @@
       :current-portfolio current-portfolio})))
 
 (def ^:private align-history-memo-capacity
-  ;; Eviction is a wholesale reset, so the capacity must exceed the largest
-  ;; realistic build: requested + currently-held universes PLUS one sub-universe
-  ;; per engine-backed proxy assumption (30+ with dozens of assumptions; the old
-  ;; capacity of 16 reset MID-BUILD and nothing survived to the next render).
   64)
 
 (defonce ^:private align-history-memo
   (volatile! {}))
 
 (defn- align-history
-  ;; Alignment walks every candle series and dominates request building, but
-  ;; its inputs only change when the universe or loaded history move - not
-  ;; when draft constraints are edited. The memo key deliberately EXCLUDES
-  ;; :as-of-ms / :stale-after-ms: those fall back to a wall-clock bucket, and
-  ;; keying on them re-ran the full alignment every bucket roll (multi-second
-  ;; render stalls on a fixed cadence). INVARIANT: alignment may consume the
-  ;; as-of ONLY for the O(1) :freshness stamp, re-stamped here on every call.
   [{:keys [universe
            history-data
            as-of-ms
@@ -544,12 +531,6 @@
                     (vreset! align-history-memo (assoc memo* inputs value))
                     value))]
     (assoc aligned
-           ;; Alignment's own :freshness is recomputed here because as-of-ms is
-           ;; not an alignment input (it would bust the memo every tick). Fall
-           ;; back to :freshness-calendar when the shared calendar is empty: a
-           ;; universe whose only members ride the off-calendar sparse lane has no
-           ;; shared calendar, and calendar/freshness reports stale? true for an
-           ;; empty one, so current data would read as permanently stale.
            :freshness (calendar/freshness (if (seq (:calendar aligned))
                                             (:calendar aligned)
                                             (:freshness-calendar aligned))
@@ -570,49 +551,23 @@
         normalized-return-model (normalize-return-model (:return-model draft*))
         return-model (:return-model normalized-return-model)
         risk-model (or (:risk-model draft*) default-risk-model)
-        ;; Refinement raises the frontier point budget on the objective; the engine
-        ;; clamps to its [2,80] cap (domain.objectives/bounded-frontier-point-count).
         objective (cond-> (or (:objective draft*) default-objective)
                     (coercion/finite-number? frontier-points-override)
                     (assoc :frontier-points frontier-points-override))
         constraints (normalize-constraints (:constraints draft*))
-        ;; History assumptions are folded into the optimization: their assets are
-        ;; re-admitted to the engine universe, their caps mirror into the constraint
-        ;; machinery, and the assumptions ride along for covariance synthesis in
-        ;; engine.context. A structurally complete PROXY asset is additionally pulled
-        ;; out of the alignment universe first: history alignment intersects every
-        ;; eligible asset's return calendar, so a 10-day asset would otherwise shrink
-        ;; the shared covariance-estimation window of the whole universe.
         draft-assumptions (:history-assumptions draft*)
-        ;; Reference-only proxy instruments: catalog proxies picked for a thin
-        ;; asset that are NOT in the portfolio universe. Their history is aligned
-        ;; (so covariance synthesis can use them) but they are excluded from the
-        ;; allocatable engine universe below, so they never receive a weight.
-        ;; A stored reference that IS a universe member is not reference-only -
-        ;; the user allocates it by right - so it must neither be evicted from
-        ;; the engine universe nor ride the alignment universe a second time
-        ;; (live 2026-07-09: an emptied proxy basket left BTC/ETH in the stored
-        ;; refs and silently evicted both from an 88-asset universe).
         requested-ids (instrument-id-set requested-universe)
         reference-instruments (into []
                                     (remove #(contains? requested-ids
                                                         (:instrument-id %)))
                                     (:proxy-reference-instruments draft*))
         reference-ids (set (keep :instrument-id reference-instruments))
-        ;; Metadata pool for resolving proxy instruments (universe + references),
-        ;; used by the regression sub-alignment.
         proxy-universe (into requested-universe reference-instruments)
         proxy-candidate-ids (structurally-complete-proxy-ids draft-assumptions
                                                              objective
                                                              (:constraints draft*))
         conservative-ids (conservative-engine-ids draft-assumptions objective)
-        ;; Complete-assumption assets of EITHER behavior leave the alignment
-        ;; universe: their synthesized covariance row never uses the aligned
-        ;; series, and keeping a thin native series in the intersection would
-        ;; silently shrink every other asset's estimation window.
         assumption-excluded-ids (into conservative-ids proxy-candidate-ids)
-        ;; Alignment = requested (minus assumption-excluded thin assets) PLUS the
-        ;; reference-only proxies, so their return series reach the risk result.
         alignment-universe (into (if (seq assumption-excluded-ids)
                                    (filterv #(not (contains? assumption-excluded-ids
                                                              (:instrument-id %)))
@@ -632,8 +587,6 @@
                                               draft-assumptions
                                               usable-proxy-ids)
         assumption-engine-ids (into conservative-ids proxy-engine-ids)
-        ;; Reference-only proxies aligned into eligible-universe, but they must
-        ;; NOT be allocatable - drop them before building the engine universe.
         allocatable-eligible (if (seq reference-ids)
                                (filterv #(not (contains? reference-ids
                                                          (:instrument-id %)))

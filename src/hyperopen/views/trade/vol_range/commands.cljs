@@ -60,11 +60,6 @@
 (defn refresh-daily-candles []
   (command :order-form/refresh-vol-range-daily-candles))
 
-;; ---------------------------------------------------------------------------
-;; Execution actions. These are already-registered runtime actions with no
-;; order-form command id, so they are returned as action vectors directly.
-;; ---------------------------------------------------------------------------
-
 (defn place-orders-actions
   "Explicit commit click only; Enter in a field never reaches this."
   []
@@ -74,8 +69,6 @@
 (defn refresh-ladder-actions [grid-id] [[:actions/refresh-vol-ladder grid-id]])
 (defn select-ladder-actions [grid-id] [[:actions/select-vol-ladder grid-id]])
 
-;; Repair (spec 8.6): review a ladder's rejected orders and send the frozen
-;; selection. Enter never submits; only the explicit commit click does.
 (defn open-repair-actions [grid-id] [[:actions/open-vol-ladder-repair grid-id]])
 (defn refresh-repair-actions [] [[:actions/refresh-vol-ladder-repair]])
 (defn toggle-repair-leg-actions [logical-id] [[:actions/toggle-vol-ladder-repair-leg logical-id]])
@@ -83,9 +76,6 @@
 (defn repair-keydown-actions [] [[:actions/handle-vol-ladder-repair-keydown [:event/key]]])
 (defn submit-repair-actions [] [[:actions/submit-vol-ladder-repair]])
 
-;; Update (spec 10.2): preview, cancel the old ladder, check it, choose
-;; rejected members, load the replacement quantities, stop. Placement happens
-;; only through the ordinary review's commit click.
 (defn preview-update-actions [grid-id] [[:actions/preview-vol-ladder-update grid-id]])
 (defn open-update-actions [] [[:actions/open-vol-ladder-update]])
 (defn close-update-actions [] [[:actions/close-vol-ladder-update]])
@@ -96,9 +86,6 @@
 (defn review-replacement-actions [] [[:actions/review-vol-ladder-replacement]])
 (defn stop-update-actions [] [[:actions/stop-vol-ladder-update]])
 
-;; Reporting (spec 11.2, 11.3): open the Portfolio Vol Range tab on this
-;; ladder's market. Navigation drops a query string, so the tab is selected
-;; before navigating.
 (defn view-report-actions [campaign-key]
   [[:actions/select-vol-range-report-campaign campaign-key]
    [:actions/set-portfolio-account-info-tab :vol-range]

@@ -103,7 +103,6 @@
            (get-in coin-cell [1 :on :click])))))
 
 (deftest balance-row-coin-cell-selects-spot-market-coin-over-bare-token-test
-  ;; "HYPE" is also the perp coin; the row must open the spot market it holds.
   (let [row-node (balances-tab/balance-row (assoc fixtures/sample-balance-row
                                                   :coin "HYPE"
                                                   :selection-coin "HYPE"
@@ -211,7 +210,6 @@
            (->> (hiccup/collect-strings available-cell)
                 (remove str/blank?)
                 (str/join " "))))
-    ;; A positive (non-borrow) balance shows a disabled, non-interactive Repay label.
     (is (= "Repay"
            (->> (hiccup/collect-strings repay-cell)
                 (remove str/blank?)
@@ -229,8 +227,6 @@
         row-cells (vec (hiccup/node-children row-node))
         repay-cell (nth row-cells 7)
         button-node (hiccup/find-first-node repay-cell #(= :button (first %)))]
-    ;; A negative balance is a borrow; Repay becomes a clickable button that
-    ;; dispatches the repay action with the borrowed asset's token index.
     (is (some? button-node))
     (is (= "Repay"
            (->> (hiccup/collect-strings repay-cell)

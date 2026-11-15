@@ -36,8 +36,6 @@
            (core/twap-venue-suborder-count 10 1000000))))
 
   (testing "the notional floor binds when the order is small for its runtime"
-    ;; The defect case: $200 over 24 hours. The old fixed-cadence model implied 2,881 clips
-    ;; of $0.07 and the form refused to submit; the venue works it as 20 clips of $10.
     (is (= 2881 (core/twap-suborder-count 1440)))
     (is (= 20 (core/twap-venue-suborder-count 1440 200)))
     (is (= 10 (/ 200 (core/twap-venue-suborder-count 1440 200)))))
@@ -83,7 +81,6 @@
   (is (nil? (core/twap-order-notional "0" "100")))
 
   (testing "clip size uses the venue count when a reference price is known"
-    ;; 100 units at $100 is $10,000 over 4 days -> 1000 clips.
     (is (= (/ 100 1000) (core/twap-suborder-size "100" (* 4 24 60) "100"))))
 
   (testing "with no reference price it falls back to the notional-blind spacing bound"
@@ -92,6 +89,4 @@
 
 (deftest twap-minimum-order-notional-is-one-hundred-test
   (is (= 100 core/twap-min-order-notional))
-  ;; The per-clip floor still exists, but the venue maintains it by stretching the
-  ;; interval, so it is no longer a reason to reject an order.
   (is (= 10 core/twap-min-suborder-notional)))

@@ -50,9 +50,6 @@
            (:warnings plan)))))
 
 (deftest build-history-request-plan-defaults-to-three-year-lookback-window-test
-  ;; With no explicit :bars, the plan must request the canonical ~3-year window so
-  ;; sample mean-variance has enough estimation history to beat naive 1/N. Guards
-  ;; against an accidental revert to the old 1-year (365) request.
   (let [plan (history-loader/build-history-request-plan
               [{:instrument-id "perp:BTC"
                 :market-type :perp
@@ -133,8 +130,6 @@
            (:funding-requests plan)))))
 
 (deftest funding-carry-annualizes-hourly-by-default-test
-  ;; Hyperliquid funds HOURLY, so the default annualization is 8760 (24*365), not 1095.
-  ;; With no explicit funding-periods-per-year, average-rate 0.0015 -> 0.0015*8760 = 13.14.
   (is (= 8760 history-loader/default-funding-periods-per-year))
   (let [aligned (history-loader/align-history-inputs
                  {:universe [{:instrument-id "perp:BTC"

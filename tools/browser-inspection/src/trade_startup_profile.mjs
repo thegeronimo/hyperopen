@@ -55,7 +55,6 @@ async function waitForHttp(url, timeoutMs, pollMs = 500) {
         return true;
       }
     } catch (_error) {
-      // keep polling
     }
     await sleep(pollMs);
   }
@@ -122,7 +121,6 @@ async function stopStaticServer(server) {
     try {
       process.kill(server.child.pid, "SIGTERM");
     } catch (_err) {
-      // ignore
     }
   }
   await sleep(500);
@@ -132,7 +130,6 @@ async function stopStaticServer(server) {
     try {
       process.kill(server.child.pid, "SIGKILL");
     } catch (_err) {
-      // ignore
     }
   }
 }
@@ -227,7 +224,6 @@ async function captureProfile() {
         const observer = new PerformanceObserver(handler);
         observer.observe({ type, buffered: true });
       } catch (_error) {
-        // ignore unsupported entry types
       }
     };
 
@@ -438,7 +434,6 @@ async function captureProfile() {
       await page.screenshot({ path: screenshotPath, fullPage: true });
       failure.screenshotPath = screenshotPath;
     } catch (_screenshotError) {
-      // ignore screenshot failures
     }
     await writeJsonFile(failurePath, failure);
     log("failed trade startup profile", { runDir, failurePath, error: error.message });

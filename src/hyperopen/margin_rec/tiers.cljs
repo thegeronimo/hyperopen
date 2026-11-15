@@ -152,11 +152,9 @@
                             (/ (- (* q p0) e deduction) denom))]
                     (when (and (some? p)
                                (pos? p)
-                               ;; tier containment for the implied notional
                                (let [n (* abs-q p)
                                      [r d] (rate-at-notional schedule n)]
                                  (and (== r rate) (== d deduction)))
-                               ;; adverse side only
                                (if (pos? q) (< p p0) (> p p0)))
                       p)))
                 schedule)]

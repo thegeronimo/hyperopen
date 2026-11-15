@@ -5,12 +5,6 @@
             [hyperopen.views.account-info.shared :as shared]
             [hyperopen.views.account-info.tab-filters :as tab-filters]))
 
-(def positions-direction-filter-options
-  tab-filters/positions-direction-filter-options)
-
-(def positions-direction-filter-labels
-  tab-filters/positions-direction-filter-labels)
-
 (def positions-direction-filter-key
   tab-filters/positions-direction-filter-key)
 

@@ -85,16 +85,12 @@
         n (when-let [o (:all-buys-first (:inventory-outcomes result))]
             (when buys?
               (precision/quantize (d o) (:sz-decimals (:market input)) :ceil)))
-        ;; USDC limits: compare in base (the plan's converted maximum) and
-        ;; write the USDC field, rounded up to the cent so it converts back
-        ;; to at least n.
         limits-quote? (= :quote (get-in draft [:inventory :limit-unit]))
         limit-price (when limits-quote? (some-> (get-in result [:inventory-outcomes :limit-price]) d))
         limit-path [:inventory (if limits-quote? :maximum-quote :maximum)]
         maximum (if limit-price
                   (some-> (get-in result [:inventory-outcomes :maximum]) d)
                   (d (str (get-in draft [:inventory :maximum]))))
-        ;; A blank maximum is no limit; offer one only where tilt needs it.
         max-blank? (and (blank? (get-in draft limit-path))
                         (some #(= :input/maximum-required-for-tilt (:code %)) (:errors result)))
         needs-max? (and n (or (not limits-quote?) limit-price) (or max-blank? (and maximum (neg? (precision/cmp maximum n)))))
@@ -104,7 +100,6 @@
         max-label (when n (if limit-price (str max-value " USDC") (ds n)))
         total (when buys?
                 (some-> (:max-debit buy-t) d (precision/quantize 2 :ceil)))
-        ;; In USDC mode the amount is the cap and the plan is sized to fit it.
         usdc-mode? (= :quote (get-in draft [:buy :amount-unit]))
         cap-raw (get-in draft [:buy :max-usdc-debit])
         cap (d (str cap-raw))
@@ -112,9 +107,6 @@
         max-patch (when needs-max? [[limit-path max-value]])
         cap-patch (when needs-cap? [[[:buy :max-usdc-debit] (precision/to-fixed total 2)]])
         joint-patch (when (and max-patch cap-patch) (into max-patch cap-patch))]
-    ;; VR-23: every offer's OWN patch must yield a ready plan. When neither
-    ;; single patch does but both together do (maximum and cap both missing),
-    ;; offer one combined remediation instead of two that each fail alone.
     (let [max-ok? (and max-patch (ready? input max-patch))
           cap-ok? (and cap-patch (ready? input cap-patch))]
       (cond-> []

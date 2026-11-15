@@ -21,9 +21,6 @@
                 :eligible ["perp:BTC"]})))))
 
 (deftest load-not-needed-when-unusable-holding-was-already-requested-test
-  ;; spot:@335 has no usable backend history, but the last current-portfolio
-  ;; fetch already requested it - refetching cannot help, so runs must skip
-  ;; the reload instead of refetching the full universe every time.
   (is (false? (setup-readiness/current-portfolio-history-load-needed?
                (readiness-fixture
                 {:current-universe [{:instrument-id "perp:BTC"}

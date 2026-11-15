@@ -1,7 +1,5 @@
 (ns hyperopen.views.account-info.table)
 
-;; account-table-head is an institutional-theme styling hook
-;; (src/styles/surfaces/institutional.css); inert under other themes.
 (def header-base-text-classes
   ["account-table-head" "text-m" "font-medium" "text-trading-text-secondary" "min-h-6" "py-0.5"])
 

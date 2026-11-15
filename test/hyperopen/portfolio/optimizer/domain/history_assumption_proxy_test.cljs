@@ -47,12 +47,10 @@
       "Wide baskets need k + 3 observations."))
 
 (deftest confidence-q-stays-low-for-tiny-samples-test
-  ;; 10 observations cap q at 10/130 even with a perfect fit.
   (is (near? (/ 10 130) (proxy/confidence-q 10 1.0)))
   (is (> 0.08 (proxy/confidence-q 10 1.0)))
   (is (zero? (proxy/confidence-q 0 0.9)))
   (is (zero? (proxy/confidence-q 10 nil)))
-  ;; fit quality scales the sample-side confidence down, never up.
   (is (near? (* (/ 240 360) 0.5) (proxy/confidence-q 240 0.25)))
   (is (near? (/ 240 360) (proxy/confidence-q 240 0.9))))
 
@@ -87,8 +85,6 @@
     (is (= :estimated (:status result)))
     (is (= 200 (:sample-count result)))
     (is (> (:r2 result) 0.9) "y is BTC, so the joint fit is near-perfect.")
-    ;; A normalized per-proxy R2 split would put ~everything on BTC; the joint
-    ;; ridge keeps a deliberate prior pull on the weak-signal proxy instead.
     (is (> (get-in result [:beta "perp:BTC"]) 0.6)
         "The joint regression tilts toward BTC...")
     (is (< (get-in result [:beta "perp:ETH"]) 0.4)
@@ -130,9 +126,6 @@
      :observations n}))
 
 (deftest model-exposure-recovers-the-true-split-with-enough-overlap-test
-  ;; The expert-brief acceptance example: equal prior, 70/30 truth, ~250 days of
-  ;; overlap => the final basket moves materially toward the truth but stays
-  ;; confidence-shrunk (never the raw regression, never the raw prior).
   (let [result (proxy/model-exposure
                 {:proxy-ids ["perp:ETH" "perp:BTC"]
                  :user-prior-weights nil
@@ -207,7 +200,6 @@
                                              :min-share 0})))))
 
 (def ^:private base-risk-result
-  ;; BTC/ETH annualized covariance: vols 0.2 / 0.3, correlation 0.5.
   {:model :sample-covariance
    :instrument-ids ["perp:BTC" "perp:ETH"]
    :covariance [[0.04 0.03]
@@ -229,16 +221,11 @@
         cov (:covariance augmented)
         diag (get-in augmented [:risk-estimation :history-assumptions "perp:TOKENX"])]
     (is (= ["perp:BTC" "perp:ETH" "perp:TOKENX"] (:instrument-ids augmented)))
-    ;; beta = prior = [0.5 0.5] (no overlap, q = 0).
-    ;; Cov(BTC, X) = 0.5*0.04 + 0.5*0.03 = 0.035
-    ;; Cov(ETH, X) = 0.5*0.03 + 0.5*0.09 = 0.06
     (is (near? 0.035 (get-in cov [0 2]) 1e-6))
     (is (near? 0.06 (get-in cov [1 2]) 1e-6))
     (is (near? (get-in cov [0 2]) (get-in cov [2 0])) "Row/column stay symmetric.")
     (is (pos? (get-in cov [0 2]))
         "Proxy covariance is synthesized from the basket, never zero correlation.")
-    ;; systematic = b' Sigma_PP b = 0.25*(0.04 + 0.09) + 2*0.25*0.03 = 0.0475
-    ;; specific = max(0.64 - 0.0475, 0.25*0.64) = 0.5925 => Var(X) = 0.64
     (is (near? 0.64 (get-in cov [2 2]) 1e-6)
         "Total variance honors the user's stated volatility when it exceeds systematic.")
     (is (zero? (:confidence-q diag)))
@@ -289,8 +276,6 @@
     (is (near? 0.8 (:effective-modeled-volatility diag) 1e-6))))
 
 (deftest covariance-row-follows-final-beta-not-prior-test
-  ;; The synthesized row must move when the confidence-shrunk basket moves -
-  ;; proof the FINAL basket, not the prior, drives covariance synthesis.
   (let [prior-only (proxy/augment-risk-result-with-proxy-assumptions
                     base-risk-result
                     {"perp:TOKENX" tokenx-entry})
@@ -316,7 +301,6 @@
     (is (near? 0.75 (get-in diag [:prior-weights "perp:BTC"])))
     (is (= (:prior-weights diag) (:final-beta diag))
         "No overlap => the user's prior is the final basket.")
-    ;; Cov(BTC, X) = 0.75*0.04 + 0.25*0.03
     (is (near? 0.0375 (get-in augmented [:covariance 0 2]) 1e-6))))
 
 (deftest augment-warns-on-invalid-user-prior-weights-test
@@ -334,7 +318,6 @@
         "A rejected explicit prior is disclosed, never silently replaced.")))
 
 (deftest augment-result-is-psd-and-warns-when-basket-exceeds-target-test
-  ;; Vol target far below what the basket implies: 10% target vs ~22% basket.
   (let [entry (assoc tokenx-entry :volatility 0.1)
         augmented (proxy/augment-risk-result-with-proxy-assumptions
                    base-risk-result

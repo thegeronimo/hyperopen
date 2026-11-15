@@ -11,16 +11,8 @@
 (def ^:private long-coin-color "rgb(151, 252, 228)")
 (def ^:private sell-coin-color "rgb(234, 175, 184)")
 
-(def open-orders-direction-filter-options
-  tab-filters/open-orders-direction-filter-options)
-
-(def open-orders-direction-filter-labels
-  tab-filters/open-orders-direction-filter-labels)
-
 (def open-orders-direction-filter-key tab-filters/open-orders-direction-filter-key)
 (def order-value sorting/order-value)
-(def sort-open-orders-by-column sorting/sort-open-orders-by-column)
-(def reset-open-orders-sort-cache! sorting/reset-open-orders-sort-cache!)
 
 (defn- empty-state [message]
   [:div.flex.flex-col.items-center.justify-center.py-12.text-base-content
@@ -43,28 +35,6 @@
              :role "alert"
              :aria-live "assertive"}
        message])))
-
-(defn format-side [side]
-  (case side
-    "B" "Buy"
-    "A" "Sell"
-    "S" "Sell"
-    (or side "-")))
-
-(defn normalize-open-order [order]
-  (projections/normalize-open-order order))
-
-(defn open-orders-seq [orders]
-  (projections/open-orders-seq orders))
-
-(defn open-orders-by-dex [orders-by-dex]
-  (projections/open-orders-by-dex orders-by-dex))
-
-(defn open-orders-source [orders snapshot snapshot-by-dex]
-  (projections/open-orders-source orders snapshot snapshot-by-dex))
-
-(defn normalized-open-orders [orders snapshot snapshot-by-dex]
-  (projections/normalized-open-orders orders snapshot snapshot-by-dex))
 
 (defn trigger-condition-label [trigger-condition]
   (case trigger-condition

@@ -22,7 +22,6 @@
 
 (defn- sanitize-amount
   [value]
-  ;; Digits, both decimal marks and the space-like group marks some locales use.
   (let [text (str/replace (str (or value "")) #"[^0-9.,\s\u00A0\u202F']" "")]
     (subs text 0 (min 24 (count text)))))
 
@@ -123,8 +122,6 @@
         status (:status current)]
     (into (cond
             (= :running status) [(save :screen :progress)]
-            ;; A finished run from another wallet or another result is history,
-            ;; not something to resume: start a fresh plan.
             (and (contains? run/terminal-statuses status) (current-run? state)) [(save :screen :progress)]
             :else [(save :screen :plan) (save :run nil) (save :reviewed nil) (save :skipped #{})])
           (into [(save :open? true) (save :error nil)]
@@ -209,13 +206,10 @@
      :open (if (model/vault-result? (result state)) (open-effects state) [])
      (:close :escape) [(save :open? false)]
      :confirm (confirm-effects state now-ms)
-     ;; Only the flag: the runner owns the rows while a run is in flight.
      :stop (if (model/running? state)
              [[:effects/save (conj contracts/ui-vault-funding-run-path :abort-requested?) true]]
              [])
      :retry (retry-effects state now-ms)
-     ;; Back to a fresh plan from re-read holdings, e.g. after a transfer
-     ;; whose outcome is unknown.
      :replan (if (model/running? state)
                []
                (into [(save :run nil) (save :reviewed nil) (save :screen :plan) (save :error nil)]

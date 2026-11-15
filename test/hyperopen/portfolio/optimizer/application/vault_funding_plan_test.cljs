@@ -8,7 +8,6 @@
   [address weight]
   {:address address :id (str "vault:" address) :label address :weight weight})
 
-;; The design canvas's worked example (weights sum to 1).
 (def ^:private targets
   [(leg "futurai" 0.200) (leg "qmns" 0.198) (leg "pf1" 0.121) (leg "jump" 0.107)
    (leg "growi" 0.091) (leg "cold" 0.073) (leg "akka" 0.068) (leg "pulse" 0.062)
@@ -209,8 +208,6 @@
     (is (= 300 (get-in result [:totals :leftover])) "what the capped vault cannot take stays as cash")))
 
 (deftest refill-after-a-partial-run-test
-  ;; The live case: 16 vaults equal-weighted, 14 already hold 1,250, FuturAI
-  ;; got nothing, Cold Process is at its leader's 5% floor, 2,500 to add.
   (let [held (map #(str "v" %) (range 14))
         legs (concat (map #(leg % 1) held) [(leg "futurai" 1) (leg "cold" 1)])
         holdings (zipmap held (repeat {:equity 1250}))

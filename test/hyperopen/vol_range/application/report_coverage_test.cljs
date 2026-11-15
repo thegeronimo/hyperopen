@@ -117,8 +117,6 @@
     (is (= (range 5 25) (map :from-ms (:failures rec))))))
 
 (deftest row-8-feed-gap-with-unchanged-ending-base-stays-a-gap-test
-  ;; A possible missing buy and sell round trip leaves the ending base
-  ;; unchanged: the balance check matches, but coverage is still a gap.
   (let [r1 (+ t0 (* 2 hour))
         [failed] (fills-delta (read r1 [] :complete? false :reason :fills/no-progress) #{"9001"})
         cov (-> (covered (+ t0 hour))
@@ -158,10 +156,6 @@
          (:reason (coverage/campaign-coverage {:campaign (fx/campaign-record) :coverage {} :until-ms (+ t0 hour)
                                                :storage-ok? false}))))
   (is (= :unavailable (:state (state {} (- t0 fx/skew))))))
-
-;; ---------------------------------------------------------------------------
-;; Balance checks
-;; ---------------------------------------------------------------------------
 
 (def r (+ t0 (* 3 hour)))
 
@@ -222,10 +216,6 @@
     (is (= :inconclusive (:state (evaluate p :breaks [{:at-ms (+ t0 hour) :time (+ t0 hour)
                                                        :reason :break/untracked-same-base-trade}])))
         "the campaign already has an untracked event")))
-
-;; ---------------------------------------------------------------------------
-;; Review fixes (Reporting 1)
-;; ---------------------------------------------------------------------------
 
 (deftest reads-cut-short-still-prove-what-they-paged-through-test
   (let [r (+ t0 (* 5 hour))

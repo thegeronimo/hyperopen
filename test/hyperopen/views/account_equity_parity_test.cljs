@@ -104,9 +104,6 @@
 (defn- venue-value
   [row expected]
   (if (= :isolated-notional row)
-    ;; Not a venue row at all: the venue has no disclosure line, and ours is
-    ;; omitted rather than reading "Excludes $0.00 isolated". The oracle's zero
-    ;; therefore means "nothing to disclose", which is our nil.
     (let [value (:isolated-notional expected)]
       (when (and (number? value) (pos? value)) value))
     (get expected row)))
@@ -126,10 +123,6 @@
         (check-row! fixture row (venue-value row expected) (get metrics metrics-key))))))
 
 (deftest classic-panel-account-value-reconciles-with-its-own-rows-test
-  ;; The oracle cannot catch this one: both halves can come from the venue's
-  ;; formula and the panel still display them inconsistently. Account Value is
-  ;; our addition to the venue's layout, so it carries the obligation to equal
-  ;; the two rows above it, at the precision a reader can see.
   (doseq [{:keys [label state]} (fixtures/classic)]
     (let [{:keys [spot-equity perps-value account-value-display]} (metrics-for state)
           parts (keep identity [spot-equity perps-value])
@@ -143,10 +136,6 @@
                  (view/display-currency account-value-display)))))))
 
 (deftest every-fixture-asserts-something-non-trivial-test
-  ;; A parity assertion that compares nil to nil proves nothing. Each fixture
-  ;; must either exercise at least one row with a real, non-zero number on both
-  ;; sides, or be a fixture whose entire subject is the divergence -- the
-  ;; no-data shapes, where every row is declared. Anything else is decorative.
   (doseq [{:keys [label mode divergences] :as fixture} fixtures/all]
     (let [expected (if (= :unified mode)
                      (unified-expectations fixture)

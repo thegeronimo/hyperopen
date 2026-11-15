@@ -80,10 +80,6 @@
     (testing "no account, no grids"
       (is (= {} (grids (grid-store/merge-account-grids (state-with filled) nil [placed])))))))
 
-;; ---------------------------------------------------------------------------
-;; Ladders closed by stream evidence only
-;; ---------------------------------------------------------------------------
-
 (def last-sell-fill
   "All 4 of sell rung 0, the ladder's last resting leg once both buys filled."
   (assoc fx/partial-fill :oid 9002 :tid 4403 :side "A" :px "84" :sz "4" :dir "Sell"))

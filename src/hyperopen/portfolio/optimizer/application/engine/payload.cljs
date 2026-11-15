@@ -56,10 +56,6 @@
   (let [cleaned (weight-cleaning/clean-weights
                  {:instrument-ids instrument-ids
                   :weights weights
-                  ;; Covariance-only objectives publish the validated solver
-                  ;; weights verbatim: dust removal would break the exact book
-                  ;; equalities and every position in the fixed universe is
-                  ;; intentional.
                   :dust-threshold (if (covariance-only-request? request)
                                     0
                                     (dust-threshold request))
@@ -133,11 +129,6 @@
 
 (defn- labels-by-instrument
   [request instrument-ids]
-  ;; Held-only assets (e.g. dust spot sold to 0) live in :current-portfolio-universe
-  ;; but not the selected/requested universe. Include it so their rebalance rows
-  ;; resolve a token symbol instead of falling back to the raw "@113" id. The
-  ;; current-portfolio rows go first so a curated selected-universe label still
-  ;; wins for assets present in both.
   (instrument-labels/labels-by-instrument (vec (concat (:current-portfolio-universe request)
                                                        (:universe request)
                                                        (:requested-universe request)))
@@ -292,9 +283,6 @@
       :leverage-by-id (get-in request [:constraints :perp-leverage])
       :fee-bps-by-id (:fee-bps-by-id execution-assumptions)
       :default-fee-bps (:default-fee-bps execution-assumptions)
-      ;; Same maker fee the frontend refresh charges (application.rebalance-preview):
-      ;; both build sites must agree, or which one happened to produce the preview on
-      ;; screen decides whether a resting row's all-in reads $0.
       :maker-fee-bps contracts-constants/maker-fee-bps})))
 
 (defn- solved-payload
@@ -338,14 +326,6 @@
                                    :weights current-weights*
                                    :expected-returns expected-returns
                                    :risk-result risk-result})
-        ;; Plot the Current marker on the SAME basis as the frontier/Target: the selected
-        ;; universe's weights + the selected risk-result covariance. The held-book
-        ;; current-portfolio-analysis covers a DIFFERENT, larger instrument set (the full
-        ;; account — e.g. spot dust positions outside the optimization universe) with its OWN
-        ;; covariance, which placed Current at a wildly different volatility from Target (~6x)
-        ;; even for a tiny rebalance — an apples-to-oranges comparison. Falling back to the
-        ;; held-book metrics only when there is no selected-universe current allocation keeps a
-        ;; marker in the edge case where the current book doesn't overlap the chosen universe.
         current-portfolio-metrics* (or selected-current-metrics
                                        (current-portfolio-metrics
                                         current-portfolio-analysis))
@@ -356,9 +336,6 @@
                                       current-weights*)
         current-expected-return (:expected-return current-portfolio-metrics*)
         current-volatility (:volatility current-portfolio-metrics*)
-        ;; Covariance-only objectives solve through an invalid return model
-        ;; (they never use returns); return-based display metrics are then
-        ;; omitted, not faked.
         returns-unavailable? (and (covariance-only-request? request)
                                   (= :invalid (:status return-result)))
         expected-return (when-not returns-unavailable?
@@ -407,15 +384,10 @@
                             (when cash-warning [cash-warning])
                             (when sparse-warning [sparse-warning]))))]
     (merge
-     ;; :equal-risk only: contribution + solver sections from published weights.
      (select-keys equal-risk-sections* [:risk-contributions
                                         :current-risk-contributions
                                         :equal-risk-solver
                                         :risk-structure])
-     ;; :inverse-volatility only: the sizing-fidelity section plus the same
-     ;; objective-agnostic contribution/structure analytics Equal Risk
-     ;; publishes (:quality :diagnostic — no convergence quality applies to
-     ;; the deterministic projection).
      (select-keys inverse-volatility-sections* [:inverse-volatility
                                                 :risk-contributions
                                                 :current-risk-contributions
@@ -463,9 +435,6 @@
      :risk-model (:model risk-result)
      :requested-risk-model (:requested-model risk-result)
      :risk-estimation (:risk-estimation risk-result)
-     ;; The dense branch sets no :risk-estimation, so the shrinkage intensity
-     ;; previously had no channel to the UI at all: a covariance collapsed onto
-     ;; its scaled-identity target looked healthy from outside the engine.
      :risk-shrinkage (:shrinkage risk-result)
      :pair-metadata (:pair-metadata risk-result)
      :return-decomposition-by-instrument (:decomposition-by-instrument return-result)

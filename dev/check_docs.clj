@@ -35,7 +35,6 @@
    "docs/QUALITY_SCORE.md"
    "docs/RELIABILITY.md"
    "docs/SECURITY.md"
-   ;; AGENTS.md MUST-follow contract guide (UI-Specific Docs / Canonical References).
    "docs/BROWSER_TESTING.md"])
 
 (def default-governed-dirs
@@ -81,9 +80,6 @@
    "docs/design-docs/agents-section-index.md"
    "docs/product-specs/index.md"
    "docs/references/index.md"
-   ;; MUST-follow contract guides AGENTS.md routes UI/browser work to; keeping
-   ;; them required means a renamed/removed guide breaks the gate instead of
-   ;; silently orphaning the contract.
    "docs/BROWSER_TESTING.md"
    "docs/agent-guides/browser-qa.md"
    "docs/agent-guides/ui-foundations.md"

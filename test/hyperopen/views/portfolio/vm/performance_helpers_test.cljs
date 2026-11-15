@@ -165,7 +165,6 @@
                            :strategy-source-version 101
                            :benchmark-source-version-map {"SPY" 201
                                                           "QQQ" 301}}
-        ;; the posted signature also names the summary scope (default :all)
         request-signature (assoc (vm-metrics-bridge/metrics-request-signature summary-time-range
                                                                               selected-benchmark-coins
                                                                               (:strategy-source-version benchmark-context)
@@ -204,11 +203,6 @@
                  (:benchmark-columns model))))))))
 
 (deftest performance-metrics-model-waits-for-benchmark-rows-before-posting-a-worker-job-test
-  ;; A timeframe switch changes the candle INTERVAL, so the new interval's store
-  ;; slot is empty on the first render after the click. Posting then produced a
-  ;; worker job whose benchmark side was `[]`; its reply was applied, and the
-  ;; six benchmark-relative metrics plus their labelled group vanished from the
-  ;; tearsheet and reappeared once the real candles landed. The model must wait.
   (let [strategy-cumulative-rows [[1 0] [2 11] [3 19]]
         selected-benchmark-coins ["BTC"]
         summary-time-range :two-year
@@ -288,13 +282,6 @@
               "numbers computed for the window on screen are not labelled stale"))))))
 
 (deftest performance-metrics-model-stale-tracks-the-question-not-data-freshness-test
-  ;; `:stale?` must mean "these numbers answer a different question", not "these
-  ;; numbers are a few seconds old". Keying it on the whole request signature made
-  ;; the badge blink on and off every few hundred milliseconds on an active
-  ;; account, because `strategy-source-version` and the per-coin benchmark
-  ;; versions move on every live data refresh while nothing the trader chose has
-  ;; changed. Measured in a real browser: 26 layout-shift entries in 7 s, all
-  ;; attributed to the badge toggling inside the tearsheet header row.
   (let [coins ["BTC"]
         context (fn [strategy-version benchmark-version]
                   {:strategy-cumulative-rows [[1 0] [2 11]]
@@ -347,8 +334,6 @@
             "adding a benchmark changes the question, so the numbers are stale")))))
 
 (deftest performance-metrics-model-stale-tracks-summary-scope-test
-  ;; Switching scope keeps the previous scope's numbers on screen until the new
-  ;; result lands; they must be labelled stale meanwhile.
   (let [applied (assoc (vm-metrics-bridge/metrics-request-signature :two-year ["BTC"] 101 {"BTC" 201})
                        :summary-scope :all)
         context {:strategy-cumulative-rows [[1 0] [2 11]]

@@ -131,7 +131,6 @@
                                "md:p-3"]
                               (when loading?
                                 ["min-h-[24rem]" "md:min-h-[36rem]"]))}
-       ;; Inside a saved view an empty group is noise, not a filter result.
        (if (and view-columns? (empty? protocol-rows) (not loading?))
          [:div {:class ["hidden"]}]
          (sections/section-table state "Protocol Vaults" protocol-rows sort {:loading? loading?
@@ -153,8 +152,6 @@
         view (if (= :screener (get-in state [:vaults-ui :view])) :screener :list)
         list-vm (when (= view :list) (vault-vm/vault-list-vm state))
         preview-source (some-> list-vm :preview-state :source name)]
-    ;; pb-16 (not py): the fixed app footer (~49px) overlays the end of the page
-    ;; scroll, so the bottom padding must exceed it or the last rows sit under it.
     [:div {:class ["relative" "w-full" "app-shell-gutter" "pt-4" "pb-16" "md:pt-6"]
            :data-parity-id "vaults-root"
            :data-preview-state preview-source}

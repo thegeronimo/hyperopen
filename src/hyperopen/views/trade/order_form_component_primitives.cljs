@@ -300,22 +300,6 @@
              (bind-event :click on-click))
    label])
 
-(defn mode-button [label active? on-click]
-  [:button (bind-event
-            {:type "button"
-             :class (into ["flex-1"
-                           "h-10"
-                           "text-sm"
-                           "font-medium"
-                           "border-b-2"
-                           "transition-colors"]
-                          (if active?
-                            ["text-gray-100" "border-primary"]
-                            ["text-gray-400" "border-transparent" "hover:text-gray-200"]))}
-            :click
-            on-click)
-   label])
-
 (defn side-button [label side active? on-click]
   (let [active-classes (case side
                          :buy ["bg-ho-accent" "text-ho-bg"]

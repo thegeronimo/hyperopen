@@ -174,11 +174,6 @@
                      :shrinkage shrinkage}
          :sample-count sample-count
          :feature-count feature-count})
-      ;; The estimator cannot run. It returns the zero matrix as it always has,
-      ;; but now SAYS SO: an all-zero covariance renders as 0% portfolio
-      ;; volatility, which is a more believable lie than an inflated one.
-      ;; `domain.risk/estimate-risk-model` reads this warning and substitutes a
-      ;; pairwise sample covariance.
       {:covariance (zero-matrix feature-count)
        :warnings (if (and (pos? feature-count)
                           (not (rectangular-series? series)))

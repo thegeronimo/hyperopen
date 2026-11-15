@@ -85,8 +85,6 @@
     (cond
       (not (map? body)) (all-unknown :unreadable-response)
 
-      ;; A recognized whole-action rejection: the venue refused the action
-      ;; itself, so no leg was accepted.
       (and (= "err" (:status body)) (non-blank (:response body)) (not (map? (:response body))))
       (let [reason (non-blank (:response body))
             results (mapv (fn [leg] {:cloid (:cloid leg) :oid nil :placement-state :rejected

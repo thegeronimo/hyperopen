@@ -50,9 +50,6 @@
 
 (defn- drift-chart
   [rows max-drift]
-  ;; Scale every bar to the run's largest absolute drift so the chart is comparative. The old
-  ;; fixed 1000x scale saturated any drift >= 10% to a full bar, so 10% / 18% / 35% all read
-  ;; identically. The exact % stays labelled beside each bar, and the header states the scale.
   (let [scale (max (if (opt-format/finite-number? max-drift) (js/Math.abs max-drift) 0)
                    0.0001)]
     [:section {:class ["mt-4" "rounded-lg" "border" "border-base-300" "bg-base-200/30" "p-3"]

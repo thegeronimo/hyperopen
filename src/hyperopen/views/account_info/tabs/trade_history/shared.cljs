@@ -9,12 +9,6 @@
 (def default-trade-history-sort
   {:column "Time" :direction :desc})
 
-(def trade-history-direction-filter-options
-  tab-filters/trade-history-direction-filter-options)
-
-(def trade-history-direction-filter-labels
-  tab-filters/trade-history-direction-filter-labels)
-
 (def trade-history-direction-filter-key
   tab-filters/trade-history-direction-filter-key)
 

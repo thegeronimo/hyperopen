@@ -8,9 +8,6 @@
             [hyperopen.views.trade.order-form-vm-submit :as submit]
             [hyperopen.vol-range.application.projections :as vol-range-projections]))
 
-(def order-type-config
-  order-types/order-type-config)
-
 (defn order-type-label [order-type]
   (order-types/order-type-label order-type))
 

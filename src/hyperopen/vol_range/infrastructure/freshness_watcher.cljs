@@ -22,7 +22,6 @@
   (add-watch store watch-key
              (fn [_ _ _ new-state]
                (when (actions/daily-refresh-due? new-state (now-ms-fn))
-                 ;; Defer so the dispatch never nests inside the triggering swap!.
                  (platform/queue-microtask!
                   (fn []
                     (when (actions/daily-refresh-due? @store (now-ms-fn))

@@ -9,10 +9,6 @@
             [portfolio.ui.css :as css]
             [portfolio.ui.routes :as routes]))
 
-;; Local override of the library client so the workbench assets live under a
-;; non-conflicting path. Shadow's push-state fallback only runs when a resource
-;; is missing; serving assets from /portfolio caused direct app loads at
-;; /portfolio to bypass the app shell and trigger a file download dialog.
 (def ^:private workbench-asset-root "/ui-workbench-assets")
 (def css-file (str workbench-asset-root "/styles/portfolio.css"))
 (def ^:private prism-file (str workbench-asset-root "/prism.js"))
@@ -145,10 +141,6 @@
                                 (assoc :query-params {:doc "up-and-running"}))])
                            [:go-to-current-location])))
                       (swap! app assoc ::started? true))))))))]
-    ;; Portfolio used to just start at will, and would crash when loaded from
-    ;; <head> This little indirection means Portfolio still starts synchronously
-    ;; when loaded from <body>, but now also starts when being loaded in <head>,
-    ;; although asynchronously.
     (if (and js/document js/document.body)
       (f)
       (add-once-listener js/window "DOMContentLoaded" f)))

@@ -186,10 +186,7 @@
                      (custom-source-key summary-by-key scope summary-time-range)
                      (scope-all-time-key scope))]
     (when-let [base-summary (get summary-by-key source-key)]
-      (let [;; The end bound is applied HERE, by clipping the source, so that
-            ;; `end-time-ms` below already reads the custom end. Every consumer
-            ;; downstream takes the window end off the last sample, which is why
-            ;; no end-bound parameter has to be threaded through any of them.
+      (let [
             account-rows (custom-range/clip-rows-to-end
                           (vm-history/normalized-history-rows
                            (vm-history/account-value-history-rows base-summary))
@@ -206,12 +203,6 @@
                 pnl-window (vm-history/history-window-rows pnl-rows cutoff-ms)
                 base-pnl (some-> pnl-window first :value)
                 pnl-window* (vm-history/rebase-history-rows pnl-window (or base-pnl 0))]
-            ;; A CUSTOM window that contains no samples must still resolve to an
-            ;; entry, empty though it is. Returning nil drops the caller into the
-            ;; fallback chain, which for a custom range starts at all-time — so a
-            ;; shared link naming a window outside this account's history would
-            ;; quietly plot the account's ENTIRE history under a custom label.
-            ;; An empty window is honest; the wrong window is not.
             (when (or (custom-range/active? summary-time-range)
                       (seq account-window)
                       (seq pnl-window*))
@@ -293,8 +284,6 @@
          all-time-end-time-ms (points-end-time-ms all-time-points)
          all-time-usable? (and (not= requested-range :all-time)
                                (seq all-time-points)
-                               ;; Vault windows are real or absent: with none for
-                               ;; this window the all-time series must not stand in.
                                (or (not= scope :vaults)
                                    (seq selected-points))
                                (or (nil? selected-end-time-ms)
@@ -365,9 +354,6 @@
          :effective-key requested-key
          :source-key source-key
          :source :derived}
-        ;; The Vaults scope has no fallback chain at all. A vault key is omitted
-        ;; when no vault was held in that window, so walking out to a wider
-        ;; bucket would plot the whole history under a 30D label.
         (if-let [fallback-key (when-not (= scope :vaults)
                                 (some #(when (contains? summary-by-key* %)
                                          %)
@@ -377,9 +363,6 @@
            :effective-key fallback-key
            :source-key fallback-key
            :source :fallback}
-          ;; Never for the Vaults scope: the first entry of an arbitrary map is a
-          ;; whole-account or perps series, and a missing vault entry must read
-          ;; as "no data", not as another scope's numbers.
           (if-let [[first-key first-entry] (when-not (= scope :vaults)
                                              (first summary-by-key*))]
             {:entry first-entry

@@ -13,7 +13,6 @@
             :cancels (mapv (fn [asset-id] {:a asset-id :o 1}) asset-ids)}})
 
 (deftest spot-balance-order-mutation-covers-spot-pairs-test
-  ;; PURR/USDC is 10000 + pair idx 0; HYPE/USDC @1035 is 11035.
   (is (true? (spot-refresh/spot-balance-order-mutation? (order-request 10000))))
   (is (true? (spot-refresh/spot-balance-order-mutation? (order-request 11035))))
   (is (true? (spot-refresh/spot-balance-order-mutation? (order-request 0 11035)))

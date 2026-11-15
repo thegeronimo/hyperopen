@@ -31,10 +31,6 @@
   (find-node node #(contains? (set (:class (second %))) "ob-bid-bar")))
 
 (deftest depth-bar-transition-is-transform-only-and-non-overshooting-test
-  ;; The incremental `l2` feed retargets these bars roughly every 550ms. The bars are
-  ;; full-width fills scaled along x so the animation stays on the compositor. The
-  ;; earlier easeInOutBack curve (control points below 0 and above 1) overshot each
-  ;; target and read as a wobble at that cadence.
   (testing "the class list itself"
     (is (= ["transition-transform" "duration-200" "ease-out"]
            styles/depth-bar-transition-classes)))

@@ -511,7 +511,6 @@
           active-asset (:active-asset state)
           resolved-active-market (when (string? active-asset)
                                    (resolve-market-by-coin-fn (market-by-key-from-markets cached-markets) active-asset))
-          ;; A settled outcome is not restored: the venue no longer lists it.
           cached-markets (vec (remove #(markets/expired-outcome-market? % now-ms) cached-markets))
           market-by-key (market-by-key-from-markets cached-markets)
           market-index-by-key (market-index-by-key-from-markets cached-markets)

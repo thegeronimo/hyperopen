@@ -10,8 +10,6 @@
             [hyperopen.views.portfolio.optimize.format :as opt-format]))
 
 (def order-type-labels
-  ;; "Passive maker" (not bare "Passive") everywhere the type is named: post-only maker
-  ;; posture is the meaning, and it must never read as a synonym for Limit.
   {:market "Market" :limit "Limit" :twap "TWAP" :passive "Passive maker"})
 
 (def order-types [:market :limit :twap :passive])
@@ -21,12 +19,6 @@
   book-crossing slippage estimate doesn't apply to them."
   [order-type]
   (contains? #{:limit :passive} order-type))
-
-(defn crossing-type?
-  "Market and TWAP orders cross the book — they pay market-impact slippage and the taker
-  fee. Limit and Passive rest as maker orders: no market impact, the lower maker fee."
-  [order-type]
-  (not (resting-type? order-type)))
 
 (defn abs-num [value] (if (number? value) (js/Math.abs value) 0))
 
@@ -72,8 +64,6 @@
       notional-known? (str clips " clips · one every " gap)
       :else (str "up to " clips " clips · no closer than " gap " apart"))))
 
-;; ── live type-aware cost recompute ────────────────────────────────────────
-
 (defn effective-crossing-cost-bps
   "The price-cost bps the row's EFFECTIVE type would pay (TWAP rows pay the sliced TWAP
   model, not the one-shot walk) -- for the high-cost warning and the row cost cell.
@@ -112,8 +102,6 @@
            slip-usd (if crossing? (or estimated-slippage-usd 0) 0)
            has-split? (some? spread-usd)
            spread-usd* (if (and crossing? has-split?) spread-usd 0)
-           ;; Attribute an un-splittable crossing cost (flat fallback / no book) entirely to
-           ;; impact so spread + impact always reconciles to the price-cost total.
            impact-usd* (cond (not crossing?) 0
                              has-split? (or impact-usd 0)
                              :else slip-usd)]
@@ -136,7 +124,6 @@
          (and (pos? taker-count) (pos? maker-count)) (str taker-count " taker · " maker-count " maker")
          (pos? maker-count) "maker · resting rows"
          :else "taker · ready rows")
-       ;; Never let a missing fee assumption pass as a cheap total.
        (when fees-unknown? " · fee unknown for some rows")))
 
 (defn cost-total-incomplete?
@@ -163,12 +150,6 @@
                     order-types)]
     (when (seq parts)
       (apply str (interpose " · " parts)))))
-
-;; ── commit-moment margin / leverage copy ──────────────────────────────────
-;; The execution figure is account leverage (gross notional ÷ equity, the same
-;; metric the account-equity panels show as "Cross/Unified Account Leverage"),
-;; not a maintenance-margin ratio. The :warning still rides margin utilization
-;; (margin used ÷ equity) so a thin-headroom commit is flagged red.
 
 (defn margin-warn?
   [margin]
@@ -210,8 +191,6 @@
            venue-part (when (finite venue)
                         (str "venue ≈" (opt-format/format-multiple venue)))]
        (str/join " · " (remove nil? [was head venue-part]))))))
-
-;; ── shared bits ─────────────────────────────────────────────────────────
 
 (defn eyebrow
   [text]

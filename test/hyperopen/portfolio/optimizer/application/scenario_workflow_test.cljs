@@ -64,8 +64,6 @@
 	                     (get-in result [:commands 1 :address])]))))
 
 (deftest begin-save-allows-setup-only-save-without-solved-run-test
-  ;; Naming and keeping a configured setup is valid before any optimization
-  ;; runs — only a wallet address and scenario id gate the save.
   (let [state (update-in (save-state)
                          [:portfolio :optimizer]
                          dissoc :last-successful-run)
@@ -88,9 +86,6 @@
     (is (= [] (:commands result)))))
 
 (deftest continue-save-after-index-omits-stale-run-snapshot-test
-  ;; The save-state fixture's draft is dirty, so its last-successful-run no
-  ;; longer describes the draft being saved: the record must persist setup-only
-  ;; instead of freezing outdated numbers.
   (let [result (workflow/continue-save-after-index
                 {:state (save-state)
                  :address address

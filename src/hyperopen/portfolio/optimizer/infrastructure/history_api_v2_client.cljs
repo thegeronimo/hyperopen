@@ -164,9 +164,6 @@
      (with-request-timeout!
        timeout-ms
        (fn [signal]
-         ;; The signal is attached to the already-converted JS init map rather
-         ;; than threaded through clj->js, which would try to walk the
-         ;; AbortSignal object.
          (let [init-js (clj->js init)]
            (when signal
              (aset init-js "signal" signal))
@@ -190,11 +187,6 @@
                    {:method "GET"
                     :headers headers}
                    api-v2/normalize-api-map
-                   ;; Discovery carries the same deadline as the bundle request.
-                   ;; It resolves the canonical backend instrument ids, and
-                   ;; without them nothing qualifies for the api-v2 path at all —
-                   ;; so a hung discovery quietly drops every later load onto the
-                   ;; slow legacy loader. Bounding it keeps that failure visible.
                    (or request-timeout-ms default-request-timeout-ms))))
 
 (defn- api-instrument-row
@@ -241,9 +233,6 @@
 
 (defn- merged-status
   [statuses]
-  ;; A single :error chunk (common-window-empty) must win over a :partial one,
-  ;; so the merged bundle honestly reports the degenerate shared calendar rather
-  ;; than masking it behind the first non-:ok chunk.
   (cond
     (some #(= :error %) statuses) :error
     (some #(not= :ok %) statuses) (some #(when (not= :ok %) %) statuses)
@@ -282,8 +271,6 @@
                     :body (js/JSON.stringify
                            (clj->js (assoc body-base :instruments instruments)))}
                    api-v2/normalize-history-body
-                   ;; Absent means "use the default"; a non-positive value
-                   ;; disables the deadline (see with-request-timeout!).
                    (or request-timeout-ms default-request-timeout-ms))))
 
 (defn- report-chunk-progress!

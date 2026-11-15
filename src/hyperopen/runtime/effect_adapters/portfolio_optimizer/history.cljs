@@ -57,10 +57,6 @@
                         (assoc selected-request
                                :universe current-universe
                                :allow-legacy-fallback? false))
-                       ;; Record which instruments this fetch covered so later
-                       ;; runs can tell "fetched but unusable" apart from
-                       ;; "never fetched" and skip pointless reloads. Errors
-                       ;; skip the marker so the next run retries.
                        (.then (fn [current-bundle]
                                 (assoc current-bundle
                                        :requested-instrument-ids

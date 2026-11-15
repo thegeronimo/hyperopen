@@ -154,7 +154,6 @@
     (performance-cell {:label "Depositors"
                        :role "vault-performance-depositors"
                        :value (cond
-                                ;; Hyperliquid lists at most 100 followers.
                                 (and (number? followers) (>= followers 100)) "100+"
                                 (number? followers) (str followers)
                                 :else "—")})

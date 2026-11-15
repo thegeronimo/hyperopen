@@ -31,10 +31,6 @@
    :sz-decimals 2
    :market-type :spot})
 
-;; ---------------------------------------------------------------------------
-;; Planner snapshots (spec 13.2 synthetic market)
-;; ---------------------------------------------------------------------------
-
 (def synthetic-fees
   {:status :ok :maker-fraction "0.0004" :buy-fee-token :quote :sell-fee-token :quote
    :settlement-verified? true :source :synthetic :loaded-at-ms 0})

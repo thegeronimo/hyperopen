@@ -10,13 +10,10 @@
 (def ^:private headline-max-length 140)
 
 (def ^:private listing-pattern
-  ;; "(Nasdaq: SPCX)", "(KRX: 005380)", "(SSE STAR: 688825)", "(Cboe BZX: DRAM)"
   #"\(([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?:\s*[A-Z0-9][A-Z0-9.]*)\)")
 
 (def ^:private unit-patterns
-  ;; "references 1 share of", "the USD price of 1 barrel of", "1 troy ounce"
   [#"(?i)\b(?:references|tracks|represents)\s+(?:the\s+(?:USD\s+)?(?:spot\s+)?(?:price|value)\s+of\s+)?((?:one|1|\d+(?:\.\d+)?)\s+(?:registered\s+)?(?:Class\s+[A-Z]\s+)?(?:ordinary\s+|common\s+)?(?:American\s+depositary\s+shares?|ADSs?|[AH]-shares?|shares?|troy\s+ounces?|barrels?|bushels?|pounds?|metric\s+tons?|MMBtu|U\.S\.\s+gallons?))\b"
-   ;; "ARM references 1 Arm Holdings plc ADS" -> "ADS"
    #"\breferences\s+(?:one|1)\s+.+?\s+((?:Class\s+[A-Z]\s+)?(?:ADS|ordinary\s+share|common\s+share|[AH]-share))\b"])
 
 (defn listing-from-description
@@ -77,8 +74,6 @@
     (let [{:keys [coin dex deployer description issuer display-name keywords
                   category category-label loading?]} symbol-meta
           unit (contract-unit-from-description description)
-          ;; Built from parsed parts when possible: issuer names such as
-          ;; "Corp." would otherwise end the first sentence early.
           parsed-headline (when (and issuer unit) (str unit " of " issuer))
           headline (or parsed-headline
                        (annotations/description-first-clause description headline-max-length)

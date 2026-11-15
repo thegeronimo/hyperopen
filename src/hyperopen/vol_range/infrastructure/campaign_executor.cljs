@@ -85,8 +85,6 @@
 (defn- successor-for [deps previous {:keys [read book]}]
   (campaign/baseline-record
    {:campaign-id ((:random-id! deps) "cmp")
-    ;; Campaigns recorded before perps were supported have no market type:
-    ;; they are spot.
     :scope (update (:scope previous) :market-type #(or % :spot))
     :read read
     :bbo (select-keys book [:bid :ask :observed-at-ms])
@@ -116,8 +114,6 @@
                 (not (:complete? book)) (refused :guard/book-unavailable)
                 (= :unavailable (get-in successor [:baseline :p0-source])) (refused :guard/book-unavailable)
                 (not= campaign-key (:campaign-key successor)) (refused :campaign/scope-changed)
-                ;; The closure ends the previous campaign where the successor
-                ;; starts; it must start strictly later.
                 (not (< (:t0-ms previous) (:t0-ms successor))) (refused :guard/clock)
                 :else
                 (let [closure (campaign/closure-record {:campaign previous :successor successor

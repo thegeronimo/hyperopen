@@ -10,9 +10,6 @@
   (< (js/Math.abs (- expected actual)) 0.0000001))
 
 (deftest minimum-variance-builds-single-qp-with-net-equality-and-bounds-test
-  ;; The low-variance asset dominates the unconstrained GMV (~0.99 weight),
-  ;; which violates the 0.8 cap, so the closed-form candidate is rejected and
-  ;; planning falls back to the single QP whose encoding this test pins.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
@@ -57,9 +54,6 @@
                      :covariance [[1 0]
                                   [0 1]]
                      :encoded-constraints encoded})]
-    ;; The min-variance-at-0.16 portfolio [0.4 0.6] sits inside the 0.7 cap, so
-    ;; the closed-form candidate is accepted; the closed-form problem still
-    ;; carries the same target-return floor inequality for downstream checks.
     (is (= :closed-form (:strategy feasible)))
     (is (= :closed-form-portfolio (get-in feasible [:problems 0 :kind])))
     (is (= [{:code :target-return
@@ -199,11 +193,6 @@
     (is (= (:violations encoded) (get-in plan [:details :violations])))))
 
 (deftest solver-plan-encodes-turnover-as-l1-constraint-with-current-weights-test
-  ;; The net pin is what keeps this a solvable request at all: a signed Minimum
-  ;; risk book whose only controls are ceilings has an all-cash optimum and is
-  ;; now rejected as :objective-collapses-to-cash before any problem is built.
-  ;; A 0.4 current book under a 0.25 turnover cap can still reach cash (the row
-  ;; is sum|w - w0| <= 2*max-turnover), so turnover alone would not save it.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
@@ -265,10 +254,6 @@
           (str objective)))))
 
 (deftest constrained-infeasible-candidates-keep-existing-qp-strategies-test
-  ;; A tight max-asset-weight (0.5) means the unconstrained optima for these
-  ;; diagonal inputs (min-var w1=0.69, max-sharpe w1=0.53, target-vol w2=0.62)
-  ;; all violate the box, so post-validation rejects the closed-form candidate
-  ;; and planning falls back to the existing QP strategies.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
@@ -293,10 +278,6 @@
                                    minimum-variance-plan])))))
 
 (deftest long-only-feasible-requests-use-closed-form-test
-  ;; The widened fast path: a long-only request whose unconstrained optimum
-  ;; already lands inside the default [0,1] box is solved in closed form,
-  ;; because a feasible candidate is provably optimal for the constrained
-  ;; problem. This is the latency win for the common case.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
@@ -316,12 +297,6 @@
             (str objective))))))
 
 (deftest signed-leveraged-request-without-net-equality-stays-on-frontier-sweep-test
-  ;; Mirrors a real leveraged Max-Sharpe / Target-Volatility run: signed (not
-  ;; long-only), a finite gross-leverage cap, a large per-asset cap, and NO
-  ;; net-exposure equality. The closed-form formulas need a single net target
-  ;; b (sum of weights), which only long-only or an equal net-exposure min/max
-  ;; supplies, so this is core-ineligible (:missing-net-equality) and correctly
-  ;; runs the existing QP frontier sweep (40 problems by default).
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A" :market-type :perp}
                              {:instrument-id "B" :market-type :perp}
@@ -357,9 +332,6 @@
     (is (every? #(= :quadratic-program (:kind %)) (:problems plan)))))
 
 (deftest numeric-frontier-failure-falls-back-to-qp-test
-  ;; Negative-definite (indefinite) covariance is symmetric and non-singular,
-  ;; so eligibility's structural checks pass but the moment guards reject it;
-  ;; planning must fall back to the existing single QP rather than closed form.
   (let [plan (objectives/build-solver-plan
               (assoc (closed-form-opts {:kind :minimum-variance})
                      :covariance [[-0.04 0]
@@ -368,8 +340,6 @@
     (is (= :quadratic-program (get-in plan [:problems 0 :kind])))))
 
 (deftest solver-plan-omits-turnover-l1-constraint-when-cap-disabled-test
-  ;; Net pin as above: without it this signed Minimum risk request collapses to
-  ;; cash and never reaches problem building.
   (let [encoded (constraints/encode-constraints
                  {:universe [{:instrument-id "A"}
                              {:instrument-id "B"}]
@@ -405,12 +375,10 @@
                :encoded-constraints encoded})
         inequalities (get-in plan [:problems 0 :inequalities])]
     (is (= :single-qp (:strategy plan)))
-    ;; the floor rides the generic signed-linear inequality channel ...
     (is (some #(and (= :gross-floor (:code %))
                     (= [1 -1] (:coefficients %))
                     (= 1.0 (:lower %)))
               inequalities))
-    ;; ... and NOT the L1 split-variable channel (where a >= floor is unenforceable)
     (is (not-any? #(= :gross-floor (:code %))
                   (get-in plan [:problems 0 :l1-constraints])))))
 
@@ -444,20 +412,9 @@
     (is (= 1 (count (:problems plan))))
     (is (= :sequential-equal-risk (get-in plan [:problems 0 :kind])))
     (is (= :equal-risk (get-in plan [:problems 0 :objective-kind])))
-    ;; Covariance-only: the planned problem never carries expected returns.
     (is (nil? (get-in plan [:problems 0 :expected-returns])))
     (is (nil? (get-in plan [:problems 0 :linear])))
-    ;; Equal-risk never builds a display-frontier plan (no sweep to draw).
     (is (nil? (objectives/build-display-frontier-plan opts)))))
-;; --- the joint reachability code is objective-CONDITIONAL -------------------
-;;
-;; encode-constraints is objective-agnostic, so it publishes the joint net/gross
-;; reachability code on :conditional-violations and leaves :status alone. The
-;; code is derived from NET rows, and equal-risk-plan/subproblem-template omits
-;; those deliberately ("Stored net rows are deliberately omitted for Equal Risk")
-;; with inverse-volatility-plan reusing the same template. Setting :status from
-;; it rejected both objectives on the DEFAULT draft net pin plus any gross band
-;; dragged on the exposure pad - requests they solve correctly.
 
 (def ^:private net-pin-ids
   ["perp:L0" "perp:L1" "perp:L2" "perp:L3" "perp:L4" "perp:L5"])
@@ -472,10 +429,6 @@
         (range 6)))
 
 (def ^:private net-pin-encoded
-  ;; :net-min 1.0 / :net-max 1.0 is what defaults.cljs ships; the 1.5-2.5 gross
-  ;; band is one pad drag. On an all-long book gross = net, so a 1.5x floor
-  ;; against a 1.0x net pin genuinely is unreachable - for the objectives that
-  ;; encode the net rows.
   (constraints/encode-constraints
    {:universe (mapv (fn [idx]
                       {:instrument-id (str "perp:L" idx)

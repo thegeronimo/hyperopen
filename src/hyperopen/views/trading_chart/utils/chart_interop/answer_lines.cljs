@@ -53,10 +53,7 @@
                (assoc-in [:rightPriceScale :autoScale] true)
                (assoc-in [:rightPriceScale :alignLabels] true)
                (assoc-in [:rightPriceScale :minimumWidth] 72)
-               ;; The autoscale provider's pixel margins are the only padding:
-               ;; the default fractional margins would push ticks past 100%.
                (assoc-in [:rightPriceScale :scaleMargins] {:top 0 :bottom 0})
-               ;; The scale is fixed: no dragging it out of 0–100%.
                (assoc :handleScale {:axisPressedMouseMove {:time true :price false}
                                     :axisDoubleClickReset {:time true :price false}
                                     :mouseWheel true
@@ -148,7 +145,6 @@
          (seq rows)
          (= (:t (first previous)) (:t (first rows)))
          (<= n (count rows) (inc n))
-         ;; a refetch replaces earlier rows too: those need a full redraw
          (or (neg? before-last)
              (identical? (nth previous before-last) (nth rows before-last))))))
 
@@ -190,7 +186,6 @@
 (defn sync-lines!
   [node {:keys [lines timeframe]}]
   (let [{:keys [chart series-by-coin fitted-key] :as state} (chart-runtime/get-state node)
-        ;; A new timeframe never shows the old one's rows on its time axis.
         new-timeframe? (and (contains? state :timeframe) (not= timeframe (:timeframe state)))
         series-by-coin (if new-timeframe?
                          (reduce-kv (fn [acc coin entry]

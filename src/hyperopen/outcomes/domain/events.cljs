@@ -24,9 +24,6 @@
   [entry]
   (get-in entry [:outcome-ladder :rung-label]))
 
-;; ---------------------------------------------------------------------------
-;; Direction and order
-
 (defn rung-direction
   "Which way a rung asks the price to go. \"Above\" and \"at least\" ladders
    always rise. A touch (\"reaches\") ladder has no direction field: a target

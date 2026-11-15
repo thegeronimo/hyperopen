@@ -121,13 +121,8 @@
             :max-weight default-proxy-max-weight
             :proxy {:instrument-ids []
                     :relationship-strength default-relationship-strength
-                    ;; nil => equal weight across the selected proxies. The key is
-                    ;; reserved so explicit prior baskets can persist later without
-                    ;; a schema change.
                     :prior-weights nil}}
     nil))
-
-;; --- Objective classification -----------------------------------------------
 
 (def objectives-needing-expected-return
   "Objective kinds that score on expected returns, so a no/short-history asset must
@@ -139,8 +134,6 @@
   [objective-kind]
   (contains? objectives-needing-expected-return objective-kind))
 
-;; --- Behavior + completeness ------------------------------------------------
-
 (defn conservative?
   [entry]
   (= :conservative (:behavior entry)))
@@ -148,12 +141,6 @@
 (defn proxy?
   [entry]
   (= :proxy (:behavior entry)))
-
-(defn engine-backed?
-  "Both behaviors are folded into the covariance model when complete."
-  [entry]
-  (or (conservative? entry)
-      (proxy? entry)))
 
 (defn proxy-instrument-ids
   "Selected proxy ids of a proxy entry, tolerant of both the draft shape
@@ -271,8 +258,6 @@
                                               :return-required? return-required?))
 
      :else false)))
-
-;; --- Engine inputs ------------------------------------------------------------
 
 (defn conservative-engine-inputs
   "Extracts the conservative assumptions the engine can synthesize into the

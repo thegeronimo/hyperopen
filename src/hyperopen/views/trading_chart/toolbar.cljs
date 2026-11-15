@@ -7,7 +7,6 @@
             [hyperopen.views.trading-chart.vm :as vm]
             [hyperopen.views.websocket-freshness :as ws-freshness]))
 
-;; Main timeframes for quick access buttons
 (def main-timeframes [:5m :1h :1d])
 
 (defn- chart-trades-toggle
@@ -33,8 +32,6 @@
       [:span {:class ["inline-block" "w-2" "h-2" "rounded-full" "bg-trading-red"]}]]
      [:span "My trades"]]))
 
-;; Outcome markets only: label prices in percent (a chance) or cents (a share
-;; price). One preference for every outcome chart; it only relabels.
 (def ^:private axis-unit-options
   [{:unit :percent :text "%" :aria-label "Percent"}
    {:unit :cents :text "¢" :aria-label "Cents"}])
@@ -83,7 +80,6 @@
                            :else (str "Show prices in " (if (= unit :cents) "cents" "percent")))
                   :class (segment-classes on? disabled?)}
            disabled? (assoc :disabled true)
-           ;; % stays pressed but does nothing while all answers are shown
            (and locked? (not disabled?)) (assoc :aria-disabled "true")
            (not locked?) (assoc :on {:click [[:actions/set-outcome-chart-unit unit]]}))
          text]))]])
@@ -128,9 +124,6 @@
                                                   {:topic "trades"
                                                    :selector {:coin (:active-asset state)}
                                                    :live-prefix "Last tick"}))]
-    ;; An outcome chart's toolbar wraps rather than clipping its Axis and
-    ;; Chart shows controls past a phone's edge. Other markets keep the
-    ;; one-row toolbar (a second row would cost their chart height).
     [:div {:class (if outcome?
                     ["flex" "flex-wrap" "items-center" "gap-x-4" "gap-y-1" "border-b" "border-gray-700"
                      "px-4" "pt-2" "pb-1" "w-full" "min-w-0" "bg-base-100"]
@@ -157,8 +150,6 @@
      [:div.w-px.h-6.bg-gray-700]
 
      (if all-answers?
-       ;; All answers draws lines on a fixed percent scale: no candle type,
-       ;; indicators, volume or trade markers.
        [:div {:class ["flex" "flex-wrap" "items-center" "gap-1"]
               :data-role "chart-toolbar-answer-controls"}
         (chart-shows-control mode-control)

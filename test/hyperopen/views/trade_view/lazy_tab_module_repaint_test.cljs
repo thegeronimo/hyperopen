@@ -43,8 +43,6 @@
           (counting-account-info-exports calls)
           (fn []
             (trade-view/trade-view loading)
-            ;; Load-bearing: without this the test would still pass if the panel
-            ;; stopped memoizing altogether, which is a different regression.
             (is (= 1 @calls) "first render should build the panel exactly once")
             (trade-view/trade-view loaded)
             (is (= 2 @calls)
@@ -94,7 +92,6 @@
           (support/with-account-surface-exports
             (counting-account-info-exports calls)
             (fn []
-              ;; Seed the frozen snapshot while the freeze is inactive.
               (trade-view/trade-view loading)
               (is (= 1 @calls))
               (reset! freeze?* true)

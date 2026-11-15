@@ -66,9 +66,6 @@
     (is (= :conservative (:behavior entry)))))
 
 (deftest normalize-worker-boundary-handles-proxy-exposure-diagnostics-test
-  ;; The proxy-assumption diagnostics ride the solved payload across the worker
-  ;; boundary: exposure maps are proxy-instrument-keyed and the prior source is
-  ;; an enum keyword.
   (let [eth (keyword "perp:ETH")
         btc (keyword "perp:BTC")
         normalized (codec/normalize-worker-boundary
@@ -124,12 +121,6 @@
            (get-in normalized [:return-model :views 0 :weights])))))
 
 (deftest worker-boundary-normalization-is-total-over-malformed-views-test
-  ;; normalize-worker-boundary runs on EVERY message arriving from the
-  ;; optimizer worker, inside the message listener. The Black-Litterman step
-  ;; mapv's over [:return-model :views] without checking it is a sequence, so a
-  ;; malformed payload took the listener down rather than producing a result --
-  ;; and a string, being seqable in ClojureScript, was silently shredded into a
-  ;; vector of characters instead.
   (is (= {:return-model {:views 0.4}}
          (codec/normalize-worker-boundary {:return-model {:views 0.4}}))
       "a scalar :views must pass through untouched rather than throw")
@@ -144,7 +135,6 @@
       "a boolean :views must pass through untouched"))
 
 (deftest worker-boundary-normalization-still-rewrites-well-formed-views-test
-  ;; The totality fix must not stop the step doing its job on real payloads.
   (is (= {:return-model {:views [{:weights {"perp:BTC" 0.5 "perp:ETH" -0.5}}]}}
          (codec/normalize-worker-boundary
           {:return-model {:views [{:weights {:perp:BTC 0.5 :perp:ETH -0.5}}]}})))

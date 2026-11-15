@@ -5,10 +5,6 @@
             [hyperopen.views.portfolio.optimize.setup-layout-fixtures :refer [node-children find-first-node collect-strings node-by-role child-roles node-text click-actions input-actions keydown-actions day-start-ms summary-from-points class-token-set count-nodes btc-instrument eth-instrument black-litterman-ready-readiness black-litterman-ready-draft black-litterman-empty-readiness black-litterman-empty-draft candle-rows]]))
 
 (deftest setup-black-litterman-renders-views-blend-disclosure-in-standard-pane-tail-test
-  ;; The dedicated BL center workspace is gone: the policy pane keeps ONE tail
-  ;; for every return model, and the Black-Litterman trust explainer (legend +
-  ;; prior/posterior chart + insight cards) collapses into a disclosure between
-  ;; the advanced overrides and the why-safe note.
   (let [view-node (setup-sections/policy-pane
                    {:state {}
                     :highlighted-controls #{}
@@ -42,9 +38,6 @@
         save-button (node-by-role action-bar "portfolio-optimizer-save-scenario")]
     (is (nil? (node-by-role view-node
                             "portfolio-optimizer-setup-use-my-views-workspace")))
-    ;; The BL pane tail is the STANDARD tail with the collapsed blend disclosure
-    ;; inserted — bottom actions and model assumptions come from the shared tail,
-    ;; not from a BL-owned workspace.
     (is (= ["portfolio-optimizer-objective-panel"
             "portfolio-optimizer-constraints-panel"
             "portfolio-optimizer-proxy-workflow-slot"
@@ -56,7 +49,6 @@
             "portfolio-optimizer-setup-bottom-actions"]
            (child-roles view-node)))
     (is (some? blend-shell))
-    ;; Collapsed disclosure: a <details> without :open led by its <summary>.
     (is (= :details (first blend-shell)))
     (is (not (contains? (second blend-shell) :open)))
     (is (= :summary (first (first (node-children blend-shell)))))
@@ -69,8 +61,6 @@
             "portfolio-optimizer-setup-use-my-views-legend-your-view"
             "portfolio-optimizer-setup-use-my-views-legend-combined-output"]
            (child-roles external-legend)))
-    ;; The prior is named for what it is — the implied baseline, not a
-    ;; "Market reference" persona.
     (is (str/includes? legend-text "Implied baseline"))
     (is (not (str/includes? legend-text "Market reference")))
     (is (str/includes? legend-text "(prior)"))
@@ -103,9 +93,6 @@
     (is (str/includes? output-text "20.0%"))
     (is (str/includes? output-text "→"))
     (is (str/includes? output-text "(+"))
-    ;; Exactly ONE action bar / Run button — the shared tail's — and Run is the
-    ;; plain draft action for BL too (row edits materialize views immediately,
-    ;; so no objective-menu apply-and-run special case remains).
     (is (some? action-bar))
     (is (some? (node-by-role view-node "portfolio-optimizer-model-assumptions-panel")))
     (is (= 1 (count-nodes view-node #(= "portfolio-optimizer-setup-bottom-actions"

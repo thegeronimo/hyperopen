@@ -40,16 +40,11 @@
 (def ^:private objective-label "Risk-weighted sizing")
 
 (defn- format-pct
-  ;; Deliberately local, not optimize.format/format-pct: this card takes a
-  ;; positional decimals arg (that helper takes an options map, defaults to 2
-  ;; digits, and falls back to "N/A" where every placeholder here is "—").
   ([value] (format-pct value 1))
   ([value decimals]
    (if (and (number? value) (js/isFinite value))
      (str (.toFixed (* 100 value) decimals) "%")
      "—")))
-
-;; --- Sizing-fidelity view -------------------------------------------------------
 
 (defn- sizing-lane
   "The row's plot area: the |w|·σ bar from zero, over a shared dashed ideal
@@ -132,8 +127,6 @@
 (defn- sizing-panel-body
   [{:keys [rows ideal-risk-weight max-risk-weight max-sizing-deviation]
     :as model}]
-  ;; Fixed headroom past the largest bar so the ideal line never sits on the
-  ;; plot edge.
   (let [span (* 1.1 (max 1e-9 (or max-risk-weight 0)))
         x (fn [value] (-> (* 100 (/ value span)) (max 0) (min 100)))]
     [:div
@@ -152,8 +145,6 @@
       (str "Max sizing deviation among free assets · "
            (format-pct max-sizing-deviation))]
      (sizing-reading-note model)]))
-
-;; --- Contributions diagnostic view ----------------------------------------------
 
 (defn- contributions-legend-row
   [current?]
@@ -234,8 +225,6 @@
      (contributions-reading-note model)
      (contributions-overflow-line model)]))
 
-;; --- Tabs -----------------------------------------------------------------------
-
 (def ^:private diversification-explainer
   (str "Risk-weighted sizing sizes by each asset's own volatility and "
        "ignores correlations. These benchmarks show what the resulting "
@@ -257,8 +246,6 @@
             :class ["sr-only"]
             :data-risk-view view}]
    text])
-
-;; --- Card -----------------------------------------------------------------------
 
 (defn risk-weighted-sizing-card
   "Renders nil unless the result carries the :inverse-volatility section
@@ -312,9 +299,6 @@
               (tab-label result "correlation" "Correlation Drivers"))
             (when risk-return-panel
               (tab-label result "risk-return" "Risk / Return"))])]
-        ;; The default (no radio checked) panel is --sizing, via this card's
-        ;; own display rules in optimizer/results.css; the sibling card's
-        ;; default --contribution rule stays inert here (no such panel).
         [:div {:class ["optimizer-risk-balance-panel"
                        "optimizer-risk-balance-panel--sizing"]}
          (sizing-panel-body model)]

@@ -13,10 +13,6 @@
 (defn- ds [x] (precision/decimal->string x))
 (defn- clamp [x lo hi] (precision/dec-min hi (precision/dec-max lo x)))
 
-;; ---------------------------------------------------------------------------
-;; Inventory tilt (5.4)
-;; ---------------------------------------------------------------------------
-
 (defn inventory-delta
   "Inventory skew in [-1, 1]; zero at the target."
   [{:keys [q core target maximum]}]
@@ -49,10 +45,6 @@
   [kappa delta]
   (ds (precision/quantize (precision/neg (precision/mul kappa delta)) 4 :half-up)))
 
-;; ---------------------------------------------------------------------------
-;; Reference bands and excursion (5.5)
-;; ---------------------------------------------------------------------------
-
 (defn bands
   "Reference bands around the UNSHIFTED anchor, unquantized."
   [{:keys [anchor v]}]
@@ -75,10 +67,6 @@
   "Distance of a rounded price from reference `r` in sigma, 4 places."
   [{:keys [price r v]}]
   (when (and price r v) (sigma-distance price r v 4)))
-
-;; ---------------------------------------------------------------------------
-;; Rung prices (6.1-6.2)
-;; ---------------------------------------------------------------------------
 
 (defn raw-rung-price
   "Exact raw rung price; one division by (K-1), floor for buys, ceil for sells."
@@ -109,10 +97,6 @@
                      rows)]
     (if (seq errors) {:errors errors :prices rows} {:prices rows})))
 
-;; ---------------------------------------------------------------------------
-;; Lot allocation (6.1)
-;; ---------------------------------------------------------------------------
-
 (defn- big [x] (js/BigInt x))
 (defn- b+ [a b] (js* "(~{} + ~{})" a b))
 (defn- b- [a b] (js* "(~{} - ~{})" a b))
@@ -142,7 +126,6 @@
       (nil? quantity) {:errors [(contracts/error :input/quantity-required {})]}
       (not (precision/pos-dec? quantity)) {:errors [(contracts/error :input/quantity-required {})]}
       (nil? conv) {:errors [(contracts/error :data/market-metadata-unavailable {})]}
-      ;; Spec 6.1: the error carries an explicit suggested valid quantity.
       (:error conv) {:errors [(contracts/error :input/quantity-not-lot-multiple
                                                (let [{:keys [suggested-down suggested-up]} conv
                                                      down? (precision/pos-dec? (precision/parse-decimal suggested-down))]
@@ -194,8 +177,6 @@
                    (:prices prices))]
     {:legs legs
      :errors (vec (concat (:errors prices)
-                          ;; Allocation errors belong to this side's quantity field, so two
-                          ;; sides' identical errors stay distinct and the input is marked.
                           (map (fn [e]
                                  (cond-> (update e :data assoc :side side :path [side :quantity])
                                    (= :input/quantity-not-lot-multiple (:code e))

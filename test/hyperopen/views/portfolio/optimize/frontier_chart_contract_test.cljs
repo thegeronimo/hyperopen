@@ -228,9 +228,6 @@
         "Callouts should not intercept marker hover targets.")
     (is (= "end" (node-attr (text-node standalone-callout "40.00%") :text-anchor)))
     (is (nil? (node-attr (text-node standalone-callout "40.00%") :textAnchor)))
-    ;; Target/Current callouts carry the volatility-intuition horizon rows
-    ;; (365-day √time scaling of the displayed annualized σ); sweep-point
-    ;; callouts (asserted below) stay compact without them.
     (is (= #{"TARGET"
              "PORTFOLIO"
              "μ · return"
@@ -327,7 +324,6 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-target-exposure-group-PURR")))
     (is (some? (node-by-role view-node "portfolio-optimizer-result-warnings")))
     (is (some? (node-by-role view-node "portfolio-optimizer-diagnostics-panel")))
-    ;; Retired card: the rebalance stages straight into Execution, no preview panel here.
     (is (nil? (node-by-role view-node "portfolio-optimizer-rebalance-preview")))
     (is (= "true"
            (get-in (node-by-role view-node

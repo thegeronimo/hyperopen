@@ -1,25 +1,8 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// Regression guard for the account panel's lazy tab chunks.
-//
-// Each account tab except Balances loads its code from a separate chunk on first
-// click. The panel is memoized on a fixed slice of app-db, so it can only learn
-// that a chunk arrived if the loader's state key is inside that slice. When it
-// was not, the panel kept returning its cached pending state and only repainted
-// when some unrelated key changed -- in practice the next websocket push.
-//
-// Blocking the exchange websocket is what makes this a real red/green boundary.
-// Throttling the network only makes the wait longer; the tab still resolves on
-// the next market tick, so a throttled test passes with or without the fix.
-// With no websocket traffic at all, the pre-fix panel hangs forever.
-//
-// The block is scoped to the exchange endpoint on purpose: shadow-cljs serves
-// the dev build over its own websocket, and blocking that one stops the bundle
-// from ever settling.
 async function blockExchangeWebsocket(page) {
   await page.routeWebSocket("wss://api.hyperliquid.xyz/**", () => {
-    // Accept the connection and never deliver a frame.
   });
 }
 
@@ -48,8 +31,6 @@ test.describe("account tab lazy modules", () => {
 
     for (const tabValue of LAZY_TABS) {
       await selectAccountTab(page, tabValue);
-      // The chunk itself lands in tens of milliseconds; the generous timeout is
-      // for the dev build's unminified payload, not for the repaint.
       await expect(
         pending,
         `${tabValue} never left its pending state without websocket traffic`
@@ -62,8 +43,6 @@ test.describe("account tab lazy modules", () => {
     page
   }) => {
     await blockExchangeWebsocket(page);
-    // Hold the chunk back long enough to observe the pending state, then let it
-    // through so the tab still resolves.
     await page.route(/\/js\/account_orders(\.[A-Z0-9]+)?\.js/, async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1_500));
       await route.continue();
@@ -89,9 +68,6 @@ test.describe("account tab lazy modules", () => {
     test.setTimeout(60_000);
     await blockExchangeWebsocket(page);
 
-    // Abort the chunk outright. shadow's module loader does not reject on its
-    // own, so without the timeout in load-account-tab-module! the panel would
-    // sit on its pending state forever and this test would hang.
     let blocked = true;
     await page.route(/\/js\/account_orders(\.[A-Z0-9]+)?\.js/, async (route) => {
       if (blocked) {
@@ -108,7 +84,6 @@ test.describe("account tab lazy modules", () => {
     await expect(failure).toBeVisible({ timeout: 20_000 });
     await expect(failure).toContainText("Couldn't load Open Orders");
 
-    // Let the chunk through and retry: re-selecting the tab re-fires the load.
     blocked = false;
     await page.locator("[data-role='account-tab-error-retry']").click();
     await expect(failure).toHaveCount(0, { timeout: 15_000 });

@@ -102,7 +102,6 @@
   (atom {:fingerprint nil
          :writes 0}))
 
-;; Wrappers retained as stable seams for tests and adapters.
 (defn now-ms []
   (platform/now-ms))
 
@@ -263,17 +262,6 @@
   (when-let [runtime (current-runtime)]
     (app-runtime/publish-command! runtime command)))
 
-(defn publish-transport-event! [event]
-  (when-let [runtime (current-runtime)]
-    (app-runtime/publish-transport-event! runtime event)))
-
-;; Legacy compatibility hook. Runtime transport bindings publish socket messages directly.
-(defn handle-message! [event]
-  (publish-transport-event! {:msg/type :evt/socket-message
-                             :socket-id (:active-socket-id @runtime-state)
-                             :raw (.-data event)
-                             :ts (infra/now-ms* (current-clock))}))
-
 (defn init-connection! [ws-url]
   (ensure-runtime-dependencies!)
   (swap! runtime-state assoc :ws-url ws-url :intentional-close? false)
@@ -365,7 +353,6 @@
                                     :config @connection-config})))
 
 (defn reset-manager-state! []
-  ;; Primarily intended for tests.
   (when (current-runtime)
     (disconnect!))
   (stop-channel-runtime!)

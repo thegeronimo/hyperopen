@@ -92,7 +92,6 @@
     [:input {:type "checkbox"
              :checked (boolean (:profit-share? opts))
              :class ["optimizer-checkbox"]
-             ;; Same purple as the radio cards above it.
              :style {:--optimizer-accent "#a493ff"
                      :--optimizer-accent-border "rgb(164 147 255 / 0.7)"}
              :data-role "portfolio-optimizer-tear-sheet-profit-share"
@@ -238,8 +237,6 @@
    (for [b benchmarks]
      ^{:key (str "benchmark-chip-" (:value b))}
      (benchmark-chip b))
-   ;; Always a node (hidden when unused): a nil hole next to keyed siblings
-   ;; freezes Replicant's renderer.
    (if (:equal-weight? opts)
      [:span {:class ["hidden"]}]
      [:button {:type "button"
@@ -275,7 +272,6 @@
                      :class ["flex" "min-h-8" "w-full" "items-center" "rounded" "px-2" "text-left" "text-xs" "text-trading-text"
                              "hover:bg-base-200"]
                      :data-role (str "portfolio-optimizer-tear-sheet-benchmark-suggestion-" value)
-                     ;; mousedown: fires before the input's blur closes the list.
                      :on {:mousedown (set-option :add-benchmark value)}}
             label])
          [:div {:class ["px-2" "py-1.5" "text-xs" "text-trading-muted"]} "No matching markets or vaults."])])]])

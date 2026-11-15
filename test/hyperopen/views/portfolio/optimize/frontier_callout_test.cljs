@@ -180,8 +180,6 @@
     (is (= "end" (node-attr value-node :text-anchor)))))
 
 (deftest point-rows-append-horizon-vols-behind-a-divider-test
-  ;; Current/Target callouts pass :horizons (view-model scaling, 365-day
-  ;; basis); sweep-point callouts don't and stay compact.
   (let [rows (frontier-callout/point-rows
               {:expected-return 18.6606
                :volatility 4.1182}
@@ -196,7 +194,6 @@
         "The divider sits after the optimizer outputs (return/vol/Sharpe).")
     (is (= "±21.56%" (get value-by-label "Daily 1σ")))
     (is (= "±57.03%" (get value-by-label "Weekly 1σ")))
-    ;; Tooltip precision keeps two decimals even above 100% — uncapped.
     (is (= "±118.07%" (get value-by-label "Monthly 1σ")))
     (is (nil? (some :divider? (frontier-callout/point-rows
                                {:expected-return 0.1 :volatility 0.2}))))))
@@ -224,6 +221,5 @@
                            :monthly 0.0344029}}))]
     (is (contains? strings "Daily 1σ"))
     (is (contains? strings "±0.63%"))
-    ;; The divider must never leak into the screen-reader label.
     (is (not (re-find #",\s*," aria)))
     (is (re-find #"Daily 1σ ±0.63%" aria))))

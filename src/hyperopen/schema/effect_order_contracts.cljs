@@ -233,15 +233,6 @@
                  " value=" (pr-str value)))))
   value)
 
-(defn assert-wrapper-expected!
-  [value context]
-  (when-not (wrapper-expected-valid? value)
-    (throw (js/Error.
-            (str "effect-order wrapper expected contract validation failed. "
-                 "context=" (pr-str context)
-                 " value=" (pr-str value)))))
-  value)
-
 (defn assert-wrapper-vector!
   [value context]
   (when-not (wrapper-vector-valid? value)

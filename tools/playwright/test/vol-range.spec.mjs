@@ -1,18 +1,11 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { debugCall, dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// Release A0 browser coverage for the Vol Range Scale mode (HO-SPEC-014 v2.1): ticket, read-only
-// review, chart overlays and the VR-24 guarantee that nothing reaches /exchange.
-//
-// See docs/exec-plans/active/2026-10-21-vol-range-release-a0-preview.md.
-
 const ticket = (page) => page.locator('[data-parity-id="order-form"]').first();
 const FIXTURE_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 const INFO_URL = "**/info";
 const overlayRoot = (page) => page.locator('[data-role="vol-range-overlay-root"]');
 
-// The fixture wallet is synthetic: answer its account bootstrap /info requests with the
-// seeded balances so a late response cannot replace the seeded inventory mid-test.
 async function stubFixtureAccountInfo(page) {
   await page.route(INFO_URL, async (route) => {
     const payload = JSON.parse(route.request().postData() || "{}");
@@ -42,8 +35,6 @@ async function stubFixtureAccountInfo(page) {
         };
         break;
       case "userAbstraction":
-        // The raw account mode gates admission; the live endpoint would answer for a
-        // synthetic address and clear the seeded mode.
         body = "default";
         break;
       case "clearinghouseState":
@@ -60,7 +51,6 @@ async function stubFixtureAccountInfo(page) {
 
 async function openSeededTicket(page, { mobile = false } = {}) {
   await stubFixtureAccountInfo(page);
-  // shadow-cljs rewrites main.js while the watch settles; retry boot like the TWAP spec.
   let ready = false;
   for (let attempt = 0; attempt < 4 && !ready; attempt++) {
     if (attempt > 0) await page.waitForTimeout(1500);
@@ -71,8 +61,6 @@ async function openSeededTicket(page, { mobile = false } = {}) {
       if (attempt === 3) throw error;
     }
   }
-  // App startup selects the default market asynchronously; re-seed until the fixture market
-  // sticks (the seed is idempotent).
   const heading = ticket(page).getByRole("heading", { name: "Accumulate buys" });
   let seeded = false;
   for (let attempt = 0; attempt < 8 && !seeded; attempt++) {
@@ -80,11 +68,8 @@ async function openSeededTicket(page, { mobile = false } = {}) {
     await waitForIdle(page);
     await page.waitForTimeout(500);
     if (mobile) {
-      // The 375px layout shows the order form on the bottom-nav Trade surface.
       await page.getByRole("button", { name: "Trade", exact: true }).last().click();
     }
-    // The ticket also shows on the default perp market, so the fixture has stuck only once
-    // its own market is the one the ticket names.
     seeded =
       (await heading.isVisible()) &&
       ((await page.locator('[data-role="vol-range-identity"]').first().textContent()) || "").includes("VRT/USDC");
@@ -120,7 +105,6 @@ test("fixture shows the seven-order ticket @regression", async ({ page }) => {
     await expect(sellRows).toContainText(price);
   }
 
-  // Spec 13.2 per-rung sizes: buys 7/9/11/13, sells 10/10/10.
   const rowText = async (rows) => (await rows.innerText()).split("\n").join(" ");
   const buyText = await rowText(buyRows);
   for (const [price, size] of [["76.4", "7.00"], ["74", "9.00"], ["71.6", "11.00"], ["69.2", "13.00"]]) {
@@ -131,7 +115,6 @@ test("fixture shows the seven-order ticket @regression", async ({ page }) => {
     expect(sellText).toContain(`${price} ${size} VRT`);
   }
 
-  // Spec 13.2 side totals, VWAPs and inventory outcomes.
   const buyTotals = ticket(page).locator('[data-role="vol-range-buy-totals"]');
   await expect(buyTotals).toContainText("40.00 VRT");
   await expect(buyTotals).toContainText("2,888.00");
@@ -144,7 +127,6 @@ test("fixture shows the seven-order ticket @regression", async ({ page }) => {
   await expect(outcomes).toContainText("190.00");
   await expect(outcomes).toContainText("120.00");
   await expect(outcomes).toContainText("160.00");
-  // The quoted VWAP gap lives in a collapsed disclosure; read its text, not its visibility.
   expect(await ticket(page).locator('[data-role="vol-range-vwap-gap"]').first().textContent())
     .toContain("16.20");
 
@@ -180,7 +162,6 @@ test("review is read-only and closes @regression", async ({ page }) => {
   await open();
   const dialog = page.getByRole("dialog");
   await expect(dialog.locator("tr[data-leg-id]")).toHaveCount(7);
-  // The dev build has placement on by default; opening, Escape and Back never place.
   await expect(dialog.getByRole("button", { name: "Place 7 orders" })).toBeVisible();
   await expect(dialog.getByText("Placement isn't available yet")).toHaveCount(0);
 
@@ -210,7 +191,6 @@ test("chart overlay renders the draft and updates without remount @regression", 
   await expect(labels.first()).toBeVisible();
   const before = await labels.allTextContents();
 
-  // Labels stay inside the main price pane: left of the price axis, not over it.
   const geometry = await overlayRoot(page).evaluate((root) => {
     const rootBox = root.getBoundingClientRect();
     return [...root.querySelectorAll('[data-role="leg-label"],[data-role="stage-label"]')].map(
@@ -236,7 +216,6 @@ test("chart overlay renders the draft and updates without remount @regression", 
   await expect(overlayRoot(page).locator('[data-role="leg-label"]').filter({ hasText: "@ 75.2" }))
     .toHaveCount(1);
 
-  // Same chart canvas: the decoration pass ran, the chart was not remounted.
   expect(await canvasHandle.evaluate((node) => node.isConnected)).toBe(true);
   expect(await canvas.evaluate((node, original) => node === original, canvasHandle)).toBe(true);
   expect(exchangeRequests).toEqual([]);

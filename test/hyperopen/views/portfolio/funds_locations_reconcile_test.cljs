@@ -79,8 +79,6 @@
                    [(text label) (text value)])))
           (hiccup/find-all-nodes card #(contains? (classes %) "summary-kv-row")))))
 
-;; --- labels and reconciliation --------------------------------------------------
-
 (deftest a-unified-account-with-vault-equity-never-shows-two-values-under-one-label-test
   (let [unified (assoc state :account {:mode :unified})
         page-node (page unified ["500"])
@@ -133,8 +131,6 @@
                      "hidden")))))
 
 (deftest a-classic-page-counts-its-vaults-in-total-equity-and-total-value-test
-  ;; The regression: vault equity was read from the retired webData2 stream,
-  ;; so every account showed $0.00 in vaults and a Total Equity without them.
   (let [without-vaults (page state [])
         with-vaults (page state ["1000" "234.5"])
         total-equity #(dollars (get (summary-rows %) "Total Equity"))
@@ -168,8 +164,6 @@
       (is (= "--" (get rows "Total Equity")) label)
       (is (= "—" (text (by-role strip-node "portfolio-funds-total-value"))) label)
       (is (= status-text (text (by-role strip-node "portfolio-funds-total-status"))) label))))
-
-;; --- HyperCore readiness --------------------------------------------------------
 
 (def ^:private zero-summary
   "What the portfolio view-model reports before the HyperCore snapshot loads."
@@ -217,8 +211,6 @@
     (is (contains? (classes (by-role failed-node "portfolio-funds-total-status")) "text-ho-warn"))
     (is (= "—" (text (by-role failed-node "portfolio-funds-card-spot-value"))))))
 
-;; --- partial HyperEVM reads -------------------------------------------------------
-
 (defn- read-evm
   [state* requested-at-ms result]
   (-> state*
@@ -251,8 +243,6 @@
       (let [joff (read-evm unread 100 {:failed-token-indexes [fixture/joff-index]})]
         (is (= "$32,608.81" (text (by-role (strip joff summary) "portfolio-funds-total-value"))))))))
 
-;; --- unpriced holdings ------------------------------------------------------------
-
 (deftest holdings-with-no-price-read-unpriced-not-zero-test
   (let [purr-only (-> state
                       (update-in [:asset-selector :market-by-key] dissoc "spot:PURR")
@@ -263,8 +253,6 @@
     (is (= 1 (:unpriced-count (hyperevm-funds/hyperevm-funds purr-only))))
     (is (= "Unpriced" (text (by-role node "portfolio-funds-card-evm-value"))))
     (is (str/starts-with? (text (by-role node "portfolio-funds-card-evm-detail")) "1 token, 1 unpriced"))))
-
-;; --- the disabled connector's tooltip ------------------------------------------
 
 (deftest a-disabled-connector-tooltip-sits-under-its-button-and-can-be-dismissed-test
   (let [sub (-> state

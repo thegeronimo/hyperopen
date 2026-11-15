@@ -25,7 +25,6 @@
     (is (= 2 (count effects)))
     (is (= [:effects/load-surface-module :funding-modal] (first effects)))
     (is (every? #(and (contains? modal %) (nil? (get modal %))) new-transfer-keys))
-    ;; Today's saved map, literally, so a legacy opener cannot drift.
     (is (= {:open? true :mode :transfer :legacy-kind nil :anchor nil
             :opener-data-role "funding-action-transfer" :focus-return-data-role nil
             :focus-return-token 0 :send-token nil :send-symbol nil :send-prefix-label nil
@@ -181,8 +180,6 @@
                                              75)))))))
 
 (deftest max-and-percent-fill-floored-route-amounts-test
-  ;; The HyperCore bridge capacity is aged against the clock the composition
-  ;; seam supplies, so pin it to the fixture's clock.
   (with-redefs [platform/now-ms (constantly support/now-ms)]
     (max-and-percent-cases)))
 
@@ -216,8 +213,6 @@
                        :rows [{:sub-account-user support/subaccount :master support/owner}]}))))))
 
 (deftest submit-emits-the-route-request-test
-  ;; The bridge capacity is aged against the composition seam's clock, so
-  ;; pin it to the fixture's.
   (let [effects (with-redefs [platform/now-ms (constantly support/now-ms)]
                   (funding-actions/submit-funding-transfer
                    (support/state (assoc spot->evm :transfer-asset 1 :amount-input "100"))))]
@@ -327,4 +322,3 @@
                              [:add-funding-transfer-token-to-wallet
                               funding-actions/add-funding-transfer-token-to-wallet]]]
       (is (identical? f (get deps handler-key)) (str handler-key)))))
-

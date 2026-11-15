@@ -71,7 +71,5 @@
      :assetCtxs  → [ {…} {…} … ]
    return the [meta assetCtxs] vector that normalize-asset-contexts needs."
   [{:keys [meta assetCtxs]}]
-  ;; pull out just the universe and marginTables from meta:
   [(select-keys meta [:universe :marginTables])
-   ;; ensure it’s a plain vector in case it was some other seq:
    (vec assetCtxs)])

@@ -102,19 +102,6 @@
    storage-mode
    agent-session/normalize-storage-mode))
 
-(defn unlock-agent-trading
-  [_ store]
-  (agent-runtime/unlock-agent-trading!
-   {:store store
-    :normalize-storage-mode agent-session/normalize-storage-mode
-    :normalize-local-protection-mode agent-session/normalize-local-protection-mode
-    :load-passkey-session-metadata agent-session/load-passkey-session-metadata
-    :unlock-locked-session! (fn [opts]
-                              (agent-lockbox/unlock-locked-session!
-                               (assoc opts :cache-session? false)))
-    :cache-unlocked-session! agent-lockbox/cache-unlocked-session!
-    :runtime-error-message agent-runtime/runtime-error-message}))
-
 (defn unlock-agent-trading-action
   ([state]
    (wallet-actions/unlock-agent-trading-action state))

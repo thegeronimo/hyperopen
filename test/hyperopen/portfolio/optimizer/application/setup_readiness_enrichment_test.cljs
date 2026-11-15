@@ -28,13 +28,6 @@
    overrides))
 
 (deftest build-readiness-enriches-undecorated-draft-from-discovery-test
-  ;; Regression: a holdings-seeded draft stored BEFORE history discovery arrived
-  ;; carries no :optimizer-history/* identity, and the per-wallet autosave
-  ;; persists the bare entries. Readiness must re-decorate from discovery at
-  ;; read time, or backend-keyed warnings ("hl:perp:X") never translate to
-  ;; draft instruments: labels show raw backend ids, hard warnings stop
-  ;; excluding their asset from alignment, and per-asset status attribution
-  ;; goes dark.
   (let [readiness (setup-readiness/build-readiness
                    (optimizer-state
                     {:portfolio
@@ -56,7 +49,6 @@
                        :history-data
                        {:api-v2-history
                         {:status :partial
-                         ;; Backend-keyed warning, exactly as served in prod.
                          :warnings [{:code :proxy-validation-failed
                                      :instrument-id "hl:perp:BAD"}]
                          :common-calendar [1000 2000]
@@ -76,10 +68,6 @@
                                                 :return 0.1}]
                                       :funding {:status :available
                                                 :annualized-carry 0}}
-                          ;; Stitched lineage: the hard warning indicts the served
-                          ;; series itself, so it is NOT forgiven the way a failed
-                          ;; lookback-extension over a native series is (see
-                          ;; setup-readiness-warning-policy-test).
                           "perp:BAD" {:local-instrument-id "perp:BAD"
                                       :instrument-id "hl:perp:BAD"
                                       :lineage-kind :stitched-native-proxy

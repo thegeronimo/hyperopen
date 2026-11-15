@@ -345,7 +345,6 @@
     (is (nil? (trading/base-size-string state 0.0000099)))))
 
 (deftest base-size-string-keeps-whole-number-zeros-test
-  ;; Outcome shares (and some perps) trade in whole units: 50 must not become "5".
   (let [state {:active-market {:szDecimals 0}}]
     (is (= "50" (trading/base-size-string state 50)))
     (is (= "100" (trading/base-size-string state 100.9)))

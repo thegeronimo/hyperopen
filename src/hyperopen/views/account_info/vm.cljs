@@ -48,19 +48,12 @@
        count))
 
 (defn- balance-tab-count [webdata2 spot-data account perp-dex-states state]
-  ;; The badge must agree with what the tab actually renders, so a HYPE row that
-  ;; exists only because HYPE is in the unstaking queue counts once — but only
-  ;; when it was synthesized, never when it annotated a spot row that is already
-  ;; counted below. HyperEVM rows count too, whatever the location filter, the
-  ;; way Hide Small Balances leaves the badge alone.
   (let [hyperevm-count (balances-hyperevm/hyperevm-row-count state)
         balances (or (get-in spot-data [:clearinghouse-state :balances]) [])
         non-zero-spot-balances (->> balances
                                     (remove projections/outcome-balance?)
                                     (filter non-zero-spot-balance?))
         perps-usdc-visible? (boolean (non-zero-perps-usdc? webdata2))
-        ;; 1 when a HYPE row exists only because of the unstaking queue, 0 when
-        ;; the queue merely annotated a spot row the sum below already counts.
         synthesized-hype-count (- (count (balances-staking/with-unstaking-hype
                                           non-zero-spot-balances state))
                                   (count non-zero-spot-balances))]

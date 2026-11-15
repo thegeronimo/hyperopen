@@ -119,7 +119,6 @@
      (if-let [cached (get @open-db-cache cache-key)]
        cached
        (letfn [(open-at!
-                 ;; `version` nil opens at whatever version the browser has.
                  [version]
                  (js/Promise.
                   (fn [resolve reject]
@@ -151,10 +150,6 @@
                       (catch :default e
                         (reject e))))))
                (ensure-stores!
-                 ;; Another branch served from the same origin can reach the
-                 ;; same version number with different stores (or a higher
-                 ;; one), so a version match does not mean our stores exist.
-                 ;; Upgrade past the browser's version to add what is missing.
                  [db]
                  (let [missing (missing-stores db store-names*)
                        version (some-> db .-version)]
@@ -167,7 +162,6 @@
                    (js/Promise.resolve nil)
                    (-> (open-at! db-version)
                        (.catch (fn [error]
-                                 ;; The browser already has a higher version.
                                  (if (= "VersionError" (some-> error .-name))
                                    (open-at! nil)
                                    (js/Promise.reject error))))
@@ -293,13 +287,10 @@
                    (reject (js/Error. (str "IndexedDB store " store-name " is missing; nothing was written.")))
 
                    :else
-                   (let [;; "strict": oncomplete only after the data is flushed to disk
-                         ;; (browsers default to relaxed durability).
+                   (let [
                          tx (.transaction db (clj->js [store-name]) "readwrite" #js {:durability "strict"})
                          store (.objectStore tx store-name)]
                      (set! (.-oncomplete tx) (fn [_] (resolve true)))
-                     ;; A request error is NOT cancelled (no preventDefault), so the
-                     ;; transaction aborts as a whole and onabort rejects.
                      (set! (.-onabort tx)
                            (fn [_]
                              (reject (or (some-> tx .-error)
@@ -308,8 +299,6 @@
                        (doseq [[k v] entries]
                          (.put ^js store (clj->js v) k))
                        (catch :default e
-                         ;; A synchronous put failure (bad key, uncloneable value)
-                         ;; must not let earlier puts auto-commit.
                          (try (.abort tx) (catch :default _ nil))
                          (reject e)))))
                  (catch :default e

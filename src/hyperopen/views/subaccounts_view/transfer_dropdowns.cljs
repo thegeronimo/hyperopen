@@ -51,10 +51,6 @@
 
 (defn transfer-account-dropdown
   [{:keys [address subaccounts unified-account?]}]
-  ;; A unified (portfolio-margin) master has one pooled funding source, so it
-  ;; keeps a single option — but that option must carry `:spot`, because the
-  ;; transfer really does travel Hyperliquid's spot path. It previously carried
-  ;; `:trading`, which is what locked the token list to USDC.
   (let [selected (if unified-account?
                    :spot
                    (or (:transfer-account subaccounts) :trading))
@@ -154,9 +150,6 @@
                 (when (= selected (:token asset))
                   asset))
               transfer-assets)
-        ;; The stored default is the bare symbol "USDC" while assets now carry
-        ;; `NAME:0x<hash>` wire token ids, so fall back to a symbol match before
-        ;; giving up and selecting whichever asset happens to be first.
         (some (fn [asset]
                 (when (and (some? selected)
                            (= (str selected) (str (:symbol asset))))

@@ -59,7 +59,6 @@
       (case unit
         :percent (let [pct (* 100 value)
                        digits (.toFixed (js/Math.abs pct) 1)
-                       ;; The sign follows the digits shown, so -0.004% reads 0.0%.
                        sign (cond (= digits "0.0") "" (pos? pct) "+" :else "−")]
                    (str (if (= metric :volatility-ann) "" sign) digits "%"))
         :days (str (js/Math.round value) " d")

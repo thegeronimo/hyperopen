@@ -109,8 +109,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest fetch-balances-backs-off-once-per-poll-test
-  ;; The RPC limit is per IP: two addresses rate-limited in one poll are one
-  ;; strike, and a success beside a rate limit does not reset it.
   (async done
     (let [store (atom (spectating-state))
           poll! (fn [answers requested-at-ms now-ms]
@@ -139,8 +137,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest fetch-balances-applies-bridge-health-by-request-time-test
-  ;; A slow reply to an older poll lands after a newer one. The older balance
-  ;; reply is dropped as overtaken, and so is its bridge health.
   (async done
     (let [store (atom (base-state))
           resolvers (atom {})
@@ -171,7 +167,6 @@
   (async done
     (let [store (atom (base-state))
           read-balances! (fn [_ _]
-                           ;; the user disconnects while the read is in flight
                            (swap! store (fn [state]
                                           (-> state
                                               (dissoc :wallet)

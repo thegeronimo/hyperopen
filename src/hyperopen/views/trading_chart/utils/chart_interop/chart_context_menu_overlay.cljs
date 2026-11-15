@@ -272,8 +272,6 @@
           prior-active-element (some-> owner-document .-activeElement)]
       (when (fn? focus-fn)
         (.call focus-fn node))
-      ;; Fake DOM nodes do not always implement native focus semantics, so keep
-      ;; tests deterministic without overriding focus on real browser elements.
       (when (and owner-document
                  (not (identical? (.-activeElement owner-document) node))
                  (not (identical? prior-active-element node)))

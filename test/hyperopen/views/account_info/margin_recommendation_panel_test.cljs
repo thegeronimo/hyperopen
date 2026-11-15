@@ -168,7 +168,6 @@
       (is (contains? strings "$1.82 (10%)"))
       (is (contains? strings "$1.46 (8%)")))
     (testing "key elements carry styled help tooltips + an always-visible disclaimer"
-      ;; Instant, app-styled tooltips (role=tooltip spans), not native `title`.
       (is (some #(and (vector? %) (= "tooltip" (:role (node-attrs %))))
                 (all-nodes tree)))
       (is (not-any? #(and (vector? %) (:title (node-attrs %))) (all-nodes tree)))
@@ -218,10 +217,6 @@
       (is (contains? strings "You can adjust this anytime in Settings.")))))
 
 (deftest new-liquidation-price-always-shows-two-decimals
-  ;; Regression: a computed liquidation price carries floating-point noise
-  ;; (e.g. 367.15550076) rather than exchange tick-size precision. The old
-  ;; formatter treated that noisy float as its own "raw" reference and
-  ;; preserved every fractional digit; it must always round to 2 decimals.
   (let [noisy-result (assoc-in rec-result
                                [:recommended :new-liquidation-px]
                                367.15550076)

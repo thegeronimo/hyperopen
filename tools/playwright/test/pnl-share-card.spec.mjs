@@ -1,19 +1,6 @@
 import { expect, test } from "../support/guarded_test.mjs";
 import { dispatch, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// End-to-end coverage for the PnL share card.
-//
-// The card is a pure function of a Positions row view-model, so the unit suite
-// already pins its contents. What only a browser can prove is the rest: that
-// the lazy module loads and the modal actually paints, that switching template
-// repaints the artwork without moving a single number, that a toggled-off field
-// leaves nothing behind, and that the on-screen SVG rasterizes to a correctly
-// sized PNG with the webfont inlined.
-//
-// Note for anyone debugging this by hand in a Browser MCP pane: that pane's tab
-// reports document.hidden === true, so Replicant's rAF-scheduled render never
-// runs and the modal appears to never open. Use Playwright.
-
 const WINNING_POSITION = {
   type: "oneWay",
   dex: null,
@@ -87,11 +74,6 @@ async function rasterizeCard(page) {
   });
 }
 
-// The icon host sends no Access-Control-Allow-Origin, so the card reads icons
-// through the same-origin proxy (functions/api/coin-icon/[key].js in
-// production, tools/hyperunit-proxy in development). Stubbing that one route is
-// what lets this spec prove the whole chain -- fetch, base64, embed, rasterize
-// -- without depending on a third party being up.
 const STUB_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
   '<circle cx="16" cy="16" r="16" fill="#f7931a"/>' +
@@ -221,10 +203,6 @@ test.describe("pnl share card", () => {
     texts = await cardText(page);
     expect(texts.join(" ")).toContain("41.2 SOL");
 
-    // The wallet toggle flips, but this spec runs with no wallet connected, so
-    // there is no address to draw. That the card stays blank rather than
-    // printing a placeholder is the behaviour worth pinning here; the unit
-    // suite covers the address itself.
     await walletToggle.click();
     await expect(walletToggle).toHaveAttribute("aria-pressed", "true");
     expect((await cardText(page)).join(" ")).not.toContain("0x");

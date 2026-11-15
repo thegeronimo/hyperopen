@@ -18,7 +18,6 @@
   :1d)
 
 (def benchmark-candle-bars
-  ;; Covers the 2Y range and all but the oldest vaults' full lives.
   1100)
 
 (defn- history-data

@@ -1,13 +1,3 @@
-/* ============================================================
-   Monte Carlo tab (shared by the portfolio and vault detail surfaces)
-   Design tokens lifted from the designer prototype; palette matches the
-   app theme (--ho-buy, --ho-sell). All selectors are
-   scoped under .monte-carlo so they cannot leak into other surfaces; the
-   portfolio and vault roots each add their own surface class for any
-   surface-specific overrides.
-   ============================================================ */
-
-/* "New" pill on the Monte Carlo account tab (lives in the shared tab strip) */
 .account-info-tab-badge {
   margin-left: 6px;
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -55,7 +45,6 @@
   padding: 16px;
 }
 
-/* ---------- intro ---------- */
 .monte-carlo .mc-intro {
   display: flex;
   align-items: flex-end;
@@ -115,7 +104,6 @@
 .monte-carlo .mc-dot-goal { background: var(--mc-accent); }
 .monte-carlo .mc-dot-bust { background: var(--mc-red); }
 
-/* ---------- controls ---------- */
 .monte-carlo .mc-controls {
   display: flex;
   align-items: flex-end;
@@ -253,7 +241,6 @@
 
 .monte-carlo .mc-run-btn:hover { filter: brightness(1.08); }
 
-/* ---------- main grid ---------- */
 .monte-carlo .mc-body {
   display: flex;
   flex-direction: column;
@@ -324,8 +311,6 @@
 .monte-carlo .mc-canvas-host { width: 100%; }
 .monte-carlo .mc-canvas-host canvas { display: block; width: 100%; cursor: crosshair; }
 
-/* hover tooltip on the equity-paths chart (positioned fixed, managed
-   imperatively from the canvas render hook) */
 .monte-carlo .mc-tip {
   position: fixed;
   z-index: 60;
@@ -348,7 +333,6 @@
 .monte-carlo .mc-tip-row { display: flex; justify-content: space-between; gap: 16px; }
 .monte-carlo .mc-tip-key { color: var(--mc-text-3); }
 
-/* ---------- side rail ---------- */
 .monte-carlo .mc-rail {
   display: flex;
   flex-direction: column;
@@ -417,7 +401,6 @@
   color: var(--mc-text-3);
 }
 
-/* ---------- percentile table ---------- */
 .monte-carlo .mc-pct-table {
   width: 100%;
   border-collapse: collapse;
@@ -466,7 +449,6 @@
 .monte-carlo .mc-pos { color: var(--mc-accent); }
 .monte-carlo .mc-neg { color: var(--mc-red); }
 
-/* ---------- distributions ---------- */
 .monte-carlo .mc-dist-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -503,7 +485,6 @@
   margin-top: 2px;
 }
 
-/* ---------- footnote + notices ---------- */
 .monte-carlo .mc-foot {
   border-left: 2px solid var(--mc-border-strong);
   background: var(--mc-surface);
@@ -527,7 +508,6 @@
 .monte-carlo .mc-notice-title { font-size: 14px; font-weight: 600; color: #fff; }
 .monte-carlo .mc-notice-body { margin: 0; max-width: 560px; color: var(--mc-text-2); font-size: 12.5px; line-height: 1.55; }
 
-/* ---------- shuffle (sequence-risk) mode ---------- */
 .monte-carlo .mc-dist-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

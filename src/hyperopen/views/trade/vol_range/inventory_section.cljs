@@ -35,7 +35,6 @@
                              core-placeholder target-placeholder maximum-placeholder]}
                      fe]
   (let [quote? (= :quote limit-unit)
-        ;; The fields are narrow; the switch above names the unit.
         field (fn [k] [:inventory (if quote? (keyword (str (name k) "-quote")) k)])]
     [:div {:class ["flex" "flex-col" "gap-1"]}
      [:div {:class ["flex" "items-center" "justify-between" "gap-2"]}
@@ -77,7 +76,6 @@
                 [:p {:class ["text-xs" "text-ho-text-muted" "num"] :data-role "vol-range-margin-note"}
                  margin-note])
               (when transfer-offer
-                ;; Opens the Transfer dialog preset to Spot -> this market's perps account.
                 [:button {:type "button"
                           :class ["self-start" "rounded-md" "border" "border-ho-warn" "px-2" "py-1" "text-xs"
                                   "font-medium" "text-ho-warn" "transition-colors"]

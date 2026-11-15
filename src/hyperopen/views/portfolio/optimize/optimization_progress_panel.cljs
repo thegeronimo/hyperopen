@@ -38,12 +38,8 @@
   [progress]
   (let [started (:started-at-ms progress)
         completed (:completed-at-ms progress)
-        ;; While running, the ticker writes a fresh :now-ms each frame so the
-        ;; clock advances smoothly between the worker's bursty messages; fall
-        ;; back to the live wall clock before the first tick.
         end-ms (or completed (:now-ms progress) (.now js/Date))]
     (when (number? started)
-      ;; Floor at 0 so client clock skew can't render a negative elapsed.
       (max 0 (/ (- end-ms started) 1000)))))
 
 (defn- display-percent
@@ -106,8 +102,6 @@
   [idx step]
   (let [percent (clamp-percent (:percent step))
         running? (= :running (:status step))
-        ;; Keep a visible sliver of bar while a step is running so the
-        ;; pulse reads as activity even at 0%.
         bar-percent (if running? (max percent 3) percent)
         row-id (or (:id step) idx)
         row-token (if (keyword? row-id)
@@ -186,9 +180,6 @@
                        "gap-3"]}
          [:p {:class ["text-sm" "font-semibold" "text-trading-text"]}
           (headline-label status)]
-         ;; A partial percent on a failed run isn't a meaningful completion
-         ;; fraction, so omit it; the "Optimization failed" headline + error
-         ;; message carry the state instead.
          (when-not (= :failed status)
            [:span {:class ["font-mono"
                            "text-sm"

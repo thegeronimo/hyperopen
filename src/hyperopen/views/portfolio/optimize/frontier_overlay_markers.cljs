@@ -5,12 +5,6 @@
             [hyperopen.views.portfolio.optimize.frontier-callout :as frontier-callout]
             [hyperopen.views.portfolio.optimize.frontier-vault-markers :as vault-markers]))
 
-(def modes overlay-model/modes)
-(def normalize-mode overlay-model/normalize-mode)
-(def visible-points overlay-model/visible-points)
-(def all-points overlay-model/all-points)
-(def copy overlay-model/copy)
-
 (def ^:private standalone-color "#8f96a3")
 (def ^:private contribution-color "#59a5c8")
 

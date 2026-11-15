@@ -144,9 +144,6 @@
     (when (and kind
                (evm-decimals-in-range? evm-decimals*)
                (or (= :native kind) contract-address)
-               ;; The USDC approve grants this address a spend allowance, so
-               ;; it must be the chain's known CoreDepositWallet. A mismatch
-               ;; means spotMeta and chain config are from different networks.
                (or (not= :usdc-cdw kind)
                    (= contract-address (:usdc-core-deposit-wallet chain-config))))
       {:index index
@@ -168,9 +165,6 @@
        :evm->core-recipient (case kind
                               :native (:hype-system-address chain-config)
                               :erc20 (system-address index)
-                              ;; A plain USDC transfer to 0x2000…0000 is not
-                              ;; credited; USDC goes through `deposit` on
-                              ;; the CoreDepositWallet (`:spender`).
                               :usdc-cdw nil)
        :verified? (contains? verified-token-names name*)})))
 
@@ -179,8 +173,6 @@
   (let [entries (field spot-meta :tokens)
         tokens (->> (when (sequential? entries) entries)
                     (keep #(linked-token chain-config %))
-                    ;; spotMeta names and indexes are unique; keep the first
-                    ;; row per index so a malformed payload cannot yield two.
                     (reduce (fn [acc token]
                               (if (contains? acc (:index token))
                                 acc

@@ -190,8 +190,6 @@
         baseline (metrics-of (assoc without :vaults (:vaults state-with-confirmed-empty-vaults)))
         with-evm (metrics-of state-with-confirmed-empty-vaults)]
     (is (some? (:spot-equity baseline)))
-    ;; Account Value, Balance and cross risk remain the HyperCore trading
-    ;; figures. HyperEVM has value, but cannot margin a position.
     (is (= (select-keys baseline [:account-value-display
                                   :base-balance
                                   :maintenance-margin
@@ -210,11 +208,9 @@
 
 (deftest dust-below-a-cent-keeps-the-line-hidden-test
   (let [dust (fixture/with-evm-entry state (assoc fixture/evm-entry
-                                                  ;; 0.00000001 HYPE left after gas.
                                                   :native-wei "10000000000"
                                                   :token-units {}))
         cent (fixture/with-evm-entry state (assoc fixture/evm-entry
-                                                  ;; 0.0002 HYPE at 44.68: $0.0089.
                                                   :native-wei "200000000000000"
                                                   :token-units {}))
         dust-with-confirmed-vaults
@@ -227,8 +223,6 @@
     (is (false? (:visible? (hyperevm-line/hyperevm-line-model dust))))
     (is (contains? (classes (rendered dust)) "hidden"))
     (is (not (str/includes? (text (rendered dust)) "$0.00")))
-    ;; Hiding a value that rounds below one cent is a line-layout decision;
-    ;; it must not silently remove owned USD from the classic grouped total.
     (is (pos? (:hyperevm-equity dust-metrics)))
     (is (< (:hyperevm-equity dust-metrics) 0.01))
     (is (= (+ (:account-value-display dust-metrics)

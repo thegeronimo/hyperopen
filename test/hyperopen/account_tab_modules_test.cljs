@@ -101,7 +101,6 @@
       (account-tab-modules/reset-account-tab-module-state!)
       (with-redefs [account-tab-modules/module-load-timeout-ms 20
                     loader/loaded? (constantly false)
-                    ;; A stalled chunk: shadow's loader never settles this.
                     loader/load (fn [_module-name] (js/Promise. (fn [_ _])))]
         (-> (account-tab-modules/load-account-tab-module! store :open-orders)
             (.then (fn [_]

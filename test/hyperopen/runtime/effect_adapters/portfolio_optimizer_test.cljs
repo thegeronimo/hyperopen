@@ -185,9 +185,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest refresh-portfolio-optimizer-rebalance-slippage-snapshots-effect-restages-the-staged-plan-test
-  ;; Re-costing the run is only half the job: the Execution tab holds a plan SNAPSHOT, so
-  ;; without a restage dispatch the surface keeps quoting the estimate it staged before the
-  ;; books arrived (flat fallback bps, which also collapse TWAP onto Market).
   (async done
     (let [dispatched (atom [])
           instruments [{:instrument-id "perp:BTC" :instrument-type :perp :coin "BTC"}]
@@ -228,8 +225,6 @@
           (.catch (async-support/unexpected-error done))))))
 
 (deftest refresh-portfolio-optimizer-rebalance-slippage-snapshots-effect-does-not-restage-without-fresh-books-test
-  ;; Every snapshot request failed (a rate-limited /info, say). Nothing was re-costed, so
-  ;; there is nothing to restage — and the rows stay visibly flat for the health rail.
   (async done
     (let [dispatched (atom [])
           instruments [{:instrument-id "perp:BTC" :instrument-type :perp :coin "BTC"}]

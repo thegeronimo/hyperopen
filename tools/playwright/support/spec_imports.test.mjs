@@ -1,7 +1,3 @@
-// Every Playwright spec must run under the HyperEVM RPC guard, so it must
-// take `test` from `guarded_test.mjs`, never from `@playwright/test` itself:
-// a spec that did would open pages whose HyperEVM balance reads reach the
-// public RPC with nothing to answer or catch them.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

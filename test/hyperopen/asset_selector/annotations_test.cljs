@@ -2,7 +2,6 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.asset-selector.annotations :as annotations]))
 
-;; Descriptions copied verbatim from Hyperliquid `perpAnnotation` on 2026-10-15.
 (def ^:private live-descriptions
   {"xyz:SPCX" "SPCX references 1 share of Space Exploration Technologies Corp. Class A common stock (Nasdaq: SPCX), quoted in USD. SpaceX develops launch vehicles, spacecraft, satellite communications, and AI technology."
    "xyz:TSLA" "TSLA references 1 share of Tesla, Inc. common stock (Nasdaq: TSLA), quoted in USD. Tesla designs electric vehicles, energy-storage systems, and related products."

@@ -143,14 +143,10 @@
            fetch-staking-delegator-summary!
            fetch-borrow-lend-state!]}]
   (call-when-fn! fetch-spot-clearinghouse-state! store address {:priority :high})
-  ;; The base-dex perp book has no webData2 stream anymore; hydrate it via
-  ;; REST so positions/balances render before the dex "" stream's first push.
   (call-when-fn! fetch-default-clearinghouse-state! store address {:priority :high})
   (call-when-fn! fetch-user-abstraction! store address {:priority :high})
   (call-when-fn! fetch-portfolio! store address {:priority :high})
   (call-when-fn! fetch-user-fees! store address {:priority :high})
-  ;; Vault deposits do not depend on account mode, and the Portfolio total
-  ;; counts them for unified accounts too.
   (call-and-consume-rejection! fetch-user-vault-equities! store address {:priority :high})
   (call-when-fn! start-user-vault-equity-poller! store address)
   (call-when-fn! fetch-staking-delegator-summary! store address {:priority :high})
@@ -304,8 +300,6 @@
                                  (surface-policy/topic-usable-for-address? state
                                                                            "openOrders"
                                                                            address))
-          ;; The base-dex book streams via clearinghouseState dex "" (webData2
-          ;; no longer exists provider-side).
           base-clearinghouse-live? (and ws-first-enabled?
                                         (surface-policy/topic-usable-for-address-and-dex?
                                          state
@@ -314,12 +308,6 @@
                                          ""))]
       (when (or force-base-open-orders-refresh?
                 (not open-orders-live?))
-        ;; `:force-refresh?` bypasses the response cache AND single-flight. An
-        ;; order the user just placed or cancelled must show immediately, so
-        ;; that path opts in. A fill arriving on the `openOrders` stream -- which
-        ;; is subscribed and lossless and already carries the authoritative list
-        ;; -- does not, and forcing it there was re-downloading a half-megabyte
-        ;; snapshot up to several times a second.
         (call-when-fn! refresh-open-orders! store address nil
                        {:priority :high
                         :force-refresh? (true? force-open-orders-request?)}))
@@ -369,10 +357,6 @@
                                      (and skip-perp-dex-when-subscribed-and-ready?
                                           perp-dex-stream-subscribed?
                                           perp-dex-snapshot-ready?))]
-                             ;; Generic openOrders websocket coverage does not hydrate the
-                             ;; named-DEX snapshot map that backs dex-scoped rows in the
-                             ;; Open Orders tab, so order mutations may need an explicit
-                             ;; per-dex refresh even when the generic stream is live.
                              (when (refresh-dex-open-orders?
                                     open-orders-live?
                                     refresh-dex-open-orders-when-stream-live?)
@@ -396,12 +380,8 @@
   [{:keys [store] :as deps}]
   (run-post-event-refresh!
    (assoc deps
-          ;; Always: spot balances have no websocket stream, so this REST refetch
-          ;; is their only update path after a fill. Gating it on the visible
-          ;; account tab left the order form and Balances tab stale until reload.
           :refresh-spot? true
           :force-base-open-orders-refresh? (not (false? (:force-base-open-orders-refresh? deps)))
-          ;; Deliberately NOT forced: see the call site in run-post-event-refresh!.
           :force-open-orders-request? false
           :gate-perp-dex-by-stream? true
           :skip-perp-dex-when-subscribed-and-ready? true
@@ -415,7 +395,6 @@
    (run-post-event-refresh!
    (assoc deps
           :refresh-spot? (true? refresh-spot?)
-          ;; The user just changed their orders; they must see it immediately.
           :force-open-orders-request? true
           :refresh-dex-open-orders-when-stream-live? true
           :gate-perp-dex-by-stream? true

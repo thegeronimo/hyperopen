@@ -32,7 +32,6 @@
                :spot (:spot evm)
                :router {:path "/trade"}
                :hyperevm (assoc (:hyperevm evm) :balances {:by-address {}}))
-        ;; Spot markets price HYPE, so a native HYPE change moves the line.
         (update-in [:asset-selector :market-by-key]
                    merge (get-in evm [:asset-selector :market-by-key])))))
 
@@ -50,8 +49,6 @@
 (defn- total-exports
   [metrics projection-calls]
   {:account-equity-metrics account-equity-view/account-equity-metrics
-   ;; The export sees full state. /trade must carry only this stable summary
-   ;; into its memoized equity slice, never the raw :hyperevm subtree.
    :account-equity-hyperevm-funds
    (fn [state]
      (swap! projection-calls conj state)
@@ -158,8 +155,6 @@
           (fn []
             (trade-view/trade-view first-read)
             (trade-view/trade-view same-value)
-            ;; Gas/timestamp churn did not change the exported summary, so it
-            ;; must not repaint the memoized Account Equity surface.
             (is (= 1 (count @metrics)))
             (trade-view/trade-view changed-balance)
             (trade-view/trade-view switched-account)
@@ -180,7 +175,5 @@
                                (:total-account-value-display first-total))
                             (- (:hyperevm-equity changed-total)
                                (:hyperevm-equity first-total)))))
-              ;; A's last good response must not remain in the grouped total
-              ;; when B becomes the effective account without a B read.
               (is (nil? (:hyperevm-equity switched-total)))
               (is (nil? (:total-account-value-display switched-total))))))))))

@@ -91,9 +91,6 @@
   (when model
     [:div {:class ["fixed" "inset-0" "z-[300]" "flex" "items-stretch" "justify-center" "bg-black/60"
                    "sm:items-center" "sm:p-4"]
-           ;; The focus hook sits on the node that mounts and unmounts (the
-           ;; backdrop holds only the dialog), so closing always runs the
-           ;; unmount that returns focus to the repair button.
            :replicant/on-render dialog-focus-on-render
            :data-role "vol-ladder-repair-backdrop"}
      [:div {:role "dialog"

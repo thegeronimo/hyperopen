@@ -146,10 +146,6 @@
         (when (effect-order/covered-action? action-id)
           (is (some? (effect-order/assert-action-effect-order! action-id effects {}))))))))
 
-;; ---------------------------------------------------------------------------
-;; Release A repair (stage R3)
-;; ---------------------------------------------------------------------------
-
 (def repair-handlers
   {:actions/open-vol-ladder-repair :open-vol-ladder-repair
    :actions/refresh-vol-ladder-repair :refresh-vol-ladder-repair
@@ -204,10 +200,6 @@
     (doseq [op [:replace :replace-place :nonsense]]
       (is (thrown? js/Error (contracts/assert-effect-args! :effects/vol-range-execute [op {}] {})) (str op)))))
 
-;; ---------------------------------------------------------------------------
-;; Live monitoring resync (live-fills stage 6)
-;; ---------------------------------------------------------------------------
-
 (deftest resync-action-is-registered-and-contracted-test
   (is (contains? (runtime-registry/registered-action-ids) :actions/resync-vol-ladders))
   (is (contains? (contracts/contracted-action-ids) :actions/resync-vol-ladders))
@@ -220,10 +212,6 @@
       (is (not (contains? (set (map :action-id (catalog/catalog-entries))) :actions/resync-vol-ladders)))))
   (is (some? (contracts/assert-emitted-effects! [[:effects/vol-range-execute :resync {:epoch 3}]]
                                                 {:action-id :actions/resync-vol-ladders}))))
-
-;; ---------------------------------------------------------------------------
-;; Release A ladder update (replace stage P2)
-;; ---------------------------------------------------------------------------
 
 (def replace-handlers
   {:actions/preview-vol-ladder-update :preview-vol-ladder-update
@@ -277,10 +265,6 @@
     (is (seq effects))
     (is (some? (contracts/assert-emitted-effects! effects {:action-id :actions/cancel-vol-ladder-for-update}))
         (pr-str effects))))
-
-;; ---------------------------------------------------------------------------
-;; Release B reporting (reporting stage R3)
-;; ---------------------------------------------------------------------------
 
 (def report-handlers
   {:actions/load-vol-range-report :load-vol-range-report

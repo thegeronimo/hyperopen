@@ -75,8 +75,6 @@
                           key]]))))))
 
 (defn- row-return-text
-  ;; Display text: the typing buffer wins, then the resolved row value (view
-  ;; return for user rows, implied baseline for implied rows).
   [state row]
   (let [ui-text (get-in state (conj optimizer-contracts/ui-objective-menu-view-drafts-path
                                     (keyword (:instrument-id row))
@@ -239,11 +237,6 @@
      [:div {:class ["mt-1.5" "flex" "min-w-0" "items-center" "gap-1"]}
       (source-chip row)
       (when user? (reset-button asset-label instrument-id))]
-     ;; Confidence gets its own labeled line. The control says what clicking
-     ;; does — "Confidence" on your rows, "Save as my view" on implied rows
-     ;; ("adopt" left ambiguous WHAT was adopted; saving the shown return as
-     ;; your view at that confidence is the actual effect) — and the buttons
-     ;; are full-size, readable hit targets, not a cramped meter strip.
      [:div {:class ["optimizer-objective-view-confidence-line" "mt-2" "flex"
                     "items-center" "gap-2" "flex-wrap"]}
       [:span {:class ["optimizer-objective-view-confidence-label" "font-mono"
@@ -281,9 +274,6 @@
      (if count* (str label " " count*) label)]))
 
 (defn- io-toolbar
-  ;; Export/Import file workflow: download the universe's views as JSON, let a
-  ;; desktop tool (typically an AI agent running the user's own forecasting
-  ;; model) fill in returns, and import the file to author them in bulk.
   [container-role summary]
   (let [empty-universe? (zero? (or (:total summary) 0))]
     [:div {:class ["mt-1.5" "flex" "flex-wrap" "items-center" "gap-1"]
@@ -313,8 +303,6 @@
       "Import JSON"]]))
 
 (defn- io-note
-  ;; Outcome of the last export/import ("Applied 12 views · 1 unknown asset
-  ;; skipped"), dismissable, overwritten by the next file action.
   [container-role {:keys [kind message]}]
   (when (seq (str (or message "")))
     [:div {:class (cond-> ["mb-2" "flex" "items-start" "justify-between" "gap-2"
@@ -337,8 +325,6 @@
       "×"]]))
 
 (defn- views-off-note
-  ;; The estimator is historical/EW: views are not consumed at all. Say so and
-  ;; offer the one-click way back instead of rendering dead controls.
   [container-role]
   [:div {:class ["border" "border-base-300" "bg-base-200/20" "p-3"
                  "text-[0.75rem]" "leading-[1.45]" "text-trading-muted"]
@@ -353,7 +339,6 @@
     "Use views where I have them"]])
 
 (defn- return-free-objective-label
-  ;; The covariance-only goal in play; its weights never consume returns.
   [objective-kind]
   (case objective-kind
     :equal-risk "Equal Risk"
@@ -368,7 +353,6 @@
    (str (return-free-objective-label objective-kind) " ignores expected returns — views change the displayed return, not this recommendation. Switch to Maximum Sharpe to optimize with them.")])
 
 (defn- conservative-note
-  ;; Covariance-only goal + historical estimator: views have no effect at all.
   [container-role objective-kind]
   [:p {:class ["border" "border-base-300" "bg-base-200/20" "p-3"
                "text-[0.75rem]" "leading-[1.45]" "text-trading-muted"]
@@ -409,17 +393,12 @@
         active-filter (return-views/normalize-filter
                        (get-in state optimizer-contracts/ui-return-views-filter-path))
         visible-rows (filterv #(return-views/matches-filter? % active-filter) rows)
-        ;; The editing description only makes sense when the rows actually edit
-        ;; the model; the conservative / views-off notes carry their own copy.
         description* (when black-litterman?
                        (or description
                            "Your views tilt the forecast where you have them; implied rows fall back to the baseline estimate. Edits save automatically."))
         title-el [:p {:class ["font-mono" "text-[0.58rem]" "font-semibold" "uppercase"
                               "tracking-[0.18em]" "text-warning"]}
                   title]
-        ;; Say once, at the top, what the per-row Low/Medium/High control means, so
-        ;; the row controls can stay label-light. Only shown when views (and thus
-        ;; the confidence controls) are actually live.
         note-els [(when description*
                     [:p {:class ["mt-1" "text-[0.6875rem]" "leading-[1.35]" "text-trading-muted"]}
                      description*])
@@ -473,9 +452,6 @@
                             :on {:click [[:actions/apply-portfolio-optimizer-objective-menu-selection-and-run]]}}
                    "Apply & re-run"])])]
     (if collapsible?
-      ;; Native <details> (uncontrolled), matching the trust rail's accordions.
-      ;; Closed by default unless :open? — the summary row is the whole panel
-      ;; until opened, so review-page rails stay short on large universes.
       [:details (cond-> {:class (cond-> ["optimizer-objective-views-section"
                                          "optimizer-return-views-disclosure"
                                          "border-t" "border-base-300" "px-3" "py-3"]

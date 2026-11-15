@@ -153,11 +153,6 @@
     (is (not= vault-id (:label vault-contribution)))))
 
 (deftest run-optimization-derives-nonzero-fees-from-default-fee-bps-test
-  ;; The worker-built rebalance preview (shown before any snapshot refresh) must
-  ;; charge fees from execution-assumptions :default-fee-bps even when no per-id
-  ;; :fee-bps-by-id is supplied — the reported "Est. fees + slippage is always $0"
-  ;; bug. request_builder derives :default-fee-bps from :fee-mode + the canonical
-  ;; schedule; here we assert the worker preview actually applies it.
   (let [request (-> base-request
                     (update :execution-assumptions dissoc :fee-bps-by-id)
                     (assoc-in [:execution-assumptions :default-fee-bps] 4.5))
@@ -323,8 +318,6 @@
     (is (seq (get-in result [:frontier-overlays :contribution])))))
 
 (deftest minimum-variance-emits-unconstrained-and-constrained-display-frontiers-test
-  ;; Reference frontier relaxes only locks: BTC is locked, so the constrained
-  ;; sweep pins it, the reference sweep frees it, and both keep the 0.8 cap.
   (let [calls (atom [])
         result (engine/run-optimization
                 (assoc base-request
@@ -554,11 +547,6 @@
         (range count*)))
 
 (deftest run-optimization-engine-backs-proxy-history-assumption-test
-  ;; TOKENX has 10 days of native history. With a complete proxy assumption
-  ;; (basket BTC+ETH, 80% vol, 5% cap) the minimum-variance run must include it,
-  ;; give it a covariance row synthesized FROM the proxies (never zero
-  ;; correlation), enforce the cap, keep regression confidence low for the tiny
-  ;; overlap, and use the stated expected return rather than a 10-day mean.
   (let [request (fixtures/sample-engine-request
                  {:draft (fixtures/sample-draft
                           {:id "scenario-proxy"

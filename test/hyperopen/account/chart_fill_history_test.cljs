@@ -10,7 +10,6 @@
 (def ^:private addr-lc "0xabc0000000000000000000000000000000000001")
 (def ^:private other "0xdef0000000000000000000000000000000000002")
 
-;; realistic epoch milliseconds (after the 2023 history floor)
 (def ^:private t0 1790000000000)
 (def ^:private hour (* 60 60 1000))
 
@@ -64,8 +63,6 @@
     (is (= {} (history/apply-live {} addr [(fill 1 (at 1))])) "ignored until a snapshot exists")))
 
 (deftest rest-pages-are-authoritative-over-per-trade-websocket-rows-test
-  ;; one taker order sweeping three levels: the websocket streams 3 trades,
-  ;; REST returns them as 1 aggregated row
   (let [ws-rows [(fill 11 (at 5)) (fill 12 (at 5)) (fill 13 (at 5))]
         rest-row (assoc (fill 11 (at 5)) :sz "3")]
     (testing "websocket first, then REST: the REST page replaces its span"
@@ -170,7 +167,6 @@
           p (history-effects/fetch-older-chart-fills! {:store store :address addr-lc :end-ms (at 100)
                                                        :request-fn request-fn})]
       (is (= (at 100) (get-in @store [:chart-trades :loading-end-ms])))
-      ;; account switch while the request is in flight
       (swap! store #(history/apply-snapshot % other [(fill 7 (at 7))] {:rest-page? true}))
       (@resolve* (fills 0 100))
       (.then p (fn [_]
@@ -178,7 +174,6 @@
                  (done))))))
 
 (deftest fetch-older-window-pages-forward-until-a-short-page-test
-  ;; userFillsByTime returns the OLDEST 2000 at or after startTime
   (async done
     (let [base (+ t0 (* 10 hour))
           store (atom (history/apply-snapshot {} addr (mapv #(fill (+ 100000 %) (+ base (* 1000 %))) (range 2000))
@@ -191,8 +186,6 @@
                        (js/Promise.resolve
                         (if (= 1 (count @calls))
                           (mapv #(fill % (+ start %)) (range 2000))
-                          ;; ...including the boundary-millisecond fill the REST page
-                          ;; already held (the window is authoritative for it)
                           (conj (mapv #(fill (+ 1999 %) (+ start 1999 %)) (range 10))
                                 (fill 100000 end)))))]
       (.then (history-effects/fetch-older-chart-fills! {:store store :address addr :end-ms end

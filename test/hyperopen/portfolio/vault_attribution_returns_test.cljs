@@ -13,8 +13,6 @@
   (second (peek (fx/all-time-returns entry))))
 
 (deftest large-mid-way-deposit-keeps-real-return-test
-  ;; +10% on 1,000, then a 100x deposit, then +5% on everything. A time-weighted
-  ;; return is 1.10 * 1.05 - 1 = 15.5%; the dollar P&L over capital is ~5.1%.
   (let [start (- now (* 100 day))
         mid (+ start (* 50 day))
         index (fn [t]
@@ -31,17 +29,12 @@
     (is (near? 5155 (get-in result [:totals :pnl])))
     (is (near? 15.5 (final-return-pct entry) 1e-6))
     (testing "the month window carries only the second leg"
-      ;; month starts 30 days before now, 20 days into the +5% leg
       (let [month (get-in result [:summary-entries :vault-month])
             expected (* 100 (- (/ 1.155 (index (- now (* 30 day)))) 1))]
         (is (near? expected (final-return-pct month) 1e-6))))
     (fx/assert-series-invariants result)))
 
 (deftest drift-spreads-by-capital-time-test
-  ;; Flat index, 10 held for 50 days, then 1,000,000 more for 50 days, and the
-  ;; live equity is 5,000 short of the model. Spread by capital-time the
-  ;; shortfall is ~-0.0001/day on whatever is held (~-1% overall); spread by
-  ;; clock time it would drive the 10 deeply negative.
   (let [start (- now (* 100 day))
         mid (+ start (* 50 day))
         result (attribution/attribution
@@ -59,7 +52,6 @@
 
 (deftest irr-known-cases-test
   (is (near? 0.1 (model/irr [[0 -1000] [model/ms-per-year 1100]]) 1e-9))
-  ;; 1000(1+r) + 1000(1+r)^0.5 = 2200  =>  sqrt(1+r) = (-1 + sqrt(9.8)) / 2
   (let [x (/ (+ -1 (js/Math.sqrt 9.8)) 2)]
     (is (near? (- (* x x) 1)
                (model/irr [[0 -1000] [(/ model/ms-per-year 2) -1000] [model/ms-per-year 2200]])
@@ -105,7 +97,6 @@
           (is (= now (first (peek accountValueHistory))))
           (is (= 0 (second (first pnlHistory))) "P&L rebased to 0 at window start")
           (is (near? 1100 (second (peek accountValueHistory))))
-          ;; the window's P&L is the index move over the window (drift is zero)
           (is (near? (* 1000 (- (index now) (index window-start)))
                      (second (peek pnlHistory))
                      1e-6)))))
@@ -144,9 +135,6 @@
     (fx/assert-series-invariants result)))
 
 (deftest one-vault-while-held-equals-the-sleeve-time-weighted-return-test
-  ;; Two deposits, a partial withdrawal, and equity off the index model (the
-  ;; coarse index and the exact ledger disagree). The row must read the same
-  ;; time-weighted return as the "All vaults" total, not the raw index.
   (let [start (- now (* 200 day))
         index #(+ 1 (* 0.002 (/ (- % start) day)))
         result (attribution/attribution

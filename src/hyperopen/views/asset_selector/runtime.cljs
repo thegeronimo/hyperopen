@@ -427,7 +427,6 @@
     (reset! host-node* host-node)
     (cond
       @scrolling?* (reset! pending-props* props)
-      ;; The hook runs on every app render: same rows, same window, no render.
       (and (nil? @pending-props*) (= props @props*)
            (= (asset-list-window-state props @scroll-top*) @last-window-state*)) nil
       :else

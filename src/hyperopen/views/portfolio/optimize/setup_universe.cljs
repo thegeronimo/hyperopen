@@ -5,16 +5,8 @@
             [hyperopen.portfolio.optimizer.application.view-model.universe-search :as universe-search]
             [hyperopen.views.portfolio.optimize.setup-universe-search :as universe-search-view]))
 
-;; Sentence-case 14px, matching setup-controls/section-title-class — see the
-;; type-ladder note there.
 (def ^:private section-title-class
   ["text-[0.875rem]" "font-semibold" "text-trading-text"])
-
-(def ^:private input-class
-  ["w-full" "border" "border-base-300" "bg-base-100/80" "px-2" "py-1.5"
-   "font-mono" "text-[0.8125rem]" "font-medium" "outline-none"
-   "transition-shadow" "focus:border-warning/70"
-   "focus:shadow-[0_0_0_1px_rgba(212,181,88,0.75)]"])
 
 (defn- tag
   ([label tone]
@@ -94,23 +86,7 @@
        (when-let [market-type-label (some-> market-type name)]
          (str " " market-type-label))))
 
-;; Generic per-row history diagnostics (shared gap, short history, insufficient,
-;; …) are deliberately NOT painted on the row: they are solver-readiness
-;; signals, not asset-selection information, and they made the universe list
-;; read like an error log. The grouped Readiness panel owns that detail; each
-;; row still carries its computed status on :data-history-status for QA. The
-;; ASSUMPTION-WORKFLOW states are the exception (view-model
-;; workflow-assumption-badges): "Needs proxy" / "Needs assumptions" is the
-;; user's cue to open the proxy workflow card, and "Proxy behavior" /
-;; "Conservative" confirms the configuration took.
-
 (def ^:private assumption-chip-tooltip-class
-  ;; Instant hover-card for the configured chips: the same look as the constraint
-  ;; tooltip (opacity toggled by group-hover / group-focus-within) but WITHOUT its
-  ;; transition-opacity delay, so it appears the moment the cursor lands. Safe as an
-  ;; absolute card here because the universe list has no overflow-clipping ancestor
-  ;; (verified) - the reason a native `title` was tried first, then dropped because
-  ;; its show-delay is browser-controlled and felt sluggish.
   ["pointer-events-none" "absolute" "left-0" "top-[calc(100%+6px)]"
    "z-30" "w-[min(22rem,calc(100vw-2rem))]" "border"
    "border-base-300" "bg-base-100" "px-2" "py-1.5"
@@ -126,7 +102,6 @@
                  (contains? #{:conservative :proxy-behavior} assumption-badge)
                  ["border-success/50" "text-success" "bg-success/10"]
 
-                 ;; Thin history is an invitation, not an error: muted.
                  (= :short-history assumption-badge)
                  ["border-base-300" "text-trading-muted" "bg-base-200/40"]
 
@@ -138,12 +113,10 @@
                            tone)
           badge-role (str "portfolio-optimizer-universe-assumption-badge-" instrument-id)]
       (if-not assumption-badge-tooltip
-        ;; Unconfigured cues (Needs proxy / Thin history / …) are self-explanatory.
         [:span {:class (into ["mt-0.5"] chip-class)
                 :data-role badge-role
                 :data-badge (name assumption-badge)}
          assumption-badge-label]
-        ;; Configured stance (Modeled / Conservative): chip + instant hover-card.
         (let [tooltip-id (str "portfolio-optimizer-universe-assumption-tooltip-" instrument-id)]
           [:span {:class ["group" "relative" "mt-0.5" "inline-block"]}
            [:span {:class (conj chip-class "cursor-help")
@@ -185,12 +158,8 @@
                            (when-not show-type? "optimizer-universe-cols-4")
                            "grid" "items-center" "gap-2" "border-b" "border-base-300"
                            "px-2" "py-1.5" "last:border-b-0" "hover:bg-base-200/30"]
-                    ;; Twins hang off a bracket inside their group block; only
-                    ;; the group's last row draws the dividing rule.
                     twin-underlying (conj "optimizer-universe-twin-row" "bg-warning/5")
                     (and twin-underlying (not twin-last?)) (conj "border-b-0")
-                    ;; The held listing a search result duplicates, outlined so
-                    ;; it can be found in a long list while the query is up.
                     search-match? (conj "bg-info/10" "outline" "outline-1"
                                         "-outline-offset-1" "outline-info/60"))
            :data-role (str "portfolio-optimizer-universe-selected-row-" instrument-id)
@@ -204,9 +173,6 @@
      [:span {:class ["min-w-0"]}
       [:span {:class ["block" "truncate" "font-mono" "text-[0.8125rem]" "font-semibold"]}
        primary-label]
-      ;; Demoted a full tier below the symbol: the canonical id/name is context,
-      ;; and must not compete with the tradable symbol the user scans for.
-      ;; Suppressed entirely when it merely repeats the symbol.
       (cond
         search-match?
         [:span {:class ["block" "truncate" "text-[0.6875rem]" "text-info"]
@@ -217,10 +183,6 @@
         [:span {:class ["block" "truncate" "text-[0.6875rem]" "text-trading-muted/80"]}
          secondary-label])
       (assumption-workflow-chip row)]
-     ;; TYPE is by-exception: a homogeneous universe (78 identical PERP chips)
-     ;; renders no type column at all — the 4-track grid variant keeps header
-     ;; and rows aligned. Search results keep their type tags (vaults appear
-     ;; there).
      (when show-type?
        [:span {:class ["flex" "justify-center"]} (market-type-tags market-type)])
      (side-control instrument-id position-side short-selectable?)
@@ -246,8 +208,6 @@
     [:path {:d "M9 17H7A5 5 0 0 1 7 7h2"}]
     [:path {:d "M15 7h2a5 5 0 1 1 0 10h-2"}]
     [:line {:x1 "8" :y1 "12" :x2 "16" :y2 "12"}]]
-   ;; No inline "remove one" hint: it truncated in the narrow rail, and each
-   ;; row's own × already says how.
    [:span {:class ["whitespace-nowrap"]} (str underlying " × " twin-count " · same asset")]])
 
 (defn- selected-table-rows
@@ -296,9 +256,6 @@
     [:div {:class ["optimizer-universe-skeleton-row"]}]]])
 
 (defn- selected-table
-  ;; The included-count deliberately does NOT repeat here: the panel header
-  ;; owns it. This bar carries only the Clear action (and disappears with an
-  ;; empty universe).
   [selected-rows universe holdings-loading? no-importable-holdings? search-match-ids]
   (let [show-type? (< 1 (count (distinct (keep :market-type selected-rows))))]
     [:div {:class ["mt-2" "border" "border-base-300" "bg-base-100/50"]}
@@ -320,10 +277,6 @@
        holdings-loading?
        (holdings-loading-block)
 
-       ;; The account snapshot arrived and there is nothing to import: say so
-       ;; instead of repeating a "holdings load automatically" promise this
-       ;; account can never keep — and so "Load my holdings" is never a silent
-       ;; no-op.
        no-importable-holdings?
        [:div {:class ["flex" "flex-col" "items-start" "gap-1" "px-2" "py-3"]
               :data-role "portfolio-optimizer-universe-holdings-empty"}
@@ -332,8 +285,6 @@
         [:p {:class ["text-[0.75rem]" "text-trading-muted/80"]}
          "Search above to add perps, spot, or vault return legs and build a custom set."]]
 
-       ;; Empty universe: either "no account/holdings" or a deliberately cleared
-       ;; set (a clear records a custom source, which ends the loading state).
        :else
        [:div {:class ["flex" "flex-col" "items-start" "gap-1" "px-2" "py-3"]}
         [:p {:class ["text-xs" "text-trading-muted"]}
@@ -387,10 +338,6 @@
    (let [model (optimizer-view-model/universe-section-model
                 state
                 draft
-                ;; The Universe panel is the one surface that can render a long
-                ;; result list — it has a scroll container, facets and a footer.
-                ;; The draft add-asset popover and the proxy typeahead share this
-                ;; projection and keep the small default cap.
                 (merge {:group-results? true}
                        opts
                        {:candidate-options
@@ -406,9 +353,6 @@
          holdings-source? (= :holdings (:kind universe-source))
          vault-view-source? (= :vault-view (:kind universe-source))
          holdings-loading? (= :holdings-loading (:reason readiness))
-         ;; While the auto-seed is pending, "My holdings" is the source in
-         ;; flight, so the strip shows it active instead of offering it as a
-         ;; manual command the machine is already executing.
          holdings-active? (or holdings-source? holdings-loading?)]
     [:section {:class ["optimizer-universe-panel" "optimizer-setup-panel"
                        "border" "border-base-300" "bg-base-100/90" "p-3" "leading-4"]
@@ -427,10 +371,6 @@
                  :data-role "portfolio-optimizer-universe-twin-count"}
           (str " · " (count twin-underlyings)
                (if (= 1 (count twin-underlyings)) " duplicate" " duplicates"))])]]
-     ;; Source strip: "My holdings" is the default path (the universe seeds itself
-     ;; from holdings when account data is available) and doubles as the
-     ;; load/refresh action; "Custom" lights up once the set is hand-edited or
-     ;; cleared. The active segment reflects the recorded universe source.
      [:div {:class ["mt-3" "grid" (if vault-view-source? "grid-cols-3" "grid-cols-2")
                     "border" "border-base-300" "text-center"
                     "text-[0.75rem]" "font-medium"
@@ -468,8 +408,6 @@
       {:count-label universe-search/group-count-label})
      (selected-table selected-rows universe holdings-loading? no-importable-holdings?
                      (or (:existing-ids search-duplicate-summary) #{}))
-     ;; Prose help, not log output: sans-serif — monospace stays reserved for
-     ;; numbers and identifiers per the setup type ladder.
      [:div {:class ["mt-2" "text-[0.6875rem]" "leading-[1.5]"
                     "text-trading-muted/70"]}
       "Search adds tradeable spot, perp, or vault return legs. Symbols with limited history use stabilized covariance with a longer pull toward the market reference."

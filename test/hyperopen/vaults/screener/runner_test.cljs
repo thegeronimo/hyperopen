@@ -93,7 +93,6 @@
   (async done
     (let [store (base-store ["0xa" "0xshut" "0xold"])
           {:keys [requests records] :as h} (harness)]
-      ;; Written before deposits were tracked: fresh, but must be re-read.
       (swap! records assoc "0xold" {:saved-at-ms 999000 :portfolio portfolio})
       (-> (runner/start-run! (deps store h) 1)
           (.then (fn [_]

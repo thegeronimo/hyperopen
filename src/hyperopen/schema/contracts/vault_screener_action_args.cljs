@@ -2,9 +2,6 @@
   (:require [cljs.spec.alpha :as s]
             [hyperopen.schema.contracts.common :as common]))
 
-;; Vault screener action payload contracts. Merged into
-;; hyperopen.schema.contracts.action-args/action-args-spec-by-id.
-
 (s/def ::control-and-value-args
   (s/tuple ::common/keyword-or-string any?))
 

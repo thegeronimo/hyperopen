@@ -41,8 +41,6 @@
    :side (:side row)
    :quantity (:quantity row)
    :order-type (or (:default-order-type execution-assumptions) :market)
-   ;; Reduce-only is perp-only — spot has no position to reduce. Kept explicitly false
-   ;; (the gateway also force-falses it for spot) so the intent is unambiguous.
    :reduce-only? false})
 
 (defn- execution-row
@@ -84,9 +82,6 @@
         (some? (:tolerance row)) (assoc :tolerance (:tolerance row)))
 
       (= :excluded (:status row))
-      ;; Allocator expressed no target for this held instrument — it is held, not
-      ;; traded, so it belongs with the skipped (will-not-move) rows, never in the
-      ;; order list as a sell.
       (assoc base-row
              :status :skipped
              :reason (or (:reason row) :excluded-from-optimization))
@@ -318,10 +313,6 @@
                              :orderbook book}
             form (order-form-for-row row bbo)
             size-text (wire-size-string market (:size form))
-            ;; Stamp a recognizable client-order-id so this run's resting orders can be
-            ;; found on the live book by a LATER run (even after a page reload) and
-            ;; cancelled instead of stacked on top of. Injected so the pure build stays
-            ;; deterministic in tests.
             cloid (when cloid-fn (cloid-fn))]
         (if-not (non-blank-text size-text)
           {:blocked-reason :quantity-below-lot}
@@ -387,8 +378,6 @@
         (response-statuses resp)))
 
 (def ^:private post-only-cross-bbo-re
-  ;; Hyperliquid embeds the live touch in the post-only rejection message, e.g.
-  ;; "Post only order would have immediately matched, bbo was 0.004815@0.004818. asset=197".
   #"would have immediately matched.*?bbo was\s+([0-9]+(?:\.[0-9]+)?)@([0-9]+(?:\.[0-9]+)?)")
 
 (defn post-only-cross-bbo
@@ -442,10 +431,6 @@
   [row avg-px filled-qty]
   (when (coercion/positive-number? avg-px)
     (let [bps (rebalance/realized-slippage-bps (:side row) (:price row) avg-px)
-          ;; Realized $ slippage scales with the quantity ACTUALLY filled (a partial fill costs
-          ;; slippage only on the filled qty, the remainder resting): bps × filled notional at the
-          ;; REFERENCE price (filled-qty × :price) -- not avgPx, which `bps` already prices in.
-          ;; Fall back to the full intended notional when the filled qty is absent (legacy shape).
           ref-px (:price row)
           filled-notional (if (and (coercion/positive-number? filled-qty)
                                    (coercion/positive-number? ref-px))
@@ -485,21 +470,12 @@
         resting-count (count (filter #(= :resting (:status %)) rows))
         failed-count (count (filter #(= :failed (:status %)) rows))
         blocked-count (count (filter #(= :blocked (:status %)) rows))
-        ;; Orders the exchange accepted — filled outright or resting (open) on the book.
         accepted-count (+ filled-count resting-count)]
     (cond
-      ;; A genuine exchange REJECTION (:failed) alongside live orders ⇒ a partial run the trader
-      ;; must act on (resume / revert / re-stage). Blocked rows are pre-execution EXCLUSIONS
-      ;; (below the $10 minimum, missing market metadata, sub-lot) — they were never sent, so
-      ;; they are not failures and must NOT halt a run on their own. A run whose only non-sent
-      ;; rows are blocked, with every sendable order live and nothing rejected, succeeded.
       (and (pos? failed-count) (pos? accepted-count)) :partially-executed
       (pos? failed-count) :failed
-      ;; No rejection: every order that was actually sendable filled outright ⇒ fully executed.
       (and (pos? filled-count) (zero? resting-count)) :executed
-      ;; No rejection, at least one order live (resting/open on the book) ⇒ orders resting.
       (pos? accepted-count) :resting
-      ;; Nothing was sendable (all rows blocked/excluded) and nothing failed.
       (pos? blocked-count) :blocked
       :else :no-op)))
 

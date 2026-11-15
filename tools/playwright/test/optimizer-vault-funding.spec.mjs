@@ -2,12 +2,6 @@ import { expect, test } from "../support/guarded_test.mjs";
 import { routeHyperCoreAccountStreams } from "../support/hyperevm_fixtures.mjs";
 import { debugCall, visitRoute, waitForIdle } from "../support/hyperopen.mjs";
 
-// Fund this allocation: a solved all-vault run opens the funding sheet from the
-// verdict CTA; the plan counts existing deposits (an over-target unlocked vault
-// is cut back), review lists withdrawals before deposits, and confirm sends
-// agent-signed vaultTransfer actions one at a time. The exchange is the debug
-// simulator and the account reads are intercepted, so nothing leaves the test.
-
 const OWNER = "0x4444444444444444444444444444444444444444";
 const VA = "0x1111111111111111111111111111111111111111";
 const VB = "0x2222222222222222222222222222222222222222";
@@ -17,8 +11,6 @@ const PRIVATE_KEY = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 const role = (page, name) => page.locator(`[data-role='${name}']`);
 
 async function interceptAccountReads(page) {
-  // Live balance streams for the fake wallet would report $0; the REST
-  // answers below are the account's only balances.
   await routeHyperCoreAccountStreams(page);
   await page.route("**/info", async (route) => {
     const body = route.request().postData() || "";
@@ -164,17 +156,13 @@ test.describe("fund an optimizer vault allocation", () => {
     await amount.blur();
     await expect(amount).toHaveValue("4,000.00");
 
-    // Beta holds 6,000 of 10,000 against a 30% target: 3,000 comes out and,
-    // with the new 4,000, fills Alpha (5,000) and Gamma (2,000) exactly.
     await expect(role(page, "portfolio-optimizer-vault-funding-total-withdraw")).toHaveText("$3,000.00");
     await expect(role(page, "portfolio-optimizer-vault-funding-total-deposit")).toHaveText("$7,000.00");
     await expect(sheet.locator(`[data-address='${VB}']`)).toContainText("Withdraw $3,000.00");
 
-    // Each row says when its money unlocks; the new positions lock for a day.
     await expect(sheet.locator(`[data-address='${VA}'] [data-role='portfolio-optimizer-vault-funding-lock']`)).toContainText("1 day lock-up");
     await expect(sheet.locator(`[data-address='${VB}'] [data-role='portfolio-optimizer-vault-funding-lock']`)).toContainText("Free now");
 
-    // No review step: the button names what is sent.
     const send = role(page, "portfolio-optimizer-vault-funding-confirm");
     await expect(send).toHaveText("Withdraw $3,000.00 and deposit $7,000.00");
     await send.click();
@@ -213,7 +201,6 @@ test.describe("fund an optimizer vault allocation", () => {
     await role(page, "portfolio-optimizer-vault-funding-amount").fill("4000");
     await role(page, "portfolio-optimizer-vault-funding-split-equal").click();
     await expect(role(page, "portfolio-optimizer-vault-funding-split-equal")).toHaveAttribute("aria-checked", "true");
-    // 10,000 split three ways: Beta's 6,000 is cut to 3,333.33.
     await expect(role(page, "portfolio-optimizer-vault-funding-total-withdraw")).toHaveText("$2,666.66");
     await expect(page.locator(`[data-address='${VA}']`)).toContainText("33.3%");
   });
@@ -227,9 +214,7 @@ test.describe("fund an optimizer vault allocation", () => {
     await role(page, "portfolio-optimizer-vault-funding-amount").fill("4000");
     await page.locator(`[data-address='${VA}'] [data-role='portfolio-optimizer-vault-funding-include']`).click();
     await expect(page.locator(`[data-address='${VA}']`)).toContainText("Left alone");
-    // Alpha's 50% share is spread by default: Gamma's target grows past 20%.
     await role(page, "portfolio-optimizer-vault-funding-fill-gaps").click();
-    // Gap-only: Beta's 3,000 excess plus 4,000 new; Gamma takes its own 2,000.
     await expect(page.locator(`[data-address='${VC}']`)).toContainText("Deposit $2,000.00");
     await expect(role(page, "portfolio-optimizer-vault-funding-confirm")).toHaveText("Withdraw $3,000.00 and deposit $2,000.00");
   });

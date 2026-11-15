@@ -84,7 +84,5 @@
                    (swap! store update-in monitoring-path monitoring/on-resync-finished
                           {:epoch epoch :account account :ok? ok? :error error :now-ms (platform/now-ms)
                            :jitter (- (* 0.4 (platform/random-value)) 0.2)})
-                   ;; A storage failure is reported like a failed sync; an
-                   ;; incomplete read is reported by the monitoring line only.
                    (cond-> {:status (or status (if ok? :ok :incomplete))}
                      error (assoc :error error))))))))

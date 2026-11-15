@@ -208,7 +208,6 @@
    `:chain-id` moves the wallet to that chain right after."
   [provider step]
   (let [{:keys [state result error chain-id]} (step (:evm @wallet-simulator-state))]
-    ;; A provider kept past `clear-wallet-simulator!` must not reinstall it.
     (swap! wallet-simulator-state #(some-> % (assoc :evm state)))
     (when chain-id
       (move-to-chain! provider chain-id))

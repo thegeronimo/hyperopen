@@ -176,13 +176,8 @@
                          result)))))
 
 (deftest inverse-volatility-disables-dust-removal-test
-  ;; Item 2 (dust clause): a dust threshold that would normally drop the
-  ;; smallest position must not — this objective promises every asset a
-  ;; position, exactly like Equal Risk.
   (let [result (engine/run-optimization
                 (inverse-volatility-request
-                 ;; nav 10000 * 0.45 = 4500 USDC: any weight under 0.45x
-                 ;; would be dust if dust removal ran.
                  {:constraints {:dust-usdc 4500.0}})
                 {:solve-problem solver-adapter/solve-with-quadprog})
         weights-by-id (:target-weights-by-instrument result)]
@@ -194,9 +189,6 @@
           (str instrument-id " must keep its position despite :dust-usdc")))))
 
 (deftest inverse-volatility-binding-cap-pins-and-is-flagged-test
-  ;; Item 3: cap SOL far below its ideal 1/sigma magnitude. It pins at the
-  ;; cap, the remaining assets re-equalize |w|*sigma among themselves, and
-  ;; the payload flags the capped row as moved off the ideal seed.
   (let [result (engine/run-optimization
                 (inverse-volatility-request
                  {:constraints {:perp-leverage {"perp:BTC" {:max-weight 2.0}
@@ -227,12 +219,6 @@
           "unbound rows are not flagged"))))
 
 (deftest inverse-volatility-binding-turnover-limits-free-rows-and-is-flagged-test
-  ;; A turnover budget too small to reach the 1/sigma seed (yet large enough
-  ;; to stay feasible against the signed-gross equality) displaces FREE rows
-  ;; off risk-weight parity. Those rows carry :turnover-limited?, never
-  ;; :moved-off-seed? — no bound pinned them. At 1.0x gross the current book
-  ;; (BTC 0.6 / ETH 0.4) needs 0.4 one-sided turnover for bare feasibility
-  ;; and ~0.65 to reach the seed itself, so 0.5 binds in between.
   (let [result (engine/run-optimization
                 (inverse-volatility-request
                  {:constraints {:gross-max 1.0
@@ -258,10 +244,6 @@
       (is (number? (get-in result [:inverse-volatility :ideal-risk-weight]))))))
 
 (deftest inverse-volatility-proceeds-when-return-model-is-invalid-test
-  ;; Item 6: covariance-only semantics. A Black-Litterman view naming an
-  ;; instrument outside the universe makes the return model :invalid;
-  ;; Risk-weighted sizing must still solve (mirrors the Equal Risk
-  ;; allowance), with return-based display metrics omitted, not fabricated.
   (let [invalid-views {:kind :black-litterman
                        :views [{:id "doge-view"
                                 :kind :absolute

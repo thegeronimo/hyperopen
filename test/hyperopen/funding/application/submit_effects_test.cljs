@@ -227,8 +227,6 @@
             :default-funding-modal-state (fn [] default-modal)}))
           (.then (fn [resp]
                    (is (= {:status "ok"} resp))
-                   ;; Named-DEX transfers must be signed with the sendAsset signer,
-                   ;; not usdClassTransfer.
                    (is (= [] @usd-class-calls))
                    (is (= [["0xabc" {:type "sendAsset"
                                      :destination "0xabc"
@@ -247,9 +245,6 @@
                     (done)))))))
 
 (deftest api-submit-funding-transfer-subaccount-source-signs-owner-refreshes-effective-test
-  ;; A selected classic subaccount under a unified master: the sendAsset carries
-  ;; fromSubAccount = subaccount, the OWNER wallet signs (not the subaccount), and the
-  ;; post-success refresh targets the effective (subaccount) account whose balance changed.
   (async done
     (let [owner "0x999e9a397b703d68af21113abededd827b309068"
           subaccount "0xbce774ef2382a4eb9376ea6f20408b318b10b63e"
@@ -280,10 +275,8 @@
             :default-funding-modal-state (fn [] default-modal)}))
           (.then (fn [resp]
                    (is (= {:status "ok"} resp))
-                   ;; Owner wallet signs, not the subaccount.
                    (is (= [owner] (mapv first @send-asset-calls)))
                    (is (= subaccount (:fromSubAccount (second (first @send-asset-calls)))))
-                   ;; Refresh targets the effective (subaccount) account.
                    (is (= [[[[:actions/load-user-data subaccount]]]]
                           (mapv (fn [[_store event]] [event]) @dispatches)))
                    (done)))

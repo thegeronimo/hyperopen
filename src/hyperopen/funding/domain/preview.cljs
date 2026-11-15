@@ -39,10 +39,6 @@
       :amount-entry
       :asset-select)))
 
-;; Full mainnet USDC spot token id expected by Hyperliquid `sendAsset` signing.
-;; Resolution and the mainnet fallback both live in
-;; `hyperopen.funding.domain.spot-tokens`, which is the single owner of the
-;; `NAME:0x<hash>` wire-token-id format for the whole repository.
 (defn- usdc-transfer-token
   [state]
   (spot-tokens/usdc-wire-token-id state))
@@ -74,17 +70,7 @@
         to-perp? (true? (:to-perp? modal))
         dex (availability/transfer-dex-name (:transfer-dex modal))
         pooled? (availability/pooled-perps-collateral? state)
-        ;; A selected subaccount source must use `sendAsset` — it is the only action that
-        ;; carries `fromSubAccount`. `usdClassTransfer` has no subaccount field and is posted
-        ;; without a `vaultAddress`, so it would move the signing OWNER's USDC instead of the
-        ;; subaccount's (and the post-success refresh of the untouched subaccount would hide
-        ;; it). So `usdClassTransfer` is used only for a plain master-account default transfer.
         subaccount-source? (some? (amounts/normalize-evm-address (:transfer-from-subaccount modal)))
-        ;; A named dex always needs `sendAsset`. Pooled accounts (unified / portfolio margin /
-        ;; DEX Abstraction) also need it and must collapse any named dex to the default perps
-        ;; DEX (""), because the exchange rejects a per-DEX `sendAsset` for them ("Unified
-        ;; account only supports sending assets through spot"). Verified against the reporting
-        ;; accounts' live ledgers (sourceDex/destinationDex in {"", "spot"}).
         use-send-asset? (or (some? dex) pooled? subaccount-source?)
         transfer-perps-dex (if pooled? "" (or dex ""))
         max-amount (availability/transfer-max-amount state modal)]

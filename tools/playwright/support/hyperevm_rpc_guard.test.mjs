@@ -7,10 +7,6 @@ import { routeHyperEvmRpc } from "./hyperevm_fixtures.mjs";
 const OWNER = "0x1234567890abcdef1234567890abcdef12345678";
 const RPC_URL = "https://rpc.hyperliquid.xyz/evm";
 
-// A stand-in for a Playwright BrowserContext: `request` listeners see every
-// request first, then page-level handlers run (newest first), then
-// context-level ones, as Playwright orders them. A handler that neither
-// fulfills nor falls back leaves the request unanswered by any mock.
 function fakeContext() {
   const listeners = { request: [], page: [] };
   const contextRoutes = [];
@@ -106,9 +102,6 @@ test("a page-level mock takes precedence and still counts as answered", async ()
 });
 
 test("a request that escapes the mock is reported whatever routes the page has", async () => {
-  // The leak the guard exists for: a page handler registered after the mock
-  // lets the request out (`continue()` live; `abort()` here, which reaches
-  // no mock either). Detection never looks at which routes were installed.
   const guard = createHyperEvmRpcGuard({ settleMs: 10 });
   const context = fakeContext();
   await guard.protectContext(context);

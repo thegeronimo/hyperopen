@@ -4,15 +4,9 @@
             [hyperopen.views.account-equity.metrics :as metrics]
             [hyperopen.views.account-equity.panels :as panels]))
 
-(def parse-num format/parse-num)
-(def safe-div format/safe-div)
 (def display-currency format/display-currency)
-(def display-percent format/display-percent)
-(def display-leverage format/display-leverage)
 (def pnl-display format/pnl-display)
 (def tooltip format/tooltip)
-(def label-with-tooltip format/label-with-tooltip)
-(def default-metric-value-class format/default-metric-value-class)
 (def metric-row format/metric-row)
 (def funding-actions-view funding-actions/funding-actions-view)
 (def account-equity-metrics metrics/account-equity-metrics)

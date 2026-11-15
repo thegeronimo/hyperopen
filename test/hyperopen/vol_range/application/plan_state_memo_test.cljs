@@ -45,8 +45,6 @@
                 "crossing errors key the memo on the book, so the offer is recomputed")))))))
 
 (deftest an-update-changes-the-planner-account-only-for-its-scope-test
-  ;; Spec 10.2 step 4, 13.4: after the cancel is confirmed the replacement is
-  ;; planned from the account read after the cancel, not the pre-fill store.
   (with-fees
     (fn []
       (let [state (-> (sf/base-state)

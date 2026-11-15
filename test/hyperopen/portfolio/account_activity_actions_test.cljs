@@ -24,8 +24,6 @@
                                 "Deposits and Withdrawals"))]
     (is (= :deposits-withdrawals (get entries actions/sub-tab-path)))
     (testing "the page resets, which the reference client fails to do"
-      ;; Without this, moving from a three-page sub-tab to a one-page one while
-      ;; on page 3 leaves an empty table under a hidden pagination footer.
       (is (= 1 (get entries actions/page-path)))
       (is (= "1" (get entries actions/page-input-path)))))
   (testing "an unknown sub-tab falls back to All rather than blanking the table"

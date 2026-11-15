@@ -156,15 +156,6 @@
       (normalized-text (:instrument-id instrument))
       "--"))
 
-(defn instrument-base-label
-  [instrument]
-  (or (when (vault-instrument? instrument)
-        (vault-address instrument))
-      (normalized-text (:base instrument))
-      (base-from-symbol (:symbol instrument))
-      (when-not (raw-asset-id? (:coin instrument))
-        (normalized-text (:coin instrument)))))
-
 (defn- adv-label
   [market]
   (compact-usd (or (:volume24h market)
@@ -214,14 +205,7 @@
    :needs-assumptions "Needs assumptions"
    :using-proxy "Using proxy"
    :conservative "Conservative"
-   ;; Long history, published far apart. Deliberately NOT "Thin history": the
-   ;; asset has plenty of history, it is just sampled coarsely, and conflating
-   ;; the two is the bug this badge exists to end.
    :sparse-history "Sparse history"
-   ;; The configured "return/risk modeled from a basket of similar assets"
-   ;; stance. Named for its RESULT ("Modeled") rather than its mechanism
-   ;; ("proxy") so it never collides with the unconfigured "Needs proxy" cue -
-   ;; a scanning trader can tell configured from unconfigured at a glance.
    :proxy-behavior "Modeled"})
 
 (def assumption-badge-tooltips
@@ -271,8 +255,6 @@
            (count rows))
          (get-in readiness [:request :history-assumptions instrument-id
                             :regression-series :observations])
-         ;; Excluded from alignment != no history: the pre-alignment served
-         ;; count keeps a full-history asset from ever badging "thin".
          (get-in readiness [:request :history
                             :served-observations-by-instrument instrument-id])
          (native-history-observations state instrument)))))
@@ -297,7 +279,6 @@
   otherwise take this branch and be shown the badge tooltip's promise that it is
   \"kept out of the shared daily window\" - a claim that would be false for it."
   [cadence]
-  ;; Span floor = the lane's own floor: a lane member is estimated natively.
   (boolean
    (and (:sparse? cadence)
         (:off-calendar? cadence)
@@ -320,8 +301,6 @@
                                    [(:instrument-id instrument) n])))
                          universe)
          max-obs (reduce max 0 (vals obs-by-id))
-         ;; Mirrors setup-readiness: a member the mixed-frequency path already
-         ;; estimates natively must not also be told it needs a proxy.
          off-calendar-ids (set (get-in readiness
                                        [:request :history
                                         :off-calendar-instrument-ids]))]
@@ -348,14 +327,9 @@
      (:missing :rejected) :none
      (:insufficient :shared-gap) :short
      (:queued :loading :pending) :pending
-     ;; :sufficient / :stale -> adequate unless the native history is below the bar.
      (let [observations (native-history-observations state readiness instrument)
            cadence (native-history-cadence readiness instrument)]
        (cond
-         ;; Checked BEFORE the row-count bar: a sparse member's row count is a
-         ;; sample count, not a day count, so comparing it to a ~1-year daily
-         ;; threshold is a category error (it is what produced the false
-         ;; "31 days of native history - too short to model on its own").
          (sparse-long-history? cadence) :sparse
 
          (and observations
@@ -380,8 +354,6 @@
     (some? (:behavior entry))
     :needs-assumptions
 
-    ;; Below the assumption-required threshold the run is blocked until the user
-    ;; configures the asset, so the badge escalates from Thin history.
     (and assumption-required? (not= :none adequacy))
     :needs-proxy
 
@@ -481,9 +453,6 @@
       (= :stale readiness-status)
       :stale
 
-      ;; A >= 7-day serve-time staleness is a refresh-pipeline incident, not the
-      ;; immaterial 1-2 day tail: it escapes the all-clear set and paints a
-      ;; visible amber "stale" chip.
       (= :stale-critical readiness-status)
       :stale-critical
 
@@ -573,9 +542,6 @@
                       (get-in state contracts/ui-universe-search-type-filter-path))
          quote-filter (universe-search/normalize-quote-filter
                        (get-in state contracts/ui-universe-search-quote-filter-path))
-         ;; `markets` is the RENDER-ORDERED, facet-filtered vector; active-index,
-         ;; market-keys and candidate-rows all derive from it so the cursor, the
-         ;; keydown handler's positional lookup and the row ids cannot drift.
          total-match-count (or (:total-match-count (meta query-markets))
                                (count query-markets))
          markets (universe-search/filter-markets query-markets
@@ -604,18 +570,12 @@
          candidate-rows* (mapv (fn [market idx]
                                 (let [row (candidate-row-model market idx active-index)]
                                   (merge row
-                                         ;; The flat render index travels WITH the
-                                         ;; row so grouping cannot desynchronize the
-                                         ;; DOM ids, the aria-activedescendant target
-                                         ;; and the positional market-keys lookup.
                                          {:index idx}
                                          (universe-search/row-search-fields
                                           row
                                           search-query))))
                               markets
                               (range))
-         ;; Same-stock guard: rows that duplicate a mix member, the confirm row,
-         ;; and the add-all batch with those twins removed.
          candidate-rows (universe-duplicates/annotate-candidate-rows state universe candidate-rows*)
          duplicate-summary (universe-duplicates/search-summary candidate-rows)
          addable-market-keys (universe-duplicates/addable-market-keys candidate-rows)
@@ -641,8 +601,6 @@
       :candidate-rows candidate-rows
       :active-index active-index
       :market-keys market-keys
-      ;; Design-1a search projection: facets, grouped render order and the counts
-      ;; that make the truncation visible instead of silent.
       :search-type-filter type-filter
       :search-quote-filter quote-filter
       :search-type-chips (universe-search/type-chips query-markets type-filter)
@@ -650,20 +608,13 @@
                                                        type-filter
                                                        quote-filter)
       :search-groups (universe-search/groups candidate-rows)
-      ;; From candidate-markets' metadata: the returned vector is already capped,
-      ;; so counting it would re-hide the truncation.
       :search-match-count total-match-count
       :search-shown-count (count markets)
-      ;; Counts the same set the chips describe, so the hit line can never
-      ;; contradict them; only the footer names both numbers.
       :search-match-label (universe-search/match-label (count query-markets))
       :search-footer-label (universe-search/footer-label (count markets)
                                                          total-match-count)
       :search-filtered? (or (not= :all type-filter)
                             (not= :all quote-filter))
-      ;; Where the current universe came from. :holdings carries the omission
-      ;; accounting recorded at load time; a non-empty universe with no recorded
-      ;; source (legacy drafts) reads as :custom.
       :universe-source (or (get-in draft [:metadata :universe-source])
                            (when (seq universe) {:kind :custom}))
       :no-importable-holdings? (when (empty? universe)

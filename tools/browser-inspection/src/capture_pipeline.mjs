@@ -359,7 +359,6 @@ export async function captureSnapshot(sessionManager, sessionId, options = {}) {
       try {
         stop();
       } catch (_err) {
-        // ignore
       }
     }
     await attached.cleanup();

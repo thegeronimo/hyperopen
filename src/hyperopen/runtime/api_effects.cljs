@@ -16,8 +16,6 @@
     (swap! store begin-asset-selector-load phase)
     (-> (request-asset-selector-markets-fn store opts*)
         (.then (fn [{:keys [phase spot-meta market-state]}]
-                 ;; The perp-only bootstrap phase carries no spot meta ({});
-                 ;; don't clobber restored/previously-fetched spot state with it.
                  (when (and apply-spot-meta-success (seq spot-meta))
                    (swap! store apply-spot-meta-success spot-meta))
                  (swap! store apply-asset-selector-success phase market-state)

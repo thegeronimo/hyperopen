@@ -36,11 +36,6 @@
                                  :draft-persist (get-in state
                                                         optimizer-contracts/draft-persist-path)
                                  :saving-scenario? saving-scenario?})
-     ;; Layer 1 run feedback: a sticky, full-width banner that keeps the live run
-     ;; state in the user's main field of attention regardless of scroll position
-     ;; or how long the right rail grows under Maximum Sharpe. It sits directly
-     ;; below the scenario header so it is never trapped in the right-rail scroll
-     ;; area. The right-rail progress/readiness panels remain as Layer 2 detail.
      (run-status-banner/run-status-banner {:optimization-progress optimization-progress
                                            :run-state run-state
                                            :draft draft})

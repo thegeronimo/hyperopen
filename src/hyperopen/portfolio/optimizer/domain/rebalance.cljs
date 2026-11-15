@@ -5,42 +5,21 @@
   25)
 
 (def max-extrapolated-slippage-bps
-  ;; Hard cap (10%) on the penalty charged to the portion of an order that overruns the
-  ;; visible book. Beyond the visible levels any point estimate is fiction: the previous
-  ;; unbounded fallback-x-overrun penalty produced >10,000 bp "estimates" on thin HIP-3
-  ;; books (a sell filling below zero). A capped estimate is an explicit LOWER BOUND --
-  ;; the cost map is flagged :estimate-floor? true so surfaces render it as ">= X".
   1000)
 
 (def twap-permanent-impact-fraction
-  ;; Fraction of one TWAP clip's book impact assumed PERMANENT (not recovered by book
-  ;; replenishment before the next suborder). 0.3 = 30% permanent / 70% temporary. Sets
-  ;; the TWAP model's asymptote: an infinitely sliced order still pays the spread plus
-  ;; half the permanent share (0.15x) of the one-shot impact.
   0.3)
 
 (def twap-suborder-interval-seconds
-  ;; FLOOR on venue suborder spacing, NOT a fixed cadence: since the 2026-08-01 upgrade
-  ;; Hyperliquid clips at most this often and stretches the gap rather than let a clip
-  ;; fall below min-order-notional-usd. Mirrors trading.core/twap-frequency-seconds;
-  ;; kept local (like min-order-notional-usd below) so this domain stays decoupled.
   30)
 
 (def twap-min-runtime-minutes
-  ;; Venue floor on TWAP runtime (the submit path clamps to (max 5 twap-min) as well).
   5)
 
 (def ^:private max-favorable-fill-deviation
-  ;; A marketable taker fill cannot beat the reference price by a wide margin. When an
-  ;; orderbook snapshot implies one (a stale or coin-mismatched book), the favorable
-  ;; delta would clamp to a deceptive 0 bp via (max 0 ...); instead we treat the estimate
-  ;; as untrusted and fall back. 0.005 = 50 bps.
   0.005)
 
 (def ^:private min-order-notional-usd
-  ;; Hyperliquid rejects orders below a $10 notional, and holds every TWAP CLIP to the
-  ;; same floor -- it spaces clips wider rather than breach it (twap-venue-suborder-count).
-  ;; Mirrors trading.core's scale-min-endpoint-notional / twap-min-suborder-notional.
   10)
 
 (defn- abs-num
@@ -142,8 +121,6 @@
           (if (not (pos? remaining))
             {:estimated-fill-price (/ notional filled)
              :depth-status :full-visible-depth}
-            ;; :worst-price = the marginal price where visibility ended (the last
-            ;; consumable level) -- the depth-limited penalty extrapolates from it.
             {:visible-size filled
              :visible-notional notional
              :worst-price worst-price
@@ -316,10 +293,6 @@
                   :depth-status :full-visible-depth})))
 
       (= :insufficient-visible-depth (:depth-status snapshot-fill))
-      ;; Overrun estimates are FLOORS, not point estimates: the penalty on the portion
-      ;; beyond the visible book is capped (see depth-limited-slippage-bps), so the
-      ;; number is a lower bound. :depth-overrun/:depth-coverage let surfaces disclose
-      ;; how much of the order the visible book actually covers.
       (let [{:keys [visible-size visible-notional]} snapshot-fill
             overrun (when (and (finite-positive? quantity)
                                (finite-positive? visible-size))
@@ -362,17 +335,8 @@
         fee-bps (or (get-in opts [:fee-bps-by-id instrument-id])
                     (:default-fee-bps opts)
                     0)
-        ;; Maker fee for the same notional: a resting (limit/passive) order fills as a
-        ;; maker, so the Execution tab can show the lower fee when a row is routed that way.
-        ;; A missing assumption is UNKNOWN, never 0: a resting row pays no spread or impact,
-        ;; so coercing its fee to zero would render a confident "$0.00 all-in" for a real
-        ;; order. Callers pass contracts.constants/maker-fee-bps; the keys stay off the cost
-        ;; map otherwise and the surfaces render "—".
         maker-fee-bps (:maker-fee-bps opts)
         notional (abs-num delta-notional-usd)
-        ;; Price cost (:slippage-bps) already bundles crossing the spread and walking the
-        ;; book, so split it at the touch: spread = touch vs mark, impact = the residual.
-        ;; nil when there is no real book to split against (flat fallback / prebaked).
         {:keys [spread-bps impact-bps]} (cost-split side reference-price slippage-bps touch-price)]
     (cond-> (merge context
                    {:source source
@@ -390,12 +354,6 @@
                                 :impact-bps impact-bps
                                 :spread-usd (* notional (/ spread-bps 10000))
                                 :impact-usd (* notional (/ impact-bps 10000))))))
-
-;; ── TWAP cost model ───────────────────────────────────────────────────────
-;; A TWAP order slices a parent order into suborders spaced over time, letting the book
-;; refill between clips -- so its estimated book impact must sit well below one full-size
-;; market order. Pure estimate-side counterparts of the venue mechanics in trading.core,
-;; whose clip spacing derives from BOTH the runtime and the notional since 2026-08-01.
 
 (defn twap-suborder-count
   "UPPER BOUND on a TWAP's clips: what the venue runs when every clip can sit at the
@@ -470,8 +428,6 @@
   [{:keys [rebalance-tolerance]} instrument price capital-usd delta-weight delta-notional-usd quantity]
   (cond
     (<= (abs-num delta-weight) (or rebalance-tolerance 0))
-    ;; Carry the band so downstream surfaces can say WHY the leg is skipped
-    ;; ("within 3.0 pp band") instead of a bare unexplained "skipped".
     {:status :within-tolerance
      :tolerance (or rebalance-tolerance 0)}
 
@@ -503,9 +459,6 @@
     {:status :ready}))
 
 (defn- excluded-row
-  ;; The optimizer expressed NO target for this held instrument (out of the optimized
-  ;; universe, dropped by the allocator, or spot excluded from the run). A missing
-  ;; target is not a 0% target: the row is held as-is, never staged as a sell-to-zero.
   [opts instrument-id current-weight]
   (let [instrument (get-in opts [:instruments-by-id instrument-id])]
     {:instrument-id instrument-id
@@ -568,7 +521,6 @@
   [opts row]
   (or (let [value (get-in opts [:leverage-by-id (:instrument-id row)])]
         (when (finite-positive? value) value))
-      ;; No explicit cap: charge at the account's real average leverage, not 1x.
       (:default-leverage opts)
       1))
 
@@ -595,7 +547,6 @@
     :else nil))
 
 (defn- account-effective-leverage
-  ;; Account average leverage; nil for an all-spot / no-position book (caller → 1x).
   [gross-usd margin-used-usd]
   (when (and (finite-positive? gross-usd) (finite-positive? margin-used-usd))
     (/ gross-usd margin-used-usd)))
@@ -605,15 +556,13 @@
   (when (finite-positive? capital-usd)
     (/ (or gross-usd 0) capital-usd)))
 
-(defn- ready-gross-delta-usd ;; Δgross from the ready (will-trade) rows.
+(defn- ready-gross-delta-usd
   [capital-usd ready-rows]
   (reduce + 0 (map (fn [{:keys [current-weight target-weight]}]
                      (* capital-usd (- (abs-num target-weight) (abs-num current-weight))))
                    ready-rows)))
 
 (defn- venue-leverage
-  ;; Venue lens (the trade page's Unified Account Leverage): perp-only notional ÷
-  ;; collateral, vs the portfolio lens above. nil when inputs are missing.
   [perp-gross-usd collateral-usd]
   (when (and (finite-number? perp-gross-usd)
              (finite-positive? collateral-usd))
@@ -656,7 +605,6 @@
                    target-weights)
         ready-rows (filter #(= :ready (:status %)) rows)
         capital-usd (:capital-usd opts)
-        ;; Account-wide current gross when supplied; else the universe rows' own gross.
         current-gross-usd (or (:current-gross-exposure-usdc opts)
                               (reduce + 0 (map #(* capital-usd (abs-num (:current-weight %))) rows)))
         opts (assoc opts :default-leverage

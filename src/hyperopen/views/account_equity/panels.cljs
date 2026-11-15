@@ -23,9 +23,6 @@
 (def ^:private unified-portfolio-value-tooltip
   "Total value of your spot holdings at current prices.")
 
-;; The venue turns the ratio red at 80%, well before the 95% at which a
-;; portfolio may actually be liquidated, so the colour is a warning rather
-;; than a verdict.
 (def ^:private unified-ratio-alert-threshold 0.8)
 
 (defn- unified-ratio-gauge-icon
@@ -121,8 +118,6 @@
     (when (number? outcome-shares-value)
       (metric-row "Outcome shares" (display-currency outcome-shares-value)
                   :tooltip "Outcome shares at the best bid, before the closing fee. Counted in the total; never buying power."))
-    ;; HyperEVM is included in the grouped total but remains separate here:
-    ;; it cannot margin a position, and this row keeps its Move action.
     (hyperevm-line hyperevm-line-model)]
 
    (if perp-venues
@@ -159,8 +154,6 @@
    (when show-funding-actions?
      (funding-actions-section state))
    [:div.text-sm.font-semibold.text-trading-text "Unified Account Summary"]
-   ;; Row order follows the venue's own panel so the two can be read side by
-   ;; side without hunting: ratio, portfolio value, PNL, maintenance, leverage.
    [:div.space-y-2
     (metric-row "Unified Account Ratio" (unified-ratio-value unified-account-ratio)
                 :tooltip unified-account-ratio-tooltip)

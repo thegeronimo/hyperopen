@@ -12,9 +12,6 @@
                            :size "6"
                            :twap {:minutes "90"}})
         schedule (feedback/twap-schedule state (get state :order-form) "BTC")]
-    ;; 6 BTC at the fixture's best ask of 101 is $606 of notional. The venue will not let a
-    ;; clip fall below $10, so it works this as 60 clips rather than the 181 a flat 30s
-    ;; cadence would imply, spacing them ~92s apart.
     (is (true? (:known? schedule)))
     (is (= "Buys" (:verb schedule)))
     (is (= 60 (:order-count schedule)))
@@ -27,8 +24,6 @@
                            :size "600"
                            :twap {:minutes "90"}})
         schedule (feedback/twap-schedule state (get state :order-form) "BTC")]
-    ;; $60,600 over 90 minutes clears the $10 clip floor at every 30s slot, so the spacing
-    ;; floor binds and the count is the classic 1 + 2*minutes.
     (is (= 181 (:order-count schedule)))
     (is (= "30 seconds" (:interval-phrase schedule)))))
 
@@ -37,8 +32,6 @@
                            :size ""
                            :twap {:minutes "1440"}})
         schedule (feedback/twap-schedule state (get state :order-form) "BTC")]
-    ;; No size means no notional, and without a notional the venue's spacing cannot be
-    ;; derived at all. The section says so in words rather than showing a bound.
     (is (false? (:known? schedule)))
     (is (nil? (:order-count schedule)))
     (is (nil? (:recap schedule)))
@@ -54,7 +47,6 @@
     (is (= "30 minutes" (phrase {:minutes "30"})))
     (is (= "1 minute" (phrase {:minutes "1"})))
     (is (= "4 hours" (phrase {:hours "4"})))
-    ;; A one-day run reads as twenty-four hours, which is how traders say it.
     (is (= "24 hours" (phrase {:days "1"})))
     (is (= "7 days" (phrase {:days "7"})))))
 
@@ -65,9 +57,7 @@
     (is (= :30m (:preset-key (schedule-for {:minutes "30"}))))
     (is (false? (:custom? (schedule-for {:minutes "30"}))))
     (is (= :1d (:preset-key (schedule-for {:days "1"}))))
-    ;; A runtime no preset covers falls to Custom, so a restored draft opens its fields.
     (is (true? (:custom? (schedule-for {:minutes "45"}))))
-    ;; And Custom stays pinned even when the value happens to match a preset.
     (is (true? (:custom? (schedule-for {:minutes "30" :custom-runtime? true}))))))
 
 (deftest twap-guards-summarise-themselves-when-collapsed-test
@@ -92,10 +82,8 @@
   (let [state (base-state {:type :twap :size "6"
                            :twap {:trigger-px "80" :stop-px "120"}})
         band (:band (feedback/twap-guards state (get state :order-form)))]
-    ;; The band reserves 11% at each end so an extreme level still reads as a marker.
     (is (= 11 (:trigger-pct band)))
     (is (= 89 (:stop-pct band)))
-    ;; The fixture's best ask of 101 sits between them.
     (is (< 11 (:mark-pct band) 89))
     (is (= "STARTS 80" (:trigger-label band)))
     (is (= "STOPS 120" (:stop-label band)))))
@@ -123,7 +111,6 @@
                      :schedule (feedback/twap-schedule sell form "BTC")
                      :guards (feedback/twap-guards sell form)})))))
 
-  ;; Every other order type keeps the voice catalog's label.
   (is (nil? (feedback/twap-submit-copy {:order-type :limit :schedule {} :guards {}})))
   (is (nil? (feedback/twap-submit-copy {:order-type :scale :schedule {} :guards {}}))))
 

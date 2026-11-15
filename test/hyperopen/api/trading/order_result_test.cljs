@@ -8,7 +8,6 @@
 (defn- states [res] (mapv :placement-state (:leg-results res)))
 
 (deftest mixed-statuses-preserve-each-leg-test
-  ;; Spec 13.4: one post-only rejection, six resting.
   (let [res (r/normalize-order-response
              legs
              (ok (into [{:error "Post only order would have immediately matched, bbo was 76.39@76.41. asset=10107"}]

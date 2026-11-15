@@ -95,18 +95,12 @@
                    (when (and (portfolio-routes/portfolio-route? route)
                               (seq (portfolio-actions/selected-portfolio-vault-benchmark-addresses state)))
                      [[:actions/load-vault-route route]])
-                   ;; The portfolio's Earn balance comes from the lending
-                   ;; user state, which belongs to the account just switched to.
                    (when (and (portfolio-routes/portfolio-route? route)
                               (seq (borrow-lend-actions/load-borrow-lend-route state route)))
                      [[:actions/load-borrow-lend-route route]])
-                   ;; The trade account panel's Earn tab, when it is the one shown.
                    (when (and (router/trade-route? route)
                               (= :earn (get-in state [:account-info :selected-tab])))
                      [[:actions/load-borrow-lend]])))
-      ;; Page load, URL restore and account switch all land here: the Vaults
-      ;; scope and the Vaults tab have nothing to show until the vault history
-      ;; is loaded for the shown account.
       (and (portfolio-routes/portfolio-route? route)
            (not (portfolio-routes/portfolio-optimize-route? route)))
       (into (vault-scope-load/load-effects

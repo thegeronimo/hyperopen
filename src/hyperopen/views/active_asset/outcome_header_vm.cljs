@@ -101,8 +101,6 @@
                        (:selected-outcome-option-label market))
         active-label (get [label-a label-b] index)
         active-quote (get quotes* index)
-        ;; The selected side's own change; a 0 previous-day price is a
-        ;; never-traded placeholder, not a reference (change-24h returns nil).
         delta (quotes/change-24h (get (market-sides market) index))
         clock (market-clock market)
         clock-kind (:kind clock)
@@ -115,8 +113,6 @@
                 (= :head-to-head (:outcome-shape market)) [(chance-entry label-a quote-a)
                                                           (chance-entry label-b quote-b)]
                 :else [(chance-entry label-a quote-a)])
-     ;; The selected answer's one chance number (a two-team game shows both
-     ;; in `:chances`).
      :chance-text (quotes/quote-text active-quote)
      :quote active-quote
      :quote-state (:state active-quote)

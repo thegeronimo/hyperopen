@@ -4,24 +4,6 @@
             [hyperopen.views.portfolio.optimize.format :as opt-format]
             [hyperopen.views.portfolio.optimize.results-summary :as summary]))
 
-(defn- binding-constraint-row
-  [labels-by-instrument binding]
-  [:div {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]}
-   [:span {:class ["font-semibold"]}
-    (results-model/instrument-label labels-by-instrument (:instrument-id binding))]
-   [:span {:class ["ml-2"]} (opt-format/keyword-label (:constraint binding))]])
-
-(defn- sensitivity-row
-  [labels-by-instrument [instrument-id row]]
-  [:div {:class ["optimizer-row"
-                 "rounded-md" "border" "border-base-300" "bg-base-200/40" "p-2" "text-xs"]
-         :data-role (str "portfolio-optimizer-sensitivity-row-" instrument-id)}
-   [:span {:class ["font-semibold"]} (results-model/instrument-label labels-by-instrument instrument-id)]
-   [:span {:class ["ml-2" "text-trading-muted"]}
-    (str "Base " (opt-format/format-pct (:base-expected-return row))
-         " / Down " (opt-format/format-pct (:down-expected-return row))
-         " / Up " (opt-format/format-pct (:up-expected-return row)))]])
-
 (defn- replace-all-text
   [text needle replacement]
   (let [needle* (str needle)
@@ -54,27 +36,6 @@
         (:instrument-label warning))
       (results-model/instrument-label labels-by-instrument instrument-id)))
 
-(defn- human-warning-label
-  [instrument-id label]
-  (when (and (string? label)
-             (seq label)
-             (not= label (str instrument-id)))
-    label))
-
-(defn- warning-primary-label
-  [labels-by-instrument warning]
-  (when-let [instrument-id (:instrument-id warning)]
-    (human-warning-label instrument-id
-                         (warning-label labels-by-instrument warning instrument-id))))
-
-(defn- prepend-warning-label
-  [message label]
-  (if (and (string? message)
-           (seq label)
-           (not (str/includes? message label)))
-    (str label ": " message)
-    message))
-
 (defn- warning-message-body
   [labels-by-instrument warning]
   (reduce (fn [message instrument-id]
@@ -85,11 +46,6 @@
                                              instrument-id)))
           (:message warning)
           (warning-instrument-ids warning)))
-
-(defn- warning-message
-  [labels-by-instrument warning]
-  (prepend-warning-label (warning-message-body labels-by-instrument warning)
-                         (warning-primary-label labels-by-instrument warning)))
 
 (defn- display-asset-label
   "Instrument label for text-only trust/warning copy. Falls back to the last
@@ -131,23 +87,6 @@
                        messages))]))
        (sort-by (comp str key) (group-by :code warnings))))
 
-(defn warning-row
-  [labels-by-instrument warning]
-  [:p {:class ["rounded-md" "border" "border-warning/40" "bg-warning/10" "p-2" "text-xs" "text-warning"]
-       :data-role "portfolio-optimizer-result-warning"}
-   [:span {:class ["font-semibold"]} (opt-format/keyword-label (:code warning))]
-   (when-let [message (warning-message labels-by-instrument warning)]
-     [:span {:class ["ml-2"]} (str " " message)])])
-
-(defn warnings-panel
-  [result]
-  (when (seq (:warnings result))
-    (summary/panel-shell
-     "portfolio-optimizer-result-warnings"
-     "Result Warnings"
-     "Warnings explain assumptions or mathematically valid outcomes that may require a rerun with different controls."
-     (warning-rows (:labels-by-instrument result) (:warnings result)))))
-
 (defn- format-net-gross
   "Signed net-to-gross percentage, or — when gross is zero/near zero (never a
   division by zero or a misleading percentage)."
@@ -157,47 +96,6 @@
     (let [r (/ net-exposure gross-exposure)]
       (str (when-not (neg? r) "+") (.toFixed (* 100 r) 1) "%"))
     "—"))
-
-(defn diagnostics-panel
-  [result]
-  (let [diagnostics (:diagnostics result)
-        labels-by-instrument (or (:labels-by-instrument result) {})
-        bindings (:binding-constraints diagnostics)
-        conditioning (:covariance-conditioning diagnostics)
-        sensitivity (:weight-sensitivity-by-instrument diagnostics)]
-    (summary/panel-shell
-     "portfolio-optimizer-diagnostics-panel"
-     "Diagnostics"
-     "Engine diagnostics are rendered from the run result, not recomputed in the view."
-     [:div {:class ["grid" "grid-cols-2" "gap-2" "lg:grid-cols-4"]}
-      (summary/summary-card "Gross" (opt-format/format-multiple (:gross-exposure diagnostics)))
-      (summary/summary-card "Net" (opt-format/format-multiple (:net-exposure diagnostics)))
-      (summary/summary-card "Net/Gross" (format-net-gross diagnostics))
-      (summary/summary-card "Effective N" (opt-format/format-decimal (:effective-n diagnostics)))
-      (summary/summary-card "Turnover" (opt-format/format-pct (:turnover diagnostics)))]
-     [:div {:class ["grid" "grid-cols-1" "gap-2" "lg:grid-cols-3"]}
-      (summary/summary-card "Condition" (opt-format/keyword-label (:status conditioning)))
-      (summary/summary-card "Condition #"
-                            (opt-format/format-decimal (:condition-number conditioning)))
-      (summary/summary-card "Min Eigen"
-                            (opt-format/format-decimal (:min-eigenvalue conditioning)))]
-     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]}
-      [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
-       "Binding Constraints"]
-      (if (seq bindings)
-        (into [:div {:class ["mt-2" "space-y-2"]}]
-              (map (partial binding-constraint-row labels-by-instrument) bindings))
-        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-         "No binding constraints reported."])]
-     [:div {:class ["rounded-lg" "border" "border-base-300" "bg-base-200/40" "p-3"]
-            :data-role "portfolio-optimizer-sensitivity-panel"}
-      [:p {:class ["text-[0.65rem]" "font-semibold" "uppercase" "tracking-[0.18em]" "text-trading-muted"]}
-       "Weight Sensitivity"]
-      (if (seq sensitivity)
-        (into [:div {:class ["mt-2" "space-y-2"]}]
-              (map (partial sensitivity-row labels-by-instrument) sensitivity))
-        [:p {:class ["mt-2" "text-xs" "text-trading-muted"]}
-         "No sensitivity diagnostics reported."])])))
 
 (defn- status-token
   [status]
@@ -367,9 +265,6 @@
        "How much to trust this"]]
      [:div {:class ["optimizer-diagnostics-list"]
             :data-role "portfolio-optimizer-diagnostics-panel"}
-      ;; Conditioning must never read "Healthy" while magnitude is failing: it
-      ;; is a RATIO of eigenvalues, so a scaled identity scores a perfect 1 at
-      ;; any scale. That is why 8,697.7% shipped next to "Healthy" (2026-08-23).
       (trust-row {:label "Conditioning"
                   :status (if implausible? :caution conditioning-status)
                   :value (cond
@@ -396,9 +291,6 @@
                   :value (history-window-value (:history-summary result))
                   :subtext (history-window-subtext result
                                                    (:history-summary result))})
-      ;; Equal Risk replaces the weight-based diversification read with the
-      ;; contribution-based one: how many positions HEDGE the book. A negative
-      ;; contributor is not an error and not the same thing as a short.
       (if-let [contributions (:risk-contributions result)]
         (trust-row {:label "Negative contributors"
                     :status :ok
@@ -481,7 +373,6 @@
   (let [tail (case next-step
                :refine-optimization " now, or refine for more density"
                :refine-further " now, or refine further"
-               ;; :none (maximum density) — refining is genuinely impossible.
                " now")
         subtext (if (= :none next-step)
                   "Frontier is at maximum density — nothing left to refine."

@@ -91,9 +91,6 @@
    (section-label "Show on card")
    (into [:div {:class ["flex" "flex-col" "gap-1"]}]
          (map (fn [{:keys [key label]}]
-                ;; Merged against the defaults rather than treated as on-unless-
-                ;; false: size and wallet default OFF, so a missing key must read
-                ;; as off, not on.
                 (let [on? (true? (get (merge (pnl-share-actions/default-options)
                                              (or options {}))
                                       key))]

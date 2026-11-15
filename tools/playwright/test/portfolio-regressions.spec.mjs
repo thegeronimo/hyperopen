@@ -79,9 +79,6 @@ const PORTFOLIO_LEDGER_FIXTURE = [
     delta: { type: "internalTransfer", coin: "HYPE", amount: "1" }
   },
   {
-    // Incoming: the seeded wallet is this delta's destination, so the row must
-    // render as a credit. The pre-parity table hardcoded every spot transfer
-    // negative regardless of direction.
     time: 1765529065000,
     hash: "0xspotin001",
     delta: {
@@ -472,7 +469,6 @@ async function stubPortfolioLedgerRows(page, rows, observedRequests = []) {
           return;
         }
       } catch {
-        // Let non-JSON requests continue.
       }
     }
     await route.continue();
@@ -562,7 +558,6 @@ async function stubPortfolioSummaryInfo(page, summaryByRange) {
           return;
         }
       } catch {
-        // Let non-JSON info requests follow the normal route.
       }
     }
     await route.continue();
@@ -725,7 +720,6 @@ async function stubOptimizerVaultMetadata(page, vaultSummaries = null) {
           return;
         }
       } catch {
-        // Let non-JSON info requests follow the normal route.
       }
     }
     await route.continue();
@@ -1296,9 +1290,6 @@ async function seedOptimizerFailedExecutionAttempt(page) {
       kw("history"), vector([ledger]),
       kw("error"), map([kw("message"), "Execution failed before any rows submitted."])
     ]);
-    // The v4 execution surface is a tab driven by the staged plan + run-state, so seed
-    // the staged plan and switch the results tab to Execution (the live halted flow keeps
-    // the plan; re-opening via the CTA would re-stage and clear the failed history).
     const planRow = map([
       kw("row-id"), "perp:BTC",
       kw("instrument-id"), "perp:BTC",
@@ -1436,7 +1427,6 @@ async function stubPortfolioUserFees(page, observedRequests = []) {
           return;
         }
       } catch {
-        // Let non-JSON info requests follow the normal route.
       }
     }
     await route.continue();
@@ -1447,8 +1437,6 @@ async function unroutePortfolioUserFees(page) {
   await page.unroute("**/info");
 }
 
-// Scroll `locator`'s nearest scrolling ancestor (the app's page scroller) so
-// its top sits at `top` px from the viewport's top; returns its rect.
 async function scrollElementTopTo(locator, top) {
   return locator.evaluate((element, targetTop) => {
     let scroller = document.scrollingElement;
@@ -1488,11 +1476,9 @@ test("portfolio route exposes deterministic interaction states @regression", asy
 test("portfolio optimizer route lands on the setup workspace with a scenario library @regression", async ({ page }) => {
   await visitRoute(page, "/portfolio/optimize");
 
-  // The bare path IS the workspace — the scenario-index board was removed.
   await expect(page.locator("[data-role='portfolio-optimizer-setup-route-surface']")).toBeVisible();
   await expect(page.locator("[data-role='portfolio-optimizer-index']")).toHaveCount(0);
 
-  // The header hosts the scenario library: menu trigger + always-available Save.
   await expect(page.locator("[data-role='portfolio-optimizer-header-save-scenario']")).toBeEnabled();
   await page.locator("[data-role='portfolio-optimizer-scenario-menu-trigger']").click();
   await expect(page.locator("[data-role='portfolio-optimizer-scenario-menu-new']"))
@@ -1509,8 +1495,6 @@ test("portfolio optimizer scenario menu recovers saved scenarios when the addres
   await seedPortfolioWalletAddress(page, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   await waitForIdle(page, { quietMs: 300, timeoutMs: 8_000, pollMs: 50 });
 
-  // Opening the menu reloads the index; the loader falls back to a full-store
-  // scan when the per-address index record is missing.
   await page.locator("[data-role='portfolio-optimizer-scenario-menu-trigger']").click();
   const savedRow = page.locator(
     `[data-role='portfolio-optimizer-scenario-row-${OPTIMIZER_RELOAD_SCENARIO_ID}']`
@@ -1552,7 +1536,6 @@ test("portfolio optimizer setup puts policy controls in the center pane @regress
     .toContainText("Optimization goal");
   await expect(page.locator("[data-role='portfolio-optimizer-return-risk-panel']"))
     .toContainText(/Return \/ Risk Model/);
-  // LEFT rail is universe-only now; the editable policy controls moved to the wide center pane.
   await expect.poll(async () => page
     .locator("[data-role='portfolio-optimizer-setup-control-rail']")
     .evaluate((rail) => Array.from(rail.children).map((child) => child.getAttribute("data-role"))))
@@ -1568,8 +1551,6 @@ test("portfolio optimizer setup puts policy controls in the center pane @regress
       "portfolio-optimizer-advanced-overrides-shell",
       "portfolio-optimizer-why-safe-note",
       "portfolio-optimizer-model-assumptions-stack",
-      // The Run bar is the LAST direct child of the pane so `position: sticky`
-      // can pin it to the viewport bottom (see setup_sections/policy-pane).
       "portfolio-optimizer-setup-bottom-actions"
     ]);
 });
@@ -1588,8 +1569,6 @@ test("portfolio optimizer setup turnover cap switch disables and restores cap @r
 
   await expect.poll(async () => constraintsPanel.evaluate((element) => element.open)).toBe(true);
   await expect(constraintsPanel.locator("> summary")).toContainText("Portfolio exposure");
-  // The turnover controls live behind the Rebalancing card's Edit disclosure
-  // (2026-07-10 simplified default view).
   const rebalancingCard = page.locator("[data-role='portfolio-optimizer-rebalancing-card']");
   if (!(await rebalancingCard.evaluate((element) => element.open))) {
     await rebalancingCard.locator("> summary").click();
@@ -1689,9 +1668,6 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect.poll(async () => constraintsPanel.evaluate((element) => element.open)).toBe(true);
   await expect.poll(async () => advancedPanel.evaluate((element) => element.open)).toBe(false);
   await expect(returnModelPanel).toBeHidden();
-  // Since the 2026-07-10 quieter-by-default pass the per-asset cap rests as a
-  // read-only value on the Risk guards card; the editable input appears only
-  // after the card's Edit disclosure opens.
   await expect(maxAssetWeight).toBeHidden();
   await expect(page.locator("[data-role='portfolio-optimizer-risk-guards-cap-value']"))
     .toContainText("50%");
@@ -1705,10 +1681,6 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await expect(summaryPane.locator("[data-role='portfolio-optimizer-setup-bottom-actions']"))
     .toBeVisible();
   await expect(assumptionsPanel).toBeVisible();
-  // The Run bottom bar lives in the CENTER policy pane as its LAST direct child (after the
-  // model-assumptions stack), where `position: sticky; bottom: 0` pins it to the viewport while
-  // the tall pane scrolls — expanding Constraints can no longer push Run below the fold. The
-  // placement is also pinned by the setup-run-action unit test.
   await expect.poll(async () => page
     .locator("[data-role='portfolio-optimizer-model-assumptions-stack']")
     .evaluate((stack) => Array.from(stack.children).map((child) => child.getAttribute("data-role"))))
@@ -1803,10 +1775,6 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
     input.evaluate((element) => element.scrollWidth <= element.clientWidth + 1);
 
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "false");
-  // Selecting the Maximum Sharpe goal now carries its return-model pairing: it
-  // activates the views-aware Black-Litterman estimator in one move, the way the
-  // retired top-of-page preset did. (Before consolidation the objective card set
-  // only the objective and left the estimator on Historical mean.)
   await expect(blackLitterman).toHaveAttribute("aria-pressed", "false");
   await maxSharpe.click();
   await expect(maxSharpe).toHaveAttribute("aria-pressed", "true");
@@ -1829,14 +1797,8 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(maxAssetWeight).toHaveValue("0.3");
 
-  // The advanced targets live behind the collapsed "More goals" drawer since
-  // the goal consolidation; open it before selecting one.
   await page.locator("[data-role='portfolio-optimizer-more-goals'] summary").click();
 
-  // Equal Risk is the parameterless third PRIMARY goal card (between Minimum
-  // risk and Maximum Sharpe, above the More-goals drawer): selecting it flips
-  // the card, sets only the objective (no return-model change, no parameter
-  // block), and its covariance-only framing is stated on the card itself.
   const equalRiskObjective = page.locator("[data-role='portfolio-optimizer-objective-equal-risk']");
   await expect(equalRiskObjective)
     .toContainText("Balance each position's share of portfolio risk");
@@ -1865,12 +1827,6 @@ test("portfolio optimizer setup exposes separate model layers @regression", asyn
 });
 
 test("portfolio optimizer universe search uses one integrated shell @regression", async ({ page }) => {
-  // Four full route visits, each followed by forced-layout reads (getComputedStyle
-  // + getBoundingClientRect on five elements). The universe search results list
-  // now renders facet chips, grouped rows and a footer while data-searching is
-  // true, so those synchronous layout reads walk a larger DOM and this test sits
-  // right at the old 45s budget. The panel itself projects and renders in ~1.4ms
-  // (measured in-browser), so this is test structure, not a UI regression.
   test.setTimeout(90_000);
 
   const reviewViewports = [
@@ -2063,7 +2019,6 @@ test("portfolio optimizer vault search hydrates cached rows before live index co
           return;
         }
       } catch {
-        // Let non-JSON info requests follow the normal route.
       }
     }
     await route.continue();
@@ -2127,9 +2082,6 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
 
   await expect(vaultRow).toBeVisible();
   await expect(vaultRow).toContainText("Alpha Yield");
-  // The per-row type tag was replaced by a sticky per-type group header: with a
-  // full, grouped result list the type is stated once per section instead of
-  // being repeated on every row of a narrow rail.
   await expect(
     page.locator("[data-role='portfolio-optimizer-universe-candidate-group-header-vault']")
   ).toContainText("Vaults");
@@ -2138,15 +2090,7 @@ test("portfolio optimizer manual universe builder adds and removes vaults @regre
 
   await expect(vaultSelected).toBeVisible();
   await expect(vaultSelected).toContainText("Alpha Yield");
-  // PRE-EXISTING RED, fixed here in passing: the selected table renders its TYPE
-  // column by exception, so a universe holding a single market type (this one
-  // holds only the vault) renders no per-row type tag at all. This assertion has
-  // been failing on main since that by-exception column shipped — Playwright is
-  // workflow_dispatch-only, so nothing caught it. Assert the 4-track variant the
-  // by-exception path actually produces.
   await expect(vaultSelected).toHaveClass(/optimizer-universe-cols-4/);
-  // The verbose center summary panel is gone; the compact right-column summary card shows the
-  // asset COUNT and must never leak the raw vault address/id.
   await expect(page.locator("[data-role='portfolio-optimizer-setup-summary-card']"))
     .toContainText("assets");
   await expect(page.locator("[data-role='portfolio-optimizer-setup-summary-card']"))
@@ -2175,9 +2119,6 @@ test("portfolio optimizer selected vault rows show shared gap for loaded misalig
   );
 
   await expect(vaultARow).toBeVisible();
-  // Per-row data-quality chips were removed (2026-07-02 setup readability pass):
-  // the grouped Readiness panel carries the visible copy, and the row keeps only
-  // the data-history-status hook.
   await expect(vaultARow).not.toContainText("shared gap");
   await expect(vaultARow).toHaveAttribute("data-history-status", "shared-gap");
 });
@@ -2581,18 +2522,6 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   const standaloneFrontierPath = await frontierPath.getAttribute("d");
   await constrainFrontierCheckbox.check();
   await expect(constrainFrontierCheckbox).toBeChecked();
-  // The constrained and standalone frontier paths are identical here BY DESIGN,
-  // not by coincidence: this scenario has no held-position locks, and the
-  // optimizer's reference ("unconstrained") frontier deliberately aliases the
-  // constrained frontier whenever there are no locks (see
-  // src/hyperopen/portfolio/optimizer/application/display_frontier.cljs —
-  // reference-frontier-constraints, :aliases {:constrained :unconstrained}). So
-  // we do NOT assert the constrained path differs from the standalone one — a
-  // genuine difference only arises for runs WITH held-position locks. The
-  // boolean -> [:frontiers key] -> rendered-path selection is covered directly
-  // and deterministically in frontier_chart_model_test. Here we assert the
-  // toggle keeps a valid multi-segment frontier and round-trips deterministically
-  // in both directions, the meaningful view-level guarantee for this fixture.
   await expect(frontierPath).toBeVisible();
   await expect.poll(async () => await frontierPath.getAttribute("d"))
     .toMatch(/\bL\b/);
@@ -2602,8 +2531,6 @@ test("portfolio optimizer recommendation chart shows minimum variance frontier o
   await expect(constrainFrontierCheckbox).toHaveCSS("box-shadow", "none");
   await expect.poll(async () => await frontierPath.getAttribute("d"))
     .toBe(standaloneFrontierPath);
-  // Re-checking returns to the constrained rendering, proving the toggle is a
-  // pure, deterministic function of its state in both directions.
   await constrainFrontierCheckbox.check();
   await expect(constrainFrontierCheckbox).toBeChecked();
   await expect.poll(async () => await frontierPath.getAttribute("d"))
@@ -2828,7 +2755,6 @@ test("portfolio optimizer saves draft scenarios under durable ids and reloads th
   ]);
   await waitForIdle(page, { quietMs: 300, timeoutMs: 8_000, pollMs: 50 });
 
-  // Saved scenarios list inside the workspace-header Scenarios menu now.
   await page.locator("[data-role='portfolio-optimizer-scenario-menu-trigger']").click();
   const savedRow = page.locator(`[data-role='portfolio-optimizer-scenario-row-${savedScenarioId}']`);
   await expect(savedRow).toContainText("May Rotation");
@@ -2898,16 +2824,11 @@ test("portfolio optimizer execution remains read-only in Spectate Mode @regressi
   await visitRoute(page, "/portfolio/optimize");
   await seedPersistedOptimizerTrackingScenario(page);
   await visitRoute(page, `/portfolio/optimize/${OPTIMIZER_RELOAD_SCENARIO_ID}`);
-  // The standalone Rebalance preview tab/card was retired — the rebalance stages straight
-  // into Execution. Reach Execution directly; the plan is rebuilt on tab entry, so spectate
-  // must be enabled first for the read-only message to bake into it.
   await enableOptimizerSpectateMode(page);
   await selectOptimizerScenarioTab(page, "execution");
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
   const tab = page.locator("[data-role='portfolio-optimizer-execution-tab']");
-  // Renamed from "Account leverage after" by the gross/venue leverage-lens
-  // reconciliation (2026-07-06).
   await expect(tab).toContainText("Gross leverage after");
   await expect(tab).toContainText(
     "Spectate Mode is read-only. Stop Spectate Mode to place trades or move funds."
@@ -2927,7 +2848,6 @@ test("portfolio optimizer execution surfaces failed attempt recovery details @re
       assetPositions: []
     }
   });
-  // seeds the staged plan + failed run-state + switches to the Execution tab in-place
   await seedOptimizerFailedExecutionAttempt(page);
 
   const band = page.locator("[data-role='portfolio-optimizer-execution-control-band']");
@@ -2953,10 +2873,6 @@ test("portfolio volume history opens near the metric card trigger @regression", 
 
   await expect(popover).toHaveCount(0);
   await expect(trigger).toBeVisible();
-  // Anchoring is checked with the trigger in the upper half of the viewport,
-  // where the popover has room below it. (With an account shown the funds
-  // strip puts the trigger near the bottom of a 375x812 viewport; that
-  // clamped case has its own test below.)
   const { top: triggerTop } = await scrollElementTopTo(trigger, 200);
   expect(triggerTop).toBeLessThan(812 / 2);
   await trigger.click();
@@ -3008,12 +2924,6 @@ test("portfolio volume history opens near the metric card trigger @regression", 
 });
 
 test("portfolio volume history opened from a low trigger is clamped fully into view at 375 px @regression", async ({ page }) => {
-  // The anchored popover never flips above its anchor: on a phone it is a
-  // full-width overlay whose top follows the trigger's (on a HEAD build
-  // without the funds strip it opens at y=284 over a trigger at y=288), and
-  // near the bottom of the viewport it is clamped up to fit, still over the
-  // trigger. This pins that clamp: wholly on screen, against the bottom
-  // margin rather than pinned to the top.
   await page.setViewportSize({ width: 375, height: 812 });
   await stubPortfolioUserFees(page);
   await visitRoute(page, "/portfolio");
@@ -3022,14 +2932,12 @@ test("portfolio volume history opened from a low trigger is clamped fully into v
   const trigger = page.locator("[data-role='portfolio-volume-history-trigger']");
   const popover = page.locator("[data-role='portfolio-volume-history-popover']");
   await expect(trigger).toBeVisible();
-  // As low as the fixed mobile nav lets a finger reach it.
   const height = await trigger.evaluate((element) => element.getBoundingClientRect().height);
   const triggerBox = await scrollElementTopTo(trigger, 812 - 72 - height);
   expect(triggerBox.top).toBeGreaterThan(812 * 0.75);
   await trigger.click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 3_000, pollMs: 50 });
   await expect(popover).toBeVisible();
-  // Measured once the 14 day rows are in, at the height the layout estimates.
   await expect(page.locator("[data-role='portfolio-volume-history-day-row']")).toHaveCount(14);
   await expect(popover).toContainText("Your 14 day maker volume share is 7.63%");
 
@@ -3053,8 +2961,6 @@ test("portfolio volume history opened from a low trigger is clamped fully into v
 test("portfolio volume history follows the spectated account user fees @regression", async ({ page }) => {
   const observedUserFeesRequests = [];
   await stubPortfolioUserFees(page, observedUserFeesRequests);
-  // Opened without visitRoute; the shared guard's context-level mock answers
-  // the HyperEVM balance poller that spectating starts.
   await page.goto(`/portfolio?spectate=${SPECTATE_ADDRESS}`);
   await waitForDebugBridge(page);
   await waitForIdle(page, { quietMs: 200, timeoutMs: 8_000, pollMs: 50 });
@@ -3190,7 +3096,6 @@ test("portfolio account activity tab renders sub-tabbed ledger history @regressi
     ]) {
       await expect(table).toContainText(header);
     }
-    // The pre-parity column names must be gone.
     await expect(table).not.toContainText("Account Value Change");
 
     await expect(table).toContainText("Deposit");
@@ -3203,14 +3108,11 @@ test("portfolio account activity tab renders sub-tabbed ledger history @regressi
     await expect(table).toContainText("-10 USDC");
     await expect(table).toContainText("+2670.03 HYPE");
     await expect(table).toContainText("-1 HYPE");
-    // Incoming spot transfer: a credit, valued from the payload's usdcValue.
     await expect(table).toContainText("+5 HYPE");
     await expect(table).toContainText("$212.50");
 
     await expect(table.locator("a[aria-label='Open transaction in Hyperliquid explorer']"))
       .toHaveCount(5);
-    // Every column header sorts; with five rows the pagination footer stays hidden,
-    // so no other control may appear inside the table.
     await expect(table.locator("button")).toHaveCount(10);
     await expect(table.locator("input, select, textarea")).toHaveCount(0);
     await expect(page.locator("[data-role='portfolio-funding-action-deposit']")).toHaveCount(0);
@@ -3239,14 +3141,12 @@ test("portfolio account activity tab renders sub-tabbed ledger history @regressi
   await page.setViewportSize(PORTFOLIO_LEDGER_REVIEW_VIEWPORTS[0]);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
 
-  // Selecting a sub-tab filters to that type only.
   await page.locator("[data-role='account-activity-sub-tab-vaults']").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(table).toContainText("Vault Deposit");
   await expect(table).not.toContainText("Genesis Distribution");
   await expect(table).not.toContainText("+100 USDC");
 
-  // Spot Transfers hides the Action and Destination columns, per the reference.
   await page.locator("[data-role='account-activity-sub-tab-spot-transfers']").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(table).toContainText("+5 HYPE");
@@ -3254,12 +3154,10 @@ test("portfolio account activity tab renders sub-tabbed ledger history @regressi
   await expect(table).not.toContainText("Destination");
   await expect(table.locator("button")).toHaveCount(8);
 
-  // A sub-tab with no matching rows says so rather than rendering an empty grid.
   await page.locator("[data-role='account-activity-sub-tab-staking']").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(table).toContainText("No Staking");
 
-  // All is a genuine superset: every row is reachable again.
   await page.locator("[data-role='account-activity-sub-tab-all']").click();
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
   await expect(table).toContainText("Genesis Distribution");
@@ -3658,7 +3556,6 @@ test("portfolio positions coin jumps to the trade route market @regression", asy
           return;
         }
       } catch {
-        // Let non-JSON requests continue.
       }
     }
     await route.continue();

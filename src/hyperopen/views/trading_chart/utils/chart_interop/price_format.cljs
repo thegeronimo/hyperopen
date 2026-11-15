@@ -17,7 +17,6 @@
 
 (defn- min-move-for-decimals
   [decimals]
-  ;; Normalize IEEE-754 drift from Math.pow for deterministic minMove values.
   (js/parseFloat (.toFixed (js/Math.pow 10 (- decimals)) decimals)))
 
 (defn- commaized-price-formatter
@@ -42,9 +41,6 @@
                                (clj->js (price-unit/format-ticks (vec (array-seq values)) opts)))}))
 
 (defonce ^:private unit-price-formats
-  ;; {[unit decimals] format}: one object per pair, so a candle tick hands
-  ;; the series (and the price-pane indicators) the identical format and
-  ;; their identity guards skip `applyOptions`. At most 2 units x 13 decimals.
   (atom {}))
 
 (defn unit-price-format

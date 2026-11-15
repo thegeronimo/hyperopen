@@ -6,9 +6,6 @@
             [hyperopen.portfolio.optimizer.defaults :as defaults]))
 
 (defn- clear-stale-refinement
-  ;; A non-refine run (Rerun / auto-recompute) drops back to draft density and dismisses
-  ;; any lingering before/after baseline. The refine action sets :active? true just before
-  ;; emitting the pipeline effect, so a refine run keeps its higher-density override.
   [state]
   (if (get-in state contracts/refinement-active-path)
     state

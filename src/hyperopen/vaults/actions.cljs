@@ -13,37 +13,8 @@
             [hyperopen.vaults.screener.optimizer-handoff :as optimizer-handoff]
             [hyperopen.vaults.screener.view-commands :as view-commands]))
 
-(def default-vault-snapshot-range ui-state/default-vault-snapshot-range)
-(def default-vault-sort-column ui-state/default-vault-sort-column)
-(def default-vault-sort-direction ui-state/default-vault-sort-direction)
-(def default-vault-user-page-size ui-state/default-vault-user-page-size)
-(def default-vault-user-page ui-state/default-vault-user-page)
-(def default-vault-detail-tab ui-state/default-vault-detail-tab)
-(def default-vault-detail-activity-tab ui-state/default-vault-detail-activity-tab)
-(def default-vault-detail-activity-direction-filter
-  ui-state/default-vault-detail-activity-direction-filter)
-(def default-vault-detail-activity-sort-direction
-  ui-state/default-vault-detail-activity-sort-direction)
-(def default-vault-detail-chart-series ui-state/default-vault-detail-chart-series)
-(def default-vault-transfer-mode transfer-policy/default-vault-transfer-mode)
-(def vault-user-page-size-options ui-state/vault-user-page-size-options)
-
-(def non-blank-text identity/non-blank-text)
-(def normalize-vault-address identity/normalize-vault-address)
-(def normalize-vault-route-path routes/normalize-vault-route-path)
 (def parse-vault-route routes/parse-vault-route)
-(def normalize-vault-snapshot-range ui-state/normalize-vault-snapshot-range)
-(def normalize-vault-sort-column ui-state/normalize-vault-sort-column)
-(def normalize-vault-detail-tab ui-state/normalize-vault-detail-tab)
-(def normalize-vault-detail-activity-tab ui-state/normalize-vault-detail-activity-tab)
-(def normalize-vault-detail-activity-direction-filter
-  ui-state/normalize-vault-detail-activity-direction-filter)
-(def normalize-vault-detail-chart-series ui-state/normalize-vault-detail-chart-series)
-(def normalize-vault-transfer-mode transfer-policy/normalize-vault-transfer-mode)
 (def default-vault-transfer-modal-state transfer-state/default-vault-transfer-modal-state)
-(def vault-transfer-deposit-allowed? transfer-policy/vault-transfer-deposit-allowed?)
-(def normalize-vault-user-page-size ui-state/normalize-vault-user-page-size)
-(def normalize-vault-user-page ui-state/normalize-vault-user-page)
 (def load-vaults route-loading/load-vaults)
 (def load-vault-detail route-loading/load-vault-detail)
 (def set-vaults-search-query list-commands/set-vaults-search-query)

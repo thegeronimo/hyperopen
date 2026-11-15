@@ -45,7 +45,6 @@
         (if (== rounded -0)
           0
           rounded))
-      ;; Hyperliquid chart rounds account-value and pnl points to integers before plotting.
       (if (zero? value)
         0
         (js/parseInt (.toFixed value 0) 10)))))

@@ -113,7 +113,6 @@
     (is (= ["perp:SOL" "perp:xyz:NVDA" "perp:ETH" "perp:xyz:NVDL"] (universe-ids effects)))))
 
 (deftest draft-popover-add-and-run-is-not-guarded-test
-  ;; The results-page add-asset popover renders no confirm, so it must add.
   (let [effects (actions/add-portfolio-optimizer-universe-instrument-and-run
                  (state) "perp:flx:NVDA")]
     (is (some #(= "perp:flx:NVDA" %) (universe-ids effects)))))

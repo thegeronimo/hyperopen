@@ -52,8 +52,6 @@
    :optimizer-history/instrument-id (str "hl:perp:" coin)})
 
 (def ^:private vault-instrument
-  ;; NO :optimizer-history/instrument-id - vaults are not discovered by the
-  ;; backend, which is exactly why they route through the legacy fallback.
   {:instrument-id vault-id
    :market-type :vault
    :coin vault-id
@@ -75,10 +73,6 @@
                      :status "ok"
                      :common_calendar (mapv #(+ d0 (* % day-ms)) (range 400))
                      :return_calendar (mapv #(+ d0 (* % day-ms)) (range 1 400))
-                     ;; Populated so `use-aligned?` CAN be true - that is what
-                     ;; makes the :api-v2-aligned-returns assertion below a real
-                     ;; test of the legacy-fallback-used? narrowing rather than a
-                     ;; tautology.
                      :aligned_returns_by_instrument
                      {"hl:perp:BTC" {:instrument_id "hl:perp:BTC"
                                      :returns (mapv #(/ 1 (+ 99 %)) (range 1 400))}
@@ -157,13 +151,9 @@
 
 (deftest sparse-lane-floors-hold-test
   (testing "below the observation floor the member stays ON the calendar (today's behaviour)"
-    ;; 29 samples over 377 days: sparse, spans plenty, but under the 30-sample
-    ;; floor that is pinned to the readiness assumption gate.
     (let [aligned (align (sparse-points 29 13))]
       (is (nil? (:off-calendar-instrument-ids aligned)))))
   (testing "a young dense listing is never swept into the lane"
-    ;; 20 daily bars: this is the shape that caused the 2026-07-08 whole-universe
-    ;; poisoning, and it must keep going through the existing peel path.
     (let [aligned (align (sparse-points 20 1))]
       (is (nil? (:off-calendar-instrument-ids aligned))))))
 

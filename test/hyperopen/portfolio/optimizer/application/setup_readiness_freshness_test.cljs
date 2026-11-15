@@ -37,10 +37,6 @@
           [:request :history :freshness]))
 
 (deftest build-readiness-defaults-history-staleness-threshold-test
-  ;; Regression: with no runtime :stale-after-ms override, freshness had no
-  ;; threshold and stamped stale? false regardless of calendar age — a live
-  ;; min-variance run optimized on a 22-day-old shared window with no
-  ;; run-level stale signal. The week-long calendar default must apply.
   (let [stale (request-freshness {:as-of-days 81 :stale-after-ms nil})
         fresh (request-freshness {:as-of-days 61 :stale-after-ms nil})
         overridden (request-freshness {:as-of-days 81

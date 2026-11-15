@@ -29,7 +29,6 @@
                :feeToken "USDC" :builderFee "0" :crossed false})
 
 (deftest a-fill-is-counted-once-across-snapshots-and-increments-test
-  ;; VR-14
   (let [g (resting-response (grid))
         ingest #(evidence/ingest-fills %1 {:network :hyperliquid-mainnet :account-address "0xABC"
                                            :rows %2 :received-at-ms 3000})
@@ -45,7 +44,6 @@
           "and it is not this grid's fill at all"))))
 
 (deftest evidence-for-another-account-or-market-is-ignored-test
-  ;; VR-18
   (let [g (grid)
         snap {:account-address "0xdef" :requested-at-ms 5000 :received-at-ms 5001 :complete? true
               :open-orders [{:coin "SYN/USDC" :cloid c1 :oid 11 :sz "7" :origSz "7"}]}]
@@ -76,7 +74,6 @@
     (is (= :accepted (get-in g [:legs c1 :placement-state])))))
 
 (deftest unrecognized-response-leaves-legs-unknown-test
-  ;; VR-12 through the lifecycle: an unfamiliar entry is never success.
   (let [g (evidence/apply-placement-delivery (grid) "op"
                                              {:delivery :response
                                               :leg-results [{:cloid c1 :placement-state :unknown}
@@ -163,10 +160,6 @@
     (testing "a ladder placed before settings were recorded stays without them"
       (is (not (contains? (recovery/merge-grids (grid) (resting-response (grid))) :settings))))))
 
-;; ---------------------------------------------------------------------------
-;; Replacement over a frozen membership (spec 10.2, 13.4)
-;; ---------------------------------------------------------------------------
-
 (def c3 "0x484f5652000000000000000000000003")
 (def c4 "0x484f5652000000000000000000000004")
 
@@ -207,14 +200,11 @@
 
 (deftest frozen-basis-counts-only-the-frozen-legs-test
   (let [before (-> (three-leg-grid)
-                   ;; Canceled from Open Orders before the update started.
                    (evidence/apply-order-statuses [(canceled-status "14" "10" "10")] 3000)
-                   ;; 2 of sell-0 filled before the update started.
                    (ingest [(fill 1 "2" 2500)] 3000))
         frozen {:frozen-cloids (lifecycle/replace-membership before)
                 :filled-at-freeze {c1 "0" c2 "2"}}
         after (-> before
-                  ;; 3 more fill while the cancel is pending, then both cancels land.
                   (ingest [(fill 2 "3" 3500)] 4000)
                   (evidence/apply-order-statuses [(canceled-status "11" "7" "7") (canceled-status "12" "5" "10")]
                                                  5000)
@@ -239,7 +229,6 @@
                                                      (canceled-status "14" "10" "10")]
                                                     5000)
                      (lifecycle/note-fills-read 9000))
-        ;; c4 was not in the freeze (say, a repair from another tab) and is still open.
         open-extra (update-in canceled [:legs c4] assoc :order-state :resting :terminal-reason nil)]
     (is (:ready? (lifecycle/replacement-basis canceled frozen)))
     (is (= {:buy "7" :sell "10"} (:remaining (lifecycle/replacement-basis canceled frozen)))

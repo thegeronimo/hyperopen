@@ -32,8 +32,6 @@
     (if submitting?
       (or submitting-label "Submitting...")
       (or submit-label "Place Order"))]
-   ;; A one-line recap of anything the button's own label cannot carry -- today the TWAP
-   ;; price guards. Sits above the metrics divider so it reads as part of the action.
    (when (seq submit-recap)
      [:div {:class ["mt-1" "text-center" "text-ho-text-dim"]
             :style {:font-size "11px"}}
@@ -164,7 +162,6 @@
                                 liquidation-tooltip)])
       [(primitives/metric-row "Order Value"
                               (:order-value display))]
-      ;; Margin Required is perp-only; hidden for spot.
       (when show-margin-row?
         [(primitives/metric-row "Margin Required"
                                 (:margin-required display))])

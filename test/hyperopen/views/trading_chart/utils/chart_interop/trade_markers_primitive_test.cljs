@@ -2,7 +2,6 @@
   (:require [cljs.test :refer-macros [deftest is testing]]
             [hyperopen.views.trading-chart.utils.chart-interop.trade-markers-primitive :as primitive]))
 
-;; time t -> x = t / 10 ; price p -> y = 1000 - 10p  (CSS px)
 (def ^:private env
   {:time->x (fn [t] (when (some? t) (/ t 10)))
    :price->y (fn [p] (when (number? p) (- 1000 (* 10 p))))
@@ -128,9 +127,7 @@
                                                :open-ended? true}]})
     (paint! prim calls {:height 500})
     (let [rects (filter #(= :fillRect (first %)) @calls)]
-      ;; each segment: a 6 px tinted band + a 2 px top edge, flush with the bottom
       (is (= [[:fillRect 100 494 100 6] [:fillRect 100 494 100 2]
-              ;; open-ended: extends half a bar (7 px) past the last candle
               [:fillRect 300 494 107 6] [:fillRect 300 494 107 2]]
              (vec rects))))))
 

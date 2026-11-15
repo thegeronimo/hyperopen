@@ -169,10 +169,6 @@
   [scenario-id scenario]
   (put-encoded-record! (scenario-key scenario-id) scenario))
 
-(defn delete-scenario!
-  [scenario-id]
-  (delete-record! (scenario-key scenario-id)))
-
 (defn load-tracking!
   [scenario-id]
   (get-encoded-record! (tracking-key scenario-id)))
@@ -204,10 +200,6 @@
 (defn save-history-cache!
   [address record]
   (put-encoded-record! (history-cache-key address) record))
-
-(defn delete-history-cache!
-  [address]
-  (delete-record! (history-cache-key address)))
 
 (defn load-assumption-library!
   [address]

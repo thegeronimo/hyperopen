@@ -195,9 +195,6 @@
     (some (fn [balance]
             (when (or (token-match? token (balance-token balance))
                       (token-match? token (balance-symbol balance))
-                      ;; A selected `NAME:0x<hash>` wire token id never equals a
-                      ;; balance row's own fields, which carry a numeric token
-                      ;; index and a bare coin name, so compare its symbol too.
                       (token-match? (token-symbol token) (balance-symbol balance)))
               balance))
           (balances spot-state*))))

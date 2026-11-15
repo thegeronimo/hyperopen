@@ -144,7 +144,6 @@
   (let [base-deps (startup-base-deps system)
         store (:store base-deps)
         dispatch! (:dispatch! base-deps)]
-    ;; Rebind listener-held handlers without replaying startup fetch/bootstrap work.
     (when (some? store)
       (init-router! store
                     {:skip-route-set? true
@@ -207,12 +206,6 @@
                   (not (surface-modules/surface-loading? state :account-surfaces)))
              (conj [:effects/load-surface-module :account-surfaces])
 
-             ;; Several routes render spot instruments whose readable names and
-             ;; wire token ids only resolve from the full (spot-inclusive) market
-             ;; catalog. Bootstrap loads perps only, so request the full catalog
-             ;; as a demand path here. Deferred on the initial route change
-             ;; (handled by the post-render :idle bucket) to keep it out of the
-             ;; paint window.
              (and (not defer-account-surfaces?)
                   (route-refresh/spot-catalog-markets-needed? state normalized-path))
              (conj [:effects/fetch-asset-selector-markets {:phase :full}])
@@ -248,11 +241,6 @@
             (not (surface-modules/surface-loading? state :account-surfaces)))
        (conj [:effects/load-surface-module :account-surfaces])
 
-       ;; Initial-load counterpart to the demand path in `route-change-effects`:
-       ;; pull the full (spot-inclusive) market catalog after first paint so spot
-       ;; coins resolve to readable names (e.g. @230 -> USDH) and to the
-       ;; `NAME:0x<hash>` wire token ids sub-account transfers must sign.
-       ;; Idle-scheduled to stay off the TBT window.
        (route-refresh/spot-catalog-markets-needed? state normalized-path)
        (conj [:effects/fetch-asset-selector-markets {:phase :full}])
 
@@ -295,9 +283,6 @@
 (defn init!
   [system]
   (let [base-deps (startup-base-deps system)]
-    ;; Surface info-endpoint rate-limiting (HTTP 429) in the network diagnostics
-    ;; drawer. Installed before bootstrap fetches fire so early throttling is
-    ;; captured. The info-client stays store-agnostic; only a listener fn crosses.
     (diagnostics-runtime/install-info-rate-limit-listener!
      (:store base-deps)
      api-default/set-on-rate-limit!)

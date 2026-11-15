@@ -45,8 +45,6 @@
            (mapv :instrument-id universe)))
     (is (= false (:long-only? constraints)))
     (is (= 2.0 (:gross-max constraints)))
-    ;; Net target = the current net ratio (gross 2000/1000 = 2.0, net 1000/1000
-    ;; = 1.0); the tolerance is 0.05/2.0 = 2.5% of realized gross.
     (is (= 1.0 (:net-min constraints)))
     (is (= 1.0 (:net-max constraints)))
     (is (= 0.025 (:net-band-pct constraints)))

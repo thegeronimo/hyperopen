@@ -210,8 +210,6 @@
           markets))
 
 (defonce ^:private catalog-lookup-cache
-  ;; One slot, keyed on the catalog value and the held coins: Account Equity
-  ;; and the account tables ask for the same sides many times a second.
   (atom nil))
 
 (defn- catalog-side-lookup
@@ -367,7 +365,6 @@
      figures)))
 
 (defonce ^:private held-cache
-  ;; {:raw <balances vector> :held <its outcome part>}
   (atom nil))
 
 (defn- held-outcome-balances
@@ -391,8 +388,6 @@
   ([spot-data market-by-key]
    (build-outcome-rows spot-data market-by-key {}))
   ([spot-data market-by-key options]
-   ;; Most accounts hold no outcome shares: nothing is looked up then. With
-   ;; shares held, only the held sides are resolved from the catalog.
    (let [{:keys [balances coins wanted]} (held-outcome-balances spot-data)]
      (if (empty? balances)
        []

@@ -1,15 +1,3 @@
-// Volatility intuition + one-year modeled leverage impact (designer spec
-// 2026-07-12, trimmed per the direct user request; leverage impact promoted
-// to a center-column panel with the mockup's ending-wealth distribution on
-// 2026-07-12 follow-up). The workbench scenes render the REAL rail card and
-// panel over explicit result fixtures, so this covers the browser-only
-// behavior deterministically without solving an optimization: the
-// 365-calendar-day sqrt-time scaling of the displayed values, the DOM-radio
-// Target/Current toggle, severity + (-100%)-boundary messaging with the
-// monthly value uncapped, the leverage panel's gross/volatility gates, its
-// modeled dollar rows with the vs-current shortfall headline, the lognormal
-// ending-wealth distribution markers, and the multiples fallback when
-// account equity is unknown.
 import { expect, test } from "../support/guarded_test.mjs";
 
 const SCENE_BASE =
@@ -37,7 +25,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
       role("portfolio-optimizer-volatility-intuition-panel-target")
     );
 
-    // 411.82% annualized on the optimizer's 365-calendar-day basis.
     await expect(
       targetPanel.locator(
         role("portfolio-optimizer-volatility-intuition-target-annualized")
@@ -53,13 +40,11 @@ test.describe("volatility intuition (workbench scenes)", () => {
         role("portfolio-optimizer-volatility-intuition-target-weekly")
       )
     ).toContainText("±57.03%");
-    // Above 100% the monthly value renders uncapped...
     await expect(
       targetPanel.locator(
         role("portfolio-optimizer-volatility-intuition-target-monthly")
       )
     ).toContainText("±118.1%");
-    // ...with the extreme callout and the boundary explanation.
     await expect(
       targetPanel.locator(
         role("portfolio-optimizer-volatility-intuition-target-severity")
@@ -70,7 +55,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
         role("portfolio-optimizer-volatility-intuition-target-boundary")
       )
     ).toContainText("dispersion measure");
-    // The scaling convention and the 1σ meaning are always-visible copy.
     await expect(
       frame.locator(role("portfolio-optimizer-volatility-intuition-basis"))
     ).toContainText("365 calendar days");
@@ -95,11 +79,8 @@ test.describe("volatility intuition (workbench scenes)", () => {
       role("portfolio-optimizer-volatility-intuition-tab-target")
     );
 
-    // Target is the recommendation default (no radio checked yet).
     await expect(targetPanel).toBeVisible();
     await expect(currentPanel).toBeHidden();
-    // Reference-worktree visual contract: the magnitude track is visible and
-    // the active tab carries the amber underline rather than browser defaults.
     await expect(dailyTrack).toHaveCSS("height", "6px");
     await expect(dailyFill).toHaveCSS("height", "6px");
     await expect(dailyFill).not.toHaveCSS("width", "0px");
@@ -143,8 +124,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
     await expect(panel).toContainText(
       "Modeled dollar outcomes on account equity $100,000"
     );
-    // Median ending wealth: the volatility drag makes the target median
-    // collapse even though its arithmetic mean is +1866%.
     await expect(
       panel.locator(role("portfolio-optimizer-leverage-impact-median-current"))
     ).toContainText("$18,356");
@@ -156,14 +135,12 @@ test.describe("volatility intuition (workbench scenes)", () => {
     );
     await expect(shortfall).toContainText("Median wealth shortfall vs current");
     await expect(shortfall).toContainText("−$17,948");
-    // Tiles: mean is pulled up by rare extreme paths; both loss odds render.
     await expect(
       panel.locator(role("portfolio-optimizer-leverage-impact-mean"))
     ).toContainText("$1,966,060");
     await expect(
       panel.locator(role("portfolio-optimizer-leverage-impact-terminal"))
     ).toContainText("87.8%");
-    // Never a liquidation probability — the drawdown odds are a floor.
     const touch = panel.locator(
       role("portfolio-optimizer-leverage-impact-touch")
     );
@@ -185,7 +162,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
     await expect(
       dist.locator(role("portfolio-optimizer-leverage-impact-dist-curve"))
     ).toBeVisible();
-    // Compact marker labels: near-total median loss, mean in the millions.
     await expect(
       dist.locator(role("portfolio-optimizer-leverage-impact-dist-p5"))
     ).toContainText("$0");
@@ -197,7 +173,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
     ).toContainText("$2M");
     await expect(dist).toContainText("Lower");
     await expect(dist).toContainText("Higher");
-    // The mean marker sits right of the median marker by the σ²/2 drag.
     const medianDot = dist
       .locator(`${role("portfolio-optimizer-leverage-impact-dist-median")} circle`)
       .first();
@@ -215,32 +190,26 @@ test.describe("volatility intuition (workbench scenes)", () => {
     const frame = await openScene(page, "extreme-levered-book");
     const panel = frame.locator(role("portfolio-optimizer-leverage-impact"));
 
-    // Each tip is wired to a focusable trigger and reveals on hover.
     const medianTip = panel.locator(
       role("portfolio-optimizer-leverage-impact-median-tip")
     );
     const medianTrigger = panel.locator(
       role("portfolio-optimizer-leverage-impact-median-tip-trigger")
     );
-    // Hidden until interaction (opacity 0), copy present in the DOM.
     expect(await medianTip.evaluate((el) => getComputedStyle(el).opacity)).toBe(
       "0"
     );
     await expect(medianTip).toContainText("not the average");
     await expect(medianTip).toContainText("Both rows start from $100,000");
-    // Hover the trigger → the card fades in (group-hover).
     await medianTrigger.hover();
     await expect
       .poll(() => medianTip.evaluate((el) => getComputedStyle(el).opacity))
       .toBe("1");
-    // Keyboard focus reveals it too (group-focus-within) — accessibility.
     await medianTrigger.focus();
     await expect
       .poll(() => medianTip.evaluate((el) => getComputedStyle(el).opacity))
       .toBe("1");
 
-    // The two loss-odds tips draw the end-of-year vs path-dependent line the
-    // guide insists on, and the touch tip stays honest about liquidation.
     await expect(
       panel.locator(role("portfolio-optimizer-leverage-impact-terminal-tip"))
     ).toContainText("finishes the year at or below half");
@@ -251,15 +220,12 @@ test.describe("volatility intuition (workbench scenes)", () => {
     await expect(touchTip).toContainText("floor on ruin risk");
     await expect(touchTip).toContainText("not a liquidation probability");
 
-    // The panel-level tip is explicit that this is NOT a simulation and that
-    // funding/execution/liquidation are out of the model.
     const titleTip = panel.locator(
       role("portfolio-optimizer-leverage-impact-title-tip")
     );
     await expect(titleTip).toContainText("not a simulation");
     await expect(titleTip).toContainText("are not modeled");
 
-    // The distribution tip discloses the nonlinear axis.
     await expect(
       panel.locator(role("portfolio-optimizer-leverage-impact-distribution-tip"))
     ).toContainText("log-scaled");
@@ -273,7 +239,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
       role("portfolio-optimizer-volatility-intuition-panel-target")
     );
 
-    // 40% annualized / 365 days: the spec's worked example.
     await expect(targetPanel).toContainText("±2.09%");
     await expect(targetPanel).toContainText("±5.54%");
     await expect(targetPanel).toContainText("±11.47%");
@@ -297,7 +262,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
   }) => {
     const frame = await openScene(page, "very-high-vol-no-current");
 
-    // No current volatility → no toggle, no current panel.
     await expect(
       frame.locator(role("portfolio-optimizer-volatility-intuition-tabs"))
     ).toHaveCount(0);
@@ -306,9 +270,6 @@ test.describe("volatility intuition (workbench scenes)", () => {
         role("portfolio-optimizer-volatility-intuition-panel-current")
       )
     ).toHaveCount(0);
-    // σ ≥ 100% surfaces the panel even at 1.2x gross, speaking in multiples
-    // of starting equity because no capital is known — the distribution
-    // markers included.
     const panel = frame.locator(role("portfolio-optimizer-leverage-impact"));
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("multiples of starting equity");

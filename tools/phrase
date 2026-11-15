@@ -1,6 +1,4 @@
 #!/usr/bin/env bb
-;; Lookup shared command phrases from /hyperopen/command-phrases.edn.
-
 (ns phrase.lookup
   (:require
    [clojure.edn :as edn]

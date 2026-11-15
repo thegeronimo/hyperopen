@@ -7,9 +7,6 @@
 (def contract-version
   codec/contract-version)
 
-(def default-min-observations
-  alignment/default-min-observations)
-
 (defn normalize-api-map
   [value]
   (codec/normalize-api-map value))

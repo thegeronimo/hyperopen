@@ -37,10 +37,6 @@
 (defn- save-many-path-values [effects]
   (into [] (mapcat (fn [[effect-id path-values]] (when (= :effects/save-many effect-id) path-values))) effects))
 
-;; ---------------------------------------------------------------------------
-;; Preview update (spec 10.2 step 1)
-;; ---------------------------------------------------------------------------
-
 (defn- show-ticket
   "[state path-values] with the Vol Range ticket showing: Scale order type
   and Volatility range mode, written by the same transitions their own
@@ -77,8 +73,6 @@
           (not (busy? state [:repair grid-id]))
           (not (and u (replace-state/current? state) (not= :preview (:phase u))))
           (not (and u (update-busy? state (:grid-id u))))
-          ;; Also after Stop updating, while that update's cancel or check
-          ;; of this ladder is still running.
           (not (update-busy? state grid-id))))))
 
 (defn preview-vol-ladder-update
@@ -112,10 +106,6 @@
                                      :refreshed nil
                                      :confirmed-at-ms nil})))]]))))))
 
-;; ---------------------------------------------------------------------------
-;; Dialog
-;; ---------------------------------------------------------------------------
-
 (defn open-vol-ladder-update
   [state]
   (if (replace-state/current? state)
@@ -136,10 +126,6 @@
   (if (= key "Escape")
     (close-vol-ladder-update state)
     []))
-
-;; ---------------------------------------------------------------------------
-;; Cancel and confirm (spec 10.2 steps 2-4)
-;; ---------------------------------------------------------------------------
 
 (defn- blocking [u] (set (get-in u [:basis :blocking])))
 
@@ -168,10 +154,6 @@
              (not (update-busy? state grid-id)))
       [[:effects/vol-range-execute :replace-confirm {:grid-id grid-id}]]
       [])))
-
-;; ---------------------------------------------------------------------------
-;; Replacement (spec 10.2 step 5)
-;; ---------------------------------------------------------------------------
 
 (defn toggle-vol-ladder-update-rejected
   "Include or exclude one rejected member of the old ladder. Never included
@@ -202,10 +184,6 @@
           (into (vol-range-actions/transition->path-values state (transitions/apply-patch state patch))
                 (save-update (assoc u :phase :ready :dialog-open? false)))]])
       [])))
-
-;; ---------------------------------------------------------------------------
-;; Stop updating
-;; ---------------------------------------------------------------------------
 
 (def ^:private unsettled-codes
   "Blocking codes under which old orders may still rest on the venue."

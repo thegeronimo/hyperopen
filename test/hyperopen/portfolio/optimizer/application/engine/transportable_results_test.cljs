@@ -5,9 +5,6 @@
             [hyperopen.portfolio.optimizer.fixtures :as fixtures]))
 
 (deftest drops-only-the-quadratic-from-the-attached-problem-test
-  ;; target-selection re-validates returned weights against the problem, but it
-  ;; reads the bounds and constraint rows -- never the covariance. Everything
-  ;; except :quadratic has to survive or that re-check breaks.
   (let [results [{:status :solved
                   :solver :osqp
                   :weights [0.5 0.5]
@@ -34,8 +31,6 @@
   (is (= [] (solve/transportable-solver-results nil))))
 
 (deftest engine-result-ships-no-covariance-inside-solver-results-test
-  ;; The frontier sweep attaches the same covariance to every point, so this is
-  ;; the difference between an 8 MB and a 0.4 MB result payload at N=100.
   (let [calls (atom 0)
         result (engine/run-optimization
                 (fixtures/sample-engine-request)
@@ -54,13 +49,6 @@
         "the rest of the problem still travels")))
 
 (deftest payload-strip-does-not-drop-the-risk-integrity-signals-test
-  ;; Merge guard. The volatility-integrity work on main publishes :risk-shrinkage
-  ;; and a covariance-plausibility diagnostic through the same solved payload
-  ;; that this namespace's strip and the solver-health warning splice both edit.
-  ;; A saturated covariance collapses to a scaled identity that reads "Healthy"
-  ;; on conditioning alone, so these are the only channels by which that
-  ;; degeneracy can surface -- losing one to a payload edit would restore the
-  ;; exact silence that fix removed.
   (let [result (engine/run-optimization
                 (fixtures/sample-engine-request)
                 {:solve-problem (fn [problem]
@@ -75,4 +63,3 @@
         "the absolute-magnitude diagnostic must still reach the UI")
     (is (contains? result :warnings)
         "the warnings channel the risk model reports saturation on must survive")))
-

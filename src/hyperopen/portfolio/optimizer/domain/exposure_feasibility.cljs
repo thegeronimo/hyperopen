@@ -127,8 +127,6 @@
    {net-min :min net-max :max pct :pct}]
   (when geometry
     (let [q (band-pct pct)
-          ;; The coupled rows read n -/+ q*g against the net bounds; solving each
-          ;; for g gives (1 + q) on the lower side and (1 - q) on the upper one.
           coupled (- 1 q)
           bounded-above? (> coupled feasibility-epsilon)
           lower-terms (cond-> [(+ l-min s-min)]
@@ -143,9 +141,6 @@
 
                         (and (finite-number? net-min) bounded-above?)
                         (conj (/ (- (* 2 l-max) net-min) coupled)))
-          ;; At q = 1 the upper rows stop scaling with gross entirely: each one
-          ;; reduces to 0 <= (its right-hand side), which no gross value can
-          ;; rescue when that side is negative.
           unsatisfiable? (and (not bounded-above?)
                               (or (and (finite-number? net-max)
                                        (neg? (+ net-max (* 2 s-max))))

@@ -70,9 +70,6 @@
              :delta-notional-usd 1000}]}}))
 
 (def ^:private current-run-signature
-  ;; A run-state whose signature matches the retained run marks the solve as *current* (via
-  ;; run-identity/completed-run?), so the staged plan is not flagged stale. This mirrors the
-  ;; real app, where a staged execution plan always comes from an up-to-date solved run.
   {:scenario-id "scn_01" :input-signature "sig-current"})
 
 (defn- scenario-view
@@ -108,9 +105,6 @@
            :delta-notional-usd -500}]})
 
 (deftest execution-tab-staged-buys-sells-exclude-blocked-rows-test
-  ;; Buys/Sells (ported from the retired Rebalance preview) reflect only tradeable
-  ;; (non-blocked) rows, so a blocked sell never inflates the Sells headline — keeping
-  ;; the dollar-flow consistent with the ready-only staged notional.
   (let [plan {:status :partially-blocked :execution-disabled? false
               :summary {:ready-count 1 :blocked-count 1
                         :gross-ready-notional-usd 300
@@ -127,14 +121,10 @@
         buys (node-text (node-by-role view-node "portfolio-optimizer-execution-kpi-buys"))
         sells (node-text (node-by-role view-node "portfolio-optimizer-execution-kpi-sells"))]
     (is (str/includes? buys "300"))
-    ;; Blocked sell notional is excluded -> Sells is zero, not 50,000.
     (is (not (str/includes? sells "50,000")))
     (is (str/includes? sells "$0"))))
 
 (deftest execution-tab-staged-buys-sells-exclude-skipped-rows-test
-  ;; A within-tolerance skip is real money that will NOT move: it must never
-  ;; inflate the Buys/Sells dollar headlines at the commit point (audited live:
-  ;; +$632k shown while ~$587k was actually staged).
   (let [plan {:status :ready :execution-disabled? false
               :summary {:ready-count 1 :blocked-count 0 :skipped-count 1
                         :gross-ready-notional-usd 300
@@ -153,9 +143,6 @@
     (is (not (str/includes? buys "22,")))))
 
 (deftest execution-order-table-skipped-row-explains-why-test
-  ;; A bare "skipped" next to a five-figure notional reads as arbitrarily dropped
-  ;; money. Every skipped row states its reason in plain language, with the
-  ;; tolerance band interpolated for within-tolerance skips.
   (let [plan (update staged-plan :rows conj
                      {:row-id "perp:ZEC" :instrument-id "perp:ZEC" :instrument-type :perp
                       :status :skipped :side :buy :reason :within-tolerance :tolerance 0.03
@@ -179,17 +166,12 @@
     (is (some? (node-by-role view-node "portfolio-optimizer-execution-order-row-spot-PURR")))
     (is (some? arm))
     (is (= [[:actions/set-portfolio-optimizer-execution-phase :armed]] (click-actions arm)))
-    ;; cost-source + margin honesty signals + blocked reason are surfaced
     (is (some #(str/includes? % "snapshot") strings))
     (is (contains? strings "Gross leverage after"))
-    ;; Venue-lens bridge (trade page's Unified Account Leverage) rides the sub-line.
     (is (some #(str/includes? % "venue ≈1.40x") strings))
     (is (contains? strings "spot-submit-unsupported"))))
 
 (deftest execution-tab-stale-recommendation-disables-arm-test
-  ;; Inputs edited since the solve (dirty draft) => the staged plan is stale. The Arm button is
-  ;; disabled (no click action) and a re-run notice is shown, so a stale recommendation can't be
-  ;; armed into live orders from the surface.
   (let [view-node (scenario-view :execution
                                  {:draft {:id "scn_01" :metadata {:dirty? true}}
                                   :execution {:status :idle :history []}
@@ -203,9 +185,6 @@
     (is (str/includes? (node-text stale-notice) "re-run"))))
 
 (deftest execution-tab-orders-largest-first-exact-notional-test
-  ;; The pre-commit table leads with the largest-notional order so the riskiest line is never
-  ;; buried in a long list, and each row shows its exact dollar notional (not $Nk-rounded) so
-  ;; the same order reads identically in the rebalance preview and here.
   (let [plan {:status :ready :execution-disabled? false
               :summary {:ready-count 2 :blocked-count 0
                         :gross-ready-notional-usd 2300
@@ -225,15 +204,11 @@
         big-row (node-by-role view-node "portfolio-optimizer-execution-order-row-perp-BIG")
         strs (vec (collect-strings order-list))
         idx (fn [s] (first (keep-indexed (fn [i x] (when (= x s) i)) strs)))]
-    ;; exact dollar notional, not "$2.3k"
     (is (str/includes? (node-text big-row) "$2,345"))
     (is (not (str/includes? (node-text big-row) "$2.3k")))
-    ;; the bigger order (sorted first) appears before the smaller one in the table
     (is (< (idx "BIG") (idx "SMALL")))))
 
 (deftest execution-tab-slip-is-type-aware-test
-  ;; A market row shows the book-crossing slippage estimate; a limit-overridden row
-  ;; reads "rests" instead of the (misleading) market-impact number.
   (let [market-view (scenario-view :execution
                                    {:execution {:status :idle :history []}
                                     :execution-modal {:open? true :phase :staged :plan staged-plan}})
@@ -249,9 +224,6 @@
     (is (not (str/includes? (node-text limit-row) "bp")))))
 
 (deftest execution-tab-cost-kpis-react-to-order-type-test
-  ;; A market (crossing) row contributes its price cost (spread + impact) + taker fee, which
-  ;; rolls into the all-in KPI; overriding it to limit (resting/maker) drops the price cost to
-  ;; $0 and switches to the maker fee — recomputed live, no re-staging.
   (let [plan (assoc-in staged-plan [:rows 0 :cost]
                        {:source :snapshot :slippage-bps 5.0
                         :estimated-slippage-usd 12.0
@@ -265,11 +237,9 @@
         kpi (fn [v role] (node-text (node-by-role v (str "portfolio-optimizer-execution-kpi-" role))))
         market (view nil)
         limit (view {"perp:BTC" :limit})]
-    ;; market: price cost $12, taker fee $6, all-in $18
     (is (str/includes? (kpi market "price-cost") "12"))
     (is (str/includes? (kpi market "fees") "6"))
     (is (str/includes? (kpi market "all-in") "18"))
-    ;; limit override: rests -> price cost $0, maker fee $2, all-in $2
     (is (str/includes? (kpi limit "price-cost") "$0"))
     (is (not (str/includes? (kpi limit "price-cost") "12")))
     (is (str/includes? (kpi limit "fees") "2"))
@@ -277,10 +247,6 @@
     (is (not (str/includes? (kpi limit "all-in") "18")))))
 
 (deftest execution-tab-twap-override-slices-the-price-cost-kpi-test
-  ;; The motivating fix: TWAP used to project the SAME price cost as Market. A $100k
-  ;; splittable row (2 bp spread + 100 bp impact = $1,020 one-shot) worked as its
-  ;; default 20-minute TWAP (41 venue clips) prices at
-  ;; 2 + 100/41 + 0.3*100*40/82 = 19.07 bp ≈ $190.73.
   (let [plan (-> staged-plan
                  (assoc-in [:rows 0 :delta-notional-usd] 100000)
                  (assoc-in [:rows 0 :cost]
@@ -304,8 +270,6 @@
     (is (str/includes? (kpi twap "all-in") "230.73"))))
 
 (deftest execution-tab-depth-floor-estimates-render-lower-bound-marker-test
-  ;; A depth-overrun estimate is a capped floor: the KPI strip totals and the row's
-  ;; cost cell must read "≥", never a precise-looking point figure.
   (let [plan (assoc-in staged-plan [:rows 0 :cost]
                        {:source :depth-extrapolated :slippage-bps 999.1
                         :estimated-slippage-usd 99.91
@@ -327,10 +291,6 @@
     (is (str/includes? (node-text row) "≥"))))
 
 (deftest execution-tab-health-rail-discloses-what-the-costs-stand-on-test
-  ;; A snapshot fetch that fails, is rate-limited, or never fires leaves every row priced
-  ;; from the flat fallback — silently degrading the estimates (no spread/impact split, and
-  ;; TWAP collapses onto Market). The rail must say so instead of letting an assumption
-  ;; read like a measurement, and must credit a real book when one is there.
   (let [rail (fn [cost]
                (node-text
                 (node-by-role
@@ -343,8 +303,6 @@
         flat (rail {:source :fallback-bps :slippage-bps 25 :estimated-slippage-usd 2.5})
         live (rail {:source :snapshot :slippage-bps 5 :estimated-slippage-usd 5
                     :age-ms 4200})
-        ;; The readiness-time contexts price off the trade-view orderbook's own touch and
-        ;; carry their own source keywords — they are book data, not assumptions.
         book (rail {:source :live-orderbook :slippage-bps 5 :estimated-slippage-usd 5})
         untrusted (rail {:source :untrusted-snapshot-fill :slippage-bps 25
                          :estimated-slippage-usd 2.5})]
@@ -356,14 +314,9 @@
     (is (str/includes? live "book 4.2s old"))
     (is (not (str/includes? live "flat estimate")))
     (is (str/includes? book "1 of 1 live"))
-    ;; A book that implied an implausible fill was NOT used — the flat fallback was.
     (is (str/includes? untrusted "flat estimate"))))
 
 (deftest execution-tab-row-expansion-shows-cost-breakdown-test
-  ;; Expanding a market row reveals the execution-cost breakdown: spread crossing + book
-  ;; impact = price cost, + fees = all-in. all-in = price cost $0.68 + fees $0.23 = $0.91.
-  ;; The 25bp row is pinned :market via override — the cost-aware Recommended policy
-  ;; would otherwise route it passive (≥ 20bp) and hide the crossing split.
   (let [plan (assoc-in staged-plan [:rows 0 :cost]
                        {:source :snapshot :slippage-bps 25 :estimated-slippage-usd 0.68
                         :spread-bps 18 :spread-usd 0.49 :impact-bps 7 :impact-usd 0.19
@@ -383,10 +336,6 @@
     (is (str/includes? text "0.91"))))
 
 (deftest execution-tab-row-expansion-unsplittable-cost-shows-not-separable-note-test
-  ;; When the cost model can't separate spread from impact (e.g. :untrusted-snapshot-fill, a
-  ;; stale/mismatched book), the row carries a flat slippage with NO :spread-usd. The breakdown
-  ;; must say so honestly rather than render a misleading "Spread crossing 0 bp" — the spread
-  ;; term collapses into a "not separable" note while price cost / all-in still reconcile.
   (let [plan (assoc-in staged-plan [:rows 0 :cost]
                        {:source :untrusted-snapshot-fill :slippage-bps 25
                         :estimated-slippage-usd 0.19
@@ -395,17 +344,13 @@
         view-node (scenario-view :execution
                                  {:execution {:status :idle :history []}
                                   :execution-modal {:open? true :phase :staged :plan plan
-                                                    ;; pinned :market — recommended would route this 25bp row passive
                                                     :overrides {"perp:BTC" :market}
                                                     :open-row "perp:BTC"}})
         breakdown (node-by-role view-node "portfolio-optimizer-execution-cost-breakdown")
         text (node-text breakdown)]
     (is (some? breakdown))
-    ;; no fabricated spread-crossing stat (which previously read "0 bp")
     (is (not (str/includes? text "Spread crossing")))
-    ;; an honest note explains the missing split
     (is (str/includes? text "separable"))
-    ;; the price cost / all-in equation still renders
     (is (str/includes? text "Price cost"))
     (is (str/includes? text "All-in"))))
 
@@ -419,8 +364,6 @@
     (is (= [[:actions/confirm-portfolio-optimizer-execution]] (click-actions confirm)))))
 
 (deftest execution-tab-armed-restates-money-figures-test
-  ;; The commit moment must restate how much money moves (buys/sells/gross/leverage),
-  ;; not just the order count, and the commit button must carry the reserved danger style.
   (let [plan (assoc staged-plan :summary {:ready-count 1 :blocked-count 1
                                           :gross-ready-notional-usd 1000
                                           :margin {:after-utilization 0.42 :after-gross-leverage 1.85 :before-gross-leverage 1.79 :free-margin-usd 8600 :capital-usd 10000 :warning :none}})
@@ -436,12 +379,9 @@
     (is (str/includes? ftext "gross"))
     (is (str/includes? ftext "leverage"))
     (is (str/includes? ftext "1.85x"))
-    ;; the irreversible commit no longer reuses the amber primary look of safe actions
     (is (str/includes? (str/join " " (get-in confirm [1 :class])) "optimizer-exec-commit"))))
 
 (deftest execution-tab-running-abort-acknowledges-test
-  ;; Clicking Pause flips an :abort-requested? flag the submit loop reads; the running band
-  ;; must acknowledge it immediately (text + a disabled control), not look inert.
   (let [view-node (scenario-view :execution
                                  {:execution {:status :submitting :history [] :abort-requested? true}
                                   :execution-modal {:open? true :phase :armed :submitting? true
@@ -454,8 +394,6 @@
     (is (nil? (get-in pause [1 :on])))))
 
 (deftest execution-tab-discard-requires-confirmation-test
-  ;; "Abort & discard" must not wipe the staged plan in one click: it sits behind a nested
-  ;; confirm disclosure, and only the inner button fires the discard action.
   (let [view-node (scenario-view :execution
                                  {:execution {:status :idle :history []}
                                   :execution-modal {:open? true :phase :staged :plan staged-plan}})
@@ -471,7 +409,6 @@
                                   :execution-modal {:open? true :phase :armed :submitting? true
                                                     :plan staged-plan}})
         band (node-by-role view-node "portfolio-optimizer-execution-control-band")]
-    ;; while submitting the surface shows the running band, never a confirmable button
     (is (= "running" (get-in band [1 :data-phase])))
     (is (nil? (node-by-role view-node "portfolio-optimizer-execution-confirm")))))
 
@@ -493,14 +430,10 @@
     (is (= "halted" (get-in (node-by-role view-node "portfolio-optimizer-execution-control-band")
                             [1 :data-phase])))
     (is (contains? strings "Latest attempt"))
-    ;; The Detail column shows the deciphered exchange error, not a raw response map.
     (is (contains? strings "Order must have minimum value of $10. asset=110023"))
     (is (some? (node-by-role view-node "portfolio-optimizer-execution-resume")))))
 
 (deftest execution-tab-partial-when-resting-orders-still-live-test
-  ;; A rejection alongside orders still LIVE (resting) on the book must NOT read "halted" —
-  ;; the resting passive orders keep filling. The band reads "partial" and keeps the same
-  ;; recovery actions; :halted is reserved for a run with nothing live any more.
   (let [view-node (scenario-view :execution
                                  {:execution {:status :partially-executed
                                               :history [{:attempt-id "exec_3000"
@@ -564,9 +497,6 @@
     (is (not (str/includes? text vault-address)))))
 
 (deftest execution-tab-resting-renders-open-state-not-filled-test
-  ;; A completed run of passive orders that only REST on the book must render each order's state
-  ;; as "open" (never "filled"), drive the resting control band, and report 0 filled with the
-  ;; resting count surfaced — the exact bug: a resting (open) order was mislabeled "filled".
   (let [view-node (scenario-view :execution
                                  {:execution {:status :resting
                                               :history [{:attempt-id "exec_2000"

@@ -22,8 +22,6 @@
     viewer-address)))
 
 (deftest rows-carry-the-machine-readable-type-not-only-a-label-test
-  ;; Three distinct types share the label "Send" in the old table, so routing
-  ;; rows into sub-tabs is impossible without the type token itself.
   (is (= "internal-transfer" (:type-key (row-for {:type "internalTransfer" :usdc "5"}))))
   (is (= "spot-transfer" (:type-key (row-for {:type "spotTransfer" :token "HYPE" :amount "1"}))))
   (is (= "sub-account-transfer"
@@ -165,8 +163,6 @@
                         :destination viewer})]
       (is (= "account-class-transfer" (:type-key row)))))
   (testing "a spot transfer from a HyperEVM system address is a bridge move"
-    ;; System addresses are minted as 0x20 + 34 zeros + a four-hex token index.
-    ;; An ordinary wallet address must NOT match -- see the sibling case below.
     (let [row (row-for {:type "spotTransfer"
                         :token "HYPE"
                         :amount "3"
@@ -183,8 +179,6 @@
                                 :destination viewer}))))))
 
 (deftest hyperevm-bridge-legs-are-labelled-with-both-venues-test
-  ;; Shapes from live `userNonFundingLedgerUpdates` rows (2026-09-30; see the
-  ;; HyperEVM transfer ExecPlan's Artifacts and Notes).
   (testing "Core -> EVM sendAsset: a send to a token system address"
     (let [row (row-for {:type "send"
                         :user viewer

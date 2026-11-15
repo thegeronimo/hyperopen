@@ -1779,8 +1779,6 @@ test("asset selector outcome category chips render grouped events @smoke @regres
 
 test("market strip uses searchable dropdown for multi-option outcome markets @smoke @regression", async ({ page }) => {
   await visitRoute(page, "/trade");
-  // Seed after the catalog settles: a later catalog load would swap the
-  // seeded (unlisted) coin back to the default market.
   await waitForAssetSelectorLoadSettled(page);
   await seedWorldCupOutcomeOrderForm(page);
   await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
@@ -1894,7 +1892,6 @@ test("two-sided outcome side selector switches chart and order book market @regr
 
   const orderForm = page.locator('[data-parity-id="order-form"]');
   const sides = orderForm.locator('[data-role="outcome-ticket-side"]');
-  // Picking a side is the only entry: no separate Buy/Sell tabs.
   await expect(sides).toHaveCount(2);
   await expect(sides.filter({ hasText: "San Antonio" })).toHaveAttribute("aria-pressed", "true");
   await expect(orderForm.getByText("Pick a side", { exact: true })).toBeVisible();
@@ -1995,7 +1992,6 @@ test("outcome market tooltip uses adaptive readable width and glows on hover @re
   expect(triggerGlow.borderColor).toContain("45, 212, 191");
   expect(triggerGlow.boxShadow).toContain("45, 212, 191");
 
-  // The panel states the market's rules once and what each side pays.
   const summary = tooltip.locator('[data-role="outcome-tooltip-summary-scroll"]');
   await expect(summary).toContainText("If BTC settles above 78213, YES pays $1.");
   await expect(tooltip.getByText("$1.00")).toBeVisible();

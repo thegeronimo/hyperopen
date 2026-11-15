@@ -67,7 +67,6 @@
                          (fn? on-cancel-order))
                 (reset! cancel-dispatched? true)
                 (on-cancel-order order))))]
-      ;; Pointer-first handling avoids chart repaint hooks consuming the first click.
       (.addEventListener cancel-button "pointerdown" emit-cancel!)
       (.addEventListener cancel-button "touchstart" emit-cancel!)
       (.addEventListener cancel-button "mousedown" emit-cancel!)

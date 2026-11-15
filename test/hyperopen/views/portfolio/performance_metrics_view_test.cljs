@@ -118,10 +118,6 @@
     (is (contains? overlay-text "Returns stay visible while the remaining analytics finish in the background."))))
 
 (deftest performance-metrics-card-labels-stale-numbers-instead-of-blanking-them-test
-  ;; During a timeframe switch the previous window's numbers stay on screen —
-  ;; blanking them is the content churn this work removed. The chip is what
-  ;; keeps that honest: without it the old Sharpe sits under the new range label
-  ;; with nothing saying which window it belongs to.
   (let [render (fn [stale?]
                  (performance-metrics-view/performance-metrics-card
                   {:loading? false
@@ -138,8 +134,6 @@
     (is (= "Updating…" (first (hiccup/collect-strings (stale-badge (render true))))))
     (is (not (hidden? (stale-badge (render true))))
         "the badge is visible while the numbers belong to another window")
-    ;; Always rendered, never a nil hole: toggling presence in a flex row would
-    ;; reflow the header, which is exactly the class of movement being removed.
     (is (some? (stale-badge (render false))))
     (is (hidden? (stale-badge (render false)))
         "and hidden -- but still occupying its space, so toggling it cannot reflow the header row -- once the numbers match the window on screen")
@@ -160,6 +154,5 @@
     (is (false? (get-in all [1 :aria-pressed])))
     (is (= [[:actions/select-portfolio-summary-scope :all]]
            (get-in all [1 :on :click])))
-    ;; Controls live in the toolbar; the header row keeps a plain column label.
     (is (some? (hiccup/find-by-data-role view "portfolio-performance-metrics-toolbar")))
     (is (some? (hiccup/find-by-data-role view "portfolio-performance-metrics-portfolio-label")))))

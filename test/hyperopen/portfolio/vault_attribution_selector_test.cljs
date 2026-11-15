@@ -166,7 +166,6 @@
                                                      (ready-slot :loaded-at-ms (inc fx/now)))))))))
 
 (deftest leader-equity-from-followers-row-test
-  ;; Hyperliquid lists the vault leader in `followers` as "Leader".
   (let [details {fx/vault-a {:name "Mine" :leader address
                              :followers [{:user "0x9999999999999999999999999999999999999999"
                                           :vault-equity 5}
