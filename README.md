@@ -44,6 +44,7 @@
 
 ## Table of Contents
 
+- [Features](#features)
 - [Quick Start](#quick-start)
 - [Why Hyperopen](#why-hyperopen)
 - [Current Focus](#current-focus)
@@ -52,6 +53,73 @@
 - [Validation](#validation)
 - [Contributing](#contributing)
 - [License](#license)
+
+---
+
+## Features
+
+Hyperopen covers the full Hyperliquid app, then adds analytics, decision aids, and portfolio tooling that the official interface does not have.
+
+### Beyond the official app
+
+**Portfolio Optimizer** (`/portfolio/optimize`)
+- Build a target allocation from your holdings or any universe of perps, spot, HIP-3 assets, and vaults
+- Objectives: minimum risk, maximum Sharpe, Equal Risk, and risk-weighted sizing, plus "Use my views" (Black-Litterman) for your own return expectations
+- Efficient frontier chart with current and target markers, and a drag pad for net/gross exposure constraints
+- Proxy history for assets with short track records, with a readiness panel that flags thin data
+- Results with risk contribution, correlation, diversification, leverage impact, and guided fixes for infeasible setups
+- Hypothetical tear sheet for the optimized allocation, and saved scenarios you can reopen by URL
+- Execution tab that places the rebalance as Market, Limit, Passive maker, or TWAP orders with up-front cost estimates
+- "Fund this allocation" to spread deposits across vaults, and realized-vs-predicted tracking afterwards
+- JSON import and export of universes, history assumptions, and return views, so agents and scripts can drive it
+
+**Portfolio analytics**
+- Monte Carlo forecast that resamples realized returns into a P5–P95 band, median path, and bust probability, for portfolios and vaults
+- Vault attribution: money-weighted and time-weighted returns, value vs. net deposits, and closed vault positions
+- "Where your funds are" breakdown across perps margin, HyperCore Spot, and HyperEVM
+- Custom date ranges by dragging on the chart, and low-confidence labels on metrics built from thin data
+- Read-only trader view of any wallet at `/portfolio/trader/<address>`
+- Fee tier and volume history popovers
+
+**Vaults**
+- Vault screener with metric criteria, minimum history, and near-miss results
+- Saved vault list views that stay fixed or refresh their members
+- "Optimize these vaults" hands a selection straight to the optimizer
+
+**Trading decision aids**
+- Orderbook hover readout: levels swept, average fill, and slippage for a market order up to that price; click a level to set your limit price
+- Book impact card on the order form for market orders
+- Funding tooltip with a 30-day history chart, 30-day average, and 24h, 30d, and APY projections for your position
+- Your fills as buy/sell markers on the chart, position and open-order lines with inline cancel, and a draggable liquidation line that adjusts margin
+- Isolated-margin collateral recommendations in Conservative, Balanced, or Capital-efficient modes, with batch and optional automatic top-ups
+- Vol Range: volatility-based order ladders with a management dock and a P&L report (preview release)
+
+**Funding comparison** (`/funding-comparison`)
+- Hyperliquid funding side by side with Binance and Bybit, including arbitrage spreads and open interest
+
+**Safety and control**
+- Optional passkey lock on your trading session
+- Open-order safety (a dead-man switch) with Strict, 4h, and Off settings
+- Confirmation prompts for open orders, closes, and market orders; fill alerts and sound on fill
+- Connection diagnostics drawer with rate-limit notices, and freshness labels on live data
+
+**Sharing and personalization**
+- Spectate any address, keep a saved watchlist, import and export it as JSON, and share spectate links
+- PnL share cards with templates and toggles for what to reveal
+- Themes: Hyperliquid, Institutional, and HyperDegen
+
+### Full Hyperliquid coverage
+
+| Area | What's included |
+|---|---|
+| Order entry | Market, Limit, Stop and Take (market or limit), Scale, and TWAP with randomized slices and price guards; Reduce Only, Post Only, TP/SL, and TIF |
+| Markets | Perps, spot, HIP-3 markets, TradFi categories, and outcome (prediction) markets with a Yes/No ticket and answers chart |
+| Chart | 11 chart types, an indicator catalog, and keyboard zoom and pan |
+| Account | Balances, positions, outcomes, open orders, TWAP, trade, funding, and order history; reduce, TP/SL, and margin modals; account activity by category |
+| Funding | Deposits and withdrawals for BTC, ETH, SOL, USDC, and more via HyperUnit and Bridge2; Perps↔Spot and HyperEVM↔HyperCore transfers; spot sends; live transfer tracking |
+| Earn | Supply, withdraw, borrow, and repay with health and liquidation readouts, plus realized vs. current APY |
+| Staking | Validator picker, stake and unstake, unstaking queue, and reward history |
+| Accounts | Sub-accounts with transfers, API wallets, referrals, and the leaderboard |
 
 ---
 
