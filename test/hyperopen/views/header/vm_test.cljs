@@ -182,7 +182,7 @@
            (:on-change passkey-row)))
     (is (nil? (:confirmation passkey-row)))
     (is (nil? (:helper-copy passkey-row)))
-    (is (= "Trading stays remembered on this device, but you will need one passkey unlock after a browser restart before orders can be signed again."
+    (is (= "Trading stays remembered on this device, but you will need a passkey unlock after a browser restart or 30 minutes without activity before orders can be signed again."
            (:tooltip passkey-row)))))
 
 (deftest header-vm-disables-passkey-downgrade-while-trading-is-locked-test

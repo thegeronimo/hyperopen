@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [hyperopen.account.context :as account-context]
             [hyperopen.platform :as platform]
+            [hyperopen.platform.webauthn :as webauthn]
             [hyperopen.startup.restore :as startup-restore]
             [hyperopen.wallet.agent-session :as agent-session]))
 
@@ -30,6 +31,37 @@
                     ([_missing-default] :local))]
       (startup-restore/restore-agent-storage-mode! store)
       (is (= :local (get-in @store [:wallet :agent :storage-mode]))))))
+
+(defn- restored-protection-mode
+  [{:keys [stored-preference passkey-supported? stored]}]
+  (let [store (atom {})]
+    (with-redefs [agent-session/load-storage-mode-preference
+                  (fn
+                    ([] :local)
+                    ([_missing-default] :local))
+                  agent-session/load-local-protection-mode-preference
+                  (fn
+                    ([] (or stored-preference :plain))
+                    ([missing-default] (or stored-preference missing-default)))
+                  agent-session/stored-local-agent-sessions (constantly stored)
+                  webauthn/passkey-lock-supported? (constantly passkey-supported?)]
+      (startup-restore/restore-agent-storage-mode! store)
+      (get-in @store [:wallet :agent :local-protection-mode]))))
+
+(deftest restore-agent-protection-mode-defaults-new-keys-to-a-passkey-test
+  (is (= :passkey (restored-protection-mode {:passkey-supported? true
+                                             :stored {}}))
+      "new key, browser with passkeys")
+  (is (= :plain (restored-protection-mode {:passkey-supported? false
+                                           :stored {}}))
+      "new key, browser without passkeys")
+  (is (= :plain (restored-protection-mode {:stored-preference :plain
+                                           :passkey-supported? true
+                                           :stored {}}))
+      "an explicit choice wins")
+  (is (= :plain (restored-protection-mode {:passkey-supported? true
+                                           :stored {:plain-session-stored? true}}))
+      "a key stored without a passkey is restored as it is"))
 
 (deftest restore-spectate-mode-preferences-loads-watchlist-and-search-test
   (let [store (atom {:account-context {:spectate-ui {:search-error "old"}}})]

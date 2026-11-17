@@ -1091,6 +1091,7 @@
             [hyperopen.wallet.agent-lockbox-test]
             [hyperopen.wallet.agent-runtime-concurrency-test]
             [hyperopen.wallet.agent-runtime-edge-test]
+            [hyperopen.wallet.agent-runtime-passkey-setup-test]
             [hyperopen.wallet.agent-runtime-test]
             [hyperopen.wallet.agent-safety-test]
             [hyperopen.wallet.agent-session-test]
@@ -1098,6 +1099,7 @@
             [hyperopen.wallet.connection-runtime-test]
             [hyperopen.wallet.copy-feedback-runtime-test]
             [hyperopen.wallet.core-test]
+            [hyperopen.wallet.idle-lock-test]
             [hyperopen.websocket.account-surface-service-coverage-test]
             [hyperopen.websocket.acl.hyperliquid-test]
             [hyperopen.websocket.acl.subscription-errors-test]
@@ -2263,6 +2265,7 @@
              'hyperopen.wallet.agent-lockbox-test
              'hyperopen.wallet.agent-runtime-concurrency-test
              'hyperopen.wallet.agent-runtime-edge-test
+             'hyperopen.wallet.agent-runtime-passkey-setup-test
              'hyperopen.wallet.agent-runtime-test
              'hyperopen.wallet.agent-safety-test
              'hyperopen.wallet.agent-session-test
@@ -2270,6 +2273,7 @@
              'hyperopen.wallet.connection-runtime-test
              'hyperopen.wallet.copy-feedback-runtime-test
              'hyperopen.wallet.core-test
+             'hyperopen.wallet.idle-lock-test
              'hyperopen.websocket.account-surface-service-coverage-test
              'hyperopen.websocket.acl.hyperliquid-test
              'hyperopen.websocket.acl.subscription-errors-test

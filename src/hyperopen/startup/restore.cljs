@@ -17,7 +17,10 @@
 (defn restore-agent-storage-mode!
   [store]
   (let [storage-mode (agent-session/load-storage-mode-preference :local)
-        local-protection-mode (agent-session/load-local-protection-mode-preference :plain)]
+        local-protection-mode (agent-session/load-local-protection-mode-preference
+                               (agent-session/default-local-protection-mode
+                                (assoc (agent-session/stored-local-agent-sessions)
+                                       :passkey-supported? (webauthn/passkey-lock-supported?))))]
     (swap! store
            (fn [state]
              (-> state
