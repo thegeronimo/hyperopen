@@ -91,6 +91,50 @@
       (.setItem storage "hyperopen:agent-local-protection-mode:v1" "nope")
       (is (= :plain (agent-session/load-local-protection-mode-preference))))))
 
+(deftest default-local-protection-mode-uses-a-passkey-for-new-keys-test
+  (is (= :passkey (agent-session/default-local-protection-mode
+                   {:passkey-supported? true}))
+      "new key in a browser with passkeys")
+  (is (= :plain (agent-session/default-local-protection-mode
+                 {:passkey-supported? false}))
+      "new key in a browser without passkeys")
+  (is (= :plain (agent-session/default-local-protection-mode
+                 {:passkey-supported? true
+                  :plain-session-stored? true}))
+      "a key stored without a passkey stays as it is")
+  (is (= :passkey (agent-session/default-local-protection-mode
+                   {:passkey-supported? false
+                    :passkey-session-stored? true}))
+      "a passkey-locked key stays locked"))
+
+(defn- listable-storage
+  [entries]
+  (let [store (atom entries)]
+    #js {:getItem (fn [k] (get @store (str k)))
+         :setItem (fn [k v] (swap! store assoc (str k) (str v)))
+         :key (fn [i] (nth (keys @store) i nil))
+         :length (count entries)}))
+
+(deftest stored-local-agent-sessions-finds-remembered-keys-test
+  (let [original (.-localStorage js/globalThis)]
+    (try
+      (set! (.-localStorage js/globalThis) (listable-storage {"hyperopen:trading-settings:v1" "{}"}))
+      (is (= {:plain-session-stored? false
+              :passkey-session-stored? false}
+             (agent-session/stored-local-agent-sessions)))
+      (set! (.-localStorage js/globalThis)
+            (listable-storage {(agent-session/session-storage-key wallet-address) "{}"}))
+      (is (= {:plain-session-stored? true
+              :passkey-session-stored? false}
+             (agent-session/stored-local-agent-sessions)))
+      (set! (.-localStorage js/globalThis)
+            (listable-storage {(agent-session/passkey-session-metadata-key wallet-address) "{}"}))
+      (is (= {:plain-session-stored? false
+              :passkey-session-stored? true}
+             (agent-session/stored-local-agent-sessions)))
+      (finally
+        (set! (.-localStorage js/globalThis) original)))))
+
 (deftest device-label-normalization-and-migration-test
   (with-test-local-storage
     (fn [storage]

@@ -167,7 +167,7 @@
                                   passkey-enabled?
                                   agent-status)
       (if passkey-enabled?
-        "Trading stays remembered on this device, but you will need one passkey unlock after a browser restart before orders can be signed again."
+        "Trading stays remembered on this device, but you will need a passkey unlock after a browser restart or 30 minutes without activity before orders can be signed again."
         "Protect the remembered trading session with a passkey so the key is not resumed automatically after a browser restart.")))
 
 (defn- passkey-toggle-disabled?

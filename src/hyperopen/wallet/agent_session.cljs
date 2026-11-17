@@ -112,6 +112,41 @@
          (catch :default _
            fallback))))))
 
+(defn default-local-protection-mode
+  "Protection for new trading keys when the user never chose one: a passkey
+   wherever the browser supports it. A key stored before this default keeps
+   the protection it was stored with, so nobody has to enable trading again."
+  [{:keys [passkey-supported? plain-session-stored? passkey-session-stored?]}]
+  (cond
+    plain-session-stored? :plain
+    passkey-session-stored? :passkey
+    passkey-supported? :passkey
+    :else :plain))
+
+(defn- local-storage-has-key-with-prefix?
+  [storage prefix]
+  (try
+    (let [n (or (.-length storage) 0)]
+      (boolean
+       (some (fn [i]
+               (when-let [k (.key storage i)]
+                 (str/starts-with? k prefix)))
+             (range n))))
+    (catch :default _
+      false)))
+
+(defn stored-local-agent-sessions
+  "Which kinds of remembered trading keys this browser holds for any wallet."
+  []
+  (let [storage (some-> js/globalThis .-localStorage)]
+    (if-not storage
+      {:plain-session-stored? false
+       :passkey-session-stored? false}
+      {:plain-session-stored? (local-storage-has-key-with-prefix?
+                               storage session-storage-prefix)
+       :passkey-session-stored? (local-storage-has-key-with-prefix?
+                                 storage passkey-session-metadata-prefix)})))
+
 (defn persist-local-protection-mode-preference!
   [local-protection-mode]
   (let [storage (some-> js/globalThis .-localStorage)

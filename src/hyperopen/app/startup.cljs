@@ -26,9 +26,17 @@
             [hyperopen.trading-indicators-modules :as trading-indicators-modules]
             [hyperopen.ui.preferences :as ui-preferences]
             [hyperopen.vaults.infrastructure.persistence :as vault-persistence]
-            [hyperopen.wallet.core :as wallet]))
+            [hyperopen.wallet.core :as wallet]
+            [hyperopen.wallet.idle-lock :as idle-lock]))
 
 (declare init-router!)
+
+(defn- init-wallet!
+  "Connect the wallet layer and start the inactivity lock for passkey-protected
+   trading sessions."
+  [store]
+  (wallet/init-wallet! store)
+  (idle-lock/install! store))
 
 (defn mark-performance!
   [mark-name]
@@ -316,7 +324,7 @@
        :restore-order-history-pagination-settings! order-actions/restore-order-history-pagination-settings!
        :set-on-connected-handler! wallet/set-on-connected-handler!
        :handle-wallet-connected runtime-action-adapters/handle-wallet-connected
-       :init-wallet! wallet/init-wallet!
+       :init-wallet! init-wallet!
        :init-router! (fn [startup-store]
                        (init-router!
                         startup-store

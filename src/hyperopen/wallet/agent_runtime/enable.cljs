@@ -18,6 +18,9 @@
     :passkey
     :plain))
 
+(def passkey-setup-failed-hint
+  "Try again, or turn off passkey protection in Trading Settings to remember the key without it.")
+
 (defn- passkey-local-mode?
   [storage-mode local-protection-mode]
   (and (= :local storage-mode)
@@ -78,6 +81,14 @@
                                              :private-key private-key
                                              :last-approved-at last-approved-at
                                              :nonce-cursor nonce-cursor}})
+          (.catch
+           (fn [err]
+             (js/Promise.reject
+              (errors/known-error
+               (str (or (errors/runtime-error-message err)
+                        "The passkey could not be set up.")
+                    " "
+                    passkey-setup-failed-hint)))))
           (.then
            (fn [{:keys [metadata session]}]
              (cond
