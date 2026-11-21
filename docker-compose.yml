@@ -1,0 +1,6 @@
+services:
+  hyperopen:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3110:80"   # 0.0.0.0:3110

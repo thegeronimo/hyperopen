@@ -113,6 +113,16 @@ This command fails closed if the deployed origin is missing the expected CSP, an
 
 </details>
 
+### Docker deployment
+
+Self-hosting with Docker is included:
+
+```bash
+docker compose up -d --build
+```
+
+This builds the release bundle (Node 22 + Temurin 21) and serves the static output with nginx on 0.0.0.0:3110. To serve on a different port, change the left side of the ports mapping in docker-compose.yml.
+
 ---
 
 ## Why Hyperopen
