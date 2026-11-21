@@ -121,11 +121,11 @@
            st {:units 0 :dep 0 :netw 0 :period nil :p-dep 0 :p-mw 0 :w 0
                :realized 0 :completed 0 :prev-vm 0 :prev-eval nil}
            out []]
-      (if-let [{:keys [eval upto pending-upto]} (first slots)]
-        (let [i (index-fn eval)
+      (if-let [{ev :eval, upto :upto, pending-upto :pending-upto} (first slots)]
+        (let [i (index-fn ev)
               vm-pre (* (:units st) i)
               st (if (and (:period st) (number? (:prev-eval st)))
-                   (update st :w + (* 0.5 (+ (:prev-vm st) vm-pre) (- eval (:prev-eval st))))
+                   (update st :w + (* 0.5 (+ (:prev-vm st) vm-pre) (- ev (:prev-eval st))))
                    st)
               [due later] (split-with #(<= (:time-ms %) upto) pending)
               st (reduce #(apply-transfer %1 %2 i p-ends) st due)
@@ -137,8 +137,8 @@
                               (reduce + 0)))]
           (recur (rest slots)
                  later
-                 (assoc st :prev-vm vm :prev-eval eval)
-                 (conj out {:eval eval
+                 (assoc st :prev-vm vm :prev-eval ev)
+                 (conj out {:eval ev
                             :period (:period st)
                             :pm (when (:period st) (- (+ vm (:p-mw st)) (:p-dep st)))
                             :w (:w st)
@@ -167,7 +167,7 @@
         indexed? (seq index)]
     (vec
      (map-indexed
-      (fn [i {:keys [eval period pm w dep netw completed realized pending]}]
+      (fn [i {ev :eval, :keys [period pm w dep netw completed realized pending]}]
         (let [period-pnl
               (when (some? period)
                 (let [end (get ends period)
@@ -178,7 +178,7 @@
                           span (- (:eval end) start-ms)
                           frac (cond
                                  (pos? w-end) (/ w w-end)
-                                 (pos? span) (/ (- eval start-ms) span)
+                                 (pos? span) (/ (- ev start-ms) span)
                                  :else 1)
                           frac (if (= i (:row-index end)) 1 (min 1 (max 0 frac)))]
                       (+ pm (* (- p-end (:pm end)) frac)))
