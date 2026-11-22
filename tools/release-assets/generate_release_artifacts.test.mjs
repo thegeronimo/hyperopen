@@ -77,6 +77,7 @@ const STATIC_ROUTE_PATHS = [
 ];
 const STATIC_ROUTE_HTML_FILES = [
   "api.html",
+  "builderCodes.html",
   "earn.html",
   "funding-comparison.html",
   "index.html",
@@ -239,6 +240,7 @@ async function writeReleaseFixture(
     "earn_route",
     "funding_comparison_route",
     "api_wallets_route",
+    "builder_codes_route",
   ];
   await writeFixtureFile(
     sourceRoot,
@@ -845,6 +847,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     "/js/account_positions_outcomes.CHUNK.js",
     "/js/account_surfaces.CHUNK.js",
     "/js/api_wallets_route.CHUNK.js",
+    "/js/builder_codes_route.CHUNK.js",
     "/js/charts_shared.CHUNK.js",
     "/js/earn_route.CHUNK.js",
     "/js/funding_comparison_route.CHUNK.js",
@@ -860,6 +863,7 @@ test("generateReleaseArtifacts assembles deterministic route-specific release pa
     "account_positions_outcomes.CHUNK.js",
     "account_surfaces.CHUNK.js",
     "api_wallets_route.CHUNK.js",
+    "builder_codes_route.CHUNK.js",
     "charts_shared.CHUNK.js",
     "earn_route.CHUNK.js",
     "funding_comparison_route.CHUNK.js",

@@ -4,6 +4,7 @@
             [hyperopen.route-modules :as route-modules]
             [hyperopen.runtime.collaborators :as runtime-collaborators]
             [hyperopen.runtime.effect-adapters :as effect-adapters]
+            [hyperopen.runtime.effect-adapters.builder-codes :as builder-codes-effect-adapters]
             [hyperopen.runtime.effect-adapters.hyperevm :as hyperevm-effect-adapters]
             [hyperopen.runtime.effect-adapters.margin-rec :as margin-rec-effects]
             [hyperopen.runtime.effect-adapters.pnl-share :as pnl-share-effects]
@@ -140,6 +141,8 @@
                   :api-submit-funding-repay effect-adapters/api-submit-funding-repay-effect
                   :api-submit-funding-withdraw effect-adapters/api-submit-funding-withdraw-effect
                   :api-submit-funding-deposit effect-adapters/api-submit-funding-deposit-effect
+                  :api-load-builder-codes builder-codes-effect-adapters/api-load-builder-codes-effect
+                  :api-revoke-builder builder-codes-effect-adapters/api-revoke-builder-effect
                   :fetch-hyperevm-balances hyperevm-effect-adapters/fetch-hyperevm-balances-effect
                   :fetch-hyperevm-core-bridge-balance hyperevm-effect-adapters/fetch-hyperevm-core-bridge-balance-effect
                   :fetch-hyperevm-core-account-status hyperevm-effect-adapters/fetch-hyperevm-core-account-status-effect

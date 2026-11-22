@@ -6,6 +6,7 @@
 (s/def ::order-submit-confirmation-variant
   #{:open-order :close-position})
 (s/def ::enable-agent-trading-args (s/tuple map?))
+(s/def ::builder-code-revoke-args (s/tuple map?))
 (s/def ::api-submit-request (s/keys :req-un [::common/action]))
 (s/def ::api-submit-order-args (s/tuple ::api-submit-request))
 
@@ -377,6 +378,8 @@
    :effects/generate-api-wallet ::common/no-args
    :effects/api-authorize-api-wallet ::common/no-args
    :effects/api-remove-api-wallet ::common/no-args
+   :effects/api-load-builder-codes ::common/address-args
+   :effects/api-revoke-builder ::builder-code-revoke-args
    :effects/api-fetch-user-funding-history ::request-id-args
    :effects/api-fetch-historical-orders ::request-id-args
    :effects/fetch-older-chart-fills ::fetch-older-chart-fills-args

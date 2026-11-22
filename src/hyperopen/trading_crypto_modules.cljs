@@ -10,6 +10,7 @@
    :private-key->agent-address ["hyperopen" "trading_crypto" "module" "privateKeyToAgentAddress"]
    :sign-l1-action-with-private-key! ["hyperopen" "trading_crypto" "module" "signL1ActionWithPrivateKey"]
    :sign-approve-agent-action! ["hyperopen" "trading_crypto" "module" "signApproveAgentAction"]
+   :sign-approve-builder-fee-action! ["hyperopen" "trading_crypto" "module" "signApproveBuilderFeeAction"]
    :sign-usd-class-transfer-action! ["hyperopen" "trading_crypto" "module" "signUsdClassTransferAction"]
    :sign-send-asset-action! ["hyperopen" "trading_crypto" "module" "signSendAssetAction"]
    :sign-c-deposit-action! ["hyperopen" "trading_crypto" "module" "signCDepositAction"]

@@ -66,6 +66,8 @@
                                       :depends-on #{:main}}
                   :subaccounts_route {:entries [hyperopen.views.subaccounts-view]
                                       :depends-on #{:main}}
+                  :builder_codes_route {:entries [hyperopen.views.builder-codes-view]
+                                        :depends-on #{:main}}
                   :vaults_route {:entries [hyperopen.views.vaults.list-view
                                            hyperopen.views.vaults.detail-view
                                            hyperopen.views.vaults.startup-preview

@@ -124,6 +124,18 @@ export const PUBLIC_ROUTE_METADATA = [
       "Loading API wallet authorization, account access, and management tools.",
     twitterCard: DEFAULT_TWITTER_CARD,
   },
+  {
+    id: "builderCodes",
+    path: "/builderCodes",
+    match: "exact",
+    title: "Builder Codes",
+    description:
+      "Review and remove Hyperliquid builder codes that let applications charge a per-order fee on your behalf.",
+    heroTitle: "Builder Codes",
+    heroDescription:
+      "Loading your approved builder codes and their max fee rates.",
+    twitterCard: DEFAULT_TWITTER_CARD,
+  },
 ];
 
 function escapeHtmlText(text) {
@@ -561,6 +573,7 @@ export const ROUTE_PRELOAD_MODULE_IDS = {
   earn: ["earn_route"],
   "funding-comparison": ["funding_comparison_route"],
   api: ["api_wallets_route"],
+  builderCodes: ["builder_codes_route"],
 };
 
 export const ROUTE_PREFETCH_MODULE_IDS = {

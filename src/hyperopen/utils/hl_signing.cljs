@@ -28,6 +28,12 @@
    {:name "agentName" :type "string"}
    {:name "nonce" :type "uint64"}])
 
+(def ^:private approve-builder-fee-fields
+  [{:name "hyperliquidChain" :type "string"}
+   {:name "maxFeeRate" :type "string"}
+   {:name "builder" :type "address"}
+   {:name "nonce" :type "uint64"}])
+
 (def ^:private usd-class-transfer-fields
   [{:name "hyperliquidChain" :type "string"}
    {:name "amount" :type "string"}
@@ -190,6 +196,20 @@
    :message {:hyperliquidChain hyperliquidChain
              :agentAddress agentAddress
              :agentName (or agentName "")
+             :nonce nonce}})
+
+(defn build-approve-builder-fee-typed-data
+  [{:keys [hyperliquidChain signatureChainId maxFeeRate builder nonce]}]
+  {:types {"HyperliquidTransaction:ApproveBuilderFee" approve-builder-fee-fields
+           "EIP712Domain" eip712-domain-fields}
+   :domain {:name "HyperliquidSignTransaction"
+            :version "1"
+            :chainId (parse-chain-id signatureChainId)
+            :verifyingContract zero-address}
+   :primaryType "HyperliquidTransaction:ApproveBuilderFee"
+   :message {:hyperliquidChain hyperliquidChain
+             :maxFeeRate (str maxFeeRate)
+             :builder builder
              :nonce nonce}})
 
 (defn build-usd-class-transfer-typed-data
@@ -409,6 +429,10 @@
 (defn sign-approve-agent-action!
   [address action]
   (sign-typed-data! address (build-approve-agent-typed-data action)))
+
+(defn sign-approve-builder-fee-action!
+  [address action]
+  (sign-typed-data! address (build-approve-builder-fee-typed-data action)))
 
 (defn sign-usd-class-transfer-action!
   [address action]

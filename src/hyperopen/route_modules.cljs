@@ -3,6 +3,7 @@
             [goog.object :as gobj]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.borrow-lend.actions :as borrow-lend-actions]
+            [hyperopen.builder-codes.actions :as builder-codes-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
@@ -22,6 +23,7 @@
    :earn "earn_route"
    :api-wallets "api_wallets_route"
    :subaccounts "subaccounts_route"
+   :builder-codes "builder_codes_route"
    :vaults "vaults_route"})
 
 (def ^:private exported-view-paths-by-module
@@ -33,6 +35,7 @@
    :earn [["hyperopen" "views" "earn_view" "route_view"]]
    :api-wallets [["hyperopen" "views" "api_wallets_view" "route_view"]]
    :subaccounts [["hyperopen" "views" "subaccounts_view" "route_view"]]
+   :builder-codes [["hyperopen" "views" "builder_codes_view" "route_view"]]
    :vaults [["hyperopen" "views" "vaults" "list_view" "route_view"]
             ["hyperopen" "views" "vaults" "detail_view" "route_view"]]})
 
@@ -73,6 +76,7 @@
       (borrow-lend-actions/earn-route? route) :earn
       (api-wallets-actions/api-wallet-route? route) :api-wallets
       (subaccounts-actions/subaccounts-route? route) :subaccounts
+      (builder-codes-actions/builder-codes-route? route) :builder-codes
       (vault-routes/vault-detail-route? route) :vaults
       (vault-routes/vault-route? route) :vaults
       :else nil)))

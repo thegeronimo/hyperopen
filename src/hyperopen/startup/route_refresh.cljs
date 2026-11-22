@@ -1,6 +1,7 @@
 (ns hyperopen.startup.route-refresh
   (:require [hyperopen.api-wallets.actions :as api-wallets-actions]
             [hyperopen.borrow-lend.actions :as borrow-lend-actions]
+            [hyperopen.builder-codes.actions :as builder-codes-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.leaderboard.actions :as leaderboard-actions]
             [hyperopen.portfolio.actions :as portfolio-actions]
@@ -87,6 +88,9 @@
 
                      (subaccounts-actions/subaccounts-route? route)
                      [[:actions/load-subaccounts-route route]]
+
+                     (builder-codes-actions/builder-codes-route? route)
+                     [[:actions/load-builder-codes-route route]]
 
                      (portfolio-routes/portfolio-optimize-route? route)
                      [[:actions/load-portfolio-optimizer-route route]]

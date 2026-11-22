@@ -1,6 +1,7 @@
 (ns hyperopen.schema.runtime-registration-catalog
   (:require [hyperopen.schema.runtime-registration.api-wallets :as api-wallets]
             [hyperopen.schema.runtime-registration.borrow-lend :as borrow-lend]
+            [hyperopen.schema.runtime-registration.builder-codes :as builder-codes]
             [hyperopen.schema.runtime-registration.funding :as funding]
             [hyperopen.schema.runtime-registration.funding-comparison :as funding-comparison]
             [hyperopen.schema.runtime-registration.hyperevm :as hyperevm]
@@ -31,6 +32,7 @@
    subaccounts/effect-binding-rows
    leaderboard/effect-binding-rows
    referrals/effect-binding-rows
+   builder-codes/effect-binding-rows
    funding-comparison/effect-binding-rows
    portfolio/effect-binding-rows
    trade/effect-binding-rows
@@ -55,6 +57,7 @@
    referrals/action-binding-rows
    api-wallets/action-binding-rows
    subaccounts/action-binding-rows
+   builder-codes/action-binding-rows
    funding-comparison/action-binding-rows
    staking/action-binding-rows
    borrow-lend/action-binding-rows
@@ -75,6 +78,7 @@
            referrals/effect-order-policy-required-action-ids
            api-wallets/effect-order-policy-required-action-ids
            subaccounts/effect-order-policy-required-action-ids
+           builder-codes/effect-order-policy-required-action-ids
            funding-comparison/effect-order-policy-required-action-ids
            staking/effect-order-policy-required-action-ids
            borrow-lend/effect-order-policy-required-action-ids

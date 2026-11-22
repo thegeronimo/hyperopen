@@ -25,6 +25,10 @@
   [address action]
   (signing/sign-approve-agent-action! address action))
 
+(defn ^:export signApproveBuilderFeeAction
+  [address action]
+  (signing/sign-approve-builder-fee-action! address action))
+
 (defn ^:export signUsdClassTransferAction
   [address action]
   (signing/sign-usd-class-transfer-action! address action))
@@ -53,6 +57,7 @@
 (goog/exportSymbol "hyperopen.trading_crypto.module.privateKeyToAgentAddress" privateKeyToAgentAddress)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signL1ActionWithPrivateKey" signL1ActionWithPrivateKey)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signApproveAgentAction" signApproveAgentAction)
+(goog/exportSymbol "hyperopen.trading_crypto.module.signApproveBuilderFeeAction" signApproveBuilderFeeAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signUsdClassTransferAction" signUsdClassTransferAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signSendAssetAction" signSendAssetAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signCDepositAction" signCDepositAction)
