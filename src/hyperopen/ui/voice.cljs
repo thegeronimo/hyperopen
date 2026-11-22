@@ -31,6 +31,7 @@
    :nav/leaderboard {:default "Leaderboard" :degen "Leaderboard (Flex)"}
    :nav/api {:default "API" :degen "API (Nerds)"}
    :nav/subaccounts {:default "Sub-Accounts" :degen "Sub-Accounts (Alts)"}
+   :nav/builder-codes {:default "Builder Codes" :degen "Builder Codes (Rake)"}
 
    :orderbook/book {:default "Order Book" :degen "Order Book (looks important)"}
    :orderbook/trades {:default "Trades" :degen "Trades (other people's mistakes)"}

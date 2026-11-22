@@ -1,6 +1,7 @@
 (ns hyperopen.app.actions
   (:require [clojure.string :as str]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.builder-codes.actions :as builder-codes-actions]
             [hyperopen.portfolio.optimizer.actions :as portfolio-optimizer-actions]
             [hyperopen.portfolio.vault-attribution-actions :as vault-attribution-actions]
             [hyperopen.pnl-share.actions :as pnl-share-actions]
@@ -124,6 +125,8 @@
                    :start-transfer-subaccount subaccounts-actions/start-transfer-subaccount
                    :cancel-transfer-subaccount subaccounts-actions/cancel-transfer-subaccount
                    :submit-transfer-subaccount subaccounts-actions/submit-transfer-subaccount}
+     :builder-codes {:load-builder-codes-route builder-codes-actions/load-builder-codes-route
+                     :revoke-builder builder-codes-actions/revoke-builder}
      :spectate-mode {:open-spectate-mode-modal action-adapters/open-spectate-mode-modal
                      :close-spectate-mode-modal action-adapters/close-spectate-mode-modal
                      :set-spectate-mode-search action-adapters/set-spectate-mode-search

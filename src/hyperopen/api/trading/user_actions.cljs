@@ -137,6 +137,9 @@
 (defn submit-usd-class-transfer! [store address action]
   (sign-and-post-user-action! store address action :nonce :sign-usd-class-transfer-action!))
 
+(defn submit-approve-builder-fee! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-approve-builder-fee-action!))
+
 (defn submit-send-asset! [store address action]
   (sign-and-post-user-action! store address action :nonce :sign-send-asset-action!))
 

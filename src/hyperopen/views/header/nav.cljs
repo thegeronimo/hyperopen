@@ -1,6 +1,7 @@
 (ns hyperopen.views.header.nav
   (:require [clojure.string :as str]
             [hyperopen.api-wallets.actions :as api-wallets-actions]
+            [hyperopen.builder-codes.actions :as builder-codes-actions]
             [hyperopen.funding-comparison.actions :as funding-comparison-actions]
             [hyperopen.portfolio.routes :as portfolio-routes]
             [hyperopen.referrals.actions :as referrals-actions]
@@ -74,7 +75,12 @@
     :label "Sub-Accounts"
     :route subaccounts-actions/canonical-route
     :placements #{:more}
-    :active-fn subaccounts-actions/subaccounts-route?}])
+    :active-fn subaccounts-actions/subaccounts-route?}
+   {:id :builder-codes
+    :label "Builder Codes"
+    :route builder-codes-actions/canonical-route
+    :placements #{:more}
+    :active-fn builder-codes-actions/builder-codes-route?}])
 
 (defn- present-item
   [current-route item]

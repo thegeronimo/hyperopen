@@ -150,7 +150,7 @@
     (is (= ["Trade" "Portfolio" "Optimize" "Funding" "Vaults" "Earn" "Staking" "Referrals"
             "Leaderboard"]
            (mapv :label (:desktop-nav-items plain))))
-    (is (= ["API (Nerds)" "Sub-Accounts (Alts)"]
+    (is (= ["API (Nerds)" "Sub-Accounts (Alts)" "Builder Codes (Rake)"]
            (mapv :label (get-in degen [:more-nav :items]))))
     (is (= ["Trade (Gamble)" "Portfolio (Hope)" "Funding (Brrr)" "Vaults (LOL)"]
            (mapv :label (get-in degen [:mobile-nav :primary-items]))))
