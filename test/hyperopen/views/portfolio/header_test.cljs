@@ -13,10 +13,11 @@
         optimize (hiccup/find-by-data-role view "portfolio-action-optimize")
         link-staking (hiccup/find-by-data-role view "portfolio-action-link-staking")
         perps-spot (hiccup/find-by-data-role view "portfolio-action-perps-spot")
+        account-type (hiccup/find-by-data-role view "portfolio-action-account-type")
         withdraw (hiccup/find-by-data-role view "portfolio-action-withdraw")
         deposit (hiccup/find-by-data-role view "portfolio-action-deposit")]
     (is (contains? (set (hiccup/collect-strings view)) "Portfolio"))
-    (is (= 5 (count action-buttons)))
+    (is (= 6 (count action-buttons)))
     (is (= [[:actions/navigate "/portfolio/optimize"]]
            (get-in optimize [1 :on :click])))
     (is (= [[:actions/navigate "/staking"]]
@@ -27,6 +28,8 @@
            (get-in perps-spot [1 :on :click])))
     (is (= ["Transfer" "Transfer"] (hiccup/collect-strings perps-spot))
         "the Perps <-> Spot opener reads Transfer at every width, keeping its data-role")
+    (is (= [[:actions/open-account-type-modal]]
+           (get-in account-type [1 :on :click])))
     (is (= [[:actions/open-funding-withdraw-modal
              :event.currentTarget/bounds
              "portfolio-action-withdraw"]]

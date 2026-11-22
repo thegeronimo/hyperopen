@@ -11,6 +11,7 @@
             [hyperopen.runtime.effect-adapters.spectate-mode :as spectate-mode-effects]
             [hyperopen.runtime.effect-adapters.vol-range-execution :as vol-range-execution]
             [hyperopen.runtime.effect-adapters.vol-range-report :as vol-range-report]
+            [hyperopen.runtime.effect-adapters.account-type :as account-type-effect-adapters]
             [hyperopen.runtime.state :as runtime-state]
             [hyperopen.schema.runtime-registration.portfolio :as portfolio-registration]
             [hyperopen.schema.runtime-registration.vaults :as vault-registration]))
@@ -144,6 +145,7 @@
                   :fetch-hyperevm-core-bridge-balance hyperevm-effect-adapters/fetch-hyperevm-core-bridge-balance-effect
                   :fetch-hyperevm-core-account-status hyperevm-effect-adapters/fetch-hyperevm-core-account-status-effect
                   :fetch-hyperevm-in-flight-receipt hyperevm-effect-adapters/fetch-hyperevm-in-flight-receipt-effect
+                  :api-set-user-abstraction account-type-effect-adapters/api-set-user-abstraction-effect
                   :wallet-watch-asset hyperevm-effect-adapters/wallet-watch-asset-effect}
                  (:api lazy-vault-effect-deps))
      :portfolio-optimizer (:portfolio-optimizer lazy-portfolio-optimizer-effect-deps)}))

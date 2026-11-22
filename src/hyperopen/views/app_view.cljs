@@ -6,6 +6,7 @@
             [hyperopen.trade.layout-actions :as trade-layout-actions]
             [hyperopen.vaults.infrastructure.routes :as vault-routes]
             [hyperopen.views.agent-trading-recovery-modal :as agent-trading-recovery-modal]
+            [hyperopen.views.account-type-modal :as account-type-modal]
             [hyperopen.views.footer-view :as footer-view]
             [hyperopen.views.header-view :as header-view]
             [hyperopen.views.notifications-view :as notifications-view]
@@ -187,5 +188,6 @@
      (surface-modules/render-surface-view state :pnl-share-modal)
      (agent-trading-recovery-modal/agent-trading-recovery-modal-view state)
      (order-submit-confirmation-modal/order-submit-confirmation-modal-view state)
+     (account-type-modal/account-type-modal-view state)
      (notifications-view/notifications-view state)
      (footer-view/footer-view state)]))

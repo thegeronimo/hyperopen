@@ -1,5 +1,5 @@
 (ns hyperopen.views.trade.order-form-vm
-  (:require [hyperopen.domain.trading.core :as core]
+  (:require [clojure.string :as str]
             [hyperopen.state.trading :as trading]
             [hyperopen.trading.order-form-application :as application]
             [hyperopen.trading.order-type-registry :as order-types]
@@ -23,7 +23,10 @@
     "Pro"))
 
 (defn account-mode-label [raw-abstraction]
-  (if (core/portfolio-margin-abstraction? raw-abstraction) "PM" "Classic"))
+  (case (some-> raw-abstraction str str/trim str/lower-case)
+    "unifiedaccount" "Unified"
+    "portfoliomargin" "PM"
+    "Manual"))
 
 (defn- parse-outcome-side-index [value]
   (let [parsed (cond

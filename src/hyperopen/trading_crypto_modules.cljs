@@ -15,6 +15,7 @@
    :sign-c-deposit-action! ["hyperopen" "trading_crypto" "module" "signCDepositAction"]
    :sign-c-withdraw-action! ["hyperopen" "trading_crypto" "module" "signCWithdrawAction"]
    :sign-token-delegate-action! ["hyperopen" "trading_crypto" "module" "signTokenDelegateAction"]
+   :sign-user-set-abstraction-action! ["hyperopen" "trading_crypto" "module" "signUserSetAbstractionAction"]
    :sign-withdraw3-action! ["hyperopen" "trading_crypto" "module" "signWithdraw3Action"]})
 
 (defonce ^:private resolved-trading-crypto* (atom nil))

@@ -16,6 +16,7 @@
 
 (s/def ::vol-range-report-args
   (s/tuple #{:load :backfill :start-tracking :marks :export} map?))
+(s/def ::account-type-set-args (s/tuple map?))
 
 (defn- confirm-api-submit-order-args?
   [args]
@@ -413,6 +414,7 @@
    :effects/api-fetch-vault-order-history ::common/address-args
    :effects/api-fetch-vault-ledger-updates ::common/address-args
    :effects/api-submit-vault-transfer ::api-submit-vault-transfer-args
+   :effects/api-set-user-abstraction ::account-type-set-args
    :effects/load-vault-screener-cache-index ::common/no-args
    :effects/run-vault-screener ::vault-screener-run-args
    :effects/load-vault-saved-views ::common/no-args
