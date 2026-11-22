@@ -13,22 +13,24 @@
         strings (set (collect-strings view-node))]
     (is (contains? strings "Cross"))
     (is (contains? strings "20x"))
-    (is (contains? strings "Classic"))
+    (is (contains? strings "Manual"))
     (is (contains? strings "Market"))
     (is (contains? strings "Limit"))
     (is (contains? strings "Pro"))
     (is (contains? strings "Buy / Long"))
     (is (contains? strings "Sell / Short"))))
 
-(deftest order-form-renders-raw-portfolio-margin-mode-and-scale-post-only-test
+(deftest order-form-renders-account-type-chip-for-each-abstraction-test
   (doseq [[raw-abstraction expected-label]
           [[" portfolioMargin " "PM"]
-           ["unifiedAccount" "Classic"]
-           ["default" "Classic"]
-           ["disabled" "Classic"]
-           ["dexAbstraction" "Classic"]
-           ["unknown" "Classic"]
-           [nil "Classic"]]]
+           ["PoRtFoLiOmArGiN" "PM"]
+           ["unifiedAccount" "Unified"]
+           ["UNIFIEDACCOUNT" "Unified"]
+           ["default" "Manual"]
+           ["disabled" "Manual"]
+           ["dexAbstraction" "Manual"]
+           ["unknown" "Manual"]
+           [nil "Manual"]]]
     (let [view-node (view/order-form-view
                      (assoc (base-state {:type :limit})
                             :account {:mode :unified
@@ -73,7 +75,7 @@
     (is (not (contains? strings "Sell / Short")))
     (is (not (contains? strings "Cross")))
     (is (not (contains? strings "20x")))
-    (is (not (contains? strings "Classic")))
+    (is (not (contains? strings "Manual")))
     (is (nil? (button-node-by-label view-node "Sell")) "selling is Cash out, never a tab")
     (is (= [:actions/update-order-form [:outcome-side] 1] (first no-click)))))
 

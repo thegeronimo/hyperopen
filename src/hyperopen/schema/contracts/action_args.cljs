@@ -8,6 +8,9 @@
             [hyperopen.schema.contracts.vol-range-action-args :as vol-range-action-args]))
 (s/def ::funding-history-filter-path (s/or :path ::common/state-path :key keyword?))
 (s/def ::funding-history-filter-args (s/tuple ::funding-history-filter-path any?))
+(s/def ::account-type-option
+  #{:unified-account :portfolio-margin :manual})
+(s/def ::account-type-option-args (s/tuple ::account-type-option))
 (s/def ::add-indicator-args (s/tuple keyword? map?))
 (s/def ::outcome-chart-unit-args (s/tuple #{:percent :cents "percent" "cents"}))
 (s/def ::outcome-chart-mode-args (s/tuple #{:single :all "single" "all"}))
@@ -738,6 +741,10 @@
    :actions/set-vault-transfer-amount ::common/single-input-args
    :actions/set-vault-transfer-withdraw-all ::common/boolean-args
    :actions/submit-vault-transfer ::common/no-args
+   :actions/open-account-type-modal ::common/no-args
+   :actions/close-account-type-modal ::common/no-args
+   :actions/select-account-type ::account-type-option-args
+   :actions/submit-account-type ::account-type-option-args
    :actions/navigate (s/or :path (s/tuple ::common/non-empty-string)
                            :path-and-opts (s/tuple ::common/non-empty-string map?))})
 

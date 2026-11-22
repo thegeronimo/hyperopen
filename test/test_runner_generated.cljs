@@ -3,6 +3,8 @@
 (ns test-runner-generated
   (:require [cljs.test :as cljs-test :refer-macros [run-tests]]
             [hyperopen.account-tab-modules-test]
+            [hyperopen.account-type.actions-test]
+            [hyperopen.account-type.effects-test]
             [hyperopen.account.chart-fill-history-test]
             [hyperopen.account.context-test]
             [hyperopen.account.history.actions-test]
@@ -738,6 +740,7 @@
             [hyperopen.views.account-info.vm-hyperevm-test]
             [hyperopen.views.account-info.vm-outcomes-test]
             [hyperopen.views.account-info.vm-test]
+            [hyperopen.views.account-type-modal-test]
             [hyperopen.views.active-asset-view-test]
             [hyperopen.views.active-asset.funding-history-chart-test]
             [hyperopen.views.active-asset.funding-tooltip-model-test]
@@ -1175,6 +1178,8 @@
    (run-generated-tests (cljs-test/empty-env)))
   ([env]
     (run-tests env 'hyperopen.account-tab-modules-test
+             'hyperopen.account-type.actions-test
+             'hyperopen.account-type.effects-test
              'hyperopen.account.chart-fill-history-test
              'hyperopen.account.context-test
              'hyperopen.account.history.actions-test
@@ -1910,6 +1915,7 @@
              'hyperopen.views.account-info.vm-hyperevm-test
              'hyperopen.views.account-info.vm-outcomes-test
              'hyperopen.views.account-info.vm-test
+             'hyperopen.views.account-type-modal-test
              'hyperopen.views.active-asset-view-test
              'hyperopen.views.active-asset.funding-history-chart-test
              'hyperopen.views.active-asset.funding-tooltip-model-test

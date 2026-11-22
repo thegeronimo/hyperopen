@@ -18,6 +18,9 @@
     :action [:actions/open-funding-transfer-modal
              :event.currentTarget/bounds
              "portfolio-action-perps-spot"]}
+   {:label "Account Type"
+    :data-role "portfolio-action-account-type"
+    :action [:actions/open-account-type-modal]}
    {:label "Withdraw"
     :data-role "portfolio-action-withdraw"
     :action [:actions/open-funding-withdraw-modal

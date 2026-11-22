@@ -452,7 +452,10 @@
                        max-leverage
                        leverage-popover-open?
                        leverage-handlers)
-     (primitives/chip-button (or account-mode-label "Classic") true :disabled? true)]))
+     (primitives/chip-button (or account-mode-label "Manual")
+                             true
+                             :on-click [[:actions/open-account-type-modal]]
+                             :disabled? false)]))
 
 (defn side-row
   ([side side-handlers]

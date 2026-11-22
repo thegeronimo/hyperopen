@@ -61,6 +61,12 @@
    {:name "isUndelegate" :type "bool"}
    {:name "nonce" :type "uint64"}])
 
+(def ^:private user-set-abstraction-fields
+  [{:name "hyperliquidChain" :type "string"}
+   {:name "user" :type "address"}
+   {:name "abstraction" :type "string"}
+   {:name "nonce" :type "uint64"}])
+
 (def ^:private withdraw-fields
   [{:name "hyperliquidChain" :type "string"}
    {:name "destination" :type "string"}
@@ -265,6 +271,20 @@
              :isUndelegate (boolean isUndelegate)
              :nonce nonce}})
 
+(defn build-user-set-abstraction-typed-data
+  [{:keys [hyperliquidChain signatureChainId user abstraction nonce]}]
+  {:types {"HyperliquidTransaction:UserSetAbstraction" user-set-abstraction-fields
+           "EIP712Domain" eip712-domain-fields}
+   :domain {:name "HyperliquidSignTransaction"
+            :version "1"
+            :chainId (parse-chain-id signatureChainId)
+            :verifyingContract zero-address}
+   :primaryType "HyperliquidTransaction:UserSetAbstraction"
+   :message {:hyperliquidChain hyperliquidChain
+             :user user
+             :abstraction (str abstraction)
+             :nonce nonce}})
+
 (defn build-withdraw3-typed-data
   [{:keys [hyperliquidChain signatureChainId destination amount time]}]
   {:types {"HyperliquidTransaction:Withdraw" withdraw-fields
@@ -429,6 +449,10 @@
 (defn sign-token-delegate-action!
   [address action]
   (sign-typed-data! address (build-token-delegate-typed-data action)))
+
+(defn sign-user-set-abstraction-action!
+  [address action]
+  (sign-typed-data! address (build-user-set-abstraction-typed-data action)))
 
 (defn sign-withdraw3-action!
   [address action]

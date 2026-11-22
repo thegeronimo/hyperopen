@@ -11,6 +11,7 @@
             [hyperopen.schema.runtime-registration.portfolio :as portfolio-registration]
             [hyperopen.schema.runtime-registration.vaults :as vault-registration]
             [hyperopen.subaccounts.actions :as subaccounts-actions]
+            [hyperopen.account-type.actions :as account-type-actions]
             [hyperopen.vaults.actions :as vault-actions]))
 
 (def ^:private eager-vault-action-keys
@@ -142,6 +143,10 @@
                      :apply-imported-spectate-watchlist action-adapters/apply-imported-spectate-watchlist}
      :orders {:load-user-data action-adapters/load-user-data
               :set-funding-modal action-adapters/set-funding-modal}
+     :account-type {:open-account-type-modal account-type-actions/open-account-type-modal
+                    :close-account-type-modal account-type-actions/close-account-type-modal
+                    :select-account-type account-type-actions/select-account-type
+                    :submit-account-type account-type-actions/submit-account-type}
      :portfolio-optimizer
      (merge {:load-portfolio-optimizer-route
              portfolio-optimizer-actions/load-portfolio-optimizer-route

@@ -149,5 +149,8 @@
 (defn submit-token-delegate! [store address action]
   (sign-and-post-user-action! store address action :nonce :sign-token-delegate-action!))
 
+(defn submit-user-set-abstraction! [store address action]
+  (sign-and-post-user-action! store address action :nonce :sign-user-set-abstraction-action!))
+
 (defn submit-withdraw3! [store address action]
   (sign-and-post-user-action! store address action :time :sign-withdraw3-action!))

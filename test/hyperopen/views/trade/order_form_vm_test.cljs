@@ -282,17 +282,18 @@
       (is (true? (:show-post-only? controls)))
       (is (true? (:show-limit-like-controls? controls))))))
 
-(deftest order-form-vm-account-mode-label-is-exclusive-to-raw-portfolio-margin-test
+(deftest order-form-vm-account-mode-label-matches-active-abstraction-test
   (doseq [[raw-abstraction expected-label]
           [[" portfolioMargin " "PM"]
            ["PoRtFoLiOmArGiN" "PM"]
-           ["unifiedAccount" "Classic"]
-           ["default" "Classic"]
-           ["disabled" "Classic"]
-           ["dexAbstraction" "Classic"]
-           ["unknown" "Classic"]
-           ["" "Classic"]
-           [nil "Classic"]]]
+           ["unifiedAccount" "Unified"]
+           ["UNIFIEDACCOUNT" "Unified"]
+           ["default" "Manual"]
+           ["disabled" "Manual"]
+           ["dexAbstraction" "Manual"]
+           ["unknown" "Manual"]
+           ["" "Manual"]
+           [nil "Manual"]]]
     (let [view-model (vm/order-form-vm
                       (assoc (base-state {:type :limit} {})
                              :account {:mode :unified

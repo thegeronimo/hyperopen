@@ -45,6 +45,10 @@
   [address action]
   (signing/sign-token-delegate-action! address action))
 
+(defn ^:export signUserSetAbstractionAction
+  [address action]
+  (signing/sign-user-set-abstraction-action! address action))
+
 (defn ^:export signWithdraw3Action
   [address action]
   (signing/sign-withdraw3-action! address action))
@@ -58,4 +62,5 @@
 (goog/exportSymbol "hyperopen.trading_crypto.module.signCDepositAction" signCDepositAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signCWithdrawAction" signCWithdrawAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signTokenDelegateAction" signTokenDelegateAction)
+(goog/exportSymbol "hyperopen.trading_crypto.module.signUserSetAbstractionAction" signUserSetAbstractionAction)
 (goog/exportSymbol "hyperopen.trading_crypto.module.signWithdraw3Action" signWithdraw3Action)
