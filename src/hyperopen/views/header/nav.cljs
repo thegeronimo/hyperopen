@@ -89,7 +89,8 @@
       (assoc :mobile-data-role (str "mobile-header-menu-link-" (name id)))
 
       (contains? (:placements item*) :more)
-      (assoc :more-data-role (str "header-more-link-" (name id))))))
+      (assoc :more-data-role (str "header-more-link-" (name id))
+             :mobile-data-role (str "mobile-header-menu-link-" (name id))))))
 
 (defn items-for-placement
   [current-route placement]

@@ -48,6 +48,25 @@
               (partial with-voice-label state))
         (nav/items-for-placement route :desktop)))
 
+(def ^:private mobile-builder-codes-route
+  "/builderCodes")
+
+(defn- mobile-more-items
+  "More-placement nav items reused by the mobile menu. Falls back to a static
+Builder Codes entry when that route is not part of the nav catalog yet, so the
+mobile menu matches Hyperliquid's."
+  [route]
+  (let [more-items (nav/items-for-placement route :more)]
+    (if (some #(= :builder-codes (:id %)) more-items)
+      more-items
+      (conj more-items
+            {:id :builder-codes
+             :label "Builder Codes"
+             :route mobile-builder-codes-route
+             :placements #{:more}
+             :active? false
+             :mobile-data-role "mobile-header-menu-link-builder-codes"}))))
+
 (defn- mobile-nav-vm
   [state route]
   (let [present (comp with-mobile-action
@@ -55,7 +74,8 @@
     {:primary-items (mapv present
                           (nav/items-for-placement route :mobile-primary))
      :secondary-items (mapv present
-                            (nav/items-for-placement route :mobile-secondary))}))
+                            (concat (nav/items-for-placement route :mobile-secondary)
+                                    (mobile-more-items route)))}))
 
 (defn- more-nav-vm
   [state route]
