@@ -176,7 +176,7 @@
      [:div
       {:class (into ["absolute" "top-full" "left-0" "mt-1"
                      "bg-base-100" "border" "border-base-300" "rounded" "spectate-lg"
-                     "z-[120]" "isolate" "min-w-52" "overflow-hidden"]
+                     "z-[120]" "isolate" "min-w-52" "max-h-[max(8rem,calc(100vh_-_clamp(12rem,30vh,23rem)_-_17rem))]" "overflow-y-auto" "overscroll-contain"]
                     (if chart-type-dropdown-visible
                       ["opacity-100" "scale-y-100" "translate-y-0"]
                       ["opacity-0" "scale-y-95" "-translate-y-2" "pointer-events-none"]))

@@ -53,7 +53,7 @@
     (if loading?
       "Lines are last traded prices. Loading answers…"
       "Lines are last traded prices.")]
-   [:div {:class ["w-full" "min-w-0" "relative" "flex-1" "min-h-[320px]" "overflow-hidden" "bg-base-100"]
+   [:div {:class ["w-full" "min-w-0" "relative" "flex-1" "min-h-[320px]" "lg:min-h-[12rem]" "overflow-hidden" "bg-base-100"]
           :data-role "outcome-answers-canvas"
           :role "img"
           :aria-label (accessible-summary title lines)

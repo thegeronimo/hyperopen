@@ -170,12 +170,8 @@
                       {:z-index 1200})}
        (when menu-open?
          [:button {:type "button"
-                   :class ["absolute" "bg-transparent" "cursor-default"]
-                   :style {:left "-100vmax"
-                           :top "-100vmax"
-                           :width "200vmax"
-                           :height "200vmax"
-                           :z-index 1200}
+                   :class ["fixed" "inset-0" "bg-transparent" "cursor-default"]
+                   :style {:z-index 1200}
                    :aria-label "Close TP/SL unit menu"
                    :on {:click on-close-dropdown}}])
        [:button {:type "button"
@@ -341,12 +337,8 @@
                     {:z-index 1200})}
      (when open?
        [:button {:type "button"
-                 :class ["absolute" "bg-transparent" "cursor-default"]
-                 :style {:left "-100vmax"
-                         :top "-100vmax"
-                         :width "200vmax"
-                         :height "200vmax"
-                         :z-index 1200}
+                 :class ["fixed" "inset-0" "bg-transparent" "cursor-default"]
+                 :style {:z-index 1200}
                  :aria-label "Close TIF menu"
                  :on {:click on-close-dropdown}}])
      [:span {:class ["text-xs" "uppercase" "tracking-wide" "text-gray-400"]} "TIF"]

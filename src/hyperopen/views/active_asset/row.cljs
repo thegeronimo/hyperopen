@@ -298,7 +298,9 @@
                  "lg:grid"
                  "md:gap-3"
                  active-asset-grid-template]}
-   [:div {:class ["flex" "items-center" "justify-start" "gap-1" "app-shell-gutter-left" "min-w-fit"]}
+   [:div {:class ["asset-strip-pinned-cell" "sticky" "left-0" "z-[1]" "self-stretch" "bg-base-200"
+                  "flex" "items-center" "justify-start" "gap-1" "app-shell-gutter-left" "min-w-fit"]
+          :data-role "active-asset-selector-cell"}
     (icon-button/asset-button icon-market
                               dropdown-visible?
                               missing-icons

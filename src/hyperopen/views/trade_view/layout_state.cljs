@@ -5,10 +5,10 @@
   1024)
 
 (def ^:private desktop-account-panel-height
-  "clamp(17rem, 32vh, 23rem)")
+  "clamp(12rem, 30vh, 23rem)")
 
 (def ^:private desktop-chart-canvas-min-height
-  "22.5rem")
+  "12rem")
 
 (def ^:private desktop-chart-toolbar-height
   "2.8125rem")
@@ -62,21 +62,22 @@
 
 (defn- desktop-active-asset-shell-classes
   [funding-tooltip-open?]
-  (into ["hidden" "lg:block"]
-        (when funding-tooltip-open?
-          ["relative" "z-[160]" "overflow-visible"])))
+  (into ["hidden" "lg:block" "lg:sticky" "lg:top-0"]
+        (if funding-tooltip-open?
+          ["lg:z-[160]" "overflow-visible"]
+          ["lg:z-[130]"])))
 
 (defn- chart-panel-classes
-  [mobile-surface funding-tooltip-open?]
+  [mobile-surface overlay-open?]
   (into [(if (= mobile-surface :chart) "flex" "hidden")
          "bg-base-100"
          "flex-col"
          "min-h-0"
          "min-w-0"]
         (concat
-         (if funding-tooltip-open?
+         (if overlay-open?
            ["relative" "z-[160]" "overflow-visible"]
-           ["overflow-hidden"])
+           ["overflow-hidden" "lg:overflow-clip"])
          ["lg:flex"
           "lg:row-start-1"
           "lg:col-start-1"
@@ -113,6 +114,9 @@
          "flex-col"
          "min-h-0"]
         ["lg:flex"
+         "lg:overflow-x-hidden"
+         "lg:overflow-y-auto"
+         "lg:[scrollbar-width:thin]"
          "lg:col-start-2"
          "lg:row-start-1"
          "lg:border-l"
@@ -159,7 +163,7 @@
 (defn trade-layout
   ([desktop-layout? mobile-surface funding-tooltip-open?]
    (trade-layout desktop-layout? mobile-surface funding-tooltip-open? nil))
-  ([desktop-layout? mobile-surface funding-tooltip-open? {:keys [outcome-market?]}]
+  ([desktop-layout? mobile-surface funding-tooltip-open? {:keys [outcome-market? asset-selector-open?]}]
    (let [
          outcome-sheet? (and (not desktop-layout?) (true? outcome-market?) (= :ticket mobile-surface))
          base-surface (if outcome-sheet? :chart mobile-surface)
@@ -190,7 +194,9 @@
                                                                             mobile-account-surface?)
       :mobile-surface-tabs-classes (mobile-surface-tabs-classes mobile-account-surface?)
       :desktop-active-asset-shell-classes (desktop-active-asset-shell-classes funding-tooltip-open?)
-      :chart-panel-classes (chart-panel-classes base-surface funding-tooltip-open?)
+      :chart-panel-classes (chart-panel-classes base-surface
+                                                (or funding-tooltip-open?
+                                                    (and desktop-layout? (true? asset-selector-open?))))
       :orderbook-panel-classes (orderbook-panel-classes mobile-orderbook-surface?)
       :order-entry-panel-classes (if outcome-sheet?
                                    outcome-sheet-classes
@@ -203,5 +209,7 @@
   (let [desktop-layout* (desktop-layout? viewport-width)
         mobile-surface (normalize-mobile-surface state)]
     (assoc (trade-layout desktop-layout* mobile-surface funding-tooltip-open?
-                         {:outcome-market? (= :outcome (get-in state [:active-market :market-type]))})
+                         {:outcome-market? (= :outcome (get-in state [:active-market :market-type]))
+                          :asset-selector-open? (= :asset-selector
+                                                   (get-in state [:asset-selector :visible-dropdown]))})
            :mobile-surface mobile-surface)))

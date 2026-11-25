@@ -492,7 +492,7 @@
                     "flex"
                     "flex-col"
                     "min-h-0"
-                    "scrollbar-hide"
+                    "max-lg:scrollbar-hide"
                     "overflow-y-auto"]
             :data-role "trade-scroll-shell"}
       (degen-widgets/stats-strip state)

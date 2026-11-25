@@ -2324,6 +2324,113 @@ test("desktop trade chart does not clip under zoom-equivalent viewports @regress
   }
 });
 
+async function readLaptopShellFit(page) {
+  return page.evaluate(() => {
+    const scrollShell = document.querySelector('[data-role="trade-scroll-shell"]');
+    const orderEntry = document.querySelector('[data-parity-id="trade-order-entry-panel"]');
+    const grid = document.querySelector('[data-parity-id="trade-chart-panel"]')?.parentElement;
+    if (!scrollShell || !orderEntry || !grid) {
+      throw new Error("trade shell unavailable");
+    }
+    return {
+      shellOverflow: scrollShell.scrollHeight - scrollShell.clientHeight,
+      orderEntryOverflowsGrid:
+        orderEntry.getBoundingClientRect().bottom - grid.getBoundingClientRect().bottom
+    };
+  });
+}
+
+async function scrollTradeShellToExtremes(page) {
+  return page.evaluate(() => {
+    const scrollShell = document.querySelector('[data-role="trade-scroll-shell"]');
+    const statistics = document.querySelector('[data-role="active-asset-statistics-scroll"]');
+    scrollShell.scrollTop = scrollShell.scrollHeight;
+    if (statistics) {
+      statistics.scrollLeft = statistics.scrollWidth;
+    }
+    const button = document.querySelector('[data-role="active-asset-selector-cell"] button');
+    const rect = button.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const hit = document.elementFromPoint(x, y);
+    return { x, y, hitsSelector: Boolean(hit && button.contains(hit)) };
+  });
+}
+
+test("market selector stays reachable on laptop and short desktop viewports @regression", async ({
+  page
+}) => {
+  test.setTimeout(180_000);
+  const viewports = [
+    { width: 1024, height: 700, fits: true },
+    { width: 1280, height: 700, fits: true },
+    { width: 1366, height: 660, fits: true },
+    { width: 1440, height: 820, fits: true },
+    { width: 1512, height: 860, fits: true },
+    { width: 1102, height: 459, fits: false }
+  ];
+
+  for (const viewport of viewports) {
+    const label = `${viewport.width}x${viewport.height}`;
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await visitRoute(page, "/trade");
+    await expect(page.locator('[data-parity-id="chart-canvas"]'), `${label} chart`).toBeVisible();
+    await waitForIdle(page, { quietMs: 250, timeoutMs: 7_000, pollMs: 50 });
+
+    const fit = await readLaptopShellFit(page);
+    expect(fit.orderEntryOverflowsGrid, `${label} order ticket stays inside its grid cell`).toBeLessThanOrEqual(1);
+    if (viewport.fits) {
+      expect(fit.shellOverflow, `${label} trade shell fits without outer scrolling`).toBeLessThanOrEqual(1);
+    }
+
+    const target = await scrollTradeShellToExtremes(page);
+    expect(target.hitsSelector, `${label} market selector is on top at max scroll`).toBe(true);
+    expect(target.y, `${label} market selector is inside the viewport`).toBeLessThan(viewport.height);
+
+    await page.mouse.click(target.x, target.y);
+    await waitForIdle(page, { quietMs: 150, timeoutMs: 4_000, pollMs: 50 });
+    await expectOracle(page, "asset-selector", {
+      visibleDropdown: "asset-selector",
+      desktopPresent: true
+    });
+    const dropdown = page.locator('[data-role="asset-selector-desktop-dropdown"]');
+    await expect(dropdown.locator('[data-role="asset-selector-row"]').first(), `${label} rows mount`).toBeVisible();
+    const dropdownBox = await dropdown.boundingBox();
+    expect(dropdownBox, `${label} dropdown renders`).not.toBeNull();
+    expect(dropdownBox.y, `${label} dropdown opens inside the viewport`).toBeGreaterThanOrEqual(0);
+    expect(dropdownBox.y + dropdownBox.height, `${label} dropdown fits the viewport`).toBeLessThanOrEqual(
+      viewport.height
+    );
+    const searchHit = await page.evaluate(() => {
+      const input = document.querySelector('[data-role="asset-selector-desktop-dropdown"] input');
+      if (!input) return false;
+      const rect = input.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return Boolean(hit && (hit === input || input.contains(hit)));
+    });
+    expect(searchHit, `${label} selector search is not covered`).toBe(true);
+
+    await page.keyboard.type("ETH");
+    await waitForIdle(page, { quietMs: 200, timeoutMs: 4_000, pollMs: 50 });
+    const ethRow = dropdown.locator('[data-role="asset-selector-row"]', { hasText: "ETH-USDC" }).first();
+    await expect(ethRow, `${label} ETH row is listed`).toBeVisible();
+    const ethTarget = await ethRow.evaluate((row) => {
+      const rect = row.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return { x, y, hitsRow: Boolean(hit && row.contains(hit)) };
+    });
+    expect(ethTarget.hitsRow, `${label} ETH row is not covered`).toBe(true);
+    await page.mouse.click(ethTarget.x, ethTarget.y);
+    await waitForIdle(page, { quietMs: 300, timeoutMs: 7_000, pollMs: 50 });
+    await expectOracle(page, "asset-selector", {
+      visibleDropdown: null,
+      activeAsset: "ETH"
+    });
+  }
+});
+
 test("named-dex close-position popover loads full market metadata before submit @regression", async ({
   page
 }) => {

@@ -153,6 +153,7 @@
   }
 
   :root[data-theme="institutional"] .asset-strip-row,
+  :root[data-theme="institutional"] .asset-strip-pinned-cell,
   :root[data-theme="institutional"] .ob-ctl-row {
     background-color: rgb(var(--ho-surface));
   }

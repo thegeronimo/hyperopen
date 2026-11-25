@@ -77,3 +77,11 @@
     (is (contains? classes "text-trading-green"))
     (is (not (contains? classes "text-blue-400")))
     (is (not (contains? classes "bg-gray-700")))))
+
+(deftest timeframe-menu-scrolls-within-the-chart-panel-test
+  (let [classes (set (collect-class-strings
+                      (timeframe-dropdown/timeframe-dropdown {:selected-timeframe :1h
+                                                              :timeframes-dropdown-visible true})))]
+    (is (contains? classes "overflow-y-auto"))
+    (is (contains? classes "max-h-[max(8rem,calc(100vh_-_clamp(12rem,30vh,23rem)_-_17rem))]"))
+    (is (not (contains? classes "overflow-hidden")))))

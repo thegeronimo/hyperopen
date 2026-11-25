@@ -75,11 +75,11 @@
       "Fees"]
      [:div {:class ["pointer-events-none"
                     "absolute"
-                    "right-0"
+                    "left-0"
                     "bottom-full"
                     "mb-1"
                     "z-[100]"
-                    "w-max"
+                    "w-[18rem]"
                     "opacity-0"
                     "transition-opacity"
                     "duration-150"
@@ -91,15 +91,13 @@
                      "px-[10px]"
                      "py-[6px]"
                      "text-left"
-                     "whitespace-nowrap"
                      "font-normal"
                      "leading-[1.35]"
                      "text-white"]
              :style {:font-size "11px"}}
        tooltip
        [:div {:class ["absolute"
-                      "left-1/2"
-                      "-translate-x-1/2"
+                      "left-4"
                       "top-full"
                       "h-0"
                       "w-0"

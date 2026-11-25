@@ -17,6 +17,7 @@
       (is (contains? (support/node-class-set shell-node) "h-full"))
       (is (some? host-node))
       (is (contains? (support/node-class-set host-node) "min-h-[360px]"))
+      (is (contains? (support/node-class-set host-node) "lg:min-h-[12rem]"))
       (is (some #{"Loading Chart"} (support/collect-strings shell-node))))))
 
 (deftest trade-view-chart-shell-fills-the-desktop-top-row-test

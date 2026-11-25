@@ -74,3 +74,10 @@
   (let [view (chart-type-dropdown/chart-type-dropdown {:selected-chart-type :histogram
                                                        :chart-type-dropdown-visible false})]
     (is (= "Columns" (get-in view [1 3 1])))))
+
+(deftest chart-type-menu-scrolls-within-the-chart-panel-test
+  (let [classes (set (collect-class-strings
+                      (chart-type-dropdown/chart-type-dropdown {:selected-chart-type :candlestick
+                                                                :chart-type-dropdown-visible true})))]
+    (is (contains? classes "overflow-y-auto"))
+    (is (contains? classes "max-h-[max(8rem,calc(100vh_-_clamp(12rem,30vh,23rem)_-_17rem))]"))))

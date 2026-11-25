@@ -488,8 +488,9 @@
                 :render-limit render-limit
                 :scroll-top scroll-top
                 :suppress-empty-state? suppress-empty-state?}]
-     [:div.max-h-64.overflow-y-auto.scrollbar-hide
-      {:style {:overflow-anchor "none"}
+     [:div
+      {:class ["max-h-[clamp(6rem,calc(100vh-25rem),16rem)]" "overflow-y-auto" "scrollbar-hide"]
+       :style {:overflow-anchor "none"}
        :data-role "asset-selector-scroll-container"
        :replicant/key (or scroll-reset-key "asset-selector-list")
        :replicant/on-render (asset-list-on-render props)}

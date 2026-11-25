@@ -22,11 +22,11 @@
         closed-chart-classes (support/node-class-set closed-chart-panel)
         open-chart-classes (support/node-class-set open-chart-panel)
         open-market-strip-classes (support/node-class-set open-market-strip)]
-    (is (contains? closed-chart-classes "overflow-hidden"))
+    (is (contains? closed-chart-classes "lg:overflow-clip"))
     (is (not (contains? closed-chart-classes "overflow-visible")))
     (is (contains? open-chart-classes "overflow-visible"))
     (is (contains? open-chart-classes "z-[160]"))
-    (is (not (contains? open-chart-classes "overflow-hidden")))
+    (is (not (contains? open-chart-classes "lg:overflow-clip")))
     (is (contains? open-market-strip-classes "z-[160]"))))
 
 (deftest trade-view-mobile-funding-sheet-lifts-market-strip-above-chart-test

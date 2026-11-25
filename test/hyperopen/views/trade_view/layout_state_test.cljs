@@ -64,10 +64,39 @@
         "desktop grid should expose the market strip allowance through a CSS custom property")
     (is (= "calc(var(--trade-chart-market-strip-height) + var(--trade-chart-toolbar-height) + var(--trade-chart-canvas-min-height))"
            (:--trade-chart-row-min-height grid-style)))
-    (is (= "clamp(17rem, 32vh, 23rem)"
+    (is (= "clamp(12rem, 30vh, 23rem)"
            (:--trade-account-panel-height grid-style)))
+    (is (= "12rem" (:--trade-chart-canvas-min-height grid-style)))
     (is (= "minmax(var(--trade-chart-row-min-height), 1fr) var(--trade-account-panel-height)"
            (:grid-template-rows grid-style)))
     (is (not (str/includes? (:grid-template-rows grid-style) "minmax(24rem, 1fr)")))
     (is (= "calc(var(--trade-chart-row-min-height) + var(--trade-account-panel-height))"
            (:min-height grid-style)))))
+
+(deftest desktop-market-strip-stays-pinned-in-the-chart-column-test
+  (let [closed (layout-state/trade-layout-state {} 1280 false)
+        funding-open (layout-state/trade-layout-state {} 1280 true)
+        shell-classes (class-set (:desktop-active-asset-shell-classes closed))]
+    (is (contains? shell-classes "lg:sticky"))
+    (is (contains? shell-classes "lg:top-0"))
+    (is (contains? shell-classes "lg:z-[130]"))
+    (is (not (contains? shell-classes "relative")))
+    (is (contains? (class-set (:desktop-active-asset-shell-classes funding-open)) "lg:z-[160]"))
+    (is (contains? (class-set (:chart-panel-classes closed)) "lg:overflow-clip"))
+    (is (contains? (class-set (:chart-panel-classes closed)) "overflow-hidden"))))
+
+(deftest desktop-order-entry-column-scrolls-inside-its-cell-test
+  (let [classes (class-set (:order-entry-panel-classes (layout-state/trade-layout-state {} 1280 false)))]
+    (is (contains? classes "lg:overflow-y-auto"))
+    (is (contains? classes "lg:overflow-x-hidden"))
+    (is (contains? classes "min-h-0"))))
+
+(deftest open-asset-selector-lifts-the-desktop-chart-panel-test
+  (let [selector-open {:asset-selector {:visible-dropdown :asset-selector}}
+        desktop (class-set (:chart-panel-classes (layout-state/trade-layout-state selector-open 1280 false)))
+        mobile (class-set (:chart-panel-classes (layout-state/trade-layout-state selector-open 430 false)))]
+    (is (contains? desktop "overflow-visible"))
+    (is (contains? desktop "z-[160]"))
+    (is (not (contains? desktop "lg:overflow-clip")))
+    (is (contains? mobile "lg:overflow-clip"))
+    (is (not (contains? mobile "overflow-visible")))))

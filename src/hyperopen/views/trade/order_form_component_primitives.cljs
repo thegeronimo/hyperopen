@@ -338,11 +338,11 @@
     title]
    [:div {:class ["pointer-events-none"
                   "absolute"
-                  "right-0"
+                  "left-0"
                   "bottom-full"
                   "mb-1"
                   "z-[100]"
-                  "w-[400px]"
+                  "w-[18rem]"
                   "max-w-[calc(100vw-20px)]"
                   "opacity-0"
                   "transition-opacity"
@@ -361,8 +361,7 @@
            :style {:font-size "11px"}}
      tooltip
      [:div {:class ["absolute"
-                    "left-1/2"
-                    "-translate-x-1/2"
+                    "left-4"
                     "top-full"
                     "h-0"
                     "w-0"

@@ -123,7 +123,7 @@
                      :context-menu-deps context-menu-deps
                      :schedule-decoration-frame! *schedule-chart-decoration-frame!*
                      :cancel-decoration-frame! *cancel-chart-decoration-frame!*})]
-     [:div {:class (cond-> ["w-full" "min-w-0" "relative" "flex-1" "min-h-[360px]"
+     [:div {:class (cond-> ["w-full" "min-w-0" "relative" "flex-1" "min-h-[360px]" "lg:min-h-[12rem]"
                             "overflow-hidden" "bg-base-100" "trading-chart-host"]
                      history-backfill-loading?
                      (conj "trading-chart-host--history-loading"))

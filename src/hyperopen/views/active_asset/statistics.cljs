@@ -13,9 +13,9 @@
    [:div (cond-> {:class ["min-w-0"
                            "overflow-x-auto"
                            "focus:outline-none"
-                           "focus:ring-1"
-                           "focus:ring-inset"
-                           "focus:ring-primary"]
+                           "focus-visible:ring-1"
+                           "focus-visible:ring-inset"
+                           "focus-visible:ring-primary"]
                   :tabindex 0
                   :aria-label "Market statistics"
                   :data-role "active-asset-statistics-scroll"}

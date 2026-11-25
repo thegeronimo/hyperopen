@@ -103,12 +103,8 @@
                     {:z-index 1200})}
      (when dropdown-open?
        [:button {:type "button"
-                 :class ["absolute" "bg-transparent" "cursor-default"]
-                 :style {:left "-100vmax"
-                         :top "-100vmax"
-                         :width "200vmax"
-                         :height "200vmax"
-                         :z-index 1200}
+                 :class ["fixed" "inset-0" "bg-transparent" "cursor-default"]
+                 :style {:z-index 1200}
                  :aria-label "Close margin mode menu"
                  :on {:click (:on-close-margin-mode-dropdown leverage-handlers)}}])
      [:button {:type "button"
@@ -194,12 +190,8 @@
                     {:z-index 1200})}
      (when dropdown-open?
        [:button {:type "button"
-                 :class ["absolute" "bg-transparent" "cursor-default"]
-                 :style {:left "-100vmax"
-                         :top "-100vmax"
-                         :width "200vmax"
-                         :height "200vmax"
-                         :z-index 1200}
+                 :class ["fixed" "inset-0" "bg-transparent" "cursor-default"]
+                 :style {:z-index 1200}
                  :aria-label "Close size unit menu"
                  :on {:click on-close-dropdown}}])
      [:button {:type "button"
@@ -284,12 +276,8 @@
                     {:z-index 1200})}
      (when popover-open?
        [:button {:type "button"
-                 :class ["absolute" "bg-transparent" "cursor-default"]
-                 :style {:left "-100vmax"
-                         :top "-100vmax"
-                         :width "200vmax"
-                         :height "200vmax"
-                         :z-index 1200}
+                 :class ["fixed" "inset-0" "bg-transparent" "cursor-default"]
+                 :style {:z-index 1200}
                  :aria-label "Close leverage menu"
                  :on {:click (:on-close-leverage-popover leverage-handlers)}}])
      [:button {:type "button"
@@ -340,10 +328,10 @@
                :stroke-linejoin "round"}]]]
      [:div {:class ["ui-dropdown-panel"
                     "absolute"
-                    "right-0"
+                    "left-[calc(50%-8.75rem)]"
                     "top-full"
                     "mt-2"
-                    "w-[320px]"
+                    "w-[17.5rem]"
                     "rounded-xl"
                     "border"
                     "border-base-300"
@@ -351,7 +339,8 @@
                     "p-3"
                     "spectate-[0_18px_36px_rgb(var(--ho-bg-deep)/0.35)]"
                     "space-y-2.5"]
-            :style {:z-index 1202}
+            :style {:z-index 1202
+                    :--ui-dropdown-origin "top center"}
             :data-ui-state (if popover-open? "open" "closed")
             :role "dialog"
             :aria-label "Adjust Leverage"

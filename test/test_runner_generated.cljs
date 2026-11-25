@@ -748,6 +748,7 @@
             [hyperopen.views.active-asset.outcome-option-sort-test]
             [hyperopen.views.active-asset.outcome-tooltip-test]
             [hyperopen.views.active-asset.row-helpers-test]
+            [hyperopen.views.active-asset.row-selector-pin-test]
             [hyperopen.views.active-asset.row-test]
             [hyperopen.views.active-asset.symbol-subtitle-test]
             [hyperopen.views.active-asset.vm-test]
@@ -1920,6 +1921,7 @@
              'hyperopen.views.active-asset.outcome-option-sort-test
              'hyperopen.views.active-asset.outcome-tooltip-test
              'hyperopen.views.active-asset.row-helpers-test
+             'hyperopen.views.active-asset.row-selector-pin-test
              'hyperopen.views.active-asset.row-test
              'hyperopen.views.active-asset.symbol-subtitle-test
              'hyperopen.views.active-asset.vm-test

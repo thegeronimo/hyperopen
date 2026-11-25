@@ -74,6 +74,7 @@
                      "relative"
                      "flex-1"
                      "min-h-[360px]"
+                     "lg:min-h-[12rem]"
                      "min-w-0"
                      "bg-base-100"
                      "trading-chart-host"]}
