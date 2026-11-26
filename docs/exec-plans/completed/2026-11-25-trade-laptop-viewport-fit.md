@@ -29,7 +29,8 @@ After this change the terminal fits laptop viewports without outer scrolling, th
 - [x] (2026-11-25) Unit tests and the Playwright reachability regression (`market selector stays reachable on laptop and short desktop viewports`).
 - [x] (2026-11-25) `npm run gates` 34/34 PASS; popover sweep at 1280x700 (spectate banner) and 1100x760: timeframe, chart type, indicators, leverage, margin mode, size unit, TIF, Pro menu, liquidation and fees tooltips all reachable; no ticket popover escapes the column on Limit or TWAP.
 - [x] (2026-11-25) `trade-regressions.spec.mjs` and `mobile-regressions.spec.mjs` run in full: every failure also fails on an unmodified build of the base commit (listed under Validation); the shell geometry, zoom-equivalent and new reachability specs pass.
-- [ ] Owner check on a real 13 and 15 inch laptop, then move this plan to `completed/`.
+- [x] (2026-11-25) Stats strip focus ring: the focusable market statistics scroller drew a primary ring on mouse click; it now uses `focus-visible`, so only keyboard focus shows it.
+- [x] (2026-11-25) Landed: committed `ef5f9d0bf` and merged to `main` as `c567f9559` (branch `feature/trade-laptop-viewport-fit`) after `npm run gates` 34/34; owner checked the page on a real laptop; plan moved to `docs/exec-plans/completed/`.
 
 ## Decision Log
 
@@ -60,4 +61,9 @@ After this change the terminal fits laptop viewports without outer scrolling, th
 
 ## Outcomes & Retrospective
 
-Pending.
+The desktop `/trade` terminal now fits laptop viewports without outer scrolling (shell overflow 0 at 1280x700 and 1440x820 with the spectate banner, down from 327 and 207 px), the order ticket column scrolls on its own, and on shorter viewports the market strip stays pinned with the asset button pinned at the left of the statistics row. The Playwright regression clicks the selector and picks ETH at five laptop sizes and at 1102x459. A mouse click on the statistics strip no longer draws a focus ring.
+
+Closed 2026-11-25 with these left open, not done and not tracked elsewhere:
+- Not measured: the pinned strip's scroll range under the hyperdegen theme, whose stats strip and widgets row add height.
+- Constraint for future work: any new popover in the order ticket column must fit the 320 px column, and any chart-column popover must fit the shorter chart row or lift the panel.
+- Pre-existing failing Playwright specs listed under Validation still fail on `main`.
