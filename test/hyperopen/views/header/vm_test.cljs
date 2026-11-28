@@ -27,6 +27,18 @@
            (get-in api-vm [:more-nav :items 0 :more-data-role])))
     (is (= "header-more-link-subaccounts"
            (get-in subaccounts-vm [:more-nav :items 1 :more-data-role])))
+    (is (= "mobile-header-menu-link-api"
+           (some->> (get-in api-vm [:mobile-nav :secondary-items])
+                    (some #(when (= :api (:id %)) (:mobile-data-role %))))))
+    (is (= "mobile-header-menu-link-subaccounts"
+           (some->> (get-in subaccounts-vm [:mobile-nav :secondary-items])
+                    (some #(when (= :subaccounts (:id %)) (:mobile-data-role %))))))
+    (is (= "mobile-header-menu-link-builder-codes"
+           (some->> (get-in api-vm [:mobile-nav :secondary-items])
+                    (some #(when (= :builder-codes (:id %)) (:mobile-data-role %))))))
+    (is (= "/builderCodes"
+           (some->> (get-in api-vm [:mobile-nav :secondary-items])
+                    (some #(when (= :builder-codes (:id %)) (:route %))))))
     (is (true? (get-in api-vm [:more-nav :active?])))
     (is (true? (get-in subaccounts-vm [:more-nav :active?])))))
 
@@ -154,10 +166,19 @@
            (mapv :label (get-in degen [:more-nav :items]))))
     (is (= ["Trade (Gamble)" "Portfolio (Hope)" "Funding (Brrr)" "Vaults (LOL)"]
            (mapv :label (get-in degen [:mobile-nav :primary-items]))))
-    (is (= ["Optimize (Cope)" "Earn (Yield Farm)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"]
-           (mapv :label (get-in degen [:mobile-nav :secondary-items]))))
+    (is (= ["Optimize (Cope)" "Earn (Yield Farm)" "Staking (Zzz)" "Referrals (Spam)" "Leaderboard (Flex)"
+            "API (Nerds)" "Sub-Accounts (Alts)"]
+           (->> (get-in degen [:mobile-nav :secondary-items])
+                (mapv :label)
+                (take 7))))
+    (is (= [:api :subaccounts :builder-codes]
+           (->> (get-in degen [:mobile-nav :secondary-items])
+                (mapv :id)
+                (drop 5))))
     (is (= ["Trade" "Portfolio" "Funding" "Vaults"]
-           (mapv :label (get-in plain [:mobile-nav :primary-items]))))))
+           (mapv :label (get-in plain [:mobile-nav :primary-items]))))
+    (is (= ["Optimize" "Earn" "Staking" "Referrals" "Leaderboard" "API" "Sub-Accounts" "Builder Codes"]
+           (mapv :label (get-in plain [:mobile-nav :secondary-items]))))))
 
 (deftest header-vm-theme-choice-defaults-to-dark-test
   (let [result (vm/header-vm {:header-ui {:settings-open? true}})

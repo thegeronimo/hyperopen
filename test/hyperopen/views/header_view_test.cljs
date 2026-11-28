@@ -318,6 +318,9 @@
         staking-link (find-node-by-role view "mobile-header-menu-link-staking")
         referrals-link (find-node-by-role view "mobile-header-menu-link-referrals")
         leaderboard-link (find-node-by-role view "mobile-header-menu-link-leaderboard")
+        api-link (find-node-by-role view "mobile-header-menu-link-api")
+        subaccounts-link (find-node-by-role view "mobile-header-menu-link-subaccounts")
+        builder-codes-link (find-node-by-role view "mobile-header-menu-link-builder-codes")
         spectate-link (find-node-by-role view "mobile-header-menu-spectate")
         layer-classes (set (class-values (get-in layer [1 :class])))
         panel-classes (set (class-values (get-in menu-panel [1 :class])))
@@ -351,6 +354,12 @@
            (get-in referrals-link [1 :on :click])))
     (is (= [[:actions/navigate-mobile-header-menu "/leaderboard"]]
            (get-in leaderboard-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/api"]]
+           (get-in api-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/subAccounts"]]
+           (get-in subaccounts-link [1 :on :click])))
+    (is (= [[:actions/navigate-mobile-header-menu "/builderCodes"]]
+           (get-in builder-codes-link [1 :on :click])))
     (is (= [[:actions/open-spectate-mode-mobile-header-menu
              :event.currentTarget/bounds]]
            (get-in spectate-link [1 :on :click])))
